@@ -36,3 +36,8 @@ playground.xcworkspace
 
 # Environment / secrets
 .env
+
+# Node / npm (not used in this repo)
+node_modules/
+package.json
+package-lock.json
