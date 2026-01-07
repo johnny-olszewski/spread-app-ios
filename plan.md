@@ -99,7 +99,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Unit tests that DependencyContainer can create mock/test configurations.
 - **Dependencies**: SPRD-2
 
-### [SPRD-4] Feature: SwiftData schema + migration plan scaffold
+### [SPRD-4] Feature: SwiftData schema + migration plan scaffold - [x] Complete
 - **Context**: Data models must be versioned from day one.
 - **Description**: Add versioned SwiftData schema and empty migration plan.
 - **Implementation Details**:

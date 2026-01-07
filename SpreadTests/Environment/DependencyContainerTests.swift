@@ -18,22 +18,22 @@ struct DependencyContainerTests {
         #expect(container.environment == .production)
     }
 
-    @Test func testMakeForPreviewSetsPreviewEnvironment() {
-        let container = DependencyContainer.makeForPreview()
+    @Test func testMakeForPreviewSetsPreviewEnvironment() throws {
+        let container = try DependencyContainer.makeForPreview()
 
         #expect(container.environment == .preview)
     }
 
-    @Test func testMakeForTestingSetsTestingEnvironment() {
-        let container = DependencyContainer.makeForTesting()
+    @Test func testMakeForTestingSetsTestingEnvironment() throws {
+        let container = try DependencyContainer.makeForTesting()
 
         #expect(container.environment == .testing)
     }
 
     // MARK: - Repository Injection Tests
 
-    @Test func testMakeForTestingUsesDefaultEmptyRepositories() {
-        let container = DependencyContainer.makeForTesting()
+    @Test func testMakeForTestingUsesDefaultEmptyRepositories() throws {
+        let container = try DependencyContainer.makeForTesting()
 
         #expect(container.taskRepository is EmptyTaskRepository)
         #expect(container.spreadRepository is EmptySpreadRepository)
@@ -42,43 +42,43 @@ struct DependencyContainerTests {
         #expect(container.collectionRepository is EmptyCollectionRepository)
     }
 
-    @Test func testMakeForTestingAcceptsCustomTaskRepository() {
+    @Test func testMakeForTestingAcceptsCustomTaskRepository() throws {
         let customRepo = StubTaskRepository()
-        let container = DependencyContainer.makeForTesting(taskRepository: customRepo)
+        let container = try DependencyContainer.makeForTesting(taskRepository: customRepo)
 
         #expect(container.taskRepository is StubTaskRepository)
     }
 
-    @Test func testMakeForTestingAcceptsCustomSpreadRepository() {
+    @Test func testMakeForTestingAcceptsCustomSpreadRepository() throws {
         let customRepo = StubSpreadRepository()
-        let container = DependencyContainer.makeForTesting(spreadRepository: customRepo)
+        let container = try DependencyContainer.makeForTesting(spreadRepository: customRepo)
 
         #expect(container.spreadRepository is StubSpreadRepository)
     }
 
-    @Test func testMakeForTestingAcceptsCustomEventRepository() {
+    @Test func testMakeForTestingAcceptsCustomEventRepository() throws {
         let customRepo = StubEventRepository()
-        let container = DependencyContainer.makeForTesting(eventRepository: customRepo)
+        let container = try DependencyContainer.makeForTesting(eventRepository: customRepo)
 
         #expect(container.eventRepository is StubEventRepository)
     }
 
-    @Test func testMakeForTestingAcceptsCustomNoteRepository() {
+    @Test func testMakeForTestingAcceptsCustomNoteRepository() throws {
         let customRepo = StubNoteRepository()
-        let container = DependencyContainer.makeForTesting(noteRepository: customRepo)
+        let container = try DependencyContainer.makeForTesting(noteRepository: customRepo)
 
         #expect(container.noteRepository is StubNoteRepository)
     }
 
-    @Test func testMakeForTestingAcceptsCustomCollectionRepository() {
+    @Test func testMakeForTestingAcceptsCustomCollectionRepository() throws {
         let customRepo = StubCollectionRepository()
-        let container = DependencyContainer.makeForTesting(collectionRepository: customRepo)
+        let container = try DependencyContainer.makeForTesting(collectionRepository: customRepo)
 
         #expect(container.collectionRepository is StubCollectionRepository)
     }
 
-    @Test func testMakeForTestingAcceptsAllCustomRepositories() {
-        let container = DependencyContainer.makeForTesting(
+    @Test func testMakeForTestingAcceptsAllCustomRepositories() throws {
+        let container = try DependencyContainer.makeForTesting(
             taskRepository: StubTaskRepository(),
             spreadRepository: StubSpreadRepository(),
             eventRepository: StubEventRepository(),
@@ -95,15 +95,15 @@ struct DependencyContainerTests {
 
     // MARK: - Debug Summary Tests
 
-    @Test func testDebugSummaryReturnsEnvironment() {
-        let container = DependencyContainer.makeForTesting()
+    @Test func testDebugSummaryReturnsEnvironment() throws {
+        let container = try DependencyContainer.makeForTesting()
         let summary = container.debugSummary
 
         #expect(summary.environment == "testing")
     }
 
-    @Test func testDebugSummaryReturnsRepositoryTypes() {
-        let container = DependencyContainer.makeForTesting()
+    @Test func testDebugSummaryReturnsRepositoryTypes() throws {
+        let container = try DependencyContainer.makeForTesting()
         let summary = container.debugSummary
 
         #expect(summary.taskRepositoryType == "EmptyTaskRepository")
