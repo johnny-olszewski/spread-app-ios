@@ -22,10 +22,15 @@ Steps:
 3) Push the current branch:
    - git push -u origin HEAD
 
-4) Create the PR using GitHub CLI:
-   - gh pr create --base main --head "$(git branch --show-current)" \
-     --title "<SPRD-# short descriptive title>" \
-     --body "Summary: ... (include the acceptance criteria, tests created, testing notes and how to review the PR)
-- <bullets>
+4) Check open PR:
+   - check GitHub to see if there is already an open PR for this branch
+   - if so then do not create a PR
+   - analyze the description and see what may have changed and what might need to be added based on any new commits
+   - update the description for the PR
+   - skip step 5
+
+5) Create the PR using GitHub CLI:
+   - gh pr create --base main --head "$(git branch --show-current)" 
+   - reference the GitHub Pull Request template in ./github/pull_request_template.md
 
 5) Print the PR URL (gh will output it; also run `gh pr view --web`).
