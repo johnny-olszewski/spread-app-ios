@@ -4,8 +4,8 @@
 - Specification finalized for v1 implementation. [SPRD-1]
 
 ## Project Summary
-- iOS app built in SwiftUI with SwiftData persistence. [SPRD-1, SPRD-5, SPRD-42]
-- Primary UI direction is tab-based spreads; traditional mode uses calendar navigation. [SPRD-25, SPRD-35, SPRD-38]
+- Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData persistence. [SPRD-1, SPRD-5, SPRD-42]
+- Adaptive UI: sidebar navigation on iPad, tab-based on iPhone; traditional mode uses calendar navigation. [SPRD-19, SPRD-25, SPRD-35, SPRD-38]
 - Core entities: [SPRD-8, SPRD-9, SPRD-10]
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
   - Entry: protocol for task, event, note with type-specific behaviors. [SPRD-9]
@@ -30,9 +30,22 @@
 - Automated migration. [SPRD-15, SPRD-56]
 - Advanced collection types beyond plain text pages. [SPRD-39, SPRD-56]
 - Localization - hardcoded English strings for v1. Revisit post-v1.
+- macOS support - planned for future versions.
 
 ## Platform
-- iOS 26+ (SwiftUI). [SPRD-1]
+- iPadOS 26+ (primary platform). [SPRD-1]
+- iOS 26+ (iPhone support). [SPRD-1]
+- macOS: Out of scope for v1; planned for future versions.
+
+### Multiplatform Strategy
+- Adaptive layouts using size classes: [SPRD-19, SPRD-25]
+  - Regular width (iPad): Sidebar navigation with spread hierarchy
+  - Compact width (iPhone): Tab bar navigation
+- iPad multitasking support: [SPRD-19]
+  - Split View (1/3, 1/2, 2/3 configurations)
+  - Slide Over
+  - App works correctly at all supported sizes
+- All views must be responsive and adapt to available space. [SPRD-19]
 
 ---
 
@@ -137,13 +150,16 @@
 - Cancelled tasks are excluded from Inbox. [SPRD-16]
 
 ### Navigation and UI
-- Primary UI is tab-based spread navigation (conventional mode). [SPRD-25]
+- Adaptive navigation based on size class: [SPRD-19, SPRD-25]
+  - Regular width (iPad): Sidebar with spread hierarchy, detail view for content
+  - Compact width (iPhone): Tab-based spread navigation
 - Traditional mode uses calendar-style navigation (year → month → day). [SPRD-35, SPRD-38]
 - Traditional navigation mirrors iOS Calendar-style drill-in. [SPRD-35, SPRD-38]
 - Spread content view shows active entries and migrated entries section (conventional). [SPRD-27, SPRD-29]
 - Migration banner appears when tasks can move into the current spread. [SPRD-30]
 - Collections are accessed from a top-level entry point (outside spread navigation). [SPRD-19, SPRD-40]
 - Settings accessible via gear icon in navigation header. [SPRD-20]
+- iPad multitasking: UI adapts gracefully to Split View and Slide Over. [SPRD-19]
 
 ### Settings (v1)
 - BuJo mode toggle: conventional vs traditional with descriptions. [SPRD-20]
@@ -177,6 +193,11 @@
 - Schema includes Spread, Task, Event, Note, Collection. [SPRD-4, SPRD-8, SPRD-9, SPRD-39]
 - iCloud sync required for v1 (CloudKit-backed SwiftData). [SPRD-42, SPRD-43]
 - Offline-first, then sync (industry-standard defaults). [SPRD-44]
+
+### Development Tooling
+- Debug overlay shows current AppEnvironment in DEBUG builds only. [SPRD-2]
+- Debug overlay shows DependencyContainer status (environment, repository configuration) in DEBUG builds. [SPRD-3]
+- Debug menu provides data inspection and quick actions (DEBUG builds only). [SPRD-45, SPRD-46]
 
 ---
 
@@ -214,6 +235,8 @@
 - Spread deletion never deletes entries; reassigns to parent or Inbox. [SPRD-15]
 - Collections are plain text pages outside spread navigation. [SPRD-19, SPRD-40]
 - Traditional mode in scope for v1. [SPRD-35, SPRD-38]
+- Multiplatform: iPadOS primary, iOS supported; adaptive layouts per size class. [SPRD-19]
+- macOS deferred to post-v1. [SPRD-56]
 
 ## Open Questions
 - None for v1 spec.

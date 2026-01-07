@@ -20,11 +20,11 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
 
 ## Phase 1: Foundation
 
-### [SPRD-1] Feature: New Xcode project bootstrap (iOS 26) - [x] Complete
+### [SPRD-1] Feature: New Xcode project bootstrap (iPadOS/iOS 26) - [x] Complete
 - **Context**: Work starts from a brand-new SwiftUI project with only boilerplate code.
-- **Description**: Create a new iOS 26 SwiftUI app, set up folder structure, minimal root view, and baseline build/test configuration.
+- **Description**: Create a new iPadOS/iOS 26 SwiftUI app, set up folder structure, minimal root view, and baseline build/test configuration.
 - **Implementation Details**:
-  - Create new Xcode project targeting iOS 26 with SwiftUI lifecycle
+  - Create new Xcode project targeting iPadOS 26 (primary) and iOS 26 with SwiftUI lifecycle
   - Folder structure:
     ```
     Bulleted/
@@ -46,7 +46,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Minimal `BulletedApp.swift` with placeholder `ContentView`
   - Configure build settings for Debug/Release
 - **Acceptance Criteria**:
-  - App targets iOS 26, builds, and launches with a placeholder root view. (Spec: Platform)
+  - App targets iPadOS 26 (primary) and iOS 26, builds, and launches with a placeholder root view. (Spec: Platform)
   - Project structure supports domain/data/UI separation. (Spec: Project Summary)
 - **Tests**:
   - Swift Testing smoke test that instantiates the root view.
@@ -77,7 +77,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Unit tests for environment resolution from args/env.
 - **Dependencies**: SPRD-1
 
-### [SPRD-3] Feature: DependencyContainer + repository protocols
+### [SPRD-3] Feature: DependencyContainer + repository protocols - [x] Complete
 - **Context**: Mocking and testing require injectable repositories and services.
 - **Description**: Define repository protocols and `DependencyContainer` to wire SwiftData and mocks.
 - **Implementation Details**:
@@ -94,6 +94,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
 - **Acceptance Criteria**:
   - Repositories are injectable and swappable for tests. (Spec: Project Summary)
   - App can be constructed with mock repositories in preview/testing. (Spec: Goals)
+  - Debug overlay (from SPRD-2) shows DependencyContainer status in DEBUG builds. (Spec: Development tooling)
 - **Tests**:
   - Unit tests that DependencyContainer can create mock/test configurations.
 - **Dependencies**: SPRD-2
@@ -545,24 +546,40 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
 
 ## Phase 4: Navigation Shell
 
-### [SPRD-19] Feature: Root navigation shell
-- **Context**: Collections must be outside spread navigation; Inbox in header.
-- **Description**: Build root navigation with entry points for Spreads, Collections, Settings, and Inbox.
+### [SPRD-19] Feature: Root navigation shell (adaptive layout)
+- **Context**: Collections must be outside spread navigation; Inbox in header. App must adapt to iPad and iPhone.
+- **Description**: Build adaptive root navigation with entry points for Spreads, Collections, Settings, and Inbox.
 - **Implementation Details**:
-  - `MainTabView` or similar root container
+  - Adaptive navigation container using size classes:
+    - **Regular width (iPad)**: `NavigationSplitView` with sidebar
+      - Sidebar contains: spread hierarchy, Collections, Settings
+      - Detail view shows spread content
+      - Inbox accessible from toolbar
+    - **Compact width (iPhone)**: Tab-based navigation
+      - Spreads tab with hierarchical tab bar
+      - Collections, Settings as separate tabs or sheets
+      - Inbox badge/button in navigation bar
   - Navigation header with:
     - Inbox badge/button (count, opens sheet)
-    - Settings gear icon (opens sheet)
-    - Collections button (opens sheet or navigates)
+    - Settings gear icon (opens sheet on iPhone, sidebar item on iPad)
+    - Collections button (opens sheet on iPhone, sidebar item on iPad)
   - Main content area switches based on BuJo mode:
-    - Conventional: spread tab bar + content
+    - Conventional: spread hierarchy + content
     - Traditional: calendar navigation
-  - Sheet presentations for Inbox, Settings, Collections
+  - iPad multitasking support:
+    - Works correctly in Split View (1/3, 1/2, 2/3)
+    - Works correctly in Slide Over
+    - Graceful adaptation when size class changes during multitasking
+  - Sheet presentations for Inbox (both platforms), Settings/Collections (iPhone)
 - **Acceptance Criteria**:
+  - Sidebar navigation on iPad (regular width). (Spec: Multiplatform Strategy)
+  - Tab-based navigation on iPhone (compact width). (Spec: Multiplatform Strategy)
   - Collections are accessible outside spread navigation. (Spec: Navigation and UI)
-  - Inbox badge in header. (Spec: Inbox)
+  - Inbox badge in header/toolbar. (Spec: Inbox)
+  - App works correctly in iPad Split View and Slide Over. (Spec: Multiplatform Strategy)
 - **Tests**:
   - UI-free integration test ensuring root view composes navigation containers.
+  - Unit tests for size class adaptation logic.
 - **Dependencies**: SPRD-18
 
 ### [SPRD-20] Feature: Settings view (Mode + First Day of Week)
@@ -722,20 +739,24 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
 
 ## Phase 6: Conventional Mode UI
 
-### [SPRD-25] Feature: Conventional spread tab bar
-- **Context**: Conventional mode uses tab-based spread navigation.
-- **Description**: Implement spread tab bar listing created spreads and create action.
+### [SPRD-25] Feature: Conventional spread hierarchy component
+- **Context**: Conventional mode uses hierarchical spread navigation, adapting to platform.
+- **Description**: Implement spread hierarchy component listing created spreads and create action.
 - **Implementation Details**:
-  - `HierarchicalSpreadTabBar`:
+  - `SpreadHierarchyView` (adaptive component):
     - Lists created spreads organized by hierarchy (year → month → day)
-    - Selected tab highlighted, inactive tabs secondary style
+    - Selected spread highlighted, inactive spreads secondary style
     - Progressive disclosure: expand year → show months
     - "+" button for spread creation
-    - Creatable spread suggestions (ghost tabs)
-  - Tab selection updates content view
-  - Design constants in `FolderTabDesign`
+    - Creatable spread suggestions (ghost items)
+  - Platform adaptation:
+    - **iPad (sidebar)**: Rendered as expandable list in NavigationSplitView sidebar
+    - **iPhone (tab bar)**: Rendered as horizontal scrollable tab bar
+  - Spread selection updates detail/content view
+  - Design constants in `SpreadHierarchyDesign`
 - **Acceptance Criteria**:
-  - Tab bar lists created spreads only. (Spec: Navigation and UI)
+  - Spread hierarchy lists created spreads only. (Spec: Navigation and UI)
+  - Component adapts to sidebar (iPad) and tab bar (iPhone) contexts. (Spec: Multiplatform Strategy)
 - **Tests**:
   - Unit tests for spread list ordering and selection.
 - **Dependencies**: SPRD-24
