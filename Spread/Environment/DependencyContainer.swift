@@ -1,3 +1,4 @@
+import SwiftData
 import struct Foundation.Calendar
 import struct Foundation.Date
 
@@ -11,12 +12,15 @@ import struct Foundation.Date
 /// let container = try DependencyContainer.make(for: .development)
 /// let tasks = await container.taskRepository.getTasks()
 /// ```
-struct DependencyContainer: Sendable {
+struct DependencyContainer: @unchecked Sendable {
 
     // MARK: - Properties
 
     /// The current application environment.
     let environment: AppEnvironment
+
+    /// The SwiftData model container for persistence.
+    let modelContainer: ModelContainer
 
     /// Repository for task persistence operations.
     let taskRepository: any TaskRepository
@@ -44,10 +48,13 @@ struct DependencyContainer: Sendable {
     /// For production/development environments, this will create SwiftData-backed
     /// repositories (TODO: SPRD-5). For preview/testing, uses empty repositories.
     static func make(for environment: AppEnvironment) throws -> DependencyContainer {
-        // TODO: SPRD-4, SPRD-5 - Create ModelContainer and SwiftData repositories
+        let modelContainer = try ModelContainerFactory.make(for: environment)
+
+        // TODO: SPRD-5 - Create SwiftData repositories using modelContainer.mainContext
         // For now, use empty repositories for all environments
-        DependencyContainer(
+        return DependencyContainer(
             environment: environment,
+            modelContainer: modelContainer,
             taskRepository: EmptyTaskRepository(),
             spreadRepository: EmptySpreadRepository(),
             eventRepository: EmptyEventRepository(),
@@ -59,21 +66,26 @@ struct DependencyContainer: Sendable {
     /// Creates a dependency container for testing with custom repositories.
     ///
     /// - Parameters:
+    ///   - modelContainer: Optional custom model container. If nil, creates an in-memory container.
     ///   - taskRepository: Custom task repository implementation.
     ///   - spreadRepository: Custom spread repository implementation.
     ///   - eventRepository: Custom event repository implementation.
     ///   - noteRepository: Custom note repository implementation.
     ///   - collectionRepository: Custom collection repository implementation.
     /// - Returns: A configured dependency container for testing.
+    /// - Throws: An error if model container creation fails.
     static func makeForTesting(
+        modelContainer: ModelContainer? = nil,
         taskRepository: any TaskRepository = EmptyTaskRepository(),
         spreadRepository: any SpreadRepository = EmptySpreadRepository(),
         eventRepository: any EventRepository = EmptyEventRepository(),
         noteRepository: any NoteRepository = EmptyNoteRepository(),
         collectionRepository: any CollectionRepository = EmptyCollectionRepository()
-    ) -> DependencyContainer {
-        DependencyContainer(
+    ) throws -> DependencyContainer {
+        let container = try modelContainer ?? ModelContainerFactory.makeForTesting()
+        return DependencyContainer(
             environment: .testing,
+            modelContainer: container,
             taskRepository: taskRepository,
             spreadRepository: spreadRepository,
             eventRepository: eventRepository,
@@ -86,10 +98,13 @@ struct DependencyContainer: Sendable {
     ///
     /// Uses mock data seeded repositories for realistic preview content.
     /// - Returns: A configured dependency container for previews.
-    static func makeForPreview() -> DependencyContainer {
+    /// - Throws: An error if model container creation fails.
+    static func makeForPreview() throws -> DependencyContainer {
+        let modelContainer = try ModelContainerFactory.makeInMemory()
         // TODO: SPRD-6 - Use mock repositories with seeded data
-        DependencyContainer(
+        return DependencyContainer(
             environment: .preview,
+            modelContainer: modelContainer,
             taskRepository: EmptyTaskRepository(),
             spreadRepository: EmptySpreadRepository(),
             eventRepository: EmptyEventRepository(),

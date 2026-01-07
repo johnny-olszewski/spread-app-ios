@@ -3,8 +3,8 @@ import Testing
 
 struct SpreadTests {
 
-    @Test func testContentViewInstantiates() {
-        let container = DependencyContainer.makeForTesting()
+    @Test func testContentViewInstantiates() throws {
+        let container = try DependencyContainer.makeForTesting()
         let view = ContentView(container: container)
         #expect(view.body != nil)
     }

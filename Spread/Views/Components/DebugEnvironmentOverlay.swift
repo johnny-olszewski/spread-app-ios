@@ -146,6 +146,6 @@ extension View {
 #Preview("With Container") {
     Text("App Content")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .debugEnvironmentOverlay(container: .makeForPreview())
+        .debugEnvironmentOverlay(container: try! .makeForPreview())
 }
 #endif
