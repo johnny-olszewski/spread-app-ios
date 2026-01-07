@@ -52,7 +52,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Swift Testing smoke test that instantiates the root view.
 - **Dependencies**: None
 
-### [SPRD-2] Feature: AppEnvironment + configuration
+### [SPRD-2] Feature: AppEnvironment + configuration - [x] Complete
 - **Context**: Multiple environments are needed for mocking, preview, testing, and production.
 - **Description**: Implement `AppEnvironment` with production/development/preview/testing and configuration helpers.
 - **Implementation Details**:
@@ -65,9 +65,14 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
     - `isStoredInMemoryOnly: Bool` - true for preview/testing
     - `usesMockData: Bool` - true for preview
     - `containerName: String` - unique per environment
+  - Debug overlay (DEBUG builds only):
+    - `DebugEnvironmentOverlay` view modifier showing current environment
+    - Tap to expand/collapse detailed environment info
+    - Applied to root ContentView in DEBUG builds
 - **Acceptance Criteria**:
   - Environment can be selected via launch args/env vars. (Spec: Project Summary)
   - Preview/testing configurations use in-memory or mock storage. (Spec: Persistence)
+  - Debug overlay shows current environment in DEBUG builds only. (Spec: Development tooling)
 - **Tests**:
   - Unit tests for environment resolution from args/env.
 - **Dependencies**: SPRD-1
@@ -1071,13 +1076,17 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
 
 ### [SPRD-45] Feature: Debug menu (Debug builds only)
 - **Context**: Debug tooling is required for faster iteration.
-- **Description**: Add debug menu to inspect spreads/entries/inbox/collections.
+- **Description**: Add debug menu to inspect environment, spreads, entries, inbox, and collections.
 - **Implementation Details**:
   - `DebugMenuView` gated by `#if DEBUG`
-  - Shows raw data for: spreads, tasks, events, notes, inbox, collections
+  - Shows:
+    - Current `AppEnvironment` and all configuration properties (from SPRD-2)
+    - Raw data for: spreads, tasks, events, notes, inbox, collections
   - Accessible from Settings (Debug builds only)
+  - Expands on the simple `DebugEnvironmentOverlay` from SPRD-2 with full data inspection
 - **Acceptance Criteria**:
   - Debug menu available only in Debug builds. (Spec: Development tooling)
+  - Debug menu shows current AppEnvironment and configuration. (Spec: Development tooling)
 - **Tests**:
   - Unit test ensures debug menu is excluded in Release builds.
 - **Dependencies**: SPRD-44
