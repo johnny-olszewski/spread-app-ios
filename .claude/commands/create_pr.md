@@ -12,6 +12,8 @@ Steps:
 
 2) Analyze the acceptance criteria for the task (specified in plan.md), if possible:
    - analyze the changes in the current branch and ensure they are met.
+   - if not then analyze the changes and take note of what was accomplishshed.
+   - the task number is the `SPRD-#` in the branch name
 
 3) List the acceptance criteria as a checklist. If all acceptance criteria are met then cancel the workflow and alert the user. Give the reason.
 
