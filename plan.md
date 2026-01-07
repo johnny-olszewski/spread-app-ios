@@ -52,7 +52,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Swift Testing smoke test that instantiates the root view.
 - **Dependencies**: None
 
-### [SPRD-2] Feature: AppEnvironment + configuration
+### [SPRD-2] Feature: AppEnvironment + configuration - [x] Complete
 - **Context**: Multiple environments are needed for mocking, preview, testing, and production.
 - **Description**: Implement `AppEnvironment` with production/development/preview/testing and configuration helpers.
 - **Implementation Details**:
