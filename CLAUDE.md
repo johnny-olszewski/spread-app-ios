@@ -6,19 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Build the project
-xcodebuild -scheme Bulleted -destination 'platform=iOS Simulator,name=iPhone 16' build
+xcodebuild -scheme Spread -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 
 # Run tests
-xcodebuild -scheme Bulleted -destination 'platform=iOS Simulator,name=iPhone 16' test
+xcodebuild -scheme Spread -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
 
 # Run a single test
-xcodebuild -scheme Bulleted -destination 'platform=iOS Simulator,name=iPhone 16' \
-  -only-testing:BulletedTests/BulletedTests/testFunctionName test
+xcodebuild -scheme Spread -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -only-testing:SpreadTests/SpreadTests/testFunctionName test
 ```
 
 ## Project Overview
 
-Bulleted is a SwiftUI bullet journal (BuJo) app for iOS 26+ using SwiftData for persistence with iCloud sync.
+Spread is a SwiftUI bullet journal (BuJo) app for iOS 26+ using SwiftData for persistence with iCloud sync.
 
 ### Source of Truth
 
@@ -53,7 +53,7 @@ Bulleted is a SwiftUI bullet journal (BuJo) app for iOS 26+ using SwiftData for 
 ### Folder Structure
 
 ```
-Bulleted/
+Spread/
 ├── App/                    # App entry point, scenes
 ├── DataModel/              # SwiftData models, protocols
 ├── Repositories/           # Repository protocols + implementations
@@ -67,7 +67,7 @@ Bulleted/
 │   ├── Settings/
 │   └── Components/
 └── Additions/              # Extensions, utilities
-BulletedTests/              # Swift Testing tests (mirrors source structure)
+SpreadTests/                # Swift Testing tests (mirrors source structure)
 ```
 
 ## Git and Version Control

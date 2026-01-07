@@ -9,7 +9,6 @@ Behavior:
 - if the answers require the spec or plan to be updated then make the changes after confirming them with the user
 - if tasks will be completed in future tasks include `//TODO: SPRD-#` where applicable. Ensure all TODOs relate to a task
 
-
 Task selection rules (when no task number is provided):
 - Choose the earliest task in plan.md that is not marked complete
 - Do not skip tasks unless blocked by an explicit dependency
@@ -26,6 +25,10 @@ Task selection rules (when no task number is provided):
 - confirm with the user which task is to be completed before proceeding
 
 Task completion scaffold:
+
+0) Setup
+- checkout main, stash any changes if necessary
+- create a new branch per the spec and checkout the branch
 
 1) Resolve task  
 - With the task to be completed:

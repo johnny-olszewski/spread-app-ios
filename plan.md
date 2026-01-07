@@ -20,7 +20,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
 
 ## Phase 1: Foundation
 
-### [SPRD-1] Feature: New Xcode project bootstrap (iOS 26)
+### [SPRD-1] Feature: New Xcode project bootstrap (iOS 26) - [x] Complete
 - **Context**: Work starts from a brand-new SwiftUI project with only boilerplate code.
 - **Description**: Create a new iOS 26 SwiftUI app, set up folder structure, minimal root view, and baseline build/test configuration.
 - **Implementation Details**:
