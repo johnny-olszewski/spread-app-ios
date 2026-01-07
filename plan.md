@@ -77,7 +77,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Unit tests for environment resolution from args/env.
 - **Dependencies**: SPRD-1
 
-### [SPRD-3] Feature: DependencyContainer + repository protocols
+### [SPRD-3] Feature: DependencyContainer + repository protocols - [x] Complete
 - **Context**: Mocking and testing require injectable repositories and services.
 - **Description**: Define repository protocols and `DependencyContainer` to wire SwiftData and mocks.
 - **Implementation Details**:
@@ -94,6 +94,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
 - **Acceptance Criteria**:
   - Repositories are injectable and swappable for tests. (Spec: Project Summary)
   - App can be constructed with mock repositories in preview/testing. (Spec: Goals)
+  - Debug overlay (from SPRD-2) shows DependencyContainer status in DEBUG builds. (Spec: Development tooling)
 - **Tests**:
   - Unit tests that DependencyContainer can create mock/test configurations.
 - **Dependencies**: SPRD-2
