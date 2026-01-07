@@ -76,6 +76,7 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 - Task branches should be named by their task number (e.g., `SPRD-42`)
 - Incremental changes that can be logically grouped together should be committed together to make review easier
 - Commit messages should follow the format: `[SPRD-#][#/n] brief message with high level change description`
+- ensure that commit message use 'n' explicitly because we don't know how many commits there will be in this branch
 
 ## Code Style Guide
 
