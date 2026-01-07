@@ -4,6 +4,10 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         Text("Spread")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            #if DEBUG
+            .debugEnvironmentOverlay()
+            #endif
     }
 }
 
