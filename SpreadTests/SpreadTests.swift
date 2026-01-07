@@ -4,7 +4,8 @@ import Testing
 struct SpreadTests {
 
     @Test func testContentViewInstantiates() {
-        let view = ContentView()
+        let container = DependencyContainer.makeForTesting()
+        let view = ContentView(container: container)
         #expect(view.body != nil)
     }
 }
