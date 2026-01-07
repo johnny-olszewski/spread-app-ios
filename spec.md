@@ -178,6 +178,11 @@
 - iCloud sync required for v1 (CloudKit-backed SwiftData). [SPRD-42, SPRD-43]
 - Offline-first, then sync (industry-standard defaults). [SPRD-44]
 
+### Development Tooling
+- Debug overlay shows current AppEnvironment in DEBUG builds only. [SPRD-2]
+- Debug overlay shows DependencyContainer status (environment, repository configuration) in DEBUG builds. [SPRD-3]
+- Debug menu provides data inspection and quick actions (DEBUG builds only). [SPRD-45, SPRD-46]
+
 ---
 
 ## BuJo Method Features (v1)
