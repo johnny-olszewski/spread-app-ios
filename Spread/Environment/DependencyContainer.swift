@@ -114,16 +114,19 @@ struct DependencyContainer: @unchecked Sendable {
     /// Uses mock data seeded repositories for realistic preview content.
     /// - Returns: A configured dependency container for previews.
     /// - Throws: An error if model container creation fails.
+    @MainActor
     static func makeForPreview() throws -> DependencyContainer {
         let modelContainer = try ModelContainerFactory.makeInMemory()
-        // TODO: SPRD-6 - Use mock repositories with seeded data
         return DependencyContainer(
             environment: .preview,
             modelContainer: modelContainer,
-            taskRepository: EmptyTaskRepository(),
-            spreadRepository: EmptySpreadRepository(),
+            taskRepository: MockTaskRepository(),
+            spreadRepository: MockSpreadRepository(),
+            // TODO: SPRD-57 - Create MockEventRepository with seeded data
             eventRepository: EmptyEventRepository(),
+            // TODO: SPRD-58 - Create MockNoteRepository with seeded data
             noteRepository: EmptyNoteRepository(),
+            // TODO: SPRD-39 - Create MockCollectionRepository with seeded data
             collectionRepository: EmptyCollectionRepository()
         )
     }

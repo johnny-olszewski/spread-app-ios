@@ -18,7 +18,7 @@ struct DependencyContainerTests {
         #expect(container.environment == .production)
     }
 
-    @Test func testMakeForPreviewSetsPreviewEnvironment() throws {
+    @Test @MainActor func testMakeForPreviewSetsPreviewEnvironment() throws {
         let container = try DependencyContainer.makeForPreview()
 
         #expect(container.environment == .preview)
