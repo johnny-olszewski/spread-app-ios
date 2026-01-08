@@ -142,7 +142,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Repository CRUD integration tests in a test container.
 - **Dependencies**: SPRD-4
 
-### [SPRD-6] Feature: Mock/test repositories + in-memory containers
+### [SPRD-6] Feature: Mock/test repositories + in-memory containers - [x] Complete
 - **Context**: Fast, deterministic tests and previews rely on mocks.
 - **Description**: Add mock repositories and test container factory for Swift Testing.
 - **Implementation Details**:
