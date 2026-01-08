@@ -6,13 +6,13 @@ struct DependencyContainerTests {
 
     // MARK: - Factory Method Tests
 
-    @Test func testMakeForEnvironmentReturnsContainer() throws {
+    @Test @MainActor func testMakeForEnvironmentReturnsContainer() throws {
         let container = try DependencyContainer.make(for: .development)
 
         #expect(container.environment == .development)
     }
 
-    @Test func testMakeForProductionSetsProductionEnvironment() throws {
+    @Test @MainActor func testMakeForProductionSetsProductionEnvironment() throws {
         let container = try DependencyContainer.make(for: .production)
 
         #expect(container.environment == .production)
