@@ -45,22 +45,37 @@ struct DependencyContainer: @unchecked Sendable {
     /// - Returns: A configured dependency container.
     /// - Throws: An error if container creation fails.
     ///
-    /// For production/development environments, this will create SwiftData-backed
-    /// repositories (TODO: SPRD-5). For preview/testing, uses empty repositories.
+    /// For production/development environments, creates SwiftData-backed repositories.
+    /// For preview/testing, uses empty repositories for isolation.
+    @MainActor
     static func make(for environment: AppEnvironment) throws -> DependencyContainer {
         let modelContainer = try ModelContainerFactory.make(for: environment)
 
-        // TODO: SPRD-5 - Create SwiftData repositories using modelContainer.mainContext
-        // For now, use empty repositories for all environments
-        return DependencyContainer(
-            environment: environment,
-            modelContainer: modelContainer,
-            taskRepository: EmptyTaskRepository(),
-            spreadRepository: EmptySpreadRepository(),
-            eventRepository: EmptyEventRepository(),
-            noteRepository: EmptyNoteRepository(),
-            collectionRepository: EmptyCollectionRepository()
-        )
+        switch environment {
+        case .production, .development:
+            return DependencyContainer(
+                environment: environment,
+                modelContainer: modelContainer,
+                taskRepository: SwiftDataTaskRepository(modelContainer: modelContainer),
+                spreadRepository: SwiftDataSpreadRepository(modelContainer: modelContainer),
+                // TODO: SPRD-57 - Create SwiftDataEventRepository
+                eventRepository: EmptyEventRepository(),
+                // TODO: SPRD-58 - Create SwiftDataNoteRepository
+                noteRepository: EmptyNoteRepository(),
+                // TODO: SPRD-39 - Create SwiftDataCollectionRepository
+                collectionRepository: EmptyCollectionRepository()
+            )
+        case .preview, .testing:
+            return DependencyContainer(
+                environment: environment,
+                modelContainer: modelContainer,
+                taskRepository: EmptyTaskRepository(),
+                spreadRepository: EmptySpreadRepository(),
+                eventRepository: EmptyEventRepository(),
+                noteRepository: EmptyNoteRepository(),
+                collectionRepository: EmptyCollectionRepository()
+            )
+        }
     }
 
     /// Creates a dependency container for testing with custom repositories.

@@ -113,7 +113,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Unit test that ModelContainer can be created with schema + migration plan.
 - **Dependencies**: SPRD-3
 
-### [SPRD-5] Feature: SwiftData repositories (Task/Spread)
+### [SPRD-5] Feature: SwiftData repositories (Task/Spread) - [x] Complete
 - **Context**: Core persistence is required for spreads and tasks.
 - **Description**: Implement SwiftData repositories for spreads and tasks.
 - **Implementation Details**:
