@@ -34,6 +34,9 @@ Task completion scaffold:
 - With the task to be completed:
   - Echo the task number
   - Quote the full task description from plan.md including the acceptance criteria
+- Reevaluate task
+  - Analyze the requirements and think about if there are any changes that should be added
+  - If there are any iteratively ask the user to help plan and update the relevant planning files
 - State the expected outcome
 
 2) Load context  
@@ -44,6 +47,7 @@ Task completion scaffold:
 3) Create tests
 - based on the spec, think through what tests will need to be created based on the acceptance criteria
 - consider all edge cases that need to be tested
+- consider more than the happy path, think about all possible input
 - implement the tests based on the spec
 
 4) Implement  

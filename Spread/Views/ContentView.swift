@@ -14,5 +14,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(container: .makeForPreview())
+    ContentView(container: try! .makeForPreview())
 }

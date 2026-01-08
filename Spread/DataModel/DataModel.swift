@@ -1,36 +1,25 @@
-import struct Foundation.UUID
-
 /// Namespace for data model types.
 ///
-/// All SwiftData @Model classes are defined as extensions on this struct
-/// to provide clear namespacing (e.g., `DataModel.Task`, `DataModel.Spread`).
+/// All SwiftData @Model classes are defined in `DataModelSchemaV1` and
+/// aliased here for convenient access (e.g., `DataModel.Task`, `DataModel.Spread`).
 enum DataModel {
-    // MARK: - Stub Types (TODO: SPRD-4, SPRD-8, SPRD-9, SPRD-39)
-    // These placeholder types allow repository protocols to compile.
-    // They will be replaced with @Model classes in future tasks.
+    /// A journaling page tied to a time period and normalized date.
+    /// Full implementation in SPRD-8.
+    typealias Spread = DataModelSchemaV1.Spread
 
-    /// Placeholder for spread model. Implemented in SPRD-8.
-    struct Spread: Identifiable, Hashable, Sendable {
-        let id: UUID
-    }
+    /// An assignable entry with status and migration history.
+    /// Full implementation in SPRD-9.
+    typealias Task = DataModelSchemaV1.Task
 
-    /// Placeholder for task model. Implemented in SPRD-9.
-    struct Task: Identifiable, Hashable, Sendable {
-        let id: UUID
-    }
+    /// A date-range entry that appears on overlapping spreads.
+    /// Full implementation in SPRD-9.
+    typealias Event = DataModelSchemaV1.Event
 
-    /// Placeholder for event model. Implemented in SPRD-9.
-    struct Event: Identifiable, Hashable, Sendable {
-        let id: UUID
-    }
+    /// An assignable entry with explicit-only migration.
+    /// Full implementation in SPRD-9.
+    typealias Note = DataModelSchemaV1.Note
 
-    /// Placeholder for note model. Implemented in SPRD-9.
-    struct Note: Identifiable, Hashable, Sendable {
-        let id: UUID
-    }
-
-    /// Placeholder for collection model. Implemented in SPRD-39.
-    struct Collection: Identifiable, Hashable, Sendable {
-        let id: UUID
-    }
+    /// A plain text page for collections.
+    /// Full implementation in SPRD-39.
+    typealias Collection = DataModelSchemaV1.Collection
 }
