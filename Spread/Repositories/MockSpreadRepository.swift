@@ -22,8 +22,22 @@ final class MockSpreadRepository: SpreadRepository {
     // MARK: - SpreadRepository
 
     func getSpreads() async -> [DataModel.Spread] {
-        // TODO: SPRD-8 - Update sorting to use period (desc) then date when Period is added
-        Array(spreads.values).sorted { $0.createdDate > $1.createdDate }
+        Array(spreads.values).sorted { lhs, rhs in
+            // Sort by period (year > month > day > multiday), then by date descending
+            if lhs.period != rhs.period {
+                return periodSortOrder(lhs.period) < periodSortOrder(rhs.period)
+            }
+            return lhs.date > rhs.date
+        }
+    }
+
+    private func periodSortOrder(_ period: Period) -> Int {
+        switch period {
+        case .year: return 0
+        case .month: return 1
+        case .day: return 2
+        case .multiday: return 3
+        }
     }
 
     func save(_ spread: DataModel.Spread) async throws {

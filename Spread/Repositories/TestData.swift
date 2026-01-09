@@ -1,3 +1,4 @@
+import struct Foundation.Calendar
 import struct Foundation.Date
 import struct Foundation.UUID
 
@@ -6,6 +7,13 @@ import struct Foundation.UUID
 /// Provides realistic test data for SwiftUI previews and unit tests.
 /// All methods return new instances on each call for isolation.
 enum TestData {
+
+    /// Default calendar for test data generation.
+    private static var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        return calendar
+    }
 
     // MARK: - Tasks
 
@@ -43,14 +51,34 @@ enum TestData {
 
     /// Creates sample spreads for previews.
     ///
-    /// Returns spreads representing different time periods.
+    /// Returns spreads representing different time periods: a year, month, and day.
     static func sampleSpreads() -> [DataModel.Spread] {
         let now = Date.now
         return [
-            DataModel.Spread(createdDate: now.addingTimeInterval(-86400 * 30)),
-            DataModel.Spread(createdDate: now.addingTimeInterval(-86400 * 7)),
-            DataModel.Spread(createdDate: now.addingTimeInterval(-86400)),
-            DataModel.Spread(createdDate: now)
+            DataModel.Spread(
+                period: .year,
+                date: now,
+                calendar: calendar,
+                createdDate: now.addingTimeInterval(-86400 * 30)
+            ),
+            DataModel.Spread(
+                period: .month,
+                date: now,
+                calendar: calendar,
+                createdDate: now.addingTimeInterval(-86400 * 7)
+            ),
+            DataModel.Spread(
+                period: .day,
+                date: now,
+                calendar: calendar,
+                createdDate: now.addingTimeInterval(-86400)
+            ),
+            DataModel.Spread(
+                period: .day,
+                date: now.addingTimeInterval(86400),
+                calendar: calendar,
+                createdDate: now
+            )
         ]
     }
 
