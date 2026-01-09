@@ -1,8 +1,19 @@
+import struct Foundation.Calendar
+import struct Foundation.Date
+import struct Foundation.TimeZone
 import SwiftData
 import Testing
 @testable import Spread
 
 struct DataModelSchemaTests {
+
+    // MARK: - Test Helpers
+
+    private var testCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }
 
     // MARK: - Schema Tests
 
@@ -75,7 +86,7 @@ struct DataModelSchemaTests {
         let container = try ModelContainerFactory.makeForTesting()
         let context = container.mainContext
 
-        let spread = DataModel.Spread()
+        let spread = DataModel.Spread(period: .day, date: Date.now, calendar: testCalendar)
         context.insert(spread)
         try context.save()
 
@@ -83,6 +94,7 @@ struct DataModelSchemaTests {
         let spreads = try context.fetch(descriptor)
         #expect(spreads.count == 1)
         #expect(spreads.first?.id == spread.id)
+        #expect(spreads.first?.period == .day)
     }
 
     @MainActor
