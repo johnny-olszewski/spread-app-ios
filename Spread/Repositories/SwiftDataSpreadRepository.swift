@@ -28,16 +28,29 @@ final class SwiftDataSpreadRepository: SpreadRepository {
     // MARK: - SpreadRepository
 
     func getSpreads() async -> [DataModel.Spread] {
-        // TODO: SPRD-8 - Update sorting to use period (desc) then date when Period is added
-        // Current sorting: createdDate descending (newest first)
-        let descriptor = FetchDescriptor<DataModel.Spread>(
-            sortBy: [SortDescriptor(\.createdDate, order: .reverse)]
-        )
+        // Fetch all spreads, then sort by period (year > month > day > multiday), then date descending
+        // SwiftData doesn't support sorting by enum directly, so we sort in memory
+        let descriptor = FetchDescriptor<DataModel.Spread>()
 
         do {
-            return try modelContext.fetch(descriptor)
+            let spreads = try modelContext.fetch(descriptor)
+            return spreads.sorted { lhs, rhs in
+                if lhs.period != rhs.period {
+                    return periodSortOrder(lhs.period) < periodSortOrder(rhs.period)
+                }
+                return lhs.date > rhs.date
+            }
         } catch {
             return []
+        }
+    }
+
+    private func periodSortOrder(_ period: Period) -> Int {
+        switch period {
+        case .year: return 0
+        case .month: return 1
+        case .day: return 2
+        case .multiday: return 3
         }
     }
 
