@@ -1,5 +1,4 @@
 import struct Foundation.Calendar
-import struct Foundation.Locale
 
 /// User preference for the first day of the week.
 ///

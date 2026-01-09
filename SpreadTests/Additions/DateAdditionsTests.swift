@@ -134,31 +134,31 @@ struct DateAdditionsTests {
         #expect(result == expected)
     }
 
-    // MARK: - Date.from Tests
+    // MARK: - Date.getDate Tests
 
     @Test func testDateFromValidComponents() {
-        let result = Date.from(calendar: testCalendar, year: 2026, month: 6, day: 15)
+        let result = Date.getDate(calendar: testCalendar, year: 2026, month: 6, day: 15)
 
         let expected = makeDate(year: 2026, month: 6, day: 15)
         #expect(result == expected)
     }
 
     @Test func testDateFromJanuaryFirst() {
-        let result = Date.from(calendar: testCalendar, year: 2026, month: 1, day: 1)
+        let result = Date.getDate(calendar: testCalendar, year: 2026, month: 1, day: 1)
 
         let expected = makeDate(year: 2026, month: 1, day: 1)
         #expect(result == expected)
     }
 
     @Test func testDateFromDecemberThirtyFirst() {
-        let result = Date.from(calendar: testCalendar, year: 2026, month: 12, day: 31)
+        let result = Date.getDate(calendar: testCalendar, year: 2026, month: 12, day: 31)
 
         let expected = makeDate(year: 2026, month: 12, day: 31)
         #expect(result == expected)
     }
 
     @Test func testDateFromLeapDay() {
-        let result = Date.from(calendar: testCalendar, year: 2024, month: 2, day: 29)
+        let result = Date.getDate(calendar: testCalendar, year: 2024, month: 2, day: 29)
 
         let expected = makeDate(year: 2024, month: 2, day: 29)
         #expect(result == expected)
