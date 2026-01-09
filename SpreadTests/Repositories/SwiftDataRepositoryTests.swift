@@ -1,4 +1,6 @@
+import struct Foundation.Calendar
 import struct Foundation.Date
+import struct Foundation.TimeZone
 import SwiftData
 import Testing
 @testable import Spread
@@ -8,6 +10,14 @@ import Testing
 /// Tests CRUD operations using in-memory containers for isolation.
 @MainActor
 struct SwiftDataRepositoryTests {
+
+    // MARK: - Test Helpers
+
+    private var testCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }
 
     // MARK: - TaskRepository Tests
 
@@ -97,7 +107,7 @@ struct SwiftDataRepositoryTests {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataSpreadRepository(modelContainer: container)
 
-        let spread = DataModel.Spread()
+        let spread = DataModel.Spread(period: .day, date: Date.now, calendar: testCalendar)
         try await repository.save(spread)
 
         let spreads = await repository.getSpreads()
@@ -109,9 +119,10 @@ struct SwiftDataRepositoryTests {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataSpreadRepository(modelContainer: container)
 
-        let spread1 = DataModel.Spread()
-        let spread2 = DataModel.Spread()
-        let spread3 = DataModel.Spread()
+        let now = Date.now
+        let spread1 = DataModel.Spread(period: .year, date: now, calendar: testCalendar)
+        let spread2 = DataModel.Spread(period: .month, date: now, calendar: testCalendar)
+        let spread3 = DataModel.Spread(period: .day, date: now, calendar: testCalendar)
 
         try await repository.save(spread1)
         try await repository.save(spread2)
@@ -125,7 +136,7 @@ struct SwiftDataRepositoryTests {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataSpreadRepository(modelContainer: container)
 
-        let spread = DataModel.Spread()
+        let spread = DataModel.Spread(period: .day, date: Date.now, calendar: testCalendar)
         try await repository.save(spread)
 
         var spreads = await repository.getSpreads()
@@ -137,27 +148,36 @@ struct SwiftDataRepositoryTests {
         #expect(spreads.count == 0)
     }
 
-    @Test func testSpreadRepositoryReturnsSpreadsSortedByDateDescending() async throws {
+    @Test func testSpreadRepositoryReturnsSortedByPeriodThenDateDescending() async throws {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataSpreadRepository(modelContainer: container)
 
         let now = Date.now
-        let spread1 = DataModel.Spread(createdDate: now.addingTimeInterval(-200))
-        let spread2 = DataModel.Spread(createdDate: now.addingTimeInterval(-100))
-        let spread3 = DataModel.Spread(createdDate: now)
+        // Create spreads of different periods
+        let daySpread1 = DataModel.Spread(period: .day, date: now, calendar: testCalendar)
+        let daySpread2 = DataModel.Spread(
+            period: .day,
+            date: now.addingTimeInterval(-86400),
+            calendar: testCalendar
+        )
+        let monthSpread = DataModel.Spread(period: .month, date: now, calendar: testCalendar)
+        let yearSpread = DataModel.Spread(period: .year, date: now, calendar: testCalendar)
 
-        // Save in non-chronological order
-        try await repository.save(spread2)
-        try await repository.save(spread1)
-        try await repository.save(spread3)
+        // Save in random order
+        try await repository.save(daySpread2)
+        try await repository.save(monthSpread)
+        try await repository.save(daySpread1)
+        try await repository.save(yearSpread)
 
         let spreads = await repository.getSpreads()
-        #expect(spreads.count == 3)
-        // Sorted by date descending (newest first)
-        // TODO: SPRD-8 - Update sorting to use period (desc) then date when Period is added
-        #expect(spreads[0].createdDate == now)
-        #expect(spreads[1].createdDate == now.addingTimeInterval(-100))
-        #expect(spreads[2].createdDate == now.addingTimeInterval(-200))
+        #expect(spreads.count == 4)
+        // Sorted by period (year > month > day), then by date descending
+        #expect(spreads[0].period == .year)
+        #expect(spreads[1].period == .month)
+        #expect(spreads[2].period == .day)
+        #expect(spreads[3].period == .day)
+        // Same period: should be sorted by date descending
+        #expect(spreads[2].date > spreads[3].date)
     }
 
     // MARK: - Repository Isolation Tests
