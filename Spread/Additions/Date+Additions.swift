@@ -45,7 +45,7 @@ extension Date {
     ///   - month: The month component (1-12).
     ///   - day: The day component (1-31).
     /// - Returns: The constructed date, or `nil` if the components are invalid.
-    static func from(
+    static func getDate(
         calendar: Calendar,
         year: Int,
         month: Int,
