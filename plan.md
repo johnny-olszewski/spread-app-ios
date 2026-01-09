@@ -1,24 +1,31 @@
 # Bulleted Implementation Plan (v1.0)
 
-## Implementation Phases
+## Story Overview
+- Foundation and scaffolding (completed)
+- Core time and data models
+- Journal core: creation, assignment, inbox, migration
+- Conventional MVP UI: create spreads and tasks
+- Task lifecycle UI: edit and migration surfaces
+- Events support
+- Notes support
+- Multiday aggregation and UI
+- Settings and preferences
+- Traditional mode navigation
+- Collections and repository tests
+- Sync and persistence
+- Debug and dev tools
+- Scope guard tests
 
-```
-Phase 1: Foundation (SPRD-1 to SPRD-7)
-Phase 2: Data Models (SPRD-8 to SPRD-10)
-Phase 3: Core Business Logic (SPRD-11 to SPRD-18, SPRD-57 to SPRD-59)
-Phase 4: Navigation Shell (SPRD-19 to SPRD-20)
-Phase 5: Entry Components (SPRD-21 to SPRD-24, SPRD-60, SPRD-61)
-Phase 6: Conventional Mode UI (SPRD-25 to SPRD-34)
-Phase 7: Traditional Mode UI (SPRD-35 to SPRD-38)
-Phase 8: Collections (SPRD-39 to SPRD-41)
-Phase 9: Sync & Persistence (SPRD-42 to SPRD-44)
-Phase 10: Debug & Dev Tools (SPRD-45 to SPRD-48)
-Phase 11: Testing (SPRD-49 to SPRD-56)
-```
+## Story: Foundation and scaffolding (completed)
 
----
+### User Story
+- As a user, I want the app to launch reliably with a basic home screen so I can confirm it runs on my device.
 
-## Phase 1: Foundation
+### Definition of Done
+- App boots with a placeholder root view on iPadOS/iOS 26.
+- AppEnvironment and DependencyContainer are configured with debug overlay support.
+- SwiftData schema and task/spread repositories (plus mocks) are in place.
+- Baseline environment/container/repository tests pass.
 
 ### [SPRD-1] Feature: New Xcode project bootstrap (iPadOS/iOS 26) - [x] Complete
 - **Context**: Work starts from a brand-new SwiftUI project with only boilerplate code.
@@ -157,6 +164,16 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Unit tests for mock repo behavior (save/delete/idempotency).
 - **Dependencies**: SPRD-5
 
+## Story: Core time and data models
+
+### User Story
+- As a user, I want the app to understand days, months, years, and multiday ranges so my journal entries are organized correctly.
+
+### Definition of Done
+- Date utilities and period normalization support first-weekday settings.
+- Spread/Entry/Assignment models exist with multiday support.
+- Date and multiday preset tests pass.
+
 ### [SPRD-7] Feature: Date utilities + period normalization
 - **Context**: Spread/date normalization must be consistent across modes and locales.
 - **Description**: Add date helpers for year/month/day normalization and locale-based first weekday logic.
@@ -178,9 +195,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Tests for different firstWeekday values.
 - **Dependencies**: SPRD-6
 
----
 
-## Phase 2: Data Models
 
 ### [SPRD-8] Feature: Spread model with multiday range
 - **Context**: Multiday spreads require start/end ranges and preset options. Week period removed.
@@ -213,6 +228,15 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Unit tests for multiday preset date calculation with different firstWeekday values
   - Unit tests confirming week period does not exist
 - **Dependencies**: SPRD-7
+
+### [SPRD-49] Feature: Unit tests for date + multiday presets
+- **Context**: Date logic is error-prone.
+- **Description**: Add unit tests for normalization, presets, and first weekday override.
+- **Acceptance Criteria**:
+  - Tests cover locale week start, overrides, and boundaries. (Spec: Edge Cases)
+- **Tests**:
+  - Unit tests across month/year boundaries.
+- **Dependencies**: SPRD-7, SPRD-8
 
 ### [SPRD-9] Feature: Entry protocol + Task/Event/Note models
 - **Context**: Entries are the parent concept; Task/Event/Note are distinct types for scalability.
@@ -294,9 +318,18 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Unit tests for assignment status updates
 - **Dependencies**: SPRD-9
 
----
 
-## Phase 3: Core Business Logic
+
+## Story: Journal core: creation, assignment, inbox, migration
+
+### User Story
+- As a user, I want to create spreads, assign entries, and migrate tasks so my journal stays current as plans change.
+
+### Definition of Done
+- JournalManager loads data and enforces spread creation rules.
+- Assignment engine and Inbox auto-resolve logic are implemented.
+- Migration logic and cancelled-task behavior are implemented.
+- Unit tests for creation, assignment, and migration pass.
 
 ### [SPRD-11] Feature: JournalManager base
 - **Context**: Central coordinator is needed for spreads/entries lifecycle.
@@ -350,6 +383,15 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Unit tests for creation validation across dates and multiday rules.
 - **Dependencies**: SPRD-11
 
+### [SPRD-50] Feature: Unit tests for spread creation rules
+- **Context**: Creation rules must be enforced consistently.
+- **Description**: Add unit tests for present/future rules and multiday start handling.
+- **Acceptance Criteria**:
+  - Tests confirm past spreads are blocked except multiday within current week. (Spec: Spreads)
+- **Tests**:
+  - Unit tests for validation edge cases.
+- **Dependencies**: SPRD-12
+
 ### [SPRD-13] Feature: Conventional assignment engine
 - **Context**: Entries must be assigned to created spreads or Inbox.
 - **Description**: Assign tasks/notes to year/month/day; events have computed visibility.
@@ -394,6 +436,15 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Unit tests confirming events excluded
   - Unit tests confirming cancelled tasks excluded
 - **Dependencies**: SPRD-13
+
+### [SPRD-51] Feature: Unit tests for assignment + Inbox
+- **Context**: Assignment and Inbox are core behaviors.
+- **Description**: Add tests for assignment engine and Inbox auto-resolve.
+- **Acceptance Criteria**:
+  - Tests cover nearest parent assignment and Inbox auto-resolve. (Spec: Modes)
+- **Tests**:
+  - Unit tests for events showing on all spreads.
+- **Dependencies**: SPRD-14
 
 ### [SPRD-15] Feature: Migration logic (manual only)
 - **Context**: Migration must be user-triggered and type-specific.
@@ -440,111 +491,25 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Unit tests confirming cancelled tasks are excluded from queries.
 - **Dependencies**: SPRD-15
 
-### [SPRD-17] Feature: Traditional mode mapping
-- **Context**: Traditional mode uses virtual spreads without mutating created spreads.
-- **Description**: Map preferred assignments to virtual spreads; migration updates preferred date/period.
-- **Implementation Details**:
-  - `TraditionalSpreadService`:
-    - All year/month/day spreads are "available" regardless of created spreads
-    - Entries appear only on their preferred period/date
-    - No migration history shown (single assignment view)
-  - Traditional navigation:
-    - Virtual spread data model generated on-the-fly from entries
-    - Does NOT create Spread records
-  - Traditional migration:
-    - Updates entry's preferred date/period
-    - If conventional spread exists for destination, create assignment
-    - If no conventional spread, assign to nearest parent or Inbox
-    - Never mutate created spreads data
+### [SPRD-52] Feature: Unit tests for migration rules
+- **Context**: Migration behavior differs by entry type and status.
+- **Description**: Add tests for manual migration, event blocking, note explicit migration, and cancelled exclusion.
 - **Acceptance Criteria**:
-  - Traditional mode ignores created-spread records for navigation. (Spec: Modes)
-  - Traditional migration falls back to nearest created parent or Inbox. (Spec: Modes)
+  - Tests enforce manual-only migration and exclusion rules. (Spec: Entries; Task Status)
 - **Tests**:
-  - Unit tests for virtual spread mapping and fallback logic.
+  - Unit tests for duplicate assignment prevention.
 - **Dependencies**: SPRD-16
 
-### [SPRD-18] Feature: Multiday aggregation
-- **Context**: Multiday spreads aggregate entries in range.
-- **Description**: Aggregate entries by date range for multiday spreads (no direct assignment).
-- **Implementation Details**:
-  - `JournalManager.entriesForMultidaySpread(_:) -> [any Entry]`:
-    - Query tasks/notes whose preferred date falls within multiday's startDate...endDate
-    - Include events whose date range overlaps multiday's range
-    - No assignment status for multiday - show aggregated view
-  - Multiday spread view uses aggregated data, not assignments
-- **Acceptance Criteria**:
-  - Multiday spreads show aggregated entries within range. (Spec: Spreads)
-- **Tests**:
-  - Unit tests for range aggregation across month/year boundaries.
-- **Dependencies**: SPRD-17
+## Story: Conventional MVP UI: create spreads and tasks
 
-### [SPRD-57] Feature: Event repository
-- **Context**: Events need separate CRUD operations.
-- **Description**: Implement EventRepository protocol and SwiftData implementation.
-- **Implementation Details**:
-  - `EventRepository` protocol:
-    ```swift
-    protocol EventRepository {
-        func getEvents() -> [DataModel.Event]
-        func getEvents(from startDate: Date, to endDate: Date) -> [DataModel.Event]
-        func save(_ event: DataModel.Event) throws
-        func delete(_ event: DataModel.Event) throws
-    }
-    ```
-  - `SwiftDataEventRepository`: ModelContext-based implementation
-  - Date range query uses FetchDescriptor with predicate for efficient filtering
-  - Mock/test implementations for previews and tests
-- **Acceptance Criteria**:
-  - CRUD for events works via repository. (Spec: Persistence)
-  - Date range query efficiently filters events. (Spec: Events)
-- **Tests**:
-  - Repository CRUD integration tests
-  - Date range query tests
-- **Dependencies**: SPRD-9, SPRD-3
+### User Story
+- As a user, I want to create spreads and tasks from a clear navigation shell so I can start journaling quickly.
 
-### [SPRD-58] Feature: Note repository
-- **Context**: Notes need separate CRUD operations.
-- **Description**: Implement NoteRepository protocol and SwiftData implementation.
-- **Implementation Details**:
-  - `NoteRepository` protocol:
-    ```swift
-    protocol NoteRepository {
-        func getNotes() -> [DataModel.Note]
-        func save(_ note: DataModel.Note) throws
-        func delete(_ note: DataModel.Note) throws
-    }
-    ```
-  - `SwiftDataNoteRepository`: ModelContext-based implementation
-  - Mock/test implementations for previews and tests
-- **Acceptance Criteria**:
-  - CRUD for notes works via repository. (Spec: Persistence)
-- **Tests**:
-  - Repository CRUD integration tests
-- **Dependencies**: SPRD-9, SPRD-3
-
-### [SPRD-59] Feature: Event visibility logic in JournalManager
-- **Context**: Events appear on spreads based on date overlap, not assignments.
-- **Description**: Add event queries to JournalManager for computed visibility.
-- **Implementation Details**:
-  - `JournalManager.eventsForSpread(period:date:) -> [DataModel.Event]`:
-    - Query all events from repository
-    - Filter using `event.appearsOn(period:date:calendar:)`
-  - `JournalManager.entriesForSpread(period:date:) -> [any Entry]`:
-    - Combines tasks, events, notes for unified view
-    - Tasks/notes via assignments, events via computed visibility
-  - `SpreadDataModel` updated to include `events: [DataModel.Event]?`
-  - Event visibility computed on data model build (not stored)
-- **Acceptance Criteria**:
-  - Events appear on all applicable spreads. (Spec: Entries)
-  - Multiday events span multiple day spreads. (Spec: Events)
-- **Tests**:
-  - Unit tests for event visibility across year/month/day/multiday
-  - Unit tests for multiday event spanning multiple spreads
-- **Dependencies**: SPRD-57, SPRD-11
-
----
-
-## Phase 4: Navigation Shell
+### Definition of Done
+- Adaptive root navigation renders spreads and content for iPad and iPhone.
+- User can create spreads and tasks; tasks render in spread lists.
+- Entry list grouping and Inbox sheet behavior work end-to-end.
+- Entry rows and symbols are used consistently in lists.
 
 ### [SPRD-19] Feature: Root navigation shell (adaptive layout)
 - **Context**: Collections must be outside spread navigation; Inbox in header. App must adapt to iPad and iPhone.
@@ -580,36 +545,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
 - **Tests**:
   - UI-free integration test ensuring root view composes navigation containers.
   - Unit tests for size class adaptation logic.
-- **Dependencies**: SPRD-18
-
-### [SPRD-20] Feature: Settings view (Mode + First Day of Week)
-- **Context**: Users need to configure BuJo mode and locale preferences.
-- **Description**: Build Settings screen with mode selection and week start preference.
-- **Implementation Details**:
-  - Settings accessible via gear icon in navigation header
-  - `SettingsView` sections:
-    1. **Task Management Style** (mode selection)
-       - Conventional: "Track tasks across spreads with migration history"
-       - Traditional: "View tasks on their preferred date only"
-       - Radio-button style selection using `ModeSelectionRow`
-    2. **Calendar Preferences**
-       - First day of week: "System Default", "Sunday", "Monday"
-       - "System Default" uses `Locale.current.calendar.firstWeekday`
-    3. **About** section (version, credits)
-  - Persist settings via `@AppStorage` or UserDefaults
-  - JournalManager observes mode changes and recomputes assignments
-  - firstWeekday affects multiday preset calculations
-- **Acceptance Criteria**:
-  - Mode toggle reflects and updates current mode. (Spec: Modes)
-  - First day of week preference persists and affects multiday presets. (Spec: Settings)
-- **Tests**:
-  - Unit tests for mode toggle state binding
-  - Unit tests for firstWeekday affecting multiday date calculations
-- **Dependencies**: SPRD-19
-
----
-
-## Phase 5: Entry Components
+- **Dependencies**: SPRD-16
 
 ### [SPRD-21] Feature: Entry symbol component
 - **Context**: Task/event/note symbols must be consistent across UI.
@@ -629,7 +565,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Symbols render as solid/empty/dash with task status indicators. (Spec: Core Concepts)
 - **Tests**:
   - Snapshot-free unit tests verifying symbol selection logic.
-- **Dependencies**: SPRD-20
+- **Dependencies**: SPRD-19, SPRD-9
 
 ### [SPRD-22] Feature: Entry row component + swipe actions
 - **Context**: Lists need consistent entry rendering and actions.
@@ -649,7 +585,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Task rows allow complete/migrate actions; notes only explicit migrate; events have no migrate. (Spec: Entries)
 - **Tests**:
   - Unit tests for action availability per entry type/status.
-- **Dependencies**: SPRD-21
+- **Dependencies**: SPRD-21, SPRD-15
 
 ### [SPRD-23] Feature: Task creation sheet
 - **Context**: Task creation must enforce date/period rules.
@@ -668,76 +604,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Past-dated tasks are blocked by UI validation. (Spec: Entries)
 - **Tests**:
   - Unit tests for validation logic and default selections.
-- **Dependencies**: SPRD-22
-
-### [SPRD-60] Feature: Event creation sheet
-- **Context**: Events have different fields than tasks (timing, date range).
-- **Description**: Build event creation UI with timing mode selection.
-- **Implementation Details**:
-  - `EventCreationSheet` presented as sheet
-  - Form fields:
-    - Title (required)
-    - Timing mode picker: Single Day, All Day, Timed, Multi-Day
-    - Date picker (single date for Single/All/Timed)
-    - Date range pickers (start/end for Multi-Day)
-    - Time pickers (start/end for Timed mode only)
-  - Validation:
-    - Title required
-    - End date >= start date for Multi-Day
-    - End time > start time for Timed
-    - No past dates in v1
-  - On save: create Event via JournalManager
-- **Acceptance Criteria**:
-  - Event creation supports all four timing modes. (Spec: Events)
-  - Past-dated events blocked by validation. (Spec: Entries)
-- **Tests**:
-  - Unit tests for validation logic
-  - Unit tests for default selections
-- **Dependencies**: SPRD-57, SPRD-11
-
-### [SPRD-61] Feature: Note creation and edit views
-- **Context**: Notes have content field and different migration semantics.
-- **Description**: Build note creation/edit UI with extended content support.
-- **Implementation Details**:
-  - `NoteCreationSheet`:
-    - Title (required)
-    - Content (multiline TextEditor, optional)
-    - Preferred date/period
-  - `NoteEditView`:
-    - Edit title, content, date, period
-    - Show assignment history (conventional mode only)
-    - Migrate action (explicit only - button, not swipe suggestion)
-    - Status: active/migrated (no complete/cancelled)
-  - Migration: available via explicit button, NOT in batch migration banner
-- **Acceptance Criteria**:
-  - Notes can have extended content. (Spec: Entries)
-  - Notes migrate only explicitly. (Spec: Entries)
-- **Tests**:
-  - Unit tests for note validation
-  - Unit tests confirming notes excluded from batch migration
-- **Dependencies**: SPRD-58, SPRD-21
-
-### [SPRD-24] Feature: Entry detail/edit view (Task)
-- **Context**: Task editing must support status and migration.
-- **Description**: Implement detail view for editing task title, date/period, status, and migration.
-- **Implementation Details**:
-  - `TaskEditView`:
-    - Edit title, preferred date/period
-    - Status picker (open/complete/migrated/cancelled)
-    - Assignment history (conventional mode)
-    - Migrate action: button to migrate to current spread
-    - Delete action with confirmation alert
-  - Migration respects type rules (Task-only in this view)
-- **Acceptance Criteria**:
-  - Task status includes cancelled. (Spec: Task Status)
-  - Migration action respects type rules. (Spec: Entries)
-- **Tests**:
-  - Unit tests for save behavior by type.
-- **Dependencies**: SPRD-22
-
----
-
-## Phase 6: Conventional Mode UI
+- **Dependencies**: SPRD-22, SPRD-13
 
 ### [SPRD-25] Feature: Conventional spread hierarchy component
 - **Context**: Conventional mode uses hierarchical spread navigation, adapting to platform.
@@ -759,7 +626,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Component adapts to sidebar (iPad) and tab bar (iPhone) contexts. (Spec: Multiplatform Strategy)
 - **Tests**:
   - Unit tests for spread list ordering and selection.
-- **Dependencies**: SPRD-24
+- **Dependencies**: SPRD-19, SPRD-8
 
 ### [SPRD-26] Feature: Spread creation sheet UI
 - **Context**: Users must create spreads explicitly.
@@ -776,7 +643,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Creation UI enforces present/future rules and multiday presets. (Spec: Spreads)
 - **Tests**:
   - Unit tests for UI validation rules.
-- **Dependencies**: SPRD-25
+- **Dependencies**: SPRD-25, SPRD-12
 
 ### [SPRD-27] Feature: Spread content header
 - **Context**: Spread views need consistent metadata display.
@@ -807,42 +674,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Grouping matches period rules and includes events. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for grouping logic.
-- **Dependencies**: SPRD-27
-
-### [SPRD-29] Feature: Migrated tasks section
-- **Context**: Conventional mode shows migrated history.
-- **Description**: Add a collapsible migrated tasks section.
-- **Implementation Details**:
-  - `MigratedTasksSection`:
-    - Collapsible section at bottom of spread
-    - Shows tasks that were migrated FROM this spread
-    - Each row shows destination spread info
-    - Expandable with animation
-- **Acceptance Criteria**:
-  - Migrated tasks are visible with destination info. (Spec: Modes)
-- **Tests**:
-  - Unit tests for destination formatting.
-- **Dependencies**: SPRD-28
-
-### [SPRD-30] Feature: Migration banner + selection
-- **Context**: Users can migrate eligible tasks in bulk.
-- **Description**: Implement migration banner and selection sheet for eligible tasks.
-- **Implementation Details**:
-  - `MigrationBannerView`:
-    - Shows when eligible tasks exist (tasks only, not notes)
-    - Count of migratable tasks
-    - "Review" button: opens selection sheet
-    - "Migrate All" button: batch migrate
-    - Dismiss button
-  - Selection sheet: checkbox list of eligible tasks
-  - Uses `JournalManager.eligibleTasksForMigration(to:)`
-- **Acceptance Criteria**:
-  - Banner only appears when eligible tasks exist. (Spec: Navigation and UI)
-  - Batch migration is manual. (Spec: Entries)
-  - Notes excluded from batch suggestions. (Spec: Entries)
-- **Tests**:
-  - Unit tests for eligibility detection and selection behavior.
-- **Dependencies**: SPRD-29
+- **Dependencies**: SPRD-27, SPRD-22
 
 ### [SPRD-31] Feature: Inbox view
 - **Context**: Users access Inbox via header badge.
@@ -865,22 +697,152 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
 - **Tests**:
   - Unit tests for badge visibility based on count
   - Unit tests for entry grouping in sheet
-- **Dependencies**: SPRD-14, SPRD-21
+- **Dependencies**: SPRD-14, SPRD-22, SPRD-19
 
-### [SPRD-32] Feature: Multiday spread UI
-- **Context**: Multiday spreads need a dedicated view.
-- **Description**: Render multiday spread with range header and aggregated entries.
+## Story: Task lifecycle UI: edit and migration surfaces
+
+### User Story
+- As a user, I want to edit task details and migrate tasks from the UI so I can keep my work accurate.
+
+### Definition of Done
+- Task edit view supports status updates and migration.
+- Migrated tasks section and migration banner are wired to JournalManager.
+
+### [SPRD-24] Feature: Entry detail/edit view (Task)
+- **Context**: Task editing must support status and migration.
+- **Description**: Implement detail view for editing task title, date/period, status, and migration.
 - **Implementation Details**:
-  - `MultidaySpreadView`:
-    - Header shows date range (e.g., "Jan 6 - Jan 12, 2026")
-    - Entries grouped by day within range
-    - Uses aggregation (not direct assignments)
-    - No migration banner (multiday doesn't own entries)
+  - `TaskEditView`:
+    - Edit title, preferred date/period
+    - Status picker (open/complete/migrated/cancelled)
+    - Assignment history (conventional mode)
+    - Migrate action: button to migrate to current spread
+    - Delete action with confirmation alert
+  - Migration respects type rules (Task-only in this view)
 - **Acceptance Criteria**:
-  - Multiday UI shows range and aggregated entries. (Spec: Spreads)
+  - Task status includes cancelled. (Spec: Task Status)
+  - Migration action respects type rules. (Spec: Entries)
 - **Tests**:
-  - Unit tests for range label formatting.
-- **Dependencies**: SPRD-31
+  - Unit tests for save behavior by type.
+- **Dependencies**: SPRD-22, SPRD-15, SPRD-16
+
+
+
+### [SPRD-29] Feature: Migrated tasks section
+- **Context**: Conventional mode shows migrated history.
+- **Description**: Add a collapsible migrated tasks section.
+- **Implementation Details**:
+  - `MigratedTasksSection`:
+    - Collapsible section at bottom of spread
+    - Shows tasks that were migrated FROM this spread
+    - Each row shows destination spread info
+    - Expandable with animation
+- **Acceptance Criteria**:
+  - Migrated tasks are visible with destination info. (Spec: Modes)
+- **Tests**:
+  - Unit tests for destination formatting.
+- **Dependencies**: SPRD-28, SPRD-15
+
+### [SPRD-30] Feature: Migration banner + selection
+- **Context**: Users can migrate eligible tasks in bulk.
+- **Description**: Implement migration banner and selection sheet for eligible tasks.
+- **Implementation Details**:
+  - `MigrationBannerView`:
+    - Shows when eligible tasks exist (tasks only, not notes)
+    - Count of migratable tasks
+    - "Review" button: opens selection sheet
+    - "Migrate All" button: batch migrate
+    - Dismiss button
+  - Selection sheet: checkbox list of eligible tasks
+  - Uses `JournalManager.eligibleTasksForMigration(to:)`
+- **Acceptance Criteria**:
+  - Banner only appears when eligible tasks exist. (Spec: Navigation and UI)
+  - Batch migration is manual. (Spec: Entries)
+  - Notes excluded from batch suggestions. (Spec: Entries)
+- **Tests**:
+  - Unit tests for eligibility detection and selection behavior.
+- **Dependencies**: SPRD-29
+
+## Story: Events support
+
+### User Story
+- As a user, I want to add events with timing and see them on relevant spreads so I can track scheduled items alongside tasks.
+
+### Definition of Done
+- Event repository and JournalManager visibility logic are implemented.
+- Event creation sheet supports all timing modes and validation.
+- Events render on applicable spreads without migrate actions.
+
+### [SPRD-57] Feature: Event repository
+- **Context**: Events need separate CRUD operations.
+- **Description**: Implement EventRepository protocol and SwiftData implementation.
+- **Implementation Details**:
+  - `EventRepository` protocol:
+    ```swift
+    protocol EventRepository {
+        func getEvents() -> [DataModel.Event]
+        func getEvents(from startDate: Date, to endDate: Date) -> [DataModel.Event]
+        func save(_ event: DataModel.Event) throws
+        func delete(_ event: DataModel.Event) throws
+    }
+    ```
+  - `SwiftDataEventRepository`: ModelContext-based implementation
+  - Date range query uses FetchDescriptor with predicate for efficient filtering
+  - Mock/test implementations for previews and tests
+- **Acceptance Criteria**:
+  - CRUD for events works via repository. (Spec: Persistence)
+  - Date range query efficiently filters events. (Spec: Events)
+- **Tests**:
+  - Repository CRUD integration tests
+  - Date range query tests
+- **Dependencies**: SPRD-9, SPRD-3
+
+### [SPRD-59] Feature: Event visibility logic in JournalManager
+- **Context**: Events appear on spreads based on date overlap, not assignments.
+- **Description**: Add event queries to JournalManager for computed visibility.
+- **Implementation Details**:
+  - `JournalManager.eventsForSpread(period:date:) -> [DataModel.Event]`:
+    - Query all events from repository
+    - Filter using `event.appearsOn(period:date:calendar:)`
+  - `JournalManager.entriesForSpread(period:date:) -> [any Entry]`:
+    - Combines tasks, events, notes for unified view
+    - Tasks/notes via assignments, events via computed visibility
+  - `SpreadDataModel` updated to include `events: [DataModel.Event]?`
+  - Event visibility computed on data model build (not stored)
+- **Acceptance Criteria**:
+  - Events appear on all applicable spreads. (Spec: Entries)
+  - Multiday events span multiple day spreads. (Spec: Events)
+- **Tests**:
+  - Unit tests for event visibility across year/month/day/multiday
+  - Unit tests for multiday event spanning multiple spreads
+- **Dependencies**: SPRD-57, SPRD-11
+
+
+
+### [SPRD-60] Feature: Event creation sheet
+- **Context**: Events have different fields than tasks (timing, date range).
+- **Description**: Build event creation UI with timing mode selection.
+- **Implementation Details**:
+  - `EventCreationSheet` presented as sheet
+  - Form fields:
+    - Title (required)
+    - Timing mode picker: Single Day, All Day, Timed, Multi-Day
+    - Date picker (single date for Single/All/Timed)
+    - Date range pickers (start/end for Multi-Day)
+    - Time pickers (start/end for Timed mode only)
+  - Validation:
+    - Title required
+    - End date >= start date for Multi-Day
+    - End time > start time for Timed
+    - No past dates in v1
+  - On save: create Event via JournalManager
+- **Acceptance Criteria**:
+  - Event creation supports all four timing modes. (Spec: Events)
+  - Past-dated events blocked by validation. (Spec: Entries)
+- **Tests**:
+  - Unit tests for validation logic
+  - Unit tests for default selections
+- **Dependencies**: SPRD-57, SPRD-11
 
 ### [SPRD-33] Feature: Event visibility in spread UI
 - **Context**: Events must appear on all applicable spreads based on date overlap.
@@ -898,7 +860,58 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Events not migratable from UI. (Spec: Entries)
 - **Tests**:
   - Unit tests for event inclusion across spread types
-- **Dependencies**: SPRD-59, SPRD-21
+- **Dependencies**: SPRD-59, SPRD-22
+
+## Story: Notes support
+
+### User Story
+- As a user, I want to capture notes with extended content and migrate them explicitly so I can preserve important information.
+
+### Definition of Done
+- Note repository and note creation/edit UI are implemented.
+- Notes migrate only explicitly and are excluded from batch migration.
+
+### [SPRD-58] Feature: Note repository
+- **Context**: Notes need separate CRUD operations.
+- **Description**: Implement NoteRepository protocol and SwiftData implementation.
+- **Implementation Details**:
+  - `NoteRepository` protocol:
+    ```swift
+    protocol NoteRepository {
+        func getNotes() -> [DataModel.Note]
+        func save(_ note: DataModel.Note) throws
+        func delete(_ note: DataModel.Note) throws
+    }
+    ```
+  - `SwiftDataNoteRepository`: ModelContext-based implementation
+  - Mock/test implementations for previews and tests
+- **Acceptance Criteria**:
+  - CRUD for notes works via repository. (Spec: Persistence)
+- **Tests**:
+  - Repository CRUD integration tests
+- **Dependencies**: SPRD-9, SPRD-3
+
+### [SPRD-61] Feature: Note creation and edit views
+- **Context**: Notes have content field and different migration semantics.
+- **Description**: Build note creation/edit UI with extended content support.
+- **Implementation Details**:
+  - `NoteCreationSheet`:
+    - Title (required)
+    - Content (multiline TextEditor, optional)
+    - Preferred date/period
+  - `NoteEditView`:
+    - Edit title, content, date, period
+    - Show assignment history (conventional mode only)
+    - Migrate action (explicit only - button, not swipe suggestion)
+    - Status: active/migrated (no complete/cancelled)
+  - Migration: available via explicit button, NOT in batch migration banner
+- **Acceptance Criteria**:
+  - Notes can have extended content. (Spec: Entries)
+  - Notes migrate only explicitly. (Spec: Entries)
+- **Tests**:
+  - Unit tests for note validation
+  - Unit tests confirming notes excluded from batch migration
+- **Dependencies**: SPRD-58, SPRD-22, SPRD-15
 
 ### [SPRD-34] Feature: Note migration UX
 - **Context**: Notes can migrate only explicitly.
@@ -915,11 +928,117 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Notes are not suggested in migration banners. (Spec: Entries)
 - **Tests**:
   - Unit tests for note eligibility rules.
-- **Dependencies**: SPRD-33
+- **Dependencies**: SPRD-61, SPRD-30
 
----
 
-## Phase 7: Traditional Mode UI
+
+## Story: Multiday aggregation and UI
+
+### User Story
+- As a user, I want a multiday view that aggregates entries across a range so I can plan across several days.
+
+### Definition of Done
+- Multiday aggregation logic includes tasks, notes, and events in range.
+- Multiday spread UI shows range and grouped entries.
+
+### [SPRD-18] Feature: Multiday aggregation
+- **Context**: Multiday spreads aggregate entries in range.
+- **Description**: Aggregate entries by date range for multiday spreads (no direct assignment).
+- **Implementation Details**:
+  - `JournalManager.entriesForMultidaySpread(_:) -> [any Entry]`:
+    - Query tasks/notes whose preferred date falls within multiday's startDate...endDate
+    - Include events whose date range overlaps multiday's range
+    - No assignment status for multiday - show aggregated view
+  - Multiday spread view uses aggregated data, not assignments
+- **Acceptance Criteria**:
+  - Multiday spreads show aggregated entries within range. (Spec: Spreads)
+- **Tests**:
+  - Unit tests for range aggregation across month/year boundaries.
+- **Dependencies**: SPRD-14, SPRD-8
+
+### [SPRD-32] Feature: Multiday spread UI
+- **Context**: Multiday spreads need a dedicated view.
+- **Description**: Render multiday spread with range header and aggregated entries.
+- **Implementation Details**:
+  - `MultidaySpreadView`:
+    - Header shows date range (e.g., "Jan 6 - Jan 12, 2026")
+    - Entries grouped by day within range
+    - Uses aggregation (not direct assignments)
+    - No migration banner (multiday doesn't own entries)
+- **Acceptance Criteria**:
+  - Multiday UI shows range and aggregated entries. (Spec: Spreads)
+- **Tests**:
+  - Unit tests for range label formatting.
+- **Dependencies**: SPRD-18, SPRD-28
+
+## Story: Settings and preferences
+
+### User Story
+- As a user, I want to set my BuJo mode and first day of week so the app matches my workflow and calendar.
+
+### Definition of Done
+- Settings view exposes mode and first-day-of-week preferences.
+- Preferences persist and affect multiday presets and mode state.
+
+### [SPRD-20] Feature: Settings view (Mode + First Day of Week)
+- **Context**: Users need to configure BuJo mode and locale preferences.
+- **Description**: Build Settings screen with mode selection and week start preference.
+- **Implementation Details**:
+  - Settings accessible via gear icon in navigation header
+  - `SettingsView` sections:
+    1. **Task Management Style** (mode selection)
+       - Conventional: "Track tasks across spreads with migration history"
+       - Traditional: "View tasks on their preferred date only"
+       - Radio-button style selection using `ModeSelectionRow`
+    2. **Calendar Preferences**
+       - First day of week: "System Default", "Sunday", "Monday"
+       - "System Default" uses `Locale.current.calendar.firstWeekday`
+    3. **About** section (version, credits)
+  - Persist settings via `@AppStorage` or UserDefaults
+  - JournalManager observes mode changes and recomputes assignments
+  - firstWeekday affects multiday preset calculations
+- **Acceptance Criteria**:
+  - Mode toggle reflects and updates current mode. (Spec: Modes)
+  - First day of week preference persists and affects multiday presets. (Spec: Settings)
+- **Tests**:
+  - Unit tests for mode toggle state binding
+  - Unit tests for firstWeekday affecting multiday date calculations
+- **Dependencies**: SPRD-19, SPRD-7
+
+
+
+## Story: Traditional mode navigation
+
+### User Story
+- As a user, I want a calendar-style year, month, and day flow so I can browse entries like a traditional journal.
+
+### Definition of Done
+- Traditional mapping uses virtual spreads without mutating created spreads.
+- Year/month/day navigation works with proper entry filtering.
+- Traditional mode tests pass.
+
+### [SPRD-17] Feature: Traditional mode mapping
+- **Context**: Traditional mode uses virtual spreads without mutating created spreads.
+- **Description**: Map preferred assignments to virtual spreads; migration updates preferred date/period.
+- **Implementation Details**:
+  - `TraditionalSpreadService`:
+    - All year/month/day spreads are "available" regardless of created spreads
+    - Entries appear only on their preferred period/date
+    - No migration history shown (single assignment view)
+  - Traditional navigation:
+    - Virtual spread data model generated on-the-fly from entries
+    - Does NOT create Spread records
+  - Traditional migration:
+    - Updates entry's preferred date/period
+    - If conventional spread exists for destination, create assignment
+    - If no conventional spread, assign to nearest parent or Inbox
+    - Never mutate created spreads data
+- **Acceptance Criteria**:
+  - Traditional mode ignores created-spread records for navigation. (Spec: Modes)
+  - Traditional migration falls back to nearest created parent or Inbox. (Spec: Modes)
+- **Tests**:
+  - Unit tests for virtual spread mapping and fallback logic.
+- **Dependencies**: SPRD-20, SPRD-16
 
 ### [SPRD-35] Feature: Traditional year view
 - **Context**: Traditional mode starts at year view.
@@ -934,7 +1053,7 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Year view is accessible in traditional mode. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for year aggregation logic.
-- **Dependencies**: SPRD-34
+- **Dependencies**: SPRD-17
 
 ### [SPRD-36] Feature: Traditional month view
 - **Context**: Month view needs calendar-style layout.
@@ -982,9 +1101,25 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Integration test for navigation state transitions.
 - **Dependencies**: SPRD-37
 
----
 
-## Phase 8: Collections
+
+### [SPRD-53] Feature: Unit tests for traditional mode mapping
+- **Context**: Virtual spreads must be correct and stable.
+- **Description**: Add tests for traditional mapping and parent fallback.
+- **Acceptance Criteria**:
+  - Tests confirm no mutation of created spread data. (Spec: Modes)
+- **Tests**:
+  - Unit tests for fallback to parent or Inbox.
+- **Dependencies**: SPRD-38
+
+## Story: Collections and repository tests
+
+### User Story
+- As a user, I want to create and edit collections as standalone pages so I can keep long-form notes.
+
+### Definition of Done
+- Collections model, list, and editor are implemented.
+- Repository integration tests and collection tests pass.
 
 ### [SPRD-39] Feature: Collection model + repository
 - **Context**: Collections are plain text pages.
@@ -1040,9 +1175,34 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Integration test for persistence of edits.
 - **Dependencies**: SPRD-40
 
----
 
-## Phase 9: Sync & Persistence
+
+### [SPRD-54] Feature: Integration tests for repositories
+- **Context**: Persistence should be validated end-to-end.
+- **Description**: Add integration tests for SwiftData repositories using test containers.
+- **Acceptance Criteria**:
+  - CRUD works for spreads/entries/collections. (Spec: Persistence)
+- **Tests**:
+  - Integration tests across all repositories.
+- **Dependencies**: SPRD-41, SPRD-57, SPRD-58
+
+### [SPRD-55] Feature: Integration tests for collections
+- **Context**: Collections are new model + UI flow.
+- **Description**: Add integration tests for collection CRUD and persistence.
+- **Acceptance Criteria**:
+  - Collection edits persist across reloads. (Spec: Collections)
+- **Tests**:
+  - Integration test with in-memory container.
+- **Dependencies**: SPRD-54
+
+## Story: Sync and persistence
+
+### User Story
+- As a user, I want my data to sync across devices and work offline so I can journal anywhere.
+
+### Definition of Done
+- CloudKit configuration and entitlements are documented.
+- Offline-first QA checklist exists.
 
 ### [SPRD-42] Feature: CloudKit configuration for SwiftData
 - **Context**: iCloud sync is required.
@@ -1091,9 +1251,16 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Manual test plan included.
 - **Dependencies**: SPRD-43
 
----
 
-## Phase 10: Debug & Dev Tools
+
+## Story: Debug and dev tools
+
+### User Story
+- As a user, I want debug tools and quick actions so I can inspect data and iterate faster.
+
+### Definition of Done
+- Debug menu and quick actions are available in Debug builds only.
+- Test data builders and debug logging hooks are implemented.
 
 ### [SPRD-45] Feature: Debug menu (Debug builds only)
 - **Context**: Debug tooling is required for faster iteration.
@@ -1159,72 +1326,15 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Unit test for debug flag gating.
 - **Dependencies**: SPRD-47
 
----
 
-## Phase 11: Testing
 
-### [SPRD-49] Feature: Unit tests for date + multiday presets
-- **Context**: Date logic is error-prone.
-- **Description**: Add unit tests for normalization, presets, and first weekday override.
-- **Acceptance Criteria**:
-  - Tests cover locale week start, overrides, and boundaries. (Spec: Edge Cases)
-- **Tests**:
-  - Unit tests across month/year boundaries.
-- **Dependencies**: SPRD-48
+## Story: Scope guard tests
 
-### [SPRD-50] Feature: Unit tests for spread creation rules
-- **Context**: Creation rules must be enforced consistently.
-- **Description**: Add unit tests for present/future rules and multiday start handling.
-- **Acceptance Criteria**:
-  - Tests confirm past spreads are blocked except multiday within current week. (Spec: Spreads)
-- **Tests**:
-  - Unit tests for validation edge cases.
-- **Dependencies**: SPRD-49
+### User Story
+- As a user, I want guardrails that prevent out-of-scope features so v1 stays focused.
 
-### [SPRD-51] Feature: Unit tests for assignment + Inbox
-- **Context**: Assignment and Inbox are core behaviors.
-- **Description**: Add tests for assignment engine and Inbox auto-resolve.
-- **Acceptance Criteria**:
-  - Tests cover nearest parent assignment and Inbox auto-resolve. (Spec: Modes)
-- **Tests**:
-  - Unit tests for events showing on all spreads.
-- **Dependencies**: SPRD-50
-
-### [SPRD-52] Feature: Unit tests for migration rules
-- **Context**: Migration behavior differs by entry type and status.
-- **Description**: Add tests for manual migration, event blocking, note explicit migration, and cancelled exclusion.
-- **Acceptance Criteria**:
-  - Tests enforce manual-only migration and exclusion rules. (Spec: Entries; Task Status)
-- **Tests**:
-  - Unit tests for duplicate assignment prevention.
-- **Dependencies**: SPRD-51
-
-### [SPRD-53] Feature: Unit tests for traditional mode mapping
-- **Context**: Virtual spreads must be correct and stable.
-- **Description**: Add tests for traditional mapping and parent fallback.
-- **Acceptance Criteria**:
-  - Tests confirm no mutation of created spread data. (Spec: Modes)
-- **Tests**:
-  - Unit tests for fallback to parent or Inbox.
-- **Dependencies**: SPRD-52
-
-### [SPRD-54] Feature: Integration tests for repositories
-- **Context**: Persistence should be validated end-to-end.
-- **Description**: Add integration tests for SwiftData repositories using test containers.
-- **Acceptance Criteria**:
-  - CRUD works for spreads/entries/collections. (Spec: Persistence)
-- **Tests**:
-  - Integration tests across all repositories.
-- **Dependencies**: SPRD-53
-
-### [SPRD-55] Feature: Integration tests for collections
-- **Context**: Collections are new model + UI flow.
-- **Description**: Add integration tests for collection CRUD and persistence.
-- **Acceptance Criteria**:
-  - Collection edits persist across reloads. (Spec: Collections)
-- **Tests**:
-  - Integration test with in-memory container.
-- **Dependencies**: SPRD-54
+### Definition of Done
+- Scope guard tests enforce non-goals (no week period, no automated migration, no past entry creation).
 
 ### [SPRD-56] Feature: Scope guard tests
 - **Context**: Non-goals must not regress into v1.
@@ -1235,35 +1345,21 @@ Phase 11: Testing (SPRD-49 to SPRD-56)
   - Unit tests for no-past-date creation and no week period exposure.
 - **Dependencies**: SPRD-55
 
----
 
 ## Dependency Graph (Simplified)
 
 ```
-SPRD-1 → SPRD-2 → SPRD-3 → SPRD-4 → SPRD-5 → SPRD-6 → SPRD-7
-                                              ↓
-                          SPRD-8 → SPRD-9 → SPRD-10
-                                              ↓
-         SPRD-57 ←─────────────────┬──────────┴───────────┬─────────────→ SPRD-58
-         SPRD-59 ←─────────────────┤                      │
-                                   ↓                      ↓
-                          SPRD-11 → SPRD-12 → SPRD-13 → SPRD-14 → SPRD-15 → SPRD-16 → SPRD-17 → SPRD-18
-                                                                                                  ↓
-                                                                                           SPRD-19 → SPRD-20
-                                                                                                      ↓
-                                                                                           SPRD-21 → SPRD-22
-                                                                                              ↓         ↓
-                                                                                     SPRD-23  SPRD-60  SPRD-61  SPRD-24
-                                                                                                               ↓
-         SPRD-25 → SPRD-26 → SPRD-27 → SPRD-28 → SPRD-29 → SPRD-30 → SPRD-31 → SPRD-32 → SPRD-33 → SPRD-34
-                                                                                                      ↓
-                                                                      SPRD-35 → SPRD-36 → SPRD-37 → SPRD-38
-                                                                                                      ↓
-                                                                               SPRD-39 → SPRD-40 → SPRD-41
-                                                                                                      ↓
-                                                                               SPRD-42 → SPRD-43 → SPRD-44
-                                                                                                      ↓
-                                                                      SPRD-45 → SPRD-46 → SPRD-47 → SPRD-48
-                                                                                                      ↓
-                                                           SPRD-49 → SPRD-50 → SPRD-51 → SPRD-52 → SPRD-53 → SPRD-54 → SPRD-55 → SPRD-56
+SPRD-1 -> SPRD-2 -> SPRD-3 -> SPRD-4 -> SPRD-5 -> SPRD-6 -> SPRD-7 -> SPRD-8
+SPRD-8 -> SPRD-49
+SPRD-8 -> SPRD-9 -> SPRD-10 -> SPRD-11 -> SPRD-12 -> SPRD-50
+SPRD-11 -> SPRD-13 -> SPRD-14 -> SPRD-51 -> SPRD-15 -> SPRD-16 -> SPRD-52
+SPRD-16 -> SPRD-19 -> SPRD-21 -> SPRD-22 -> SPRD-23
+SPRD-19 -> SPRD-25 -> SPRD-26 -> SPRD-27 -> SPRD-28 -> SPRD-31
+SPRD-22 -> SPRD-24 -> SPRD-29 -> SPRD-30
+SPRD-9 -> SPRD-57 -> SPRD-59 -> SPRD-60 -> SPRD-33
+SPRD-9 -> SPRD-58 -> SPRD-61 -> SPRD-34
+SPRD-14 -> SPRD-18 -> SPRD-32
+SPRD-19 -> SPRD-20 -> SPRD-17 -> SPRD-35 -> SPRD-36 -> SPRD-37 -> SPRD-38 -> SPRD-53
+SPRD-38 -> SPRD-39 -> SPRD-40 -> SPRD-41 -> SPRD-54 -> SPRD-55 -> SPRD-56
+SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-46 -> SPRD-47 -> SPRD-48
 ```
