@@ -1,7 +1,7 @@
-import SwiftData
 import struct Foundation.Calendar
 import struct Foundation.Date
 import struct Foundation.UUID
+import SwiftData
 
 /// Version 1.0.0 of the data model schema.
 ///
@@ -135,10 +135,25 @@ enum DataModelSchemaV1: VersionedSchema {
 
     /// An assignable entry with status and migration history.
     ///
-    /// Full implementation with Entry protocol conformance, status enum,
-    /// and TaskAssignment array in SPRD-9.
+    /// Tasks track their preferred date and period for assignment purposes.
+    /// Assignment history is tracked via TaskAssignment (SPRD-10).
     @Model
-    final class Task {
+    final class Task: AssignableEntry {
+        /// The status of a task on a spread.
+        enum Status: String, CaseIterable, Codable, Sendable {
+            /// Task is open and not yet completed.
+            case open
+
+            /// Task has been completed.
+            case complete
+
+            /// Task has been migrated to another spread.
+            case migrated
+
+            /// Task has been cancelled and hidden from default views.
+            case cancelled
+        }
+
         /// Unique identifier for the task.
         @Attribute(.unique) var id: UUID
 
@@ -148,10 +163,47 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The date this task was created.
         var createdDate: Date
 
-        init(id: UUID = UUID(), title: String = "", createdDate: Date = .now) {
+        /// The preferred date for this task.
+        var date: Date
+
+        /// The preferred period for this task.
+        var period: Period
+
+        /// The current status of the task.
+        var status: Status
+
+        /// Assignment history for this task across spreads.
+        var assignments: [TaskAssignment]
+
+        /// The type of entry.
+        var entryType: EntryType { .task }
+
+        /// Creates a new task.
+        ///
+        /// - Parameters:
+        ///   - id: Unique identifier (defaults to new UUID).
+        ///   - title: The task title.
+        ///   - createdDate: When the task was created (defaults to now).
+        ///   - date: The preferred date (defaults to now).
+        ///   - period: The preferred period (defaults to `.day`).
+        ///   - status: The task status (defaults to `.open`).
+        ///   - assignments: Assignment history (defaults to empty).
+        init(
+            id: UUID = UUID(),
+            title: String = "",
+            createdDate: Date = .now,
+            date: Date = .now,
+            period: Period = .day,
+            status: Status = .open,
+            assignments: [TaskAssignment] = []
+        ) {
             self.id = id
             self.title = title
             self.createdDate = createdDate
+            self.date = date
+            self.period = period
+            self.status = status
+            self.assignments = assignments
         }
     }
 
@@ -159,9 +211,10 @@ enum DataModelSchemaV1: VersionedSchema {
 
     /// A date-range entry that appears on overlapping spreads.
     ///
-    /// Full implementation with EventTiming enum and date range properties in SPRD-9.
+    /// Events do not have assignments. Their visibility on a spread is computed
+    /// by checking if their date range overlaps with the spread's time period.
     @Model
-    final class Event {
+    final class Event: DateRangeEntry {
         /// Unique identifier for the event.
         @Attribute(.unique) var id: UUID
 
@@ -171,10 +224,95 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The date this event was created.
         var createdDate: Date
 
-        init(id: UUID = UUID(), title: String = "", createdDate: Date = .now) {
+        /// The timing mode for this event.
+        var timing: EventTiming
+
+        /// The start date of this event.
+        var startDate: Date
+
+        /// The end date of this event.
+        var endDate: Date
+
+        /// The start time for timed events.
+        ///
+        /// Only set when `timing` is `.timed`, otherwise `nil`.
+        var startTime: Date?
+
+        /// The end time for timed events.
+        ///
+        /// Only set when `timing` is `.timed`, otherwise `nil`.
+        var endTime: Date?
+
+        /// The type of entry.
+        var entryType: EntryType { .event }
+
+        /// Creates a new event.
+        ///
+        /// - Parameters:
+        ///   - id: Unique identifier (defaults to new UUID).
+        ///   - title: The event title.
+        ///   - createdDate: When the event was created (defaults to now).
+        ///   - timing: The timing mode (defaults to `.singleDay`).
+        ///   - startDate: The start date of the event.
+        ///   - endDate: The end date of the event.
+        ///   - startTime: The start time for timed events.
+        ///   - endTime: The end time for timed events.
+        init(
+            id: UUID = UUID(),
+            title: String = "",
+            createdDate: Date = .now,
+            timing: EventTiming = .singleDay,
+            startDate: Date = .now,
+            endDate: Date = .now,
+            startTime: Date? = nil,
+            endTime: Date? = nil
+        ) {
             self.id = id
             self.title = title
             self.createdDate = createdDate
+            self.timing = timing
+            self.startDate = startDate
+            self.endDate = endDate
+            self.startTime = startTime
+            self.endTime = endTime
+        }
+
+        /// Determines whether this event appears on a spread.
+        ///
+        /// An event appears on a spread if its date range overlaps with the
+        /// spread's time period. The overlap is determined by normalizing dates
+        /// to the spread's period and checking for intersection.
+        ///
+        /// - Parameters:
+        ///   - period: The spread's time period.
+        ///   - date: The spread's normalized date.
+        ///   - calendar: The calendar to use for date calculations.
+        /// - Returns: `true` if this event's date range overlaps with the spread.
+        func appearsOn(period: Period, date: Date, calendar: Calendar) -> Bool {
+            guard let component = period.calendarComponent else {
+                // Multiday spread: check if event overlaps with the custom range
+                // For multiday, `date` is the start date; we need the end date separately
+                // This is handled by the caller providing the appropriate range
+                return true
+            }
+
+            // Get the spread's date range for the period
+            guard let spreadEnd = calendar.date(
+                byAdding: component,
+                value: 1,
+                to: date
+            ) else {
+                return false
+            }
+
+            // Check for overlap: event range intersects spread range
+            // Event is [startDate, endDate], Spread is [date, spreadEnd)
+            // Overlap exists if eventStart < spreadEnd AND eventEnd >= spreadStart
+            let eventStart = startDate.startOfDay(calendar: calendar)
+            let eventEnd = endDate.startOfDay(calendar: calendar)
+            let spreadStart = date
+
+            return eventStart < spreadEnd && eventEnd >= spreadStart
         }
     }
 
@@ -182,22 +320,76 @@ enum DataModelSchemaV1: VersionedSchema {
 
     /// An assignable entry with explicit-only migration.
     ///
-    /// Full implementation with content field and NoteAssignment array in SPRD-9.
+    /// Notes can have extended content and track their preferred date and period.
+    /// Assignment history is tracked via NoteAssignment (SPRD-10).
+    /// Notes only migrate when explicitly triggered by the user.
     @Model
-    final class Note {
+    final class Note: AssignableEntry {
+        /// The status of a note on a spread.
+        enum Status: String, CaseIterable, Codable, Sendable {
+            /// Note is active on the spread.
+            case active
+
+            /// Note has been migrated to another spread.
+            case migrated
+        }
+
         /// Unique identifier for the note.
         @Attribute(.unique) var id: UUID
 
         /// The title of the note.
         var title: String
 
+        /// The extended content of the note.
+        var content: String
+
         /// The date this note was created.
         var createdDate: Date
 
-        init(id: UUID = UUID(), title: String = "", createdDate: Date = .now) {
+        /// The preferred date for this note.
+        var date: Date
+
+        /// The preferred period for this note.
+        var period: Period
+
+        /// The current status of the note.
+        var status: Status
+
+        /// Assignment history for this note across spreads.
+        var assignments: [NoteAssignment]
+
+        /// The type of entry.
+        var entryType: EntryType { .note }
+
+        /// Creates a new note.
+        ///
+        /// - Parameters:
+        ///   - id: Unique identifier (defaults to new UUID).
+        ///   - title: The note title.
+        ///   - content: The extended content (defaults to empty string).
+        ///   - createdDate: When the note was created (defaults to now).
+        ///   - date: The preferred date (defaults to now).
+        ///   - period: The preferred period (defaults to `.day`).
+        ///   - status: The note status (defaults to `.active`).
+        ///   - assignments: Assignment history (defaults to empty).
+        init(
+            id: UUID = UUID(),
+            title: String = "",
+            content: String = "",
+            createdDate: Date = .now,
+            date: Date = .now,
+            period: Period = .day,
+            status: Status = .active,
+            assignments: [NoteAssignment] = []
+        ) {
             self.id = id
             self.title = title
+            self.content = content
             self.createdDate = createdDate
+            self.date = date
+            self.period = period
+            self.status = status
+            self.assignments = assignments
         }
     }
 
