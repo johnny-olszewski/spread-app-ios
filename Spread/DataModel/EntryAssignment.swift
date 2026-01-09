@@ -1,13 +1,13 @@
 import struct Foundation.Calendar
 import struct Foundation.Date
 
-/// Assignment metadata for an entry on a spread.
-struct EntryAssignment: Codable, Hashable {
+/// Shared assignment data used for spread matching.
+protocol AssignmentMatchable {
     /// The spread period for this assignment.
-    var period: Period
+    var period: Period { get }
 
     /// The spread date for this assignment.
-    var date: Date
+    var date: Date { get }
 
     /// Determines whether this assignment matches a spread.
     ///
@@ -16,6 +16,10 @@ struct EntryAssignment: Codable, Hashable {
     ///   - date: The spread's normalized date.
     ///   - calendar: The calendar to use for date normalization.
     /// - Returns: `true` if the assignment matches the spread.
+    func matches(period: Period, date: Date, calendar: Calendar) -> Bool
+}
+
+extension AssignmentMatchable {
     func matches(period: Period, date: Date, calendar: Calendar) -> Bool {
         guard self.period == period else { return false }
         let normalizedSelf = period.normalizeDate(self.date, calendar: calendar)
