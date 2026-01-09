@@ -238,7 +238,7 @@
   - Unit tests across month/year boundaries.
 - **Dependencies**: SPRD-7, SPRD-8
 
-### [SPRD-9] Feature: Entry protocol + Task/Event/Note models
+### [SPRD-9] Feature: Entry protocol + Task/Event/Note models - [x] Complete
 - **Context**: Entries are the parent concept; Task/Event/Note are distinct types for scalability.
 - **Description**: Implement Entry protocol and three concrete @Model classes.
 - **Implementation Details**:
