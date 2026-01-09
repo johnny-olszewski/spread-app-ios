@@ -197,7 +197,7 @@
 
 
 
-### [SPRD-8] Feature: Spread model with multiday range
+### [SPRD-8] Feature: Spread model with multiday range - [x] Complete
 - **Context**: Multiday spreads require start/end ranges and preset options. Week period removed.
 - **Description**: Implement Spread model for year/month/day/multiday with range fields.
 - **Implementation Details**:
