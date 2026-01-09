@@ -1,8 +1,8 @@
-Complete a task from plan.md.
+Implement a task from plan.md.
 
 Invocation:
-- /complete_task
-- /complete_task <TASK_NUMBER>
+- /implement_task
+- /implement_task <TASK_NUMBER>
 
 Behavior:
 - throughout the execution ask for clarification if needed, do not make assumptions
@@ -22,7 +22,7 @@ Task selection rules (when no task number is provided):
    - tasks might be marked as completeed
    - or traverese the commit history which means they are completed if merged with task number
   - Treat that task as the sole scope of work
-- confirm with the user which task is to be completed before proceeding
+- confirm with the user which task is to be implemented before proceeding
 
 Task completion scaffold:
 
