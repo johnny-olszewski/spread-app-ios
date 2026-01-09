@@ -174,7 +174,7 @@
 - Spread/Entry/Assignment models exist with multiday support.
 - Date and multiday preset tests pass.
 
-### [SPRD-7] Feature: Date utilities + period normalization
+### [SPRD-7] Feature: Date utilities + period normalization - [x] Complete
 - **Context**: Spread/date normalization must be consistent across modes and locales.
 - **Description**: Add date helpers for year/month/day normalization and locale-based first weekday logic.
 - **Implementation Details**:
