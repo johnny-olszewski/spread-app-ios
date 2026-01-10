@@ -362,7 +362,7 @@
   - Unit test initializes JournalManager with mock repositories.
 - **Dependencies**: SPRD-10
 
-### [SPRD-12] Feature: Spread creation policy
+### [SPRD-12] Feature: Spread creation policy - [x] Complete
 - **Context**: Creation rules must match present/future constraints.
 - **Description**: Enforce creation rules (no past; multiday start allowed within current week).
 - **Implementation Details**:
