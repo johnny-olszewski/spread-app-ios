@@ -331,7 +331,7 @@
 - Migration logic and cancelled-task behavior are implemented.
 - Unit tests for creation, assignment, and migration pass.
 
-### [SPRD-11] Feature: JournalManager base
+### [SPRD-11] Feature: JournalManager base - [x] Complete
 - **Context**: Central coordinator is needed for spreads/entries lifecycle.
 - **Description**: Implement JournalManager with data loading, caching, and versioning.
 - **Implementation Details**:
