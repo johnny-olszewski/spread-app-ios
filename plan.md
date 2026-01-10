@@ -287,7 +287,7 @@
   - Unit tests for Event `appearsOn()` with various spread periods
 - **Dependencies**: SPRD-8
 
-### [SPRD-10] Feature: TaskAssignment + NoteAssignment models
+### [SPRD-10] Feature: TaskAssignment + NoteAssignment models - [x] Complete
 - **Context**: Assignment tracking differs between Task and Note.
 - **Description**: Implement assignment structs for tracking per-spread status.
 - **Implementation Details**:
