@@ -133,12 +133,28 @@ struct DependencyContainer: @unchecked Sendable {
 
     // MARK: - Service Factory Methods
 
-    // TODO: SPRD-11 - Add makeJournalManager when JournalManager is implemented
-    // func makeJournalManager(
-    //     calendar: Calendar = .current,
-    //     today: Date = .now,
-    //     bujoMode: DataModel.BujoMode = .conventional
-    // ) -> JournalManager
+    /// Creates a JournalManager configured with this container's repositories.
+    ///
+    /// - Parameters:
+    ///   - calendar: The calendar for date calculations (defaults to current).
+    ///   - today: The current date (defaults to now).
+    ///   - bujoMode: The initial BuJo mode (defaults to conventional).
+    /// - Returns: A configured JournalManager with data loaded.
+    func makeJournalManager(
+        calendar: Calendar = .current,
+        today: Date = .now,
+        bujoMode: BujoMode = .conventional
+    ) async throws -> JournalManager {
+        try await JournalManager.makeForTesting(
+            calendar: calendar,
+            today: today,
+            taskRepository: taskRepository,
+            spreadRepository: spreadRepository,
+            eventRepository: eventRepository,
+            noteRepository: noteRepository,
+            bujoMode: bujoMode
+        )
+    }
 }
 
 // MARK: - Debug Information
