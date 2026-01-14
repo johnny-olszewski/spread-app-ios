@@ -17,6 +17,8 @@ struct DataModelSchemaTests {
 
     // MARK: - Schema Tests
 
+    /// Conditions: Access schema version identifier.
+    /// Expected: Version should be 1.0.0.
     @Test func testSchemaVersionIsCorrect() {
         let version = DataModelSchemaV1.versionIdentifier
         #expect(version.major == 1)
@@ -24,6 +26,8 @@ struct DataModelSchemaTests {
         #expect(version.patch == 0)
     }
 
+    /// Conditions: Access schema models.
+    /// Expected: Should contain 5 models: Spread, Task, Event, Note, Collection.
     @Test func testSchemaContainsAllModels() {
         let models = DataModelSchemaV1.models
         #expect(models.count == 5)
@@ -38,12 +42,16 @@ struct DataModelSchemaTests {
 
     // MARK: - Migration Plan Tests
 
+    /// Conditions: Access migration plan schemas.
+    /// Expected: Should have one schema (DataModelSchemaV1).
     @Test func testMigrationPlanHasCorrectSchema() {
         let schemas = DataModelMigrationPlan.schemas
         #expect(schemas.count == 1)
         #expect(schemas.first == DataModelSchemaV1.self)
     }
 
+    /// Conditions: Access migration plan stages.
+    /// Expected: Should be empty (no migrations for v1).
     @Test func testMigrationPlanHasEmptyStages() {
         let stages = DataModelMigrationPlan.stages
         #expect(stages.isEmpty)
@@ -51,22 +59,30 @@ struct DataModelSchemaTests {
 
     // MARK: - ModelContainerFactory Tests
 
+    /// Conditions: Create in-memory container.
+    /// Expected: Container should have 5 entity types in schema.
     @Test func testCreateInMemoryContainer() throws {
         let container = try ModelContainerFactory.makeInMemory()
         #expect(container.schema.entities.count == 5)
     }
 
+    /// Conditions: Create test container.
+    /// Expected: Container should have 5 entity types in schema.
     @Test func testCreateTestContainer() throws {
         let container = try ModelContainerFactory.makeForTesting()
         #expect(container.schema.entities.count == 5)
     }
 
+    /// Conditions: Create in-memory container and check configuration.
+    /// Expected: Configuration should have isStoredInMemoryOnly = true.
     @Test func testInMemoryContainerIsNotPersistent() throws {
         let container = try ModelContainerFactory.makeInMemory()
         let configuration = container.configurations.first
         #expect(configuration?.isStoredInMemoryOnly == true)
     }
 
+    /// Conditions: Create containers for testing and preview environments.
+    /// Expected: Both should use in-memory storage.
     @Test func testContainerConfigurationForEnvironment() throws {
         // Testing environment should use in-memory storage
         let testingContainer = try ModelContainerFactory.make(for: .testing)
@@ -81,6 +97,8 @@ struct DataModelSchemaTests {
 
     // MARK: - Model CRUD Tests
 
+    /// Conditions: Insert and save a Spread model to test container.
+    /// Expected: Spread should be fetchable with correct id and period.
     @MainActor
     @Test func testSpreadModelCanBeSavedAndFetched() throws {
         let container = try ModelContainerFactory.makeForTesting()
@@ -97,6 +115,8 @@ struct DataModelSchemaTests {
         #expect(spreads.first?.period == .day)
     }
 
+    /// Conditions: Insert and save a Task model to test container.
+    /// Expected: Task should be fetchable with correct id.
     @MainActor
     @Test func testTaskModelCanBeSavedAndFetched() throws {
         let container = try ModelContainerFactory.makeForTesting()
@@ -112,6 +132,8 @@ struct DataModelSchemaTests {
         #expect(tasks.first?.id == task.id)
     }
 
+    /// Conditions: Insert and save an Event model to test container.
+    /// Expected: Event should be fetchable with correct id.
     @MainActor
     @Test func testEventModelCanBeSavedAndFetched() throws {
         let container = try ModelContainerFactory.makeForTesting()
@@ -127,6 +149,8 @@ struct DataModelSchemaTests {
         #expect(events.first?.id == event.id)
     }
 
+    /// Conditions: Insert and save a Note model to test container.
+    /// Expected: Note should be fetchable with correct id.
     @MainActor
     @Test func testNoteModelCanBeSavedAndFetched() throws {
         let container = try ModelContainerFactory.makeForTesting()
@@ -142,6 +166,8 @@ struct DataModelSchemaTests {
         #expect(notes.first?.id == note.id)
     }
 
+    /// Conditions: Insert and save a Collection model to test container.
+    /// Expected: Collection should be fetchable with correct id.
     @MainActor
     @Test func testCollectionModelCanBeSavedAndFetched() throws {
         let container = try ModelContainerFactory.makeForTesting()
