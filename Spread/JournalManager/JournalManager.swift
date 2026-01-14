@@ -36,6 +36,9 @@ final class JournalManager {
     /// The current BuJo mode (conventional or traditional).
     var bujoMode: BujoMode
 
+    /// Policy for validating spread creation.
+    let creationPolicy: SpreadCreationPolicy
+
     /// Version counter that increments on data mutations.
     ///
     /// SwiftUI views can observe this to trigger refreshes when data changes.
@@ -73,6 +76,7 @@ final class JournalManager {
     ///   - eventRepository: Repository for events.
     ///   - noteRepository: Repository for notes.
     ///   - bujoMode: The initial BuJo mode.
+    ///   - creationPolicy: Policy for validating spread creation.
     private init(
         calendar: Calendar,
         today: Date,
@@ -80,7 +84,8 @@ final class JournalManager {
         spreadRepository: any SpreadRepository,
         eventRepository: any EventRepository,
         noteRepository: any NoteRepository,
-        bujoMode: BujoMode
+        bujoMode: BujoMode,
+        creationPolicy: SpreadCreationPolicy
     ) {
         self.calendar = calendar
         self.today = today
@@ -89,6 +94,7 @@ final class JournalManager {
         self.eventRepository = eventRepository
         self.noteRepository = noteRepository
         self.bujoMode = bujoMode
+        self.creationPolicy = creationPolicy
     }
 
     // MARK: - Factory Methods
@@ -103,6 +109,7 @@ final class JournalManager {
     ///   - eventRepository: Repository for events (defaults to empty in-memory).
     ///   - noteRepository: Repository for notes (defaults to empty in-memory).
     ///   - bujoMode: The initial BuJo mode (defaults to conventional).
+    ///   - creationPolicy: Policy for spread creation (defaults to standard policy).
     /// - Returns: A configured JournalManager with data loaded.
     static func makeForTesting(
         calendar: Calendar? = nil,
@@ -111,7 +118,8 @@ final class JournalManager {
         spreadRepository: (any SpreadRepository)? = nil,
         eventRepository: (any EventRepository)? = nil,
         noteRepository: (any NoteRepository)? = nil,
-        bujoMode: BujoMode = .conventional
+        bujoMode: BujoMode = .conventional,
+        creationPolicy: SpreadCreationPolicy? = nil
     ) async throws -> JournalManager {
         var testCalendar: Calendar {
             var cal = Calendar(identifier: .gregorian)
@@ -119,14 +127,18 @@ final class JournalManager {
             return cal
         }
 
+        let resolvedToday = today ?? .now
+        let defaultPolicy = StandardCreationPolicy(today: resolvedToday, firstWeekday: .sunday)
+
         let manager = JournalManager(
             calendar: calendar ?? testCalendar,
-            today: today ?? .now,
+            today: resolvedToday,
             taskRepository: taskRepository ?? InMemoryTaskRepository(),
             spreadRepository: spreadRepository ?? InMemorySpreadRepository(),
             eventRepository: eventRepository ?? InMemoryEventRepository(),
             noteRepository: noteRepository ?? InMemoryNoteRepository(),
-            bujoMode: bujoMode
+            bujoMode: bujoMode,
+            creationPolicy: creationPolicy ?? defaultPolicy
         )
         await manager.loadData()
         return manager
