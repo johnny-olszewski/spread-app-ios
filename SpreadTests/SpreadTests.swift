@@ -1,6 +1,7 @@
 import Testing
 @testable import Spread
 
+@MainActor
 struct SpreadTests {
 
     /// Conditions: Create a testing DependencyContainer and instantiate ContentView with it.

@@ -17,6 +17,8 @@ final class SpreadUITestsLaunchTests: XCTestCase {
         continueAfterFailure = false
     }
 
+    /// Conditions: Launch the app and capture a launch screenshot.
+    /// Expected: App launches and a screenshot attachment is recorded.
     @MainActor
     func testLaunch() throws {
         let app = XCUIApplication()

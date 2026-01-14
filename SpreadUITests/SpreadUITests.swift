@@ -22,6 +22,8 @@ final class SpreadUITests: XCTestCase {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
 
+    /// Conditions: Launch the app from a UI test.
+    /// Expected: App launches successfully without errors.
     @MainActor
     func testExample() throws {
         // UI tests must launch the application that they test.
@@ -31,6 +33,8 @@ final class SpreadUITests: XCTestCase {
         // Use XCTAssert and related functions to verify your tests produce the correct results.
     }
 
+    /// Conditions: Measure app launch performance from a UI test.
+    /// Expected: Launch completes and metrics are captured.
     @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
