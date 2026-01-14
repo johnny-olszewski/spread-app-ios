@@ -4,6 +4,7 @@ import struct Foundation.UUID
 ///
 /// Implementations handle CRUD operations for `DataModel.Task` entities.
 /// SwiftData implementation provided in SPRD-5.
+@MainActor
 protocol TaskRepository: Sendable {
     /// Retrieves all tasks from storage.
     func getTasks() async -> [DataModel.Task]

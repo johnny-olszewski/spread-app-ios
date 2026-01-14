@@ -4,6 +4,7 @@ import struct Foundation.UUID
 ///
 /// Implementations handle CRUD operations for `DataModel.Collection` entities.
 /// SwiftData implementation provided in SPRD-39.
+@MainActor
 protocol CollectionRepository: Sendable {
     /// Retrieves all collections from storage.
     func getCollections() async -> [DataModel.Collection]

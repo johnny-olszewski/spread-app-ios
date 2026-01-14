@@ -89,23 +89,24 @@ struct DependencyContainer: @unchecked Sendable {
     ///   - collectionRepository: Custom collection repository implementation.
     /// - Returns: A configured dependency container for testing.
     /// - Throws: An error if model container creation fails.
+    @MainActor
     static func makeForTesting(
         modelContainer: ModelContainer? = nil,
-        taskRepository: any TaskRepository = EmptyTaskRepository(),
-        spreadRepository: any SpreadRepository = EmptySpreadRepository(),
-        eventRepository: any EventRepository = EmptyEventRepository(),
-        noteRepository: any NoteRepository = EmptyNoteRepository(),
-        collectionRepository: any CollectionRepository = EmptyCollectionRepository()
+        taskRepository: (any TaskRepository)? = nil,
+        spreadRepository: (any SpreadRepository)? = nil,
+        eventRepository: (any EventRepository)? = nil,
+        noteRepository: (any NoteRepository)? = nil,
+        collectionRepository: (any CollectionRepository)? = nil
     ) throws -> DependencyContainer {
         let container = try modelContainer ?? ModelContainerFactory.makeForTesting()
         return DependencyContainer(
             environment: .testing,
             modelContainer: container,
-            taskRepository: taskRepository,
-            spreadRepository: spreadRepository,
-            eventRepository: eventRepository,
-            noteRepository: noteRepository,
-            collectionRepository: collectionRepository
+            taskRepository: taskRepository ?? EmptyTaskRepository(),
+            spreadRepository: spreadRepository ?? EmptySpreadRepository(),
+            eventRepository: eventRepository ?? EmptyEventRepository(),
+            noteRepository: noteRepository ?? EmptyNoteRepository(),
+            collectionRepository: collectionRepository ?? EmptyCollectionRepository()
         )
     }
 
