@@ -412,7 +412,7 @@
   - Event visibility across year/month/day and multiday ranges.
 - **Dependencies**: SPRD-11
 
-### [SPRD-14] Feature: Inbox data model + auto-resolve
+### [SPRD-14] Feature: Inbox data model + auto-resolve - [x] Complete
 - **Context**: Unassigned entries must be visible and auto-resolve.
 - **Description**: Implement global Inbox for unassigned entries with auto-resolve on spread creation.
 - **Implementation Details**:
