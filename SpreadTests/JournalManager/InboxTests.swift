@@ -120,7 +120,7 @@ struct InboxTests {
         #expect(manager.inboxEntries.isEmpty)
     }
 
-    @Test @MainActor func testInboxExcludesTaskWhenParentSpreadExists() async throws {
+    @Test @MainActor func testInboxIncludesTaskWithNoAssignmentsEvenWhenParentSpreadExists() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
         let task = DataModel.Task(
@@ -141,8 +141,8 @@ struct InboxTests {
             spreadRepository: spreadRepo
         )
 
-        // Task should not be in inbox because a parent spread exists
-        #expect(manager.inboxEntries.isEmpty)
+        #expect(manager.inboxEntries.count == 1)
+        #expect(manager.inboxEntries.first?.id == task.id)
     }
 
     // MARK: - Events Excluded Tests

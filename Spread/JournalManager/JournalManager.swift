@@ -79,14 +79,14 @@ final class JournalManager {
 
         // Add unassigned tasks (excluding cancelled)
         for task in tasks where task.status != .cancelled {
-            if !hasMatchingSpread(for: task) {
+            if task.assignments.isEmpty || !hasMatchingAssignment(for: task) {
                 entries.append(task)
             }
         }
 
         // Add unassigned notes
         for note in notes {
-            if !hasMatchingSpread(for: note) {
+            if note.assignments.isEmpty || !hasMatchingAssignment(for: note) {
                 entries.append(note)
             }
         }
@@ -302,20 +302,20 @@ final class JournalManager {
 
     // MARK: - Inbox Helpers
 
-    /// Checks if a task has a matching spread (directly or via parent period).
+    /// Checks if a task has an assignment matching any existing spread.
     ///
-    /// Returns `true` if the spread service can find a spread for this task,
-    /// meaning it should not appear in the Inbox.
-    private func hasMatchingSpread(for task: DataModel.Task) -> Bool {
-        spreadService.findBestSpread(for: task, in: spreads) != nil
+    /// Returns `true` if at least one assignment matches a spread, meaning it
+    /// should not appear in the Inbox.
+    private func hasMatchingAssignment(for task: DataModel.Task) -> Bool {
+        spreads.contains { hasAssignment(task, for: $0) }
     }
 
-    /// Checks if a note has a matching spread (directly or via parent period).
+    /// Checks if a note has an assignment matching any existing spread.
     ///
-    /// Returns `true` if the spread service can find a spread for this note,
-    /// meaning it should not appear in the Inbox.
-    private func hasMatchingSpread(for note: DataModel.Note) -> Bool {
-        spreadService.findBestSpread(for: note, in: spreads) != nil
+    /// Returns `true` if at least one assignment matches a spread, meaning it
+    /// should not appear in the Inbox.
+    private func hasMatchingAssignment(for note: DataModel.Note) -> Bool {
+        spreads.contains { hasAssignment(note, for: $0) }
     }
 
     // MARK: - Spread Management
@@ -335,7 +335,7 @@ final class JournalManager {
         let spread = DataModel.Spread(period: period, date: date, calendar: calendar)
 
         // Capture inbox entries BEFORE adding spread to the list
-        // (otherwise hasMatchingSpread will find the new spread)
+        // (matching assignments could appear once the spread exists)
         let entriesToResolve = inboxEntriesToResolve(for: spread)
 
         // Save spread and add to local list
@@ -343,7 +343,7 @@ final class JournalManager {
         spreads.append(spread)
 
         // Auto-resolve captured inbox entries
-        await assignEntriesToSpread(entriesToResolve, spread: spread)
+        try await assignEntriesToSpread(entriesToResolve, spread: spread)
 
         // Reload all data to ensure state is synchronized
         tasks = await taskRepository.getTasks()
@@ -391,35 +391,35 @@ final class JournalManager {
     /// - Parameters:
     ///   - entries: The entries to assign.
     ///   - spread: The spread to assign them to.
-    private func assignEntriesToSpread(_ entries: [any Entry], spread: DataModel.Spread) async {
+    private func assignEntriesToSpread(_ entries: [any Entry], spread: DataModel.Spread) async throws {
         for entry in entries {
             if let task = entry as? DataModel.Task {
-                await assignTaskToSpread(task, spread: spread)
+                try await assignTaskToSpread(task, spread: spread)
             } else if let note = entry as? DataModel.Note {
-                await assignNoteToSpread(note, spread: spread)
+                try await assignNoteToSpread(note, spread: spread)
             }
         }
     }
 
     /// Creates an assignment for a task on the given spread.
-    private func assignTaskToSpread(_ task: DataModel.Task, spread: DataModel.Spread) async {
+    private func assignTaskToSpread(_ task: DataModel.Task, spread: DataModel.Spread) async throws {
         let assignment = TaskAssignment(
             period: spread.period,
             date: spread.date,
             status: .open
         )
         task.assignments.append(assignment)
-        try? await taskRepository.save(task)
+        try await taskRepository.save(task)
     }
 
     /// Creates an assignment for a note on the given spread.
-    private func assignNoteToSpread(_ note: DataModel.Note, spread: DataModel.Spread) async {
+    private func assignNoteToSpread(_ note: DataModel.Note, spread: DataModel.Spread) async throws {
         let assignment = NoteAssignment(
             period: spread.period,
             date: spread.date,
             status: .active
         )
         note.assignments.append(assignment)
-        try? await noteRepository.save(note)
+        try await noteRepository.save(note)
     }
 }
