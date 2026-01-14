@@ -49,6 +49,9 @@ Task completion scaffold:
 - consider all edge cases that need to be tested
 - consider more than the happy path, think about all possible input
 - implement the tests based on the spec
+- each test must include a comment above it describing:
+  - the conditions/setup being tested
+  - the expected results/behavior
 
 4) Implement  
 - Implement only the resolved task  
