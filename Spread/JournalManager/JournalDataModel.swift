@@ -8,15 +8,17 @@ struct SpreadDataModel: Sendable {
     /// The spread this data model represents.
     let spread: DataModel.Spread
 
-    /// Tasks assigned to this spread.
+    /// Tasks associated with this spread.
     ///
-    /// Only includes tasks with assignments matching this spread's period and date.
+    /// Year/month/day spreads include tasks with assignments matching this spread's period and date.
+    /// Multiday spreads include tasks whose preferred date falls within the range.
     /// Populated by JournalManager during data loading.
     var tasks: [DataModel.Task]
 
-    /// Notes assigned to this spread.
+    /// Notes associated with this spread.
     ///
-    /// Only includes notes with assignments matching this spread's period and date.
+    /// Year/month/day spreads include notes with assignments matching this spread's period and date.
+    /// Multiday spreads include notes whose preferred date falls within the range.
     /// Populated by JournalManager during data loading.
     var notes: [DataModel.Note]
 

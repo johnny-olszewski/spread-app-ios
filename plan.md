@@ -392,7 +392,7 @@
   - Unit tests for validation edge cases.
 - **Dependencies**: SPRD-12
 
-### [SPRD-13] Feature: Conventional assignment engine
+### [SPRD-13] Feature: Conventional assignment engine - [x] Complete
 - **Context**: Entries must be assigned to created spreads or Inbox.
 - **Description**: Assign tasks/notes to year/month/day; events have computed visibility.
 - **Implementation Details**:
