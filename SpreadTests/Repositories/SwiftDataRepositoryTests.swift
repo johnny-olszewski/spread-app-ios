@@ -21,6 +21,8 @@ struct SwiftDataRepositoryTests {
 
     // MARK: - TaskRepository Tests
 
+    /// Conditions: Save a task to an empty SwiftData task repository.
+    /// Expected: Fetching tasks returns one task with the saved title.
     @Test func testTaskRepositorySaveAndRetrieve() async throws {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataTaskRepository(modelContainer: container)
@@ -33,6 +35,8 @@ struct SwiftDataRepositoryTests {
         #expect(tasks.first?.title == "Test Task")
     }
 
+    /// Conditions: Save three tasks to the repository.
+    /// Expected: Fetching tasks returns three tasks.
     @Test func testTaskRepositorySaveMultipleTasks() async throws {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataTaskRepository(modelContainer: container)
@@ -49,6 +53,8 @@ struct SwiftDataRepositoryTests {
         #expect(tasks.count == 3)
     }
 
+    /// Conditions: Save a task, then delete it.
+    /// Expected: Fetching tasks returns an empty list.
     @Test func testTaskRepositoryDelete() async throws {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataTaskRepository(modelContainer: container)
@@ -65,6 +71,8 @@ struct SwiftDataRepositoryTests {
         #expect(tasks.count == 0)
     }
 
+    /// Conditions: Save a task, update its title, and save again.
+    /// Expected: Repository has one task with the updated title.
     @Test func testTaskRepositoryUpdateExistingTask() async throws {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataTaskRepository(modelContainer: container)
@@ -80,6 +88,8 @@ struct SwiftDataRepositoryTests {
         #expect(tasks.first?.title == "Updated Title")
     }
 
+    /// Conditions: Save tasks with different created dates in non-chronological order.
+    /// Expected: Fetching tasks returns them sorted by date ascending.
     @Test func testTaskRepositoryReturnsTasksSortedByDateAscending() async throws {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataTaskRepository(modelContainer: container)
@@ -103,6 +113,8 @@ struct SwiftDataRepositoryTests {
 
     // MARK: - SpreadRepository Tests
 
+    /// Conditions: Save a spread to an empty SwiftData spread repository.
+    /// Expected: Fetching spreads returns one spread with the same id.
     @Test func testSpreadRepositorySaveAndRetrieve() async throws {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataSpreadRepository(modelContainer: container)
@@ -115,6 +127,8 @@ struct SwiftDataRepositoryTests {
         #expect(spreads.first?.id == spread.id)
     }
 
+    /// Conditions: Save three spreads to the repository.
+    /// Expected: Fetching spreads returns three spreads.
     @Test func testSpreadRepositorySaveMultipleSpreads() async throws {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataSpreadRepository(modelContainer: container)
@@ -132,6 +146,8 @@ struct SwiftDataRepositoryTests {
         #expect(spreads.count == 3)
     }
 
+    /// Conditions: Save a spread, then delete it.
+    /// Expected: Fetching spreads returns an empty list.
     @Test func testSpreadRepositoryDelete() async throws {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataSpreadRepository(modelContainer: container)
@@ -148,6 +164,8 @@ struct SwiftDataRepositoryTests {
         #expect(spreads.count == 0)
     }
 
+    /// Conditions: Save spreads of different periods and dates in random order.
+    /// Expected: Fetching spreads returns period order (year, month, day), then date descending.
     @Test func testSpreadRepositoryReturnsSortedByPeriodThenDateDescending() async throws {
         let container = try ModelContainerFactory.makeForTesting()
         let repository = SwiftDataSpreadRepository(modelContainer: container)
@@ -182,6 +200,8 @@ struct SwiftDataRepositoryTests {
 
     // MARK: - Repository Isolation Tests
 
+    /// Conditions: Save a task in a repository backed by one container and read from another.
+    /// Expected: First repository has the task, second repository is empty.
     @Test func testRepositoriesUseIsolatedContainers() async throws {
         let container1 = try ModelContainerFactory.makeForTesting()
         let container2 = try ModelContainerFactory.makeForTesting()

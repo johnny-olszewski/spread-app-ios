@@ -2,6 +2,7 @@ import struct Foundation.Date
 import Testing
 @testable import Spread
 
+@MainActor
 struct DependencyContainerTests {
 
     // MARK: - Factory Method Tests
