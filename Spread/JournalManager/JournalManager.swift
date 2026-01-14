@@ -186,14 +186,10 @@ final class JournalManager {
             var spreadData = SpreadDataModel(spread: spread)
 
             // Associate tasks with this spread
-            spreadData.tasks = tasks.filter { task in
-                hasAssignment(task, for: spread)
-            }
+            spreadData.tasks = tasksForSpread(spread)
 
             // Associate notes with this spread
-            spreadData.notes = notes.filter { note in
-                hasAssignment(note, for: spread)
-            }
+            spreadData.notes = notesForSpread(spread)
 
             // Associate events based on date overlap
             spreadData.events = events.filter { event in
@@ -207,6 +203,34 @@ final class JournalManager {
     }
 
     // MARK: - Entry Association Helpers
+
+    /// Returns tasks that should appear on the given spread.
+    private func tasksForSpread(_ spread: DataModel.Spread) -> [DataModel.Task] {
+        if spread.period == .multiday {
+            return tasks.filter { entryDateFallsWithinMultidayRange($0.date, spread: spread) }
+        }
+        return tasks.filter { hasAssignment($0, for: spread) }
+    }
+
+    /// Returns notes that should appear on the given spread.
+    private func notesForSpread(_ spread: DataModel.Spread) -> [DataModel.Note] {
+        if spread.period == .multiday {
+            return notes.filter { entryDateFallsWithinMultidayRange($0.date, spread: spread) }
+        }
+        return notes.filter { hasAssignment($0, for: spread) }
+    }
+
+    /// Checks whether a preferred date falls within a multiday spread's range.
+    private func entryDateFallsWithinMultidayRange(_ date: Date, spread: DataModel.Spread) -> Bool {
+        guard spread.period == .multiday,
+              let startDate = spread.startDate,
+              let endDate = spread.endDate else {
+            return false
+        }
+
+        let normalizedDate = date.startOfDay(calendar: calendar)
+        return normalizedDate >= startDate && normalizedDate <= endDate
+    }
 
     /// Checks if a task has an assignment matching the given spread.
     private func hasAssignment(_ task: DataModel.Task, for spread: DataModel.Spread) -> Bool {

@@ -151,6 +151,76 @@ struct JournalManagerTests {
         #expect(spreadData?.spread.id == spread.id)
     }
 
+    @Test @MainActor func testMultidaySpreadAggregatesTasksByDateRange() async throws {
+        let calendar = Self.testCalendar
+        let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 13))!
+        let endDate = calendar.date(from: .init(year: 2026, month: 1, day: 19))!
+        let multidaySpread = DataModel.Spread(
+            startDate: startDate,
+            endDate: endDate,
+            calendar: calendar
+        )
+        let inRangeTask = DataModel.Task(
+            title: "In Range",
+            date: Self.testDate,
+            period: .day
+        )
+        let outOfRangeDate = calendar.date(from: .init(year: 2026, month: 1, day: 25))!
+        let outOfRangeTask = DataModel.Task(
+            title: "Out of Range",
+            date: outOfRangeDate,
+            period: .day
+        )
+        let taskRepo = InMemoryTaskRepository(tasks: [inRangeTask, outOfRangeTask])
+        let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
+
+        let manager = try await JournalManager.makeForTesting(
+            calendar: calendar,
+            taskRepository: taskRepo,
+            spreadRepository: spreadRepo
+        )
+
+        let spreadData = manager.dataModel[.multiday]?[multidaySpread.date]
+
+        #expect(spreadData?.tasks.count == 1)
+        #expect(spreadData?.tasks.first?.id == inRangeTask.id)
+    }
+
+    @Test @MainActor func testMultidaySpreadAggregatesNotesByDateRange() async throws {
+        let calendar = Self.testCalendar
+        let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 13))!
+        let endDate = calendar.date(from: .init(year: 2026, month: 1, day: 19))!
+        let multidaySpread = DataModel.Spread(
+            startDate: startDate,
+            endDate: endDate,
+            calendar: calendar
+        )
+        let inRangeNote = DataModel.Note(
+            title: "In Range",
+            date: Self.testDate,
+            period: .day
+        )
+        let outOfRangeDate = calendar.date(from: .init(year: 2026, month: 1, day: 25))!
+        let outOfRangeNote = DataModel.Note(
+            title: "Out of Range",
+            date: outOfRangeDate,
+            period: .day
+        )
+        let noteRepo = InMemoryNoteRepository(notes: [inRangeNote, outOfRangeNote])
+        let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
+
+        let manager = try await JournalManager.makeForTesting(
+            calendar: calendar,
+            noteRepository: noteRepo,
+            spreadRepository: spreadRepo
+        )
+
+        let spreadData = manager.dataModel[.multiday]?[multidaySpread.date]
+
+        #expect(spreadData?.notes.count == 1)
+        #expect(spreadData?.notes.first?.id == inRangeNote.id)
+    }
+
     // MARK: - Data Version Tests
 
     @Test @MainActor func testDataVersionStartsAtZero() async throws {
