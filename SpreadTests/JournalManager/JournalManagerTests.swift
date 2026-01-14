@@ -211,8 +211,8 @@ struct JournalManagerTests {
 
         let manager = try await JournalManager.makeForTesting(
             calendar: calendar,
-            noteRepository: noteRepo,
-            spreadRepository: spreadRepo
+            spreadRepository: spreadRepo,
+            noteRepository: noteRepo
         )
 
         let spreadData = manager.dataModel[.multiday]?[multidaySpread.date]
