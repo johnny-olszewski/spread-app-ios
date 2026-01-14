@@ -4,6 +4,7 @@ import struct Foundation.UUID
 ///
 /// Implementations handle CRUD operations for `DataModel.Spread` entities.
 /// SwiftData implementation provided in SPRD-5.
+@MainActor
 protocol SpreadRepository: Sendable {
     /// Retrieves all spreads from storage.
     func getSpreads() async -> [DataModel.Spread]
