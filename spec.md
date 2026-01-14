@@ -136,6 +136,17 @@
 - Edit entries (title, date/period, status where applicable). [SPRD-24]
 - Delete entries across all spreads. [SPRD-11, SPRD-5]
 
+### Entry Date Changes (Reassignment)
+- Changing preferred date triggers reassignment logic in conventional mode. [SPRD-24]
+- Old assignments (on old date's spreads) are marked as migrated to preserve history. [SPRD-24]
+- New assignment is created on the best matching spread for the new date: [SPRD-24, SPRD-13]
+  - Search from finest to coarsest: day → month → year.
+  - If a matching spread exists, create/update assignment with open/active status.
+  - If no matching spread exists, entry goes to Inbox.
+- If destination spread already has an assignment, update its status (don't duplicate). [SPRD-52]
+- Traditional mode date changes also trigger conventional reassignment logic. [SPRD-17, SPRD-24]
+- Events: changing date range updates visibility (computed, no assignments). [SPRD-33]
+
 ### Task Status
 - Statuses: open, complete, migrated, cancelled. [SPRD-10, SPRD-24]
 - Cancelled tasks are hidden in v1 (excluded from Inbox, migration, and default lists). [SPRD-16, SPRD-31]
@@ -224,6 +235,7 @@
 - Deleting spread with entries: Reassign all entries to parent or Inbox; never delete entries. [SPRD-15]
 - Overlapping multiday spreads: Each multiday is independent; entries appear on all applicable. [SPRD-8, SPRD-49]
 - Past-dated entries: Blocked in v1; validation prevents creation. [SPRD-23, SPRD-56]
+- Entry date change: Old assignments marked migrated; new assignment on best spread or Inbox. [SPRD-24]
 
 ## Resolved Decisions
 - Entry architecture uses protocol + separate @Model classes for scalability. [SPRD-9]
@@ -235,6 +247,7 @@
 - Spread deletion never deletes entries; reassigns to parent or Inbox. [SPRD-15]
 - Collections are plain text pages outside spread navigation. [SPRD-19, SPRD-40]
 - Traditional mode in scope for v1. [SPRD-35, SPRD-38]
+- Traditional mode date changes trigger conventional reassignment. [SPRD-17, SPRD-24]
 - Multiplatform: iPadOS primary, iOS supported; adaptive layouts per size class. [SPRD-19]
 - macOS deferred to post-v1. [SPRD-56]
 
