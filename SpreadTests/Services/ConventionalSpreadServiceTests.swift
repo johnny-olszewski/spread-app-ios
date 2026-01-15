@@ -50,6 +50,8 @@ struct ConventionalSpreadServiceTests {
 
     // MARK: - Task Assignment: Exact Match Tests
 
+    /// Conditions: A day-period task matches a day spread on the same date.
+    /// Expected: Service returns the day spread.
     @Test func testTaskWithDayPeriodMatchesDaySpread() {
         let service = Self.makeService()
         let daySpread = Self.makeSpread(period: .day, date: Self.testDate)
@@ -60,6 +62,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result?.id == daySpread.id)
     }
 
+    /// Conditions: A month-period task matches a month spread on the same date.
+    /// Expected: Service returns the month spread.
     @Test func testTaskWithMonthPeriodMatchesMonthSpread() {
         let service = Self.makeService()
         let monthSpread = Self.makeSpread(period: .month, date: Self.testDate)
@@ -70,6 +74,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result?.id == monthSpread.id)
     }
 
+    /// Conditions: A year-period task matches a year spread on the same date.
+    /// Expected: Service returns the year spread.
     @Test func testTaskWithYearPeriodMatchesYearSpread() {
         let service = Self.makeService()
         let yearSpread = Self.makeSpread(period: .year, date: Self.testDate)
@@ -82,6 +88,8 @@ struct ConventionalSpreadServiceTests {
 
     // MARK: - Task Assignment: Fallback Tests (Finest to Coarsest)
 
+    /// Conditions: A day-period task has no day spread, but a month spread exists for the date.
+    /// Expected: Service falls back to the month spread.
     @Test func testTaskWithDayPeriodFallsBackToMonthSpread() {
         let service = Self.makeService()
         let monthSpread = Self.makeSpread(period: .month, date: Self.testDate)
@@ -92,6 +100,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result?.id == monthSpread.id)
     }
 
+    /// Conditions: A day-period task has no day or month spread, but a year spread exists.
+    /// Expected: Service falls back to the year spread.
     @Test func testTaskWithDayPeriodFallsBackToYearSpread() {
         let service = Self.makeService()
         let yearSpread = Self.makeSpread(period: .year, date: Self.testDate)
@@ -102,6 +112,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result?.id == yearSpread.id)
     }
 
+    /// Conditions: A month-period task has no month spread, but a year spread exists.
+    /// Expected: Service falls back to the year spread.
     @Test func testTaskWithMonthPeriodFallsBackToYearSpread() {
         let service = Self.makeService()
         let yearSpread = Self.makeSpread(period: .year, date: Self.testDate)
@@ -112,6 +124,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result?.id == yearSpread.id)
     }
 
+    /// Conditions: A day-period task has matching day, month, and year spreads.
+    /// Expected: Service selects the finest match (day spread).
     @Test func testTaskPrefersFinestMatchingSpread() {
         let service = Self.makeService()
         let daySpread = Self.makeSpread(period: .day, date: Self.testDate)
@@ -124,6 +138,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result?.id == daySpread.id)
     }
 
+    /// Conditions: A month-period task has matching month and year spreads.
+    /// Expected: Service selects the month spread over the year spread.
     @Test func testTaskWithMonthPeriodPrefersMonthOverYear() {
         let service = Self.makeService()
         let monthSpread = Self.makeSpread(period: .month, date: Self.testDate)
@@ -137,6 +153,8 @@ struct ConventionalSpreadServiceTests {
 
     // MARK: - Task Assignment: No Match Tests
 
+    /// Conditions: A task is evaluated with no spreads available.
+    /// Expected: Service returns nil.
     @Test func testTaskReturnsNilWhenNoSpreadExists() {
         let service = Self.makeService()
         let task = Self.makeTask(date: Self.testDate, period: .day)
@@ -146,6 +164,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result == nil)
     }
 
+    /// Conditions: A task date does not match any provided spread dates.
+    /// Expected: Service returns nil.
     @Test func testTaskReturnsNilWhenNoMatchingDateSpreadExists() {
         let service = Self.makeService()
         let yearSpread = Self.makeSpread(period: .year, date: Self.differentYearDate)
@@ -156,6 +176,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result == nil)
     }
 
+    /// Conditions: Only a multiday spread exists for a task date.
+    /// Expected: Service returns nil.
     @Test func testTaskReturnsNilWhenOnlyMultidaySpreadExists() {
         let service = Self.makeService()
         let calendar = Self.testCalendar
@@ -171,6 +193,8 @@ struct ConventionalSpreadServiceTests {
 
     // MARK: - Task Assignment: Multiday Skipped Tests
 
+    /// Conditions: Both a multiday spread and a matching day spread are available.
+    /// Expected: Service returns the day spread.
     @Test func testMultidaySpreadIsSkippedInFavorOfDaySpread() {
         let service = Self.makeService()
         let calendar = Self.testCalendar
@@ -187,6 +211,8 @@ struct ConventionalSpreadServiceTests {
 
     // MARK: - Note Assignment Tests
 
+    /// Conditions: A day-period note matches a day spread on the same date.
+    /// Expected: Service returns the day spread.
     @Test func testNoteWithDayPeriodMatchesDaySpread() {
         let service = Self.makeService()
         let daySpread = Self.makeSpread(period: .day, date: Self.testDate)
@@ -197,6 +223,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result?.id == daySpread.id)
     }
 
+    /// Conditions: A day-period note has no day spread, but a month spread exists.
+    /// Expected: Service falls back to the month spread.
     @Test func testNoteWithDayPeriodFallsBackToMonthSpread() {
         let service = Self.makeService()
         let monthSpread = Self.makeSpread(period: .month, date: Self.testDate)
@@ -207,6 +235,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result?.id == monthSpread.id)
     }
 
+    /// Conditions: A note is evaluated with no spreads available.
+    /// Expected: Service returns nil.
     @Test func testNoteReturnsNilWhenNoSpreadExists() {
         let service = Self.makeService()
         let note = Self.makeNote(date: Self.testDate, period: .day)
@@ -218,6 +248,8 @@ struct ConventionalSpreadServiceTests {
 
     // MARK: - Event Visibility: Year Spread Tests
 
+    /// Conditions: An event's date falls within the year spread range.
+    /// Expected: Event appears on the year spread.
     @Test func testEventAppearsOnYearSpreadWhenDateOverlaps() {
         let service = Self.makeService()
         let yearSpread = Self.makeSpread(period: .year, date: Self.testDate)
@@ -232,6 +264,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result == true)
     }
 
+    /// Conditions: An event's dates are outside the year spread range.
+    /// Expected: Event does not appear on the year spread.
     @Test func testEventDoesNotAppearOnYearSpreadWhenDateDoesNotOverlap() {
         let service = Self.makeService()
         let yearSpread = Self.makeSpread(period: .year, date: Self.testDate)
@@ -248,6 +282,8 @@ struct ConventionalSpreadServiceTests {
 
     // MARK: - Event Visibility: Month Spread Tests
 
+    /// Conditions: An event's date falls within the month spread range.
+    /// Expected: Event appears on the month spread.
     @Test func testEventAppearsOnMonthSpreadWhenDateOverlaps() {
         let service = Self.makeService()
         let monthSpread = Self.makeSpread(period: .month, date: Self.testDate)
@@ -262,6 +298,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result == true)
     }
 
+    /// Conditions: An event's dates are outside the month spread range.
+    /// Expected: Event does not appear on the month spread.
     @Test func testEventDoesNotAppearOnMonthSpreadWhenDateDoesNotOverlap() {
         let service = Self.makeService()
         let monthSpread = Self.makeSpread(period: .month, date: Self.testDate)
@@ -278,6 +316,8 @@ struct ConventionalSpreadServiceTests {
 
     // MARK: - Event Visibility: Day Spread Tests
 
+    /// Conditions: An event's date matches the day spread date.
+    /// Expected: Event appears on the day spread.
     @Test func testEventAppearsOnDaySpreadWhenDateOverlaps() {
         let service = Self.makeService()
         let daySpread = Self.makeSpread(period: .day, date: Self.testDate)
@@ -292,6 +332,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result == true)
     }
 
+    /// Conditions: An event's date differs from the day spread date.
+    /// Expected: Event does not appear on the day spread.
     @Test func testEventDoesNotAppearOnDaySpreadWhenDateDoesNotOverlap() {
         let service = Self.makeService()
         let calendar = Self.testCalendar
@@ -310,6 +352,8 @@ struct ConventionalSpreadServiceTests {
 
     // MARK: - Event Visibility: Multiday Spread Tests
 
+    /// Conditions: An event's date falls within the multiday spread range.
+    /// Expected: Event appears on the multiday spread.
     @Test func testEventAppearsOnMultidaySpreadWhenDateRangeOverlaps() {
         let service = Self.makeService()
         let calendar = Self.testCalendar
@@ -327,6 +371,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result == true)
     }
 
+    /// Conditions: An event's date falls outside the multiday spread range.
+    /// Expected: Event does not appear on the multiday spread.
     @Test func testEventDoesNotAppearOnMultidaySpreadWhenDateRangeDoesNotOverlap() {
         let service = Self.makeService()
         let calendar = Self.testCalendar
@@ -344,6 +390,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result == false)
     }
 
+    /// Conditions: A multi-day event spans three days with day spreads for each day.
+    /// Expected: Event appears on each day spread.
     @Test func testMultiDayEventAppearsOnMultipleDaySpreads() {
         let service = Self.makeService()
         let calendar = Self.testCalendar
@@ -371,6 +419,8 @@ struct ConventionalSpreadServiceTests {
 
     // MARK: - Edge Case Tests
 
+    /// Conditions: A month-period task is in a different month than the month spread.
+    /// Expected: Service returns nil.
     @Test func testTaskWithDifferentMonthDoesNotMatchMonthSpread() {
         let service = Self.makeService()
         let monthSpread = Self.makeSpread(period: .month, date: Self.testDate)
@@ -381,6 +431,8 @@ struct ConventionalSpreadServiceTests {
         #expect(result == nil)
     }
 
+    /// Conditions: A year-period task has two year spreads for different years available.
+    /// Expected: Service returns the spread matching the task's year.
     @Test func testTaskMatchesCorrectYearSpread() {
         let service = Self.makeService()
         let yearSpread2026 = Self.makeSpread(period: .year, date: Self.testDate)

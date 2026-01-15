@@ -5,6 +5,7 @@ import struct Foundation.UUID
 ///
 /// Implementations handle CRUD operations for `DataModel.Event` entities.
 /// SwiftData implementation provided in SPRD-57.
+@MainActor
 protocol EventRepository: Sendable {
     /// Retrieves all events from storage.
     func getEvents() async -> [DataModel.Event]

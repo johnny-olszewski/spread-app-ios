@@ -26,6 +26,8 @@ struct EntryTests {
 
     // MARK: - EntryType Tests
 
+    /// Conditions: Access EntryType.allCases.
+    /// Expected: Should contain exactly 3 cases: task, event, note.
     @Test func testEntryTypeCases() {
         let cases = EntryType.allCases
         #expect(cases.count == 3)
@@ -34,36 +36,52 @@ struct EntryTests {
         #expect(cases.contains(.note))
     }
 
+    /// Conditions: Access task imageName.
+    /// Expected: Should return "circle.fill" (solid circle per BuJo spec).
     @Test func testTaskImageName() {
         #expect(EntryType.task.imageName == "circle.fill")
     }
 
+    /// Conditions: Access event imageName.
+    /// Expected: Should return "circle" (empty circle per BuJo spec).
     @Test func testEventImageName() {
         #expect(EntryType.event.imageName == "circle")
     }
 
+    /// Conditions: Access note imageName.
+    /// Expected: Should return "minus" (dash per BuJo spec).
     @Test func testNoteImageName() {
         #expect(EntryType.note.imageName == "minus")
     }
 
+    /// Conditions: Access task displayName.
+    /// Expected: Should return "Task".
     @Test func testTaskDisplayName() {
         #expect(EntryType.task.displayName == "Task")
     }
 
+    /// Conditions: Access event displayName.
+    /// Expected: Should return "Event".
     @Test func testEventDisplayName() {
         #expect(EntryType.event.displayName == "Event")
     }
 
+    /// Conditions: Access note displayName.
+    /// Expected: Should return "Note".
     @Test func testNoteDisplayName() {
         #expect(EntryType.note.displayName == "Note")
     }
 
+    /// Conditions: Access rawValue for all entry types.
+    /// Expected: Should return lowercase type names.
     @Test func testEntryTypeRawValues() {
         #expect(EntryType.task.rawValue == "task")
         #expect(EntryType.event.rawValue == "event")
         #expect(EntryType.note.rawValue == "note")
     }
 
+    /// Conditions: Initialize EntryType from raw values.
+    /// Expected: Valid values should create types; invalid should return nil.
     @Test func testEntryTypeInitFromRawValue() {
         #expect(EntryType(rawValue: "task") == .task)
         #expect(EntryType(rawValue: "event") == .event)
@@ -73,6 +91,8 @@ struct EntryTests {
 
     // MARK: - Task Entry Protocol Tests
 
+    /// Conditions: Create Task with title and createdDate.
+    /// Expected: Task should conform to Entry with correct entryType, title, and createdDate.
     @Test func testTaskConformsToEntry() {
         let createdDate = makeDate(year: 2026, month: 6, day: 1)
         let task = DataModel.Task(title: "Test Task", createdDate: createdDate)
@@ -82,11 +102,15 @@ struct EntryTests {
         #expect(task.createdDate == createdDate)
     }
 
+    /// Conditions: Create Task with default initializer.
+    /// Expected: entryType should be .task.
     @Test func testTaskEntryType() {
         let task = DataModel.Task()
         #expect(task.entryType == .task)
     }
 
+    /// Conditions: Create Task with all properties specified.
+    /// Expected: All properties should be set correctly.
     @Test func testTaskHasRequiredEntryProperties() {
         let now = makeDate(year: 2026, month: 6, day: 15)
         let assignments = [
@@ -109,6 +133,8 @@ struct EntryTests {
         #expect(task.assignments == assignments)
     }
 
+    /// Conditions: Access Task.Status.allCases.
+    /// Expected: Should contain 4 statuses: open, complete, migrated, cancelled.
     @Test func testTaskStatusCases() {
         let cases = DataModel.Task.Status.allCases
         #expect(cases.count == 4)
@@ -118,6 +144,8 @@ struct EntryTests {
         #expect(cases.contains(.cancelled))
     }
 
+    /// Conditions: Access Task.Status rawValues.
+    /// Expected: Should return lowercase status names.
     @Test func testTaskStatusRawValues() {
         #expect(DataModel.Task.Status.open.rawValue == "open")
         #expect(DataModel.Task.Status.complete.rawValue == "complete")
@@ -125,6 +153,8 @@ struct EntryTests {
         #expect(DataModel.Task.Status.cancelled.rawValue == "cancelled")
     }
 
+    /// Conditions: Create Task with default initializer.
+    /// Expected: Should have empty title, day period, open status, empty assignments.
     @Test func testTaskDefaultValues() {
         let task = DataModel.Task()
         #expect(task.title == "")
@@ -135,6 +165,8 @@ struct EntryTests {
 
     // MARK: - Event Entry Protocol Tests
 
+    /// Conditions: Create Event with title.
+    /// Expected: Event should conform to DateRangeEntry with correct entryType.
     @Test func testEventConformsToDateRangeEntry() {
         let event = DataModel.Event(title: "Test Event")
 
@@ -142,11 +174,15 @@ struct EntryTests {
         #expect(event.startDate <= event.endDate)
     }
 
+    /// Conditions: Create Event with default initializer.
+    /// Expected: entryType should be .event.
     @Test func testEventEntryType() {
         let event = DataModel.Event()
         #expect(event.entryType == .event)
     }
 
+    /// Conditions: Create Event with all properties specified.
+    /// Expected: All properties should be set correctly.
     @Test func testEventHasRequiredProperties() {
         let now = Date.now
         let event = DataModel.Event(
@@ -166,6 +202,8 @@ struct EntryTests {
         #expect(event.endTime == now)
     }
 
+    /// Conditions: Access EventTiming.allCases.
+    /// Expected: Should contain 4 timings: singleDay, allDay, timed, multiDay.
     @Test func testEventTimingCases() {
         let cases = EventTiming.allCases
         #expect(cases.count == 4)
@@ -175,6 +213,8 @@ struct EntryTests {
         #expect(cases.contains(.multiDay))
     }
 
+    /// Conditions: Access EventTiming displayNames.
+    /// Expected: Should return human-readable names.
     @Test func testEventTimingDisplayNames() {
         #expect(EventTiming.singleDay.displayName == "Single Day")
         #expect(EventTiming.allDay.displayName == "All Day")
@@ -182,6 +222,8 @@ struct EntryTests {
         #expect(EventTiming.multiDay.displayName == "Multi-Day")
     }
 
+    /// Conditions: Create Event with default initializer.
+    /// Expected: Should have empty title, singleDay timing, nil times.
     @Test func testEventDefaultValues() {
         let event = DataModel.Event()
         #expect(event.title == "")
@@ -192,6 +234,8 @@ struct EntryTests {
 
     // MARK: - Note Entry Protocol Tests
 
+    /// Conditions: Create Note with title.
+    /// Expected: Note should conform to AssignableEntry with correct entryType and default period.
     @Test func testNoteConformsToAssignableEntry() {
         let note = DataModel.Note(title: "Test Note")
 
@@ -199,11 +243,15 @@ struct EntryTests {
         #expect(note.period == .day)
     }
 
+    /// Conditions: Create Note with default initializer.
+    /// Expected: entryType should be .note.
     @Test func testNoteEntryType() {
         let note = DataModel.Note()
         #expect(note.entryType == .note)
     }
 
+    /// Conditions: Create Note with all properties specified.
+    /// Expected: All properties should be set correctly including extended content.
     @Test func testNoteHasRequiredProperties() {
         let now = makeDate(year: 2026, month: 6, day: 15)
         let assignments = [
@@ -228,6 +276,8 @@ struct EntryTests {
         #expect(note.assignments == assignments)
     }
 
+    /// Conditions: Access Note.Status.allCases.
+    /// Expected: Should contain 2 statuses: active, migrated.
     @Test func testNoteStatusCases() {
         let cases = DataModel.Note.Status.allCases
         #expect(cases.count == 2)
@@ -235,11 +285,15 @@ struct EntryTests {
         #expect(cases.contains(.migrated))
     }
 
+    /// Conditions: Access Note.Status rawValues.
+    /// Expected: Should return lowercase status names.
     @Test func testNoteStatusRawValues() {
         #expect(DataModel.Note.Status.active.rawValue == "active")
         #expect(DataModel.Note.Status.migrated.rawValue == "migrated")
     }
 
+    /// Conditions: Create Note with default initializer.
+    /// Expected: Should have empty title/content, day period, active status, empty assignments.
     @Test func testNoteDefaultValues() {
         let note = DataModel.Note()
         #expect(note.title == "")
@@ -249,6 +303,8 @@ struct EntryTests {
         #expect(note.assignments.isEmpty)
     }
 
+    /// Conditions: Create Note with very long content.
+    /// Expected: Content should be stored without truncation.
     @Test func testNoteCanHaveExtendedContent() {
         let longContent = String(repeating: "Lorem ipsum dolor sit amet. ", count: 100)
         let note = DataModel.Note(content: longContent)
@@ -257,6 +313,8 @@ struct EntryTests {
 
     // MARK: - Event appearsOn() Tests
 
+    /// Conditions: Event on June 15, checking day spread for June 15.
+    /// Expected: Should return true (same day).
     @Test func testEventAppearsOnSameDaySpread() {
         let date = makeDate(year: 2026, month: 6, day: 15)
         let event = DataModel.Event(
@@ -272,6 +330,8 @@ struct EntryTests {
         #expect(result == true)
     }
 
+    /// Conditions: Event on June 15, checking day spread for June 16.
+    /// Expected: Should return false (different day).
     @Test func testEventDoesNotAppearOnDifferentDaySpread() {
         let eventDate = makeDate(year: 2026, month: 6, day: 15)
         let spreadDate = makeDate(year: 2026, month: 6, day: 16)
@@ -288,6 +348,8 @@ struct EntryTests {
         #expect(result == false)
     }
 
+    /// Conditions: Event on June 15, checking month spread for June.
+    /// Expected: Should return true (event is within month).
     @Test func testEventAppearsOnContainingMonthSpread() {
         let eventDate = makeDate(year: 2026, month: 6, day: 15)
         let monthStart = makeDate(year: 2026, month: 6, day: 1)
@@ -304,6 +366,8 @@ struct EntryTests {
         #expect(result == true)
     }
 
+    /// Conditions: Event on June 15, checking month spread for July.
+    /// Expected: Should return false (different month).
     @Test func testEventDoesNotAppearOnDifferentMonthSpread() {
         let eventDate = makeDate(year: 2026, month: 6, day: 15)
         let differentMonthStart = makeDate(year: 2026, month: 7, day: 1)
@@ -320,6 +384,8 @@ struct EntryTests {
         #expect(result == false)
     }
 
+    /// Conditions: Event on June 15 2026, checking year spread for 2026.
+    /// Expected: Should return true (event is within year).
     @Test func testEventAppearsOnContainingYearSpread() {
         let eventDate = makeDate(year: 2026, month: 6, day: 15)
         let yearStart = makeDate(year: 2026, month: 1, day: 1)
@@ -336,6 +402,8 @@ struct EntryTests {
         #expect(result == true)
     }
 
+    /// Conditions: Event on June 15 2026, checking year spread for 2027.
+    /// Expected: Should return false (different year).
     @Test func testEventDoesNotAppearOnDifferentYearSpread() {
         let eventDate = makeDate(year: 2026, month: 6, day: 15)
         let differentYearStart = makeDate(year: 2027, month: 1, day: 1)
@@ -352,6 +420,8 @@ struct EntryTests {
         #expect(result == false)
     }
 
+    /// Conditions: Multi-day event from June 15-17, checking day spreads.
+    /// Expected: Should appear on June 15, 16, and 17.
     @Test func testMultiDayEventAppearsOnSpanningDays() {
         let startDate = makeDate(year: 2026, month: 6, day: 15)
         let endDate = makeDate(year: 2026, month: 6, day: 17)
@@ -371,6 +441,8 @@ struct EntryTests {
         #expect(event.appearsOn(period: .day, date: day17, calendar: testCalendar) == true)
     }
 
+    /// Conditions: Multi-day event from June 15-17, checking days outside range.
+    /// Expected: Should not appear on June 14 or June 18.
     @Test func testMultiDayEventDoesNotAppearOutsideRange() {
         let startDate = makeDate(year: 2026, month: 6, day: 15)
         let endDate = makeDate(year: 2026, month: 6, day: 17)
@@ -387,6 +459,8 @@ struct EntryTests {
         #expect(event.appearsOn(period: .day, date: dayAfter, calendar: testCalendar) == false)
     }
 
+    /// Conditions: Multi-day event from June 28 to July 3, checking month spreads.
+    /// Expected: Should appear on both June and July month spreads.
     @Test func testMultiDayEventSpanningMonthsAppearsOnBothMonths() {
         let startDate = makeDate(year: 2026, month: 6, day: 28)
         let endDate = makeDate(year: 2026, month: 7, day: 3)
@@ -403,6 +477,8 @@ struct EntryTests {
         #expect(event.appearsOn(period: .month, date: julyStart, calendar: testCalendar) == true)
     }
 
+    /// Conditions: Multi-day event from Dec 28 2026 to Jan 3 2027, checking year spreads.
+    /// Expected: Should appear on both 2026 and 2027 year spreads.
     @Test func testMultiDayEventSpanningYearsAppearsOnBothYears() {
         let startDate = makeDate(year: 2026, month: 12, day: 28)
         let endDate = makeDate(year: 2027, month: 1, day: 3)
@@ -419,6 +495,8 @@ struct EntryTests {
         #expect(event.appearsOn(period: .year, date: year2027Start, calendar: testCalendar) == true)
     }
 
+    /// Conditions: Event on June 1 (first day of month), checking June month spread.
+    /// Expected: Should return true.
     @Test func testEventOnFirstDayOfMonthAppearsOnMonthSpread() {
         let date = makeDate(year: 2026, month: 6, day: 1)
         let event = DataModel.Event(startDate: date, endDate: date)
@@ -431,6 +509,8 @@ struct EntryTests {
         #expect(result == true)
     }
 
+    /// Conditions: Event on June 30 (last day of month), checking June month spread.
+    /// Expected: Should return true.
     @Test func testEventOnLastDayOfMonthAppearsOnMonthSpread() {
         let lastDayOfJune = makeDate(year: 2026, month: 6, day: 30)
         let juneStart = makeDate(year: 2026, month: 6, day: 1)
@@ -444,6 +524,8 @@ struct EntryTests {
         #expect(result == true)
     }
 
+    /// Conditions: Event checking multiday spread (which has nil calendarComponent).
+    /// Expected: Should return true (multiday filtering done by caller).
     @Test func testEventAlwaysAppearsOnMultidaySpread() {
         // Multiday spreads have nil calendarComponent, so appearsOn returns true
         // The actual filtering is done by the caller with the date range
