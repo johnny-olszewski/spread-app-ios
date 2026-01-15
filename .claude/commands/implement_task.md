@@ -60,7 +60,7 @@ Task completion scaffold:
 5) Verify  
 - Describe how the task was validated  
 - If no tests/builds were run, explicitly say why
-- run all tests including newly implemented to ensure there are no regressions
+- run only the tests created as part of the task implementation
 
 6) Prepare review summary  
 - Bullet list of changes  
