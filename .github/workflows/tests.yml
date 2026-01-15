@@ -1,0 +1,37 @@
+name: Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 26.1.1
+        run: sudo xcode-select -s /Applications/Xcode_26.1.1.app
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Resolve iOS 26.1 simulator
+        id: simulator
+        run: |
+          set -euo pipefail
+          RUNTIME_NAME="iOS 26.1"
+          UDID=$(xcrun simctl list devices "$RUNTIME_NAME" --json | jq -r '.devices | to_entries[] | .value[] | select(.isAvailable==true) | .udid' | head -n 1)
+          if [ -z "$UDID" ]; then
+            RUNTIME_ID="com.apple.CoreSimulator.SimRuntime.iOS-26-1"
+            DEVICE_TYPE_ID="com.apple.CoreSimulator.SimDeviceType.iPhone-16"
+            UDID=$(xcrun simctl create "iPhone 16 (26.1)" "$DEVICE_TYPE_ID" "$RUNTIME_ID")
+          fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Run test suite
+        run: xcodebuild -scheme Spread -destination "id=${{ steps.simulator.outputs.udid }}" test
