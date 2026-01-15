@@ -476,7 +476,7 @@
   - Unit tests for spread deletion cascade behavior.
 - **Dependencies**: SPRD-14
 
-### [SPRD-16] Feature: Cancelled task behavior
+### [SPRD-16] Feature: Cancelled task behavior - [x] Complete
 - **Context**: Cancelled tasks must be hidden and excluded.
 - **Description**: Ensure cancelled tasks are excluded from Inbox, migration, and default lists.
 - **Implementation Details**:
