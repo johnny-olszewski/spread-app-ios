@@ -171,6 +171,42 @@ struct MigrationTests {
         #expect(savedTask?.assignments.count == 2)
     }
 
+    /// Conditions: A task with migrated status is migrated to a new spread.
+    /// Expected: Task top-level status is set to open.
+    @Test @MainActor func testMigrateTaskUpdatesTopLevelStatusToOpen() async throws {
+        let calendar = Self.testCalendar
+        let taskDate = Self.testDate
+
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
+
+        let task = DataModel.Task(
+            title: "Test Task",
+            date: taskDate,
+            period: .day,
+            status: .migrated,
+            assignments: [
+                TaskAssignment(period: .month, date: taskDate, status: .open)
+            ]
+        )
+
+        let taskRepo = InMemoryTaskRepository(tasks: [task])
+        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+
+        let manager = try await JournalManager.makeForTesting(
+            calendar: calendar,
+            today: taskDate,
+            taskRepository: taskRepo,
+            spreadRepository: spreadRepo
+        )
+
+        try await manager.migrateTask(task, from: monthSpread, to: daySpread)
+
+        let updatedTask = manager.tasks.first { $0.id == task.id }
+
+        #expect(updatedTask?.status == .open)
+    }
+
     /// Conditions: A task is migrated.
     /// Expected: Data version increments.
     @Test @MainActor func testMigrateTaskIncrementsDataVersion() async throws {
@@ -546,6 +582,42 @@ struct MigrationTests {
             let destinationAssignment = task.assignments.first { $0.period == .day }
             #expect(destinationAssignment?.status == .open)
         }
+    }
+
+    /// Conditions: Batch migration includes a task with migrated status.
+    /// Expected: Task top-level status is set to open.
+    @Test @MainActor func testMigrateTasksBatchUpdatesTopLevelStatus() async throws {
+        let calendar = Self.testCalendar
+        let taskDate = Self.testDate
+
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
+
+        let migratedTask = DataModel.Task(
+            title: "Migrated Task",
+            date: taskDate,
+            period: .day,
+            status: .migrated,
+            assignments: [
+                TaskAssignment(period: .month, date: taskDate, status: .open)
+            ]
+        )
+
+        let taskRepo = InMemoryTaskRepository(tasks: [migratedTask])
+        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+
+        let manager = try await JournalManager.makeForTesting(
+            calendar: calendar,
+            today: taskDate,
+            taskRepository: taskRepo,
+            spreadRepository: spreadRepo
+        )
+
+        try await manager.migrateTasksBatch([migratedTask], from: monthSpread, to: daySpread)
+
+        let updatedTask = manager.tasks.first { $0.id == migratedTask.id }
+
+        #expect(updatedTask?.status == .open)
     }
 
     /// Conditions: Batch migration is attempted with an empty task array.
