@@ -383,7 +383,7 @@
   - Unit tests for creation validation across dates and multiday rules.
 - **Dependencies**: SPRD-11
 
-### [SPRD-50] Feature: Unit tests for spread creation rules
+### [SPRD-50] Feature: Unit tests for spread creation rules - [x] Complete
 - **Context**: Creation rules must be enforced consistently.
 - **Description**: Add unit tests for present/future rules and multiday start handling.
 - **Acceptance Criteria**:
@@ -391,6 +391,7 @@
 - **Tests**:
   - Unit tests for validation edge cases.
 - **Dependencies**: SPRD-12
+- **Note**: Tests implemented as part of SPRD-12 in `SpreadCreationPolicyTests.swift`
 
 ### [SPRD-13] Feature: Conventional assignment engine - [x] Complete
 - **Context**: Entries must be assigned to created spreads or Inbox.
@@ -437,7 +438,7 @@
   - Unit tests confirming cancelled tasks excluded
 - **Dependencies**: SPRD-13
 
-### [SPRD-51] Feature: Unit tests for assignment + Inbox
+### [SPRD-51] Feature: Unit tests for assignment + Inbox - [x] Complete
 - **Context**: Assignment and Inbox are core behaviors.
 - **Description**: Add tests for assignment engine and Inbox auto-resolve.
 - **Acceptance Criteria**:
@@ -445,6 +446,7 @@
 - **Tests**:
   - Unit tests for events showing on all spreads.
 - **Dependencies**: SPRD-14
+- **Note**: Tests implemented as part of SPRD-13 in `ConventionalSpreadServiceTests.swift` and SPRD-14 in `InboxTests.swift`
 
 ### [SPRD-15] Feature: Migration logic (manual only) - [x] Complete
 - **Context**: Migration must be user-triggered and type-specific.
@@ -491,7 +493,7 @@
   - Unit tests confirming cancelled tasks are excluded from queries.
 - **Dependencies**: SPRD-15
 
-### [SPRD-52] Feature: Unit tests for migration rules
+### [SPRD-52] Feature: Unit tests for migration rules - [x] Complete
 - **Context**: Migration behavior differs by entry type and status.
 - **Description**: Add tests for manual migration, event blocking, note explicit migration, and cancelled exclusion.
 - **Acceptance Criteria**:
@@ -499,6 +501,7 @@
 - **Tests**:
   - Unit tests for duplicate assignment prevention.
 - **Dependencies**: SPRD-16
+- **Note**: Tests implemented as part of SPRD-15 in `MigrationTests.swift` and SPRD-16 in `CancelledTaskTests.swift`
 
 ## Story: Conventional MVP UI: create spreads and tasks
 
