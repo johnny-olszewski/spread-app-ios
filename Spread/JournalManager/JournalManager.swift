@@ -244,11 +244,13 @@ final class JournalManager {
     // MARK: - Entry Association Helpers
 
     /// Returns tasks that should appear on the given spread.
+    ///
+    /// Cancelled tasks are excluded from spread entry lists.
     private func tasksForSpread(_ spread: DataModel.Spread) -> [DataModel.Task] {
         if spread.period == .multiday {
-            return tasks.filter { entryDateFallsWithinMultidayRange($0.date, spread: spread) }
+            return tasks.filter { $0.status != .cancelled && entryDateFallsWithinMultidayRange($0.date, spread: spread) }
         }
-        return tasks.filter { hasAssignment($0, for: spread) }
+        return tasks.filter { $0.status != .cancelled && hasAssignment($0, for: spread) }
     }
 
     /// Returns notes that should appear on the given spread.
