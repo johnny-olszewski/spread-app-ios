@@ -446,7 +446,7 @@
   - Unit tests for events showing on all spreads.
 - **Dependencies**: SPRD-14
 
-### [SPRD-15] Feature: Migration logic (manual only)
+### [SPRD-15] Feature: Migration logic (manual only) - [x] Complete
 - **Context**: Migration must be user-triggered and type-specific.
 - **Description**: Implement manual migration for tasks; allow explicit notes; block events.
 - **Implementation Details**:

@@ -8,6 +8,8 @@ Behavior:
 - throughout the execution ask for clarification if needed, do not make assumptions
 - if the answers require the spec or plan to be updated then make the changes after confirming them with the user
 - if tasks will be completed in future tasks include `//TODO: SPRD-#` where applicable. Ensure all TODOs relate to a task
+- Skipping CLAUDE/spec reloads when unchanged within a session
+- keep context minimal my loading only what is required
 
 Task selection rules (when no task number is provided):
 - Choose the earliest task in plan.md that is not marked complete
@@ -18,9 +20,7 @@ Task selection rules (when no task number is provided):
   - Locate the matching task in plan.md
   - Treat it as the sole scope of work
 - If <TASK_NUMBER> is NOT provided:
-  - Select the next incomplete, unblocked task in plan.md:
-   - tasks might be marked as completeed
-   - or traverese the commit history which means they are completed if merged with task number
+  - Select the next incomplete, unblocked task in plan.md
   - Treat that task as the sole scope of work
 - confirm with the user which task is to be implemented before proceeding
 
@@ -28,12 +28,12 @@ Task completion scaffold:
 
 0) Setup
 - checkout main, stash any changes if necessary
-- create a new branch per the spec and checkout the branch
+- create a new branch per the your instructions and checkout the branch
 
 1) Resolve task  
 - With the task to be completed:
   - Echo the task number
-  - Quote the full task description from plan.md including the acceptance criteria
+  - summarize the task in 2–3 bullets
 - Reevaluate task
   - Analyze the requirements and think about if there are any changes that should be added
   - If there are any iteratively ask the user to help plan and update the relevant planning files
@@ -41,8 +41,7 @@ Task completion scaffold:
 
 2) Load context  
 - Read CLAUDE.md for repository rules  
-- Read spec.md for functional requirements  
-- Read plan.md to confirm ordering and dependencies  
+- Tead only the relevant task section and any linked spec section
 
 3) Create tests
 - based on the spec, think through what tests will need to be created based on the acceptance criteria
