@@ -477,6 +477,8 @@ final class JournalManager {
             task.assignments.append(destinationAssignment)
         }
 
+        task.status = .open
+
         // Persist changes
         try await taskRepository.save(task)
 
@@ -605,6 +607,8 @@ final class JournalManager {
                 )
                 task.assignments.append(destinationAssignment)
             }
+
+            task.status = .open
 
             // Persist changes
             try await taskRepository.save(task)
