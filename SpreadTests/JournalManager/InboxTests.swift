@@ -21,6 +21,8 @@ struct InboxTests {
 
     // MARK: - Inbox Population Tests
 
+    /// Conditions: A task has no assignments and is loaded into the task repository.
+    /// Expected: Inbox contains the task.
     @Test @MainActor func testInboxIncludesTaskWithNoAssignments() async throws {
         let task = DataModel.Task(
             title: "Unassigned Task",
@@ -40,6 +42,8 @@ struct InboxTests {
         #expect(manager.inboxEntries.first?.id == task.id)
     }
 
+    /// Conditions: A note has no assignments and is loaded into the note repository.
+    /// Expected: Inbox contains the note.
     @Test @MainActor func testInboxIncludesNoteWithNoAssignments() async throws {
         let note = DataModel.Note(
             title: "Unassigned Note",
@@ -59,6 +63,8 @@ struct InboxTests {
         #expect(manager.inboxEntries.first?.id == note.id)
     }
 
+    /// Conditions: A task has an assignment but no matching spread exists for its date.
+    /// Expected: Inbox contains the task.
     @Test @MainActor func testInboxIncludesTaskWithNoMatchingSpread() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
@@ -91,6 +97,8 @@ struct InboxTests {
         #expect(manager.inboxEntries.first?.id == task.id)
     }
 
+    /// Conditions: A task has an assignment and a matching spread exists for its date.
+    /// Expected: Inbox is empty.
     @Test @MainActor func testInboxExcludesTaskWithMatchingSpread() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
@@ -120,6 +128,8 @@ struct InboxTests {
         #expect(manager.inboxEntries.isEmpty)
     }
 
+    /// Conditions: A task has no assignments and a parent period spread exists.
+    /// Expected: Inbox still contains the task.
     @Test @MainActor func testInboxIncludesTaskWithNoAssignmentsEvenWhenParentSpreadExists() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
@@ -147,6 +157,8 @@ struct InboxTests {
 
     // MARK: - Events Excluded Tests
 
+    /// Conditions: An event exists in the event repository.
+    /// Expected: Inbox remains empty.
     @Test @MainActor func testInboxExcludesEvents() async throws {
         let event = DataModel.Event(
             title: "Test Event",
@@ -164,6 +176,8 @@ struct InboxTests {
         #expect(manager.inboxEntries.isEmpty)
     }
 
+    /// Conditions: An event exists and there are no spreads.
+    /// Expected: Inbox remains empty.
     @Test @MainActor func testInboxExcludesEventsEvenWithoutMatchingSpreads() async throws {
         let event = DataModel.Event(
             title: "Orphan Event",
@@ -184,6 +198,8 @@ struct InboxTests {
 
     // MARK: - Cancelled Tasks Excluded Tests
 
+    /// Conditions: A task is cancelled and has no assignments.
+    /// Expected: Inbox remains empty.
     @Test @MainActor func testInboxExcludesCancelledTasks() async throws {
         let cancelledTask = DataModel.Task(
             title: "Cancelled Task",
@@ -203,6 +219,8 @@ struct InboxTests {
         #expect(manager.inboxEntries.isEmpty)
     }
 
+    /// Conditions: A task is cancelled and has cancelled assignments.
+    /// Expected: Inbox remains empty.
     @Test @MainActor func testInboxExcludesCancelledTasksEvenWithAssignments() async throws {
         let cancelledTask = DataModel.Task(
             title: "Cancelled Task with Assignments",
@@ -230,6 +248,8 @@ struct InboxTests {
 
     // MARK: - Inbox Count Tests
 
+    /// Conditions: No inbox-eligible entries exist.
+    /// Expected: Inbox count is zero.
     @Test @MainActor func testInboxCountReturnsZeroWhenEmpty() async throws {
         let manager = try await JournalManager.makeForTesting(
             calendar: Self.testCalendar,
@@ -239,6 +259,8 @@ struct InboxTests {
         #expect(manager.inboxCount == 0)
     }
 
+    /// Conditions: Two tasks and one note have no assignments.
+    /// Expected: Inbox count is three.
     @Test @MainActor func testInboxCountReturnsCorrectCount() async throws {
         let task1 = DataModel.Task(title: "Task 1", date: Self.testDate, assignments: [])
         let task2 = DataModel.Task(title: "Task 2", date: Self.testDate, assignments: [])
@@ -258,6 +280,8 @@ struct InboxTests {
 
     // MARK: - Auto-Resolve Tests
 
+    /// Conditions: A task is in the inbox and a matching day spread is added.
+    /// Expected: Inbox no longer contains the task.
     @Test @MainActor func testAddSpreadAutoResolvesInboxTask() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
@@ -285,6 +309,8 @@ struct InboxTests {
         #expect(manager.inboxEntries.isEmpty)
     }
 
+    /// Conditions: A note is in the inbox and a matching day spread is added.
+    /// Expected: Inbox no longer contains the note.
     @Test @MainActor func testAddSpreadAutoResolvesInboxNote() async throws {
         let calendar = Self.testCalendar
         let noteDate = Self.testDate
@@ -312,6 +338,8 @@ struct InboxTests {
         #expect(manager.inboxEntries.isEmpty)
     }
 
+    /// Conditions: Two tasks and one note are in the inbox and a matching day spread is added.
+    /// Expected: Inbox is empty.
     @Test @MainActor func testAddSpreadAutoResolvesMultipleInboxEntries() async throws {
         let calendar = Self.testCalendar
         let date = Self.testDate
@@ -335,6 +363,8 @@ struct InboxTests {
         #expect(manager.inboxEntries.isEmpty)
     }
 
+    /// Conditions: A task is in the inbox and a matching day spread is added.
+    /// Expected: Task receives one open assignment for the day period.
     @Test @MainActor func testAddSpreadCreatesAssignmentsForResolvedEntries() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
@@ -361,6 +391,8 @@ struct InboxTests {
         #expect(updatedTask?.assignments.first?.status == .open)
     }
 
+    /// Conditions: A day task is in the inbox and a parent month spread is added.
+    /// Expected: Inbox clears and the task is assigned to the month spread.
     @Test @MainActor func testAddSpreadAutoResolvesFromParentPeriod() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
@@ -392,6 +424,8 @@ struct InboxTests {
         #expect(updatedTask?.assignments.first?.period == .month)
     }
 
+    /// Conditions: Add a spread to the manager.
+    /// Expected: Data version increases.
     @Test @MainActor func testAddSpreadIncrementsDataVersion() async throws {
         let calendar = Self.testCalendar
 
@@ -407,6 +441,8 @@ struct InboxTests {
         #expect(manager.dataVersion > initialVersion)
     }
 
+    /// Conditions: Add a day spread with an injected spread repository.
+    /// Expected: Repository contains the saved day spread.
     @Test @MainActor func testAddSpreadPersistsSpreadToRepository() async throws {
         let calendar = Self.testCalendar
         let spreadRepo = InMemorySpreadRepository()
@@ -424,6 +460,8 @@ struct InboxTests {
         #expect(savedSpreads.first?.period == .day)
     }
 
+    /// Conditions: Add a spread for a different date than the inbox task.
+    /// Expected: Task remains in the inbox.
     @Test @MainActor func testAddSpreadDoesNotAutoResolveUnmatchedEntries() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
@@ -454,6 +492,8 @@ struct InboxTests {
 
     // MARK: - Mixed Scenarios
 
+    /// Conditions: One task and one note are unassigned, and one event exists.
+    /// Expected: Inbox contains the task and note, excludes the event.
     @Test @MainActor func testInboxContainsMixOfTasksAndNotes() async throws {
         let task = DataModel.Task(title: "Task", date: Self.testDate, assignments: [])
         let note = DataModel.Note(title: "Note", date: Self.testDate, assignments: [])

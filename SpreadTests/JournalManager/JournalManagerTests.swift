@@ -20,12 +20,16 @@ struct JournalManagerTests {
 
     // MARK: - Initialization Tests
 
+    /// Conditions: Create a testing JournalManager with default settings.
+    /// Expected: Manager uses the Gregorian calendar.
     @Test @MainActor func testInitializesWithMockRepositories() async throws {
         let manager = try await JournalManager.makeForTesting()
 
         #expect(manager.calendar.identifier == .gregorian)
     }
 
+    /// Conditions: Create a testing JournalManager with a Japanese calendar.
+    /// Expected: Manager uses the Japanese calendar.
     @Test @MainActor func testInitializesWithCustomCalendar() async throws {
         var calendar = Calendar(identifier: .japanese)
         calendar.timeZone = .init(identifier: "UTC")!
@@ -35,6 +39,8 @@ struct JournalManagerTests {
         #expect(manager.calendar.identifier == .japanese)
     }
 
+    /// Conditions: Create a testing JournalManager with a custom today date.
+    /// Expected: Manager's today value matches the provided date.
     @Test @MainActor func testInitializesWithCustomToday() async throws {
         let today = Self.testDate
 
@@ -43,12 +49,16 @@ struct JournalManagerTests {
         #expect(manager.today == today)
     }
 
+    /// Conditions: Create a testing JournalManager without specifying bujo mode.
+    /// Expected: Manager defaults to conventional bujo mode.
     @Test @MainActor func testInitializesWithDefaultBujoMode() async throws {
         let manager = try await JournalManager.makeForTesting()
 
         #expect(manager.bujoMode == .conventional)
     }
 
+    /// Conditions: Create a testing JournalManager with bujo mode set to traditional.
+    /// Expected: Manager uses traditional bujo mode.
     @Test @MainActor func testInitializesWithCustomBujoMode() async throws {
         let manager = try await JournalManager.makeForTesting(bujoMode: .traditional)
 
@@ -57,6 +67,8 @@ struct JournalManagerTests {
 
     // MARK: - Data Loading Tests
 
+    /// Conditions: Provide a spread repository containing one spread.
+    /// Expected: Manager loads that spread into its spreads list.
     @Test @MainActor func testLoadsSpreadsFromRepository() async throws {
         let calendar = Self.testCalendar
         let spread = DataModel.Spread(
@@ -75,6 +87,8 @@ struct JournalManagerTests {
         #expect(manager.spreads.first?.id == spread.id)
     }
 
+    /// Conditions: Provide a task repository containing one task.
+    /// Expected: Manager loads that task into its tasks list.
     @Test @MainActor func testLoadsTasksFromRepository() async throws {
         let task = DataModel.Task(title: "Test Task")
         let taskRepo = InMemoryTaskRepository(tasks: [task])
@@ -85,6 +99,8 @@ struct JournalManagerTests {
         #expect(manager.tasks.first?.id == task.id)
     }
 
+    /// Conditions: Provide an event repository containing one event.
+    /// Expected: Manager loads that event into its events list.
     @Test @MainActor func testLoadsEventsFromRepository() async throws {
         let event = DataModel.Event(title: "Test Event")
         let eventRepo = InMemoryEventRepository(events: [event])
@@ -95,6 +111,8 @@ struct JournalManagerTests {
         #expect(manager.events.first?.id == event.id)
     }
 
+    /// Conditions: Provide a note repository containing one note.
+    /// Expected: Manager loads that note into its notes list.
     @Test @MainActor func testLoadsNotesFromRepository() async throws {
         let note = DataModel.Note(title: "Test Note")
         let noteRepo = InMemoryNoteRepository(notes: [note])
@@ -107,6 +125,8 @@ struct JournalManagerTests {
 
     // MARK: - Data Model Organization Tests
 
+    /// Conditions: Provide year and month spreads in the spread repository.
+    /// Expected: Data model contains entries for year and month periods.
     @Test @MainActor func testBuildsDataModelWithSpreadsOrganizedByPeriodAndDate() async throws {
         let calendar = Self.testCalendar
         let yearSpread = DataModel.Spread(
@@ -130,6 +150,8 @@ struct JournalManagerTests {
         #expect(manager.dataModel[.month] != nil)
     }
 
+    /// Conditions: Provide a month spread in the spread repository.
+    /// Expected: Data model contains a spread data model for the normalized month date.
     @Test @MainActor func testDataModelContainsSpreadDataModels() async throws {
         let calendar = Self.testCalendar
         let spread = DataModel.Spread(
@@ -151,6 +173,8 @@ struct JournalManagerTests {
         #expect(spreadData?.spread.id == spread.id)
     }
 
+    /// Conditions: Provide a multiday spread and tasks inside and outside its date range.
+    /// Expected: Spread data includes only tasks within the range.
     @Test @MainActor func testMultidaySpreadAggregatesTasksByDateRange() async throws {
         let calendar = Self.testCalendar
         let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 13))!
@@ -186,6 +210,8 @@ struct JournalManagerTests {
         #expect(spreadData?.tasks.first?.id == inRangeTask.id)
     }
 
+    /// Conditions: Provide a multiday spread and notes inside and outside its date range.
+    /// Expected: Spread data includes only notes within the range.
     @Test @MainActor func testMultidaySpreadAggregatesNotesByDateRange() async throws {
         let calendar = Self.testCalendar
         let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 13))!
@@ -223,12 +249,16 @@ struct JournalManagerTests {
 
     // MARK: - Data Version Tests
 
+    /// Conditions: Create a testing JournalManager.
+    /// Expected: Data version starts at zero.
     @Test @MainActor func testDataVersionStartsAtZero() async throws {
         let manager = try await JournalManager.makeForTesting()
 
         #expect(manager.dataVersion == 0)
     }
 
+    /// Conditions: Create a testing JournalManager and call reload once.
+    /// Expected: Data version increments by one.
     @Test @MainActor func testDataVersionIncrementsOnReload() async throws {
         let manager = try await JournalManager.makeForTesting()
         let initialVersion = manager.dataVersion
@@ -240,6 +270,8 @@ struct JournalManagerTests {
 
     // MARK: - BujoMode Tests
 
+    /// Conditions: Create a testing JournalManager and change bujo mode.
+    /// Expected: Manager reflects the updated bujo mode.
     @Test @MainActor func testBujoModeCanBeChanged() async throws {
         let manager = try await JournalManager.makeForTesting(bujoMode: .conventional)
 
@@ -250,6 +282,8 @@ struct JournalManagerTests {
 
     // MARK: - Empty State Tests
 
+    /// Conditions: Create a testing JournalManager with empty repositories.
+    /// Expected: Spreads, tasks, events, notes, and data model are empty.
     @Test @MainActor func testHandlesEmptyRepositories() async throws {
         let manager = try await JournalManager.makeForTesting()
 

@@ -2,28 +2,37 @@ import struct Foundation.Date
 import Testing
 @testable import Spread
 
+@MainActor
 struct DependencyContainerTests {
 
     // MARK: - Factory Method Tests
 
+    /// Conditions: Create container for development environment.
+    /// Expected: Container should have development environment set.
     @Test @MainActor func testMakeForEnvironmentReturnsContainer() throws {
         let container = try DependencyContainer.make(for: .development)
 
         #expect(container.environment == .development)
     }
 
+    /// Conditions: Create container for production environment.
+    /// Expected: Container should have production environment set.
     @Test @MainActor func testMakeForProductionSetsProductionEnvironment() throws {
         let container = try DependencyContainer.make(for: .production)
 
         #expect(container.environment == .production)
     }
 
+    /// Conditions: Create container using preview factory method.
+    /// Expected: Container should have preview environment set.
     @Test @MainActor func testMakeForPreviewSetsPreviewEnvironment() throws {
         let container = try DependencyContainer.makeForPreview()
 
         #expect(container.environment == .preview)
     }
 
+    /// Conditions: Create container using testing factory method.
+    /// Expected: Container should have testing environment set.
     @Test func testMakeForTestingSetsTestingEnvironment() throws {
         let container = try DependencyContainer.makeForTesting()
 
@@ -32,6 +41,8 @@ struct DependencyContainerTests {
 
     // MARK: - Repository Injection Tests
 
+    /// Conditions: Create testing container with no custom repositories.
+    /// Expected: Should use empty repository implementations for all repositories.
     @Test func testMakeForTestingUsesDefaultEmptyRepositories() throws {
         let container = try DependencyContainer.makeForTesting()
 
@@ -42,6 +53,8 @@ struct DependencyContainerTests {
         #expect(container.collectionRepository is EmptyCollectionRepository)
     }
 
+    /// Conditions: Create testing container with custom task repository.
+    /// Expected: Container should use the injected task repository.
     @Test func testMakeForTestingAcceptsCustomTaskRepository() throws {
         let customRepo = StubTaskRepository()
         let container = try DependencyContainer.makeForTesting(taskRepository: customRepo)
@@ -49,6 +62,8 @@ struct DependencyContainerTests {
         #expect(container.taskRepository is StubTaskRepository)
     }
 
+    /// Conditions: Create testing container with custom spread repository.
+    /// Expected: Container should use the injected spread repository.
     @Test func testMakeForTestingAcceptsCustomSpreadRepository() throws {
         let customRepo = StubSpreadRepository()
         let container = try DependencyContainer.makeForTesting(spreadRepository: customRepo)
@@ -56,6 +71,8 @@ struct DependencyContainerTests {
         #expect(container.spreadRepository is StubSpreadRepository)
     }
 
+    /// Conditions: Create testing container with custom event repository.
+    /// Expected: Container should use the injected event repository.
     @Test func testMakeForTestingAcceptsCustomEventRepository() throws {
         let customRepo = StubEventRepository()
         let container = try DependencyContainer.makeForTesting(eventRepository: customRepo)
@@ -63,6 +80,8 @@ struct DependencyContainerTests {
         #expect(container.eventRepository is StubEventRepository)
     }
 
+    /// Conditions: Create testing container with custom note repository.
+    /// Expected: Container should use the injected note repository.
     @Test func testMakeForTestingAcceptsCustomNoteRepository() throws {
         let customRepo = StubNoteRepository()
         let container = try DependencyContainer.makeForTesting(noteRepository: customRepo)
@@ -70,6 +89,8 @@ struct DependencyContainerTests {
         #expect(container.noteRepository is StubNoteRepository)
     }
 
+    /// Conditions: Create testing container with custom collection repository.
+    /// Expected: Container should use the injected collection repository.
     @Test func testMakeForTestingAcceptsCustomCollectionRepository() throws {
         let customRepo = StubCollectionRepository()
         let container = try DependencyContainer.makeForTesting(collectionRepository: customRepo)
@@ -77,6 +98,8 @@ struct DependencyContainerTests {
         #expect(container.collectionRepository is StubCollectionRepository)
     }
 
+    /// Conditions: Create testing container with all custom repositories.
+    /// Expected: Container should use all injected repositories.
     @Test func testMakeForTestingAcceptsAllCustomRepositories() throws {
         let container = try DependencyContainer.makeForTesting(
             taskRepository: StubTaskRepository(),
@@ -95,6 +118,8 @@ struct DependencyContainerTests {
 
     // MARK: - Debug Summary Tests
 
+    /// Conditions: Create testing container and access debug summary.
+    /// Expected: Debug summary should report "testing" environment.
     @Test func testDebugSummaryReturnsEnvironment() throws {
         let container = try DependencyContainer.makeForTesting()
         let summary = container.debugSummary
@@ -102,6 +127,8 @@ struct DependencyContainerTests {
         #expect(summary.environment == "testing")
     }
 
+    /// Conditions: Create testing container with default repositories.
+    /// Expected: Debug summary should report Empty repository types.
     @Test func testDebugSummaryReturnsRepositoryTypes() throws {
         let container = try DependencyContainer.makeForTesting()
         let summary = container.debugSummary
@@ -113,6 +140,8 @@ struct DependencyContainerTests {
         #expect(summary.collectionRepositoryType == "EmptyCollectionRepository")
     }
 
+    /// Conditions: Debug info with various repository type names.
+    /// Expected: shortTypeName should strip "Repository" suffix from type names.
     @Test func testShortTypeNameRemovesRepositorySuffix() {
         let summary = DependencyContainerDebugInfo(
             environment: "testing",

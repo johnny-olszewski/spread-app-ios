@@ -4,6 +4,7 @@ import struct Foundation.UUID
 ///
 /// Implementations handle CRUD operations for `DataModel.Note` entities.
 /// SwiftData implementation provided in SPRD-58.
+@MainActor
 protocol NoteRepository: Sendable {
     /// Retrieves all notes from storage.
     func getNotes() async -> [DataModel.Note]

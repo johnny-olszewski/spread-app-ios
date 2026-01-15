@@ -130,6 +130,9 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 ### Testing (Swift Testing)
 
 - **Test names**: Descriptive phrases
+- **Test documentation**: Each test must include a comment above it describing:
+  - The conditions/setup being tested
+  - The expected results/behavior
 - **Assertions**: Multiple related assertions per test allowed
 - **Test structure**: Mirror source folder structure in test folder
 
