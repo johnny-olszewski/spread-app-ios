@@ -422,4 +422,435 @@ final class JournalManager {
         note.assignments.append(assignment)
         try await noteRepository.save(note)
     }
+
+    // MARK: - Task Migration
+
+    /// Migrates a task from one spread to another.
+    ///
+    /// The source assignment status is set to `.migrated` and a new assignment
+    /// is created on the destination spread with `.open` status. If an assignment
+    /// already exists on the destination, its status is updated.
+    ///
+    /// - Parameters:
+    ///   - task: The task to migrate.
+    ///   - source: The spread to migrate from.
+    ///   - destination: The spread to migrate to.
+    /// - Throws: `MigrationError` if migration is not allowed.
+    func migrateTask(
+        _ task: DataModel.Task,
+        from source: DataModel.Spread,
+        to destination: DataModel.Spread
+    ) async throws {
+        // Cancelled tasks cannot be migrated
+        guard task.status != .cancelled else {
+            throw MigrationError.taskCancelled
+        }
+
+        // Multiday spreads cannot accept direct assignments
+        guard destination.period.canHaveTasksAssigned else {
+            throw MigrationError.destinationNotAssignable
+        }
+
+        // Find source assignment
+        guard let sourceIndex = task.assignments.firstIndex(where: { assignment in
+            assignment.matches(period: source.period, date: source.date, calendar: calendar)
+        }) else {
+            throw MigrationError.noSourceAssignment
+        }
+
+        // Mark source as migrated
+        task.assignments[sourceIndex].status = .migrated
+
+        // Check if destination assignment already exists
+        if let destIndex = task.assignments.firstIndex(where: { assignment in
+            assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
+        }) {
+            // Update existing destination assignment
+            task.assignments[destIndex].status = .open
+        } else {
+            // Create new destination assignment
+            let destinationAssignment = TaskAssignment(
+                period: destination.period,
+                date: destination.date,
+                status: .open
+            )
+            task.assignments.append(destinationAssignment)
+        }
+
+        task.status = .open
+
+        // Persist changes
+        try await taskRepository.save(task)
+
+        // Reload tasks to ensure state is synchronized
+        tasks = await taskRepository.getTasks()
+
+        // Rebuild data model and trigger UI update
+        buildDataModel()
+        dataVersion += 1
+    }
+
+    // MARK: - Note Migration
+
+    /// Migrates a note from one spread to another.
+    ///
+    /// The source assignment status is set to `.migrated` and a new assignment
+    /// is created on the destination spread with `.active` status. If an assignment
+    /// already exists on the destination, its status is updated.
+    ///
+    /// Notes can only be migrated via explicit user action, not batch migration.
+    ///
+    /// - Parameters:
+    ///   - note: The note to migrate.
+    ///   - source: The spread to migrate from.
+    ///   - destination: The spread to migrate to.
+    /// - Throws: `MigrationError` if migration is not allowed.
+    func migrateNote(
+        _ note: DataModel.Note,
+        from source: DataModel.Spread,
+        to destination: DataModel.Spread
+    ) async throws {
+        // Multiday spreads cannot accept direct assignments
+        guard destination.period.canHaveTasksAssigned else {
+            throw MigrationError.destinationNotAssignable
+        }
+
+        // Find source assignment
+        guard let sourceIndex = note.assignments.firstIndex(where: { assignment in
+            assignment.matches(period: source.period, date: source.date, calendar: calendar)
+        }) else {
+            throw MigrationError.noSourceAssignment
+        }
+
+        // Mark source as migrated
+        note.assignments[sourceIndex].status = .migrated
+
+        // Check if destination assignment already exists
+        if let destIndex = note.assignments.firstIndex(where: { assignment in
+            assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
+        }) {
+            // Update existing destination assignment
+            note.assignments[destIndex].status = .active
+        } else {
+            // Create new destination assignment
+            let destinationAssignment = NoteAssignment(
+                period: destination.period,
+                date: destination.date,
+                status: .active
+            )
+            note.assignments.append(destinationAssignment)
+        }
+
+        // Persist changes
+        try await noteRepository.save(note)
+
+        // Reload notes to ensure state is synchronized
+        notes = await noteRepository.getNotes()
+
+        // Rebuild data model and trigger UI update
+        buildDataModel()
+        dataVersion += 1
+    }
+
+    // MARK: - Batch Task Migration
+
+    /// Migrates multiple tasks from one spread to another.
+    ///
+    /// Skips cancelled tasks silently. Notes are not included in batch migration.
+    ///
+    /// - Parameters:
+    ///   - tasks: The tasks to migrate.
+    ///   - source: The spread to migrate from.
+    ///   - destination: The spread to migrate to.
+    /// - Throws: Repository errors if persistence fails.
+    func migrateTasksBatch(
+        _ tasks: [DataModel.Task],
+        from source: DataModel.Spread,
+        to destination: DataModel.Spread
+    ) async throws {
+        // Early return for empty batch
+        guard !tasks.isEmpty else { return }
+
+        // Multiday spreads cannot accept direct assignments
+        guard destination.period.canHaveTasksAssigned else {
+            throw MigrationError.destinationNotAssignable
+        }
+
+        var migratedAny = false
+
+        for task in tasks {
+            // Skip cancelled tasks
+            guard task.status != .cancelled else { continue }
+
+            // Find source assignment
+            guard let sourceIndex = task.assignments.firstIndex(where: { assignment in
+                assignment.matches(period: source.period, date: source.date, calendar: calendar)
+            }) else {
+                continue
+            }
+
+            // Mark source as migrated
+            task.assignments[sourceIndex].status = .migrated
+
+            // Check if destination assignment already exists
+            if let destIndex = task.assignments.firstIndex(where: { assignment in
+                assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
+            }) {
+                // Update existing destination assignment
+                task.assignments[destIndex].status = .open
+            } else {
+                // Create new destination assignment
+                let destinationAssignment = TaskAssignment(
+                    period: destination.period,
+                    date: destination.date,
+                    status: .open
+                )
+                task.assignments.append(destinationAssignment)
+            }
+
+            task.status = .open
+
+            // Persist changes
+            try await taskRepository.save(task)
+            migratedAny = true
+        }
+
+        // Only update state if we actually migrated something
+        if migratedAny {
+            // Reload tasks to ensure state is synchronized
+            self.tasks = await taskRepository.getTasks()
+
+            // Rebuild data model and trigger UI update
+            buildDataModel()
+            dataVersion += 1
+        }
+    }
+
+    // MARK: - Event Migration (Blocked)
+
+    /// Events cannot be migrated.
+    ///
+    /// Events use computed visibility based on date range overlap, not assignments.
+    /// This method always throws `MigrationError.eventMigrationNotSupported`.
+    ///
+    /// - Parameters:
+    ///   - event: The event (ignored).
+    ///   - source: The source spread (ignored).
+    ///   - destination: The destination spread (ignored).
+    /// - Throws: Always throws `MigrationError.eventMigrationNotSupported`.
+    func migrateEvent(
+        _ event: DataModel.Event,
+        from source: DataModel.Spread,
+        to destination: DataModel.Spread
+    ) async throws {
+        throw MigrationError.eventMigrationNotSupported
+    }
+
+    // MARK: - Migration Eligibility
+
+    /// Returns tasks eligible for migration from one spread to another.
+    ///
+    /// Eligible tasks are those with:
+    /// - An open assignment on the source spread
+    /// - Non-cancelled status
+    ///
+    /// Excludes tasks that are:
+    /// - Cancelled
+    /// - Completed on the source spread
+    /// - Already migrated from the source spread
+    ///
+    /// - Parameters:
+    ///   - source: The spread to check for eligible tasks.
+    ///   - destination: The target spread (used to filter incompatible destinations).
+    /// - Returns: Array of tasks eligible for migration.
+    func eligibleTasksForMigration(
+        from source: DataModel.Spread,
+        to destination: DataModel.Spread
+    ) -> [DataModel.Task] {
+        // Multiday spreads cannot accept direct assignments
+        guard destination.period.canHaveTasksAssigned else {
+            return []
+        }
+
+        return tasks.filter { task in
+            // Exclude cancelled tasks
+            guard task.status != .cancelled else { return false }
+
+            // Find assignment on source spread
+            guard let sourceAssignment = task.assignments.first(where: { assignment in
+                assignment.matches(period: source.period, date: source.date, calendar: calendar)
+            }) else {
+                return false
+            }
+
+            // Only open assignments are eligible
+            return sourceAssignment.status == .open
+        }
+    }
+
+    // MARK: - Spread Deletion
+
+    /// Deletes a spread and reassigns all entries to a parent spread or Inbox.
+    ///
+    /// Entries are never deleted. The deletion process:
+    /// 1. Finds all tasks/notes with assignments on the spread
+    /// 2. For each entry: marks current assignment as migrated, creates new assignment on parent
+    /// 3. If no parent spread exists, entry goes to Inbox
+    /// 4. Removes spread from repository
+    ///
+    /// - Parameter spread: The spread to delete.
+    /// - Throws: Repository errors if persistence fails.
+    func deleteSpread(_ spread: DataModel.Spread) async throws {
+        // Find parent spread for reassignment
+        let parentSpread = findParentSpread(for: spread)
+
+        // Reassign tasks
+        for task in tasksWithAssignment(on: spread) {
+            try await reassignTaskOnSpreadDeletion(task, from: spread, toParent: parentSpread)
+        }
+
+        // Reassign notes
+        for note in notesWithAssignment(on: spread) {
+            try await reassignNoteOnSpreadDeletion(note, from: spread, toParent: parentSpread)
+        }
+
+        // Delete spread from repository
+        try await spreadRepository.delete(spread)
+
+        // Remove spread from local list
+        spreads.removeAll { $0.id == spread.id }
+
+        // Reload entries to ensure state is synchronized
+        tasks = await taskRepository.getTasks()
+        notes = await noteRepository.getNotes()
+
+        // Rebuild data model and trigger UI update
+        buildDataModel()
+        dataVersion += 1
+    }
+
+    // MARK: - Spread Deletion Helpers
+
+    /// Finds the parent spread for reassignment during deletion.
+    ///
+    /// Searches from the spread's parent period up through coarser periods
+    /// (day → month → year) to find an existing spread.
+    private func findParentSpread(for spread: DataModel.Spread) -> DataModel.Spread? {
+        var currentPeriod: Period? = spread.period.parentPeriod
+
+        while let period = currentPeriod {
+            let normalizedDate = period.normalizeDate(spread.date, calendar: calendar)
+
+            if let parentSpread = spreads.first(where: { existingSpread in
+                existingSpread.period == period &&
+                existingSpread.period.normalizeDate(existingSpread.date, calendar: calendar) == normalizedDate
+            }) {
+                return parentSpread
+            }
+
+            currentPeriod = period.parentPeriod
+        }
+
+        return nil
+    }
+
+    /// Returns tasks that have an assignment on the given spread.
+    private func tasksWithAssignment(on spread: DataModel.Spread) -> [DataModel.Task] {
+        tasks.filter { hasAssignment($0, for: spread) }
+    }
+
+    /// Returns notes that have an assignment on the given spread.
+    private func notesWithAssignment(on spread: DataModel.Spread) -> [DataModel.Note] {
+        notes.filter { hasAssignment($0, for: spread) }
+    }
+
+    /// Reassigns a task during spread deletion.
+    ///
+    /// Marks the current assignment as migrated and creates a new assignment
+    /// on the parent spread. If no parent exists, the task goes to Inbox.
+    private func reassignTaskOnSpreadDeletion(
+        _ task: DataModel.Task,
+        from spread: DataModel.Spread,
+        toParent parent: DataModel.Spread?
+    ) async throws {
+        // Find assignment on the deleted spread
+        guard let assignmentIndex = task.assignments.firstIndex(where: { assignment in
+            assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
+        }) else {
+            return
+        }
+
+        // Get the status before marking as migrated (to preserve on parent)
+        let originalStatus = task.assignments[assignmentIndex].status
+
+        // Mark current assignment as migrated
+        task.assignments[assignmentIndex].status = .migrated
+
+        // Create new assignment on parent if exists
+        if let parent = parent {
+            // Check if assignment already exists on parent
+            if let parentIndex = task.assignments.firstIndex(where: { assignment in
+                assignment.matches(period: parent.period, date: parent.date, calendar: calendar)
+            }) {
+                // Update existing parent assignment with original status
+                task.assignments[parentIndex].status = originalStatus
+            } else {
+                // Create new assignment on parent
+                let parentAssignment = TaskAssignment(
+                    period: parent.period,
+                    date: parent.date,
+                    status: originalStatus
+                )
+                task.assignments.append(parentAssignment)
+            }
+        }
+        // If no parent, task goes to Inbox (no new assignment needed)
+
+        try await taskRepository.save(task)
+    }
+
+    /// Reassigns a note during spread deletion.
+    ///
+    /// Marks the current assignment as migrated and creates a new assignment
+    /// on the parent spread. If no parent exists, the note goes to Inbox.
+    private func reassignNoteOnSpreadDeletion(
+        _ note: DataModel.Note,
+        from spread: DataModel.Spread,
+        toParent parent: DataModel.Spread?
+    ) async throws {
+        // Find assignment on the deleted spread
+        guard let assignmentIndex = note.assignments.firstIndex(where: { assignment in
+            assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
+        }) else {
+            return
+        }
+
+        // Get the status before marking as migrated (to preserve on parent)
+        let originalStatus = note.assignments[assignmentIndex].status
+
+        // Mark current assignment as migrated
+        note.assignments[assignmentIndex].status = .migrated
+
+        // Create new assignment on parent if exists
+        if let parent = parent {
+            // Check if assignment already exists on parent
+            if let parentIndex = note.assignments.firstIndex(where: { assignment in
+                assignment.matches(period: parent.period, date: parent.date, calendar: calendar)
+            }) {
+                // Update existing parent assignment with original status
+                note.assignments[parentIndex].status = originalStatus
+            } else {
+                // Create new assignment on parent
+                let parentAssignment = NoteAssignment(
+                    period: parent.period,
+                    date: parent.date,
+                    status: originalStatus
+                )
+                note.assignments.append(parentAssignment)
+            }
+        }
+        // If no parent, note goes to Inbox (no new assignment needed)
+
+        try await noteRepository.save(note)
+    }
 }
