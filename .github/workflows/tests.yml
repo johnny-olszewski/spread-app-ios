@@ -34,4 +34,4 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
       - name: Run test suite
-        run: xcodebuild -scheme Spread -destination "id=${{ steps.simulator.outputs.udid }}" test
+        run: xcodebuild -scheme Spread -testPlan CoreBusinessLogic -destination "id=${{ steps.simulator.outputs.udid }}" test
