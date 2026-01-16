@@ -20,9 +20,35 @@ struct RootNavigationView: View {
     /// The dependency container for app-wide services.
     let container: DependencyContainer
 
+    /// Optional layout override for deterministic testing and previews.
+    private let layoutOverride: NavigationLayoutType?
+
+    /// Creates a root navigation view.
+    ///
+    /// - Parameters:
+    ///   - journalManager: The journal manager for app data.
+    ///   - container: The dependency container for app services.
+    ///   - layoutOverride: Optional layout override for tests/previews.
+    init(
+        journalManager: JournalManager,
+        container: DependencyContainer,
+        layoutOverride: NavigationLayoutType? = nil
+    ) {
+        self.journalManager = journalManager
+        self.container = container
+        self.layoutOverride = layoutOverride
+    }
+
+    /// The resolved layout type for the current size class.
+    ///
+    /// Uses the override when provided to keep tests deterministic.
+    var layoutType: NavigationLayoutType {
+        layoutOverride ?? NavigationLayoutType.forSizeClass(horizontalSizeClass)
+    }
+
     var body: some View {
         Group {
-            switch NavigationLayoutType.forSizeClass(horizontalSizeClass) {
+            switch layoutType {
             case .sidebar:
                 SidebarNavigationView(
                     journalManager: journalManager,
