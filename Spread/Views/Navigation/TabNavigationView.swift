@@ -37,7 +37,7 @@ struct TabNavigationView: View {
             Group {
                 switch tab {
                 case .spreads:
-                    SpreadsPlaceholderView()
+                    spreadsView
                 case .collections:
                     CollectionsPlaceholderView()
                 case .settings:
@@ -50,6 +50,18 @@ struct TabNavigationView: View {
                     inboxButton
                 }
             }
+        }
+    }
+
+    // MARK: - Spreads View
+
+    @ViewBuilder
+    private var spreadsView: some View {
+        switch journalManager.bujoMode {
+        case .conventional:
+            SpreadsPlaceholderView()
+        case .traditional:
+            TraditionalSpreadsPlaceholderView()
         }
     }
 

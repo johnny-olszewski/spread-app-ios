@@ -50,7 +50,7 @@ struct SidebarNavigationView: View {
     private var detailView: some View {
         switch selectedItem {
         case .spreads:
-            SpreadsPlaceholderView()
+            spreadsView
         case .collections:
             CollectionsPlaceholderView()
         case .settings:
@@ -58,6 +58,18 @@ struct SidebarNavigationView: View {
         case .none:
             Text("Select an item")
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Spreads View
+
+    @ViewBuilder
+    private var spreadsView: some View {
+        switch journalManager.bujoMode {
+        case .conventional:
+            SpreadsPlaceholderView()
+        case .traditional:
+            TraditionalSpreadsPlaceholderView()
         }
     }
 

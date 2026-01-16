@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Placeholder view for the spreads content area.
+/// Placeholder view for the conventional spreads content area.
 ///
-/// Will be replaced with actual spread hierarchy in SPRD-25.
+/// Will be replaced with the spread hierarchy in SPRD-25.
 struct SpreadsPlaceholderView: View {
     var body: some View {
         ContentUnavailableView {
