@@ -76,6 +76,11 @@
 - Tracks migration history via TaskAssignment array. [SPRD-10]
 - Eligible for batch migration suggestions. [SPRD-15]
 - Symbol: solid circle (●). [SPRD-21]
+- Status visual treatment: [SPRD-22, SPRD-64]
+  - Open: solid circle, no overlay, normal styling.
+  - Complete: solid circle with X overlay, greyed out row.
+  - Migrated: solid circle with arrow (→) overlay, greyed out row.
+  - Cancelled: solid circle, no overlay, strikethrough entire row.
 
 ### Event
 - Inherits Entry protocol. [SPRD-9]
@@ -85,6 +90,13 @@
 - Cannot be migrated. [SPRD-15]
 - Has no assignments array - visibility is derived from date range. [SPRD-33]
 - Symbol: empty circle (○). [SPRD-21]
+- Past event visual treatment: [SPRD-22, SPRD-64]
+  - Current: empty circle, no overlay, normal styling.
+  - Past: empty circle with X overlay, greyed out row.
+- Past event rules (computed per spread context): [SPRD-64]
+  - Timed events: past when current time exceeds end time.
+  - All-day/single-day events: past starting the next day.
+  - Multi-day events: past status varies by spread; on a past day's spread, shows as past for that day only.
 
 ### Note
 - Inherits Entry protocol. [SPRD-9]
@@ -93,6 +105,9 @@
 - Can migrate only when user explicitly requests (never suggested in batch migration). [SPRD-15, SPRD-34]
 - May have longer content field for extended notes. [SPRD-9]
 - Symbol: dash (—). [SPRD-21]
+- Status visual treatment: [SPRD-22, SPRD-64]
+  - Active: dash, no overlay, normal styling.
+  - Migrated: dash with arrow (→) overlay, greyed out row.
 
 ### Migration
 - Moving a task/note from a parent spread to a child spread. [SPRD-15]
