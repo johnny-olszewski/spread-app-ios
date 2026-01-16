@@ -1,0 +1,56 @@
+{
+  "configurations" : [
+    {
+      "id" : "5CFC8104-421D-4966-BA58-57A4753A2096",
+      "name" : "Core Business Logic",
+      "options" : {
+        "targetForVariableExpansion" : {
+          "containerPath" : "container:Spread.xcodeproj",
+          "identifier" : "31E0DA7F2F0DB76200B0A403",
+          "name" : "Spread"
+        }
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "commandLineArguments" : [
+
+    ],
+    "environmentVariables" : [
+
+    ],
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Spread.xcodeproj",
+      "identifier" : "31E0DA7F2F0DB76200B0A403",
+      "name" : "Spread"
+    }
+  },
+  "testTargets" : [
+    {
+      "selectedTests" : [
+        "SpreadTests\/AppEnvironmentTests",
+        "SpreadTests\/AssignmentTests",
+        "SpreadTests\/CancelledTaskTests",
+        "SpreadTests\/ConventionalSpreadServiceTests",
+        "SpreadTests\/DateAdditionsTests",
+        "SpreadTests\/DependencyContainerTests",
+        "SpreadTests\/EntryTests",
+        "SpreadTests\/FirstWeekdayTests",
+        "SpreadTests\/InboxTests",
+        "SpreadTests\/JournalManagerTests",
+        "SpreadTests\/MigrationTests",
+        "SpreadTests\/MultidayPresetTests",
+        "SpreadTests\/PeriodTests",
+        "SpreadTests\/SpreadCreationPolicyTests",
+        "SpreadTests\/SpreadDeletionTests"
+      ],
+      "target" : {
+        "containerPath" : "container:Spread.xcodeproj",
+        "identifier" : "31E0DA902F0DB76400B0A403",
+        "name" : "SpreadTests"
+      }
+    }
+  ],
+  "version" : 1
+}
