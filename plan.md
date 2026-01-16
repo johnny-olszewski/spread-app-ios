@@ -571,7 +571,7 @@
   - Snapshot-free unit tests verifying symbol selection logic.
 - **Dependencies**: SPRD-19, SPRD-9
 
-### [SPRD-22] Feature: Entry row component + swipe actions
+### [SPRD-22] Feature: Entry row component + swipe actions - [x] Complete
 - **Context**: Lists need consistent entry rendering and actions.
 - **Description**: Build a row component with type symbol, title, status, and swipe actions.
 - **Implementation Details**:
