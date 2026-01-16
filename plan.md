@@ -571,7 +571,7 @@
   - Snapshot-free unit tests verifying symbol selection logic.
 - **Dependencies**: SPRD-19, SPRD-9
 
-### [SPRD-22] Feature: Entry row component + swipe actions
+### [SPRD-22] Feature: Entry row component + swipe actions - [x] Complete
 - **Context**: Lists need consistent entry rendering and actions.
 - **Description**: Build a row component with type symbol, title, status, and swipe actions.
 - **Implementation Details**:
@@ -590,6 +590,40 @@
 - **Tests**:
   - Unit tests for action availability per entry type/status.
 - **Dependencies**: SPRD-21, SPRD-15
+- **Note**: Visual refinements (greyed out styling, strikethrough for cancelled, past event overlays, migrated note overlays) deferred to SPRD-64.
+
+### [SPRD-64] Feature: Entry row visual refinements (overlays and styling)
+- **Context**: Entry rows need visual treatment to indicate completed, migrated, past, and cancelled states.
+- **Description**: Extend StatusIcon and EntryRowView to show status overlays and row styling for all entry states.
+- **Implementation Details**:
+  - `StatusIconConfiguration` updates:
+    - Add `noteStatus: DataModel.Note.Status?` parameter
+    - Add `isEventPast: Bool` parameter
+    - Migrated notes show arrow (→) overlay on dash symbol
+    - Past events show X overlay on empty circle symbol
+  - `EntryRowConfiguration` updates:
+    - Add `isEventPast: Bool` parameter (caller computes based on spread context)
+    - Add `isGreyedOut: Bool` computed property (true for: complete tasks, migrated tasks/notes, past events)
+    - Add `hasStrikethrough: Bool` computed property (true for cancelled tasks)
+  - `EntryRowView` updates:
+    - Apply greyed out foreground color when `isGreyedOut`
+    - Apply strikethrough on entire row (symbol + title + trailing) when `hasStrikethrough`
+  - Past event rules (computed by caller before passing to EntryRowView):
+    - Timed events: past when current time exceeds end time
+    - All-day/single-day events: past starting the next day
+    - Multi-day events: past status varies by spread; on a past day's spread, shows as past for that day only
+- **Acceptance Criteria**:
+  - Complete tasks show X overlay and greyed out row. (Spec: Task)
+  - Migrated tasks show arrow overlay and greyed out row. (Spec: Task)
+  - Cancelled tasks show strikethrough on entire row. (Spec: Task)
+  - Migrated notes show arrow overlay and greyed out row. (Spec: Note)
+  - Past events show X overlay and greyed out row. (Spec: Event)
+  - Current/active entries show normal styling. (Spec: Task, Event, Note)
+- **Tests**:
+  - Unit tests for StatusIconConfiguration overlay selection for notes and events.
+  - Unit tests for EntryRowConfiguration `isGreyedOut` and `hasStrikethrough` properties.
+  - Unit tests for past event rules (timed, all-day, multi-day).
+- **Dependencies**: SPRD-22
 
 ### [SPRD-23] Feature: Task creation sheet
 - **Context**: Task creation must enforce date/period rules.
@@ -1396,6 +1430,7 @@ SPRD-8 -> SPRD-49
 SPRD-8 -> SPRD-9 -> SPRD-10 -> SPRD-11 -> SPRD-12 -> SPRD-50
 SPRD-11 -> SPRD-13 -> SPRD-14 -> SPRD-51 -> SPRD-15 -> SPRD-16 -> SPRD-52
 SPRD-16 -> SPRD-19 -> SPRD-21 -> SPRD-22 -> SPRD-23
+SPRD-22 -> SPRD-64
 SPRD-19 -> SPRD-25 -> SPRD-26 -> SPRD-27 -> SPRD-62 -> SPRD-28 -> SPRD-31
 SPRD-22 -> SPRD-24 -> SPRD-29 -> SPRD-30
 SPRD-9 -> SPRD-57 -> SPRD-59 -> SPRD-60 -> SPRD-33
