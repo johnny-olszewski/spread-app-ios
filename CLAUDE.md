@@ -75,6 +75,7 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 - The priority for versioning, in addition to preventing bugs, should be to ease review by strategically making changes.
 - Tasks should begin by creating a branch for the specific task
 - Task branches should be named by their task number (e.g., `SPRD-42`)
+- Task branches should be prefixed by `/feature`
 - Strive to break changes into small logical commits. All changes per commit should be related. 
 - Commits should be stable.
 - Commit messages should follow the format: `[SPRD-#][#/n] brief message with high level change description`
