@@ -113,4 +113,34 @@ struct RootNavigationViewTests {
         #expect(items[1] == .collections)
         #expect(items[2] == .settings)
     }
+
+    // MARK: - Root Navigation Composition Tests
+
+    /// Conditions: RootNavigationView is created with a sidebar layout override.
+    /// Expected: The resolved layout type is sidebar.
+    @MainActor
+    @Test func testRootNavigationViewUsesSidebarLayoutOverride() throws {
+        let container = try DependencyContainer.makeForPreview()
+        let view = RootNavigationView(
+            journalManager: .previewInstance,
+            container: container,
+            layoutOverride: .sidebar
+        )
+
+        #expect(view.layoutType == .sidebar)
+    }
+
+    /// Conditions: RootNavigationView is created with a tab bar layout override.
+    /// Expected: The resolved layout type is tabBar.
+    @MainActor
+    @Test func testRootNavigationViewUsesTabBarLayoutOverride() throws {
+        let container = try DependencyContainer.makeForPreview()
+        let view = RootNavigationView(
+            journalManager: .previewInstance,
+            container: container,
+            layoutOverride: .tabBar
+        )
+
+        #expect(view.layoutType == .tabBar)
+    }
 }
