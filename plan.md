@@ -515,7 +515,7 @@
 - Entry rows and symbols are used consistently in lists.
 - Spread content surfaces use dot grid background and minimal paper styling.
 
-### [SPRD-19] Feature: Root navigation shell (adaptive layout)
+### [SPRD-19] Feature: Root navigation shell (adaptive layout) - [x] Complete
 - **Context**: Collections must be outside spread navigation; Inbox in header. App must adapt to iPad and iPhone.
 - **Description**: Build adaptive root navigation with entry points for Spreads, Collections, Settings, and Inbox.
 - **Implementation Details**:

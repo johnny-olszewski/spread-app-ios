@@ -116,7 +116,7 @@ final class JournalManager {
     ///   - noteRepository: Repository for notes.
     ///   - bujoMode: The initial BuJo mode.
     ///   - creationPolicy: Policy for validating spread creation.
-    private init(
+    init(
         calendar: Calendar,
         today: Date,
         taskRepository: any TaskRepository,
