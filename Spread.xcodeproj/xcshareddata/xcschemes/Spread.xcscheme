@@ -30,9 +30,13 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <TestPlans>
          <TestPlanReference
-            reference = "container:Spread.xcodeproj/xcshareddata/xctestplans/CoreBusinessLogic.xctestplan"
+            reference = "container:Spread.xcodeproj/xcshareddata/xctestplans/AllUnitTests.xctestplan"
             default = "YES"
             selected = "YES">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:Spread.xcodeproj/xcshareddata/xctestplans/CoreBusinessLogic.xctestplan"
+            selected = "NO">
          </TestPlanReference>
       </TestPlans>
       <Testables>

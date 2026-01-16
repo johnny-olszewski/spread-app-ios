@@ -1,0 +1,37 @@
+{
+  "configurations" : [
+    {
+      "id" : "FE66B8DD-0BE5-42A6-8F06-02066DEAC4BB",
+      "name" : "All Unit Tests",
+      "options" : {
+        "targetForVariableExpansion" : {
+          "containerPath" : "container:Spread.xcodeproj",
+          "identifier" : "31E0DA7F2F0DB76200B0A403",
+          "name" : "Spread"
+        }
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "commandLineArguments" : [
+    ],
+    "environmentVariables" : [
+    ],
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Spread.xcodeproj",
+      "identifier" : "31E0DA7F2F0DB76200B0A403",
+      "name" : "Spread"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Spread.xcodeproj",
+        "identifier" : "31E0DA902F0DB76400B0A403",
+        "name" : "SpreadTests"
+      }
+    }
+  ],
+  "version" : 1
+}

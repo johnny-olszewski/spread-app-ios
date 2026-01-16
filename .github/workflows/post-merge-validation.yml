@@ -1,0 +1,9 @@
+name: Post-merge Validation
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  tests:
+    uses: ./.github/workflows/run-unit-tests.yml
