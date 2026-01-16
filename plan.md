@@ -551,7 +551,7 @@
   - Unit tests for size class adaptation logic.
 - **Dependencies**: SPRD-16
 
-### [SPRD-21] Feature: Entry symbol component
+### [SPRD-21] Feature: Entry symbol component - [x] Complete
 - **Context**: Task/event/note symbols must be consistent across UI.
 - **Description**: Create a reusable symbol/status component for entries.
 - **Implementation Details**:
