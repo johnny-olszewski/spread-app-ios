@@ -172,6 +172,15 @@
 - Settings accessible via gear icon in navigation header. [SPRD-20]
 - iPad multitasking: UI adapts gracefully to Split View and Slide Over. [SPRD-19]
 
+### Visual Design
+- Minimal, clean, paper-like presentation optimized for readability.
+- Spread content surfaces use a dot grid background; navigation chrome, settings, and sheets use a flat paper tone without dots. [SPRD-62]
+- Default paper tone: warm off-white (approx #F7F3EA), with fallback to systemBackground when needed. [SPRD-62]
+- Dot grid defaults: 1.5pt dots, 20pt spacing, neutral gray at ~15-20% opacity; first dot inset equals spacing; configurable via Debug overrides. [SPRD-62, SPRD-63]
+- Typography: sans-first; headings use a distinct sans family (e.g., Avenir Next), body uses system sans for legibility; heading font is swappable in Debug for testing. [SPRD-62, SPRD-63]
+- Accent color: muted blue (e.g., #5B7A99) for interactive controls and highlights. [SPRD-62]
+- Card/list styling stays light: hairline dividers or subtle borders, minimal shadows, and consistent spacing. [SPRD-62]
+
 ### Settings (v1)
 - BuJo mode toggle: conventional vs traditional with descriptions. [SPRD-20]
   - Conventional: "Track tasks across spreads with migration history"
@@ -209,6 +218,7 @@
 - Debug overlay shows current AppEnvironment in DEBUG builds only. [SPRD-2]
 - Debug overlay shows DependencyContainer status (environment, repository configuration) in DEBUG builds. [SPRD-3]
 - Debug menu provides data inspection and quick actions (DEBUG builds only). [SPRD-45, SPRD-46]
+- Debug menu provides appearance overrides for paper tone, dot grid (size/spacing/opacity), heading font, and accent color (DEBUG builds only). [SPRD-63]
 
 ---
 
@@ -250,6 +260,7 @@
 - Traditional mode date changes trigger conventional reassignment. [SPRD-17, SPRD-24]
 - Multiplatform: iPadOS primary, iOS supported; adaptive layouts per size class. [SPRD-19]
 - macOS deferred to post-v1. [SPRD-56]
+- Visual style uses dot grid backgrounds on spread content surfaces only, muted blue accents, and Debug-only appearance overrides for paper tone and typography. [SPRD-62, SPRD-63]
 
 ## Open Questions
 - None for v1 spec.

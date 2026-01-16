@@ -513,6 +513,7 @@
 - User can create spreads and tasks; tasks render in spread lists.
 - Entry list grouping and Inbox sheet behavior work end-to-end.
 - Entry rows and symbols are used consistently in lists.
+- Spread content surfaces use dot grid background and minimal paper styling.
 
 ### [SPRD-19] Feature: Root navigation shell (adaptive layout)
 - **Context**: Collections must be outside spread navigation; Inbox in header. App must adapt to iPad and iPhone.
@@ -661,6 +662,24 @@
 - **Tests**:
   - Unit tests for header formatting by period.
 - **Dependencies**: SPRD-26
+
+### [SPRD-62] Feature: Spread surface styling + dot grid background
+- **Context**: The app should feel like a minimal, readable journal with dot grid paper.
+- **Description**: Apply paper tone and dot grid background to spread content surfaces only.
+- **Implementation Details**:
+  - Apply `DotGridView` as the background of spread content containers (year/month/day/multiday).
+  - Keep navigation chrome, settings, and sheets on a flat paper tone without dots.
+  - Default dot grid config: 1.5pt dots, 20pt spacing, neutral gray at ~15-20% opacity.
+  - Inset the first dot by one spacing unit from edges (no clipped dots).
+  - Default paper tone: warm off-white (approx #F7F3EA); fallback to systemBackground where needed.
+  - Accent color uses muted blue for interactive controls and highlights.
+  - Typography defaults: sans heading (e.g., Avenir Next) with system sans body text.
+- **Acceptance Criteria**:
+  - Dot grid appears only on spread content surfaces. (Spec: Visual Design)
+  - Typography and accent color match the minimal paper aesthetic. (Spec: Visual Design)
+- **Tests**:
+  - Manual visual verification across iPad/iPhone size classes.
+- **Dependencies**: SPRD-27
 
 ### [SPRD-28] Feature: Conventional entry list + grouping
 - **Context**: Year/month/day grouping is required.
@@ -1264,6 +1283,7 @@
 ### Definition of Done
 - Debug menu and quick actions are available in Debug builds only.
 - Test data builders and debug logging hooks are implemented.
+- Debug menu includes appearance overrides for paper tone, dot grid, heading font, and accent color.
 
 ### [SPRD-45] Feature: Debug menu (Debug builds only)
 - **Context**: Debug tooling is required for faster iteration.
@@ -1281,6 +1301,25 @@
 - **Tests**:
   - Unit test ensures debug menu is excluded in Release builds.
 - **Dependencies**: SPRD-44
+
+### [SPRD-63] Feature: Debug appearance overrides
+- **Context**: Visual tuning needs fast iteration without rebuilding UI constants.
+- **Description**: Add Debug-only controls to adjust paper tone, dot grid, typography, and accent color.
+- **Implementation Details**:
+  - Add an "Appearance" section to `DebugMenuView` (DEBUG only).
+  - Controls:
+    - Paper tone presets (warm off-white default, clean white, cool gray).
+    - Dot grid toggle plus sliders for dot size, spacing, and opacity.
+    - Heading font picker (default sans and a few alternatives for comparison).
+    - Accent color picker with a muted blue default and a reset button.
+  - Store overrides in `@AppStorage` or a `DebugAppearanceSettings` observable to update SwiftUI live.
+  - Provide "Reset to defaults" action to revert to spec defaults.
+- **Acceptance Criteria**:
+  - Changing Debug appearance values updates spread content surfaces immediately. (Spec: Visual Design)
+  - Overrides are DEBUG-only and do not ship in Release builds. (Spec: Development Tooling)
+- **Tests**:
+  - Unit test ensures appearance controls are excluded in Release builds.
+- **Dependencies**: SPRD-45, SPRD-62
 
 ### [SPRD-46] Feature: Debug quick actions
 - **Context**: Developers need to create test data quickly.
@@ -1357,12 +1396,13 @@ SPRD-8 -> SPRD-49
 SPRD-8 -> SPRD-9 -> SPRD-10 -> SPRD-11 -> SPRD-12 -> SPRD-50
 SPRD-11 -> SPRD-13 -> SPRD-14 -> SPRD-51 -> SPRD-15 -> SPRD-16 -> SPRD-52
 SPRD-16 -> SPRD-19 -> SPRD-21 -> SPRD-22 -> SPRD-23
-SPRD-19 -> SPRD-25 -> SPRD-26 -> SPRD-27 -> SPRD-28 -> SPRD-31
+SPRD-19 -> SPRD-25 -> SPRD-26 -> SPRD-27 -> SPRD-62 -> SPRD-28 -> SPRD-31
 SPRD-22 -> SPRD-24 -> SPRD-29 -> SPRD-30
 SPRD-9 -> SPRD-57 -> SPRD-59 -> SPRD-60 -> SPRD-33
 SPRD-9 -> SPRD-58 -> SPRD-61 -> SPRD-34
 SPRD-14 -> SPRD-18 -> SPRD-32
 SPRD-19 -> SPRD-20 -> SPRD-17 -> SPRD-35 -> SPRD-36 -> SPRD-37 -> SPRD-38 -> SPRD-53
 SPRD-38 -> SPRD-39 -> SPRD-40 -> SPRD-41 -> SPRD-54 -> SPRD-55 -> SPRD-56
-SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-46 -> SPRD-47 -> SPRD-48
+SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-63 -> SPRD-46 -> SPRD-47 -> SPRD-48
+SPRD-62 -> SPRD-63
 ```
