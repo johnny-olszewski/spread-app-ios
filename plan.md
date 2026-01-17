@@ -592,7 +592,7 @@
 - **Dependencies**: SPRD-21, SPRD-15
 - **Note**: Visual refinements (greyed out styling, strikethrough for cancelled, past event overlays, migrated note overlays) deferred to SPRD-64.
 
-### [SPRD-64] Feature: Entry row visual refinements (overlays and styling)
+### [SPRD-64] Feature: Entry row visual refinements (overlays and styling) - [x] Complete
 - **Context**: Entry rows need visual treatment to indicate completed, migrated, past, and cancelled states.
 - **Description**: Extend StatusIcon and EntryRowView to show status overlays and row styling for all entry states.
 - **Implementation Details**:
