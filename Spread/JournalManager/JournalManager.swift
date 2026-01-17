@@ -356,6 +356,32 @@ final class JournalManager {
         dataVersion += 1
     }
 
+    /// Creates a new multiday spread.
+    ///
+    /// Multiday spreads aggregate entries by date range and do not have direct
+    /// entry assignments. No auto-resolution is performed.
+    ///
+    /// - Parameters:
+    ///   - startDate: The start date of the multiday range.
+    ///   - endDate: The end date of the multiday range.
+    /// - Throws: Repository errors if persistence fails.
+    func addMultidaySpread(startDate: Date, endDate: Date) async throws {
+        // Create the new multiday spread
+        let spread = DataModel.Spread(
+            startDate: startDate,
+            endDate: endDate,
+            calendar: calendar
+        )
+
+        // Save spread and add to local list
+        try await spreadRepository.save(spread)
+        spreads.append(spread)
+
+        // Rebuild data model and trigger UI update
+        buildDataModel()
+        dataVersion += 1
+    }
+
     /// Finds inbox entries that would be resolved by the given spread.
     ///
     /// Checks which inbox entries would have this spread as their best match
