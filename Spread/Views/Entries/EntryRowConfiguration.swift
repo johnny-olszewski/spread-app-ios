@@ -39,6 +39,11 @@ struct EntryRowConfiguration: Sendable {
     /// The migration destination label, if the entry was migrated.
     let migrationDestination: String?
 
+    /// Whether the event is past (only used for events).
+    ///
+    /// Computed by the caller based on spread context.
+    let isEventPast: Bool
+
     // MARK: - Initialization
 
     /// Creates an entry row configuration.
@@ -49,18 +54,21 @@ struct EntryRowConfiguration: Sendable {
     ///   - noteStatus: The note status (only used for notes).
     ///   - title: The entry title (defaults to empty string).
     ///   - migrationDestination: The migration destination label.
+    ///   - isEventPast: Whether the event is past (only used for events).
     init(
         entryType: EntryType,
         taskStatus: DataModel.Task.Status? = nil,
         noteStatus: DataModel.Note.Status? = nil,
         title: String = "",
-        migrationDestination: String? = nil
+        migrationDestination: String? = nil,
+        isEventPast: Bool = false
     ) {
         self.entryType = entryType
         self.taskStatus = taskStatus
         self.noteStatus = noteStatus
         self.title = title
         self.migrationDestination = migrationDestination
+        self.isEventPast = isEventPast
     }
 
     // MARK: - Action Availability
@@ -146,5 +154,37 @@ struct EntryRowConfiguration: Sendable {
         case .event:
             return false
         }
+    }
+
+    // MARK: - Visual Styling
+
+    /// Whether the row should be displayed with greyed out styling.
+    ///
+    /// Returns `true` for:
+    /// - Complete tasks
+    /// - Migrated tasks
+    /// - Migrated notes
+    /// - Past events
+    var isGreyedOut: Bool {
+        switch entryType {
+        case .task:
+            guard let status = taskStatus else { return false }
+            return status == .complete || status == .migrated
+        case .note:
+            guard let status = noteStatus else { return false }
+            return status == .migrated
+        case .event:
+            return isEventPast
+        }
+    }
+
+    /// Whether the row should be displayed with strikethrough styling.
+    ///
+    /// Returns `true` only for cancelled tasks.
+    var hasStrikethrough: Bool {
+        guard entryType == .task, let status = taskStatus else {
+            return false
+        }
+        return status == .cancelled
     }
 }
