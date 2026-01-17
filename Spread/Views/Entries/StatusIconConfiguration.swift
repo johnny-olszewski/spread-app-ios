@@ -3,7 +3,7 @@ import SwiftUI
 /// Configuration for a status icon that determines symbols and styling.
 ///
 /// Encapsulates the logic for selecting the appropriate SF Symbol based on
-/// entry type and task status. This separation enables snapshot-free unit
+/// entry type, status, and context. This separation enables snapshot-free unit
 /// testing of the symbol selection logic.
 struct StatusIconConfiguration: Sendable {
 
@@ -14,8 +14,18 @@ struct StatusIconConfiguration: Sendable {
 
     /// The task status, if this is a task entry.
     ///
-    /// Only tasks have status overlays. Events and notes ignore this value.
+    /// Only tasks use this value for overlay selection.
     let taskStatus: DataModel.Task.Status?
+
+    /// The note status, if this is a note entry.
+    ///
+    /// Notes with `.migrated` status show an arrow overlay.
+    let noteStatus: DataModel.Note.Status?
+
+    /// Whether the event is past (only used for events).
+    ///
+    /// Past events show an X overlay on the empty circle.
+    let isEventPast: Bool
 
     /// The text style size for the icon.
     let size: Font.TextStyle
@@ -27,14 +37,20 @@ struct StatusIconConfiguration: Sendable {
     /// - Parameters:
     ///   - entryType: The type of entry.
     ///   - taskStatus: The task status (only used for tasks).
+    ///   - noteStatus: The note status (only used for notes).
+    ///   - isEventPast: Whether the event is past (only used for events).
     ///   - size: The text style size (defaults to `.body`).
     init(
         entryType: EntryType,
         taskStatus: DataModel.Task.Status? = nil,
+        noteStatus: DataModel.Note.Status? = nil,
+        isEventPast: Bool = false,
         size: Font.TextStyle = .body
     ) {
         self.entryType = entryType
         self.taskStatus = taskStatus
+        self.noteStatus = noteStatus
+        self.isEventPast = isEventPast
         self.size = size
     }
 
@@ -49,27 +65,47 @@ struct StatusIconConfiguration: Sendable {
         entryType.imageName
     }
 
-    /// The overlay SF Symbol name for task status, if applicable.
+    /// The overlay SF Symbol name based on entry type and status.
     ///
-    /// Returns `nil` for non-task entries or tasks without a status overlay.
+    /// Task overlays:
     /// - Open: no overlay
     /// - Complete: xmark
     /// - Migrated: arrow.right
     /// - Cancelled: line.diagonal (slash)
+    ///
+    /// Note overlays:
+    /// - Active: no overlay
+    /// - Migrated: arrow.right
+    ///
+    /// Event overlays:
+    /// - Current: no overlay
+    /// - Past: xmark
     var overlaySymbol: String? {
-        guard entryType == .task, let status = taskStatus else {
-            return nil
-        }
+        switch entryType {
+        case .task:
+            guard let status = taskStatus else { return nil }
+            switch status {
+            case .open:
+                return nil
+            case .complete:
+                return "xmark"
+            case .migrated:
+                return "arrow.right"
+            case .cancelled:
+                return "line.diagonal"
+            }
 
-        switch status {
-        case .open:
-            return nil
-        case .complete:
-            return "xmark"
-        case .migrated:
-            return "arrow.right"
-        case .cancelled:
-            return "line.diagonal"
+        case .note:
+            guard let status = noteStatus else { return nil }
+            switch status {
+            case .active:
+                return nil
+            case .migrated:
+                return "arrow.right"
+            }
+
+        case .event:
+            return isEventPast ? "xmark" : nil
         }
     }
 

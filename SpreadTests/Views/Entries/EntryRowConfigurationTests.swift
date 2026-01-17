@@ -238,4 +238,154 @@ struct EntryRowConfigurationTests {
 
         #expect(config.showsMigrationBadge == false)
     }
+
+    // MARK: - isGreyedOut Tests
+
+    /// Conditions: Task with complete status.
+    /// Expected: Row is greyed out.
+    @Test func testCompleteTaskIsGreyedOut() {
+        let config = EntryRowConfiguration(entryType: .task, taskStatus: .complete)
+
+        #expect(config.isGreyedOut == true)
+    }
+
+    /// Conditions: Task with migrated status.
+    /// Expected: Row is greyed out.
+    @Test func testMigratedTaskIsGreyedOut() {
+        let config = EntryRowConfiguration(entryType: .task, taskStatus: .migrated)
+
+        #expect(config.isGreyedOut == true)
+    }
+
+    /// Conditions: Task with open status.
+    /// Expected: Row is not greyed out.
+    @Test func testOpenTaskIsNotGreyedOut() {
+        let config = EntryRowConfiguration(entryType: .task, taskStatus: .open)
+
+        #expect(config.isGreyedOut == false)
+    }
+
+    /// Conditions: Task with cancelled status.
+    /// Expected: Row is not greyed out (cancelled uses strikethrough instead).
+    @Test func testCancelledTaskIsNotGreyedOut() {
+        let config = EntryRowConfiguration(entryType: .task, taskStatus: .cancelled)
+
+        #expect(config.isGreyedOut == false)
+    }
+
+    /// Conditions: Note with migrated status.
+    /// Expected: Row is greyed out.
+    @Test func testMigratedNoteIsGreyedOut() {
+        let config = EntryRowConfiguration(entryType: .note, noteStatus: .migrated)
+
+        #expect(config.isGreyedOut == true)
+    }
+
+    /// Conditions: Note with active status.
+    /// Expected: Row is not greyed out.
+    @Test func testActiveNoteIsNotGreyedOut() {
+        let config = EntryRowConfiguration(entryType: .note, noteStatus: .active)
+
+        #expect(config.isGreyedOut == false)
+    }
+
+    /// Conditions: Event that is past.
+    /// Expected: Row is greyed out.
+    @Test func testPastEventIsGreyedOut() {
+        let config = EntryRowConfiguration(entryType: .event, isEventPast: true)
+
+        #expect(config.isGreyedOut == true)
+    }
+
+    /// Conditions: Event that is not past.
+    /// Expected: Row is not greyed out.
+    @Test func testCurrentEventIsNotGreyedOut() {
+        let config = EntryRowConfiguration(entryType: .event, isEventPast: false)
+
+        #expect(config.isGreyedOut == false)
+    }
+
+    /// Conditions: Event with no past status specified.
+    /// Expected: Row is not greyed out (defaults to current).
+    @Test func testEventWithNoPastStatusIsNotGreyedOut() {
+        let config = EntryRowConfiguration(entryType: .event)
+
+        #expect(config.isGreyedOut == false)
+    }
+
+    // MARK: - hasStrikethrough Tests
+
+    /// Conditions: Task with cancelled status.
+    /// Expected: Row has strikethrough.
+    @Test func testCancelledTaskHasStrikethrough() {
+        let config = EntryRowConfiguration(entryType: .task, taskStatus: .cancelled)
+
+        #expect(config.hasStrikethrough == true)
+    }
+
+    /// Conditions: Task with open status.
+    /// Expected: Row does not have strikethrough.
+    @Test func testOpenTaskHasNoStrikethrough() {
+        let config = EntryRowConfiguration(entryType: .task, taskStatus: .open)
+
+        #expect(config.hasStrikethrough == false)
+    }
+
+    /// Conditions: Task with complete status.
+    /// Expected: Row does not have strikethrough (uses greyed out instead).
+    @Test func testCompleteTaskHasNoStrikethrough() {
+        let config = EntryRowConfiguration(entryType: .task, taskStatus: .complete)
+
+        #expect(config.hasStrikethrough == false)
+    }
+
+    /// Conditions: Task with migrated status.
+    /// Expected: Row does not have strikethrough (uses greyed out instead).
+    @Test func testMigratedTaskHasNoStrikethrough() {
+        let config = EntryRowConfiguration(entryType: .task, taskStatus: .migrated)
+
+        #expect(config.hasStrikethrough == false)
+    }
+
+    /// Conditions: Note with any status.
+    /// Expected: Row does not have strikethrough (notes have no cancelled status).
+    @Test func testNoteHasNoStrikethrough() {
+        let config = EntryRowConfiguration(entryType: .note, noteStatus: .active)
+
+        #expect(config.hasStrikethrough == false)
+    }
+
+    /// Conditions: Event entry.
+    /// Expected: Row does not have strikethrough (events have no cancelled status).
+    @Test func testEventHasNoStrikethrough() {
+        let config = EntryRowConfiguration(entryType: .event)
+
+        #expect(config.hasStrikethrough == false)
+    }
+
+    // MARK: - isEventPast Property Tests
+
+    /// Conditions: Event with isEventPast set to true.
+    /// Expected: isEventPast property returns true.
+    @Test func testEventPastPropertyIsAccessible() {
+        let config = EntryRowConfiguration(entryType: .event, isEventPast: true)
+
+        #expect(config.isEventPast == true)
+    }
+
+    /// Conditions: Event with isEventPast set to false.
+    /// Expected: isEventPast property returns false.
+    @Test func testEventNotPastPropertyIsAccessible() {
+        let config = EntryRowConfiguration(entryType: .event, isEventPast: false)
+
+        #expect(config.isEventPast == false)
+    }
+
+    /// Conditions: Task entry (isEventPast is irrelevant).
+    /// Expected: isEventPast defaults to false.
+    @Test func testTaskDefaultEventPastIsFalse() {
+        let config = EntryRowConfiguration(entryType: .task, taskStatus: .open)
+
+        #expect(config.isEventPast == false)
+    }
 }

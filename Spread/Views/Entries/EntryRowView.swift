@@ -98,18 +98,24 @@ struct EntryRowView: View {
     ///
     /// - Parameters:
     ///   - event: The event to display.
+    ///   - isEventPast: Whether the event is past (computed by caller based on spread context).
     ///   - onEdit: Callback for edit action.
     ///   - onDelete: Callback for delete action.
     init(
         event: DataModel.Event,
+        isEventPast: Bool = false,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil
     ) {
         self.configuration = EntryRowConfiguration(
             entryType: .event,
-            title: event.title
+            title: event.title,
+            isEventPast: isEventPast
         )
-        self.iconConfiguration = StatusIconConfiguration(entryType: .event)
+        self.iconConfiguration = StatusIconConfiguration(
+            entryType: .event,
+            isEventPast: isEventPast
+        )
         self.onComplete = nil
         self.onMigrate = nil
         self.onEdit = onEdit
@@ -137,7 +143,10 @@ struct EntryRowView: View {
             title: note.title,
             migrationDestination: migrationDestination
         )
-        self.iconConfiguration = StatusIconConfiguration(entryType: .note)
+        self.iconConfiguration = StatusIconConfiguration(
+            entryType: .note,
+            noteStatus: note.status
+        )
         self.onComplete = nil
         self.onMigrate = onMigrate
         self.onEdit = onEdit
@@ -160,9 +169,10 @@ struct EntryRowView: View {
 
     private var rowContent: some View {
         HStack(spacing: 12) {
-            StatusIcon(configuration: iconConfiguration)
+            StatusIcon(configuration: iconConfiguration, color: rowColor)
 
             Text(configuration.title)
+                .strikethrough(configuration.hasStrikethrough)
                 .lineLimit(2)
 
             Spacer()
@@ -171,7 +181,19 @@ struct EntryRowView: View {
                 migrationBadge(destination: destination)
             }
         }
+        .foregroundStyle(rowColor)
         .contentShape(Rectangle())
+    }
+
+    // MARK: - Styling
+
+    private var rowColor: Color {
+        if configuration.hasStrikethrough {
+            return .secondary
+        } else if configuration.isGreyedOut {
+            return .secondary
+        }
+        return .primary
     }
 
     // MARK: - Migration Badge
@@ -244,7 +266,7 @@ struct EntryRowView: View {
     }
 }
 
-#Preview("Task - Complete") {
+#Preview("Task - Complete (Greyed Out)") {
     List {
         EntryRowView(
             task: DataModel.Task(title: "File taxes", status: .complete),
@@ -254,7 +276,7 @@ struct EntryRowView: View {
     }
 }
 
-#Preview("Task - Migrated") {
+#Preview("Task - Migrated (Greyed Out)") {
     List {
         EntryRowView(
             task: DataModel.Task(title: "Call dentist", status: .migrated),
@@ -265,10 +287,32 @@ struct EntryRowView: View {
     }
 }
 
-#Preview("Event") {
+#Preview("Task - Cancelled (Strikethrough)") {
+    List {
+        EntryRowView(
+            task: DataModel.Task(title: "Buy a boat", status: .cancelled),
+            onEdit: {},
+            onDelete: {}
+        )
+    }
+}
+
+#Preview("Event - Current") {
     List {
         EntryRowView(
             event: DataModel.Event(title: "Team meeting"),
+            isEventPast: false,
+            onEdit: {},
+            onDelete: {}
+        )
+    }
+}
+
+#Preview("Event - Past (Greyed Out)") {
+    List {
+        EntryRowView(
+            event: DataModel.Event(title: "Yesterday's standup"),
+            isEventPast: true,
             onEdit: {},
             onDelete: {}
         )
@@ -286,7 +330,7 @@ struct EntryRowView: View {
     }
 }
 
-#Preview("Note - Migrated") {
+#Preview("Note - Migrated (Greyed Out)") {
     List {
         EntryRowView(
             note: DataModel.Note(title: "Meeting notes", status: .migrated),
@@ -297,7 +341,7 @@ struct EntryRowView: View {
     }
 }
 
-#Preview("All Entry Types") {
+#Preview("All Entry States") {
     List {
         Section("Tasks") {
             EntryRowView(
@@ -306,20 +350,25 @@ struct EntryRowView: View {
                 onMigrate: {}
             )
             EntryRowView(
-                task: DataModel.Task(title: "Complete task", status: .complete)
+                task: DataModel.Task(title: "Complete task (greyed)", status: .complete)
             )
             EntryRowView(
-                task: DataModel.Task(title: "Migrated task", status: .migrated),
+                task: DataModel.Task(title: "Migrated task (greyed)", status: .migrated),
                 migrationDestination: "Next Month"
             )
             EntryRowView(
-                task: DataModel.Task(title: "Cancelled task", status: .cancelled)
+                task: DataModel.Task(title: "Cancelled task (strikethrough)", status: .cancelled)
             )
         }
 
         Section("Events") {
             EntryRowView(
-                event: DataModel.Event(title: "Birthday party")
+                event: DataModel.Event(title: "Current event"),
+                isEventPast: false
+            )
+            EntryRowView(
+                event: DataModel.Event(title: "Past event (greyed)"),
+                isEventPast: true
             )
         }
 
@@ -329,8 +378,30 @@ struct EntryRowView: View {
                 onMigrate: {}
             )
             EntryRowView(
-                note: DataModel.Note(title: "Migrated note", status: .migrated),
+                note: DataModel.Note(title: "Migrated note (greyed)", status: .migrated),
                 migrationDestination: "Next Year"
+            )
+        }
+    }
+}
+
+#Preview("Visual Treatment Comparison") {
+    List {
+        Section("Normal vs Greyed Out") {
+            EntryRowView(
+                task: DataModel.Task(title: "Normal styling", status: .open)
+            )
+            EntryRowView(
+                task: DataModel.Task(title: "Greyed out styling", status: .complete)
+            )
+        }
+
+        Section("Normal vs Strikethrough") {
+            EntryRowView(
+                task: DataModel.Task(title: "Normal styling", status: .open)
+            )
+            EntryRowView(
+                task: DataModel.Task(title: "Strikethrough styling", status: .cancelled)
             )
         }
     }
