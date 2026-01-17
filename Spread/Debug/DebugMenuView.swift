@@ -79,15 +79,38 @@ struct DebugMenuView: View {
     private var dependenciesSection: some View {
         Section {
             let info = container.debugSummary
-            LabeledContent("Tasks", value: info.shortTypeName(for: info.taskRepositoryType))
-            LabeledContent("Spreads", value: info.shortTypeName(for: info.spreadRepositoryType))
-            LabeledContent("Events", value: info.shortTypeName(for: info.eventRepositoryType))
-            LabeledContent("Notes", value: info.shortTypeName(for: info.noteRepositoryType))
-            LabeledContent("Collections", value: info.shortTypeName(for: info.collectionRepositoryType))
+            repositoryLink(
+                type: .tasks,
+                implementationName: info.shortTypeName(for: info.taskRepositoryType)
+            )
+            repositoryLink(
+                type: .spreads,
+                implementationName: info.shortTypeName(for: info.spreadRepositoryType)
+            )
+            repositoryLink(
+                type: .events,
+                implementationName: info.shortTypeName(for: info.eventRepositoryType)
+            )
+            repositoryLink(
+                type: .notes,
+                implementationName: info.shortTypeName(for: info.noteRepositoryType)
+            )
+            repositoryLink(
+                type: .collections,
+                implementationName: info.shortTypeName(for: info.collectionRepositoryType)
+            )
         } header: {
             Label("Dependencies", systemImage: "shippingbox")
         } footer: {
-            Text("Repository implementations currently in use by the DependencyContainer.")
+            Text("Tap a repository to browse its contents. Shows implementation type in use.")
+        }
+    }
+
+    private func repositoryLink(type: DebugRepositoryType, implementationName: String) -> some View {
+        NavigationLink {
+            DebugRepositoryListView(repositoryType: type, container: container)
+        } label: {
+            LabeledContent(type.title, value: implementationName)
         }
     }
 

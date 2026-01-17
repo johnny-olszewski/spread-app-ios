@@ -645,7 +645,7 @@
   - Unit tests for validation logic and default selections.
 - **Dependencies**: SPRD-22, SPRD-13
 
-### [SPRD-25] Feature: Conventional spread hierarchy component
+### [SPRD-25] Feature: Conventional spread hierarchy component - [x] Complete
 - **Context**: Conventional mode uses hierarchical spread navigation, adapting to platform.
 - **Description**: Implement spread hierarchy component listing created spreads and create action.
 - **Implementation Details**:
