@@ -5,7 +5,7 @@
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData persistence. [SPRD-1, SPRD-5, SPRD-42]
-- Adaptive UI: sidebar navigation on iPad, tab-based on iPhone; traditional mode uses calendar navigation. [SPRD-19, SPRD-25, SPRD-35, SPRD-38]
+- Adaptive UI: top-level navigation adapts by device (sidebar on iPad, tab/sheet on iPhone), while spread navigation uses an in-view hierarchical tab bar on both platforms; traditional mode uses calendar navigation. [SPRD-19, SPRD-25, SPRD-35, SPRD-38]
 - Core entities: [SPRD-8, SPRD-9, SPRD-10]
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
   - Entry: protocol for task, event, note with type-specific behaviors. [SPRD-9]
@@ -15,12 +15,12 @@
   - TaskAssignment/NoteAssignment: period/date/status for migration tracking. [SPRD-10, SPRD-15]
 - JournalManager owns in-memory data model, assignment logic, migration, spread creation, and deletion. [SPRD-11, SPRD-13, SPRD-15]
 - Two UI paths: [SPRD-25, SPRD-35, SPRD-38]
-  - Tab-based UI (`MainTabView`) with spread tabs, entry list, migration banner, and settings. [SPRD-25, SPRD-27, SPRD-30]
+  - Conventional UI (`MainTabView`) with hierarchical spread tab bar (year/month/day/multiday), entry list, migration banner, and settings. [SPRD-25, SPRD-27, SPRD-30]
   - Calendar-style UI for traditional mode with year/month/day drill-in. [SPRD-35, SPRD-38]
 - BuJo modes: "conventional" (migration history visible) and "traditional" (preferred assignment only). [SPRD-20, SPRD-17]
 
 ## Goals
-- Deliver a tab-based bullet journal focused on spreads, with manual migration and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29]
+- Deliver a tab-based bullet journal focused on spreads, with in-view hierarchical navigation, manual migration, and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29]
 - Provide calendar-style navigation in traditional mode (year/month/day) without altering created-spread data. [SPRD-17, SPRD-35, SPRD-38]
 - Support offline-first usage with iCloud sync. [SPRD-42, SPRD-44]
 
@@ -39,8 +39,8 @@
 
 ### Multiplatform Strategy
 - Adaptive layouts using size classes: [SPRD-19, SPRD-25]
-  - Regular width (iPad): Sidebar navigation with spread hierarchy
-  - Compact width (iPhone): Tab bar navigation
+  - Regular width (iPad): NavigationSplitView for top-level destinations; spread navigation stays in the spread view via hierarchical tabs
+  - Compact width (iPhone): Tab bar/sheets for top-level destinations; same in-view hierarchical spread tabs
 - iPad multitasking support: [SPRD-19]
   - Split View (1/3, 1/2, 2/3 configurations)
   - Slide Over
@@ -176,9 +176,16 @@
 - Cancelled tasks are excluded from Inbox. [SPRD-16]
 
 ### Navigation and UI
-- Adaptive navigation based on size class: [SPRD-19, SPRD-25]
-  - Regular width (iPad): Sidebar with spread hierarchy, detail view for content
-  - Compact width (iPhone): Tab-based spread navigation
+- Spread navigation uses an in-view hierarchical tab bar on both iPad and iPhone; it handles navigation between spreads only. [SPRD-19, SPRD-25]
+- Hierarchical tab bar behavior: [SPRD-25]
+  - Periods shown: year → month → (day, multiday); no week period. [SPRD-8]
+  - Chronological ordering within each level. [SPRD-25]
+  - Selected year and month are sticky on the leading edge while children scroll horizontally. [SPRD-25]
+  - Tapping an expanded year/month toggles back to showing all items at that level. [SPRD-25]
+  - Initial selection is the smallest period containing today (day > multiday); if multiple multiday spreads contain today, choose earliest start date, then earliest end date, then earliest creation date. [SPRD-25]
+  - Show "No spreads" placeholder when a selected year/month has no children. [SPRD-25]
+  - Tap-only navigation; keep the selected spread visible via horizontal scroll. [SPRD-25]
+  - A trailing "+" button is always visible and opens the spread creation sheet; no ghost suggestions in MVP. [SPRD-25, SPRD-26]
 - Traditional mode uses calendar-style navigation (year → month → day). [SPRD-35, SPRD-38]
 - Traditional navigation mirrors iOS Calendar-style drill-in. [SPRD-35, SPRD-38]
 - Spread content view shows active entries and migrated entries section (conventional). [SPRD-27, SPRD-29]
@@ -230,10 +237,16 @@
 - Offline-first, then sync (industry-standard defaults). [SPRD-44]
 
 ### Development Tooling
-- Debug overlay shows current AppEnvironment in DEBUG builds only. [SPRD-2]
-- Debug overlay shows DependencyContainer status (environment, repository configuration) in DEBUG builds. [SPRD-3]
-- Debug menu provides data inspection and quick actions (DEBUG builds only). [SPRD-45, SPRD-46]
+- Debug UI is available only in DEBUG builds; Release builds have no debug destinations or data-loading actions. [SPRD-45]
+- Replace the debug overlay with a dedicated Debug destination:
+  - iPadOS (regular width): sidebar item titled "Debug" with SF Symbol `ant`. [SPRD-45]
+  - iOS (compact width): tab bar item titled "Debug" with SF Symbol `ant`. [SPRD-45]
+- Debug menu provides grouped sections with labels and descriptions:
+  - Environment and DependencyContainer summary. [SPRD-2, SPRD-3, SPRD-45]
+  - Mock Data Sets loader with buttons that overwrite existing data and reload app state. [SPRD-46]
+- Mock data sets are generated in code (no external fixtures) and cover varied spread scenarios and edge cases (empty, standard year/month/day, multiday ranges, boundary dates, large volume/perf). [SPRD-46]
 - Debug menu provides appearance overrides for paper tone, dot grid (size/spacing/opacity), heading font, and accent color (DEBUG builds only). [SPRD-63]
+- Debug tooling files live under `Spread/Debug` to keep debug-only views/data isolated. [SPRD-45]
 
 ---
 
