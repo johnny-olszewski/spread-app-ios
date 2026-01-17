@@ -20,9 +20,6 @@ struct ContentView: View {
                 loadingView
             }
         }
-        #if DEBUG
-        .debugEnvironmentOverlay(container: container)
-        #endif
         .task {
             await initializeJournalManager()
         }
