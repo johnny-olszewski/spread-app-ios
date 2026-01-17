@@ -5,6 +5,7 @@
 - Core time and data models
 - Journal core: creation, assignment, inbox, migration
 - Conventional MVP UI: create spreads and tasks
+- Debug and dev tools
 - Task lifecycle UI: edit and migration surfaces
 - Events support
 - Notes support
@@ -13,7 +14,6 @@
 - Traditional mode navigation
 - Collections and repository tests
 - Sync and persistence
-- Debug and dev tools
 - Scope guard tests
 
 ## Story: Foundation and scaffolding (completed)
@@ -521,11 +521,11 @@
 - **Implementation Details**:
   - Adaptive navigation container using size classes:
     - **Regular width (iPad)**: `NavigationSplitView` with sidebar
-      - Sidebar contains: spread hierarchy, Collections, Settings
-      - Detail view shows spread content
+      - Sidebar contains: Spreads, Collections, Settings (and Debug in DEBUG builds)
+      - Detail view shows spread content with in-view spread tab bar
       - Inbox accessible from toolbar
     - **Compact width (iPhone)**: Tab-based navigation
-      - Spreads tab with hierarchical tab bar
+      - Spreads destination renders the in-view hierarchical tab bar
       - Collections, Settings as separate tabs or sheets
       - Inbox badge/button in navigation bar
   - Navigation header with:
@@ -533,7 +533,7 @@
     - Settings gear icon (opens sheet on iPhone, sidebar item on iPad)
     - Collections button (opens sheet on iPhone, sidebar item on iPad)
   - Main content area switches based on BuJo mode:
-    - Conventional: spread hierarchy + content
+    - Conventional: in-view hierarchical tab bar + content
     - Traditional: calendar navigation
   - iPad multitasking support:
     - Works correctly in Split View (1/3, 1/2, 2/3)
@@ -543,6 +543,7 @@
 - **Acceptance Criteria**:
   - Sidebar navigation on iPad (regular width). (Spec: Multiplatform Strategy)
   - Tab-based navigation on iPhone (compact width). (Spec: Multiplatform Strategy)
+  - Spread navigation happens inside the spread view via the hierarchical tab bar on both platforms. (Spec: Navigation and UI)
   - Collections are accessible outside spread navigation. (Spec: Navigation and UI)
   - Inbox badge in header/toolbar. (Spec: Inbox)
   - App works correctly in iPad Split View and Slide Over. (Spec: Multiplatform Strategy)
@@ -648,20 +649,27 @@
 - **Context**: Conventional mode uses hierarchical spread navigation, adapting to platform.
 - **Description**: Implement spread hierarchy component listing created spreads and create action.
 - **Implementation Details**:
-  - `SpreadHierarchyView` (adaptive component):
-    - Lists created spreads organized by hierarchy (year → month → day)
-    - Selected spread highlighted, inactive spreads secondary style
-    - Progressive disclosure: expand year → show months
-    - "+" button for spread creation
-    - Creatable spread suggestions (ghost items)
-  - Platform adaptation:
-    - **iPad (sidebar)**: Rendered as expandable list in NavigationSplitView sidebar
-    - **iPhone (tab bar)**: Rendered as horizontal scrollable tab bar
-  - Spread selection updates detail/content view
+  - `SpreadHierarchyTabBar` (in-view component used on both iPad and iPhone):
+    - Lists created spreads organized by hierarchy (year → month → day + multiday)
+    - Chronological ordering within each level
+    - Selected spread highlighted; inactive spreads secondary style
+    - Progressive disclosure:
+      - Selecting a year shows its months; tapping the expanded year again shows all years
+      - Selecting a month shows its days + multiday; tapping the expanded month again shows all months
+    - Initial selection is the smallest period containing today:
+      - Prefer day over multiday
+      - If multiple multiday spreads include today: earliest start date, then earliest end date, then earliest creation date
+    - Sticky leading tabs for selected year and month; children scroll horizontally
+    - Auto-scroll keeps the selected spread visible
+    - "No spreads" label when a selected year/month has no children
+    - Trailing "+" button always visible and opens `SpreadCreationSheet`
+    - No creatable ghost suggestions in MVP
+  - Spread selection updates the content view
   - Design constants in `SpreadHierarchyDesign`
 - **Acceptance Criteria**:
   - Spread hierarchy lists created spreads only. (Spec: Navigation and UI)
-  - Component adapts to sidebar (iPad) and tab bar (iPhone) contexts. (Spec: Multiplatform Strategy)
+  - Component is used inside the spread view on both iPad and iPhone. (Spec: Multiplatform Strategy)
+  - Sticky year/month, scrollable children, and trailing "+" button behave as specified. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for spread list ordering and selection.
 - **Dependencies**: SPRD-19, SPRD-8
@@ -754,6 +762,109 @@
   - Unit tests for badge visibility based on count
   - Unit tests for entry grouping in sheet
 - **Dependencies**: SPRD-14, SPRD-22, SPRD-19
+
+## Story: Debug and dev tools
+
+### User Story
+- As a user, I want debug tools and quick actions so I can inspect data and iterate faster.
+
+### Definition of Done
+- Debug menu and quick actions are available in Debug builds only.
+- Test data builders and debug logging hooks are implemented.
+- Debug menu includes appearance overrides for paper tone, dot grid, heading font, and accent color.
+- Debug menu is a top-level navigation destination: tab bar item on iPhone and sidebar item on iPad (SF Symbol `ant`), with the overlay removed.
+
+### [SPRD-45] Feature: Debug menu (Debug builds only)
+- **Context**: Debug tooling is required for faster iteration.
+- **Description**: Add debug menu to inspect environment, spreads, entries, inbox, and collections.
+- **Implementation Details**:
+  - `DebugMenuView` gated by `#if DEBUG`, organized under `Spread/Debug`.
+  - Replace the `DebugEnvironmentOverlay` with a navigation destination:
+    - iPhone: add a `Debug` tab bar item (SF Symbol `ant`).
+    - iPad: add a `Debug` sidebar item (SF Symbol `ant`).
+  - Grouped sections with labels and descriptions.
+  - Shows:
+    - Current `AppEnvironment` and configuration properties (from SPRD-2).
+    - Dependency container summary.
+    - Mock Data Sets loader (see SPRD-46) with overwrite + reload behavior.
+  - Expands on the simple overlay from SPRD-2 with full data inspection.
+- **Acceptance Criteria**:
+  - Debug menu available only in Debug builds. (Spec: Development tooling)
+  - Debug menu shows current AppEnvironment and configuration. (Spec: Development tooling)
+  - Debug menu appears as a `Debug` tab/sidebar item and does not overlay the main UI. (Spec: Development tooling)
+- **Tests**:
+  - Unit test ensures debug menu is excluded in Release builds.
+- **Dependencies**: SPRD-11
+
+### [SPRD-63] Feature: Debug appearance overrides
+- **Context**: Visual tuning needs fast iteration without rebuilding UI constants.
+- **Description**: Add Debug-only controls to adjust paper tone, dot grid, typography, and accent color.
+- **Implementation Details**:
+  - Add an "Appearance" section to `DebugMenuView` (DEBUG only).
+  - Controls:
+    - Paper tone presets (warm off-white default, clean white, cool gray).
+    - Dot grid toggle plus sliders for dot size, spacing, and opacity.
+    - Heading font picker (default sans and a few alternatives for comparison).
+    - Accent color picker with a muted blue default and a reset button.
+  - Store overrides in `@AppStorage` or a `DebugAppearanceSettings` observable to update SwiftUI live.
+  - Provide "Reset to defaults" action to revert to spec defaults.
+- **Acceptance Criteria**:
+  - Changing Debug appearance values updates spread content surfaces immediately. (Spec: Visual Design)
+  - Overrides are DEBUG-only and do not ship in Release builds. (Spec: Development Tooling)
+- **Tests**:
+  - Unit test ensures appearance controls are excluded in Release builds.
+- **Dependencies**: SPRD-45, SPRD-62
+
+### [SPRD-46] Feature: Debug quick actions
+- **Context**: Developers need to create test data quickly.
+- **Description**: Provide mock data sets that overwrite existing data for repeatable testing.
+- **Implementation Details**:
+  - Mock data sets are generated in code (no external fixtures).
+  - Loading a data set clears existing data, loads the set, and triggers a reload.
+  - Data sets cover spread scenarios and edge cases, including:
+    - Empty state (clears all data)
+    - Baseline year/month/day spreads for today
+    - Multiday ranges (custom ranges and preset-based ranges)
+    - Boundary dates (month/year transitions; leap day when applicable)
+    - High-volume spread set for performance testing
+- **Acceptance Criteria**:
+  - Debug data sets cover multiday spreads and boundary cases. (Spec: Testing)
+  - Loading a data set overwrites existing data. (Spec: Development tooling)
+- **Tests**:
+  - Unit tests for action data creation.
+- **Dependencies**: SPRD-45
+
+### [SPRD-47] Feature: Test data builders
+- **Context**: Tests need consistent fixtures for entries and spreads.
+- **Description**: Create test data builders for entries/spreads/multiday ranges.
+- **Implementation Details**:
+  - `TestData` struct with static methods:
+    - `testYear`, `testMonth`, `testDay` - fixed test dates
+    - `spreads(calendar:today:)` - hierarchical spread set
+    - `tasks(calendar:today:)` - comprehensive task scenarios
+    - `events(calendar:today:)` - all event timing modes
+    - `notes(calendar:today:)` - notes with various states
+    - Specialized setups: `migrationChainSetup()`, `batchMigrationSetup()`, `spreadDeletionSetup()`
+- **Acceptance Criteria**:
+  - Builders cover edge cases (month/year boundaries, multiday overlaps). (Spec: Edge Cases)
+- **Tests**:
+  - Unit tests for builder outputs.
+- **Dependencies**: SPRD-46
+
+### [SPRD-48] Feature: Debug logging hooks (Debug only)
+- **Context**: Assignment/migration debugging needs visibility.
+- **Description**: Add debug logging for assignment, migration, and inbox resolution.
+- **Implementation Details**:
+  - Logging wrapper gated by `#if DEBUG`
+  - Log events: assignment created, migration performed, inbox resolved, spread deleted
+  - Include relevant context (entry ID, spread info, status changes)
+- **Acceptance Criteria**:
+  - Logging is gated to Debug builds. (Spec: Development tooling)
+- **Tests**:
+  - Unit test for debug flag gating.
+- **Dependencies**: SPRD-47
+
+
 
 ## Story: Task lifecycle UI: edit and migration surfaces
 
@@ -1306,101 +1417,6 @@
 - **Tests**:
   - Manual test plan included.
 - **Dependencies**: SPRD-43
-
-
-
-## Story: Debug and dev tools
-
-### User Story
-- As a user, I want debug tools and quick actions so I can inspect data and iterate faster.
-
-### Definition of Done
-- Debug menu and quick actions are available in Debug builds only.
-- Test data builders and debug logging hooks are implemented.
-- Debug menu includes appearance overrides for paper tone, dot grid, heading font, and accent color.
-
-### [SPRD-45] Feature: Debug menu (Debug builds only)
-- **Context**: Debug tooling is required for faster iteration.
-- **Description**: Add debug menu to inspect environment, spreads, entries, inbox, and collections.
-- **Implementation Details**:
-  - `DebugMenuView` gated by `#if DEBUG`
-  - Shows:
-    - Current `AppEnvironment` and all configuration properties (from SPRD-2)
-    - Raw data for: spreads, tasks, events, notes, inbox, collections
-  - Accessible from Settings (Debug builds only)
-  - Expands on the simple `DebugEnvironmentOverlay` from SPRD-2 with full data inspection
-- **Acceptance Criteria**:
-  - Debug menu available only in Debug builds. (Spec: Development tooling)
-  - Debug menu shows current AppEnvironment and configuration. (Spec: Development tooling)
-- **Tests**:
-  - Unit test ensures debug menu is excluded in Release builds.
-- **Dependencies**: SPRD-44
-
-### [SPRD-63] Feature: Debug appearance overrides
-- **Context**: Visual tuning needs fast iteration without rebuilding UI constants.
-- **Description**: Add Debug-only controls to adjust paper tone, dot grid, typography, and accent color.
-- **Implementation Details**:
-  - Add an "Appearance" section to `DebugMenuView` (DEBUG only).
-  - Controls:
-    - Paper tone presets (warm off-white default, clean white, cool gray).
-    - Dot grid toggle plus sliders for dot size, spacing, and opacity.
-    - Heading font picker (default sans and a few alternatives for comparison).
-    - Accent color picker with a muted blue default and a reset button.
-  - Store overrides in `@AppStorage` or a `DebugAppearanceSettings` observable to update SwiftUI live.
-  - Provide "Reset to defaults" action to revert to spec defaults.
-- **Acceptance Criteria**:
-  - Changing Debug appearance values updates spread content surfaces immediately. (Spec: Visual Design)
-  - Overrides are DEBUG-only and do not ship in Release builds. (Spec: Development Tooling)
-- **Tests**:
-  - Unit test ensures appearance controls are excluded in Release builds.
-- **Dependencies**: SPRD-45, SPRD-62
-
-### [SPRD-46] Feature: Debug quick actions
-- **Context**: Developers need to create test data quickly.
-- **Description**: Provide actions to create spreads/entries/multiday/inbox scenarios.
-- **Implementation Details**:
-  - Debug actions:
-    - "Create Sample Spreads" - year, month, day for current date
-    - "Create Sample Tasks" - tasks with various statuses
-    - "Create Sample Events" - all timing modes
-    - "Create Sample Notes" - active and migrated
-    - "Create Inbox Scenario" - entries without matching spreads
-    - "Clear All Data" - delete everything
-- **Acceptance Criteria**:
-  - Debug actions cover tasks/events/notes and multiday spreads. (Spec: Testing)
-- **Tests**:
-  - Unit tests for action data creation.
-- **Dependencies**: SPRD-45
-
-### [SPRD-47] Feature: Test data builders
-- **Context**: Tests need consistent fixtures for entries and spreads.
-- **Description**: Create test data builders for entries/spreads/multiday ranges.
-- **Implementation Details**:
-  - `TestData` struct with static methods:
-    - `testYear`, `testMonth`, `testDay` - fixed test dates
-    - `spreads(calendar:today:)` - hierarchical spread set
-    - `tasks(calendar:today:)` - comprehensive task scenarios
-    - `events(calendar:today:)` - all event timing modes
-    - `notes(calendar:today:)` - notes with various states
-    - Specialized setups: `migrationChainSetup()`, `batchMigrationSetup()`, `spreadDeletionSetup()`
-- **Acceptance Criteria**:
-  - Builders cover edge cases (month/year boundaries, multiday overlaps). (Spec: Edge Cases)
-- **Tests**:
-  - Unit tests for builder outputs.
-- **Dependencies**: SPRD-46
-
-### [SPRD-48] Feature: Debug logging hooks (Debug only)
-- **Context**: Assignment/migration debugging needs visibility.
-- **Description**: Add debug logging for assignment, migration, and inbox resolution.
-- **Implementation Details**:
-  - Logging wrapper gated by `#if DEBUG`
-  - Log events: assignment created, migration performed, inbox resolved, spread deleted
-  - Include relevant context (entry ID, spread info, status changes)
-- **Acceptance Criteria**:
-  - Logging is gated to Debug builds. (Spec: Development tooling)
-- **Tests**:
-  - Unit test for debug flag gating.
-- **Dependencies**: SPRD-47
 
 
 
