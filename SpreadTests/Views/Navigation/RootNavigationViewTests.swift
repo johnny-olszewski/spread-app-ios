@@ -62,11 +62,15 @@ struct RootNavigationViewTests {
     // MARK: - Navigation Tab Order Tests
 
     /// Conditions: Access all cases of NavigationTab.
-    /// Expected: Tabs are ordered as spreads, collections, settings.
+    /// Expected: Tabs are ordered as spreads, collections, settings (plus debug in DEBUG builds).
     @Test func testNavigationTabsAreInCorrectOrder() {
         let tabs = NavigationTab.allCases
 
+        #if DEBUG
+        #expect(tabs.count == 4)
+        #else
         #expect(tabs.count == 3)
+        #endif
         #expect(tabs[0] == .spreads)
         #expect(tabs[1] == .collections)
         #expect(tabs[2] == .settings)
@@ -104,11 +108,15 @@ struct RootNavigationViewTests {
     // MARK: - Sidebar Item Order Tests
 
     /// Conditions: Access all cases of SidebarItem.
-    /// Expected: Items are ordered as spreads, collections, settings.
+    /// Expected: Items are ordered as spreads, collections, settings (plus debug in DEBUG builds).
     @Test func testSidebarItemsAreInCorrectOrder() {
         let items = SidebarItem.allCases
 
+        #if DEBUG
+        #expect(items.count == 4)
+        #else
         #expect(items.count == 3)
+        #endif
         #expect(items[0] == .spreads)
         #expect(items[1] == .collections)
         #expect(items[2] == .settings)
