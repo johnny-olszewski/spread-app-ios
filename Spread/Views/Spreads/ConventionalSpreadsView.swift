@@ -15,6 +15,9 @@ struct ConventionalSpreadsView: View {
     /// The currently selected spread.
     @State private var selectedSpread: DataModel.Spread?
 
+    /// Whether the spread creation sheet is presented.
+    @State private var isShowingCreationSheet = false
+
     // MARK: - Body
 
     var body: some View {
@@ -24,13 +27,25 @@ struct ConventionalSpreadsView: View {
                 spreads: journalManager.spreads,
                 selectedSpread: $selectedSpread,
                 calendar: journalManager.calendar,
-                today: journalManager.today
+                today: journalManager.today,
+                onCreateTapped: {
+                    isShowingCreationSheet = true
+                }
             )
 
             Divider()
 
             // Content area
             spreadContent
+        }
+        .sheet(isPresented: $isShowingCreationSheet) {
+            SpreadCreationSheet(
+                journalManager: journalManager,
+                firstWeekday: .sunday, // TODO: SPRD-20 - Get from user settings
+                onSpreadCreated: { spread in
+                    selectedSpread = spread
+                }
+            )
         }
     }
 
