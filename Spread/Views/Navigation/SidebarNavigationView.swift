@@ -55,6 +55,10 @@ struct SidebarNavigationView: View {
             CollectionsPlaceholderView()
         case .settings:
             SettingsPlaceholderView()
+        #if DEBUG
+        case .debug:
+            DebugMenuView(container: container)
+        #endif
         case .none:
             Text("Select an item")
                 .foregroundStyle(.secondary)

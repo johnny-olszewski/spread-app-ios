@@ -774,7 +774,7 @@
 - Debug menu includes appearance overrides for paper tone, dot grid, heading font, and accent color.
 - Debug menu is a top-level navigation destination: tab bar item on iPhone and sidebar item on iPad (SF Symbol `ant`), with the overlay removed.
 
-### [SPRD-45] Feature: Debug menu (Debug builds only)
+### [SPRD-45] Feature: Debug menu (Debug builds only) - [x] Complete
 - **Context**: Debug tooling is required for faster iteration.
 - **Description**: Add debug menu to inspect environment, spreads, entries, inbox, and collections.
 - **Implementation Details**:

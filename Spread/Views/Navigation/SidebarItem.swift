@@ -1,7 +1,8 @@
 /// Sidebar items for iPad (regular width) sidebar navigation.
 ///
 /// Defines the main navigation destinations accessible from the sidebar.
-enum SidebarItem: String, CaseIterable, Identifiable, Sendable {
+/// In DEBUG builds, includes an additional Debug item.
+enum SidebarItem: String, Identifiable, Sendable {
     /// Spreads section showing journal spreads.
     case spreads
 
@@ -11,9 +12,25 @@ enum SidebarItem: String, CaseIterable, Identifiable, Sendable {
     /// Settings section for app preferences.
     case settings
 
+    #if DEBUG
+    /// Debug section for development tools and inspection.
+    case debug
+    #endif
+
     // MARK: - Identifiable
 
     var id: String { rawValue }
+
+    // MARK: - All Cases
+
+    /// All sidebar items, conditionally including Debug in DEBUG builds.
+    static var allCases: [SidebarItem] {
+        var cases: [SidebarItem] = [.spreads, .collections, .settings]
+        #if DEBUG
+        cases.append(.debug)
+        #endif
+        return cases
+    }
 
     // MARK: - Display
 
@@ -26,6 +43,10 @@ enum SidebarItem: String, CaseIterable, Identifiable, Sendable {
             return "Collections"
         case .settings:
             return "Settings"
+        #if DEBUG
+        case .debug:
+            return "Debug"
+        #endif
         }
     }
 
@@ -38,6 +59,10 @@ enum SidebarItem: String, CaseIterable, Identifiable, Sendable {
             return "folder"
         case .settings:
             return "gear"
+        #if DEBUG
+        case .debug:
+            return "ant"
+        #endif
         }
     }
 }
