@@ -42,6 +42,10 @@ struct TabNavigationView: View {
                     CollectionsPlaceholderView()
                 case .settings:
                     SettingsPlaceholderView()
+                #if DEBUG
+                case .debug:
+                    DebugMenuView(container: container)
+                #endif
                 }
             }
             .navigationTitle(tab.title)
