@@ -6,7 +6,7 @@ import SwiftUI
 /// Provides grouped sections for:
 /// - Current AppEnvironment and configuration
 /// - Dependency container summary
-/// - Mock data sets loader (placeholder for SPRD-46)
+/// - Mock data sets loader with overwrite + reload behavior
 ///
 /// Only available in DEBUG builds. Accessible as a navigation destination
 /// via the Debug tab (iPhone) or sidebar item (iPad).
@@ -14,8 +14,27 @@ struct DebugMenuView: View {
     /// The dependency container for inspecting repository types.
     let container: DependencyContainer
 
+    /// Optional callback to trigger data reload after loading a mock data set.
+    var onDataReload: (() async -> Void)?
+
+    @State private var isLoading = false
+    @State private var loadingDataSet: MockDataSet?
+    @State private var showError = false
+    @State private var errorMessage = ""
+    @State private var showSuccess = false
+    @State private var successMessage = ""
+
     private var environment: AppEnvironment {
         AppEnvironment.current
+    }
+
+    private var dataService: DebugDataService {
+        DebugDataService(
+            taskRepository: container.taskRepository,
+            spreadRepository: container.spreadRepository,
+            eventRepository: container.eventRepository,
+            noteRepository: container.noteRepository
+        )
     }
 
     var body: some View {
@@ -27,6 +46,17 @@ struct DebugMenuView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Debug")
+        .disabled(isLoading)
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage)
+        }
+        .alert("Success", isPresented: $showSuccess) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(successMessage)
+        }
     }
 
     // MARK: - Environment Section
@@ -65,15 +95,87 @@ struct DebugMenuView: View {
 
     private var mockDataSection: some View {
         Section {
-            // TODO: SPRD-46 - Implement mock data sets loader with overwrite + reload behavior
-            Text("Mock data sets will be available here")
-                .foregroundStyle(.secondary)
-                .italic()
+            ForEach(MockDataSet.allCases, id: \.rawValue) { dataSet in
+                mockDataSetButton(for: dataSet)
+            }
         } header: {
             Label("Mock Data Sets", systemImage: "doc.on.doc")
         } footer: {
             Text("Load predefined data sets to test various scenarios. Loading a data set will overwrite existing data.")
         }
+    }
+
+    @ViewBuilder
+    private func mockDataSetButton(for dataSet: MockDataSet) -> some View {
+        Button {
+            Task {
+                await loadDataSet(dataSet)
+            }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(dataSet.displayName)
+                            .fontWeight(.medium)
+
+                        if loadingDataSet == dataSet {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                    }
+
+                    Text(dataSet.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: iconName(for: dataSet))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .disabled(isLoading)
+    }
+
+    private func iconName(for dataSet: MockDataSet) -> String {
+        switch dataSet {
+        case .empty:
+            return "trash"
+        case .baseline:
+            return "doc.text"
+        case .multiday:
+            return "calendar"
+        case .boundary:
+            return "arrow.left.arrow.right"
+        case .highVolume:
+            return "chart.bar.fill"
+        }
+    }
+
+    private func loadDataSet(_ dataSet: MockDataSet) async {
+        isLoading = true
+        loadingDataSet = dataSet
+
+        do {
+            try await dataService.loadDataSet(
+                dataSet,
+                calendar: .current,
+                today: .now
+            )
+
+            // Trigger data reload if callback is provided
+            await onDataReload?()
+
+            successMessage = "\(dataSet.displayName) data set loaded successfully."
+            showSuccess = true
+        } catch {
+            errorMessage = "Failed to load data set: \(error.localizedDescription)"
+            showError = true
+        }
+
+        isLoading = false
+        loadingDataSet = nil
     }
 
     // MARK: - Build Info Section

@@ -815,7 +815,7 @@
   - Unit test ensures appearance controls are excluded in Release builds.
 - **Dependencies**: SPRD-45, SPRD-62
 
-### [SPRD-46] Feature: Debug quick actions
+### [SPRD-46] Feature: Debug quick actions - [x] Complete
 - **Context**: Developers need to create test data quickly.
 - **Description**: Provide mock data sets that overwrite existing data for repeatable testing.
 - **Implementation Details**:
@@ -864,7 +864,23 @@
   - Unit test for debug flag gating.
 - **Dependencies**: SPRD-47
 
-
+### [SPRD-65] Feature: Leap day boundary test data
+- **Context**: Leap day (Feb 29) is a special case for date boundary testing.
+- **Description**: Add leap day scenarios to the boundary mock data set and test data builders.
+- **Implementation Details**:
+  - Extend `MockDataSet.boundary` to include Feb 29 dates for the next leap year (2028)
+  - Add spreads and entries for Feb 28 → Feb 29 → Mar 1 transitions
+  - Include test cases for:
+    - Day spread on Feb 29
+    - Month spread for February in a leap year
+    - Multiday range spanning Feb 28-Mar 1 in a leap year
+    - Tasks/events assigned to Feb 29
+- **Acceptance Criteria**:
+  - Boundary data set includes leap day scenarios when applicable. (Spec: Edge Cases)
+- **Tests**:
+  - Unit tests verifying leap day spreads are correctly generated.
+  - Unit tests for date normalization on Feb 29.
+- **Dependencies**: SPRD-46
 
 ## Story: Task lifecycle UI: edit and migration surfaces
 
@@ -1455,5 +1471,6 @@ SPRD-14 -> SPRD-18 -> SPRD-32
 SPRD-19 -> SPRD-20 -> SPRD-17 -> SPRD-35 -> SPRD-36 -> SPRD-37 -> SPRD-38 -> SPRD-53
 SPRD-38 -> SPRD-39 -> SPRD-40 -> SPRD-41 -> SPRD-54 -> SPRD-55 -> SPRD-56
 SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-63 -> SPRD-46 -> SPRD-47 -> SPRD-48
+SPRD-46 -> SPRD-65
 SPRD-62 -> SPRD-63
 ```
