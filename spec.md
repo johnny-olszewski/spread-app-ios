@@ -230,10 +230,16 @@
 - Offline-first, then sync (industry-standard defaults). [SPRD-44]
 
 ### Development Tooling
-- Debug overlay shows current AppEnvironment in DEBUG builds only. [SPRD-2]
-- Debug overlay shows DependencyContainer status (environment, repository configuration) in DEBUG builds. [SPRD-3]
-- Debug menu provides data inspection and quick actions (DEBUG builds only). [SPRD-45, SPRD-46]
+- Debug UI is available only in DEBUG builds; Release builds have no debug destinations or data-loading actions. [SPRD-45]
+- Replace the debug overlay with a dedicated Debug destination:
+  - iPadOS (regular width): sidebar item titled "Debug" with SF Symbol `ant`. [SPRD-45]
+  - iOS (compact width): tab bar item titled "Debug" with SF Symbol `ant`. [SPRD-45]
+- Debug menu provides grouped sections with labels and descriptions:
+  - Environment and DependencyContainer summary. [SPRD-2, SPRD-3, SPRD-45]
+  - Mock Data Sets loader with buttons that overwrite existing data and reload app state. [SPRD-46]
+- Mock data sets are generated in code (no external fixtures) and cover varied spread scenarios and edge cases (empty, standard year/month/day, multiday ranges, boundary dates, large volume/perf). [SPRD-46]
 - Debug menu provides appearance overrides for paper tone, dot grid (size/spacing/opacity), heading font, and accent color (DEBUG builds only). [SPRD-63]
+- Debug tooling files live under `Spread/Debug` to keep debug-only views/data isolated. [SPRD-45]
 
 ---
 
