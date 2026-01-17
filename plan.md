@@ -674,7 +674,7 @@
   - Unit tests for spread list ordering and selection.
 - **Dependencies**: SPRD-19, SPRD-8
 
-### [SPRD-26] Feature: Spread creation sheet UI
+### [SPRD-26] Feature: Spread creation sheet UI - [x] Complete
 - **Context**: Users must create spreads explicitly.
 - **Description**: Build create-spread UI for year/month/day/multiday with presets and override.
 - **Implementation Details**:
