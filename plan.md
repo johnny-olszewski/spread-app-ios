@@ -521,11 +521,11 @@
 - **Implementation Details**:
   - Adaptive navigation container using size classes:
     - **Regular width (iPad)**: `NavigationSplitView` with sidebar
-      - Sidebar contains: spread hierarchy, Collections, Settings
-      - Detail view shows spread content
+      - Sidebar contains: Spreads, Collections, Settings (and Debug in DEBUG builds)
+      - Detail view shows spread content with in-view spread tab bar
       - Inbox accessible from toolbar
     - **Compact width (iPhone)**: Tab-based navigation
-      - Spreads tab with hierarchical tab bar
+      - Spreads destination renders the in-view hierarchical tab bar
       - Collections, Settings as separate tabs or sheets
       - Inbox badge/button in navigation bar
   - Navigation header with:
@@ -533,7 +533,7 @@
     - Settings gear icon (opens sheet on iPhone, sidebar item on iPad)
     - Collections button (opens sheet on iPhone, sidebar item on iPad)
   - Main content area switches based on BuJo mode:
-    - Conventional: spread hierarchy + content
+    - Conventional: in-view hierarchical tab bar + content
     - Traditional: calendar navigation
   - iPad multitasking support:
     - Works correctly in Split View (1/3, 1/2, 2/3)
@@ -543,6 +543,7 @@
 - **Acceptance Criteria**:
   - Sidebar navigation on iPad (regular width). (Spec: Multiplatform Strategy)
   - Tab-based navigation on iPhone (compact width). (Spec: Multiplatform Strategy)
+  - Spread navigation happens inside the spread view via the hierarchical tab bar on both platforms. (Spec: Navigation and UI)
   - Collections are accessible outside spread navigation. (Spec: Navigation and UI)
   - Inbox badge in header/toolbar. (Spec: Inbox)
   - App works correctly in iPad Split View and Slide Over. (Spec: Multiplatform Strategy)
@@ -648,20 +649,27 @@
 - **Context**: Conventional mode uses hierarchical spread navigation, adapting to platform.
 - **Description**: Implement spread hierarchy component listing created spreads and create action.
 - **Implementation Details**:
-  - `SpreadHierarchyView` (adaptive component):
-    - Lists created spreads organized by hierarchy (year → month → day)
-    - Selected spread highlighted, inactive spreads secondary style
-    - Progressive disclosure: expand year → show months
-    - "+" button for spread creation
-    - Creatable spread suggestions (ghost items)
-  - Platform adaptation:
-    - **iPad (sidebar)**: Rendered as expandable list in NavigationSplitView sidebar
-    - **iPhone (tab bar)**: Rendered as horizontal scrollable tab bar
-  - Spread selection updates detail/content view
+  - `SpreadHierarchyTabBar` (in-view component used on both iPad and iPhone):
+    - Lists created spreads organized by hierarchy (year → month → day + multiday)
+    - Chronological ordering within each level
+    - Selected spread highlighted; inactive spreads secondary style
+    - Progressive disclosure:
+      - Selecting a year shows its months; tapping the expanded year again shows all years
+      - Selecting a month shows its days + multiday; tapping the expanded month again shows all months
+    - Initial selection is the smallest period containing today:
+      - Prefer day over multiday
+      - If multiple multiday spreads include today: earliest start date, then earliest end date, then earliest creation date
+    - Sticky leading tabs for selected year and month; children scroll horizontally
+    - Auto-scroll keeps the selected spread visible
+    - "No spreads" label when a selected year/month has no children
+    - Trailing "+" button always visible and opens `SpreadCreationSheet`
+    - No creatable ghost suggestions in MVP
+  - Spread selection updates the content view
   - Design constants in `SpreadHierarchyDesign`
 - **Acceptance Criteria**:
   - Spread hierarchy lists created spreads only. (Spec: Navigation and UI)
-  - Component adapts to sidebar (iPad) and tab bar (iPhone) contexts. (Spec: Multiplatform Strategy)
+  - Component is used inside the spread view on both iPad and iPhone. (Spec: Multiplatform Strategy)
+  - Sticky year/month, scrollable children, and trailing "+" button behave as specified. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for spread list ordering and selection.
 - **Dependencies**: SPRD-19, SPRD-8
