@@ -46,17 +46,23 @@ struct StatusIcon: View {
     /// - Parameters:
     ///   - entryType: The type of entry.
     ///   - taskStatus: The task status (only used for tasks).
+    ///   - noteStatus: The note status (only used for notes).
+    ///   - isEventPast: Whether the event is past (only used for events).
     ///   - size: The text style size (defaults to `.body`).
     ///   - color: The icon color (defaults to primary).
     init(
         entryType: EntryType,
         taskStatus: DataModel.Task.Status? = nil,
+        noteStatus: DataModel.Note.Status? = nil,
+        isEventPast: Bool = false,
         size: Font.TextStyle = .body,
         color: Color = .primary
     ) {
         self.configuration = StatusIconConfiguration(
             entryType: entryType,
             taskStatus: taskStatus,
+            noteStatus: noteStatus,
+            isEventPast: isEventPast,
             size: size
         )
         self.color = color
@@ -106,6 +112,46 @@ struct StatusIcon: View {
         HStack(spacing: 12) {
             StatusIcon(entryType: .task, taskStatus: .cancelled)
             Text("Cancelled")
+        }
+    }
+    .padding()
+}
+
+#Preview("Note Statuses") {
+    VStack(alignment: .leading, spacing: 16) {
+        HStack(spacing: 12) {
+            StatusIcon(configuration: StatusIconConfiguration(
+                entryType: .note,
+                noteStatus: .active
+            ))
+            Text("Active")
+        }
+        HStack(spacing: 12) {
+            StatusIcon(configuration: StatusIconConfiguration(
+                entryType: .note,
+                noteStatus: .migrated
+            ))
+            Text("Migrated")
+        }
+    }
+    .padding()
+}
+
+#Preview("Event States") {
+    VStack(alignment: .leading, spacing: 16) {
+        HStack(spacing: 12) {
+            StatusIcon(configuration: StatusIconConfiguration(
+                entryType: .event,
+                isEventPast: false
+            ))
+            Text("Current")
+        }
+        HStack(spacing: 12) {
+            StatusIcon(configuration: StatusIconConfiguration(
+                entryType: .event,
+                isEventPast: true
+            ))
+            Text("Past")
         }
     }
     .padding()
