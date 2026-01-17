@@ -1318,20 +1318,26 @@
 - Debug menu and quick actions are available in Debug builds only.
 - Test data builders and debug logging hooks are implemented.
 - Debug menu includes appearance overrides for paper tone, dot grid, heading font, and accent color.
+- Debug menu is a top-level navigation destination: tab bar item on iPhone and sidebar item on iPad (SF Symbol `ant`), with the overlay removed.
 
 ### [SPRD-45] Feature: Debug menu (Debug builds only)
 - **Context**: Debug tooling is required for faster iteration.
 - **Description**: Add debug menu to inspect environment, spreads, entries, inbox, and collections.
 - **Implementation Details**:
-  - `DebugMenuView` gated by `#if DEBUG`
+  - `DebugMenuView` gated by `#if DEBUG`, organized under `Spread/Debug`.
+  - Replace the `DebugEnvironmentOverlay` with a navigation destination:
+    - iPhone: add a `Debug` tab bar item (SF Symbol `ant`).
+    - iPad: add a `Debug` sidebar item (SF Symbol `ant`).
+  - Grouped sections with labels and descriptions.
   - Shows:
-    - Current `AppEnvironment` and all configuration properties (from SPRD-2)
-    - Raw data for: spreads, tasks, events, notes, inbox, collections
-  - Accessible from Settings (Debug builds only)
-  - Expands on the simple `DebugEnvironmentOverlay` from SPRD-2 with full data inspection
+    - Current `AppEnvironment` and configuration properties (from SPRD-2).
+    - Dependency container summary.
+    - Mock Data Sets loader (see SPRD-46) with overwrite + reload behavior.
+  - Expands on the simple overlay from SPRD-2 with full data inspection.
 - **Acceptance Criteria**:
   - Debug menu available only in Debug builds. (Spec: Development tooling)
   - Debug menu shows current AppEnvironment and configuration. (Spec: Development tooling)
+  - Debug menu appears as a `Debug` tab/sidebar item and does not overlay the main UI. (Spec: Development tooling)
 - **Tests**:
   - Unit test ensures debug menu is excluded in Release builds.
 - **Dependencies**: SPRD-44
@@ -1357,17 +1363,19 @@
 
 ### [SPRD-46] Feature: Debug quick actions
 - **Context**: Developers need to create test data quickly.
-- **Description**: Provide actions to create spreads/entries/multiday/inbox scenarios.
+- **Description**: Provide mock data sets that overwrite existing data for repeatable testing.
 - **Implementation Details**:
-  - Debug actions:
-    - "Create Sample Spreads" - year, month, day for current date
-    - "Create Sample Tasks" - tasks with various statuses
-    - "Create Sample Events" - all timing modes
-    - "Create Sample Notes" - active and migrated
-    - "Create Inbox Scenario" - entries without matching spreads
-    - "Clear All Data" - delete everything
+  - Mock data sets are generated in code (no external fixtures).
+  - Loading a data set clears existing data, loads the set, and triggers a reload.
+  - Data sets cover spread scenarios and edge cases, including:
+    - Empty state (clears all data)
+    - Baseline year/month/day spreads for today
+    - Multiday ranges (custom ranges and preset-based ranges)
+    - Boundary dates (month/year transitions; leap day when applicable)
+    - High-volume spread set for performance testing
 - **Acceptance Criteria**:
-  - Debug actions cover tasks/events/notes and multiday spreads. (Spec: Testing)
+  - Debug data sets cover multiday spreads and boundary cases. (Spec: Testing)
+  - Loading a data set overwrites existing data. (Spec: Development tooling)
 - **Tests**:
   - Unit tests for action data creation.
 - **Dependencies**: SPRD-45
