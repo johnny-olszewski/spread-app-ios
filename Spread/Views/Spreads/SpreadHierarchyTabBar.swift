@@ -25,6 +25,9 @@ struct SpreadHierarchyTabBar: View {
     /// The reference date for initial selection (typically today).
     let today: Date
 
+    /// Callback when the create button is tapped.
+    var onCreateTapped: (() -> Void)?
+
     /// The expanded year in the hierarchy (shows its months).
     @State private var expandedYear: DataModel.Spread?
 
@@ -174,7 +177,7 @@ struct SpreadHierarchyTabBar: View {
 
     private var createButton: some View {
         Button {
-            // TODO: SPRD-26 - Open SpreadCreationSheet
+            onCreateTapped?()
         } label: {
             Image(systemName: SpreadHierarchyDesign.createButtonSymbol)
                 .font(.system(size: 16, weight: .semibold))
