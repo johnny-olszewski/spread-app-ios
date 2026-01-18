@@ -674,6 +674,26 @@
   - Unit tests for spread list ordering and selection.
 - **Dependencies**: SPRD-19, SPRD-8
 
+### [SPRD-66] Feature: Spread hierarchy year/month picker on re-tap
+- **Context**: Re-tapping the selected year/month should present available options instead of toggling the list.
+- **Description**: Replace the "show all" toggle with a native picker/menu listing created years/months.
+- **Implementation Details**:
+  - Update `SpreadHierarchyTabBar` re-tap behavior:
+    - Selected year tab opens a picker/menu listing available years derived from created spreads.
+    - Selected month tab opens a picker/menu listing available months for the selected year.
+    - Selecting an option updates the selection and expands children (months or days/multiday), matching normal tap behavior.
+  - Remove the "tap expanded year/month to show all items" toggle logic.
+  - Keep "No spreads" placeholder as a label only (no interaction).
+  - Use native SwiftUI components (e.g., `Menu` or `Picker`) that work on iPad and iPhone.
+- **Acceptance Criteria**:
+  - Re-tapping selected year/month opens a picker of created spreads only. (Spec: Navigation and UI)
+  - Choosing a year shows that year spread and its months; choosing a month shows that month spread and its day/multiday children. (Spec: Navigation and UI)
+  - "Show all" toggle behavior is removed. (Spec: Navigation and UI)
+  - Behavior matches on iPad and iPhone. (Spec: Multiplatform Strategy)
+- **Tests**:
+  - Unit tests for picker option lists (created spreads only) and selection propagation.
+- **Dependencies**: SPRD-25
+
 ### [SPRD-26] Feature: Spread creation sheet UI
 - **Context**: Users must create spreads explicitly.
 - **Description**: Build create-spread UI for year/month/day/multiday with presets and override.

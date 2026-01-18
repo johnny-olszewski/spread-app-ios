@@ -181,7 +181,7 @@
   - Periods shown: year → month → (day, multiday); no week period. [SPRD-8]
   - Chronological ordering within each level. [SPRD-25]
   - Selected year and month are sticky on the leading edge while children scroll horizontally. [SPRD-25]
-  - Tapping an expanded year/month toggles back to showing all items at that level. [SPRD-25]
+  - Re-tapping the selected year/month opens a picker listing available years/months (created spreads only); selection updates and expands children, with no "show all" toggle. [SPRD-66]
   - Initial selection is the smallest period containing today (day > multiday); if multiple multiday spreads contain today, choose earliest start date, then earliest end date, then earliest creation date. [SPRD-25]
   - Show "No spreads" placeholder when a selected year/month has no children. [SPRD-25]
   - Tap-only navigation; keep the selected spread visible via horizontal scroll. [SPRD-25]
