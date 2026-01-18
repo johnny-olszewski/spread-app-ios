@@ -168,9 +168,9 @@
 
 ### Inbox
 - Unassigned entries (tasks/notes) are stored in a global Inbox. [SPRD-14]
-- Inbox appears as badge/button in navigation header (not a tab). [SPRD-31]
-- Badge shows count of unassigned entries; hidden when count is 0. [SPRD-31]
-- Tapping badge opens Inbox view as sheet. [SPRD-31]
+- Inbox appears as a toolbar button in the spread content view (not a tab). [SPRD-31, SPRD-68]
+- When Inbox has entries, tint the button yellow instead of showing a badge count. [SPRD-68]
+- Tapping the button opens Inbox view as sheet. [SPRD-31]
 - Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
 - Events are NEVER in Inbox (they have computed visibility). [SPRD-14]
 - Cancelled tasks are excluded from Inbox. [SPRD-16]
@@ -281,7 +281,7 @@
 - Week period removed from Period enum; multiday covers week-like scenarios. [SPRD-8, SPRD-56]
 - Events use computed visibility (date range overlap), not assignments. [SPRD-33]
 - Notes migrate only via explicit user action, not batch suggestions. [SPRD-34]
-- Inbox appears as badge/button in header, opens as sheet. [SPRD-31]
+- Inbox appears as a toolbar button in the spread content view and opens as sheet; when non-empty, the icon is tinted yellow. [SPRD-31, SPRD-68]
 - Settings include mode toggle + first day of week preference. [SPRD-20, SPRD-49]
 - Spread deletion never deletes entries; reassigns to parent or Inbox. [SPRD-15]
 - Collections are plain text pages outside spread navigation. [SPRD-19, SPRD-40]
