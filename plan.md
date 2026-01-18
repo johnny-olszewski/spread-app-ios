@@ -854,6 +854,22 @@
   - Unit tests for action data creation.
 - **Dependencies**: SPRD-45
 
+### [SPRD-67] Feature: Debug data loading via JournalManager
+- **Context**: Debug data loading bypasses JournalManager, causing stale UI state and crashes when mixing debug data with app UI flows.
+- **Description**: Route debug data loading and clearing through JournalManager APIs to mirror app behavior and refresh UI immediately.
+- **Implementation Details**:
+  - Add JournalManager APIs to clear all data and load mock data sets using the same entry/spread creation flows as the app UI.
+  - Create JournalManager methods for adding tasks/notes/events so debug data uses shared logic and assignments.
+  - After load/clear, reload the JournalManager data model and reset selection to today's best matching spread (or nil if none).
+  - Update Debug UI to call JournalManager instead of direct repository mutations.
+- **Acceptance Criteria**:
+  - Loading a mock data set updates the UI immediately without relaunch. (Spec: Development Tooling)
+  - Adding mock data, then creating spreads or entries via the app UI does not crash. (Spec: Development Tooling)
+  - Debug data loading uses JournalManager APIs, not direct repository writes. (Spec: Development Tooling)
+- **Tests**:
+  - Manual QA: load each mock data set, verify spreads render immediately, then add a spread and task to confirm no crash.
+- **Dependencies**: SPRD-46, SPRD-11
+
 ### [SPRD-47] Feature: Test data builders
 - **Context**: Tests need consistent fixtures for entries and spreads.
 - **Description**: Create test data builders for entries/spreads/multiday ranges.
