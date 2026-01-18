@@ -331,8 +331,9 @@ final class JournalManager {
     /// - Parameters:
     ///   - period: The period for the new spread.
     ///   - date: The date for the new spread.
+    /// - Returns: The newly created spread.
     /// - Throws: Repository errors if persistence fails.
-    func addSpread(period: Period, date: Date) async throws {
+    func addSpread(period: Period, date: Date) async throws -> DataModel.Spread {
         // Create the new spread
         let spread = DataModel.Spread(period: period, date: date, calendar: calendar)
 
@@ -354,6 +355,8 @@ final class JournalManager {
         // Rebuild data model and trigger UI update
         buildDataModel()
         dataVersion += 1
+
+        return spread
     }
 
     /// Creates a new multiday spread.
@@ -364,8 +367,9 @@ final class JournalManager {
     /// - Parameters:
     ///   - startDate: The start date of the multiday range.
     ///   - endDate: The end date of the multiday range.
+    /// - Returns: The newly created multiday spread.
     /// - Throws: Repository errors if persistence fails.
-    func addMultidaySpread(startDate: Date, endDate: Date) async throws {
+    func addMultidaySpread(startDate: Date, endDate: Date) async throws -> DataModel.Spread {
         // Create the new multiday spread
         let spread = DataModel.Spread(
             startDate: startDate,
@@ -380,6 +384,8 @@ final class JournalManager {
         // Rebuild data model and trigger UI update
         buildDataModel()
         dataVersion += 1
+
+        return spread
     }
 
     /// Finds inbox entries that would be resolved by the given spread.
