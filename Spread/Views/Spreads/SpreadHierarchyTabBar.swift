@@ -4,7 +4,8 @@ import SwiftUI
 ///
 /// Displays spreads organized by year → month → day hierarchy with:
 /// - Progressive disclosure (tap year to show months, tap month to show days)
-/// - Sticky leading tabs for selected year and month
+/// - Sticky leading tabs for selected year and month with dropdown pickers
+/// - Re-tapping sticky year/month opens a picker to select from available spreads
 /// - Horizontally scrollable children
 /// - Trailing "+" button for creating new spreads
 ///
@@ -64,18 +65,14 @@ struct SpreadHierarchyTabBar: View {
     @ViewBuilder
     private var stickyLeadingSection: some View {
         HStack(spacing: SpreadHierarchyDesign.itemSpacing) {
-            // Year tab (if expanded)
+            // Year tab with picker menu (if expanded)
             if let year = expandedYear {
-                tabItem(for: year, font: SpreadHierarchyDesign.yearFont) {
-                    handleYearTap(year)
-                }
+                yearPickerMenu(currentYear: year)
             }
 
-            // Month tab (if expanded)
+            // Month tab with picker menu (if expanded)
             if let month = expandedMonth {
-                tabItem(for: month, font: SpreadHierarchyDesign.monthFont) {
-                    handleMonthTap(month)
-                }
+                monthPickerMenu(currentMonth: month)
             }
         }
         .padding(.leading, SpreadHierarchyDesign.horizontalPadding)
@@ -216,6 +213,89 @@ struct SpreadHierarchyTabBar: View {
         .buttonStyle(.plain)
     }
 
+    // MARK: - Picker Menus
+
+    /// Menu for selecting a year from all available year spreads.
+    @ViewBuilder
+    private func yearPickerMenu(currentYear: DataModel.Spread) -> some View {
+        let isSelected = selectedSpread?.id == currentYear.id
+
+        Menu {
+            ForEach(organizer.years) { yearNode in
+                Button {
+                    handleYearSelection(yearNode.spread)
+                } label: {
+                    HStack {
+                        Text(yearNode.spread.displayLabel(calendar: calendar))
+                        if yearNode.spread.id == currentYear.id {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(currentYear.displayLabel(calendar: calendar))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .font(SpreadHierarchyDesign.yearFont)
+            .fontWeight(isSelected ? .semibold : .regular)
+            .foregroundStyle(isSelected ? SpreadHierarchyDesign.selectedForeground : SpreadHierarchyDesign.unselectedForeground)
+            .padding(SpreadHierarchyDesign.itemPadding)
+            .background(
+                RoundedRectangle(cornerRadius: SpreadHierarchyDesign.itemCornerRadius)
+                    .fill(isSelected ? SpreadHierarchyDesign.selectedBackground : SpreadHierarchyDesign.unselectedBackground)
+            )
+            .frame(minWidth: SpreadHierarchyDesign.minimumItemWidth)
+        }
+    }
+
+    /// Menu for selecting a month from available months in the current year.
+    @ViewBuilder
+    private func monthPickerMenu(currentMonth: DataModel.Spread) -> some View {
+        let isSelected = selectedSpread?.id == currentMonth.id
+
+        // Get months for the expanded year
+        let monthOptions: [SpreadHierarchyOrganizer.MonthNode] = {
+            guard let expandedYear = expandedYear,
+                  let yearNode = organizer.years.first(where: { $0.spread.id == expandedYear.id }) else {
+                return []
+            }
+            return yearNode.months
+        }()
+
+        Menu {
+            ForEach(monthOptions) { monthNode in
+                Button {
+                    handleMonthSelection(monthNode.spread)
+                } label: {
+                    HStack {
+                        Text(monthNode.spread.displayLabel(calendar: calendar))
+                        if monthNode.spread.id == currentMonth.id {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(currentMonth.displayLabel(calendar: calendar))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .font(SpreadHierarchyDesign.monthFont)
+            .fontWeight(isSelected ? .semibold : .regular)
+            .foregroundStyle(isSelected ? SpreadHierarchyDesign.selectedForeground : SpreadHierarchyDesign.unselectedForeground)
+            .padding(SpreadHierarchyDesign.itemPadding)
+            .background(
+                RoundedRectangle(cornerRadius: SpreadHierarchyDesign.itemCornerRadius)
+                    .fill(isSelected ? SpreadHierarchyDesign.selectedBackground : SpreadHierarchyDesign.unselectedBackground)
+            )
+            .frame(minWidth: SpreadHierarchyDesign.minimumItemWidth)
+        }
+    }
+
     // MARK: - Actions
 
     private func initializeSelection() {
@@ -253,37 +333,45 @@ struct SpreadHierarchyTabBar: View {
         }
     }
 
+    /// Handles tapping a year in the scrollable section.
+    /// Expands the year to show its months.
     private func handleYearTap(_ year: DataModel.Spread) {
         withAnimation(SpreadHierarchyDesign.expansionAnimation) {
-            if expandedYear?.id == year.id && expandedMonth == nil {
-                // Already expanded at year level, collapse to show all years
-                expandedYear = nil
-            } else if expandedYear?.id == year.id {
-                // Expanded with month showing, collapse to year level
-                expandedMonth = nil
-            } else {
-                // Expand this year
-                expandedYear = year
-                expandedMonth = nil
-            }
+            expandedYear = year
+            expandedMonth = nil
         }
 
-        // Select the year spread
         selectSpread(year)
     }
 
+    /// Handles tapping a month in the scrollable section.
+    /// Expands the month to show its days.
     private func handleMonthTap(_ month: DataModel.Spread) {
         withAnimation(SpreadHierarchyDesign.expansionAnimation) {
-            if expandedMonth?.id == month.id {
-                // Already expanded, collapse to show all months
-                expandedMonth = nil
-            } else {
-                // Expand this month
-                expandedMonth = month
-            }
+            expandedMonth = month
         }
 
-        // Select the month spread
+        selectSpread(month)
+    }
+
+    /// Handles selecting a year from the picker menu.
+    /// Updates selection and expands to show months for the chosen year.
+    private func handleYearSelection(_ year: DataModel.Spread) {
+        withAnimation(SpreadHierarchyDesign.expansionAnimation) {
+            expandedYear = year
+            expandedMonth = nil
+        }
+
+        selectSpread(year)
+    }
+
+    /// Handles selecting a month from the picker menu.
+    /// Updates selection and expands to show days for the chosen month.
+    private func handleMonthSelection(_ month: DataModel.Spread) {
+        withAnimation(SpreadHierarchyDesign.expansionAnimation) {
+            expandedMonth = month
+        }
+
         selectSpread(month)
     }
 
