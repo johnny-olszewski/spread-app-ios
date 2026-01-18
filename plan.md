@@ -674,7 +674,7 @@
   - Unit tests for spread list ordering and selection.
 - **Dependencies**: SPRD-19, SPRD-8
 
-### [SPRD-66] Feature: Spread hierarchy year/month picker on re-tap
+### [SPRD-66] Feature: Spread hierarchy year/month picker on re-tap - [x] Complete
 - **Context**: Re-tapping the selected year/month should present available options instead of toggling the list.
 - **Description**: Replace the "show all" toggle with a native picker/menu listing created years/months.
 - **Implementation Details**:

@@ -480,3 +480,189 @@ struct SpreadHierarchyDisplayTests {
         #expect(label == "Jan 28-Feb 3")
     }
 }
+
+// MARK: - Hierarchy Picker Tests
+
+@Suite("Spread Hierarchy Picker Tests")
+struct SpreadHierarchyPickerTests {
+
+    private func makeTestCalendar() -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .init(identifier: "UTC")!
+        return calendar
+    }
+
+    private func makeDate(year: Int, month: Int, day: Int, calendar: Calendar) -> Date {
+        calendar.date(from: .init(year: year, month: month, day: day))!
+    }
+
+    // MARK: - Year Picker Options Tests
+
+    /// Conditions: Multiple year spreads exist.
+    /// Expected: Year picker options contain only created year spreads, sorted chronologically.
+    @Test("Year picker options contain only created year spreads")
+    func yearPickerOptionsContainOnlyCreatedYears() {
+        let calendar = makeTestCalendar()
+        let date2025 = makeDate(year: 2025, month: 6, day: 1, calendar: calendar)
+        let date2026 = makeDate(year: 2026, month: 1, day: 15, calendar: calendar)
+        let date2027 = makeDate(year: 2027, month: 3, day: 1, calendar: calendar)
+
+        // Create year spreads only - no orphan months or days
+        let year2025 = DataModel.Spread(period: .year, date: date2025, calendar: calendar)
+        let year2026 = DataModel.Spread(period: .year, date: date2026, calendar: calendar)
+        let year2027 = DataModel.Spread(period: .year, date: date2027, calendar: calendar)
+
+        let spreads = [year2027, year2025, year2026] // Unsorted input
+        let organizer = SpreadHierarchyOrganizer(spreads: spreads, calendar: calendar)
+
+        // Picker options should be all years, sorted chronologically
+        let yearOptions = organizer.years.map { $0.spread }
+
+        #expect(yearOptions.count == 3)
+        #expect(yearOptions[0].id == year2025.id)
+        #expect(yearOptions[1].id == year2026.id)
+        #expect(yearOptions[2].id == year2027.id)
+    }
+
+    /// Conditions: Only one year spread exists.
+    /// Expected: Year picker options contain that single year.
+    @Test("Year picker options with single year")
+    func yearPickerOptionsWithSingleYear() {
+        let calendar = makeTestCalendar()
+        let date2026 = makeDate(year: 2026, month: 1, day: 15, calendar: calendar)
+
+        let year2026 = DataModel.Spread(period: .year, date: date2026, calendar: calendar)
+        let month = DataModel.Spread(period: .month, date: date2026, calendar: calendar)
+
+        let spreads = [year2026, month]
+        let organizer = SpreadHierarchyOrganizer(spreads: spreads, calendar: calendar)
+
+        let yearOptions = organizer.years.map { $0.spread }
+
+        #expect(yearOptions.count == 1)
+        #expect(yearOptions[0].id == year2026.id)
+    }
+
+    // MARK: - Month Picker Options Tests
+
+    /// Conditions: A year is selected with multiple months.
+    /// Expected: Month picker options contain only months for that year, sorted chronologically.
+    @Test("Month picker options contain only months for selected year")
+    func monthPickerOptionsContainOnlyMonthsForSelectedYear() {
+        let calendar = makeTestCalendar()
+        let jan2026 = makeDate(year: 2026, month: 1, day: 1, calendar: calendar)
+        let mar2026 = makeDate(year: 2026, month: 3, day: 1, calendar: calendar)
+        let feb2026 = makeDate(year: 2026, month: 2, day: 1, calendar: calendar)
+        let jun2027 = makeDate(year: 2027, month: 6, day: 1, calendar: calendar)
+
+        let year2026 = DataModel.Spread(period: .year, date: jan2026, calendar: calendar)
+        let year2027 = DataModel.Spread(period: .year, date: jun2027, calendar: calendar)
+        let monthJan = DataModel.Spread(period: .month, date: jan2026, calendar: calendar)
+        let monthFeb = DataModel.Spread(period: .month, date: feb2026, calendar: calendar)
+        let monthMar = DataModel.Spread(period: .month, date: mar2026, calendar: calendar)
+        let monthJun2027 = DataModel.Spread(period: .month, date: jun2027, calendar: calendar)
+
+        let spreads = [year2026, year2027, monthMar, monthJan, monthFeb, monthJun2027]
+        let organizer = SpreadHierarchyOrganizer(spreads: spreads, calendar: calendar)
+
+        // Get months for 2026
+        let year2026Node = organizer.years.first { calendar.component(.year, from: $0.spread.date) == 2026 }!
+        let monthOptions = year2026Node.months.map { $0.spread }
+
+        #expect(monthOptions.count == 3)
+        #expect(calendar.component(.month, from: monthOptions[0].date) == 1) // Jan
+        #expect(calendar.component(.month, from: monthOptions[1].date) == 2) // Feb
+        #expect(calendar.component(.month, from: monthOptions[2].date) == 3) // Mar
+    }
+
+    /// Conditions: A year has no months.
+    /// Expected: Month picker options are empty.
+    @Test("Month picker options empty when year has no months")
+    func monthPickerOptionsEmptyWhenYearHasNoMonths() {
+        let calendar = makeTestCalendar()
+        let date2026 = makeDate(year: 2026, month: 1, day: 15, calendar: calendar)
+
+        let year2026 = DataModel.Spread(period: .year, date: date2026, calendar: calendar)
+
+        let spreads = [year2026]
+        let organizer = SpreadHierarchyOrganizer(spreads: spreads, calendar: calendar)
+
+        let year2026Node = organizer.years.first!
+        let monthOptions = year2026Node.months
+
+        #expect(monthOptions.isEmpty)
+    }
+
+    // MARK: - Selection Propagation Tests
+
+    /// Conditions: Year is selected from picker.
+    /// Expected: Selection updates to the chosen year.
+    @Test("Selection propagates when year is chosen from picker")
+    func selectionPropagatesWhenYearChosen() {
+        let calendar = makeTestCalendar()
+        let date2025 = makeDate(year: 2025, month: 6, day: 1, calendar: calendar)
+        let date2026 = makeDate(year: 2026, month: 1, day: 15, calendar: calendar)
+
+        let year2025 = DataModel.Spread(period: .year, date: date2025, calendar: calendar)
+        let year2026 = DataModel.Spread(period: .year, date: date2026, calendar: calendar)
+
+        let spreads = [year2025, year2026]
+        let organizer = SpreadHierarchyOrganizer(spreads: spreads, calendar: calendar)
+
+        // Simulate selecting 2025 from picker (the actual selection is handled by the view,
+        // but we verify the organizer provides the correct spread for selection)
+        let selectedYear = organizer.years.first { calendar.component(.year, from: $0.spread.date) == 2025 }
+
+        #expect(selectedYear != nil)
+        #expect(selectedYear?.spread.id == year2025.id)
+    }
+
+    /// Conditions: Month is selected from picker.
+    /// Expected: Selection updates to the chosen month.
+    @Test("Selection propagates when month is chosen from picker")
+    func selectionPropagatesWhenMonthChosen() {
+        let calendar = makeTestCalendar()
+        let jan2026 = makeDate(year: 2026, month: 1, day: 1, calendar: calendar)
+        let feb2026 = makeDate(year: 2026, month: 2, day: 1, calendar: calendar)
+
+        let year2026 = DataModel.Spread(period: .year, date: jan2026, calendar: calendar)
+        let monthJan = DataModel.Spread(period: .month, date: jan2026, calendar: calendar)
+        let monthFeb = DataModel.Spread(period: .month, date: feb2026, calendar: calendar)
+
+        let spreads = [year2026, monthJan, monthFeb]
+        let organizer = SpreadHierarchyOrganizer(spreads: spreads, calendar: calendar)
+
+        // Simulate selecting Feb from picker
+        let year2026Node = organizer.years.first!
+        let selectedMonth = year2026Node.months.first { calendar.component(.month, from: $0.spread.date) == 2 }
+
+        #expect(selectedMonth != nil)
+        #expect(selectedMonth?.spread.id == monthFeb.id)
+    }
+
+    /// Conditions: Selecting a year from picker should provide access to its months.
+    /// Expected: After year selection, months for that year are available.
+    @Test("Selecting year provides access to its months for expansion")
+    func selectingYearProvidesAccessToMonths() {
+        let calendar = makeTestCalendar()
+        let jan2026 = makeDate(year: 2026, month: 1, day: 1, calendar: calendar)
+        let feb2026 = makeDate(year: 2026, month: 2, day: 1, calendar: calendar)
+
+        let year2026 = DataModel.Spread(period: .year, date: jan2026, calendar: calendar)
+        let monthJan = DataModel.Spread(period: .month, date: jan2026, calendar: calendar)
+        let monthFeb = DataModel.Spread(period: .month, date: feb2026, calendar: calendar)
+        let dayJan15 = DataModel.Spread(period: .day, date: makeDate(year: 2026, month: 1, day: 15, calendar: calendar), calendar: calendar)
+
+        let spreads = [year2026, monthJan, monthFeb, dayJan15]
+        let organizer = SpreadHierarchyOrganizer(spreads: spreads, calendar: calendar)
+
+        // After selecting year, we should be able to access its months
+        let year2026Node = organizer.years.first!
+        let months = year2026Node.months
+
+        #expect(months.count == 2)
+        // And days for January
+        let janNode = months.first { calendar.component(.month, from: $0.spread.date) == 1 }!
+        #expect(janNode.days.count == 1)
+    }
+}
