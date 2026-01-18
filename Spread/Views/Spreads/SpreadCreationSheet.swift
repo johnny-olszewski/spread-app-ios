@@ -253,32 +253,24 @@ struct SpreadCreationSheet: View {
 
         Task {
             do {
-                let spread: DataModel.Spread
                 if selectedPeriod == .multiday {
-                    spread = DataModel.Spread(
-                        startDate: multidayStartDate,
-                        endDate: multidayEndDate,
-                        calendar: journalManager.calendar
-                    )
-                    try await journalManager.addMultidaySpread(
+                    let spread = try await journalManager.addMultidaySpread(
                         startDate: multidayStartDate,
                         endDate: multidayEndDate
                     )
+                    await MainActor.run {
+                        onSpreadCreated(spread)
+                        dismiss()
+                    }
                 } else {
-                    spread = DataModel.Spread(
-                        period: selectedPeriod,
-                        date: selectedDate,
-                        calendar: journalManager.calendar
-                    )
-                    try await journalManager.addSpread(
+                    let spread = try await journalManager.addSpread(
                         period: selectedPeriod,
                         date: selectedDate
                     )
-                }
-
-                await MainActor.run {
-                    onSpreadCreated(spread)
-                    dismiss()
+                    await MainActor.run {
+                        onSpreadCreated(spread)
+                        dismiss()
+                    }
                 }
             } catch {
                 await MainActor.run {
