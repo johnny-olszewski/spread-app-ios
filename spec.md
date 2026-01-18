@@ -245,6 +245,7 @@
   - Environment and DependencyContainer summary. [SPRD-2, SPRD-3, SPRD-45]
   - Mock Data Sets loader with buttons that overwrite existing data and reload app state. [SPRD-46]
 - Mock data sets are generated in code (no external fixtures) and cover varied spread scenarios and edge cases (empty, standard year/month/day, multiday ranges, boundary dates, large volume/perf). [SPRD-46]
+- Mock data set loading uses JournalManager APIs to mirror app behavior; loading or clearing data refreshes UI and resets selection to today's spread when available. [SPRD-67]
 - Debug menu provides appearance overrides for paper tone, dot grid (size/spacing/opacity), heading font, and accent color (DEBUG builds only). [SPRD-63]
 - Debug tooling files live under `Spread/Debug` to keep debug-only views/data isolated. [SPRD-45]
 
