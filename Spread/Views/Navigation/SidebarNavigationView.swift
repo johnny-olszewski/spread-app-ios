@@ -57,7 +57,7 @@ struct SidebarNavigationView: View {
             SettingsPlaceholderView()
         #if DEBUG
         case .debug:
-            DebugMenuView(container: container)
+            DebugMenuView(container: container, journalManager: journalManager)
         #endif
         case .none:
             Text("Select an item")

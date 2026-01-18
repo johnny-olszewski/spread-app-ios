@@ -854,7 +854,7 @@
   - Unit tests for action data creation.
 - **Dependencies**: SPRD-45
 
-### [SPRD-67] Feature: Debug data loading via JournalManager
+### [SPRD-67] Feature: Debug data loading via JournalManager - [x] Complete
 - **Context**: Debug data loading bypasses JournalManager, causing stale UI state and crashes when mixing debug data with app UI flows.
 - **Description**: Route debug data loading and clearing through JournalManager APIs to mirror app behavior and refresh UI immediately.
 - **Implementation Details**:
