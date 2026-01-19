@@ -14,8 +14,11 @@ struct DebugMenuView: View {
     /// The dependency container for inspecting repository types.
     let container: DependencyContainer
 
-    /// Optional callback to trigger data reload after loading a mock data set.
-    var onDataReload: (() async -> Void)?
+    /// The journal manager for loading mock data sets.
+    ///
+    /// Debug data loading routes through JournalManager to ensure UI state
+    /// stays synchronized with repository data.
+    let journalManager: JournalManager
 
     @State private var isLoading = false
     @State private var loadingDataSet: MockDataSet?
@@ -26,15 +29,6 @@ struct DebugMenuView: View {
 
     private var environment: AppEnvironment {
         AppEnvironment.current
-    }
-
-    private var dataService: DebugDataService {
-        DebugDataService(
-            taskRepository: container.taskRepository,
-            spreadRepository: container.spreadRepository,
-            eventRepository: container.eventRepository,
-            noteRepository: container.noteRepository
-        )
     }
 
     var body: some View {
@@ -181,14 +175,8 @@ struct DebugMenuView: View {
         loadingDataSet = dataSet
 
         do {
-            try await dataService.loadDataSet(
-                dataSet,
-                calendar: .current,
-                today: .now
-            )
-
-            // Trigger data reload if callback is provided
-            await onDataReload?()
+            // Load data through JournalManager to ensure UI state stays synchronized
+            try await journalManager.loadMockDataSet(dataSet)
 
             successMessage = "\(dataSet.displayName) data set loaded successfully."
             showSuccess = true
@@ -232,7 +220,10 @@ struct DebugMenuView: View {
 
 #Preview {
     NavigationStack {
-        DebugMenuView(container: try! .makeForPreview())
+        DebugMenuView(
+            container: try! .makeForPreview(),
+            journalManager: .previewInstance
+        )
     }
 }
 #endif
