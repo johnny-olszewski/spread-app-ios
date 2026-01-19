@@ -47,6 +47,9 @@ struct ConventionalSpreadsView: View {
                 }
             )
         }
+        .onChange(of: journalManager.dataVersion) { _, _ in
+            resetSelectionIfNeeded()
+        }
     }
 
     // MARK: - Content
@@ -63,6 +66,18 @@ struct ConventionalSpreadsView: View {
                 Text("Select a spread from the bar above or create a new one.")
             }
         }
+    }
+
+    private func resetSelectionIfNeeded() {
+        if let selectedSpread, journalManager.spreads.contains(where: { $0.id == selectedSpread.id }) {
+            return
+        }
+
+        let organizer = SpreadHierarchyOrganizer(
+            spreads: journalManager.spreads,
+            calendar: journalManager.calendar
+        )
+        selectedSpread = organizer.initialSelection(for: journalManager.today)
     }
 }
 
