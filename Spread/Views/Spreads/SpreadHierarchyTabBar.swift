@@ -189,6 +189,7 @@ struct SpreadHierarchyTabBar: View {
         }
         .padding(.trailing, SpreadHierarchyDesign.horizontalPadding)
         .accessibilityLabel("Create spread")
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.createButton)
     }
 
     // MARK: - Tab Item
@@ -214,6 +215,7 @@ struct SpreadHierarchyTabBar: View {
                 .frame(minWidth: SpreadHierarchyDesign.minimumItemWidth)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityIdentifier(for: spread))
     }
 
     // MARK: - Picker Menus
@@ -252,6 +254,7 @@ struct SpreadHierarchyTabBar: View {
             )
             .frame(minWidth: SpreadHierarchyDesign.minimumItemWidth)
         }
+        .accessibilityIdentifier(accessibilityIdentifier(for: currentYear))
     }
 
     /// Menu for selecting a month from available months in the current year.
@@ -297,6 +300,7 @@ struct SpreadHierarchyTabBar: View {
             )
             .frame(minWidth: SpreadHierarchyDesign.minimumItemWidth)
         }
+        .accessibilityIdentifier(accessibilityIdentifier(for: currentMonth))
     }
 
     // MARK: - Actions
@@ -395,6 +399,33 @@ struct SpreadHierarchyTabBar: View {
     private func selectSpread(_ spread: DataModel.Spread) {
         withAnimation(SpreadHierarchyDesign.selectionAnimation) {
             selectedSpread = spread
+        }
+    }
+
+    private func accessibilityIdentifier(for spread: DataModel.Spread) -> String {
+        switch spread.period {
+        case .year:
+            let year = calendar.component(.year, from: spread.date)
+            return Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearIdentifier(year)
+        case .month:
+            let components = calendar.dateComponents([.year, .month], from: spread.date)
+            let year = components.year ?? 0
+            let month = components.month ?? 0
+            return Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar
+                .monthIdentifier(year: year, month: month)
+        case .day:
+            let components = calendar.dateComponents([.year, .month, .day], from: spread.date)
+            let year = components.year ?? 0
+            let month = components.month ?? 0
+            let day = components.day ?? 0
+            return Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar
+                .dayIdentifier(year: year, month: month, day: day)
+        case .multiday:
+            guard let startDate = spread.startDate, let endDate = spread.endDate else {
+                return "spreads.tabbar.multiday.unknown"
+            }
+            return Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar
+                .multidayIdentifier(startDate: startDate, endDate: endDate, calendar: calendar)
         }
     }
 }

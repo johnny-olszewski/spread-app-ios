@@ -38,6 +38,9 @@
             reference = "container:Spread.xcodeproj/xcshareddata/xctestplans/CoreBusinessLogic.xctestplan"
             selected = "NO">
          </TestPlanReference>
+         <TestPlanReference
+            reference = "container:AllUITests.xctestplan">
+         </TestPlanReference>
       </TestPlans>
       <Testables>
          <TestableReference

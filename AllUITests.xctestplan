@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "A450EB64-2C4B-45F4-A75D-57E2EAF1DEFA",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Spread.xcodeproj",
+        "identifier" : "31E0DA9A2F0DB76400B0A403",
+        "name" : "SpreadUITests"
+      }
+    }
+  ],
+  "version" : 1
+}
