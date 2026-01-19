@@ -23,28 +23,47 @@ extension JournalManager {
     func loadMockDataSet(_ dataSet: MockDataSet) async throws {
         // Clear existing data first
         try await clearAllDataFromRepositories()
+        await reload()
 
         // Generate the mock data
         let generatedData = dataSet.generateData(calendar: calendar, today: today)
 
-        // Save spreads first (entries need spreads for assignments)
+        // Create spreads first (entries need spreads for assignments)
         for spread in generatedData.spreads {
-            try await spreadRepository.save(spread)
+            try await addMockSpread(spread)
         }
 
-        // Save tasks with their pre-built assignments
+        // Create tasks and notes using shared JournalManager logic
         for task in generatedData.tasks {
-            try await taskRepository.save(task)
+            try await addTask(
+                title: task.title,
+                date: task.date,
+                period: task.period,
+                status: task.status,
+                reloadAfter: false
+            )
         }
 
-        // Save events
         for event in generatedData.events {
-            try await eventRepository.save(event)
+            try await addEvent(
+                title: event.title,
+                timing: event.timing,
+                startDate: event.startDate,
+                endDate: event.endDate,
+                startTime: event.startTime,
+                endTime: event.endTime,
+                reloadAfter: false
+            )
         }
 
-        // Save notes with their pre-built assignments
         for note in generatedData.notes {
-            try await noteRepository.save(note)
+            try await addNote(
+                title: note.title,
+                content: note.content,
+                date: note.date,
+                period: note.period,
+                reloadAfter: false
+            )
         }
 
         // Reload in-memory state from repositories to ensure UI sync
@@ -70,7 +89,8 @@ extension JournalManager {
         title: String,
         date: Date,
         period: Period,
-        status: DataModel.Task.Status = .open
+        status: DataModel.Task.Status = .open,
+        reloadAfter: Bool = true
     ) async throws -> DataModel.Task {
         let task = DataModel.Task(
             title: title,
@@ -94,7 +114,9 @@ extension JournalManager {
 
         // Persist and reload state
         try await taskRepository.save(task)
-        await reload()
+        if reloadAfter {
+            await reload()
+        }
 
         return task
     }
@@ -120,7 +142,8 @@ extension JournalManager {
         startDate: Date,
         endDate: Date,
         startTime: Date? = nil,
-        endTime: Date? = nil
+        endTime: Date? = nil,
+        reloadAfter: Bool = true
     ) async throws -> DataModel.Event {
         let event = DataModel.Event(
             title: title,
@@ -133,7 +156,9 @@ extension JournalManager {
 
         // Persist and reload state
         try await eventRepository.save(event)
-        await reload()
+        if reloadAfter {
+            await reload()
+        }
 
         return event
     }
@@ -155,7 +180,8 @@ extension JournalManager {
         title: String,
         content: String = "",
         date: Date,
-        period: Period
+        period: Period,
+        reloadAfter: Bool = true
     ) async throws -> DataModel.Note {
         let note = DataModel.Note(
             title: title,
@@ -179,12 +205,26 @@ extension JournalManager {
 
         // Persist and reload state
         try await noteRepository.save(note)
-        await reload()
+        if reloadAfter {
+            await reload()
+        }
 
         return note
     }
 
     // MARK: - Private Helpers
+
+    private func addMockSpread(_ spread: DataModel.Spread) async throws {
+        if spread.period == .multiday {
+            guard let startDate = spread.startDate, let endDate = spread.endDate else {
+                return
+            }
+            _ = try await addMultidaySpread(startDate: startDate, endDate: endDate)
+            return
+        }
+
+        _ = try await addSpread(period: spread.period, date: spread.date)
+    }
 
     /// Clears all data from repositories (without updating in-memory state).
     ///

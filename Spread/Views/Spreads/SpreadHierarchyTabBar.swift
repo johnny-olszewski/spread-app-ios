@@ -58,6 +58,9 @@ struct SpreadHierarchyTabBar: View {
         .onAppear {
             initializeSelection()
         }
+        .onChange(of: spreads.map(\.id)) { _, _ in
+            syncSelectionWithSpreads()
+        }
     }
 
     // MARK: - Sticky Leading Section
@@ -308,6 +311,20 @@ struct SpreadHierarchyTabBar: View {
             // Expand the hierarchy to show the initial selection
             expandHierarchyForSpread(initial)
         }
+    }
+
+    private func syncSelectionWithSpreads() {
+        if let selectedSpread,
+           let matchingSpread = spreads.first(where: { $0.id == selectedSpread.id }) {
+            self.selectedSpread = matchingSpread
+            expandHierarchyForSpread(matchingSpread)
+            return
+        }
+
+        selectedSpread = nil
+        expandedYear = nil
+        expandedMonth = nil
+        initializeSelection()
     }
 
     private func expandHierarchyForSpread(_ spread: DataModel.Spread) {
