@@ -33,6 +33,46 @@ final class SpreadUITests: XCTestCase {
         // Use XCTAssert and related functions to verify your tests produce the correct results.
     }
 
+    /// Conditions: Start with empty mock data and create a 2026 year spread.
+    /// Expected: Year tab shows 2026 and content area title shows 2026.
+    @MainActor
+    func testCreateYearSpreadFromEmptyState() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-AppEnvironment", "testing",
+            "-MockDataSet", "empty",
+            "-Today", "2026-01-01"
+        ]
+        app.launch()
+
+        let createButton = app.buttons[Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.createButton]
+        XCTAssertTrue(createButton.waitForExistence(timeout: 5))
+        createButton.tap()
+
+        let yearSegment = app.buttons[
+            Definitions.AccessibilityIdentifiers.SpreadCreationSheet.periodSegment("year")
+        ]
+        XCTAssertTrue(yearSegment.waitForExistence(timeout: 5))
+        yearSegment.tap()
+
+        let createSpreadButton = app.buttons[
+            Definitions.AccessibilityIdentifiers.SpreadCreationSheet.createButton
+        ]
+        XCTAssertTrue(createSpreadButton.waitForExistence(timeout: 5))
+        createSpreadButton.tap()
+
+        let yearTab = app.buttons[
+            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearIdentifier(2026)
+        ]
+        XCTAssertTrue(yearTab.waitForExistence(timeout: 5))
+
+        let contentTitle = app.staticTexts[
+            Definitions.AccessibilityIdentifiers.SpreadContent.title
+        ]
+        XCTAssertTrue(contentTitle.waitForExistence(timeout: 5))
+        XCTAssertEqual(contentTitle.label, "2026")
+    }
+
     /// Conditions: Measure app launch performance from a UI test.
     /// Expected: Launch completes and metrics are captured.
     @MainActor

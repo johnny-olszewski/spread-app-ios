@@ -84,12 +84,14 @@ struct SpreadCreationSheet: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.cancelButton)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
                         createSpread()
                     }
                     .disabled(!canCreate || isCreating)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.createButton)
                 }
             }
             .alert("Error", isPresented: $showingError) {
@@ -112,10 +114,17 @@ struct SpreadCreationSheet: View {
         Section {
             Picker("Period", selection: $selectedPeriod) {
                 ForEach(creatablePeriods, id: \.self) { period in
-                    Text(period.displayName).tag(period)
+                    Text(period.displayName)
+                        .tag(period)
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.SpreadCreationSheet.periodSegment(
+                                period.rawValue
+                            )
+                        )
                 }
             }
             .pickerStyle(.segmented)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.periodPicker)
 
             Text(SpreadCreationConfiguration.periodDescription(for: selectedPeriod))
                 .font(.caption)
