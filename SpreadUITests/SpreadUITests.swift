@@ -199,4 +199,124 @@ final class SpreadUITests: XCTestCase {
             XCUIApplication().launch()
         }
     }
+
+    // MARK: - Spread Header Tests
+
+    /// Conditions: Baseline data set with day spread selected (initial selection).
+    /// Expected: Header shows full date format for day spread and entry counts.
+    @MainActor
+    func testDaySpreadHeaderShowsFullDateAndCounts() throws {
+        let app = launchApp(mockDataSet: "baseline", today: "2026-01-15")
+
+        // The day spread should be selected by default (smallest period containing today)
+        let contentTitle = app.staticTexts[
+            Definitions.AccessibilityIdentifiers.SpreadContent.title
+        ]
+        XCTAssertTrue(contentTitle.waitForExistence(timeout: 5))
+        XCTAssertEqual(contentTitle.label, "January 15, 2026")
+
+        // Entry counts should be displayed
+        let entryCounts = app.staticTexts[
+            Definitions.AccessibilityIdentifiers.SpreadContent.entryCounts
+        ]
+        XCTAssertTrue(entryCounts.waitForExistence(timeout: 5))
+        // Baseline has 3 tasks, 1 event, 1 note on the day spread
+        XCTAssertEqual(entryCounts.label, "3 tasks, 1 event, 1 note")
+    }
+
+    /// Conditions: Baseline data set, select month spread.
+    /// Expected: Header shows month/year format for month spread.
+    @MainActor
+    func testMonthSpreadHeaderShowsMonthAndYear() throws {
+        let app = launchApp(mockDataSet: "baseline", today: "2026-01-15")
+
+        // Tap the month tab to select it
+        let monthTab = app.buttons[
+            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.monthIdentifier(year: 2026, month: 1)
+        ]
+        XCTAssertTrue(monthTab.waitForExistence(timeout: 5))
+        monthTab.tap()
+
+        // Header should show month/year format
+        let contentTitle = app.staticTexts[
+            Definitions.AccessibilityIdentifiers.SpreadContent.title
+        ]
+        XCTAssertTrue(contentTitle.waitForExistence(timeout: 5))
+        XCTAssertEqual(contentTitle.label, "January 2026")
+    }
+
+    /// Conditions: Baseline data set, select year spread.
+    /// Expected: Header shows just year number for year spread.
+    @MainActor
+    func testYearSpreadHeaderShowsYearOnly() throws {
+        let app = launchApp(mockDataSet: "baseline", today: "2026-01-15")
+
+        // Tap the year tab to select it
+        let yearTab = app.buttons[
+            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearIdentifier(2026)
+        ]
+        XCTAssertTrue(yearTab.waitForExistence(timeout: 5))
+        yearTab.tap()
+
+        // Header should show just the year
+        let contentTitle = app.staticTexts[
+            Definitions.AccessibilityIdentifiers.SpreadContent.title
+        ]
+        XCTAssertTrue(contentTitle.waitForExistence(timeout: 5))
+        XCTAssertEqual(contentTitle.label, "2026")
+    }
+
+    /// Conditions: Multiday data set with multiday spread.
+    /// Expected: Header shows date range format for multiday spread.
+    @MainActor
+    func testMultidaySpreadHeaderShowsDateRange() throws {
+        let app = launchApp(mockDataSet: "multiday", today: "2026-01-15")
+
+        // Find and tap a multiday spread tab
+        // This Week multiday should exist - find it by looking for a tab with a range format
+        // The multiday tab will be visible in the hierarchy
+        let multidayTab = app.buttons.matching(NSPredicate(format: "identifier CONTAINS 'multiday'")).firstMatch
+        if multidayTab.waitForExistence(timeout: 5) {
+            multidayTab.tap()
+
+            // Header should show date range format
+            let contentTitle = app.staticTexts[
+                Definitions.AccessibilityIdentifiers.SpreadContent.title
+            ]
+            XCTAssertTrue(contentTitle.waitForExistence(timeout: 5))
+            // Should contain a dash indicating a range
+            XCTAssertTrue(contentTitle.label.contains(" - "))
+        }
+    }
+
+    /// Conditions: Empty data set, create a day spread.
+    /// Expected: Header shows "No entries" when spread has no entries.
+    @MainActor
+    func testEmptySpreadHeaderShowsNoEntries() throws {
+        let app = launchApp(mockDataSet: "empty", today: "2026-01-15")
+
+        // Create a day spread
+        let createButton = app.buttons[Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.createButton]
+        XCTAssertTrue(createButton.waitForExistence(timeout: 5))
+        createButton.tap()
+
+        let daySegment = app.buttons[
+            Definitions.AccessibilityIdentifiers.SpreadCreationSheet.periodSegment("day")
+        ]
+        XCTAssertTrue(daySegment.waitForExistence(timeout: 5))
+        daySegment.tap()
+
+        let createSpreadButton = app.buttons[
+            Definitions.AccessibilityIdentifiers.SpreadCreationSheet.createButton
+        ]
+        XCTAssertTrue(createSpreadButton.waitForExistence(timeout: 5))
+        createSpreadButton.tap()
+
+        // Entry counts should show "No entries"
+        let entryCounts = app.staticTexts[
+            Definitions.AccessibilityIdentifiers.SpreadContent.entryCounts
+        ]
+        XCTAssertTrue(entryCounts.waitForExistence(timeout: 5))
+        XCTAssertEqual(entryCounts.label, "No entries")
+    }
 }
