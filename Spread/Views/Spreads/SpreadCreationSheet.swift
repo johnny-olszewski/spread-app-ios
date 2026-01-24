@@ -152,6 +152,7 @@ struct SpreadCreationSheet: View {
                 displayedComponents: [.date]
             )
             .datePickerStyle(.graphical)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.standardDatePicker)
         } header: {
             Text("Date")
         }
@@ -171,6 +172,7 @@ struct SpreadCreationSheet: View {
                 in: configuration.minimumMultidayStartDate...configuration.maximumDate,
                 displayedComponents: [.date]
             )
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.multidayStartDatePicker)
 
             DatePicker(
                 "End Date",
@@ -178,6 +180,7 @@ struct SpreadCreationSheet: View {
                 in: configuration.minimumMultidayEndDate...configuration.maximumDate,
                 displayedComponents: [.date]
             )
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.multidayEndDatePicker)
         } header: {
             Text("Date Range")
         }
@@ -208,6 +211,11 @@ struct SpreadCreationSheet: View {
                 .foregroundStyle(Color.accentColor)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(
+            Definitions.AccessibilityIdentifiers.SpreadCreationSheet.multidayPreset(
+                multidayPresetIdentifier(for: preset)
+            )
+        )
     }
 
     @ViewBuilder
@@ -247,6 +255,15 @@ struct SpreadCreationSheet: View {
         guard let range = configuration.dateRange(for: preset) else { return }
         multidayStartDate = range.startDate
         multidayEndDate = range.endDate
+    }
+
+    private func multidayPresetIdentifier(for preset: MultidayPreset) -> String {
+        switch preset {
+        case .thisWeek:
+            return "thisWeek"
+        case .nextWeek:
+            return "nextWeek"
+        }
     }
 
     private func createSpread() {
