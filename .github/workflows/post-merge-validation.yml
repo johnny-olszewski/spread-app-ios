@@ -7,3 +7,5 @@ on:
 jobs:
   tests:
     uses: ./.github/workflows/run-unit-tests.yml
+    with:
+      run_ui_tests: true

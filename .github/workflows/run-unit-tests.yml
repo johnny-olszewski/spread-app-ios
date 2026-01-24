@@ -8,6 +8,16 @@ on:
         required: false
         type: string
         default: AllUnitTests
+      run_ui_tests:
+        description: Whether to run the UI test plan after unit tests.
+        required: false
+        type: boolean
+        default: false
+      ui_test_plan:
+        description: UI test plan name to run.
+        required: false
+        type: string
+        default: AllUITests
 
 jobs:
   tests:
@@ -39,3 +49,7 @@ jobs:
 
       - name: Run unit tests
         run: xcodebuild -scheme Spread -testPlan "${{ inputs.test_plan }}" -destination "id=${{ steps.simulator.outputs.udid }}" test
+
+      - name: Run UI tests
+        if: ${{ inputs.run_ui_tests }}
+        run: xcodebuild -scheme Spread -testPlan "${{ inputs.ui_test_plan }}" -destination "id=${{ steps.simulator.outputs.udid }}" test
