@@ -44,6 +44,7 @@ struct Definitions {
 
         struct SpreadContent {
             static let title = "spreads.content.title"
+            static let entryCounts = "spreads.content.entryCounts"
         }
 
         struct SpreadCreationSheet {
