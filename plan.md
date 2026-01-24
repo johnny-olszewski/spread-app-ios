@@ -728,23 +728,26 @@
   - UI tests: header title and counts update when switching spreads (year/month/day/multiday).
 - **Dependencies**: SPRD-26
 
-### [SPRD-62] Feature: Spread surface styling + dot grid background
+### [SPRD-62] Feature: Spread surface styling + dot grid background - [x] Complete
 - **Context**: The app should feel like a minimal, readable journal with dot grid paper.
 - **Description**: Apply paper tone and dot grid background to spread content surfaces only.
 - **Implementation Details**:
   - Apply `DotGridView` as the background of spread content containers (year/month/day/multiday).
   - Keep navigation chrome, settings, and sheets on a flat paper tone without dots.
-  - Default dot grid config: 1.5pt dots, 20pt spacing, neutral gray at ~15-20% opacity.
+  - Default dot grid config: 1.5pt dots, 20pt spacing, muted blue dots at ~20-25% opacity.
   - Inset the first dot by one spacing unit from edges (no clipped dots).
-  - Default paper tone: warm off-white (approx #F7F3EA); fallback to systemBackground where needed.
+  - Light mode paper tone: warm off-white (approx #F7F3EA).
+  - Dark mode paper tone: warm dark variant (approx #1C1A18); navigation chrome uses system secondary background.
+  - Dot color: muted blue, same in both light and dark modes.
   - Accent color uses muted blue for interactive controls and highlights.
   - Typography defaults: sans heading (e.g., Avenir Next) with system sans body text.
 - **Acceptance Criteria**:
   - Dot grid appears only on spread content surfaces. (Spec: Visual Design)
   - Typography and accent color match the minimal paper aesthetic. (Spec: Visual Design)
+  - Dark mode uses appropriate dark paper tone and system backgrounds for navigation. (Spec: Visual Design)
 - **Tests**:
   - Manual visual verification across iPad/iPhone size classes.
-  - UI tests: dot grid appears on spread content surfaces and not on sheets/settings.
+  - Manual visual verification in light and dark modes.
 - **Dependencies**: SPRD-27
 
 ### [SPRD-28] Feature: Conventional entry list + grouping

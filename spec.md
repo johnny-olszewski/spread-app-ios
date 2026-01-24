@@ -197,8 +197,9 @@
 ### Visual Design
 - Minimal, clean, paper-like presentation optimized for readability.
 - Spread content surfaces use a dot grid background; navigation chrome, settings, and sheets use a flat paper tone without dots. [SPRD-62]
-- Default paper tone: warm off-white (approx #F7F3EA), with fallback to systemBackground when needed. [SPRD-62]
-- Dot grid defaults: 1.5pt dots, 20pt spacing, neutral gray at ~15-20% opacity; first dot inset equals spacing; configurable via Debug overrides. [SPRD-62, SPRD-63]
+- Light mode paper tone: warm off-white (approx #F7F3EA). [SPRD-62]
+- Dark mode paper tone: warm dark variant (approx #1C1A18); navigation chrome uses system secondary background. [SPRD-62]
+- Dot grid defaults: 1.5pt dots, 20pt spacing, muted blue color at ~20-25% opacity (same color in both modes); first dot inset equals spacing; configurable via Debug overrides. [SPRD-62, SPRD-63]
 - Typography: sans-first; headings use a distinct sans family (e.g., Avenir Next), body uses system sans for legibility; heading font is swappable in Debug for testing. [SPRD-62, SPRD-63]
 - Accent color: muted blue (e.g., #5B7A99) for interactive controls and highlights. [SPRD-62]
 - Card/list styling stays light: hairline dividers or subtle borders, minimal shadows, and consistent spacing. [SPRD-62]

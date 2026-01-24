@@ -94,6 +94,7 @@ struct ConventionalSpreadsView: View {
 ///
 /// Shows the spread header with title and entry counts, followed by
 /// a placeholder for the entry list (to be implemented in SPRD-28).
+/// Uses dot grid paper background per visual design spec.
 private struct SpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
@@ -115,6 +116,7 @@ private struct SpreadContentView: View {
             // TODO: SPRD-28 - Replace with entry list grouped by period
             entryListPlaceholder
         }
+        .dotGridBackground(.paper)
     }
 
     @ViewBuilder
