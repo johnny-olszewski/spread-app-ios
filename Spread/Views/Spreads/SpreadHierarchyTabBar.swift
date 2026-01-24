@@ -54,7 +54,7 @@ struct SpreadHierarchyTabBar: View {
             createButton
         }
         .frame(height: SpreadHierarchyDesign.barHeight)
-        .background(Color(.systemBackground))
+        .secondaryPaperBackground()
         .onAppear {
             initializeSelection()
         }
