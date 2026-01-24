@@ -766,46 +766,37 @@
   - UI tests: verify grouping sections for year/month/day/multiday spreads.
 - **Dependencies**: SPRD-27, SPRD-22
 
-### [SPRD-31] Feature: Inbox view
-- **Context**: Users access Inbox via a header toolbar button.
-- **Description**: Build Inbox UI with toolbar button and sheet presentation.
+### [SPRD-31] Feature: Inbox view + button styling
+- **Context**: Users access Inbox via a toolbar button; v1 uses yellow tint instead of badge count.
+- **Description**: Build Inbox UI with toolbar button (yellow tint when non-empty) and sheet presentation. iPad button in spreads toolbar; iPhone in tab bar.
 - **Implementation Details**:
   - `InboxButton`:
-    - Toolbar button in navigation header
-    - Shows a visual indicator when count is greater than 0
+    - Toolbar button with `tray` icon
+    - Yellow tint (`Color.yellow`) when `inboxCount > 0`; default tint when empty
+    - No badge count overlay (liquid glass compatibility)
     - Taps present InboxSheetView
+  - **Platform placement**:
+    - iPad: Add inbox button to `ConventionalSpreadsView` toolbar (not sidebar)
+    - iPhone: Keep existing tab navigation inbox button as-is
   - `InboxSheetView`:
-    - List of unassigned tasks/notes (no events)
+    - List of unassigned tasks/notes (no events in v1)
     - Grouped by entry type (tasks first, then notes)
     - Each row: entry symbol, title, preferred date
     - Swipe action: assign to spread (opens spread picker)
   - Assign action: user picks spread, creates initial assignment
 - **Acceptance Criteria**:
-  - Inbox button shows in header and indicates non-empty state. (Spec: Navigation and UI)
+  - Inbox button shows in toolbar and uses yellow tint when non-empty (no badge count). (Spec: Navigation and UI)
   - Inbox hides cancelled tasks. (Spec: Modes)
   - Tapping opens sheet with unassigned entries. (Spec: Navigation and UI)
+  - On iPad, inbox button appears in spread content toolbar, not sidebar. (Spec: Navigation and UI)
+  - iPhone behavior remains unchanged. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for inbox indicator visibility based on count
   - Unit tests for entry grouping in sheet
   - UI tests: inbox button opens sheet, lists tasks before notes, excludes cancelled tasks.
+  - Manual QA: verify yellow tint when non-empty; confirm iPad placement in spreads toolbar.
 - **Dependencies**: SPRD-14, SPRD-22, SPRD-19
-
-### [SPRD-68] Feature: Inbox toolbar button placement + tint
-- **Context**: The inbox badge looks wrong with liquid glass, and the iPad placement should live in the spread content toolbar.
-- **Description**: Replace the badge with a yellow-tinted inbox icon when non-empty, and move the iPad inbox button from the sidebar toolbar to the spreads content toolbar.
-- **Implementation Details**:
-  - Replace badge overlay with `Color.yellow` tint when `inboxCount > 0`.
-  - Keep the iPhone tab navigation inbox button as-is.
-  - Remove inbox button from `SidebarNavigationView` toolbar and add it to `ConventionalSpreadsView` toolbar.
-  - Continue presenting the inbox sheet from the button.
-- **Acceptance Criteria**:
-  - When Inbox has entries, the button is tinted yellow with no badge count. (Spec: Inbox)
-  - On iPad, the inbox button appears in the spread content toolbar, not the sidebar. (Spec: Navigation and UI)
-  - iPhone behavior remains unchanged. (Spec: Navigation and UI)
-- **Tests**:
-  - Manual QA: add an inbox entry and verify yellow tint; confirm iPad placement in the spreads view toolbar.
-  - UI tests: when inbox non-empty, button tinted and appears in spreads toolbar on iPad.
-- **Dependencies**: SPRD-31
+- **Note**: Incorporates SPRD-68 (button placement + tint)
 
 ## Story: Debug and dev tools
 
