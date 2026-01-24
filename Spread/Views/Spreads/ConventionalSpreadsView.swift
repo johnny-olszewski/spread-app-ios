@@ -57,8 +57,11 @@ struct ConventionalSpreadsView: View {
     @ViewBuilder
     private var spreadContent: some View {
         if let spread = selectedSpread {
-            // TODO: SPRD-27 - Replace with SpreadContentView showing entries
-            SpreadContentPlaceholderView(spread: spread, calendar: journalManager.calendar)
+            SpreadContentView(
+                spread: spread,
+                spreadDataModel: spreadDataModel(for: spread),
+                calendar: journalManager.calendar
+            )
         } else {
             ContentUnavailableView {
                 Label("No Spread Selected", systemImage: "book")
@@ -66,6 +69,12 @@ struct ConventionalSpreadsView: View {
                 Text("Select a spread from the bar above or create a new one.")
             }
         }
+    }
+
+    /// Returns the spread data model for the given spread.
+    private func spreadDataModel(for spread: DataModel.Spread) -> SpreadDataModel? {
+        let normalizedDate = spread.period.normalizeDate(spread.date, calendar: journalManager.calendar)
+        return journalManager.dataModel[spread.period]?[normalizedDate]
     }
 
     private func resetSelectionIfNeeded() {
@@ -81,12 +90,35 @@ struct ConventionalSpreadsView: View {
     }
 }
 
-/// Placeholder for spread content until SPRD-27 is implemented.
-private struct SpreadContentPlaceholderView: View {
+/// Spread content view displaying header and entry list placeholder.
+///
+/// Shows the spread header with title and entry counts, followed by
+/// a placeholder for the entry list (to be implemented in SPRD-28).
+private struct SpreadContentView: View {
     let spread: DataModel.Spread
+    let spreadDataModel: SpreadDataModel?
     let calendar: Calendar
 
     var body: some View {
+        VStack(spacing: 0) {
+            // Header with title and counts
+            SpreadHeaderView(
+                spread: spread,
+                calendar: calendar,
+                taskCount: spreadDataModel?.tasks.count ?? 0,
+                eventCount: spreadDataModel?.events.count ?? 0,
+                noteCount: spreadDataModel?.notes.count ?? 0
+            )
+
+            Divider()
+
+            // TODO: SPRD-28 - Replace with entry list grouped by period
+            entryListPlaceholder
+        }
+    }
+
+    @ViewBuilder
+    private var entryListPlaceholder: some View {
         VStack {
             Spacer()
 
@@ -95,12 +127,7 @@ private struct SpreadContentPlaceholderView: View {
                     .font(.system(size: 48))
                     .foregroundStyle(.secondary)
 
-                Text(spreadTitle)
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
-
-                Text("Spread content will appear here")
+                Text("Entry list coming soon")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -116,33 +143,6 @@ private struct SpreadContentPlaceholderView: View {
         case .month: return "calendar.badge.clock"
         case .day: return "sun.max"
         case .multiday: return "calendar.day.timeline.left"
-        }
-    }
-
-    private var spreadTitle: String {
-        switch spread.period {
-        case .year:
-            return String(calendar.component(.year, from: spread.date))
-        case .month:
-            let formatter = DateFormatter()
-            formatter.calendar = calendar
-            formatter.dateFormat = "MMMM yyyy"
-            return formatter.string(from: spread.date)
-        case .day:
-            let formatter = DateFormatter()
-            formatter.calendar = calendar
-            formatter.dateStyle = .long
-            return formatter.string(from: spread.date)
-        case .multiday:
-            guard let startDate = spread.startDate, let endDate = spread.endDate else {
-                return "Multiday"
-            }
-            let formatter = DateFormatter()
-            formatter.calendar = calendar
-            formatter.dateFormat = "MMM d"
-            let start = formatter.string(from: startDate)
-            let end = formatter.string(from: endDate)
-            return "\(start) - \(end)"
         }
     }
 }
