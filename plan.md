@@ -728,7 +728,7 @@
   - UI tests: header title and counts update when switching spreads (year/month/day/multiday).
 - **Dependencies**: SPRD-26
 
-### [SPRD-62] Feature: Spread surface styling + dot grid background
+### [SPRD-62] Feature: Spread surface styling + dot grid background - [x] Complete
 - **Context**: The app should feel like a minimal, readable journal with dot grid paper.
 - **Description**: Apply paper tone and dot grid background to spread content surfaces only.
 - **Implementation Details**:
