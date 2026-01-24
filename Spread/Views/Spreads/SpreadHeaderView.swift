@@ -16,12 +16,11 @@ struct SpreadHeaderView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(configuration.title)
-                .font(.title2)
-                .fontWeight(.semibold)
+                .font(SpreadTheme.Typography.title2)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
 
             Text(configuration.countSummaryText)
-                .font(.subheadline)
+                .font(SpreadTheme.Typography.subheadline)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.entryCounts)
         }
