@@ -1,13 +1,17 @@
 # Bulleted Implementation Plan (v1.0)
 
-## Story Overview
+## Scope Update
+- Events are deferred to v2; v1 ships without event creation or display. [SPRD-69]
+- Existing event scaffolding must be stubbed/hidden for v1 and kept ready for v2 integration. [SPRD-69]
+
+## Story Overview (v1)
 - Foundation and scaffolding (completed)
 - Core time and data models
 - Journal core: creation, assignment, inbox, migration
 - Conventional MVP UI: create spreads and tasks
 - Debug and dev tools
 - Task lifecycle UI: edit and migration surfaces
-- Events support
+- Scope trim for v1 (event deferment)
 - Notes support
 - Multiday aggregation and UI
 - Settings and preferences
@@ -111,7 +115,7 @@
 - **Description**: Add versioned SwiftData schema and empty migration plan.
 - **Implementation Details**:
   - `DataModelSchemaV1: VersionedSchema` with version `1.0.0`
-  - Models: `DataModel.Spread`, `DataModel.Task`, `DataModel.Event`, `DataModel.Note`, `DataModel.Collection`
+  - Models: `DataModel.Spread`, `DataModel.Task`, `DataModel.Note`, `DataModel.Collection` (Event reserved for v2)
   - `DataModelMigrationPlan: SchemaMigrationPlan` with empty stages (ready for future migrations)
   - Schema used by `ModelContainerFactory`
 - **Acceptance Criteria**:
@@ -238,9 +242,9 @@
   - Unit tests across month/year boundaries.
 - **Dependencies**: SPRD-7, SPRD-8
 
-### [SPRD-9] Feature: Entry protocol + Task/Event/Note models - [x] Complete
-- **Context**: Entries are the parent concept; Task/Event/Note are distinct types for scalability.
-- **Description**: Implement Entry protocol and three concrete @Model classes.
+### [SPRD-9] Feature: Entry protocol + Task/Note models (Event stub for v2) - [x] Complete
+- **Context**: Entries are the parent concept; Task/Note are v1 types, Event is reserved for v2 integration.
+- **Description**: Implement Entry protocol and v1 @Model classes, plus Event stub model for future integration.
 - **Implementation Details**:
   - `Entry` protocol:
     ```swift
@@ -251,7 +255,7 @@
         var entryType: EntryType { get }
     }
     ```
-  - `EntryType` enum: `.task`, `.event`, `.note`
+  - `EntryType` enum: `.task`, `.note` (v1); `.event` reserved for v2
     - `imageName: String` - "circle.fill", "circle", "minus"
     - `displayName: String` - "Task", "Event", "Note"
   - `AssignableEntry` protocol (Task, Note):
@@ -263,7 +267,7 @@
         var assignments: [AssignmentType] { get set }
     }
     ```
-  - `DateRangeEntry` protocol (Event):
+  - `DateRangeEntry` protocol (Event, v2):
     ```swift
     protocol DateRangeEntry: Entry {
         var startDate: Date { get }
@@ -272,19 +276,18 @@
     }
     ```
   - `DataModel.Task` @Model: id, title, createdDate, date, period, status, assignments: [TaskAssignment]
-  - `DataModel.Event` @Model:
+  - `DataModel.Event` @Model (v2 stub):
     - `EventTiming` enum: `.singleDay`, `.allDay`, `.timed`, `.multiDay`
     - Properties: startDate, endDate, startTime?, endTime?, timing
     - `appearsOn(period:date:calendar:)` - checks date range overlap with spread
   - `DataModel.Note` @Model: id, title, content, createdDate, date, period, status, assignments: [NoteAssignment]
 - **Acceptance Criteria**:
-  - All entry types persist and map to correct symbols. (Spec: Core Concepts)
-  - Events have no assignments; visibility is computed. (Spec: Entries)
+  - Task and Note types persist and map to correct symbols. (Spec: Core Concepts)
+  - Event stub compiles but is not surfaced in v1 UI/flows. (Spec: Non-Goals)
   - Notes can have extended content. (Spec: Entries)
 - **Tests**:
-  - Unit tests for Entry protocol conformance for all types
+  - Unit tests for Entry protocol conformance for Task/Note
   - Unit tests for symbol mapping per type
-  - Unit tests for Event `appearsOn()` with various spread periods
 - **Dependencies**: SPRD-8
 
 ### [SPRD-10] Feature: TaskAssignment + NoteAssignment models - [x] Complete
@@ -309,7 +312,7 @@
     - `Task.Status`: `.open`, `.complete`, `.migrated`, `.cancelled`
   - `NoteAssignment`: extends EntryAssignment + `status: Note.Status`
     - `Note.Status`: `.active`, `.migrated`
-  - Events have NO assignment type - visibility is computed from date range
+  - Event assignment/visibility rules are reserved for v2 integration
 - **Acceptance Criteria**:
   - TaskAssignment supports per-spread status (open/complete/migrated). (Spec: Migration)
   - NoteAssignment supports per-spread status (active/migrated). (Spec: Entries)
@@ -353,7 +356,7 @@
         var dataModel: JournalDataModel  // Nested dictionary [Period: [Date: SpreadDataModel]]
     }
     ```
-  - Data loading on init: fetch all spreads/tasks/events/notes from repositories
+  - Data loading on init: fetch spreads/tasks/notes (events only when enabled in v2)
   - Build `dataModel` dictionary organizing spreads by period/date
   - Increment `dataVersion` on any mutation for SwiftUI reactivity
 - **Acceptance Criteria**:
@@ -395,7 +398,7 @@
 
 ### [SPRD-13] Feature: Conventional assignment engine - [x] Complete
 - **Context**: Entries must be assigned to created spreads or Inbox.
-- **Description**: Assign tasks/notes to year/month/day; events have computed visibility.
+- **Description**: Assign tasks/notes to year/month/day (events deferred to v2).
 - **Implementation Details**:
   - `ConventionalSpreadService`:
     - `getAvailableAssignment(for entry:, dataModel:) -> AssignmentResult?`
@@ -403,14 +406,11 @@
     - Skip periods that can't have tasks assigned (multiday)
     - Match entry's preferred period/date to existing spread
     - Return first available spread or nil (→ Inbox)
-  - Events: no assignment needed - `eventsForSpread()` computes visibility
   - Multiday: aggregates entries whose dates fall within range (no direct assignment)
 - **Acceptance Criteria**:
   - Tasks/notes assign to year/month/day only; multiday aggregates. (Spec: Entries)
-  - Events appear on all applicable spreads. (Spec: Entries)
 - **Tests**:
   - Unit tests for assignment to nearest created parent spread.
-  - Event visibility across year/month/day and multiday ranges.
 - **Dependencies**: SPRD-11
 
 ### [SPRD-14] Feature: Inbox data model + auto-resolve - [x] Complete
@@ -419,7 +419,7 @@
 - **Implementation Details**:
   - Inbox is computed, not persisted:
     - Query tasks/notes where `assignments.isEmpty` or no matching spread exists
-    - Exclude events (computed visibility)
+    - Events are not part of v1 (ignored in Inbox)
     - Exclude cancelled tasks
   - `JournalManager.inboxEntries: [any Entry]` - computed property
   - `JournalManager.inboxCount: Int` - for badge display
@@ -430,11 +430,10 @@
 - **Acceptance Criteria**:
   - Inbox lists unassigned entries (tasks/notes only). (Spec: Modes)
   - Inbox auto-resolves when a spread is created. (Spec: Modes)
-  - Events and cancelled tasks excluded. (Spec: Task Status)
+  - Cancelled tasks excluded. (Spec: Task Status)
 - **Tests**:
   - Unit tests for Inbox population query
   - Unit tests for auto-resolve when spread created
-  - Unit tests confirming events excluded
   - Unit tests confirming cancelled tasks excluded
 - **Dependencies**: SPRD-13
 
@@ -444,13 +443,13 @@
 - **Acceptance Criteria**:
   - Tests cover nearest parent assignment and Inbox auto-resolve. (Spec: Modes)
 - **Tests**:
-  - Unit tests for events showing on all spreads.
+  - Unit tests for assignment selection across year/month/day.
 - **Dependencies**: SPRD-14
 - **Note**: Tests implemented as part of SPRD-13 in `ConventionalSpreadServiceTests.swift` and SPRD-14 in `InboxTests.swift`
 
 ### [SPRD-15] Feature: Migration logic (manual only) - [x] Complete
 - **Context**: Migration must be user-triggered and type-specific.
-- **Description**: Implement manual migration for tasks; allow explicit notes; block events.
+- **Description**: Implement manual migration for tasks; allow explicit notes (events deferred to v2).
 - **Implementation Details**:
   - `JournalManager.migrateTask(_:from:to:)`:
     - Find source assignment, set status to `.migrated`
@@ -463,7 +462,6 @@
   - `JournalManager.migrateTasksBatch(_:to:)`:
     - Batch migration for multiple tasks
     - Notes are NOT included in batch
-  - Event migration: blocked (throw error or no-op)
   - **Spread deletion cascade**:
     - Query all entries (tasks/notes) with assignments to deleted spread
     - For each: reassign to parent spread OR Inbox if no parent
@@ -471,7 +469,7 @@
     - Completed tasks: reassign like open tasks (never delete entries)
 - **Acceptance Criteria**:
   - Migration only occurs when user triggers it. (Spec: Entries; Non-Goals)
-  - Events cannot migrate; notes migrate only explicitly. (Spec: Entries)
+  - Notes migrate only explicitly. (Spec: Entries)
   - Spread deletion never deletes entries. (Spec: Spreads)
 - **Tests**:
   - Unit tests for migration chain and assignment updates.
@@ -495,7 +493,7 @@
 
 ### [SPRD-52] Feature: Unit tests for migration rules - [x] Complete
 - **Context**: Migration behavior differs by entry type and status.
-- **Description**: Add tests for manual migration, event blocking, note explicit migration, and cancelled exclusion.
+- **Description**: Add tests for manual migration, note explicit migration, and cancelled exclusion.
 - **Acceptance Criteria**:
   - Tests enforce manual-only migration and exclusion rules. (Spec: Entries; Task Status)
 - **Tests**:
@@ -553,12 +551,12 @@
 - **Dependencies**: SPRD-16
 
 ### [SPRD-21] Feature: Entry symbol component - [x] Complete
-- **Context**: Task/event/note symbols must be consistent across UI.
+- **Context**: Task/note symbols must be consistent across UI; event symbol reserved for v2.
 - **Description**: Create a reusable symbol/status component for entries.
 - **Implementation Details**:
   - `StatusIcon` view:
     - Task: solid circle (●) - "circle.fill"
-    - Event: empty circle (○) - "circle"
+    - Event: empty circle (○) - "circle" (v2 only)
     - Note: dash (—) - "minus"
   - Task status overlays:
     - Open: base circle
@@ -567,13 +565,13 @@
     - Cancelled: slash overlay (hidden in v1)
   - Configurable size and color
 - **Acceptance Criteria**:
-  - Symbols render as solid/empty/dash with task status indicators. (Spec: Core Concepts)
+  - Symbols render as solid/dash with task status indicators; event symbol remains v2-only. (Spec: Core Concepts)
 - **Tests**:
   - Snapshot-free unit tests verifying symbol selection logic.
 - **Dependencies**: SPRD-19, SPRD-9
 
 ### [SPRD-22] Feature: Entry row component + swipe actions - [x] Complete
-- **Context**: Lists need consistent entry rendering and actions.
+- **Context**: Lists need consistent entry rendering and actions; event actions are v2-only.
 - **Description**: Build a row component with type symbol, title, status, and swipe actions.
 - **Implementation Details**:
   - `EntryRowView`:
@@ -584,32 +582,32 @@
   - Swipe actions by type:
     - Task: Complete (trailing), Migrate (leading)
     - Note: Migrate (leading) - explicit only
-    - Event: Edit, Delete only (no migrate)
+    - Event: Edit, Delete only (no migrate) (v2 only)
   - Action callbacks via closures or environment
 - **Acceptance Criteria**:
-  - Task rows allow complete/migrate actions; notes only explicit migrate; events have no migrate. (Spec: Entries)
+  - Task rows allow complete/migrate actions; notes only explicit migrate; event actions are v2-only. (Spec: Entries)
 - **Tests**:
   - Unit tests for action availability per entry type/status.
 - **Dependencies**: SPRD-21, SPRD-15
 - **Note**: Visual refinements (greyed out styling, strikethrough for cancelled, past event overlays, migrated note overlays) deferred to SPRD-64.
 
 ### [SPRD-64] Feature: Entry row visual refinements (overlays and styling) - [x] Complete
-- **Context**: Entry rows need visual treatment to indicate completed, migrated, past, and cancelled states.
+- **Context**: Entry rows need visual treatment to indicate completed, migrated, and cancelled states; event styling reserved for v2.
 - **Description**: Extend StatusIcon and EntryRowView to show status overlays and row styling for all entry states.
 - **Implementation Details**:
   - `StatusIconConfiguration` updates:
     - Add `noteStatus: DataModel.Note.Status?` parameter
     - Add `isEventPast: Bool` parameter
     - Migrated notes show arrow (→) overlay on dash symbol
-    - Past events show X overlay on empty circle symbol
+    - Past events show X overlay on empty circle symbol (v2 only)
   - `EntryRowConfiguration` updates:
     - Add `isEventPast: Bool` parameter (caller computes based on spread context)
-    - Add `isGreyedOut: Bool` computed property (true for: complete tasks, migrated tasks/notes, past events)
+    - Add `isGreyedOut: Bool` computed property (true for: complete tasks, migrated tasks/notes, past events when enabled)
     - Add `hasStrikethrough: Bool` computed property (true for cancelled tasks)
   - `EntryRowView` updates:
     - Apply greyed out foreground color when `isGreyedOut`
     - Apply strikethrough on entire row (symbol + title + trailing) when `hasStrikethrough`
-  - Past event rules (computed by caller before passing to EntryRowView):
+  - Past event rules (computed by caller before passing to EntryRowView, v2 only):
     - Timed events: past when current time exceeds end time
     - All-day/single-day events: past starting the next day
     - Multi-day events: past status varies by spread; on a past day's spread, shows as past for that day only
@@ -618,12 +616,12 @@
   - Migrated tasks show arrow overlay and greyed out row. (Spec: Task)
   - Cancelled tasks show strikethrough on entire row. (Spec: Task)
   - Migrated notes show arrow overlay and greyed out row. (Spec: Note)
-  - Past events show X overlay and greyed out row. (Spec: Event)
-  - Current/active entries show normal styling. (Spec: Task, Event, Note)
+  - Past events show X overlay and greyed out row (v2 only). (Spec: Event)
+  - Current/active entries show normal styling. (Spec: Task, Note)
 - **Tests**:
-  - Unit tests for StatusIconConfiguration overlay selection for notes and events.
+  - Unit tests for StatusIconConfiguration overlay selection for notes (events in v2).
   - Unit tests for EntryRowConfiguration `isGreyedOut` and `hasStrikethrough` properties.
-  - Unit tests for past event rules (timed, all-day, multi-day).
+  - Unit tests for past event rules (timed, all-day, multi-day) in v2.
 - **Dependencies**: SPRD-22
 
 ### [SPRD-23] Feature: Task creation sheet
@@ -719,7 +717,7 @@
 - **Implementation Details**:
   - `SpreadHeaderView`:
     - Period-appropriate title (e.g., "2026", "January 2026", "January 5, 2026")
-    - Entry counts by type (tasks, events, notes)
+    - Entry counts by type (tasks, notes) in v1
     - Multiday: show date range in header
 - **Acceptance Criteria**:
   - Header reflects spread period/date and entry counts. (Spec: Navigation and UI)
@@ -750,7 +748,7 @@
   - Manual visual verification in light and dark modes.
 - **Dependencies**: SPRD-27
 
-### [SPRD-28] Feature: Conventional entry list + grouping
+### [SPRD-28] Feature: Conventional entry list + grouping - [x] Complete
 - **Context**: Year/month/day grouping is required.
 - **Description**: Implement grouping rules for entries in spread views.
 - **Implementation Details**:
@@ -759,10 +757,10 @@
     - Month spread: group by day
     - Day spread: flat list
     - Multiday spread: group by day within range
-  - Includes events in appropriate sections
+  - Includes tasks and notes (events added in v2)
   - Uses `EntryRowView` for consistent rendering
 - **Acceptance Criteria**:
-  - Grouping matches period rules and includes events. (Spec: Navigation and UI)
+  - Grouping matches period rules for tasks and notes. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for grouping logic.
   - UI tests: verify grouping sections for year/month/day/multiday spreads.
@@ -784,7 +782,7 @@
   - Assign action: user picks spread, creates initial assignment
 - **Acceptance Criteria**:
   - Inbox button shows in header and indicates non-empty state. (Spec: Navigation and UI)
-  - Inbox hides cancelled tasks and events. (Spec: Modes)
+  - Inbox hides cancelled tasks. (Spec: Modes)
   - Tapping opens sheet with unassigned entries. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for inbox indicator visibility based on count
@@ -886,7 +884,7 @@
 - **Description**: Route debug data loading and clearing through JournalManager APIs to mirror app behavior and refresh UI immediately.
 - **Implementation Details**:
   - Add JournalManager APIs to clear all data and load mock data sets using the same entry/spread creation flows as the app UI.
-  - Create JournalManager methods for adding tasks/notes/events so debug data uses shared logic and assignments.
+  - Create JournalManager methods for adding tasks/notes so debug data uses shared logic and assignments (events v2).
   - After load/clear, reload the JournalManager data model and reset selection to today's best matching spread (or nil if none).
   - Update Debug UI to call JournalManager instead of direct repository mutations.
 - **Acceptance Criteria**:
@@ -905,7 +903,7 @@
     - `testYear`, `testMonth`, `testDay` - fixed test dates
     - `spreads(calendar:today:)` - hierarchical spread set
     - `tasks(calendar:today:)` - comprehensive task scenarios
-    - `events(calendar:today:)` - all event timing modes
+    - `events(calendar:today:)` - v2-only, gated behind events-enabled
     - `notes(calendar:today:)` - notes with various states
     - Specialized setups: `migrationChainSetup()`, `batchMigrationSetup()`, `spreadDeletionSetup()`
 - **Acceptance Criteria**:
@@ -937,7 +935,7 @@
     - Day spread on Feb 29
     - Month spread for February in a leap year
     - Multiday range spanning Feb 28-Mar 1 in a leap year
-    - Tasks/events assigned to Feb 29
+    - Tasks/notes assigned to Feb 29 (events in v2)
 - **Acceptance Criteria**:
   - Boundary data set includes leap day scenarios when applicable. (Spec: Edge Cases)
 - **Tests**:
@@ -1012,19 +1010,58 @@
   - UI tests: banner appears only with eligible tasks, review sheet selection, and migrate-all action.
 - **Dependencies**: SPRD-29
 
-## Story: Events support
+## Story: Scope trim for v1 (event deferment)
 
 ### User Story
-- As a user, I want to add events with timing and see them on relevant spreads so I can track scheduled items alongside tasks.
+- As a user, I want a focused v1 experience without event features so I can ship quickly and avoid half-built integrations.
 
 ### Definition of Done
-- Event repository and JournalManager visibility logic are implemented.
-- Event creation sheet supports all timing modes and validation.
+- Event references are removed from v1 UI and copy. [SPRD-69]
+- Events never appear in Release builds (data is stubbed/hidden). [SPRD-70]
+- Event scaffolding remains in the codebase for v2 integration. [SPRD-70]
+
+### [SPRD-69] Feature: Hide event surfaces in v1 UI
+- **Context**: Event scaffolding exists, but v1 should not expose events.
+- **Description**: Remove event-specific UI and copy from v1 surfaces.
+- **Implementation Details**:
+  - Update spread header count summary to omit events.
+  - Update empty state copy to reference tasks/notes only.
+  - Gate entry list rendering to tasks/notes when events are disabled.
+  - Remove event wording from placeholders and navigation labels.
+- **Acceptance Criteria**:
+  - Release UI does not mention events. (Spec: Non-Goals)
+  - Entry lists show only tasks and notes in v1. (Spec: Entries)
+- **Tests**:
+  - UI tests for empty state copy and count summary.
+- **Dependencies**: SPRD-28, SPRD-62
+
+### [SPRD-70] Feature: Stub event data paths for v1
+- **Context**: Production data should not surface events before integrations are ready.
+- **Description**: Ensure event data is empty or ignored in v1 while keeping v2 scaffolding intact.
+- **Implementation Details**:
+  - Ensure production uses empty event repositories and v1 ignores event lists when building views.
+  - Gate debug/mock event seeds behind an "events enabled" switch (or remove from v1 datasets).
+  - Add a single gating mechanism to re-enable event plumbing in v2 (feature flag or build-time toggle).
+- **Acceptance Criteria**:
+  - Events never appear in Release builds. (Spec: Non-Goals)
+  - Event scaffolding remains compile-ready for v2. (Spec: Events v2)
+- **Tests**:
+  - Unit test verifying event lists are empty when events are disabled.
+- **Dependencies**: SPRD-9, SPRD-11
+
+## Story: Events integration (v2 - deferred)
+
+### User Story
+- As a user, I want calendar-backed events integrated into my journal so I can see scheduled items alongside tasks.
+
+### Definition of Done
+- Event sources (EventKit and/or Google) are connected and synchronized.
+- Event cache persists locally for offline display and is refreshed on app lifecycle events.
 - Events render on applicable spreads without migrate actions.
 
-### [SPRD-57] Feature: Event repository
-- **Context**: Events need separate CRUD operations.
-- **Description**: Implement EventRepository protocol and SwiftData implementation.
+### [SPRD-57] Feature: Event source + cache repository
+- **Context**: Events are sourced from external calendars and cached locally.
+- **Description**: Implement EventRepository backed by SwiftData to store cached external events and source metadata.
 - **Implementation Details**:
   - `EventRepository` protocol:
     ```swift
@@ -1036,31 +1073,30 @@
     }
     ```
   - `SwiftDataEventRepository`: ModelContext-based implementation
+  - Extend `DataModel.Event` with external identifiers (source/provider/calendar IDs) as needed for sync
   - Date range query uses FetchDescriptor with predicate for efficient filtering
   - Mock/test implementations for previews and tests
 - **Acceptance Criteria**:
   - CRUD for events works via repository. (Spec: Persistence)
-  - Date range query efficiently filters events. (Spec: Events)
+  - Cached events persist with source identifiers. (Spec: Events v2)
 - **Tests**:
   - Repository CRUD integration tests
   - Date range query tests
 - **Dependencies**: SPRD-9, SPRD-3
 
-### [SPRD-59] Feature: Event visibility logic in JournalManager
+### [SPRD-59] Feature: Event sync + visibility logic
 - **Context**: Events appear on spreads based on date overlap, not assignments.
-- **Description**: Add event queries to JournalManager for computed visibility.
+- **Description**: Add event sync hooks and visibility queries to JournalManager.
 - **Implementation Details**:
+  - Sync entry point (manual + lifecycle triggers): pull from EventKit/Google into cache.
   - `JournalManager.eventsForSpread(period:date:) -> [DataModel.Event]`:
-    - Query all events from repository
+    - Query cached events from repository
     - Filter using `event.appearsOn(period:date:calendar:)`
-  - `JournalManager.entriesForSpread(period:date:) -> [any Entry]`:
-    - Combines tasks, events, notes for unified view
-    - Tasks/notes via assignments, events via computed visibility
-  - `SpreadDataModel` updated to include `events: [DataModel.Event]?`
+  - `SpreadDataModel` includes `events: [DataModel.Event]?`
   - Event visibility computed on data model build (not stored)
 - **Acceptance Criteria**:
-  - Events appear on all applicable spreads. (Spec: Entries)
-  - Multiday events span multiple day spreads. (Spec: Events)
+  - Events appear on all applicable spreads. (Spec: Events v2)
+  - Multiday events span multiple day spreads. (Spec: Events v2)
 - **Tests**:
   - Unit tests for event visibility across year/month/day/multiday
   - Unit tests for multiday event spanning multiple spreads
@@ -1068,33 +1104,22 @@
 
 
 
-### [SPRD-60] Feature: Event creation sheet
-- **Context**: Events have different fields than tasks (timing, date range).
-- **Description**: Build event creation UI with timing mode selection.
+### [SPRD-60] Feature: Event source setup + settings
+- **Context**: Users need to connect calendars and control what is shown.
+- **Description**: Build event source setup flows and settings for calendar selection.
 - **Implementation Details**:
-  - `EventCreationSheet` presented as sheet
-  - Form fields:
-    - Title (required)
-    - Timing mode picker: Single Day, All Day, Timed, Multi-Day
-    - Date picker (single date for Single/All/Timed)
-    - Date range pickers (start/end for Multi-Day)
-    - Time pickers (start/end for Timed mode only)
-  - Validation:
-    - Title required
-    - End date >= start date for Multi-Day
-    - End time > start time for Timed
-    - No past dates in v1
-  - On save: create Event via JournalManager
+  - EventKit permission request + calendar selection UI.
+  - Google OAuth flow (if in scope) + calendar selection UI.
+  - Per-calendar visibility toggles and refresh controls.
+  - Surface authorization errors and limited-access states.
 - **Acceptance Criteria**:
-  - Event creation supports all four timing modes. (Spec: Events)
-  - Past-dated events blocked by validation. (Spec: Entries)
+  - Users can connect calendar sources and control visibility. (Spec: Events v2)
 - **Tests**:
-  - Unit tests for validation logic
-  - Unit tests for default selections
-  - UI tests: timing mode switches show correct pickers and validation blocks invalid ranges.
+  - Unit tests for calendar selection persistence
+  - UI tests: source connection, permission denied states, and visibility toggles.
 - **Dependencies**: SPRD-57, SPRD-11
 
-### [SPRD-33] Feature: Event visibility in spread UI
+### [SPRD-33] Feature: Event visibility in spread UI (v2)
 - **Context**: Events must appear on all applicable spreads based on date overlap.
 - **Description**: Render events in spread views for year/month/day/multiday.
 - **Implementation Details**:
@@ -1103,11 +1128,11 @@
   - Event row shows: symbol, title, timing indicator (all-day, time range, date range)
   - No swipe actions for migrate (events don't migrate)
   - Swipe actions: edit, delete only
-  - Tapping opens `EventDetailView`
+  - Tapping opens `EventDetailView` (read-only unless write-back is in scope)
   - Multiday events: show on each day spread they span
 - **Acceptance Criteria**:
-  - Events visible on all applicable spread views. (Spec: Entries)
-  - Events not migratable from UI. (Spec: Entries)
+  - Events visible on all applicable spread views. (Spec: Events v2)
+  - Events not migratable from UI. (Spec: Events v2)
 - **Tests**:
   - Unit tests for event inclusion across spread types
   - UI tests: events render in spread list and do not expose migrate actions.
@@ -1191,7 +1216,7 @@
 - As a user, I want a multiday view that aggregates entries across a range so I can plan across several days.
 
 ### Definition of Done
-- Multiday aggregation logic includes tasks, notes, and events in range.
+- Multiday aggregation logic includes tasks and notes in range (events added in v2).
 - Multiday spread UI shows range and grouped entries.
 
 ### [SPRD-18] Feature: Multiday aggregation
@@ -1200,7 +1225,6 @@
 - **Implementation Details**:
   - `JournalManager.entriesForMultidaySpread(_:) -> [any Entry]`:
     - Query tasks/notes whose preferred date falls within multiday's startDate...endDate
-    - Include events whose date range overlaps multiday's range
     - No assignment status for multiday - show aggregated view
   - Multiday spread view uses aggregated data, not assignments
 - **Acceptance Criteria**:
@@ -1328,16 +1352,15 @@
 - **Dependencies**: SPRD-35
 
 ### [SPRD-37] Feature: Traditional day view
-- **Context**: Day view shows preferred assignments and events.
+- **Context**: Day view shows preferred assignments (events added in v2).
 - **Description**: Render entries for a single day in traditional mode.
 - **Implementation Details**:
   - `TraditionalDayView`:
     - Shows entries with preferred date matching this day
-    - Includes events overlapping this day
     - No migration history visible
     - Uses same `EntryRowView` components
 - **Acceptance Criteria**:
-  - Day view shows preferred assignments plus events in range. (Spec: Modes)
+  - Day view shows preferred assignments for the selected date. (Spec: Modes)
 - **Tests**:
   - Unit tests for day view entry filtering.
   - UI tests: traditional day view shows entries for the selected date.
@@ -1520,15 +1543,16 @@
 - As a user, I want guardrails that prevent out-of-scope features so v1 stays focused.
 
 ### Definition of Done
-- Scope guard tests enforce non-goals (no week period, no automated migration, no past entry creation).
+- Scope guard tests enforce non-goals (no week period, no automated migration, no past entry creation, no events in v1 UI).
 
 ### [SPRD-56] Feature: Scope guard tests
 - **Context**: Non-goals must not regress into v1.
-- **Description**: Add tests that enforce no week assignment, no automated migration, and no past entry creation.
+- **Description**: Add tests that enforce no week assignment, no automated migration, no past entry creation, and no event surfaces in v1.
 - **Acceptance Criteria**:
-  - Tests fail if week periods or automated migration appear. (Spec: Non-Goals)
+  - Tests fail if week periods, automated migration, or event surfaces appear in v1. (Spec: Non-Goals)
 - **Tests**:
   - Unit tests for no-past-date creation and no week period exposure.
+  - UI tests verifying event copy/actions are absent in v1.
 - **Dependencies**: SPRD-55
 
 
@@ -1543,7 +1567,10 @@ SPRD-16 -> SPRD-19 -> SPRD-21 -> SPRD-22 -> SPRD-23
 SPRD-22 -> SPRD-64
 SPRD-19 -> SPRD-25 -> SPRD-26 -> SPRD-27 -> SPRD-62 -> SPRD-28 -> SPRD-31
 SPRD-22 -> SPRD-24 -> SPRD-29 -> SPRD-30
-SPRD-9 -> SPRD-57 -> SPRD-59 -> SPRD-60 -> SPRD-33
+SPRD-28 -> SPRD-69
+SPRD-9 -> SPRD-70
+SPRD-11 -> SPRD-70
+V2: SPRD-9 -> SPRD-57 -> SPRD-59 -> SPRD-60 -> SPRD-33
 SPRD-9 -> SPRD-58 -> SPRD-61 -> SPRD-34
 SPRD-14 -> SPRD-18 -> SPRD-32
 SPRD-19 -> SPRD-20 -> SPRD-17 -> SPRD-35 -> SPRD-36 -> SPRD-37 -> SPRD-38 -> SPRD-53

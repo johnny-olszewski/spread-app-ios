@@ -60,7 +60,8 @@ struct ConventionalSpreadsView: View {
             SpreadContentView(
                 spread: spread,
                 spreadDataModel: spreadDataModel(for: spread),
-                calendar: journalManager.calendar
+                calendar: journalManager.calendar,
+                today: journalManager.today
             )
         } else {
             ContentUnavailableView {
@@ -90,15 +91,16 @@ struct ConventionalSpreadsView: View {
     }
 }
 
-/// Spread content view displaying header and entry list placeholder.
+/// Spread content view displaying header and entry list.
 ///
 /// Shows the spread header with title and entry counts, followed by
-/// a placeholder for the entry list (to be implemented in SPRD-28).
-/// Uses dot grid paper background per visual design spec.
+/// the entry list grouped by period. Uses dot grid paper background
+/// per visual design spec.
 private struct SpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
     let calendar: Calendar
+    let today: Date
 
     var body: some View {
         VStack(spacing: 0) {
@@ -107,44 +109,31 @@ private struct SpreadContentView: View {
                 spread: spread,
                 calendar: calendar,
                 taskCount: spreadDataModel?.tasks.count ?? 0,
-                eventCount: spreadDataModel?.events.count ?? 0,
                 noteCount: spreadDataModel?.notes.count ?? 0
             )
 
             Divider()
 
-            // TODO: SPRD-28 - Replace with entry list grouped by period
-            entryListPlaceholder
+            // Entry list grouped by period
+            entryList
         }
         .dotGridBackground(.paper)
     }
 
     @ViewBuilder
-    private var entryListPlaceholder: some View {
-        VStack {
-            Spacer()
-
-            VStack(spacing: 16) {
-                Image(systemName: iconName)
-                    .font(.system(size: 48))
-                    .foregroundStyle(.secondary)
-
-                Text("Entry list coming soon")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+    private var entryList: some View {
+        if let dataModel = spreadDataModel {
+            EntryListView(
+                spreadDataModel: dataModel,
+                calendar: calendar,
+                today: today
+            )
+        } else {
+            ContentUnavailableView {
+                Label("No Data", systemImage: "tray")
+            } description: {
+                Text("Unable to load spread data.")
             }
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var iconName: String {
-        switch spread.period {
-        case .year: return "calendar"
-        case .month: return "calendar.badge.clock"
-        case .day: return "sun.max"
-        case .multiday: return "calendar.day.timeline.left"
         }
     }
 }
