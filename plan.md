@@ -713,7 +713,7 @@
   - Unit tests for UI validation rules.
 - **Dependencies**: SPRD-25, SPRD-12
 
-### [SPRD-27] Feature: Spread content header
+### [SPRD-27] Feature: Spread content header - [x] Complete
 - **Context**: Spread views need consistent metadata display.
 - **Description**: Add header showing spread title and counts.
 - **Implementation Details**:
