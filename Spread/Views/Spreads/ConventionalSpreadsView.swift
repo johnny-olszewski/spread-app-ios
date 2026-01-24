@@ -109,7 +109,6 @@ private struct SpreadContentView: View {
                 spread: spread,
                 calendar: calendar,
                 taskCount: spreadDataModel?.tasks.count ?? 0,
-                eventCount: spreadDataModel?.events.count ?? 0,
                 noteCount: spreadDataModel?.notes.count ?? 0
             )
 
