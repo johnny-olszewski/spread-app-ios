@@ -69,10 +69,10 @@ struct DependencyContainer: @unchecked Sendable {
             return DependencyContainer(
                 environment: environment,
                 modelContainer: modelContainer,
-                taskRepository: EmptyTaskRepository(),
-                spreadRepository: EmptySpreadRepository(),
-                eventRepository: EmptyEventRepository(),
-                noteRepository: EmptyNoteRepository(),
+                taskRepository: InMemoryTaskRepository(),
+                spreadRepository: InMemorySpreadRepository(),
+                eventRepository: InMemoryEventRepository(),
+                noteRepository: InMemoryNoteRepository(),
                 collectionRepository: EmptyCollectionRepository()
             )
         }

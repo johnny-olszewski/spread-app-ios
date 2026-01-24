@@ -9,8 +9,16 @@ struct Definitions {
                 "spreads.tabbar.year.\(year)"
             }
 
+            static func yearMenuItem(_ year: Int) -> String {
+                "spreads.tabbar.year.menu.\(year)"
+            }
+
             static func monthIdentifier(year: Int, month: Int) -> String {
                 String(format: "spreads.tabbar.month.%04d-%02d", year, month)
+            }
+
+            static func monthMenuItem(year: Int, month: Int) -> String {
+                String(format: "spreads.tabbar.month.menu.%04d-%02d", year, month)
             }
 
             static func dayIdentifier(year: Int, month: Int, day: Int) -> String {
@@ -42,9 +50,16 @@ struct Definitions {
             static let periodPicker = "spreads.create.period"
             static let createButton = "spreads.create.create"
             static let cancelButton = "spreads.create.cancel"
+            static let standardDatePicker = "spreads.create.date.standard"
+            static let multidayStartDatePicker = "spreads.create.date.multiday.start"
+            static let multidayEndDatePicker = "spreads.create.date.multiday.end"
 
             static func periodSegment(_ periodRawValue: String) -> String {
                 "spreads.create.period.\(periodRawValue)"
+            }
+
+            static func multidayPreset(_ presetRawValue: String) -> String {
+                "spreads.create.preset.\(presetRawValue)"
             }
         }
     }

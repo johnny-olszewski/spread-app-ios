@@ -227,6 +227,7 @@ struct SpreadHierarchyTabBar: View {
 
         Menu {
             ForEach(organizer.years) { yearNode in
+                let yearValue = calendar.component(.year, from: yearNode.spread.date)
                 Button {
                     handleYearSelection(yearNode.spread)
                 } label: {
@@ -237,6 +238,9 @@ struct SpreadHierarchyTabBar: View {
                         }
                     }
                 }
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearMenuItem(yearValue)
+                )
             }
         } label: {
             HStack(spacing: 4) {
@@ -273,6 +277,9 @@ struct SpreadHierarchyTabBar: View {
 
         Menu {
             ForEach(monthOptions) { monthNode in
+                let components = calendar.dateComponents([.year, .month], from: monthNode.spread.date)
+                let yearValue = components.year ?? 0
+                let monthValue = components.month ?? 0
                 Button {
                     handleMonthSelection(monthNode.spread)
                 } label: {
@@ -283,6 +290,10 @@ struct SpreadHierarchyTabBar: View {
                         }
                     }
                 }
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar
+                        .monthMenuItem(year: yearValue, month: monthValue)
+                )
             }
         } label: {
             HStack(spacing: 4) {
