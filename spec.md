@@ -1,18 +1,19 @@
 # Bulleted Specification (v1.0)
 
 ## Status
-- Specification finalized for v1 implementation. [SPRD-1]
+- Specification finalized for v1 implementation (tasks + notes only). [SPRD-1]
+- Events (including calendar integrations) are deferred to v2. [SPRD-69]
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData persistence. [SPRD-1, SPRD-5, SPRD-42]
 - Adaptive UI: top-level navigation adapts by device (sidebar on iPad, tab/sheet on iPhone), while spread navigation uses an in-view hierarchical tab bar on both platforms; traditional mode uses calendar navigation. [SPRD-19, SPRD-25, SPRD-35, SPRD-38]
-- Core entities: [SPRD-8, SPRD-9, SPRD-10]
+- Core entities (v1): [SPRD-8, SPRD-9, SPRD-10]
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
-  - Entry: protocol for task, event, note with type-specific behaviors. [SPRD-9]
+  - Entry: protocol for task and note with type-specific behaviors. [SPRD-9]
   - Task: assignable entry with status and migration history. [SPRD-9, SPRD-10]
-  - Event: date-range entry that appears on overlapping spreads. [SPRD-9, SPRD-33]
   - Note: assignable entry with explicit-only migration. [SPRD-9, SPRD-34]
   - TaskAssignment/NoteAssignment: period/date/status for migration tracking. [SPRD-10, SPRD-15]
+- Events are a v2 integration (calendar-backed date-range entries), not part of v1 UI/flows. [SPRD-57]
 - JournalManager owns in-memory data model, assignment logic, migration, spread creation, and deletion. [SPRD-11, SPRD-13, SPRD-15]
 - Two UI paths: [SPRD-25, SPRD-35, SPRD-38]
   - Conventional UI (`MainTabView`) with hierarchical spread tab bar (year/month/day/multiday), entry list, migration banner, and settings. [SPRD-25, SPRD-27, SPRD-30]
@@ -20,7 +21,7 @@
 - BuJo modes: "conventional" (migration history visible) and "traditional" (preferred assignment only). [SPRD-20, SPRD-17]
 
 ## Goals
-- Deliver a tab-based bullet journal focused on spreads, with in-view hierarchical navigation, manual migration, and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29]
+- Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with in-view hierarchical navigation, manual migration, and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29]
 - Provide calendar-style navigation in traditional mode (year/month/day) without altering created-spread data. [SPRD-17, SPRD-35, SPRD-38]
 - Support offline-first usage with iCloud sync. [SPRD-42, SPRD-44]
 
@@ -29,6 +30,7 @@
 - Week period in Period enum or week-based task assignment. [SPRD-8, SPRD-56]
 - Automated migration. [SPRD-15, SPRD-56]
 - Advanced collection types beyond plain text pages. [SPRD-39, SPRD-56]
+- Events (manual creation or calendar integrations) are deferred to v2. [SPRD-69]
 - Localization - hardcoded English strings for v1. Revisit post-v1.
 - macOS support - planned for future versions.
 
@@ -54,9 +56,10 @@
 ### Entry Architecture
 - Entry: Protocol defining shared behavior (id, title, createdDate, entryType). [SPRD-9]
 - Entry types are separate SwiftData @Model classes for type-safe queries and scalability. [SPRD-9]
-- EntryType enum: `.task`, `.event`, `.note` - used for UI rendering and type discrimination. [SPRD-9]
+- EntryType enum: `.task`, `.note` (v1) - used for UI rendering and type discrimination. [SPRD-9]
+- `.event` entry type is reserved for v2 integration and not exposed in v1. [SPRD-57]
 - AssignableEntry protocol (Task, Note): adds date, period, assignments array. [SPRD-9]
-- DateRangeEntry protocol (Event): adds startDate, endDate, `appearsOn(period:date:calendar:)`. [SPRD-9]
+- DateRangeEntry protocol (Event) is reserved for v2 calendar integration. [SPRD-57]
 
 ### Spread
 - A journaling page tied to a time period and normalized date. [SPRD-8]
@@ -82,22 +85,6 @@
   - Migrated: solid circle with arrow (→) overlay, greyed out row.
   - Cancelled: solid circle, no overlay, strikethrough entire row.
 
-### Event
-- Inherits Entry protocol. [SPRD-9]
-- Supports four timing modes: singleDay, allDay, timed, multiDay. [SPRD-9]
-- Properties: startDate, endDate, startTime (optional), endTime (optional), timing. [SPRD-9]
-- Appears on all spreads that overlap its date range (computed, not assigned). [SPRD-13, SPRD-33]
-- Cannot be migrated. [SPRD-15]
-- Has no assignments array - visibility is derived from date range. [SPRD-33]
-- Symbol: empty circle (○). [SPRD-21]
-- Past event visual treatment: [SPRD-22, SPRD-64]
-  - Current: empty circle, no overlay, normal styling.
-  - Past: empty circle with X overlay, greyed out row.
-- Past event rules (computed per spread context): [SPRD-64]
-  - Timed events: past when current time exceeds end time.
-  - All-day/single-day events: past starting the next day.
-  - Multi-day events: past status varies by spread; on a past day's spread, shows as past for that day only.
-
 ### Note
 - Inherits Entry protocol. [SPRD-9]
 - Has status: active, migrated. [SPRD-9]
@@ -113,7 +100,6 @@
 - Moving a task/note from a parent spread to a child spread. [SPRD-15]
 - Source assignment status becomes migrated; destination assignment becomes open/active. [SPRD-15]
 - Manual only - user must trigger migration. [SPRD-15]
-- Events cannot migrate. [SPRD-15]
 - Notes migrate only via explicit action (not in batch suggestions). [SPRD-15, SPRD-34]
 
 ### BuJo Mode
@@ -138,18 +124,16 @@
 - Entries are NEVER deleted when a spread is deleted; history is preserved. [SPRD-15]
 - Deletion is blocked if it would orphan entries with no valid destination. [SPRD-15]
 
-### Entries (Tasks/Events/Notes)
+### Entries (Tasks/Notes)
 - Create entries with title, preferred date, preferred period, and type. [SPRD-9, SPRD-23]
 - Tasks support status (open/complete/migrated/cancelled). [SPRD-9, SPRD-24]
 - Notes support status (active/migrated). [SPRD-9]
-- Events have no status. [SPRD-9]
 - Tasks and notes can be assigned to year, month, or day spreads. [SPRD-13]
-- Events appear on all applicable spreads based on date range overlap. [SPRD-13, SPRD-33]
-- Events are not migratable. [SPRD-15, SPRD-22]
 - Notes are not suggested for batch migration but can be migrated explicitly. [SPRD-15, SPRD-34]
 - Creating entries for past dates is not allowed in v1. [SPRD-23, SPRD-56]
 - Edit entries (title, date/period, status where applicable). [SPRD-24]
 - Delete entries across all spreads. [SPRD-11, SPRD-5]
+- Events are deferred to v2 and not available in v1. [SPRD-69]
 
 ### Entry Date Changes (Reassignment)
 - Changing preferred date triggers reassignment logic in conventional mode. [SPRD-24]
@@ -160,7 +144,6 @@
   - If no matching spread exists, entry goes to Inbox.
 - If destination spread already has an assignment, update its status (don't duplicate). [SPRD-52]
 - Traditional mode date changes also trigger conventional reassignment logic. [SPRD-17, SPRD-24]
-- Events: changing date range updates visibility (computed, no assignments). [SPRD-33]
 
 ### Task Status
 - Statuses: open, complete, migrated, cancelled. [SPRD-10, SPRD-24]
@@ -172,7 +155,6 @@
 - When Inbox has entries, tint the button yellow instead of showing a badge count. [SPRD-68]
 - Tapping the button opens Inbox view as sheet. [SPRD-31]
 - Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
-- Events are NEVER in Inbox (they have computed visibility). [SPRD-14]
 - Cancelled tasks are excluded from Inbox. [SPRD-16]
 
 ### Navigation and UI
@@ -233,7 +215,7 @@
 
 ### Persistence
 - Use SwiftData for local storage. [SPRD-4, SPRD-5]
-- Schema includes Spread, Task, Event, Note, Collection. [SPRD-4, SPRD-8, SPRD-9, SPRD-39]
+- Schema includes Spread, Task, Note, Collection (Event model reserved for v2). [SPRD-4, SPRD-8, SPRD-9, SPRD-39]
 - iCloud sync required for v1 (CloudKit-backed SwiftData). [SPRD-42, SPRD-43]
 - Offline-first, then sync (industry-standard defaults). [SPRD-44]
 
@@ -256,7 +238,7 @@
 - Future log (year spread). [SPRD-25, SPRD-27]
 - Monthly log (month spread with entries). [SPRD-28]
 - Daily log (day spread with entries). [SPRD-28]
-- Rapid logging symbols (task/event/note). [SPRD-21, SPRD-22]
+- Rapid logging symbols (task/note). [SPRD-21, SPRD-22]
 - Migration and scheduling (manual). [SPRD-15, SPRD-30]
 - Collections (plain text pages). [SPRD-39, SPRD-40, SPRD-41]
 
@@ -265,8 +247,17 @@
 - Habit/mood trackers. [SPRD-56]
 - Review/reflection. [SPRD-56]
 - Search, filters, tagging. [SPRD-56]
+- Event logging with calendar integration (EventKit and/or Google). [SPRD-57]
 
 ---
+
+## Events (v2 - Calendar Integration)
+- Events are calendar-backed date-range entries that appear alongside tasks/notes on spreads. [SPRD-57]
+- Supported sources (decide at v2 kickoff): EventKit (device calendars) and/or Google Calendar via OAuth. [SPRD-57]
+- Event data is cached locally for offline display; cache mirrors external source and is treated as read-only unless write-back is explicitly in scope. [SPRD-59]
+- Event visibility is computed from date-range overlap with spreads (no assignments). [SPRD-33]
+- Timing modes: single-day, all-day, timed, multi-day; time zone handling is explicit and source-driven. [SPRD-60]
+- UI considerations: show source calendar color/label, allow per-calendar visibility toggles, and handle permission/authorization states gracefully. [SPRD-60]
 
 ## Edge Cases (Resolved)
 - Date normalization: Use Calendar API with user's firstWeekday setting. [SPRD-7, SPRD-49]
@@ -280,7 +271,6 @@
 ## Resolved Decisions
 - Entry architecture uses protocol + separate @Model classes for scalability. [SPRD-9]
 - Week period removed from Period enum; multiday covers week-like scenarios. [SPRD-8, SPRD-56]
-- Events use computed visibility (date range overlap), not assignments. [SPRD-33]
 - Notes migrate only via explicit user action, not batch suggestions. [SPRD-34]
 - Inbox appears as a toolbar button in the spread content view and opens as sheet; when non-empty, the icon is tinted yellow. [SPRD-31, SPRD-68]
 - Settings include mode toggle + first day of week preference. [SPRD-20, SPRD-49]
@@ -293,4 +283,6 @@
 - Visual style uses dot grid backgrounds on spread content surfaces only, muted blue accents, and Debug-only appearance overrides for paper tone and typography. [SPRD-62, SPRD-63]
 
 ## Open Questions
-- None for v1 spec.
+- For v2 events: EventKit only or EventKit + Google? [SPRD-57]
+- For v2 events: read-only import vs write-back edits? [SPRD-57]
+- For v2 events: local manual events in addition to integrations, or integrations only? [SPRD-57]

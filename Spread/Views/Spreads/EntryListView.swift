@@ -19,7 +19,7 @@ struct EntryListView: View {
     /// The calendar for date calculations.
     let calendar: Calendar
 
-    /// The current date for determining past event status.
+    /// The current date for determining past event status (v2 only).
     let today: Date
 
     /// Callback when an entry is tapped for editing.
@@ -40,7 +40,6 @@ struct EntryListView: View {
     private var allEntries: [any Entry] {
         var entries: [any Entry] = []
         entries.append(contentsOf: spreadDataModel.tasks)
-        entries.append(contentsOf: spreadDataModel.events)
         entries.append(contentsOf: spreadDataModel.notes)
         return entries
     }
@@ -97,9 +96,7 @@ struct EntryListView: View {
                 taskRow(task)
             }
         case .event:
-            if let event = entry as? DataModel.Event {
-                eventRow(event)
-            }
+            EmptyView()
         case .note:
             if let note = entry as? DataModel.Note {
                 noteRow(note)
@@ -118,22 +115,6 @@ struct EntryListView: View {
         )
     }
 
-    private func eventRow(_ event: DataModel.Event) -> some View {
-        let isPast = EventPastStatus.isPast(
-            event: event,
-            at: today,
-            forSpreadDate: spreadDataModel.spread.date,
-            calendar: calendar
-        )
-
-        return EntryRowView(
-            event: event,
-            isEventPast: isPast,
-            onEdit: { onEdit?(event) },
-            onDelete: { onDelete?(event) }
-        )
-    }
-
     private func noteRow(_ note: DataModel.Note) -> some View {
         EntryRowView(
             note: note,
@@ -148,7 +129,7 @@ struct EntryListView: View {
         ContentUnavailableView {
             Label("No Entries", systemImage: "tray")
         } description: {
-            Text("Add tasks, events, or notes to this spread.")
+            Text("Add tasks or notes to this spread.")
         }
     }
 }
@@ -187,7 +168,7 @@ struct EntryListView: View {
             DataModel.Task(title: "Day 10 task", date: day10)
         ],
         notes: [],
-        events: [DataModel.Event(title: "Day 5 event", startDate: day5)]
+        events: []
     )
     EntryListView(spreadDataModel: dataModel, calendar: calendar, today: today)
 }
@@ -203,7 +184,7 @@ struct EntryListView: View {
             DataModel.Task(title: "Task 2", date: today)
         ],
         notes: [DataModel.Note(title: "A note", date: today)],
-        events: [DataModel.Event(title: "An event", startDate: today)]
+        events: []
     )
     EntryListView(spreadDataModel: dataModel, calendar: calendar, today: today)
 }
@@ -220,7 +201,6 @@ struct EntryListView: View {
     let calendar = Calendar.current
     let today = Date()
     let spread = DataModel.Spread(period: .day, date: today, calendar: calendar)
-    let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
     let dataModel = SpreadDataModel(
         spread: spread,
         tasks: [
@@ -233,10 +213,7 @@ struct EntryListView: View {
             DataModel.Note(title: "Active note", date: today, status: .active),
             DataModel.Note(title: "Migrated note", date: today, status: .migrated)
         ],
-        events: [
-            DataModel.Event(title: "Current event", startDate: today),
-            DataModel.Event(title: "Past event", startDate: yesterday)
-        ]
+        events: []
     )
     EntryListView(spreadDataModel: dataModel, calendar: calendar, today: today)
 }

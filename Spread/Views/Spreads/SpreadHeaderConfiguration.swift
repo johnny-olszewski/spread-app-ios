@@ -91,7 +91,7 @@ struct SpreadHeaderConfiguration {
 
     /// The total number of entries across all types.
     var totalCount: Int {
-        taskCount + eventCount + noteCount
+        taskCount + noteCount
     }
 
     /// A summary text describing the entry counts.
@@ -100,8 +100,7 @@ struct SpreadHeaderConfiguration {
     /// - "No entries"
     /// - "1 task"
     /// - "5 tasks"
-    /// - "3 tasks, 2 events"
-    /// - "3 tasks, 2 events, 1 note"
+    /// - "3 tasks, 1 note"
     var countSummaryText: String {
         if totalCount == 0 {
             return "No entries"
@@ -111,10 +110,6 @@ struct SpreadHeaderConfiguration {
 
         if taskCount > 0 {
             parts.append(taskCount == 1 ? "1 task" : "\(taskCount) tasks")
-        }
-
-        if eventCount > 0 {
-            parts.append(eventCount == 1 ? "1 event" : "\(eventCount) events")
         }
 
         if noteCount > 0 {

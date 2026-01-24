@@ -39,7 +39,7 @@ extension SpreadHeaderView {
     ///   - spread: The spread to display.
     ///   - calendar: The calendar for date formatting.
     ///   - taskCount: The number of tasks.
-    ///   - eventCount: The number of events.
+    ///   - eventCount: The number of events (ignored in v1 UI).
     ///   - noteCount: The number of notes.
     init(
         spread: DataModel.Spread,
@@ -82,7 +82,6 @@ extension SpreadHeaderView {
         spread: spread,
         calendar: calendar,
         taskCount: 15,
-        eventCount: 8,
         noteCount: 3
     )
 }
@@ -97,7 +96,6 @@ extension SpreadHeaderView {
         spread: spread,
         calendar: calendar,
         taskCount: 5,
-        eventCount: 2,
         noteCount: 0
     )
 }
@@ -112,7 +110,6 @@ extension SpreadHeaderView {
         spread: spread,
         calendar: calendar,
         taskCount: 3,
-        eventCount: 1,
         noteCount: 1
     )
 }
@@ -128,7 +125,6 @@ extension SpreadHeaderView {
         spread: spread,
         calendar: calendar,
         taskCount: 8,
-        eventCount: 3,
         noteCount: 2
     )
 }
@@ -144,7 +140,6 @@ extension SpreadHeaderView {
         spread: spread,
         calendar: calendar,
         taskCount: 4,
-        eventCount: 1,
         noteCount: 0
     )
 }
@@ -159,7 +154,6 @@ extension SpreadHeaderView {
         spread: spread,
         calendar: calendar,
         taskCount: 0,
-        eventCount: 0,
         noteCount: 0
     )
 }
