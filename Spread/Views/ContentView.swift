@@ -36,7 +36,18 @@ struct ContentView: View {
 
     private func initializeJournalManager() async {
         do {
+            #if DEBUG
+            let launchConfiguration = AppLaunchConfiguration.current
+            let resolvedToday = launchConfiguration.today ?? .now
+
+            var manager = try await container.makeJournalManager(today: resolvedToday)
+            if let dataSet = launchConfiguration.mockDataSet {
+                try await manager.loadMockDataSet(dataSet)
+            }
+            journalManager = manager
+            #else
             journalManager = try await container.makeJournalManager()
+            #endif
         } catch {
             // TODO: SPRD-45 - Add error handling UI for initialization failures
             fatalError("Failed to initialize JournalManager: \(error)")
