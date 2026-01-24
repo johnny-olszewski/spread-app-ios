@@ -39,6 +39,16 @@ struct DotGridConfiguration: Equatable {
     /// Standard dot grid like Leuchtturm1917
     static let standard = DotGridConfiguration()
 
+    /// Paper preset for spread content surfaces.
+    /// Uses warm off-white paper background with neutral gray dots.
+    /// Per spec: 1.5pt dots, 20pt spacing, ~15-20% opacity.
+    static let paper = DotGridConfiguration(
+        dotColor: SpreadTheme.DotGrid.dots,
+        dotSize: 1.5,
+        dotSpacing: 20,
+        backgroundColor: SpreadTheme.Paper.primary
+    )
+
     /// Subtle, barely visible grid
     static let subtle = DotGridConfiguration(
         dotColor: .secondary.opacity(0.1),
@@ -142,6 +152,14 @@ extension View {
 #Preview("Dot Grid Configurations") {
     VStack(spacing: 20) {
         VStack {
+            Text("Paper (Default for Spreads)")
+                .font(.caption)
+            DotGridView(configuration: .paper)
+                .frame(height: 100)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+
+        VStack {
             Text("Standard")
                 .font(.caption)
             DotGridView(configuration: .standard)
@@ -178,7 +196,7 @@ extension View {
 
 #Preview("Dot Grid with Content") {
     VStack(spacing: 0) {
-        // Simulated tab bar area
+        // Simulated tab bar area (paper background, no dots)
         HStack {
             Text("Tab 1")
                 .padding(.horizontal, 12)
@@ -187,7 +205,7 @@ extension View {
                 .fontWeight(.semibold)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Color(.systemBackground))
+                .background(SpreadTheme.Paper.primary)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             Text("Tab 3")
                 .padding(.horizontal, 12)
@@ -196,16 +214,15 @@ extension View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(Color(.secondarySystemBackground))
+        .background(SpreadTheme.Paper.secondary)
 
-        // Content with dot grid
+        // Content with paper dot grid
         VStack(alignment: .leading, spacing: 12) {
             Text("February 2026")
-                .font(.title)
-                .fontWeight(.bold)
+                .font(SpreadTheme.Typography.title2)
 
             Text("3 tasks")
-                .font(.subheadline)
+                .font(SpreadTheme.Typography.subheadline)
                 .foregroundStyle(.secondary)
 
             ForEach(0..<3, id: \.self) { i in
@@ -221,7 +238,7 @@ extension View {
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .dotGridBackground(.standard)
+        .dotGridBackground(.paper)
     }
 }
 
