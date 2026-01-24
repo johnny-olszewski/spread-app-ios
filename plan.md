@@ -750,7 +750,7 @@
   - Manual visual verification in light and dark modes.
 - **Dependencies**: SPRD-27
 
-### [SPRD-28] Feature: Conventional entry list + grouping
+### [SPRD-28] Feature: Conventional entry list + grouping - [x] Complete
 - **Context**: Year/month/day grouping is required.
 - **Description**: Implement grouping rules for entries in spread views.
 - **Implementation Details**:
