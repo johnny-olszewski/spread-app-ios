@@ -4,19 +4,36 @@ import SwiftUI
 ///
 /// Provides consistent colors, typography, and styling across the app.
 /// Spread content surfaces use dot grid on paper tone; navigation chrome
-/// uses flat paper tone without dots.
+/// uses flat paper tone without dots. Supports both light and dark modes.
 enum SpreadTheme {
 
     // MARK: - Colors
 
     /// Paper tone colors for backgrounds.
+    /// Light mode: warm off-white tones.
+    /// Dark mode: warm dark tones for content, system backgrounds for chrome.
     enum Paper {
-        /// Warm off-white paper color for content backgrounds.
-        /// Hex: #F7F3EA
-        static let primary = Color(red: 247/255, green: 243/255, blue: 234/255)
+        /// Primary paper color for spread content backgrounds.
+        /// Light: warm off-white (#F7F3EA)
+        /// Dark: warm dark variant (#1C1A18)
+        static let primary = Color(
+            uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 28/255, green: 26/255, blue: 24/255, alpha: 1)
+                    : UIColor(red: 247/255, green: 243/255, blue: 234/255, alpha: 1)
+            }
+        )
 
-        /// Slightly darker paper tone for secondary surfaces.
-        static let secondary = Color(red: 240/255, green: 236/255, blue: 227/255)
+        /// Secondary paper tone for navigation chrome.
+        /// Light: slightly darker warm tone
+        /// Dark: system secondary background
+        static let secondary = Color(
+            uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? .secondarySystemBackground
+                    : UIColor(red: 240/255, green: 236/255, blue: 227/255, alpha: 1)
+            }
+        )
 
         /// System background fallback when paper tone isn't appropriate.
         static let system = Color(.systemBackground)
@@ -31,8 +48,9 @@ enum SpreadTheme {
 
     /// Dot grid colors.
     enum DotGrid {
-        /// Neutral gray dot color at ~15-20% opacity.
-        static let dots = Color.gray.opacity(0.18)
+        /// Muted blue dot color at ~22% opacity.
+        /// Same color in both light and dark modes for consistency.
+        static let dots = Color(red: 91/255, green: 122/255, blue: 153/255).opacity(0.22)
     }
 
     // MARK: - Typography
@@ -102,6 +120,7 @@ extension View {
     }
 
     /// Applies the secondary paper tone background.
+    /// In dark mode, uses system secondary background.
     func secondaryPaperBackground() -> some View {
         background(SpreadTheme.Paper.secondary)
     }
