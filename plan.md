@@ -643,6 +643,8 @@
   - Past-dated tasks are blocked by UI validation. (Spec: Entries)
 - **Tests**:
   - Unit tests for validation logic and default selections.
+  - UI tests: open sheet, validate title required and past dates blocked.
+  - UI tests: create task assigns to selected spread when available.
 - **Dependencies**: SPRD-22, SPRD-13
 
 ### [SPRD-25] Feature: Conventional spread hierarchy component - [x] Complete
@@ -723,6 +725,7 @@
   - Header reflects spread period/date and entry counts. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for header formatting by period.
+  - UI tests: header title and counts update when switching spreads (year/month/day/multiday).
 - **Dependencies**: SPRD-26
 
 ### [SPRD-62] Feature: Spread surface styling + dot grid background
@@ -741,6 +744,7 @@
   - Typography and accent color match the minimal paper aesthetic. (Spec: Visual Design)
 - **Tests**:
   - Manual visual verification across iPad/iPhone size classes.
+  - UI tests: dot grid appears on spread content surfaces and not on sheets/settings.
 - **Dependencies**: SPRD-27
 
 ### [SPRD-28] Feature: Conventional entry list + grouping
@@ -758,6 +762,7 @@
   - Grouping matches period rules and includes events. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for grouping logic.
+  - UI tests: verify grouping sections for year/month/day/multiday spreads.
 - **Dependencies**: SPRD-27, SPRD-22
 
 ### [SPRD-31] Feature: Inbox view
@@ -781,6 +786,7 @@
 - **Tests**:
   - Unit tests for inbox indicator visibility based on count
   - Unit tests for entry grouping in sheet
+  - UI tests: inbox button opens sheet, lists tasks before notes, excludes cancelled tasks.
 - **Dependencies**: SPRD-14, SPRD-22, SPRD-19
 
 ### [SPRD-68] Feature: Inbox toolbar button placement + tint
@@ -797,6 +803,7 @@
   - iPhone behavior remains unchanged. (Spec: Navigation and UI)
 - **Tests**:
   - Manual QA: add an inbox entry and verify yellow tint; confirm iPad placement in the spreads view toolbar.
+  - UI tests: when inbox non-empty, button tinted and appears in spreads toolbar on iPad.
 - **Dependencies**: SPRD-31
 
 ## Story: Debug and dev tools
@@ -849,6 +856,7 @@
   - Overrides are DEBUG-only and do not ship in Release builds. (Spec: Development Tooling)
 - **Tests**:
   - Unit test ensures appearance controls are excluded in Release builds.
+  - UI tests: changing appearance controls updates spread surface (dot grid toggle, accent color, paper tone).
 - **Dependencies**: SPRD-45, SPRD-62
 
 ### [SPRD-46] Feature: Debug quick actions - [x] Complete
@@ -959,6 +967,7 @@
   - Migration action respects type rules. (Spec: Entries)
 - **Tests**:
   - Unit tests for save behavior by type.
+  - UI tests: edit task title/status, migrate action, and delete confirmation flow.
 - **Dependencies**: SPRD-22, SPRD-15, SPRD-16
 
 
@@ -976,6 +985,7 @@
   - Migrated tasks are visible with destination info. (Spec: Modes)
 - **Tests**:
   - Unit tests for destination formatting.
+  - UI tests: migrated tasks section appears, collapses/expands, and shows destination labels.
 - **Dependencies**: SPRD-28, SPRD-15
 
 ### [SPRD-30] Feature: Migration banner + selection
@@ -996,6 +1006,7 @@
   - Notes excluded from batch suggestions. (Spec: Entries)
 - **Tests**:
   - Unit tests for eligibility detection and selection behavior.
+  - UI tests: banner appears only with eligible tasks, review sheet selection, and migrate-all action.
 - **Dependencies**: SPRD-29
 
 ## Story: Events support
@@ -1077,6 +1088,7 @@
 - **Tests**:
   - Unit tests for validation logic
   - Unit tests for default selections
+  - UI tests: timing mode switches show correct pickers and validation blocks invalid ranges.
 - **Dependencies**: SPRD-57, SPRD-11
 
 ### [SPRD-33] Feature: Event visibility in spread UI
@@ -1095,6 +1107,7 @@
   - Events not migratable from UI. (Spec: Entries)
 - **Tests**:
   - Unit tests for event inclusion across spread types
+  - UI tests: events render in spread list and do not expose migrate actions.
 - **Dependencies**: SPRD-59, SPRD-22
 
 ## Story: Notes support
@@ -1146,6 +1159,7 @@
 - **Tests**:
   - Unit tests for note validation
   - Unit tests confirming notes excluded from batch migration
+  - UI tests: note creation/edit with content, explicit migrate button only.
 - **Dependencies**: SPRD-58, SPRD-22, SPRD-15
 
 ### [SPRD-34] Feature: Note migration UX
@@ -1163,6 +1177,7 @@
   - Notes are not suggested in migration banners. (Spec: Entries)
 - **Tests**:
   - Unit tests for note eligibility rules.
+  - UI tests: notes do not appear in migration banner but expose explicit migrate action.
 - **Dependencies**: SPRD-61, SPRD-30
 
 
@@ -1204,6 +1219,7 @@
   - Multiday UI shows range and aggregated entries. (Spec: Spreads)
 - **Tests**:
   - Unit tests for range label formatting.
+  - UI tests: multiday view shows range header, grouped entries, and no migration banner.
 - **Dependencies**: SPRD-18, SPRD-28
 
 ## Story: Settings and preferences
@@ -1238,6 +1254,7 @@
 - **Tests**:
   - Unit tests for mode toggle state binding
   - Unit tests for firstWeekday affecting multiday date calculations
+  - UI tests: changing mode and first-weekday persists and affects multiday preset ranges.
 - **Dependencies**: SPRD-19, SPRD-7
 
 
@@ -1288,6 +1305,7 @@
   - Year view is accessible in traditional mode. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for year aggregation logic.
+  - UI tests: traditional year grid displays months and navigates to month view.
 - **Dependencies**: SPRD-17
 
 ### [SPRD-36] Feature: Traditional month view
@@ -1303,6 +1321,7 @@
   - Month view supports drill-in to day. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for day selection mapping.
+  - UI tests: traditional month grid taps a day and navigates to day view.
 - **Dependencies**: SPRD-35
 
 ### [SPRD-37] Feature: Traditional day view
@@ -1318,6 +1337,7 @@
   - Day view shows preferred assignments plus events in range. (Spec: Modes)
 - **Tests**:
   - Unit tests for day view entry filtering.
+  - UI tests: traditional day view shows entries for the selected date.
 - **Dependencies**: SPRD-36
 
 ### [SPRD-38] Feature: Traditional navigation flow
@@ -1334,6 +1354,7 @@
   - Navigation mirrors iOS Calendar drill-in. (Spec: Navigation and UI)
 - **Tests**:
   - Integration test for navigation state transitions.
+  - UI tests: traditional navigation drill-in and back stack behavior.
 - **Dependencies**: SPRD-37
 
 
@@ -1393,6 +1414,7 @@
   - Collections list is accessible from root navigation. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for list empty state and CRUD triggers.
+  - UI tests: collections list create/open/delete flows.
 - **Dependencies**: SPRD-39
 
 ### [SPRD-41] Feature: Collection detail editor
@@ -1408,6 +1430,7 @@
   - Edits persist to storage. (Spec: Collections)
 - **Tests**:
   - Integration test for persistence of edits.
+  - UI tests: collection editor autosaves and persists after navigation.
 - **Dependencies**: SPRD-40
 
 

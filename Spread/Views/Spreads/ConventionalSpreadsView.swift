@@ -98,6 +98,7 @@ private struct SpreadContentPlaceholderView: View {
                 Text(spreadTitle)
                     .font(.title2)
                     .fontWeight(.semibold)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
 
                 Text("Spread content will appear here")
                     .font(.subheadline)

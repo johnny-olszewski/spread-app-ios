@@ -84,12 +84,14 @@ struct SpreadCreationSheet: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.cancelButton)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
                         createSpread()
                     }
                     .disabled(!canCreate || isCreating)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.createButton)
                 }
             }
             .alert("Error", isPresented: $showingError) {
@@ -112,10 +114,17 @@ struct SpreadCreationSheet: View {
         Section {
             Picker("Period", selection: $selectedPeriod) {
                 ForEach(creatablePeriods, id: \.self) { period in
-                    Text(period.displayName).tag(period)
+                    Text(period.displayName)
+                        .tag(period)
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.SpreadCreationSheet.periodSegment(
+                                period.rawValue
+                            )
+                        )
                 }
             }
             .pickerStyle(.segmented)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.periodPicker)
 
             Text(SpreadCreationConfiguration.periodDescription(for: selectedPeriod))
                 .font(.caption)
@@ -143,6 +152,7 @@ struct SpreadCreationSheet: View {
                 displayedComponents: [.date]
             )
             .datePickerStyle(.graphical)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.standardDatePicker)
         } header: {
             Text("Date")
         }
@@ -162,6 +172,7 @@ struct SpreadCreationSheet: View {
                 in: configuration.minimumMultidayStartDate...configuration.maximumDate,
                 displayedComponents: [.date]
             )
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.multidayStartDatePicker)
 
             DatePicker(
                 "End Date",
@@ -169,6 +180,7 @@ struct SpreadCreationSheet: View {
                 in: configuration.minimumMultidayEndDate...configuration.maximumDate,
                 displayedComponents: [.date]
             )
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.multidayEndDatePicker)
         } header: {
             Text("Date Range")
         }
@@ -199,6 +211,11 @@ struct SpreadCreationSheet: View {
                 .foregroundStyle(Color.accentColor)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(
+            Definitions.AccessibilityIdentifiers.SpreadCreationSheet.multidayPreset(
+                multidayPresetIdentifier(for: preset)
+            )
+        )
     }
 
     @ViewBuilder
@@ -238,6 +255,15 @@ struct SpreadCreationSheet: View {
         guard let range = configuration.dateRange(for: preset) else { return }
         multidayStartDate = range.startDate
         multidayEndDate = range.endDate
+    }
+
+    private func multidayPresetIdentifier(for preset: MultidayPreset) -> String {
+        switch preset {
+        case .thisWeek:
+            return "thisWeek"
+        case .nextWeek:
+            return "nextWeek"
+        }
     }
 
     private func createSpread() {
