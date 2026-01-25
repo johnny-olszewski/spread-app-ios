@@ -5,9 +5,13 @@ import SwiftUI
 /// Combines the spread hierarchy tab bar with the spread content area.
 /// The tab bar provides navigation between spreads, and the content area
 /// shows the selected spread's entries.
+///
+/// On iPad (regular width), the inbox button appears in this view's toolbar.
 struct ConventionalSpreadsView: View {
 
     // MARK: - Properties
+
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     /// The journal manager providing spread data.
     @Bindable var journalManager: JournalManager
@@ -17,6 +21,9 @@ struct ConventionalSpreadsView: View {
 
     /// Whether the spread creation sheet is presented.
     @State private var isShowingCreationSheet = false
+
+    /// Whether the inbox sheet is presented.
+    @State private var isShowingInboxSheet = false
 
     // MARK: - Body
 
@@ -38,6 +45,16 @@ struct ConventionalSpreadsView: View {
             // Content area
             spreadContent
         }
+        .toolbar {
+            // Inbox button for iPad (regular width)
+            if horizontalSizeClass == .regular {
+                ToolbarItem(placement: .primaryAction) {
+                    InboxButton(inboxCount: journalManager.inboxCount) {
+                        isShowingInboxSheet = true
+                    }
+                }
+            }
+        }
         .sheet(isPresented: $isShowingCreationSheet) {
             SpreadCreationSheet(
                 journalManager: journalManager,
@@ -46,6 +63,9 @@ struct ConventionalSpreadsView: View {
                     selectedSpread = spread
                 }
             )
+        }
+        .sheet(isPresented: $isShowingInboxSheet) {
+            InboxSheetView(journalManager: journalManager)
         }
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()
