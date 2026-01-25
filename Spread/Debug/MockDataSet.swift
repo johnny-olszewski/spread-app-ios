@@ -10,6 +10,7 @@ import struct Foundation.Date
 /// - `multiday`: Multiday ranges including preset and custom
 /// - `boundary`: Month and year transition dates
 /// - `highVolume`: Large data set for performance testing
+/// - `inboxNextYear`: Current year spreads with tasks dated in the following year
 enum MockDataSet: String, CaseIterable {
     /// Clears all data (empty state).
     case empty
@@ -26,6 +27,9 @@ enum MockDataSet: String, CaseIterable {
     /// Large data set for performance testing.
     case highVolume
 
+    /// Current year spreads with next year tasks for inbox testing.
+    case inboxNextYear
+
     // MARK: - Display
 
     /// The display name shown in the Debug menu.
@@ -41,6 +45,8 @@ enum MockDataSet: String, CaseIterable {
             return "Boundary Dates"
         case .highVolume:
             return "High Volume"
+        case .inboxNextYear:
+            return "Inbox (Next Year Tasks)"
         }
     }
 
@@ -57,6 +63,8 @@ enum MockDataSet: String, CaseIterable {
             return "Spreads across month and year boundaries for edge case testing."
         case .highVolume:
             return "50+ spreads and 100+ tasks for performance testing."
+        case .inboxNextYear:
+            return "Current year spreads only, with tasks dated next year to populate the Inbox."
         }
     }
 
@@ -92,6 +100,8 @@ enum MockDataSet: String, CaseIterable {
 
         case .highVolume:
             return generateHighVolumeData(calendar: calendar, today: today)
+        case .inboxNextYear:
+            return generateInboxNextYearData(calendar: calendar, today: today)
         }
     }
 
@@ -392,6 +402,45 @@ enum MockDataSet: String, CaseIterable {
                     assignments: [NoteAssignment(period: .day, date: normalizedDate, status: .active)]
                 ))
             }
+        }
+
+        return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes)
+    }
+
+    private func generateInboxNextYearData(calendar: Calendar, today: Date) -> GeneratedData {
+        var spreads: [DataModel.Spread] = []
+        var tasks: [DataModel.Task] = []
+        var events: [DataModel.Event] = []
+        var notes: [DataModel.Note] = []
+
+        // Create only current year spreads (no next-year spreads).
+        spreads.append(DataModel.Spread(period: .year, date: today, calendar: calendar))
+        spreads.append(DataModel.Spread(period: .month, date: today, calendar: calendar))
+        spreads.append(DataModel.Spread(period: .day, date: today, calendar: calendar))
+
+        guard let startOfCurrentYear = today.firstDayOfYear(calendar: calendar),
+              let startOfNextYear = calendar.date(byAdding: .year, value: 1, to: startOfCurrentYear) else {
+            return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes)
+        }
+
+        let nextYearTaskSpecs: [(String, Period, Int)] = [
+            ("File 1099s", .day, 0),
+            ("Plan Q1 roadmap", .day, 14),
+            ("Renew licenses", .day, 60),
+            ("Next year budget review", .month, 90),
+            ("Next year goals", .year, 0)
+        ]
+
+        for (title, period, dayOffset) in nextYearTaskSpecs {
+            guard let taskDate = calendar.date(byAdding: .day, value: dayOffset, to: startOfNextYear) else {
+                continue
+            }
+
+            tasks.append(DataModel.Task(
+                title: title,
+                date: taskDate,
+                period: period
+            ))
         }
 
         return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes)
