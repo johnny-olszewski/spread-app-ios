@@ -63,5 +63,26 @@ struct Definitions {
                 "spreads.create.preset.\(presetRawValue)"
             }
         }
+
+        struct TaskCreationSheet {
+            static let titleField = "tasks.create.title"
+            static let periodPicker = "tasks.create.period"
+            static let createButton = "tasks.create.create"
+            static let cancelButton = "tasks.create.cancel"
+            static let datePicker = "tasks.create.date"
+            static let yearPicker = "tasks.create.year"
+            static let monthPicker = "tasks.create.month"
+            static let monthYearPicker = "tasks.create.month.year"
+
+            static func periodSegment(_ periodRawValue: String) -> String {
+                "tasks.create.period.\(periodRawValue)"
+            }
+        }
+
+        struct CreateMenu {
+            static let button = "spreads.tabbar.create.menu"
+            static let createSpread = "spreads.tabbar.create.menu.spread"
+            static let createTask = "spreads.tabbar.create.menu.task"
+        }
     }
 }
