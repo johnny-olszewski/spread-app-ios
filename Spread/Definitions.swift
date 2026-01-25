@@ -91,6 +91,8 @@ struct Definitions {
 
         struct SpreadPicker {
             static let chooseCustomDate = "tasks.spreadpicker.customdate"
+            static let selectAllFilters = "tasks.spreadpicker.filters.selectall"
+            static let deselectAllFilters = "tasks.spreadpicker.filters.deselectall"
 
             static func filterToggle(_ periodRawValue: String) -> String {
                 "tasks.spreadpicker.filter.\(periodRawValue)"

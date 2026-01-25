@@ -29,11 +29,13 @@ struct SpreadPickerConfiguration {
     /// - Spreads sorted by date ascending
     /// - Within the same date range, ordered by period hierarchy (year → month → day → multiday)
     ///
-    /// - Parameter periods: The set of periods to include.
+    /// - Parameter periods: The set of periods to include. Empty means no filtering.
     /// - Returns: Filtered and sorted spreads.
     func filteredSpreads(periods: Set<Period>) -> [DataModel.Spread] {
-        spreads
-            .filter { periods.contains($0.period) }
+        let periodsToInclude = periods.isEmpty ? Set(Period.allCases) : periods
+
+        return spreads
+            .filter { periodsToInclude.contains($0.period) }
             .sorted { lhs, rhs in
                 // Primary sort: by date (using start date for multiday)
                 let lhsDate = lhs.period == .multiday ? (lhs.startDate ?? lhs.date) : lhs.date
