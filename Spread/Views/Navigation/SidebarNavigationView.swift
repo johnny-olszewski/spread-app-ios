@@ -4,10 +4,9 @@ import SwiftUI
 ///
 /// Uses NavigationSplitView with a sidebar showing spreads, collections,
 /// and settings. The detail view shows content for the selected item.
-/// Inbox is accessible from the toolbar.
+/// Inbox is accessible from the spreads toolbar (not the sidebar).
 struct SidebarNavigationView: View {
     @State private var selectedItem: SidebarItem? = .spreads
-    @State private var isInboxPresented = false
 
     /// The journal manager for accessing spreads and inbox.
     let journalManager: JournalManager
@@ -22,9 +21,6 @@ struct SidebarNavigationView: View {
         } detail: {
             detailView
         }
-        .sheet(isPresented: $isInboxPresented) {
-            InboxPlaceholderView()
-        }
     }
 
     // MARK: - Sidebar
@@ -35,11 +31,6 @@ struct SidebarNavigationView: View {
                 NavigationLink(value: item) {
                     Label(item.title, systemImage: item.systemImage)
                 }
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                inboxButton
             }
         }
     }
@@ -74,37 +65,6 @@ struct SidebarNavigationView: View {
             ConventionalSpreadsView(journalManager: journalManager)
         case .traditional:
             TraditionalSpreadsPlaceholderView()
-        }
-    }
-
-    // MARK: - Inbox Button
-
-    private var inboxButton: some View {
-        Button {
-            isInboxPresented = true
-        } label: {
-            inboxButtonLabel
-        }
-        .accessibilityLabel("Inbox")
-    }
-
-    @ViewBuilder
-    private var inboxButtonLabel: some View {
-        let count = journalManager.inboxCount
-        if count > 0 {
-            Image(systemName: "tray.full")
-                .overlay(alignment: .topTrailing) {
-                    Text("\(count)")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(.red, in: Capsule())
-                        .offset(x: 8, y: -8)
-                }
-        } else {
-            Image(systemName: "tray")
         }
     }
 }

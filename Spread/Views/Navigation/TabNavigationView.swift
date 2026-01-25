@@ -25,7 +25,7 @@ struct TabNavigationView: View {
             }
         }
         .sheet(isPresented: $isInboxPresented) {
-            InboxPlaceholderView()
+            InboxSheetView(journalManager: journalManager)
         }
     }
 
@@ -51,7 +51,9 @@ struct TabNavigationView: View {
             .navigationTitle(tab.title)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    inboxButton
+                    InboxButton(inboxCount: journalManager.inboxCount) {
+                        isInboxPresented = true
+                    }
                 }
             }
         }
@@ -66,37 +68,6 @@ struct TabNavigationView: View {
             ConventionalSpreadsView(journalManager: journalManager)
         case .traditional:
             TraditionalSpreadsPlaceholderView()
-        }
-    }
-
-    // MARK: - Inbox Button
-
-    private var inboxButton: some View {
-        Button {
-            isInboxPresented = true
-        } label: {
-            inboxButtonLabel
-        }
-        .accessibilityLabel("Inbox")
-    }
-
-    @ViewBuilder
-    private var inboxButtonLabel: some View {
-        let count = journalManager.inboxCount
-        if count > 0 {
-            Image(systemName: "tray.full")
-                .overlay(alignment: .topTrailing) {
-                    Text("\(count)")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(.red, in: Capsule())
-                        .offset(x: 8, y: -8)
-                }
-        } else {
-            Image(systemName: "tray")
         }
     }
 }
