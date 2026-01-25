@@ -766,7 +766,7 @@
   - UI tests: verify grouping sections for year/month/day/multiday spreads.
 - **Dependencies**: SPRD-27, SPRD-22
 
-### [SPRD-31] Feature: Inbox view + button styling
+### [SPRD-31] Feature: Inbox view + button styling - [x] Complete
 - **Context**: Users access Inbox via a toolbar button; v1 uses yellow tint instead of badge count.
 - **Description**: Build Inbox UI with toolbar button (yellow tint when non-empty) and sheet presentation. iPad button in spreads toolbar; iPhone in tab bar.
 - **Implementation Details**:
