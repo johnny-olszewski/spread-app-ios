@@ -3,7 +3,7 @@ import SwiftUI
 /// A view for selecting an existing spread to assign a task to.
 ///
 /// Displays spreads chronologically with:
-/// - Multi-select period filter toggles (all on by default)
+/// - Multi-select period filter toggles (none selected by default)
 /// - Multiday spreads expand inline to show contained dates
 /// - "Choose another date" option for custom date entry
 struct SpreadPickerView: View {
@@ -34,10 +34,13 @@ struct SpreadPickerView: View {
     // MARK: - State
 
     /// The currently active period filters.
-    @State private var activeFilters: Set<Period> = Set(Period.allCases)
+    @State private var activeFilters: Set<Period> = []
 
     /// The expanded multiday spread (showing contained dates).
     @State private var expandedMultidayId: UUID?
+
+    /// Cached width for centering filter buttons when content is narrow.
+    @State private var filterBarWidth: CGFloat = 0
 
     // MARK: - Computed Properties
 
@@ -78,14 +81,68 @@ struct SpreadPickerView: View {
 
     private var filterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Period.allCases, id: \.self) { period in
-                    filterToggle(for: period)
+            HStack {
+                Spacer(minLength: 0)
+                HStack(spacing: 8) {
+                    selectAllButton
+                    deselectAllButton
+                    ForEach(Period.allCases, id: \.self) { period in
+                        filterToggle(for: period)
+                    }
                 }
+                Spacer(minLength: 0)
             }
+            .frame(minWidth: filterBarWidth)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(key: FilterBarWidthKey.self, value: proxy.size.width)
+            }
+        )
+        .onPreferenceChange(FilterBarWidthKey.self) { width in
+            filterBarWidth = width
+        }
+    }
+
+    private var selectAllButton: some View {
+        Button("Select All") {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                activeFilters = Set(Period.allCases)
+            }
+        }
+        .buttonStyle(.plain)
+        .font(.subheadline)
+        .fontWeight(.semibold)
+        .foregroundStyle(.accent)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(Color(.systemGray4))
+        )
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadPicker.selectAllFilters)
+    }
+
+    private var deselectAllButton: some View {
+        Button("Deselect All") {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                activeFilters.removeAll()
+            }
+        }
+        .buttonStyle(.plain)
+        .font(.subheadline)
+        .fontWeight(.semibold)
+        .foregroundStyle(.accent)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(Color(.systemGray4))
+        )
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadPicker.deselectAllFilters)
     }
 
     private func filterToggle(for period: Period) -> some View {
@@ -350,4 +407,12 @@ struct SpreadPickerView: View {
         onSpreadSelected: { _, _ in },
         onChooseCustomDate: { }
     )
+}
+
+private struct FilterBarWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
 }
