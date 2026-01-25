@@ -7,6 +7,7 @@ import SwiftUI
 /// Inbox is accessible from the spreads toolbar (not the sidebar).
 struct SidebarNavigationView: View {
     @State private var selectedItem: SidebarItem? = .spreads
+    @State private var columnVisibility: NavigationSplitViewVisibility = .detailOnly
 
     /// The journal manager for accessing spreads and inbox.
     let journalManager: JournalManager
@@ -15,7 +16,7 @@ struct SidebarNavigationView: View {
     let container: DependencyContainer
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             sidebar
                 .navigationTitle("Spread")
         } detail: {
