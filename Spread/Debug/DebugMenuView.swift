@@ -167,6 +167,8 @@ struct DebugMenuView: View {
             return "arrow.left.arrow.right"
         case .highVolume:
             return "chart.bar.fill"
+        case .inboxNextYear:
+            return "tray.full"
         }
     }
 

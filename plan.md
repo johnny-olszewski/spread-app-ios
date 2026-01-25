@@ -629,21 +629,78 @@
 - **Description**: Build task creation UI with validation (no past dates).
 - **Implementation Details**:
   - `TaskCreationSheet` presented as sheet (medium detent)
-  - Form fields:
+  - Entry point: replace the create spread "+" with a menu that offers "Create Spread" or "Create Task"
+  - Defaults:
+    - If a spread is selected, default to that spread's period/date
+    - If no spread is selected, default to the same "initial selection" logic as the spreads view
+  - Card 1: Core task creation UI
     - Title (required, auto-focus)
-    - Period picker (year/month/day)
-    - Date picker (constrained to present/future)
-  - Validation:
-    - Title required
-    - Date >= today (normalized for period)
-  - On save: create Task via JournalManager, add initial assignment if spread exists
+    - Period picker (year/month/day only)
+    - Date selection varies by period:
+      - Year: list of years
+      - Month: two-step picker (year, then month)
+      - Day: standard date picker
+    - Date range uses same min/max as spread creation
+    - Validation behavior:
+      - Create button is hidden until title is edited once
+      - After first edit, Create is visible even if invalid; tapping shows inline errors
+      - Inline errors clear on next change
+      - Title required (whitespace-only invalid, no trimming)
+      - Date must be >= today using period-normalized comparison
+    - On save: create Task via JournalManager; assignment logic follows existing best-match rules
 - **Acceptance Criteria**:
-  - Past-dated tasks are blocked by UI validation. (Spec: Entries)
+  - "+" create action offers "Create Spread" and "Create Task". (Spec: Entries)
+  - Task sheet defaults to selected spread; otherwise uses initial spread selection logic. (Spec: Navigation and UI)
+  - Period picker allows year/month/day only, with period-appropriate date controls. (Spec: Entries)
+  - Date range limits match spread creation. (Spec: Spreads)
+  - Create button is hidden until title is edited once; after first edit it stays visible. (Spec: Entries)
+  - Inline validation:
+    - Title required; whitespace-only invalid (no trimming). (Spec: Entries)
+    - Date is blocked when period-normalized date is before today. (Spec: Entries)
+    - Validation errors clear on next change. (Spec: Entries)
+  - Saving creates a task with normalized date for the selected period and runs normal assignment logic. (Spec: Entries)
 - **Tests**:
-  - Unit tests for validation logic and default selections.
-  - UI tests: open sheet, validate title required and past dates blocked.
-  - UI tests: create task assigns to selected spread when available.
+  - Unit tests:
+    - Default selections with/without a selected spread.
+    - Period-normalized date validation (year/month/day).
+    - Title validation (empty vs whitespace-only).
+  - UI tests:
+    - Create Task flow opens from "+" menu.
+    - Create button visibility follows first-edit rule and inline errors appear on invalid submit.
+    - Past-dated selections are blocked for each period.
+    - Task created with selected period/date and assigns to matching spread when available.
 - **Dependencies**: SPRD-22, SPRD-13
+
+### [SPRD-71] Feature: Task creation sheet - existing spread picker
+- **Context**: Users need a fast way to assign tasks to already created spreads.
+- **Description**: Add a selection screen to choose from existing spreads or pick a custom date.
+- **Implementation Details**:
+  - In-sheet option to select from already created spreads + "Choose another date"
+  - Opens a selection screen listing all spreads in chronological order (same ordering as spread tab bar)
+  - Period filter buttons (year/month/day/multiday) are multi-select toggles; all on by default
+  - Selecting a spread auto-fills period/date in the sheet (still editable afterward)
+  - Multiday selection:
+    - Show multiday spreads in the list
+    - Tapping expands inline to list contained dates
+    - Caption on multiday items: tasks cannot be assigned to multiday spreads; day selections appear on multiday
+    - Choosing a date uses that day and sets period to day
+  - "Choose another date" allows dates without existing spreads (task will go to Inbox if no match)
+- **Acceptance Criteria**:
+  - Spread picker lists all spreads chronologically with period filters applied. (Spec: Navigation and UI)
+  - Period filters are multi-select toggles and default to showing all periods. (Spec: Navigation and UI)
+  - Selecting a spread updates the task period/date and returns to the sheet; fields remain editable. (Spec: Entries)
+  - Multiday items expand inline to show contained dates with caption explaining assignment behavior. (Spec: Entries)
+  - "Choose another date" returns to custom date entry; tasks for dates without spreads go to Inbox. (Spec: Entries)
+- **Tests**:
+  - Unit tests:
+    - Filter toggle logic and chronological ordering.
+    - Multiday expansion date list generation.
+  - UI tests:
+    - Filter toggles show/hide periods as expected.
+    - Selecting a spread populates period/date in the task sheet.
+    - Multiday expansion allows date selection and sets period to day.
+    - "Choose another date" path allows custom dates and saves successfully.
+- **Dependencies**: SPRD-23, SPRD-13
 
 ### [SPRD-25] Feature: Conventional spread hierarchy component - [x] Complete
 - **Context**: Conventional mode uses hierarchical spread navigation, adapting to platform.
@@ -766,46 +823,37 @@
   - UI tests: verify grouping sections for year/month/day/multiday spreads.
 - **Dependencies**: SPRD-27, SPRD-22
 
-### [SPRD-31] Feature: Inbox view
-- **Context**: Users access Inbox via a header toolbar button.
-- **Description**: Build Inbox UI with toolbar button and sheet presentation.
+### [SPRD-31] Feature: Inbox view + button styling - [x] Complete
+- **Context**: Users access Inbox via a toolbar button; v1 uses yellow tint instead of badge count.
+- **Description**: Build Inbox UI with toolbar button (yellow tint when non-empty) and sheet presentation. iPad button in spreads toolbar; iPhone in tab bar.
 - **Implementation Details**:
   - `InboxButton`:
-    - Toolbar button in navigation header
-    - Shows a visual indicator when count is greater than 0
+    - Toolbar button with `tray` icon
+    - Yellow tint (`Color.yellow`) when `inboxCount > 0`; default tint when empty
+    - No badge count overlay (liquid glass compatibility)
     - Taps present InboxSheetView
+  - **Platform placement**:
+    - iPad: Add inbox button to `ConventionalSpreadsView` toolbar (not sidebar)
+    - iPhone: Keep existing tab navigation inbox button as-is
   - `InboxSheetView`:
-    - List of unassigned tasks/notes (no events)
+    - List of unassigned tasks/notes (no events in v1)
     - Grouped by entry type (tasks first, then notes)
     - Each row: entry symbol, title, preferred date
     - Swipe action: assign to spread (opens spread picker)
   - Assign action: user picks spread, creates initial assignment
 - **Acceptance Criteria**:
-  - Inbox button shows in header and indicates non-empty state. (Spec: Navigation and UI)
+  - Inbox button shows in toolbar and uses yellow tint when non-empty (no badge count). (Spec: Navigation and UI)
   - Inbox hides cancelled tasks. (Spec: Modes)
   - Tapping opens sheet with unassigned entries. (Spec: Navigation and UI)
+  - On iPad, inbox button appears in spread content toolbar, not sidebar. (Spec: Navigation and UI)
+  - iPhone behavior remains unchanged. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for inbox indicator visibility based on count
   - Unit tests for entry grouping in sheet
   - UI tests: inbox button opens sheet, lists tasks before notes, excludes cancelled tasks.
+  - Manual QA: verify yellow tint when non-empty; confirm iPad placement in spreads toolbar.
 - **Dependencies**: SPRD-14, SPRD-22, SPRD-19
-
-### [SPRD-68] Feature: Inbox toolbar button placement + tint
-- **Context**: The inbox badge looks wrong with liquid glass, and the iPad placement should live in the spread content toolbar.
-- **Description**: Replace the badge with a yellow-tinted inbox icon when non-empty, and move the iPad inbox button from the sidebar toolbar to the spreads content toolbar.
-- **Implementation Details**:
-  - Replace badge overlay with `Color.yellow` tint when `inboxCount > 0`.
-  - Keep the iPhone tab navigation inbox button as-is.
-  - Remove inbox button from `SidebarNavigationView` toolbar and add it to `ConventionalSpreadsView` toolbar.
-  - Continue presenting the inbox sheet from the button.
-- **Acceptance Criteria**:
-  - When Inbox has entries, the button is tinted yellow with no badge count. (Spec: Inbox)
-  - On iPad, the inbox button appears in the spread content toolbar, not the sidebar. (Spec: Navigation and UI)
-  - iPhone behavior remains unchanged. (Spec: Navigation and UI)
-- **Tests**:
-  - Manual QA: add an inbox entry and verify yellow tint; confirm iPad placement in the spreads view toolbar.
-  - UI tests: when inbox non-empty, button tinted and appears in spreads toolbar on iPad.
-- **Dependencies**: SPRD-31
+- **Note**: Incorporates SPRD-68 (button placement + tint)
 
 ## Story: Debug and dev tools
 
@@ -1564,6 +1612,7 @@ SPRD-8 -> SPRD-49
 SPRD-8 -> SPRD-9 -> SPRD-10 -> SPRD-11 -> SPRD-12 -> SPRD-50
 SPRD-11 -> SPRD-13 -> SPRD-14 -> SPRD-51 -> SPRD-15 -> SPRD-16 -> SPRD-52
 SPRD-16 -> SPRD-19 -> SPRD-21 -> SPRD-22 -> SPRD-23
+SPRD-23 -> SPRD-71
 SPRD-22 -> SPRD-64
 SPRD-19 -> SPRD-25 -> SPRD-26 -> SPRD-27 -> SPRD-62 -> SPRD-28 -> SPRD-31
 SPRD-22 -> SPRD-24 -> SPRD-29 -> SPRD-30
