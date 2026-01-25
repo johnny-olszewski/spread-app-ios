@@ -52,6 +52,9 @@ struct Definitions {
             static let createButton = "spreads.create.create"
             static let cancelButton = "spreads.create.cancel"
             static let standardDatePicker = "spreads.create.date.standard"
+            static let yearPicker = "spreads.create.year"
+            static let monthPicker = "spreads.create.month"
+            static let monthYearPicker = "spreads.create.month.year"
             static let multidayStartDatePicker = "spreads.create.date.multiday.start"
             static let multidayEndDatePicker = "spreads.create.date.multiday.end"
 

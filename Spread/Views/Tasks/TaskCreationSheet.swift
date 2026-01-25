@@ -149,7 +149,20 @@ struct TaskCreationSheet: View {
 
     private var dateSection: some View {
         Section {
-            datePicker
+            PeriodDatePicker(
+                period: selectedPeriod,
+                selectedDate: $selectedDate,
+                calendar: journalManager.calendar,
+                today: journalManager.today,
+                minimumDate: configuration.minimumDate(for: .day),
+                maximumDate: configuration.maximumDate,
+                accessibilityIdentifiers: .init(
+                    dayPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.datePicker,
+                    yearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.yearPicker,
+                    monthPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthPicker,
+                    monthYearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthYearPicker
+                )
+            )
 
             if showValidationErrors, let error = dateError {
                 validationErrorRow(message: error.message)
@@ -157,72 +170,6 @@ struct TaskCreationSheet: View {
         } header: {
             Text("Date")
         }
-    }
-
-    @ViewBuilder
-    private var datePicker: some View {
-        switch selectedPeriod {
-        case .year:
-            yearPicker
-        case .month:
-            monthPicker
-        case .day:
-            dayPicker
-        case .multiday:
-            // Multiday is not selectable for tasks, but handle gracefully
-            dayPicker
-        }
-    }
-
-    private var yearPicker: some View {
-        Picker("Year", selection: $selectedDate) {
-            ForEach(availableYears, id: \.self) { year in
-                Text(String(year))
-                    .tag(dateFor(year: year))
-            }
-        }
-        .pickerStyle(.wheel)
-        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.yearPicker)
-    }
-
-    private var monthPicker: some View {
-        VStack(spacing: 12) {
-            // Year picker
-            Picker("Year", selection: Binding(
-                get: { journalManager.calendar.component(.year, from: selectedDate) },
-                set: { updateMonth(year: $0) }
-            )) {
-                ForEach(availableYears, id: \.self) { year in
-                    Text(String(year))
-                        .tag(year)
-                }
-            }
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthYearPicker)
-
-            // Month picker
-            Picker("Month", selection: Binding(
-                get: { journalManager.calendar.component(.month, from: selectedDate) },
-                set: { updateMonth(month: $0) }
-            )) {
-                ForEach(availableMonths, id: \.self) { month in
-                    Text(monthName(for: month))
-                        .tag(month)
-                }
-            }
-            .pickerStyle(.wheel)
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthPicker)
-        }
-    }
-
-    private var dayPicker: some View {
-        DatePicker(
-            "Date",
-            selection: $selectedDate,
-            in: configuration.minimumDate(for: .day)...configuration.maximumDate,
-            displayedComponents: [.date]
-        )
-        .datePickerStyle(.graphical)
-        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.datePicker)
     }
 
     private func validationErrorRow(message: String) -> some View {
@@ -252,66 +199,6 @@ struct TaskCreationSheet: View {
 
     // MARK: - Date Helpers
 
-    private var availableYears: [Int] {
-        let currentYear = journalManager.calendar.component(.year, from: journalManager.today)
-        return Array(currentYear...(currentYear + 10))
-    }
-
-    private var availableMonths: [Int] {
-        let currentYear = journalManager.calendar.component(.year, from: journalManager.today)
-        let selectedYear = journalManager.calendar.component(.year, from: selectedDate)
-        let currentMonth = journalManager.calendar.component(.month, from: journalManager.today)
-
-        // If current year, only show current month and future
-        if selectedYear == currentYear {
-            return Array(currentMonth...12)
-        }
-
-        // Future years: all months
-        return Array(1...12)
-    }
-
-    private func monthName(for month: Int) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = journalManager.calendar
-        return formatter.monthSymbols[month - 1]
-    }
-
-    private func dateFor(year: Int) -> Date {
-        var components = DateComponents()
-        components.year = year
-        components.month = 1
-        components.day = 1
-        return journalManager.calendar.date(from: components) ?? journalManager.today
-    }
-
-    private func updateMonth(year: Int) {
-        var components = journalManager.calendar.dateComponents([.month], from: selectedDate)
-        components.year = year
-        components.day = 1
-
-        // Ensure month is valid for the new year
-        let currentYear = journalManager.calendar.component(.year, from: journalManager.today)
-        let currentMonth = journalManager.calendar.component(.month, from: journalManager.today)
-
-        if year == currentYear, let month = components.month, month < currentMonth {
-            components.month = currentMonth
-        }
-
-        if let newDate = journalManager.calendar.date(from: components) {
-            selectedDate = newDate
-        }
-    }
-
-    private func updateMonth(month: Int) {
-        var components = journalManager.calendar.dateComponents([.year], from: selectedDate)
-        components.month = month
-        components.day = 1
-
-        if let newDate = journalManager.calendar.date(from: components) {
-            selectedDate = newDate
-        }
-    }
 
     // MARK: - Actions
 
