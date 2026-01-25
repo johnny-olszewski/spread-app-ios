@@ -145,14 +145,20 @@ struct SpreadCreationSheet: View {
 
     private var standardDateSection: some View {
         Section {
-            DatePicker(
-                "Select Date",
-                selection: $selectedDate,
-                in: configuration.minimumDate(for: selectedPeriod)...configuration.maximumDate,
-                displayedComponents: [.date]
+            PeriodDatePicker(
+                period: selectedPeriod,
+                selectedDate: $selectedDate,
+                calendar: journalManager.calendar,
+                today: journalManager.today,
+                minimumDate: configuration.minimumDate(for: .day),
+                maximumDate: configuration.maximumDate,
+                accessibilityIdentifiers: .init(
+                    dayPicker: Definitions.AccessibilityIdentifiers.SpreadCreationSheet.standardDatePicker,
+                    yearPicker: Definitions.AccessibilityIdentifiers.SpreadCreationSheet.yearPicker,
+                    monthPicker: Definitions.AccessibilityIdentifiers.SpreadCreationSheet.monthPicker,
+                    monthYearPicker: Definitions.AccessibilityIdentifiers.SpreadCreationSheet.monthYearPicker
+                )
             )
-            .datePickerStyle(.graphical)
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.standardDatePicker)
         } header: {
             Text("Date")
         }
@@ -243,12 +249,12 @@ struct SpreadCreationSheet: View {
     }
 
     private func adjustDatesForPeriod(_ period: Period) {
+        guard period != .multiday else { return }
         let minDate = configuration.minimumDate(for: period)
 
-        // Ensure selected date is within valid range
-        if selectedDate < minDate {
-            selectedDate = minDate
-        }
+        // Normalize selection to the period and clamp to minimum date.
+        let normalizedSelected = period.normalizeDate(selectedDate, calendar: journalManager.calendar)
+        selectedDate = normalizedSelected < minDate ? minDate : normalizedSelected
     }
 
     private func applyPreset(_ preset: MultidayPreset) {
@@ -312,11 +318,17 @@ struct SpreadCreationSheet: View {
 // MARK: - Preview
 
 #Preview("Create Spread") {
-    SpreadCreationSheet(
-        journalManager: .previewInstance,
-        firstWeekday: .sunday,
-        onSpreadCreated: { spread in
-            print("Created spread: \(spread.period)")
-        }
-    )
+    
+    VStack {
+        
+    }
+    .sheet(isPresented: .constant(true)) {
+        SpreadCreationSheet(
+            journalManager: .previewInstance,
+            firstWeekday: .sunday,
+            onSpreadCreated: { spread in
+                print("Created spread: \(spread.period)")
+            }
+        )
+    }
 }
