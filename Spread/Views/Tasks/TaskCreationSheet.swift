@@ -67,11 +67,18 @@ struct TaskCreationSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                titleSection
-                spreadSelectionSection
-                periodSection
-                dateSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    titleSection
+                    compactDivider
+                    spreadSelectionSection
+                    compactDivider
+                    periodSection
+                    compactDivider
+                    dateSection
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
             .sheet(isPresented: $isShowingSpreadPicker) {
                 SpreadPickerView(
@@ -121,7 +128,8 @@ struct TaskCreationSheet: View {
     // MARK: - Sections
 
     private var titleSection: some View {
-        Section {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionHeader("Title")
             TextField("Task title", text: $title)
                 .focused($isTitleFocused)
                 .onChange(of: title) { _, _ in
@@ -135,13 +143,12 @@ struct TaskCreationSheet: View {
             if showValidationErrors, let error = titleError {
                 validationErrorRow(message: error.message)
             }
-        } header: {
-            Text("Title")
         }
     }
 
     private var spreadSelectionSection: some View {
-        Section {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionHeader("Spread")
             Button {
                 isShowingSpreadPicker = true
             } label: {
@@ -164,7 +171,8 @@ struct TaskCreationSheet: View {
     }
 
     private var periodSection: some View {
-        Section {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionHeader("Period")
             Picker("Period", selection: $selectedPeriod) {
                 ForEach(TaskCreationConfiguration.assignablePeriods, id: \.self) { period in
                     Text(period.displayName)
@@ -182,13 +190,12 @@ struct TaskCreationSheet: View {
             Text(periodDescription)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-        } header: {
-            Text("Period")
         }
     }
 
     private var dateSection: some View {
-        Section {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionHeader("Date")
             PeriodDatePicker(
                 period: selectedPeriod,
                 selectedDate: $selectedDate,
@@ -207,8 +214,6 @@ struct TaskCreationSheet: View {
             if showValidationErrors, let error = dateError {
                 validationErrorRow(message: error.message)
             }
-        } header: {
-            Text("Date")
         }
     }
 
@@ -220,6 +225,17 @@ struct TaskCreationSheet: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private var compactDivider: some View {
+        Divider()
+            .padding(.vertical, 2)
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption)
+            .foregroundStyle(.secondary)
     }
 
     // MARK: - Period Description
