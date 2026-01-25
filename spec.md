@@ -131,6 +131,13 @@
 - Tasks and notes can be assigned to year, month, or day spreads. [SPRD-13]
 - Notes are not suggested for batch migration but can be migrated explicitly. [SPRD-15, SPRD-34]
 - Creating entries for past dates is not allowed in v1. [SPRD-23, SPRD-56]
+- Task creation UI (v1): [SPRD-23, SPRD-71]
+  - Task creation uses a sheet with title + period (year/month/day) + period-appropriate date controls.
+  - Defaults to the selected spread's period/date; if none selected, uses initial selection logic. [SPRD-25]
+  - Date validation uses period-normalized comparison (current month/year allowed). [SPRD-23]
+  - Inline validation with Create button shown after first edit; whitespace-only titles are invalid. [SPRD-23]
+  - Optional picker to choose from existing spreads or select a custom date; choosing a date without a matching spread is allowed (Inbox fallback). [SPRD-71, SPRD-14]
+  - Spread picker lists created spreads chronologically with period filter toggles; multiday items expand to show contained dates (day selections appear on multiday). [SPRD-71]
 - Edit entries (title, date/period, status where applicable). [SPRD-24]
 - Delete entries across all spreads. [SPRD-11, SPRD-5]
 - Events are deferred to v2 and not available in v1. [SPRD-69]
@@ -167,7 +174,7 @@
   - Initial selection is the smallest period containing today (day > multiday); if multiple multiday spreads contain today, choose earliest start date, then earliest end date, then earliest creation date. [SPRD-25]
   - Show "No spreads" placeholder when a selected year/month has no children. [SPRD-25]
   - Tap-only navigation; keep the selected spread visible via horizontal scroll. [SPRD-25]
-  - A trailing "+" button is always visible and opens the spread creation sheet; no ghost suggestions in MVP. [SPRD-25, SPRD-26]
+  - A trailing "+" button is always visible and opens a creation menu (spread or task). [SPRD-23, SPRD-25, SPRD-26]
 - Traditional mode uses calendar-style navigation (year → month → day). [SPRD-35, SPRD-38]
 - Traditional navigation mirrors iOS Calendar-style drill-in. [SPRD-35, SPRD-38]
 - Spread content view shows active entries and migrated entries section (conventional). [SPRD-27, SPRD-29]
@@ -286,3 +293,9 @@
 - For v2 events: EventKit only or EventKit + Google? [SPRD-57]
 - For v2 events: read-only import vs write-back edits? [SPRD-57]
 - For v2 events: local manual events in addition to integrations, or integrations only? [SPRD-57]
+
+---
+
+## Future Versions
+- Spread bookmarking. [SPRD-56]
+- Dynamic spread names. [SPRD-56]
