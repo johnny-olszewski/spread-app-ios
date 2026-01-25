@@ -34,6 +34,7 @@ struct TaskCreationSheet: View {
     @State private var isCreating = false
     @State private var titleError: TaskCreationError?
     @State private var dateError: TaskCreationError?
+    @State private var isShowingSpreadPicker = false
     @FocusState private var isTitleFocused: Bool
 
     // MARK: - Computed Properties
@@ -68,8 +69,24 @@ struct TaskCreationSheet: View {
         NavigationStack {
             Form {
                 titleSection
+                spreadSelectionSection
                 periodSection
                 dateSection
+            }
+            .sheet(isPresented: $isShowingSpreadPicker) {
+                SpreadPickerView(
+                    spreads: journalManager.spreads,
+                    calendar: journalManager.calendar,
+                    today: journalManager.today,
+                    onSpreadSelected: { period, date in
+                        selectedPeriod = period
+                        selectedDate = date
+                        clearDateError()
+                    },
+                    onChooseCustomDate: {
+                        // Stay on custom date entry - no action needed
+                    }
+                )
             }
             .navigationTitle("New Task")
             .navigationBarTitleDisplayMode(.inline)
@@ -120,6 +137,29 @@ struct TaskCreationSheet: View {
             }
         } header: {
             Text("Title")
+        }
+    }
+
+    private var spreadSelectionSection: some View {
+        Section {
+            Button {
+                isShowingSpreadPicker = true
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Select from existing spreads")
+                        Text("Or choose a custom date below")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .foregroundStyle(.primary)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.spreadPickerButton)
         }
     }
 
