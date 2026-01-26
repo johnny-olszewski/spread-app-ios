@@ -671,7 +671,7 @@
     - Task created with selected period/date and assigns to matching spread when available.
 - **Dependencies**: SPRD-22, SPRD-13
 
-### [SPRD-71] Feature: Task creation sheet - existing spread picker
+### [SPRD-71] Feature: Task creation sheet - existing spread picker - [x] Complete
 - **Context**: Users need a fast way to assign tasks to already created spreads.
 - **Description**: Add a selection screen to choose from existing spreads or pick a custom date.
 - **Implementation Details**:
