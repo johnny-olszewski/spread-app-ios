@@ -72,10 +72,18 @@ struct SpreadCreationSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                periodSection
-                dateSection
-                validationSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    periodSection
+                    compactDivider
+                    dateSection
+                    if let message = validationMessage {
+                        compactDivider
+                        validationSection(message: message)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
             .navigationTitle("New Spread")
             .navigationBarTitleDisplayMode(.inline)
@@ -111,7 +119,8 @@ struct SpreadCreationSheet: View {
     // MARK: - Sections
 
     private var periodSection: some View {
-        Section {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionHeader("Spread Type")
             Picker("Period", selection: $selectedPeriod) {
                 ForEach(creatablePeriods, id: \.self) { period in
                     Text(period.displayName)
@@ -129,8 +138,6 @@ struct SpreadCreationSheet: View {
             Text(SpreadCreationConfiguration.periodDescription(for: selectedPeriod))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-        } header: {
-            Text("Spread Type")
         }
     }
 
@@ -144,7 +151,8 @@ struct SpreadCreationSheet: View {
     }
 
     private var standardDateSection: some View {
-        Section {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionHeader("Date")
             PeriodDatePicker(
                 period: selectedPeriod,
                 selectedDate: $selectedDate,
@@ -159,18 +167,15 @@ struct SpreadCreationSheet: View {
                     monthYearPicker: Definitions.AccessibilityIdentifiers.SpreadCreationSheet.monthYearPicker
                 )
             )
-        } header: {
-            Text("Date")
         }
     }
 
     private var multidayDateSection: some View {
-        Section {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Date Range")
             // Preset buttons
             presetsRow
-
-            Divider()
-
+            compactDivider
             // Custom date range
             DatePicker(
                 "Start Date",
@@ -187,8 +192,6 @@ struct SpreadCreationSheet: View {
                 displayedComponents: [.date]
             )
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.multidayEndDatePicker)
-        } header: {
-            Text("Date Range")
         }
     }
 
@@ -224,19 +227,25 @@ struct SpreadCreationSheet: View {
         )
     }
 
-    @ViewBuilder
-    private var validationSection: some View {
-        if let message = validationMessage {
-            Section {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
+    private func validationSection(message: String) -> some View {
+        HStack {
+            Image(systemName: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
+    }
+
+    private var compactDivider: some View {
+        Divider()
+            .padding(.vertical, 2)
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption)
+            .foregroundStyle(.secondary)
     }
 
     // MARK: - Actions

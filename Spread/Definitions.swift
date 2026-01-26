@@ -76,6 +76,7 @@ struct Definitions {
             static let yearPicker = "tasks.create.year"
             static let monthPicker = "tasks.create.month"
             static let monthYearPicker = "tasks.create.month.year"
+            static let spreadPickerButton = "tasks.create.spreadpicker"
 
             static func periodSegment(_ periodRawValue: String) -> String {
                 "tasks.create.period.\(periodRawValue)"
@@ -86,6 +87,28 @@ struct Definitions {
             static let button = "spreads.tabbar.create.menu"
             static let createSpread = "spreads.tabbar.create.menu.spread"
             static let createTask = "spreads.tabbar.create.menu.task"
+        }
+
+        struct SpreadPicker {
+            static let chooseCustomDate = "tasks.spreadpicker.customdate"
+            static let selectAllFilters = "tasks.spreadpicker.filters.selectall"
+            static let deselectAllFilters = "tasks.spreadpicker.filters.deselectall"
+
+            static func filterToggle(_ periodRawValue: String) -> String {
+                "tasks.spreadpicker.filter.\(periodRawValue)"
+            }
+
+            static func spreadRow(_ spreadId: String) -> String {
+                "tasks.spreadpicker.spread.\(spreadId)"
+            }
+
+            static func multidayRow(_ spreadId: String) -> String {
+                "tasks.spreadpicker.multiday.\(spreadId)"
+            }
+
+            static func multidayDate(spreadId: String, date: String) -> String {
+                "tasks.spreadpicker.multiday.\(spreadId).date.\(date)"
+            }
         }
     }
 }
