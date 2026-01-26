@@ -887,4 +887,58 @@ final class JournalManager {
 
         try await noteRepository.save(note)
     }
+
+    // MARK: - Task Creation
+
+    /// Creates a new task with the specified parameters.
+    ///
+    /// The task is created with:
+    /// - Normalized date for the selected period
+    /// - Status `.open`
+    /// - Assignment to the best matching spread (or Inbox if none)
+    ///
+    /// - Parameters:
+    ///   - title: The task title.
+    ///   - date: The preferred date for the task.
+    ///   - period: The preferred period for the task.
+    /// - Returns: The newly created task.
+    /// - Throws: Repository errors if persistence fails.
+    func addTask(title: String, date: Date, period: Period) async throws -> DataModel.Task {
+        // Normalize the date for the selected period
+        let normalizedDate = period.normalizeDate(date, calendar: calendar)
+
+        // Create the task
+        let task = DataModel.Task(
+            title: title,
+            createdDate: .now,
+            date: normalizedDate,
+            period: period,
+            status: .open,
+            assignments: []
+        )
+
+        // Find the best spread for assignment
+        if let bestSpread = spreadService.findBestSpread(for: task, in: spreads) {
+            // Create initial assignment
+            let assignment = TaskAssignment(
+                period: bestSpread.period,
+                date: bestSpread.date,
+                status: .open
+            )
+            task.assignments.append(assignment)
+        }
+        // If no spread found, task goes to Inbox (no assignment)
+
+        // Save task
+        try await taskRepository.save(task)
+
+        // Add to local list
+        tasks.append(task)
+
+        // Rebuild data model and trigger UI update
+        buildDataModel()
+        dataVersion += 1
+
+        return task
+    }
 }
