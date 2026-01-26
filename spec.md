@@ -5,7 +5,7 @@
 - Events (including calendar integrations) are deferred to v2. [SPRD-69]
 
 ## Project Summary
-- Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData persistence. [SPRD-1, SPRD-5, SPRD-42]
+- Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
 - Adaptive UI: top-level navigation adapts by device (sidebar on iPad, tab/sheet on iPhone), while spread navigation uses an in-view hierarchical tab bar on both platforms; traditional mode uses calendar navigation. [SPRD-19, SPRD-25, SPRD-35, SPRD-38]
 - Core entities (v1): [SPRD-8, SPRD-9, SPRD-10]
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
@@ -23,7 +23,8 @@
 ## Goals
 - Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with in-view hierarchical navigation, manual migration, and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29]
 - Provide calendar-style navigation in traditional mode (year/month/day) without altering created-spread data. [SPRD-17, SPRD-35, SPRD-38]
-- Support offline-first usage with iCloud sync. [SPRD-42, SPRD-44]
+- Support offline-first usage with SwiftData local storage and Supabase sync. [SPRD-80, SPRD-85]
+- Allow local-only usage without sign-in; sync when authenticated and online. [SPRD-84, SPRD-85]
 
 ## Non-Goals (v1)
 - Search, filters, or tagging. [SPRD-56]
@@ -33,6 +34,7 @@
 - Events (manual creation or calendar integrations) are deferred to v2. [SPRD-69]
 - Localization - hardcoded English strings for v1. Revisit post-v1.
 - macOS support - planned for future versions.
+- Realtime updates (Supabase Realtime) in v1.
 
 ## Platform
 - iPadOS 26+ (primary platform). [SPRD-1]
@@ -200,7 +202,7 @@
 - First day of week preference: System Default, Sunday, Monday. [SPRD-49]
   - System Default uses device locale. [SPRD-49]
   - Affects multiday preset calculations. [SPRD-49]
-- Persist settings via UserDefaults or @AppStorage. [SPRD-20]
+- Persist settings locally via UserDefaults/@AppStorage and sync via Supabase when signed in. [SPRD-20, SPRD-88]
 
 ### Modes
 - Conventional: [SPRD-13, SPRD-14, SPRD-25, SPRD-31]
@@ -223,8 +225,14 @@
 ### Persistence
 - Use SwiftData for local storage. [SPRD-4, SPRD-5]
 - Schema includes Spread, Task, Note, Collection (Event model reserved for v2). [SPRD-4, SPRD-8, SPRD-9, SPRD-39]
-- iCloud sync required for v1 (CloudKit-backed SwiftData). [SPRD-42, SPRD-43]
-- Offline-first, then sync (industry-standard defaults). [SPRD-44]
+- Supabase sync required for v1 (CloudKit removed). [SPRD-80]
+- Offline-first, then sync; auto-sync on launch/foreground + manual refresh. [SPRD-85]
+
+### Supabase Sync + Auth (v1)
+- Supabase environments: separate dev and prod projects; Debug builds can switch environments at runtime with a prod confirmation gate; Release/TestFlight locked to prod. [SPRD-80, SPRD-86]
+- Auth: email/password, Sign in with Apple, and Google. Local-only usage is allowed; sign-in merges local data; sign-out wipes local store. [SPRD-84, SPRD-85]
+- Sync: field-level last-write-wins (server-arrival time), per-field timestamps set by DB triggers, monotonic revision per table for incremental sync, soft-delete with 90-day cleanup, delete wins conflicts, and device_id recorded on writes. [SPRD-81, SPRD-83, SPRD-85, SPRD-89]
+- Data integrity: unique constraints for spreads/assignments, foreign keys enforced, and RLS policies restrict rows to `auth.uid()`. [SPRD-81, SPRD-82]
 
 ### Development Tooling
 - Debug UI is available only in DEBUG builds; Release builds have no debug destinations or data-loading actions. [SPRD-45]
@@ -238,6 +246,7 @@
 - Mock data set loading uses JournalManager APIs to mirror app behavior; loading or clearing data refreshes UI and resets selection to today's spread when available. [SPRD-67]
 - Debug menu provides appearance overrides for paper tone, dot grid (size/spacing/opacity), heading font, and accent color (DEBUG builds only). [SPRD-63]
 - Debug tooling files live under `Spread/Debug` to keep debug-only views/data isolated. [SPRD-45]
+- Debug destination includes a Supabase environment switcher (Debug builds only) that signs out, wipes the local store, and rebuilds the container on change; prod access requires explicit confirmation and shows a persistent badge. [SPRD-86]
 
 ---
 

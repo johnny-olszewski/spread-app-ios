@@ -3,10 +3,12 @@
 ## Scope Update
 - Events are deferred to v2; v1 ships without event creation or display. [SPRD-69]
 - Existing event scaffolding must be stubbed/hidden for v1 and kept ready for v2 integration. [SPRD-69]
+- Supabase offline-first sync replaces CloudKit for v1; CloudKit configuration tasks remain for history but are superseded by the Supabase migration. [SPRD-80]
 
 ## Story Overview (v1)
 - Foundation and scaffolding (completed)
 - Core time and data models
+- Supabase offline-first sync + auth migration (priority)
 - Journal core: creation, assignment, inbox, migration
 - Conventional MVP UI: create spreads and tasks
 - Debug and dev tools
@@ -241,6 +243,7 @@
 - **Tests**:
   - Unit tests across month/year boundaries.
 - **Dependencies**: SPRD-7, SPRD-8
+
 
 ### [SPRD-9] Feature: Entry protocol + Task/Note models (Event stub for v2) - [x] Complete
 - **Context**: Entries are the parent concept; Task/Note are v1 types, Event is reserved for v2 integration.
@@ -942,6 +945,189 @@
 - **Tests**:
   - Manual QA: load each mock data set, verify spreads render immediately, then add a spread and task to confirm no crash.
 - **Dependencies**: SPRD-46, SPRD-11
+
+## Story: Supabase offline-first sync + auth migration (priority)
+
+### User Story
+- As a user, I want my data to work offline first and sync across devices and platforms when signed in.
+
+### Definition of Done
+- Supabase dev/prod environments are configured with migrations, RLS, and merge RPCs.
+- App uses SwiftData locally with an outbox-based sync engine (push + incremental pull).
+- Auth supports email/password + Apple + Google; local-only usage is supported.
+- Debug builds can switch Supabase environments at runtime (prod guarded).
+- Sync status and error feedback are visible; CloudKit is no longer required.
+
+### [SPRD-80] Feature: Supabase environments + MCP workflow
+- **Context**: CloudKit is replaced with Supabase; we need dev/prod environments and a repeatable workflow.
+- **Description**: Create Supabase dev/prod projects, configure auth providers, and document local config + MCP usage.
+- **Implementation Details**:
+  - Create Supabase projects for dev and prod; record project URLs and anon keys.
+  - Configure Auth providers: email/password, Sign in with Apple, and Google.
+  - Add local config (xcconfig/plist) for Supabase environment URLs/keys.
+  - Document Supabase CLI setup and migrations workflow in `docs/`.
+  - Use the Supabase MCP server with Claude for schema inspection and migration execution.
+- **Acceptance Criteria**:
+  - Dev/prod projects exist and are reachable.
+  - Auth providers are enabled in both environments.
+  - Local config supports switching environments in Debug builds.
+- **Tests**:
+  - Manual: sign-in works against both dev and prod projects.
+- **Dependencies**: None
+
+### [SPRD-81] Feature: Supabase schema + migrations (core entities)
+- **Context**: Local SwiftData models must map 1:1 to Supabase.
+- **Description**: Define tables, constraints, and indexes for v1 entities.
+- **Implementation Details**:
+  - Tables: `spreads`, `tasks`, `notes`, `task_assignments`, `note_assignments`, `collections`, `settings`.
+  - Common columns: `id` (uuid PK), `user_id` (uuid), `device_id` (uuid), `created_at` (timestamptz), `updated_at` (timestamptz), `deleted_at` (timestamptz), `revision` (bigint).
+  - Period fields stored as text with CHECK (`year|month|day|multiday`).
+  - Date-only fields stored as `date` (spread date, assignment date, preferred date).
+  - Add per-field `*_updated_at` columns needed for field-level LWW.
+  - Add unique constraints (e.g., `spreads` on `user_id, period, date`; assignments on `user_id, entry_id, period, date`).
+  - Add FK constraints between entries and assignments; add indexes for `(user_id, revision)` and `(user_id, deleted_at)`.
+  - Apply migrations using Supabase CLI (via MCP for verification).
+- **Acceptance Criteria**:
+  - Migrations apply cleanly to dev and prod.
+  - Core entities have required constraints and indexes.
+- **Tests**:
+  - Verify schema via Supabase MCP query checks.
+- **Dependencies**: SPRD-80
+
+### [SPRD-82] Feature: RLS policies + auth isolation
+- **Context**: Data must be private per user.
+- **Description**: Enable RLS and add policies for all tables.
+- **Implementation Details**:
+  - Enable RLS on all tables.
+  - Policies: allow select/insert/update/delete where `user_id = auth.uid()`.
+  - Ensure service role can run cleanup jobs.
+  - Verify anon key cannot access other users' data.
+- **Acceptance Criteria**:
+  - Cross-user access is blocked by default.
+  - Authenticated users can CRUD only their own rows.
+- **Tests**:
+  - Manual policy checks using Supabase SQL editor or MCP queries.
+- **Dependencies**: SPRD-81
+
+### [SPRD-83] Feature: DB triggers + revision + merge RPCs
+- **Context**: Field-level LWW and incremental sync require server-side metadata.
+- **Description**: Implement triggers and RPC functions for merge and revision.
+- **Implementation Details**:
+  - Add triggers to set `updated_at` and per-field `*_updated_at` using `changed_fields`.
+  - Maintain a monotonic `revision` per table (global sequence).
+  - Implement merge RPCs per table that apply field-level LWW and enforce delete-wins.
+  - Ensure merges are atomic and return the canonical row.
+- **Acceptance Criteria**:
+  - Field-level updates preserve newer values.
+  - `deleted_at` wins over stale updates.
+  - Incremental sync can use `revision`.
+- **Tests**:
+  - RPC tests in dev using Supabase MCP calls.
+- **Dependencies**: SPRD-81, SPRD-82
+
+### [SPRD-84] Feature: Supabase client + auth integration
+- **Context**: The app needs authenticated sync with optional local-only usage.
+- **Description**: Add Supabase Swift client and implement auth flows.
+- **Implementation Details**:
+  - Integrate Supabase Swift client.
+  - Add email/password, Apple, and Google sign-in.
+  - Support local-only usage prior to sign-in.
+  - Generate and store `device_id` in Keychain.
+  - On sign-in: merge local data with server (field-level LWW).
+  - On sign-out: wipe local store and outbox; reset sync state.
+- **Acceptance Criteria**:
+  - Users can sign in/out with supported providers.
+  - Local-only mode works offline without sign-in.
+- **Tests**:
+  - Manual auth flows on dev project.
+- **Dependencies**: SPRD-80, SPRD-83
+
+### [SPRD-85] Feature: Offline-first sync engine (outbox + pull)
+- **Context**: Sync must work without reliable connectivity.
+- **Description**: Implement outbox-based push + incremental pull with status UI.
+- **Implementation Details**:
+  - Add `SyncMutation` SwiftData model for outbox entries (full record + `changed_fields`).
+  - Enqueue outbox mutations on repository writes (tasks/notes/spreads/assignments/collections/settings).
+  - Push: batch RPC merge calls (parent-first ordering).
+  - Pull: incremental per-table sync using `revision`, with pagination and `last_sync` cursor stored locally.
+  - Gate sync with `NWPathMonitor`; auto sync on launch/foreground + manual refresh.
+  - Add exponential backoff on failure; store a capped local SyncLog.
+  - Show toolbar sync status (last sync time + non-blocking error).
+- **Acceptance Criteria**:
+  - Offline edits sync when connectivity returns.
+  - Sync is idempotent and resilient to retries.
+  - UI shows last sync and errors.
+- **Tests**:
+  - Unit tests for outbox enqueue and sync ordering.
+  - Integration tests for push/pull with dev Supabase project.
+- **Dependencies**: SPRD-83, SPRD-84
+
+### [SPRD-86] Feature: Debug environment switcher
+- **Context**: Debug builds must switch between dev/prod safely.
+- **Description**: Add environment switcher to Debug destination with guardrails.
+- **Implementation Details**:
+  - Add Supabase Environment section in Debug destination.
+  - Require type-to-confirm for prod; show persistent PROD badge.
+  - On switch: sign out, wipe local store, rebuild ModelContainer, reset sync state.
+- **Acceptance Criteria**:
+  - Debug builds can switch environments at runtime.
+  - Prod access requires explicit confirmation.
+- **Tests**:
+  - Manual: switch environments and verify local wipe + re-auth.
+- **Dependencies**: SPRD-84, SPRD-85
+
+### [SPRD-87] Feature: SwiftData model sync metadata
+- **Context**: Local models must carry sync metadata for field-level LWW.
+- **Description**: Extend SwiftData models with sync fields and update schema.
+- **Implementation Details**:
+  - Add per-field `*_updated_at`, `deleted_at`, `revision`, and `device_id` fields.
+  - Add settings model fields needed for sync.
+  - Update schema version + migration plan.
+  - Ensure repositories populate metadata on local edits.
+- **Acceptance Criteria**:
+  - Local models serialize to/from Supabase records without loss.
+  - Schema migration is tested.
+- **Tests**:
+  - Unit tests for model encoding/decoding and migration.
+- **Dependencies**: SPRD-85
+
+### [SPRD-88] Feature: Settings sync (Supabase)
+- **Context**: Settings should be consistent across devices.
+- **Description**: Sync settings via Supabase and merge locally.
+- **Implementation Details**:
+  - Store a single `settings` row per user in Supabase.
+  - Sync settings through outbox + pull; resolve with field-level LWW.
+  - Fall back to local values when offline or signed out.
+- **Acceptance Criteria**:
+  - Settings sync across devices after sign-in.
+- **Tests**:
+  - Unit tests for settings merge and conflict resolution.
+- **Dependencies**: SPRD-85, SPRD-87
+
+### [SPRD-89] Feature: Tombstone cleanup job
+- **Context**: Soft deletes need periodic cleanup.
+- **Description**: Add a scheduled cleanup job to remove rows deleted > 90 days.
+- **Implementation Details**:
+  - Implement scheduled cleanup (Supabase scheduled SQL or Edge Function).
+  - Ensure cleanup uses service role and respects RLS.
+- **Acceptance Criteria**:
+  - Soft-deleted rows older than 90 days are removed.
+- **Tests**:
+  - Manual: create old tombstones and verify cleanup job behavior.
+- **Dependencies**: SPRD-82
+
+### [SPRD-90] Feature: Sync QA + test plan
+- **Context**: Offline-first sync needs dedicated test coverage.
+- **Description**: Add integration tests and a QA checklist for sync scenarios.
+- **Implementation Details**:
+  - Add tests for offline edits, conflict resolution, and delete-wins.
+  - Add QA checklist for environment switching and sign-in merge.
+  - Document manual sync verification steps.
+- **Acceptance Criteria**:
+  - QA checklist exists and covers core sync scenarios.
+- **Tests**:
+  - Integration test coverage for push/pull and merge conflicts.
+- **Dependencies**: SPRD-85
 
 ### [SPRD-47] Feature: Test data builders
 - **Context**: Tests need consistent fixtures for entries and spreads.
