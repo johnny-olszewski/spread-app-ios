@@ -7,7 +7,7 @@ import SwiftUI
 /// - Sticky leading tabs for selected year and month with dropdown pickers
 /// - Re-tapping sticky year/month opens a picker to select from available spreads
 /// - Horizontally scrollable children
-/// - Trailing "+" button for creating new spreads
+/// - Trailing "+" menu for creating new spreads or tasks
 ///
 /// Used on both iPad and iPhone inside the spreads view.
 struct SpreadHierarchyTabBar: View {
@@ -26,8 +26,11 @@ struct SpreadHierarchyTabBar: View {
     /// The reference date for initial selection (typically today).
     let today: Date
 
-    /// Callback when the create button is tapped.
-    var onCreateTapped: (() -> Void)?
+    /// Callback when "Create Spread" is selected from the menu.
+    var onCreateSpreadTapped: (() -> Void)?
+
+    /// Callback when "Create Task" is selected from the menu.
+    var onCreateTaskTapped: (() -> Void)?
 
     /// The expanded year in the hierarchy (shows its months).
     @State private var expandedYear: DataModel.Spread?
@@ -173,11 +176,23 @@ struct SpreadHierarchyTabBar: View {
             .padding(.horizontal, SpreadHierarchyDesign.itemSpacing)
     }
 
-    // MARK: - Create Button
+    // MARK: - Create Menu
 
     private var createButton: some View {
-        Button {
-            onCreateTapped?()
+        Menu {
+            Button {
+                onCreateSpreadTapped?()
+            } label: {
+                Label("Create Spread", systemImage: "book")
+            }
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createSpread)
+
+            Button {
+                onCreateTaskTapped?()
+            } label: {
+                Label("Create Task", systemImage: "circle.fill")
+            }
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createTask)
         } label: {
             Image(systemName: SpreadHierarchyDesign.createButtonSymbol)
                 .font(.system(size: 16, weight: .semibold))
@@ -188,8 +203,8 @@ struct SpreadHierarchyTabBar: View {
                 .foregroundStyle(Color.accentColor)
         }
         .padding(.trailing, SpreadHierarchyDesign.horizontalPadding)
-        .accessibilityLabel("Create spread")
-        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.createButton)
+        .accessibilityLabel("Create")
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.button)
     }
 
     // MARK: - Tab Item

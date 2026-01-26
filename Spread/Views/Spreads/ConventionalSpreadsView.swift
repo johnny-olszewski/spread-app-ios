@@ -20,7 +20,10 @@ struct ConventionalSpreadsView: View {
     @State private var selectedSpread: DataModel.Spread?
 
     /// Whether the spread creation sheet is presented.
-    @State private var isShowingCreationSheet = false
+    @State private var isShowingSpreadCreationSheet = false
+
+    /// Whether the task creation sheet is presented.
+    @State private var isShowingTaskCreationSheet = false
 
     /// Whether the inbox sheet is presented.
     @State private var isShowingInboxSheet = false
@@ -35,8 +38,11 @@ struct ConventionalSpreadsView: View {
                 selectedSpread: $selectedSpread,
                 calendar: journalManager.calendar,
                 today: journalManager.today,
-                onCreateTapped: {
-                    isShowingCreationSheet = true
+                onCreateSpreadTapped: {
+                    isShowingSpreadCreationSheet = true
+                },
+                onCreateTaskTapped: {
+                    isShowingTaskCreationSheet = true
                 }
             )
 
@@ -55,12 +61,21 @@ struct ConventionalSpreadsView: View {
                 }
             }
         }
-        .sheet(isPresented: $isShowingCreationSheet) {
+        .sheet(isPresented: $isShowingSpreadCreationSheet) {
             SpreadCreationSheet(
                 journalManager: journalManager,
                 firstWeekday: .sunday, // TODO: SPRD-20 - Get from user settings
                 onSpreadCreated: { spread in
                     selectedSpread = spread
+                }
+            )
+        }
+        .sheet(isPresented: $isShowingTaskCreationSheet) {
+            TaskCreationSheet(
+                journalManager: journalManager,
+                selectedSpread: selectedSpread,
+                onTaskCreated: { _ in
+                    // Task created - UI will refresh via dataVersion
                 }
             )
         }

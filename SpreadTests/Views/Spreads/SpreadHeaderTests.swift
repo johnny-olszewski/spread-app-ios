@@ -232,9 +232,9 @@ struct SpreadHeaderTests {
     }
 
     /// Conditions: Spread with events only.
-    /// Expected: Event count reflects count, others are zero.
-    @Test("Entry counts reflect events only")
-    func entryCountsReflectEventsOnly() {
+    /// Expected: Event count reflects count, total excludes events (v1).
+    @Test("Entry counts ignore events for totals")
+    func entryCountsIgnoreEventsForTotals() {
         let calendar = makeTestCalendar()
         let date = makeDate(year: 2026, month: 1, day: 15, calendar: calendar)
         let spread = DataModel.Spread(period: .day, date: date, calendar: calendar)
@@ -250,7 +250,7 @@ struct SpreadHeaderTests {
         #expect(config.taskCount == 0)
         #expect(config.eventCount == 3)
         #expect(config.noteCount == 0)
-        #expect(config.totalCount == 3)
+        #expect(config.totalCount == 0)
     }
 
     /// Conditions: Spread with notes only.
@@ -276,7 +276,7 @@ struct SpreadHeaderTests {
     }
 
     /// Conditions: Spread with mixed entries.
-    /// Expected: All counts reflect correctly, total is sum.
+    /// Expected: Total excludes events (v1).
     @Test("Entry counts reflect mixed entries")
     func entryCountsReflectMixedEntries() {
         let calendar = makeTestCalendar()
@@ -294,7 +294,7 @@ struct SpreadHeaderTests {
         #expect(config.taskCount == 5)
         #expect(config.eventCount == 3)
         #expect(config.noteCount == 2)
-        #expect(config.totalCount == 10)
+        #expect(config.totalCount == 7)
     }
 
     // MARK: - Count Summary Text Tests
@@ -357,9 +357,9 @@ struct SpreadHeaderTests {
     }
 
     /// Conditions: Spread with tasks and events.
-    /// Expected: Summary text shows both types.
-    @Test("Count summary text shows tasks and events")
-    func countSummaryTextShowsTasksAndEvents() {
+    /// Expected: Summary text ignores events (v1).
+    @Test("Count summary text ignores events")
+    func countSummaryTextIgnoresEvents() {
         let calendar = makeTestCalendar()
         let date = makeDate(year: 2026, month: 1, day: 15, calendar: calendar)
         let spread = DataModel.Spread(period: .day, date: date, calendar: calendar)
@@ -372,13 +372,13 @@ struct SpreadHeaderTests {
             noteCount: 0
         )
 
-        #expect(config.countSummaryText == "3 tasks, 2 events")
+        #expect(config.countSummaryText == "3 tasks")
     }
 
     /// Conditions: Spread with all entry types.
-    /// Expected: Summary text shows all types.
-    @Test("Count summary text shows all entry types")
-    func countSummaryTextShowsAllEntryTypes() {
+    /// Expected: Summary text excludes events (v1).
+    @Test("Count summary text excludes events")
+    func countSummaryTextExcludesEvents() {
         let calendar = makeTestCalendar()
         let date = makeDate(year: 2026, month: 1, day: 15, calendar: calendar)
         let spread = DataModel.Spread(period: .day, date: date, calendar: calendar)
@@ -391,11 +391,11 @@ struct SpreadHeaderTests {
             noteCount: 1
         )
 
-        #expect(config.countSummaryText == "3 tasks, 2 events, 1 note")
+        #expect(config.countSummaryText == "3 tasks, 1 note")
     }
 
     /// Conditions: Spread with one of each entry type.
-    /// Expected: Summary text shows singular forms for each.
+    /// Expected: Summary text uses singular forms and ignores events (v1).
     @Test("Count summary text uses singular forms correctly")
     func countSummaryTextUsesSingularFormsCorrectly() {
         let calendar = makeTestCalendar()
@@ -410,13 +410,13 @@ struct SpreadHeaderTests {
             noteCount: 1
         )
 
-        #expect(config.countSummaryText == "1 task, 1 event, 1 note")
+        #expect(config.countSummaryText == "1 task, 1 note")
     }
 
     // MARK: - SpreadDataModel Integration Tests
 
     /// Conditions: SpreadDataModel with entries.
-    /// Expected: Configuration correctly extracts counts from data model.
+    /// Expected: Configuration extracts counts; total excludes events (v1).
     @Test("Configuration extracts counts from SpreadDataModel")
     func configurationExtractsCountsFromSpreadDataModel() {
         let calendar = makeTestCalendar()
@@ -448,6 +448,6 @@ struct SpreadHeaderTests {
         #expect(config.taskCount == 2)
         #expect(config.eventCount == 1)
         #expect(config.noteCount == 3)
-        #expect(config.totalCount == 6)
+        #expect(config.totalCount == 5)
     }
 }
