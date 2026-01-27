@@ -17,6 +17,9 @@ struct RootNavigationView: View {
     /// The journal manager for accessing spreads and inbox.
     let journalManager: JournalManager
 
+    /// The auth manager for handling authentication.
+    let authManager: AuthManager
+
     /// The dependency container for app-wide services.
     let container: DependencyContainer
 
@@ -27,14 +30,17 @@ struct RootNavigationView: View {
     ///
     /// - Parameters:
     ///   - journalManager: The journal manager for app data.
+    ///   - authManager: The auth manager for authentication.
     ///   - container: The dependency container for app services.
     ///   - layoutOverride: Optional layout override for tests/previews.
     init(
         journalManager: JournalManager,
+        authManager: AuthManager,
         container: DependencyContainer,
         layoutOverride: NavigationLayoutType? = nil
     ) {
         self.journalManager = journalManager
+        self.authManager = authManager
         self.container = container
         self.layoutOverride = layoutOverride
     }
@@ -52,11 +58,13 @@ struct RootNavigationView: View {
             case .sidebar:
                 SidebarNavigationView(
                     journalManager: journalManager,
+                    authManager: authManager,
                     container: container
                 )
             case .tabBar:
                 TabNavigationView(
                     journalManager: journalManager,
+                    authManager: authManager,
                     container: container
                 )
             }
@@ -67,6 +75,7 @@ struct RootNavigationView: View {
 #Preview("iPad - Sidebar") {
     RootNavigationView(
         journalManager: .previewInstance,
+        authManager: AuthManager(),
         container: try! .makeForPreview()
     )
     .environment(\.horizontalSizeClass, .regular)
@@ -75,6 +84,7 @@ struct RootNavigationView: View {
 #Preview("iPhone - Tab Bar") {
     RootNavigationView(
         journalManager: .previewInstance,
+        authManager: AuthManager(),
         container: try! .makeForPreview()
     )
     .environment(\.horizontalSizeClass, .compact)

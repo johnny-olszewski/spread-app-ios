@@ -16,6 +16,9 @@ struct ConventionalSpreadsView: View {
     /// The journal manager providing spread data.
     @Bindable var journalManager: JournalManager
 
+    /// The auth manager for handling authentication.
+    let authManager: AuthManager
+
     /// The currently selected spread.
     @State private var selectedSpread: DataModel.Spread?
 
@@ -27,6 +30,9 @@ struct ConventionalSpreadsView: View {
 
     /// Whether the inbox sheet is presented.
     @State private var isShowingInboxSheet = false
+
+    /// Whether the auth sheet is presented.
+    @State private var isShowingAuthSheet = false
 
     // MARK: - Body
 
@@ -52,11 +58,16 @@ struct ConventionalSpreadsView: View {
             spreadContent
         }
         .toolbar {
-            // Inbox button for iPad (regular width)
+            // Inbox and auth buttons for iPad (regular width)
             if horizontalSizeClass == .regular {
                 ToolbarItem(placement: .primaryAction) {
-                    InboxButton(inboxCount: journalManager.inboxCount) {
-                        isShowingInboxSheet = true
+                    HStack(spacing: 16) {
+                        InboxButton(inboxCount: journalManager.inboxCount) {
+                            isShowingInboxSheet = true
+                        }
+                        AuthButton(isSignedIn: authManager.state.isSignedIn) {
+                            isShowingAuthSheet = true
+                        }
                     }
                 }
             }
@@ -81,6 +92,13 @@ struct ConventionalSpreadsView: View {
         }
         .sheet(isPresented: $isShowingInboxSheet) {
             InboxSheetView(journalManager: journalManager)
+        }
+        .sheet(isPresented: $isShowingAuthSheet) {
+            if authManager.state.isSignedIn {
+                ProfileSheet(authManager: authManager)
+            } else {
+                LoginSheet(authManager: authManager)
+            }
         }
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()
@@ -176,5 +194,5 @@ private struct SpreadContentView: View {
 // MARK: - Preview
 
 #Preview {
-    ConventionalSpreadsView(journalManager: .previewInstance)
+    ConventionalSpreadsView(journalManager: .previewInstance, authManager: AuthManager())
 }

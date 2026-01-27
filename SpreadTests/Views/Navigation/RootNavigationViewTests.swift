@@ -127,6 +127,7 @@ struct RootNavigationViewTests {
         let container = try DependencyContainer.makeForPreview()
         let view = RootNavigationView(
             journalManager: .previewInstance,
+            authManager: AuthManager(),
             container: container,
             layoutOverride: .sidebar
         )
@@ -141,6 +142,7 @@ struct RootNavigationViewTests {
         let container = try DependencyContainer.makeForPreview()
         let view = RootNavigationView(
             journalManager: .previewInstance,
+            authManager: AuthManager(),
             container: container,
             layoutOverride: .tabBar
         )

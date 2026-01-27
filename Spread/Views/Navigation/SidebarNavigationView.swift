@@ -12,6 +12,9 @@ struct SidebarNavigationView: View {
     /// The journal manager for accessing spreads and inbox.
     let journalManager: JournalManager
 
+    /// The auth manager for handling authentication.
+    let authManager: AuthManager
+
     /// The dependency container for app-wide services.
     let container: DependencyContainer
 
@@ -63,7 +66,7 @@ struct SidebarNavigationView: View {
     private var spreadsView: some View {
         switch journalManager.bujoMode {
         case .conventional:
-            ConventionalSpreadsView(journalManager: journalManager)
+            ConventionalSpreadsView(journalManager: journalManager, authManager: authManager)
         case .traditional:
             TraditionalSpreadsPlaceholderView()
         }
@@ -73,6 +76,7 @@ struct SidebarNavigationView: View {
 #Preview {
     SidebarNavigationView(
         journalManager: .previewInstance,
+        authManager: AuthManager(),
         container: try! .makeForPreview()
     )
 }

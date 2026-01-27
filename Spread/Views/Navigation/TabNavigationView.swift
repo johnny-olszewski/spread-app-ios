@@ -7,9 +7,13 @@ import SwiftUI
 struct TabNavigationView: View {
     @State private var selectedTab: NavigationTab = .spreads
     @State private var isInboxPresented = false
+    @State private var isAuthPresented = false
 
     /// The journal manager for accessing spreads and inbox.
     let journalManager: JournalManager
+
+    /// The auth manager for handling authentication.
+    let authManager: AuthManager
 
     /// The dependency container for app-wide services.
     let container: DependencyContainer
@@ -26,6 +30,13 @@ struct TabNavigationView: View {
         }
         .sheet(isPresented: $isInboxPresented) {
             InboxSheetView(journalManager: journalManager)
+        }
+        .sheet(isPresented: $isAuthPresented) {
+            if authManager.state.isSignedIn {
+                ProfileSheet(authManager: authManager)
+            } else {
+                LoginSheet(authManager: authManager)
+            }
         }
     }
 
@@ -51,8 +62,13 @@ struct TabNavigationView: View {
             .navigationTitle(tab.title)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    InboxButton(inboxCount: journalManager.inboxCount) {
-                        isInboxPresented = true
+                    HStack(spacing: 16) {
+                        InboxButton(inboxCount: journalManager.inboxCount) {
+                            isInboxPresented = true
+                        }
+                        AuthButton(isSignedIn: authManager.state.isSignedIn) {
+                            isAuthPresented = true
+                        }
                     }
                 }
             }
@@ -65,7 +81,7 @@ struct TabNavigationView: View {
     private var spreadsView: some View {
         switch journalManager.bujoMode {
         case .conventional:
-            ConventionalSpreadsView(journalManager: journalManager)
+            ConventionalSpreadsView(journalManager: journalManager, authManager: authManager)
         case .traditional:
             TraditionalSpreadsPlaceholderView()
         }
@@ -75,6 +91,7 @@ struct TabNavigationView: View {
 #Preview {
     TabNavigationView(
         journalManager: .previewInstance,
+        authManager: AuthManager(),
         container: try! .makeForPreview()
     )
 }
