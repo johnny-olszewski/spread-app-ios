@@ -976,7 +976,7 @@
 - **Dependencies**: None
 - **Note**: Sign in with Apple and Google auth providers deferred to SPRD-91.
 
-### [SPRD-81] Feature: Supabase schema + migrations (core entities)
+### [SPRD-81] Feature: Supabase schema + migrations (core entities) - [x] Complete
 - **Context**: Local SwiftData models must map 1:1 to Supabase.
 - **Description**: Define tables, constraints, and indexes for v1 entities.
 - **Implementation Details**:

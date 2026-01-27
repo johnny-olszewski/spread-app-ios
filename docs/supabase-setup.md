@@ -175,10 +175,86 @@ export SUPABASE_URL="http://localhost:54321"
 
 ## Database Schema
 
-See SPRD-81 for the full schema definition including:
-- Tables: `spreads`, `tasks`, `notes`, `task_assignments`, `note_assignments`, `collections`, `settings`
-- Field-level timestamps for LWW conflict resolution
-- RLS policies for user data isolation
+Schema created in SPRD-81. Migration: `20260127041350_create_core_entities`
+
+### Tables Overview
+
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `spreads` | Journaling pages tied to time periods | `period`, `date`, `start_date`, `end_date` |
+| `tasks` | Assignable entries with status | `title`, `date`, `period`, `status` |
+| `notes` | Assignable entries with content | `title`, `content`, `date`, `period`, `status` |
+| `task_assignments` | Per-spread status for tasks | `task_id`, `period`, `date`, `status` |
+| `note_assignments` | Per-spread status for notes | `note_id`, `period`, `date`, `status` |
+| `collections` | Plain text pages | `title` |
+| `settings` | User preferences (one row per user) | `bujo_mode`, `first_weekday` |
+
+### Common Columns (All Tables)
+
+All tables include these columns for sync:
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| `id` | `uuid` | Primary key (auto-generated) |
+| `user_id` | `uuid` | Owner of the record |
+| `device_id` | `uuid` | Device that created/modified the record |
+| `created_at` | `timestamptz` | When record was created |
+| `updated_at` | `timestamptz` | When record was last modified |
+| `deleted_at` | `timestamptz` | Soft delete timestamp (null = active) |
+| `revision` | `bigint` | Monotonic version for incremental sync |
+
+### Field-Level LWW Timestamps
+
+Each table has per-field `*_updated_at` columns for field-level last-write-wins conflict resolution:
+
+- **spreads**: `period_updated_at`, `date_updated_at`, `start_date_updated_at`, `end_date_updated_at`
+- **tasks**: `title_updated_at`, `date_updated_at`, `period_updated_at`, `status_updated_at`
+- **notes**: `title_updated_at`, `content_updated_at`, `date_updated_at`, `period_updated_at`, `status_updated_at`
+- **collections**: `title_updated_at`
+- **settings**: `bujo_mode_updated_at`, `first_weekday_updated_at`
+- **task_assignments**: `status_updated_at`
+- **note_assignments**: `status_updated_at`
+
+### CHECK Constraints
+
+| Table | Field | Allowed Values |
+|-------|-------|----------------|
+| spreads, tasks, notes, assignments | `period` | `year`, `month`, `day`, `multiday` |
+| tasks, task_assignments | `status` | `open`, `complete`, `migrated`, `cancelled` |
+| notes, note_assignments | `status` | `active`, `migrated` |
+| settings | `bujo_mode` | `conventional`, `traditional` |
+| settings | `first_weekday` | `1` to `7` |
+| spreads | multiday dates | `start_date`/`end_date` required when `period = 'multiday'` |
+
+### Unique Constraints
+
+| Table | Constraint | Condition |
+|-------|------------|-----------|
+| spreads | `(user_id, period, date)` | `period != 'multiday'` and not deleted |
+| spreads | `(user_id, start_date, end_date)` | `period = 'multiday'` and not deleted |
+| settings | `user_id` | One settings row per user |
+| task_assignments | `(user_id, task_id, period, date)` | Not deleted |
+| note_assignments | `(user_id, note_id, period, date)` | Not deleted |
+
+### Foreign Keys
+
+| Table | Column | References | On Delete |
+|-------|--------|------------|-----------|
+| task_assignments | `task_id` | `tasks.id` | CASCADE |
+| note_assignments | `note_id` | `notes.id` | CASCADE |
+
+### Indexes
+
+All tables have indexes for efficient sync queries:
+- `(user_id, revision)` - Incremental sync by revision
+- `(user_id, deleted_at)` - Filter active vs deleted records
+
+Assignment tables have additional indexes:
+- `(task_id)` / `(note_id)` - FK lookup
+
+### RLS Policies
+
+RLS is enabled in SPRD-82. All tables will have policies restricting access to `user_id = auth.uid()`
 
 ## Troubleshooting
 
