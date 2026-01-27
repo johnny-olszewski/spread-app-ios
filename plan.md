@@ -1028,20 +1028,34 @@
 
 ### [SPRD-84] Feature: Supabase client + auth integration
 - **Context**: The app needs authenticated sync with optional local-only usage.
-- **Description**: Add Supabase Swift client and implement auth flows.
+- **Description**: Add Supabase Swift client and implement email/password auth with login UI.
 - **Implementation Details**:
-  - Integrate Supabase Swift client.
-  - Add email/password, Apple, and Google sign-in.
+  - Integrate Supabase Swift client via SPM.
+  - Add auth button in toolbar (trailing Inbox button):
+    - Logged out: `person.crop.circle` icon, opens login sheet
+    - Logged in: `person.crop.circle.fill` icon, opens profile sheet
+  - Login sheet (logged out):
+    - Email and password fields
+    - Sign In button (disabled until fields populated)
+    - Error message display for failed login attempts
+    - Sheet dismisses on successful login
+  - Profile sheet (logged in):
+    - Shows user email
+    - Sign Out button in toolbar
+    - Sign out confirmation alert (warns local data will be wiped)
   - Support local-only usage prior to sign-in.
   - Generate and store `device_id` in Keychain.
-  - On sign-in: merge local data with server (field-level LWW).
+  - On sign-in: merge local data with server (field-level LWW via merge RPCs).
   - On sign-out: wipe local store and outbox; reset sync state.
 - **Acceptance Criteria**:
-  - Users can sign in/out with supported providers.
+  - Users can sign in with email/password.
+  - Users can sign out with confirmation.
   - Local-only mode works offline without sign-in.
+  - Auth button reflects current auth state.
 - **Tests**:
   - Manual auth flows on dev project.
 - **Dependencies**: SPRD-80, SPRD-83
+- **Note**: Sign up, forgot password (SPRD-92), form validation (SPRD-93), and Apple/Google sign-in (SPRD-91) are separate tasks.
 
 ### [SPRD-85] Feature: Offline-first sync engine (outbox + pull)
 - **Context**: Sync must work without reliable connectivity.
@@ -1132,7 +1146,7 @@
 
 ### [SPRD-91] Feature: Apple + Google auth providers
 - **Context**: Social sign-in improves user onboarding and provides secure authentication.
-- **Description**: Configure Sign in with Apple and Google OAuth providers in Supabase.
+- **Description**: Configure Sign in with Apple and Google OAuth providers in Supabase, and add UI buttons.
 - **Implementation Details**:
   - **Sign in with Apple**:
     - Configure Apple Developer account with Services ID for Supabase
@@ -1143,14 +1157,56 @@
     - Configure OAuth consent screen and authorized redirect URIs
     - Add Client ID and Client Secret to Supabase Auth settings
     - Enable Google provider in both dev and prod Supabase projects
+  - **UI Updates**:
+    - Add "Sign in with Apple" button to login sheet
+    - Add "Sign in with Google" button to login sheet
+    - Handle OAuth callbacks and session creation
   - Update `docs/supabase-setup.md` with provider configuration steps
 - **Acceptance Criteria**:
   - Sign in with Apple works in both dev and prod environments.
   - Google Sign-in works in both dev and prod environments.
+  - Login sheet shows Apple and Google sign-in buttons.
   - Documentation includes setup steps for both providers.
 - **Tests**:
   - Manual: sign-in flow works with Apple credentials.
   - Manual: sign-in flow works with Google credentials.
+- **Dependencies**: SPRD-84
+
+### [SPRD-92] Feature: Sign up + forgot password flows
+- **Context**: Users need to create accounts and recover forgotten passwords.
+- **Description**: Add sign up and forgot password UI flows to the login sheet.
+- **Implementation Details**:
+  - Add "Create Account" link/button to login sheet
+  - Sign up sheet with email/password fields and confirmation
+  - Add "Forgot Password?" link to login sheet
+  - Forgot password flow: email input, send reset link via Supabase
+  - Success/error states for both flows
+  - Handle email verification flow if required
+- **Acceptance Criteria**:
+  - Users can create new accounts via sign up flow.
+  - Users can request password reset via forgot password flow.
+  - Appropriate success/error feedback shown.
+- **Tests**:
+  - Manual: sign up flow creates account and allows login.
+  - Manual: forgot password sends reset email.
+- **Dependencies**: SPRD-84
+
+### [SPRD-93] Feature: Login form validation
+- **Context**: Login forms need client-side validation for better UX.
+- **Description**: Add validation rules to login and sign up forms.
+- **Implementation Details**:
+  - Email validation: valid email format check
+  - Password validation: minimum length (e.g., 8 characters)
+  - Inline validation feedback (show errors as user types or on blur)
+  - Disable submit button until validation passes
+  - Clear, user-friendly error messages
+- **Acceptance Criteria**:
+  - Invalid email format shows error message.
+  - Password below minimum length shows error message.
+  - Submit button disabled until form is valid.
+- **Tests**:
+  - Unit tests for validation logic.
+  - Manual: validation feedback appears correctly.
 - **Dependencies**: SPRD-84
 
 ### [SPRD-47] Feature: Test data builders
@@ -1838,5 +1894,5 @@ SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-63 -> SPRD-46 -> SPR
 SPRD-46 -> SPRD-65
 SPRD-62 -> SPRD-63
 Supabase: SPRD-80 -> SPRD-81 -> SPRD-82 -> SPRD-83 -> SPRD-84 -> SPRD-85 -> SPRD-86, SPRD-87, SPRD-88, SPRD-89, SPRD-90
-SPRD-84 -> SPRD-91
+SPRD-84 -> SPRD-91, SPRD-92, SPRD-93
 ```
