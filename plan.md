@@ -995,7 +995,7 @@
   - Verify schema via Supabase MCP query checks.
 - **Dependencies**: SPRD-80
 
-### [SPRD-82] Feature: RLS policies + auth isolation
+### [SPRD-82] Feature: RLS policies + auth isolation - [x] Complete
 - **Context**: Data must be private per user.
 - **Description**: Enable RLS and add policies for all tables.
 - **Implementation Details**:
