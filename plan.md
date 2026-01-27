@@ -1010,7 +1010,7 @@
   - Manual policy checks using Supabase SQL editor or MCP queries.
 - **Dependencies**: SPRD-81
 
-### [SPRD-83] Feature: DB triggers + revision + merge RPCs
+### [SPRD-83] Feature: DB triggers + revision + merge RPCs - [x] Complete
 - **Context**: Field-level LWW and incremental sync require server-side metadata.
 - **Description**: Implement triggers and RPC functions for merge and revision.
 - **Implementation Details**:
