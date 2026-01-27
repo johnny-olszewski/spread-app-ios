@@ -267,6 +267,40 @@ All 7 tables have RLS enabled with 4 policies each:
 
 **Service role** bypasses RLS by default for admin/cleanup operations.
 
+### Triggers and Revision Sequence
+
+Added in SPRD-83. Migration: `20260127042413_add_triggers_and_merge_rpcs`
+
+**Global revision sequence** (`sync_revision_seq`) provides monotonic versioning for incremental sync.
+
+Each table has a `BEFORE INSERT OR UPDATE` trigger that:
+- Assigns next `revision` from global sequence
+- Sets `updated_at` to current timestamp
+- On INSERT: initializes all `*_updated_at` fields
+- On UPDATE: only updates `*_updated_at` for fields that actually changed
+
+### Merge RPCs
+
+Merge functions implement field-level last-write-wins (LWW) conflict resolution:
+
+| Function | Table |
+|----------|-------|
+| `merge_spread()` | spreads |
+| `merge_task()` | tasks |
+| `merge_note()` | notes |
+| `merge_collection()` | collections |
+| `merge_settings()` | settings |
+| `merge_task_assignment()` | task_assignments |
+| `merge_note_assignment()` | note_assignments |
+
+**Merge behavior:**
+1. If record doesn't exist → INSERT
+2. If incoming `deleted_at` is newer → apply delete (delete-wins)
+3. Otherwise → field-level LWW merge (newer timestamp wins per field)
+4. Returns canonical row as JSON
+
+All merge RPCs use `SECURITY DEFINER` and validate `user_id = auth.uid()`.
+
 ## Troubleshooting
 
 ### Configuration Not Loading
