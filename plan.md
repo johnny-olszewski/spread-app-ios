@@ -958,22 +958,23 @@
 - Debug builds can switch Supabase environments at runtime (prod guarded).
 - Sync status and error feedback are visible; CloudKit is no longer required.
 
-### [SPRD-80] Feature: Supabase environments + MCP workflow
+### [SPRD-80] Feature: Supabase environments + MCP workflow - [x] Complete
 - **Context**: CloudKit is replaced with Supabase; we need dev/prod environments and a repeatable workflow.
 - **Description**: Create Supabase dev/prod projects, configure auth providers, and document local config + MCP usage.
 - **Implementation Details**:
-  - Create Supabase projects for dev and prod; record project URLs and anon keys.
-  - Configure Auth providers: email/password, Sign in with Apple, and Google.
-  - Add local config (xcconfig/plist) for Supabase environment URLs/keys.
-  - Document Supabase CLI setup and migrations workflow in `docs/`.
+  - Create Supabase projects for dev and prod; record project URLs and publishable keys.
+  - Configure Auth providers: email/password enabled. Sign in with Apple and Google deferred to SPRD-91.
+  - Add local config via build settings in project.pbxproj for Supabase environment URLs/keys.
+  - Document Supabase CLI setup and migrations workflow in `docs/supabase-setup.md`.
   - Use the Supabase MCP server with Claude for schema inspection and migration execution.
 - **Acceptance Criteria**:
-  - Dev/prod projects exist and are reachable.
-  - Auth providers are enabled in both environments.
-  - Local config supports switching environments in Debug builds.
+  - Dev/prod projects exist and are reachable. ✓
+  - Email/password auth enabled in both environments. ✓ (Apple/Google deferred to SPRD-91)
+  - Local config supports switching environments in Debug builds. ✓
 - **Tests**:
   - Manual: sign-in works against both dev and prod projects.
 - **Dependencies**: None
+- **Note**: Sign in with Apple and Google auth providers deferred to SPRD-91.
 
 ### [SPRD-81] Feature: Supabase schema + migrations (core entities)
 - **Context**: Local SwiftData models must map 1:1 to Supabase.
@@ -1128,6 +1129,29 @@
 - **Tests**:
   - Integration test coverage for push/pull and merge conflicts.
 - **Dependencies**: SPRD-85
+
+### [SPRD-91] Feature: Apple + Google auth providers
+- **Context**: Social sign-in improves user onboarding and provides secure authentication.
+- **Description**: Configure Sign in with Apple and Google OAuth providers in Supabase.
+- **Implementation Details**:
+  - **Sign in with Apple**:
+    - Configure Apple Developer account with Services ID for Supabase
+    - Add Team ID, Key ID, and private key to Supabase Auth settings
+    - Enable Apple provider in both dev and prod Supabase projects
+  - **Google Sign-in**:
+    - Create Google Cloud project with OAuth 2.0 credentials
+    - Configure OAuth consent screen and authorized redirect URIs
+    - Add Client ID and Client Secret to Supabase Auth settings
+    - Enable Google provider in both dev and prod Supabase projects
+  - Update `docs/supabase-setup.md` with provider configuration steps
+- **Acceptance Criteria**:
+  - Sign in with Apple works in both dev and prod environments.
+  - Google Sign-in works in both dev and prod environments.
+  - Documentation includes setup steps for both providers.
+- **Tests**:
+  - Manual: sign-in flow works with Apple credentials.
+  - Manual: sign-in flow works with Google credentials.
+- **Dependencies**: SPRD-84
 
 ### [SPRD-47] Feature: Test data builders
 - **Context**: Tests need consistent fixtures for entries and spreads.
@@ -1813,4 +1837,6 @@ SPRD-38 -> SPRD-39 -> SPRD-40 -> SPRD-41 -> SPRD-54 -> SPRD-55 -> SPRD-56
 SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-63 -> SPRD-46 -> SPRD-47 -> SPRD-48
 SPRD-46 -> SPRD-65
 SPRD-62 -> SPRD-63
+Supabase: SPRD-80 -> SPRD-81 -> SPRD-82 -> SPRD-83 -> SPRD-84 -> SPRD-85 -> SPRD-86, SPRD-87, SPRD-88, SPRD-89, SPRD-90
+SPRD-84 -> SPRD-91
 ```
