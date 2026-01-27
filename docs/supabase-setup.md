@@ -254,7 +254,18 @@ Assignment tables have additional indexes:
 
 ### RLS Policies
 
-RLS is enabled in SPRD-82. All tables will have policies restricting access to `user_id = auth.uid()`
+RLS enabled in SPRD-82. Migration: `20260127042003_enable_rls_policies`
+
+All 7 tables have RLS enabled with 4 policies each:
+
+| Policy | Command | Condition |
+|--------|---------|-----------|
+| Select own rows | `SELECT` | `auth.uid() = user_id` |
+| Insert own rows | `INSERT` | `auth.uid() = user_id` (WITH CHECK) |
+| Update own rows | `UPDATE` | `auth.uid() = user_id` (USING + WITH CHECK) |
+| Delete own rows | `DELETE` | `auth.uid() = user_id` |
+
+**Service role** bypasses RLS by default for admin/cleanup operations.
 
 ## Troubleshooting
 
