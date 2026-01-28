@@ -265,6 +265,15 @@
 - Debug menu provides appearance overrides for paper tone, dot grid (size/spacing/opacity), heading font, and accent color (DEBUG builds only). [SPRD-63]
 - Debug tooling files live under `Spread/Debug` to keep debug-only views/data isolated. [SPRD-45]
 - Debug destination includes a Supabase environment switcher (Debug builds only) that signs out, wipes the local store, and rebuilds the container on change; prod access requires explicit confirmation and shows a persistent badge. [SPRD-86]
+- Debug menu provides Sync & Network overrides (DEBUG builds only) to mock runtime states:
+  - Block all network connections (force NWPathMonitor offline and fail requests).
+  - Disable sync while keeping network available.
+  - Force sign-in auth errors: invalid credentials, email not confirmed, user not found, rate limited, network timeout.
+  - Force sync UI states: "syncing" pinned for 5s with engine paused; whole-sync failure error injection.
+  - Seed outbox with real `SyncMutation` rows to simulate backlog.
+  - Scenario presets that apply multiple overrides at once plus manual toggles/sliders.
+  - Live sync readout (network status, last sync time, outbox count, current sync error).
+  - Override persistence across relaunch is not required.
 
 ---
 
