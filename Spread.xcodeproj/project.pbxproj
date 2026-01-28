@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		319A04C72F1E0080002D6FA2 /* AllUITests.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = 319A04C62F1E0080002D6FA2 /* AllUITests.xctestplan */; };
 		A1B2C3D4E5F60718293A4B5D /* Definitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* Definitions.swift */; };
+		SUPABASE001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = SUPABASE002 /* Supabase */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,6 +73,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				SUPABASE001 /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -134,6 +136,7 @@
 			);
 			name = Spread;
 			packageProductDependencies = (
+				SUPABASE002 /* Supabase */,
 			);
 			productName = Spread;
 			productReference = 31E0DA802F0DB76200B0A403 /* Spread.app */;
@@ -218,6 +221,9 @@
 			mainGroup = 31E0DA772F0DB76200B0A403;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
+			packageReferences = (
+				SUPABASE003 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			productRefGroup = 31E0DA812F0DB76200B0A403 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -318,6 +324,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.johnnyo.Spread;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPABASE_ENVIRONMENT = development;
+				SUPABASE_PUBLISHABLE_KEY = sb_publishable_G74Nb3IoMfnsmrZfp6dcaA_0_UD6QLT;
+				SUPABASE_URL = "https://apblzzondjcughtgqowd.supabase.co";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -352,6 +361,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.johnnyo.Spread;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPABASE_ENVIRONMENT = production;
+				SUPABASE_PUBLISHABLE_KEY = sb_publishable_NSgP9CI8D3Ab3d4QmQ9Lwg_RV2tArlj;
+				SUPABASE_URL = "https://nzsswqmxodkvgsnabnaj.supabase.co";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -606,6 +618,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		SUPABASE003 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		SUPABASE002 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SUPABASE003 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 31E0DA782F0DB76200B0A403 /* Project object */;
 }
