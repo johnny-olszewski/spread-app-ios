@@ -1091,6 +1091,49 @@
   - Manual: switch environments and verify local wipe + re-auth.
 - **Dependencies**: SPRD-84, SPRD-85
 
+### [SPRD-85A] Feature: Debug sync + network mocking controls
+- **Context**: SPRD-85 requires testing offline, auth failures, and sync UI states without relying on real network behavior.
+- **Description**: Add Debug-only runtime overrides for network, auth, and sync engine behavior plus scenario presets.
+- **Implementation Details**:
+  - Add `DebugSyncOverrides` (DEBUG-only) to hold overrides:
+    - `blockAllNetwork: Bool` (forces NWPathMonitor offline and fails all requests).
+    - `disableSync: Bool` (prevents auto/manual sync triggers).
+    - `forcedAuthError: AuthErrorType?` (invalid credentials, email not confirmed, user not found, rate limited, network timeout).
+    - `forcedSyncFailure: Bool` (whole-sync failure injection).
+    - `forceSyncingDuration: TimeInterval` (default 5s) with engine paused while UI shows syncing.
+    - `outboxSeedCount: Int` (creates real `SyncMutation` rows).
+  - Add "Sync & Network" section in Debug destination:
+    - Manual toggles/sliders for each override.
+    - Scenario presets (one-tap combinations) + "Reset overrides".
+    - Live sync readout: network status, last sync time, outbox count, current sync error.
+  - Network blocking:
+    - Route app network requests through a debug-interceptable client (e.g., custom `URLSession` + `URLProtocol`) so block-all works for Supabase and any other requests.
+    - When `blockAllNetwork` is on, force connectivity status to offline and return a deterministic offline error for requests.
+  - Auth mocking:
+    - Auth service consults `forcedAuthError` before making network calls and returns a matching error.
+  - Sync engine:
+    - All sync triggers (auto + manual) consult overrides.
+    - `disableSync` bypasses scheduling and manual sync.
+    - `forceSyncingDuration` pins UI state to syncing for 5s while engine is paused, then resumes.
+    - `forcedSyncFailure` returns a single whole-sync error (no partial-table failures for now).
+  - Outbox seeding:
+    - "Seed outbox" action creates real `SyncMutation` rows using existing schema, then refreshes status.
+  - Overrides do not need to persist across relaunch.
+- **Acceptance Criteria**:
+  - Debug builds can block all network traffic and observe offline UI consistently.
+  - Auth error selection produces the chosen login failure without real network.
+  - Sync can be disabled, forced to show syncing for 5s, or forced to fail as a whole.
+  - Outbox seeding creates real rows and reflects in sync status UI.
+  - Scenario presets apply multiple overrides at once and can be reset.
+- **Tests**:
+  - Manual QA in Debug:
+    - Toggle block-all network and verify sync + login behave as offline.
+    - Choose each auth error and verify login sheet displays the error.
+    - Force syncing for 5s and confirm engine pauses and resumes.
+    - Force whole-sync failure and verify error status.
+    - Seed outbox and verify count/status changes.
+- **Dependencies**: SPRD-45, SPRD-84, SPRD-85
+
 ### [SPRD-87] Feature: SwiftData model sync metadata
 - **Context**: Local models must carry sync metadata for field-level LWW.
 - **Description**: Extend SwiftData models with sync fields and update schema.
