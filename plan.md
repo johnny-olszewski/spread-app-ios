@@ -1026,7 +1026,7 @@
   - RPC tests in dev using Supabase MCP calls.
 - **Dependencies**: SPRD-81, SPRD-82
 
-### [SPRD-84] Feature: Supabase client + auth integration
+### [SPRD-84] Feature: Supabase client + auth integration - [x] Complete
 - **Context**: The app needs authenticated sync with optional local-only usage.
 - **Description**: Add Supabase Swift client and implement email/password auth with login UI.
 - **Implementation Details**:
