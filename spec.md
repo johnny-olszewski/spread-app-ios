@@ -230,9 +230,27 @@
 
 ### Supabase Sync + Auth (v1)
 - Supabase environments: separate dev and prod projects; Debug builds can switch environments at runtime with a prod confirmation gate; Release/TestFlight locked to prod. [SPRD-80, SPRD-86]
-- Auth: email/password, Sign in with Apple, and Google. Local-only usage is allowed; sign-in merges local data; sign-out wipes local store. [SPRD-84, SPRD-85]
+- Auth: email/password for v1; Sign in with Apple and Google deferred to SPRD-91. Local-only usage is allowed; sign-in merges local data; sign-out wipes local store. [SPRD-84, SPRD-85, SPRD-91]
 - Sync: field-level last-write-wins (server-arrival time), per-field timestamps set by DB triggers, monotonic revision per table for incremental sync, soft-delete with 90-day cleanup, delete wins conflicts, and device_id recorded on writes. [SPRD-81, SPRD-83, SPRD-85, SPRD-89]
 - Data integrity: unique constraints for spreads/assignments, foreign keys enforced, and RLS policies restrict rows to `auth.uid()`. [SPRD-81, SPRD-82]
+
+### Auth UI (v1)
+- Auth button in toolbar, trailing the Inbox button. [SPRD-84]
+- Button appearance: [SPRD-84]
+  - Logged out: person icon (`person.crop.circle`)
+  - Logged in: filled person icon (`person.crop.circle.fill`)
+- Logged out state: tapping button opens login sheet. [SPRD-84]
+  - Email and password fields
+  - Sign In button (disabled until fields populated)
+  - Error message display for failed login attempts
+  - Sheet dismisses on successful login
+  - Sign up and forgot password flows deferred to SPRD-92
+  - Form validation deferred to SPRD-93
+- Logged in state: tapping button opens profile sheet. [SPRD-84]
+  - Shows user email
+  - Sign Out button in toolbar
+  - Sign out requires confirmation alert (warns that local data will be wiped)
+- Apple and Google sign-in buttons added in SPRD-91. [SPRD-91]
 
 ### Development Tooling
 - Debug UI is available only in DEBUG builds; Release builds have no debug destinations or data-loading actions. [SPRD-45]

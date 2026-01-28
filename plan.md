@@ -958,24 +958,25 @@
 - Debug builds can switch Supabase environments at runtime (prod guarded).
 - Sync status and error feedback are visible; CloudKit is no longer required.
 
-### [SPRD-80] Feature: Supabase environments + MCP workflow
+### [SPRD-80] Feature: Supabase environments + MCP workflow - [x] Complete
 - **Context**: CloudKit is replaced with Supabase; we need dev/prod environments and a repeatable workflow.
 - **Description**: Create Supabase dev/prod projects, configure auth providers, and document local config + MCP usage.
 - **Implementation Details**:
-  - Create Supabase projects for dev and prod; record project URLs and anon keys.
-  - Configure Auth providers: email/password, Sign in with Apple, and Google.
-  - Add local config (xcconfig/plist) for Supabase environment URLs/keys.
-  - Document Supabase CLI setup and migrations workflow in `docs/`.
+  - Create Supabase projects for dev and prod; record project URLs and publishable keys.
+  - Configure Auth providers: email/password enabled. Sign in with Apple and Google deferred to SPRD-91.
+  - Add local config via build settings in project.pbxproj for Supabase environment URLs/keys.
+  - Document Supabase CLI setup and migrations workflow in `docs/supabase-setup.md`.
   - Use the Supabase MCP server with Claude for schema inspection and migration execution.
 - **Acceptance Criteria**:
-  - Dev/prod projects exist and are reachable.
-  - Auth providers are enabled in both environments.
-  - Local config supports switching environments in Debug builds.
+  - Dev/prod projects exist and are reachable. ✓
+  - Email/password auth enabled in both environments. ✓ (Apple/Google deferred to SPRD-91)
+  - Local config supports switching environments in Debug builds. ✓
 - **Tests**:
   - Manual: sign-in works against both dev and prod projects.
 - **Dependencies**: None
+- **Note**: Sign in with Apple and Google auth providers deferred to SPRD-91.
 
-### [SPRD-81] Feature: Supabase schema + migrations (core entities)
+### [SPRD-81] Feature: Supabase schema + migrations (core entities) - [x] Complete
 - **Context**: Local SwiftData models must map 1:1 to Supabase.
 - **Description**: Define tables, constraints, and indexes for v1 entities.
 - **Implementation Details**:
@@ -994,7 +995,7 @@
   - Verify schema via Supabase MCP query checks.
 - **Dependencies**: SPRD-80
 
-### [SPRD-82] Feature: RLS policies + auth isolation
+### [SPRD-82] Feature: RLS policies + auth isolation - [x] Complete
 - **Context**: Data must be private per user.
 - **Description**: Enable RLS and add policies for all tables.
 - **Implementation Details**:
@@ -1009,7 +1010,7 @@
   - Manual policy checks using Supabase SQL editor or MCP queries.
 - **Dependencies**: SPRD-81
 
-### [SPRD-83] Feature: DB triggers + revision + merge RPCs
+### [SPRD-83] Feature: DB triggers + revision + merge RPCs - [x] Complete
 - **Context**: Field-level LWW and incremental sync require server-side metadata.
 - **Description**: Implement triggers and RPC functions for merge and revision.
 - **Implementation Details**:
@@ -1025,22 +1026,36 @@
   - RPC tests in dev using Supabase MCP calls.
 - **Dependencies**: SPRD-81, SPRD-82
 
-### [SPRD-84] Feature: Supabase client + auth integration
+### [SPRD-84] Feature: Supabase client + auth integration - [x] Complete
 - **Context**: The app needs authenticated sync with optional local-only usage.
-- **Description**: Add Supabase Swift client and implement auth flows.
+- **Description**: Add Supabase Swift client and implement email/password auth with login UI.
 - **Implementation Details**:
-  - Integrate Supabase Swift client.
-  - Add email/password, Apple, and Google sign-in.
+  - Integrate Supabase Swift client via SPM.
+  - Add auth button in toolbar (trailing Inbox button):
+    - Logged out: `person.crop.circle` icon, opens login sheet
+    - Logged in: `person.crop.circle.fill` icon, opens profile sheet
+  - Login sheet (logged out):
+    - Email and password fields
+    - Sign In button (disabled until fields populated)
+    - Error message display for failed login attempts
+    - Sheet dismisses on successful login
+  - Profile sheet (logged in):
+    - Shows user email
+    - Sign Out button in toolbar
+    - Sign out confirmation alert (warns local data will be wiped)
   - Support local-only usage prior to sign-in.
   - Generate and store `device_id` in Keychain.
-  - On sign-in: merge local data with server (field-level LWW).
+  - On sign-in: merge local data with server (field-level LWW via merge RPCs).
   - On sign-out: wipe local store and outbox; reset sync state.
 - **Acceptance Criteria**:
-  - Users can sign in/out with supported providers.
+  - Users can sign in with email/password.
+  - Users can sign out with confirmation.
   - Local-only mode works offline without sign-in.
+  - Auth button reflects current auth state.
 - **Tests**:
   - Manual auth flows on dev project.
 - **Dependencies**: SPRD-80, SPRD-83
+- **Note**: Sign up, forgot password (SPRD-92), form validation (SPRD-93), and Apple/Google sign-in (SPRD-91) are separate tasks.
 
 ### [SPRD-85] Feature: Offline-first sync engine (outbox + pull)
 - **Context**: Sync must work without reliable connectivity.
@@ -1128,6 +1143,71 @@
 - **Tests**:
   - Integration test coverage for push/pull and merge conflicts.
 - **Dependencies**: SPRD-85
+
+### [SPRD-91] Feature: Apple + Google auth providers
+- **Context**: Social sign-in improves user onboarding and provides secure authentication.
+- **Description**: Configure Sign in with Apple and Google OAuth providers in Supabase, and add UI buttons.
+- **Implementation Details**:
+  - **Sign in with Apple**:
+    - Configure Apple Developer account with Services ID for Supabase
+    - Add Team ID, Key ID, and private key to Supabase Auth settings
+    - Enable Apple provider in both dev and prod Supabase projects
+  - **Google Sign-in**:
+    - Create Google Cloud project with OAuth 2.0 credentials
+    - Configure OAuth consent screen and authorized redirect URIs
+    - Add Client ID and Client Secret to Supabase Auth settings
+    - Enable Google provider in both dev and prod Supabase projects
+  - **UI Updates**:
+    - Add "Sign in with Apple" button to login sheet
+    - Add "Sign in with Google" button to login sheet
+    - Handle OAuth callbacks and session creation
+  - Update `docs/supabase-setup.md` with provider configuration steps
+- **Acceptance Criteria**:
+  - Sign in with Apple works in both dev and prod environments.
+  - Google Sign-in works in both dev and prod environments.
+  - Login sheet shows Apple and Google sign-in buttons.
+  - Documentation includes setup steps for both providers.
+- **Tests**:
+  - Manual: sign-in flow works with Apple credentials.
+  - Manual: sign-in flow works with Google credentials.
+- **Dependencies**: SPRD-84
+
+### [SPRD-92] Feature: Sign up + forgot password flows
+- **Context**: Users need to create accounts and recover forgotten passwords.
+- **Description**: Add sign up and forgot password UI flows to the login sheet.
+- **Implementation Details**:
+  - Add "Create Account" link/button to login sheet
+  - Sign up sheet with email/password fields and confirmation
+  - Add "Forgot Password?" link to login sheet
+  - Forgot password flow: email input, send reset link via Supabase
+  - Success/error states for both flows
+  - Handle email verification flow if required
+- **Acceptance Criteria**:
+  - Users can create new accounts via sign up flow.
+  - Users can request password reset via forgot password flow.
+  - Appropriate success/error feedback shown.
+- **Tests**:
+  - Manual: sign up flow creates account and allows login.
+  - Manual: forgot password sends reset email.
+- **Dependencies**: SPRD-84
+
+### [SPRD-93] Feature: Login form validation
+- **Context**: Login forms need client-side validation for better UX.
+- **Description**: Add validation rules to login and sign up forms.
+- **Implementation Details**:
+  - Email validation: valid email format check
+  - Password validation: minimum length (e.g., 8 characters)
+  - Inline validation feedback (show errors as user types or on blur)
+  - Disable submit button until validation passes
+  - Clear, user-friendly error messages
+- **Acceptance Criteria**:
+  - Invalid email format shows error message.
+  - Password below minimum length shows error message.
+  - Submit button disabled until form is valid.
+- **Tests**:
+  - Unit tests for validation logic.
+  - Manual: validation feedback appears correctly.
+- **Dependencies**: SPRD-84
 
 ### [SPRD-47] Feature: Test data builders
 - **Context**: Tests need consistent fixtures for entries and spreads.
@@ -1813,4 +1893,6 @@ SPRD-38 -> SPRD-39 -> SPRD-40 -> SPRD-41 -> SPRD-54 -> SPRD-55 -> SPRD-56
 SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-63 -> SPRD-46 -> SPRD-47 -> SPRD-48
 SPRD-46 -> SPRD-65
 SPRD-62 -> SPRD-63
+Supabase: SPRD-80 -> SPRD-81 -> SPRD-82 -> SPRD-83 -> SPRD-84 -> SPRD-85 -> SPRD-86, SPRD-87, SPRD-88, SPRD-89, SPRD-90
+SPRD-84 -> SPRD-91, SPRD-92, SPRD-93
 ```

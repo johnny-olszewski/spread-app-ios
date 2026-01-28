@@ -6,6 +6,7 @@ import SwiftUI
 /// navigation shell once ready. Shows a loading state during initialization.
 struct ContentView: View {
     @State private var journalManager: JournalManager?
+    @State private var authManager = AuthManager()
 
     let container: DependencyContainer
 
@@ -14,6 +15,7 @@ struct ContentView: View {
             if let journalManager {
                 RootNavigationView(
                     journalManager: journalManager,
+                    authManager: authManager,
                     container: container
                 )
             } else {

@@ -1,0 +1,7 @@
+// Configuration/Debug.xcconfig
+// Debug build configuration - uses Supabase dev environment
+
+// Supabase Dev Environment
+SUPABASE_URL = https:/$()/apblzzondjcughtgqowd.supabase.co
+SUPABASE_PUBLISHABLE_KEY = sb_publishable_G74Nb3IoMfnsmrZfp6dcaA_0_UD6QLT
+SUPABASE_ENVIRONMENT = development
