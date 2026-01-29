@@ -1057,7 +1057,7 @@
 - **Dependencies**: SPRD-80, SPRD-83
 - **Note**: Sign up, forgot password (SPRD-92), form validation (SPRD-93), and Apple/Google sign-in (SPRD-91) are separate tasks.
 
-### [SPRD-85] Feature: Offline-first sync engine (outbox + pull) - [x] Complete
+### [SPRD-85] Feature: Offline-first sync engine (outbox + pull) - [ ] Reopened
 - **Context**: Sync must work without reliable connectivity.
 - **Description**: Implement outbox-based push + incremental pull with status UI.
 - **Implementation Details**:
@@ -1072,10 +1072,16 @@
   - Offline edits sync when connectivity returns.
   - Sync is idempotent and resilient to retries.
   - UI shows last sync and errors.
+  - Repository writes enqueue outbox mutations and use serializers.
+  - Device ID is included in outbox record data.
 - **Tests**:
   - Unit tests for outbox enqueue and sync ordering.
   - Integration tests for push/pull with dev Supabase project.
+  - Unit tests for enqueue + serializer output coverage (task/spread/note/assignment/collection).
+  - UI verification that sync status surfaces last sync time and errors (not icon-only).
 - **Dependencies**: SPRD-83, SPRD-84
+ - **Notes**:
+   - Current `feature/SPRD-85` implements SyncEngine + models but does not wire outbox enqueue to repositories; serializer is unused; deviceId is not applied; tests are missing.
 
 ### [SPRD-86] Feature: Debug environment switcher
 - **Context**: Debug builds must switch between dev/prod safely.
