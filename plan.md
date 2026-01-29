@@ -1057,7 +1057,7 @@
 - **Dependencies**: SPRD-80, SPRD-83
 - **Note**: Sign up, forgot password (SPRD-92), form validation (SPRD-93), and Apple/Google sign-in (SPRD-91) are separate tasks.
 
-### [SPRD-85] Feature: Offline-first sync engine (outbox + pull)
+### [SPRD-85] Feature: Offline-first sync engine (outbox + pull) - [x] Complete
 - **Context**: Sync must work without reliable connectivity.
 - **Description**: Implement outbox-based push + incremental pull with status UI.
 - **Implementation Details**:
@@ -1091,7 +1091,86 @@
   - Manual: switch environments and verify local wipe + re-auth.
 - **Dependencies**: SPRD-84, SPRD-85
 
-### [SPRD-85A] Feature: Debug sync + network mocking controls
+### [SPRD-94] Feature: Build configurations (Debug/QA/Release)
+- **Context**: Environment switching must be enabled in Debug + QA TestFlight builds but disabled in Release.
+- **Description**: Add a QA/TestFlight build configuration that behaves like Debug, with separate bundle id from Release.
+- **Implementation Details**:
+  - Add build configs: Debug, QA (TestFlight), Release.
+  - QA uses DEBUG compile flag to include Debug menu; Release excludes all debug UI.
+  - QA and Release have distinct bundle identifiers.
+  - Add QA xcconfig with default Supabase dev values (same as Debug) and clear naming in build settings.
+- **Acceptance Criteria**:
+  - Debug + QA builds show Debug menu and environment switcher.
+  - Release build hides all debug UI and is locked to prod.
+  - QA build installs alongside Release due to distinct bundle id.
+- **Tests**:
+  - Manual: verify Debug/QA show Debug menu; Release does not.
+- **Dependencies**: SPRD-80, SPRD-86
+
+### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment
+- **Context**: Current AppEnvironment mixes build intent with data target and debug behavior.
+- **Description**: Introduce a DataEnvironment (localhost/dev/prod) separate from build configuration.
+- **Implementation Details**:
+  - Add `DataEnvironment` enum with behaviors: mock data availability, auth required, sync enabled.
+  - Build configuration determines whether switching UI is available.
+  - Resolution order (Debug/QA only): `-DataEnvironment` -> `DATA_ENVIRONMENT` -> persisted selection -> build default.
+  - Release build always forces prod and ignores overrides.
+  - Persist selected DataEnvironment and track last-used value in UserDefaults.
+  - Rename launch arguments and env vars from AppEnvironment to DataEnvironment.
+  - Update Debug menu to show only DataEnvironment options (localhost/dev/prod) and to respect build gating.
+- **Acceptance Criteria**:
+  - DataEnvironment drives auth/sync/mock-data availability.
+  - Debug/QA resolve DataEnvironment using the new precedence order.
+  - Release always uses prod regardless of stored values or overrides.
+- **Tests**:
+  - Unit tests for DataEnvironment resolution precedence.
+- **Dependencies**: SPRD-86, SPRD-94
+
+### [SPRD-96] Feature: Environment switching flow + store wipe
+- **Context**: Switching data environments must be safe and predictable.
+- **Description**: Implement a guarded switch flow with sync attempt, sign out, and local wipe.
+- **Implementation Details**:
+  - If sync is running, wait for completion before switching.
+  - Attempt sync; on failure, warn the user and allow confirm to proceed.
+  - On confirm, attempt one final push, then proceed regardless of result.
+  - Sign out and clear auth session.
+  - Wipe local SwiftData store and outbox on every switch.
+  - On app launch, if resolved DataEnvironment differs from last-used, wipe before container creation.
+  - Require restart after switching (no hot reload for now).
+- **Acceptance Criteria**:
+  - Switching environments always results in a clean local store.
+  - Failed sync attempts show a warning and require explicit confirmation to proceed.
+- **Tests**:
+  - Manual: switch between localhost/dev/prod with and without outbox; verify wipe + sign-out.
+- **Dependencies**: SPRD-85, SPRD-95
+
+### [SPRD-97] Feature: Single SwiftData store + debug UI visibility
+- **Context**: Environment switches should not require multiple store names, and debug info should only be visible in Debug menu.
+- **Description**: Use a single SwiftData container name and remove always-on debug overlays.
+- **Implementation Details**:
+  - Update ModelContainerFactory to use one persistent container name for all data environments.
+  - Remove DebugEnvironmentOverlay from app surfaces; keep debug info in Debug menu only.
+- **Acceptance Criteria**:
+  - All environments use the same local store name.
+  - Debug environment info appears only in Debug menu.
+- **Tests**:
+  - Manual: confirm no overlay badge in Debug/QA builds.
+- **Dependencies**: SPRD-94, SPRD-95
+
+### [SPRD-98] Feature: Immediate push on commit (not per keystroke)
+- **Context**: Sync should be automatic without excessive per-keystroke calls.
+- **Description**: Attempt a sync push when a user explicitly saves a change (Save/Done).
+- **Implementation Details**:
+  - Ensure repository writes enqueue outbox mutations.
+  - Trigger `syncNow()` after explicit Save/Done actions for tasks/notes/spreads/settings.
+  - Avoid triggering sync on intermediate field edits.
+- **Acceptance Criteria**:
+  - Save/Done actions trigger immediate sync attempts when signed in and online.
+  - Manual sync remains available.
+- **Tests**:
+  - Manual: edit a task and tap Save; verify a sync attempt occurs.
+- **Dependencies**: SPRD-85
+### [SPRD-85A] Feature: Debug sync + network mocking controls - [x] Complete
 - **Context**: SPRD-85 requires testing offline, auth failures, and sync UI states without relying on real network behavior.
 - **Description**: Add Debug-only runtime overrides for network, auth, and sync engine behavior plus scenario presets.
 - **Implementation Details**:
