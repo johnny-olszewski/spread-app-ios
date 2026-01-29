@@ -227,12 +227,19 @@
 - Schema includes Spread, Task, Note, Collection (Event model reserved for v2). [SPRD-4, SPRD-8, SPRD-9, SPRD-39]
 - Supabase sync required for v1 (CloudKit removed). [SPRD-80]
 - Offline-first, then sync; auto-sync on launch/foreground + manual refresh. [SPRD-85]
+- Local changes enqueue outbox and attempt immediate push on explicit Save/Done actions (not on every keystroke). Manual sync remains available. [SPRD-85]
 
 ### Supabase Sync + Auth (v1)
-- Supabase environments: separate dev and prod projects; Debug builds can switch environments at runtime with a prod confirmation gate; Release/TestFlight locked to prod. [SPRD-80, SPRD-86]
+- Supabase environments: separate dev and prod projects; Debug and QA TestFlight builds can switch data environments (localhost/dev/prod) at runtime; Release builds are locked to prod. [SPRD-80, SPRD-86]
 - Auth: email/password for v1; Sign in with Apple and Google deferred to SPRD-91. Local-only usage is allowed; sign-in merges local data; sign-out wipes local store. [SPRD-84, SPRD-85, SPRD-91]
 - Sync: field-level last-write-wins (server-arrival time), per-field timestamps set by DB triggers, monotonic revision per table for incremental sync, soft-delete with 90-day cleanup, delete wins conflicts, and device_id recorded on writes. [SPRD-81, SPRD-83, SPRD-85, SPRD-89]
 - Data integrity: unique constraints for spreads/assignments, foreign keys enforced, and RLS policies restrict rows to `auth.uid()`. [SPRD-81, SPRD-82]
+- Data environment resolution (Debug/QA only): launch args (`-DataEnvironment`) -> env vars (`DATA_ENVIRONMENT`) -> persisted selection -> build default. Release ignores overrides and always uses prod.
+- Build defaults: Debug defaults to localhost; QA TestFlight defaults to dev.
+- Data environment changes are runtime switches in Debug/QA; Release has no switcher UI.
+- On environment switch: wait for active sync to finish, attempt sync, warn on failure, allow user to confirm switch and attempt one final push; then sign out, wipe local store/outbox, and require restart.
+- Localhost uses mock auth and no Supabase; dev/prod require real auth.
+- Single local SwiftData store is used; it is wiped on any data environment change and on launch if the resolved environment differs from the last used.
 
 ### Auth UI (v1)
 - Auth button in toolbar, trailing the Inbox button. [SPRD-84]
@@ -253,7 +260,7 @@
 - Apple and Google sign-in buttons added in SPRD-91. [SPRD-91]
 
 ### Development Tooling
-- Debug UI is available only in DEBUG builds; Release builds have no debug destinations or data-loading actions. [SPRD-45]
+- Debug UI is available only in Debug and QA TestFlight builds; Release builds have no debug destinations or data-loading actions. [SPRD-45]
 - Replace the debug overlay with a dedicated Debug destination:
   - iPadOS (regular width): sidebar item titled "Debug" with SF Symbol `ant`. [SPRD-45]
   - iOS (compact width): tab bar item titled "Debug" with SF Symbol `ant`. [SPRD-45]
@@ -264,7 +271,8 @@
 - Mock data set loading uses JournalManager APIs to mirror app behavior; loading or clearing data refreshes UI and resets selection to today's spread when available. [SPRD-67]
 - Debug menu provides appearance overrides for paper tone, dot grid (size/spacing/opacity), heading font, and accent color (DEBUG builds only). [SPRD-63]
 - Debug tooling files live under `Spread/Debug` to keep debug-only views/data isolated. [SPRD-45]
-- Debug destination includes a Supabase environment switcher (Debug builds only) that signs out, wipes the local store, and rebuilds the container on change; prod access requires explicit confirmation and shows a persistent badge. [SPRD-86]
+- Debug destination includes a Supabase environment switcher (Debug and QA TestFlight builds only) that signs out and wipes the local store on change; prod access requires explicit confirmation. [SPRD-86]
+- Debug functionality should be visible only inside the Debug destination (no always-on overlay/badge).
 - Debug menu provides Sync & Network overrides (DEBUG builds only) to mock runtime states:
   - Block all network connections (force NWPathMonitor offline and fail requests).
   - Disable sync while keeping network available.
