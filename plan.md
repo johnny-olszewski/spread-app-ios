@@ -1079,11 +1079,12 @@
 
 ### [SPRD-86] Feature: Debug environment switcher
 - **Context**: Debug builds must switch between dev/prod safely.
-- **Description**: Add environment switcher to Debug destination with guardrails.
+- **Description**: Add data-environment switcher to Debug destination with guardrails (Debug + QA builds only).
 - **Implementation Details**:
-  - Add Supabase Environment section in Debug destination.
-  - Require type-to-confirm for prod; show persistent PROD badge.
-  - On switch: sign out, wipe local store, rebuild ModelContainer, reset sync state.
+  - Add DataEnvironment section in Debug destination (localhost/dev/prod).
+  - Use standard confirm alert when switching to prod (no typed confirmation).
+  - Switching flow is implemented by SPRD-96 (sync attempt -> warn -> sign out -> wipe -> restart required).
+  - Debug/TestFlight gating is handled by SPRD-94/95 (Release hides switcher entirely).
 - **Acceptance Criteria**:
   - Debug builds can switch environments at runtime.
   - Prod access requires explicit confirmation.
@@ -1118,6 +1119,13 @@
   - Persist selected DataEnvironment and track last-used value in UserDefaults.
   - Rename launch arguments and env vars from AppEnvironment to DataEnvironment.
   - Update Debug menu to show only DataEnvironment options (localhost/dev/prod) and to respect build gating.
+  - **Carry-over from feature/SPRD-85 (do not cherry-pick whole commits, port selectively):**
+    - `b86ae37` (`Spread/Environment/AppEnvironment.swift`): reuse resolution-order pattern + behavior flags, but move into new `DataEnvironment`.
+    - `dcc3deb` (`Spread/Environment/SupabaseConfiguration.swift`): reuse `isAvailable` + `configure(for:)` pattern; update to DataEnvironment/build gating.
+    - `d79b227` (`Spread/Environment/DependencyContainer.swift`): keep optional `supabaseClient` and only create it when sync is enabled; pass DataEnvironment into SyncEngine factory.
+    - `35658f9` (`Spread/Services/AuthManager.swift`): keep localhost mock-auth path and optional Supabase client, but adapt to DataEnvironment.
+    - `7c06c01` (`Spread/Debug/DebugSyncOverrides.swift`), `14dcb15` (`Spread/Services/Sync/NetworkMonitor.swift`), `785500a` (`Spread/Services/AuthManager.swift`), `ce46dca` (`Spread/Debug/DebugSyncNetworkSection.swift`): reapply debug overrides + Sync & Network section as Debug/QA-only tooling.
+    - **Avoid** `226370a` (`Spread/DataModel/ModelContainerFactory.swift`): it adds per-environment container names, which conflicts with the single-store requirement.
 - **Acceptance Criteria**:
   - DataEnvironment drives auth/sync/mock-data availability.
   - Debug/QA resolve DataEnvironment using the new precedence order.
@@ -1137,6 +1145,8 @@
   - Wipe local SwiftData store and outbox on every switch.
   - On app launch, if resolved DataEnvironment differs from last-used, wipe before container creation.
   - Require restart after switching (no hot reload for now).
+  - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
+    - `253fa5f` (`Spread/Debug/DebugMenuView.swift`): environment switcher UI section + `onEnvironmentSwitch` callback wiring.
 - **Acceptance Criteria**:
   - Switching environments always results in a clean local store.
   - Failed sync attempts show a warning and require explicit confirmation to proceed.
@@ -1150,6 +1160,9 @@
 - **Implementation Details**:
   - Update ModelContainerFactory to use one persistent container name for all data environments.
   - Remove DebugEnvironmentOverlay from app surfaces; keep debug info in Debug menu only.
+  - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
+    - `ab85bfe` (`Spread/Services/Sync/SyncStatus.swift`): keep `.localOnly` status.
+    - `4fb52b9` (`Spread/Views/Components/SyncStatusView.swift`): keep local-only color only; ignore DebugEnvironmentOverlay changes.
 - **Acceptance Criteria**:
   - All environments use the same local store name.
   - Debug environment info appears only in Debug menu.
@@ -1164,6 +1177,8 @@
   - Ensure repository writes enqueue outbox mutations.
   - Trigger `syncNow()` after explicit Save/Done actions for tasks/notes/spreads/settings.
   - Avoid triggering sync on intermediate field edits.
+  - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
+    - `49a8c05` (`Spread/Services/Sync/SyncEngine.swift`): keep optional client + local-only behavior, but adapt to DataEnvironment.
 - **Acceptance Criteria**:
   - Save/Done actions trigger immediate sync attempts when signed in and online.
   - Manual sync remains available.
