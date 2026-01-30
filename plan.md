@@ -954,7 +954,7 @@
 ### Definition of Done
 - Supabase dev/prod environments are configured with migrations, RLS, and merge RPCs.
 - App uses SwiftData locally with an outbox-based sync engine (push + incremental pull).
-- Auth supports email/password + Apple + Google; local-only usage is supported.
+- Auth supports email/password; local-only usage is supported. (Apple/Google deferred to SPRD-91.)
 - Debug builds can switch Supabase environments at runtime (prod guarded).
 - Sync status and error feedback are visible; CloudKit is no longer required.
 
