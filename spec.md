@@ -240,6 +240,10 @@
 - On environment switch: wait for active sync to finish, attempt sync, warn on failure, allow user to confirm switch and attempt one final push; then sign out, wipe local store/outbox, and require restart.
 - Localhost uses mock auth and no Supabase; dev/prod require real auth.
 - Single local SwiftData store is used; it is wiped on any data environment change and on launch if the resolved environment differs from the last used.
+- Architecture expectations:
+  - Core services expose protocols and accept injected policies (Sync/Auth/Network) to keep debug logic out of production files.
+  - Debug overrides live under `Spread/Debug` and are compiled only in Debug/QA builds.
+  - Minimize `#if DEBUG` inside core services; prefer debug-only extensions/policy files.
 
 ### Auth UI (v1)
 - Auth button in toolbar, trailing the Inbox button. [SPRD-84]

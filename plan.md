@@ -1108,6 +1108,42 @@
  - **Notes**:
    - Current `feature/SPRD-85` implements SyncEngine + models but does not wire outbox enqueue to repositories; serializer is unused; deviceId is not applied; tests are missing.
 
+### [SPRD-84B] Feature: Auth policy isolation + DataEnvironment behavior
+- **Context**: Debug behavior must remain in separate files and avoid `#if DEBUG` in core auth services.
+- **Description**: Extend auth architecture to support debug overrides and localhost auth behavior via injected policies.
+- **Implementation Details**:
+  - Define `AuthPolicy` protocol and `DefaultAuthPolicy` in non-debug files.
+  - Inject `AuthPolicy` into `AuthManager` and consult it before real sign-in.
+  - Implement debug policy in `Spread/Debug` (e.g., `DebugAuthPolicy`) that reads `DebugSyncOverrides`.
+  - Ensure localhost DataEnvironment bypasses real auth and returns mock user.
+  - Keep debug-only types in `Spread/Debug`; core auth compiles without debug references.
+  - Pseudocode:
+    ```swift
+    protocol AuthPolicy {
+      func forcedAuthError() -> AuthErrorType?
+    }
+
+    struct DefaultAuthPolicy: AuthPolicy {
+      func forcedAuthError() -> AuthErrorType? { nil }
+    }
+
+    final class AuthManager {
+      init(policy: AuthPolicy = DefaultAuthPolicy(), ...) { ... }
+      func signIn(email: String, password: String) async throws {
+        if let forced = policy.forcedAuthError() { throw forced }
+        ...
+      }
+    }
+    ```
+- **Acceptance Criteria**:
+  - Debug overrides can force auth errors without network calls.
+  - Localhost DataEnvironment uses mock auth while dev/prod require real auth.
+  - No `#if DEBUG` is required inside core auth logic.
+- **Tests**:
+  - Unit tests for default policy (no forced errors).
+  - Manual QA in Debug/QA: force each auth error and confirm login sheet displays it.
+- **Dependencies**: SPRD-84, SPRD-85A, SPRD-95
+
 ### [SPRD-86] Feature: Debug environment switcher
 - **Context**: Debug builds must switch between dev/prod safely.
 - **Description**: Add data-environment switcher to Debug destination with guardrails (Debug + QA builds only).
@@ -1116,6 +1152,24 @@
   - Use standard confirm alert when switching to prod (no typed confirmation).
   - Switching flow is implemented by SPRD-96 (sync attempt -> warn -> sign out -> wipe -> restart required).
   - Debug/TestFlight gating is handled by SPRD-94/95 (Release hides switcher entirely).
+  - **Architecture note (switch coordinator)**:
+    - Use a coordinator/service to encapsulate the switch flow so DebugMenuView stays thin.
+    - Pseudocode:
+      ```swift
+      final class EnvironmentSwitchCoordinator {
+        func switchTo(_ env: DataEnvironment) async {
+          await syncService.waitIfSyncing()
+          if !(await syncService.syncNowSucceeded()) {
+            guard await confirmLossWarning() else { return }
+            _ = await syncService.tryFinalPush()
+          }
+          await authService.signOut()
+          wipeLocalStore()
+          persist(env)
+          showRestartRequired()
+        }
+      }
+      ```
 - **Acceptance Criteria**:
   - Debug builds can switch environments at runtime.
   - Prod access requires explicit confirmation.
@@ -1131,6 +1185,16 @@
   - QA uses DEBUG compile flag to include Debug menu; Release excludes all debug UI.
   - QA and Release have distinct bundle identifiers.
   - Add QA xcconfig with default Supabase dev values (same as Debug) and clear naming in build settings.
+  - **Architecture note (build gating)**:
+    - Centralize build gating in a small helper (e.g., `BuildInfo`) used by UI and resolvers.
+    - Pseudocode:
+      ```swift
+      enum BuildInfo {
+        static var allowsDebugUI: Bool { /* DEBUG or QA */ }
+        static var defaultDataEnvironment: DataEnvironment { /* Debug->localhost, QA->dev, Release->prod */ }
+        static var isRelease: Bool { /* Release only */ }
+      }
+      ```
 - **Acceptance Criteria**:
   - Debug + QA builds show Debug menu and environment switcher.
   - Release build hides all debug UI and is locked to prod.
@@ -1196,6 +1260,13 @@
   - Require restart after switching (no hot reload for now).
   - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
     - `253fa5f` (`Spread/Debug/DebugMenuView.swift`): environment switcher UI section + `onEnvironmentSwitch` callback wiring.
+  - **Architecture note (store wipe boundary)**:
+    - Encapsulate wipe logic in a single service so both “switch” and “launch mismatch” paths call the same code.
+    - Pseudocode:
+      ```swift
+      protocol StoreWiper { func wipeAll() throws }
+      struct SwiftDataStoreWiper: StoreWiper { ... }
+      ```
 - **Acceptance Criteria**:
   - Switching environments always results in a clean local store.
   - Failed sync attempts show a warning and require explicit confirmation to proceed.
@@ -1228,6 +1299,15 @@
   - Avoid triggering sync on intermediate field edits.
   - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
     - `49a8c05` (`Spread/Services/Sync/SyncEngine.swift`): keep optional client + local-only behavior, but adapt to DataEnvironment.
+  - **Architecture note (commit hook surface)**:
+    - Treat “Save/Done” as the synchronization boundary; do not hook per-keystroke.
+    - Pseudocode:
+      ```swift
+      func saveTask() async {
+        try await repository.save(task)
+        await syncService.syncNow()
+      }
+      ```
 - **Acceptance Criteria**:
   - Save/Done actions trigger immediate sync attempts when signed in and online.
   - Manual sync remains available.
