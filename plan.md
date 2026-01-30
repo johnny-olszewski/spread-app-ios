@@ -1068,6 +1068,31 @@
   - Gate sync with `NWPathMonitor`; auto sync on launch/foreground + manual refresh.
   - Add exponential backoff on failure; store a capped local SyncLog.
   - Show toolbar sync status (last sync time + non-blocking error).
+  - **Architecture note (protocol + policy injection)**:
+    - Define a `SyncPolicy` protocol in non-debug files and inject it into `SyncEngine`.
+    - Use `DefaultSyncPolicy` in Release builds; debug policies live in `Spread/Debug`.
+    - Pseudocode:
+      ```swift
+      protocol SyncPolicy {
+        func shouldAllowSync() -> Bool
+        func forceSyncFailure() -> Bool
+        func forceSyncingDuration() -> TimeInterval?
+      }
+
+      struct DefaultSyncPolicy: SyncPolicy {
+        func shouldAllowSync() -> Bool { true }
+        func forceSyncFailure() -> Bool { false }
+        func forceSyncingDuration() -> TimeInterval? { nil }
+      }
+
+      final class SyncEngine {
+        init(policy: SyncPolicy = DefaultSyncPolicy(), ...) { ... }
+        func syncNow() async {
+          guard policy.shouldAllowSync() else { return }
+          ...
+        }
+      }
+      ```
 - **Acceptance Criteria**:
   - Offline edits sync when connectivity returns.
   - Sync is idempotent and resilient to retries.
@@ -1125,6 +1150,23 @@
   - Persist selected DataEnvironment and track last-used value in UserDefaults.
   - Rename launch arguments and env vars from AppEnvironment to DataEnvironment.
   - Update Debug menu to show only DataEnvironment options (localhost/dev/prod) and to respect build gating.
+  - **Architecture note (separate debug implementations)**:
+    - Keep DataEnvironment resolution in non-debug files; debug-only overrides live in `Spread/Debug`.
+    - Pseudocode:
+      ```swift
+      protocol DataEnvironmentResolver {
+        func resolve() -> DataEnvironment
+      }
+
+      struct DefaultDataEnvironmentResolver: DataEnvironmentResolver {
+        func resolve() -> DataEnvironment {
+          if isRelease { return .prod }
+          if let arg = launchArg("-DataEnvironment") { return arg }
+          if let env = envVar("DATA_ENVIRONMENT") { return env }
+          return persistedSelection ?? buildDefault
+        }
+      }
+      ```
   - **Carry-over from feature/SPRD-85 (do not cherry-pick whole commits, port selectively):**
     - `b86ae37` (`Spread/Environment/AppEnvironment.swift`): reuse resolution-order pattern + behavior flags, but move into new `DataEnvironment`.
     - `dcc3deb` (`Spread/Environment/SupabaseConfiguration.swift`): reuse `isAvailable` + `configure(for:)` pattern; update to DataEnvironment/build gating.
@@ -1139,6 +1181,7 @@
 - **Tests**:
   - Unit tests for DataEnvironment resolution precedence.
 - **Dependencies**: SPRD-86, SPRD-94
+
 
 ### [SPRD-96] Feature: Environment switching flow + store wipe
 - **Context**: Switching data environments must be safe and predictable.
@@ -1219,6 +1262,19 @@
   - Outbox seeding:
     - "Seed outbox" action creates real `SyncMutation` rows using existing schema, then refreshes status.
   - Overrides do not need to persist across relaunch.
+  - **Architecture note (debug-only policies/extensions)**:
+    - Implement debug policies in `Spread/Debug` to avoid `#if DEBUG` in core services.
+    - Pseudocode:
+      ```swift
+      #if DEBUG
+      struct DebugSyncPolicy: SyncPolicy {
+        @MainActor let overrides = DebugSyncOverrides.shared
+        func shouldAllowSync() -> Bool { !overrides.disableSync }
+        func forceSyncFailure() -> Bool { overrides.forcedSyncFailure }
+        func forceSyncingDuration() -> TimeInterval? { overrides.forceSyncingDuration }
+      }
+      #endif
+      ```
 - **Acceptance Criteria**:
   - Debug builds can block all network traffic and observe offline UI consistently.
   - Auth error selection produces the chosen login failure without real network.

@@ -273,6 +273,10 @@
 - Debug tooling files live under `Spread/Debug` to keep debug-only views/data isolated. [SPRD-45]
 - Debug destination includes a Supabase environment switcher (Debug and QA TestFlight builds only) that signs out and wipes the local store on change; prod access requires explicit confirmation. [SPRD-86]
 - Debug functionality should be visible only inside the Debug destination (no always-on overlay/badge).
+- Debug behavior should be isolated from production code via protocols + dependency injection:
+  - Core services (Sync/Auth/Network) expose protocols and default policies in non-debug files.
+  - Debug overrides live under `Spread/Debug` as separate policy implementations compiled only in Debug/QA builds.
+  - Avoid sprinkling `#if DEBUG` inside core services; prefer debug-only extensions/policy files.
 - Debug menu provides Sync & Network overrides (DEBUG builds only) to mock runtime states:
   - Block all network connections (force NWPathMonitor offline and fail requests).
   - Disable sync while keeping network available.
