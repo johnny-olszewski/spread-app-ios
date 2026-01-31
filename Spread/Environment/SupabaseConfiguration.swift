@@ -8,6 +8,7 @@ import Foundation
 /// - Release builds use `Configuration/Release.xcconfig` (prod environment)
 ///
 /// Debug builds can switch environments at runtime via the Debug menu (SPRD-86).
+/// All builds can override URL/key at runtime via launch arguments or environment variables.
 enum SupabaseConfiguration {
 
     /// The Supabase environment (development or production).
@@ -51,24 +52,24 @@ enum SupabaseConfiguration {
     /// The active Supabase URL to use.
     ///
     /// In Debug builds, this can be overridden via the Debug menu (SPRD-86).
-    /// In Release builds, this always returns the build-time configuration.
+    /// In any build, launch arguments or environment variables can provide explicit URL/key overrides.
     static var url: URL {
         #if DEBUG
-        return runtimeOverrideURL ?? buildURL
+        return runtimeOverrideURL ?? explicitRuntimeOverride?.url ?? buildURL
         #else
-        return buildURL
+        return explicitRuntimeOverride?.url ?? buildURL
         #endif
     }
 
     /// The active Supabase publishable key to use.
     ///
     /// In Debug builds, this can be overridden via the Debug menu (SPRD-86).
-    /// In Release builds, this always returns the build-time configuration.
+    /// In any build, launch arguments or environment variables can provide explicit URL/key overrides.
     static var publishableKey: String {
         #if DEBUG
-        return runtimeOverridePublishableKey ?? buildPublishableKey
+        return runtimeOverridePublishableKey ?? explicitRuntimeOverride?.key ?? buildPublishableKey
         #else
-        return buildPublishableKey
+        return explicitRuntimeOverride?.key ?? buildPublishableKey
         #endif
     }
 
@@ -123,6 +124,59 @@ enum SupabaseConfiguration {
         runtimeOverrideURL = URL(string: "https://nzsswqmxodkvgsnabnaj.supabase.co")
         runtimeOverridePublishableKey = "sb_publishable_NSgP9CI8D3Ab3d4QmQ9Lwg_RV2tArlj"
         runtimeOverrideEnvironment = .production
+    }
+    #endif
+
+    // MARK: - Launch Argument & Environment Overrides
+
+    private enum OverrideSource: String {
+        case launchArguments = "Launch Arguments"
+        case environmentVariables = "Environment Variables"
+    }
+
+    /// Returns an explicit URL/key override when both values are supplied.
+    private static var explicitRuntimeOverride: (url: URL, key: String, source: OverrideSource)? {
+        if let urlString = launchArgumentValue(named: "-SupabaseURL"),
+           let key = launchArgumentValue(named: "-SupabaseKey"),
+           let url = URL(string: urlString),
+           !key.isEmpty {
+            return (url, key, .launchArguments)
+        }
+
+        let environment = ProcessInfo.processInfo.environment
+        if let urlString = environment["SUPABASE_URL"],
+           let key = environment["SUPABASE_PUBLISHABLE_KEY"],
+           let url = URL(string: urlString),
+           !key.isEmpty {
+            return (url, key, .environmentVariables)
+        }
+
+        return nil
+    }
+
+    /// Describes the explicit override source when present.
+    static var explicitOverrideSourceDescription: String? {
+        explicitRuntimeOverride?.source.rawValue
+    }
+
+    private static func launchArgumentValue(named name: String) -> String? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: name),
+              index + 1 < arguments.count else {
+            return nil
+        }
+        return arguments[index + 1]
+    }
+
+    #if DEBUG
+    /// Describes the active debug override when set.
+    static var runtimeOverrideDescription: String? {
+        guard runtimeOverrideURL != nil ||
+              runtimeOverridePublishableKey != nil ||
+              runtimeOverrideEnvironment != nil else {
+            return nil
+        }
+        return "Debug Menu"
     }
     #endif
 }

@@ -34,6 +34,7 @@ struct DebugMenuView: View {
     var body: some View {
         List {
             environmentSection
+            supabaseSection
             dependenciesSection
             mockDataSection
             buildInfoSection
@@ -66,6 +67,42 @@ struct DebugMenuView: View {
         } footer: {
             Text("Current AppEnvironment resolved from launch arguments, environment variables, or build configuration.")
         }
+    }
+
+    // MARK: - Supabase Section
+
+    private var supabaseSection: some View {
+        Section {
+            LabeledContent("Environment", value: SupabaseConfiguration.environment.rawValue)
+            LabeledContent("URL Host", value: supabaseHostLabel)
+            LabeledContent("Override", value: supabaseOverrideLabel)
+
+            Button("Use Development") {
+                SupabaseConfiguration.useDevEnvironment()
+            }
+
+            Button("Use Production") {
+                SupabaseConfiguration.useProdEnvironment()
+            }
+
+            Button("Clear Overrides") {
+                SupabaseConfiguration.clearRuntimeOverrides()
+            }
+        } header: {
+            Label("Supabase", systemImage: "cloud")
+        } footer: {
+            Text("Debug/QA builds can switch Supabase environments here. Release builds require explicit URL/key overrides.")
+        }
+    }
+
+    private var supabaseHostLabel: String {
+        SupabaseConfiguration.url.host ?? SupabaseConfiguration.url.absoluteString
+    }
+
+    private var supabaseOverrideLabel: String {
+        SupabaseConfiguration.runtimeOverrideDescription
+            ?? SupabaseConfiguration.explicitOverrideSourceDescription
+            ?? "None"
     }
 
     // MARK: - Dependencies Section

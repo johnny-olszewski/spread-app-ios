@@ -98,10 +98,6 @@ enum AppEnvironment: String, CaseIterable {
     // MARK: - Private
 
     private static var isDebugBuild: Bool {
-        #if DEBUG
-        return true
-        #else
-        return false
-        #endif
+        BuildInfo.allowsDebugUI
     }
 }
