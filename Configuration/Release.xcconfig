@@ -1,6 +1,10 @@
 // Configuration/Release.xcconfig
 // Release build configuration - uses Supabase prod environment
 
+// App Identity
+PRODUCT_BUNDLE_IDENTIFIER = dev.johnnyo.Spread
+INFOPLIST_KEY_CFBundleDisplayName = Spread
+
 // Supabase Prod Environment
 SUPABASE_URL = https:/$()/nzsswqmxodkvgsnabnaj.supabase.co
 SUPABASE_PUBLISHABLE_KEY = sb_publishable_NSgP9CI8D3Ab3d4QmQ9Lwg_RV2tArlj

@@ -1,9 +1,9 @@
-// Configuration/Debug.xcconfig
-// Debug build configuration - uses Supabase dev environment
+// Configuration/QA.xcconfig
+// QA (TestFlight) build configuration - uses Supabase dev environment
 
 // App Identity
-PRODUCT_BUNDLE_IDENTIFIER = dev.johnnyo.Spread.debug
-INFOPLIST_KEY_CFBundleDisplayName = Spread Dev
+PRODUCT_BUNDLE_IDENTIFIER = dev.johnnyo.Spread.qa
+INFOPLIST_KEY_CFBundleDisplayName = Spread QA
 
 // Supabase Dev Environment
 SUPABASE_URL = https:/$()/apblzzondjcughtgqowd.supabase.co
