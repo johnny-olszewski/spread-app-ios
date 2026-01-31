@@ -93,6 +93,14 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "-SupabaseURL https://apblzzondjcughtgqowd.supabase.co"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-SupabaseKey sb_publishable_G74Nb3IoMfnsmrZfp6dcaA_0_UD6QLT"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "-AppEnvironment &quot;production&quot;"
             isEnabled = "NO">
          </CommandLineArgument>

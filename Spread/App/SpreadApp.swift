@@ -7,7 +7,7 @@ struct SpreadApp: App {
     private let container: DependencyContainer
 
     init() {
-        logSupabaseConfiguration()
+        SpreadApp.logSupabaseConfiguration()
         do {
             container = try DependencyContainer.make(for: .current)
         } catch {
@@ -21,7 +21,7 @@ struct SpreadApp: App {
         }
     }
 
-    private func logSupabaseConfiguration() {
+    private static func logSupabaseConfiguration() {
         let host = SupabaseConfiguration.url.host ?? SupabaseConfiguration.url.absoluteString
         var overrideSource = SupabaseConfiguration.explicitOverrideSourceDescription ?? "None"
         #if DEBUG
