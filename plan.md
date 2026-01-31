@@ -33,6 +33,1225 @@
 - SwiftData schema and task/spread repositories (plus mocks) are in place.
 - Baseline environment/container/repository tests pass.
 
+## Story: Core time and data models
+
+### User Story
+- As a user, I want the app to understand days, months, years, and multiday ranges so my journal entries are organized correctly.
+
+### Definition of Done
+- Date utilities and period normalization support first-weekday settings.
+- Spread/Entry/Assignment models exist with multiday support.
+- Date and multiday preset tests pass.
+
+### [SPRD-49] Feature: Unit tests for date + multiday presets
+- **Context**: Date logic is error-prone.
+- **Description**: Add unit tests for normalization, presets, and first weekday override.
+- **Acceptance Criteria**:
+  - Tests cover locale week start, overrides, and boundaries. (Spec: Edge Cases)
+- **Tests**:
+  - Unit tests across month/year boundaries.
+- **Dependencies**: SPRD-7, SPRD-8
+
+
+## Story: Journal core: creation, assignment, inbox, migration
+
+### User Story
+- As a user, I want to create spreads, assign entries, and migrate tasks so my journal stays current as plans change.
+
+### Definition of Done
+- JournalManager loads data and enforces spread creation rules.
+- Assignment engine and Inbox auto-resolve logic are implemented.
+- Migration logic and cancelled-task behavior are implemented.
+- Unit tests for creation, assignment, and migration pass.
+
+## Story: Conventional MVP UI: create spreads and tasks
+
+### User Story
+- As a user, I want to create spreads and tasks from a clear navigation shell so I can start journaling quickly.
+
+### Definition of Done
+- Adaptive root navigation renders spreads and content for iPad and iPhone.
+- User can create spreads and tasks; tasks render in spread lists.
+- Entry list grouping and Inbox sheet behavior work end-to-end.
+- Entry rows and symbols are used consistently in lists.
+- Spread content surfaces use dot grid background and minimal paper styling.
+
+### [SPRD-23] Feature: Task creation sheet
+- **Context**: Task creation must enforce date/period rules.
+- **Description**: Build task creation UI with validation (no past dates).
+- **Implementation Details**:
+  - `TaskCreationSheet` presented as sheet (medium detent)
+  - Entry point: replace the create spread "+" with a menu that offers "Create Spread" or "Create Task"
+  - Defaults:
+    - If a spread is selected, default to that spread's period/date
+    - If no spread is selected, default to the same "initial selection" logic as the spreads view
+  - Card 1: Core task creation UI
+    - Title (required, auto-focus)
+    - Period picker (year/month/day only)
+    - Date selection varies by period:
+      - Year: list of years
+      - Month: two-step picker (year, then month)
+      - Day: standard date picker
+    - Date range uses same min/max as spread creation
+    - Validation behavior:
+      - Create button is hidden until title is edited once
+      - After first edit, Create is visible even if invalid; tapping shows inline errors
+      - Inline errors clear on next change
+      - Title required (whitespace-only invalid, no trimming)
+      - Date must be >= today using period-normalized comparison
+    - On save: create Task via JournalManager; assignment logic follows existing best-match rules
+- **Acceptance Criteria**:
+  - "+" create action offers "Create Spread" and "Create Task". (Spec: Entries)
+  - Task sheet defaults to selected spread; otherwise uses initial spread selection logic. (Spec: Navigation and UI)
+  - Period picker allows year/month/day only, with period-appropriate date controls. (Spec: Entries)
+  - Date range limits match spread creation. (Spec: Spreads)
+  - Create button is hidden until title is edited once; after first edit it stays visible. (Spec: Entries)
+  - Inline validation:
+    - Title required; whitespace-only invalid (no trimming). (Spec: Entries)
+    - Date is blocked when period-normalized date is before today. (Spec: Entries)
+    - Validation errors clear on next change. (Spec: Entries)
+  - Saving creates a task with normalized date for the selected period and runs normal assignment logic. (Spec: Entries)
+- **Tests**:
+  - Unit tests:
+    - Default selections with/without a selected spread.
+    - Period-normalized date validation (year/month/day).
+    - Title validation (empty vs whitespace-only).
+  - UI tests:
+    - Create Task flow opens from "+" menu.
+    - Create button visibility follows first-edit rule and inline errors appear on invalid submit.
+    - Past-dated selections are blocked for each period.
+    - Task created with selected period/date and assigns to matching spread when available.
+- **Dependencies**: SPRD-22, SPRD-13
+
+## Story: Debug and dev tools
+
+### User Story
+- As a user, I want debug tools and quick actions so I can inspect data and iterate faster.
+
+### Definition of Done
+- Debug menu and quick actions are available in Debug builds only.
+- Test data builders and debug logging hooks are implemented.
+- Debug menu includes appearance overrides for paper tone, dot grid, heading font, and accent color.
+- Debug menu is a top-level navigation destination: tab bar item on iPhone and sidebar item on iPad (SF Symbol `ant`), with the overlay removed.
+
+### [SPRD-63] Feature: Debug appearance overrides
+- **Context**: Visual tuning needs fast iteration without rebuilding UI constants.
+- **Description**: Add Debug-only controls to adjust paper tone, dot grid, typography, and accent color.
+- **Implementation Details**:
+  - Add an "Appearance" section to `DebugMenuView` (DEBUG only).
+  - Controls:
+    - Paper tone presets (warm off-white default, clean white, cool gray).
+    - Dot grid toggle plus sliders for dot size, spacing, and opacity.
+    - Heading font picker (default sans and a few alternatives for comparison).
+    - Accent color picker with a muted blue default and a reset button.
+  - Store overrides in `@AppStorage` or a `DebugAppearanceSettings` observable to update SwiftUI live.
+  - Provide "Reset to defaults" action to revert to spec defaults.
+- **Acceptance Criteria**:
+  - Changing Debug appearance values updates spread content surfaces immediately. (Spec: Visual Design)
+  - Overrides are DEBUG-only and do not ship in Release builds. (Spec: Development Tooling)
+- **Tests**:
+  - Unit test ensures appearance controls are excluded in Release builds.
+  - UI tests: changing appearance controls updates spread surface (dot grid toggle, accent color, paper tone).
+- **Dependencies**: SPRD-45, SPRD-62
+
+## Story: Supabase offline-first sync + auth migration (priority)
+
+### User Story
+- As a user, I want my data to work offline first and sync across devices and platforms when signed in.
+
+### Definition of Done
+- Supabase dev/prod environments are configured with migrations, RLS, and merge RPCs.
+- App uses SwiftData locally with an outbox-based sync engine (push + incremental pull).
+- Auth supports email/password; local-only usage is supported. (Apple/Google deferred to SPRD-91.)
+- Debug/QA builds can switch DataEnvironment at runtime (prod guarded).
+- Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
+- Sync status and error feedback are visible; CloudKit is no longer required.
+
+### [SPRD-94] Feature: Build configurations (Debug/QA/Release)
+- **Context**: Environment switching must be enabled in Debug + QA TestFlight builds but disabled in Release.
+- **Description**: Add a QA/TestFlight build configuration that behaves like Debug, with separate bundle id from Release.
+- **Implementation Details**:
+  - Add build configs: Debug, QA (TestFlight), Release.
+  - QA uses DEBUG compile flag to include Debug menu; Release excludes all debug UI.
+  - QA and Release have distinct bundle identifiers.
+  - Add QA xcconfig with default Supabase dev values (same as Debug) and clear naming in build settings.
+  - **Architecture note (build gating)**:
+    - Centralize build gating in a small helper (e.g., `BuildInfo`) used by UI and resolvers.
+    - Pseudocode:
+      ```swift
+      enum BuildInfo {
+        static var allowsDebugUI: Bool { /* DEBUG or QA */ }
+        static var defaultDataEnvironment: DataEnvironment { /* Debug->localhost, QA->dev, Release->prod */ }
+        static var isRelease: Bool { /* Release only */ }
+      }
+      ```
+- **Acceptance Criteria**:
+  - Debug + QA builds show Debug menu and environment switcher.
+  - Release build hides all debug UI.
+  - Release build can target dev/localhost via launch args/env vars (with explicit URL/key overrides).
+  - QA build installs alongside Release due to distinct bundle id.
+- **Tests**:
+  - Manual: verify Debug/QA show Debug menu; Release does not.
+- **Dependencies**: SPRD-80
+
+### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment
+- **Context**: Current AppEnvironment mixes build intent with data target and debug behavior.
+- **Description**: Introduce a DataEnvironment (localhost/dev/prod) separate from build configuration.
+- **Implementation Details**:
+  - Add `DataEnvironment` enum with behaviors: auth required, sync enabled, local-only availability.
+  - Build configuration determines whether debug UI is available (via `BuildInfo`), not the data target.
+  - Resolution order (all builds): `-DataEnvironment` -> `DATA_ENVIRONMENT` -> persisted selection (Debug/QA only) -> build default.
+  - Release honors launch args/env vars for the current run but does not persist overrides.
+  - Persist selected DataEnvironment and track last-used value in UserDefaults for Debug/QA only.
+  - Add Supabase URL/key overrides via launch args and env vars in all builds:
+    - Args: `-SupabaseURL`, `-SupabaseKey`
+    - Env vars: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
+  - Require explicit URL/key overrides when targeting non-prod in Release; otherwise fall back to build defaults.
+  - Rename launch arguments and env vars from AppEnvironment to DataEnvironment.
+  - Update Debug menu to show only DataEnvironment options (localhost/dev/prod) and to respect build gating.
+  - Keep AppEnvironment focused on preview/testing behaviors (in-memory, mock data); data targeting lives in DataEnvironment.
+  - **Architecture note (separate debug implementations)**:
+    - Keep DataEnvironment resolution in non-debug files; debug-only overrides live in `Spread/Debug`.
+    - Pseudocode:
+      ```swift
+      protocol DataEnvironmentResolver {
+        func resolve() -> DataEnvironment
+      }
+
+      struct DefaultDataEnvironmentResolver: DataEnvironmentResolver {
+        func resolve() -> DataEnvironment {
+          if let arg = launchArg("-DataEnvironment") { return arg }
+          if let env = envVar("DATA_ENVIRONMENT") { return env }
+          if BuildInfo.allowsDebugUI, let persisted = persistedSelection { return persisted }
+          return BuildInfo.defaultDataEnvironment
+        }
+      }
+      ```
+  - **Carry-over from feature/SPRD-85 (do not cherry-pick whole commits, port selectively):**
+    - `b86ae37` (`Spread/Environment/AppEnvironment.swift`): reuse resolution-order pattern + behavior flags, but move into new `DataEnvironment`.
+    - `dcc3deb` (`Spread/Environment/SupabaseConfiguration.swift`): reuse `isAvailable` + `configure(for:)` pattern; update to DataEnvironment/build gating.
+    - `d79b227` (`Spread/Environment/DependencyContainer.swift`): keep optional `supabaseClient` and only create it when sync is enabled; pass DataEnvironment into SyncEngine factory.
+    - `35658f9` (`Spread/Services/AuthManager.swift`): keep localhost mock-auth path and optional Supabase client, but adapt to DataEnvironment.
+    - `7c06c01` (`Spread/Debug/DebugSyncOverrides.swift`), `14dcb15` (`Spread/Services/Sync/NetworkMonitor.swift`), `785500a` (`Spread/Services/AuthManager.swift`), `ce46dca` (`Spread/Debug/DebugSyncNetworkSection.swift`): reapply debug overrides + Sync & Network section as Debug/QA-only tooling.
+    - **Avoid** `226370a` (`Spread/DataModel/ModelContainerFactory.swift`): it adds per-environment container names, which conflicts with the single-store requirement.
+- **Acceptance Criteria**:
+  - DataEnvironment drives auth/sync/mock-data availability.
+  - Resolver precedence works in all builds (args/env override persisted selection).
+  - Debug/QA persist selection; Release never persists overrides.
+  - Release uses build defaults when no overrides are provided.
+  - Supabase URL/key can be overridden via args/env vars in any build.
+- **Tests**:
+  - Unit tests for DataEnvironment resolution precedence (Debug/QA vs Release behavior).
+- **Dependencies**: SPRD-94
+
+### [SPRD-97] Feature: Single SwiftData store + debug UI visibility
+- **Context**: Environment switches should not require multiple store names, and debug info should only be visible in Debug menu.
+- **Description**: Use a single SwiftData container name and remove always-on debug overlays.
+- **Implementation Details**:
+  - Update ModelContainerFactory to use one persistent container name for all data environments.
+  - Remove DebugEnvironmentOverlay from app surfaces; keep debug info in Debug menu only.
+  - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
+    - `ab85bfe` (`Spread/Services/Sync/SyncStatus.swift`): keep `.localOnly` status.
+    - `4fb52b9` (`Spread/Views/Components/SyncStatusView.swift`): keep local-only color only; ignore DebugEnvironmentOverlay changes.
+- **Acceptance Criteria**:
+  - All environments use the same local store name.
+  - Debug environment info appears only in Debug menu.
+- **Tests**:
+  - Manual: confirm no overlay badge in Debug/QA builds.
+- **Dependencies**: SPRD-95
+
+### [SPRD-85] Feature: Offline-first sync engine (outbox + pull) - [ ] Reopened
+- **Context**: Sync must work without reliable connectivity.
+- **Description**: Implement outbox-based push + incremental pull with status UI.
+- **Implementation Details**:
+  - Add `SyncMutation` SwiftData model for outbox entries (full record + `changed_fields`).
+  - Enqueue outbox mutations on repository writes (tasks/notes/spreads/assignments/collections/settings).
+  - Push: batch RPC merge calls (parent-first ordering).
+  - Pull: incremental per-table sync using `revision`, with pagination and `last_sync` cursor stored locally.
+  - Gate sync with `NWPathMonitor`; auto sync on launch/foreground + manual refresh.
+  - Add exponential backoff on failure; store a capped local SyncLog.
+  - Show toolbar sync status (last sync time + non-blocking error).
+  - **Architecture note (protocol + policy injection)**:
+    - Define a `SyncPolicy` protocol in non-debug files and inject it into `SyncEngine`.
+    - Use `DefaultSyncPolicy` in Release builds; debug policies live in `Spread/Debug`.
+    - Pseudocode:
+      ```swift
+      protocol SyncPolicy {
+        func shouldAllowSync() -> Bool
+        func forceSyncFailure() -> Bool
+        func forceSyncingDuration() -> TimeInterval?
+      }
+
+      struct DefaultSyncPolicy: SyncPolicy {
+        func shouldAllowSync() -> Bool { true }
+        func forceSyncFailure() -> Bool { false }
+        func forceSyncingDuration() -> TimeInterval? { nil }
+      }
+
+      final class SyncEngine {
+        init(policy: SyncPolicy = DefaultSyncPolicy(), ...) { ... }
+        func syncNow() async {
+          guard policy.shouldAllowSync() else { return }
+          ...
+        }
+      }
+      ```
+- **Acceptance Criteria**:
+  - Offline edits sync when connectivity returns.
+  - Sync is idempotent and resilient to retries.
+  - UI shows last sync and errors.
+  - Repository writes enqueue outbox mutations and use serializers.
+  - Device ID is included in outbox record data.
+- **Tests**:
+  - Unit tests for outbox enqueue and sync ordering.
+  - Integration tests for push/pull with dev Supabase project.
+  - Unit tests for enqueue + serializer output coverage (task/spread/note/assignment/collection).
+  - UI verification that sync status surfaces last sync time and errors (not icon-only).
+- **Dependencies**: SPRD-83, SPRD-84, SPRD-95
+ - **Notes**:
+   - Current `feature/SPRD-85` implements SyncEngine + models but does not wire outbox enqueue to repositories; serializer is unused; deviceId is not applied; tests are missing.
+
+### [SPRD-99] Feature: Auth lifecycle wiring (merge + wipe + device ID)
+- **Context**: SPRD-84 delivered auth UI but sign-in merge and sign-out wipe are not wired, and device ID is not used.
+- **Description**: Wire AuthManager callbacks to sync merge and store wipe, and ensure device ID is created and injected into sync context.
+- **Implementation Details**:
+  - Initialize `AuthManager` with injected dependencies (DataEnvironment, optional Supabase client, Sync/Store services).
+  - Set `onSignIn` to trigger a merge-aware sync and reload JournalManager data after completion.
+  - Set `onSignOut` to wipe local store + outbox and reset JournalManager state.
+  - Ensure `DeviceIdManager.getOrCreateDeviceId()` is called once at app startup and provided to SyncEngine/outbox.
+  - Keep local-only mode functional when no Supabase client is available.
+- **Acceptance Criteria**:
+  - Sign-in triggers a merge flow and updates the UI with synced data.
+  - Sign-out wipes local store/outbox and returns the app to local-only state.
+  - Device ID is generated once and is available to sync/outbox.
+- **Tests**:
+  - Unit test: sign-in triggers merge callback.
+  - Unit test: sign-out triggers wipe + JournalManager reset.
+  - Manual: sign in/out flows on dev environment.
+- **Dependencies**: SPRD-85, SPRD-95
+
+### [SPRD-84B] Feature: Auth policy isolation + DataEnvironment behavior
+- **Context**: Debug behavior must remain in separate files and avoid `#if DEBUG` in core auth services while DataEnvironment behavior stays consistent across builds.
+- **Description**: Extend auth architecture to support debug overrides and localhost auth behavior via injected policies.
+- **Implementation Details**:
+  - Define `AuthPolicy` protocol and `DefaultAuthPolicy` in non-debug files.
+  - Inject `AuthPolicy` into `AuthManager` and consult it before real sign-in.
+  - Implement debug policy in `Spread/Debug` (e.g., `DebugAuthPolicy`) that reads `DebugSyncOverrides` and is only constructed when `BuildInfo.allowsDebugUI == true`.
+  - Ensure localhost DataEnvironment bypasses real auth and returns mock user.
+  - Keep debug-only types in `Spread/Debug`; core auth compiles without debug references.
+  - Pseudocode:
+    ```swift
+    protocol AuthPolicy {
+      func forcedAuthError() -> AuthErrorType?
+    }
+
+    struct DefaultAuthPolicy: AuthPolicy {
+      func forcedAuthError() -> AuthErrorType? { nil }
+    }
+
+    final class AuthManager {
+      init(policy: AuthPolicy = DefaultAuthPolicy(), ...) { ... }
+      func signIn(email: String, password: String) async throws {
+        if let forced = policy.forcedAuthError() { throw forced }
+        ...
+      }
+    }
+    ```
+- **Acceptance Criteria**:
+  - Debug overrides can force auth errors without network calls.
+  - Localhost DataEnvironment uses mock auth while dev/prod require real auth.
+  - Debug auth overrides are available only in Debug/QA builds; Release has no debug-only auth types linked.
+  - No `#if DEBUG` is required inside core auth logic.
+- **Tests**:
+  - Unit tests for default policy (no forced errors).
+  - Manual QA in Debug/QA: force each auth error and confirm login sheet displays it.
+- **Dependencies**: SPRD-84, SPRD-85A, SPRD-95
+
+### [SPRD-96] Feature: Environment switching flow + store wipe
+- **Context**: Switching data environments must be safe and predictable.
+- **Description**: Implement a guarded switch flow with sync attempt, sign out, and local wipe.
+- **Implementation Details**:
+  - If sync is running, wait for completion before switching.
+  - Attempt sync; on failure, warn the user and allow confirm to proceed.
+  - On confirm, attempt one final push, then proceed regardless of result.
+  - Sign out and clear auth session.
+  - Wipe local SwiftData store and outbox on every switch.
+  - On app launch, if resolved DataEnvironment differs from last-used, wipe before container creation.
+  - Release does not persist selection for reuse; it only tracks last-used for wipe safety.
+  - Require restart after switching (no hot reload for now).
+  - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
+    - `253fa5f` (`Spread/Debug/DebugMenuView.swift`): environment switcher UI section + `onEnvironmentSwitch` callback wiring.
+  - **Architecture note (store wipe boundary)**:
+    - Encapsulate wipe logic in a single service so both “switch” and “launch mismatch” paths call the same code.
+    - Pseudocode:
+      ```swift
+      protocol StoreWiper { func wipeAll() throws }
+      struct SwiftDataStoreWiper: StoreWiper { ... }
+      ```
+- **Acceptance Criteria**:
+  - Switching environments always results in a clean local store.
+  - Failed sync attempts show a warning and require explicit confirmation to proceed.
+- **Tests**:
+  - Manual: switch between localhost/dev/prod with and without outbox; verify wipe + sign-out.
+- **Dependencies**: SPRD-85, SPRD-95, SPRD-99
+
+### [SPRD-86] Feature: Debug environment switcher
+- **Context**: Debug/QA builds must switch between data environments safely; Release must expose no debug UI.
+- **Description**: Add data-environment switcher to Debug destination with guardrails (Debug + QA builds only).
+- **Implementation Details**:
+  - Add DataEnvironment section in Debug destination (localhost/dev/prod).
+  - Use standard confirm alert when switching to prod (no typed confirmation).
+  - Switching flow is implemented by SPRD-96 (sync attempt -> warn -> sign out -> wipe -> restart required).
+  - Debug/TestFlight gating is handled by SPRD-94/95 (Release hides switcher entirely).
+  - Show current resolved DataEnvironment and whether a runtime override is active.
+  - **Architecture note (switch coordinator)**:
+    - Use a coordinator/service to encapsulate the switch flow so DebugMenuView stays thin.
+    - Pseudocode:
+      ```swift
+      final class EnvironmentSwitchCoordinator {
+        func switchTo(_ env: DataEnvironment) async {
+          await syncService.waitIfSyncing()
+          if !(await syncService.syncNowSucceeded()) {
+            guard await confirmLossWarning() else { return }
+            _ = await syncService.tryFinalPush()
+          }
+          await authService.signOut()
+          wipeLocalStore()
+          persist(env)
+          showRestartRequired()
+        }
+      }
+      ```
+- **Acceptance Criteria**:
+  - Debug/QA builds can switch environments at runtime.
+  - Release builds show no switcher UI.
+  - Prod access requires explicit confirmation.
+- **Tests**:
+  - Manual: switch environments and verify local wipe + re-auth.
+- **Dependencies**: SPRD-94, SPRD-95, SPRD-96
+
+### [SPRD-98] Feature: Immediate push on commit (not per keystroke)
+- **Context**: Sync should be automatic without excessive per-keystroke calls.
+- **Description**: Attempt a sync push when a user explicitly saves a change (Save/Done).
+- **Implementation Details**:
+  - Ensure repository writes enqueue outbox mutations.
+  - Trigger `syncNow()` after explicit Save/Done actions for tasks/notes/spreads/settings.
+  - Avoid triggering sync on intermediate field edits.
+  - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
+    - `49a8c05` (`Spread/Services/Sync/SyncEngine.swift`): keep optional client + local-only behavior, but adapt to DataEnvironment.
+  - **Architecture note (commit hook surface)**:
+    - Treat “Save/Done” as the synchronization boundary; do not hook per-keystroke.
+    - Pseudocode:
+      ```swift
+      func saveTask() async {
+        try await repository.save(task)
+        await syncService.syncNow()
+      }
+      ```
+- **Acceptance Criteria**:
+  - Save/Done actions trigger immediate sync attempts when signed in and online.
+  - Manual sync remains available.
+- **Tests**:
+  - Manual: edit a task and tap Save; verify a sync attempt occurs.
+- **Dependencies**: SPRD-85
+
+### [SPRD-87] Feature: SwiftData model sync metadata
+- **Context**: Local models must carry sync metadata for field-level LWW.
+- **Description**: Extend SwiftData models with sync fields and update schema.
+- **Implementation Details**:
+  - Add per-field `*_updated_at`, `deleted_at`, `revision`, and `device_id` fields.
+  - Add settings model fields needed for sync.
+  - Update schema version + migration plan.
+  - Ensure repositories populate metadata on local edits.
+- **Acceptance Criteria**:
+  - Local models serialize to/from Supabase records without loss.
+  - Schema migration is tested.
+- **Tests**:
+  - Unit tests for model encoding/decoding and migration.
+- **Dependencies**: SPRD-85
+
+### [SPRD-88] Feature: Settings sync (Supabase)
+- **Context**: Settings should be consistent across devices.
+- **Description**: Sync settings via Supabase and merge locally.
+- **Implementation Details**:
+  - Store a single `settings` row per user in Supabase.
+  - Sync settings through outbox + pull; resolve with field-level LWW.
+  - Fall back to local values when offline or signed out.
+- **Acceptance Criteria**:
+  - Settings sync across devices after sign-in.
+- **Tests**:
+  - Unit tests for settings merge and conflict resolution.
+- **Dependencies**: SPRD-85, SPRD-87
+
+### [SPRD-89] Feature: Tombstone cleanup job
+- **Context**: Soft deletes need periodic cleanup.
+- **Description**: Add a scheduled cleanup job to remove rows deleted > 90 days.
+- **Implementation Details**:
+  - Implement scheduled cleanup (Supabase scheduled SQL or Edge Function).
+  - Ensure cleanup uses service role and respects RLS.
+- **Acceptance Criteria**:
+  - Soft-deleted rows older than 90 days are removed.
+- **Tests**:
+  - Manual: create old tombstones and verify cleanup job behavior.
+- **Dependencies**: SPRD-82
+
+### [SPRD-90] Feature: Sync QA + test plan
+- **Context**: Offline-first sync needs dedicated test coverage.
+- **Description**: Add integration tests and a QA checklist for sync scenarios.
+- **Implementation Details**:
+  - Add tests for offline edits, conflict resolution, and delete-wins.
+  - Add QA checklist for environment switching and sign-in merge.
+  - Document manual sync verification steps.
+- **Acceptance Criteria**:
+  - QA checklist exists and covers core sync scenarios.
+- **Tests**:
+  - Integration test coverage for push/pull and merge conflicts.
+- **Dependencies**: SPRD-85
+
+### [SPRD-91] Feature: Apple + Google auth providers
+- **Context**: Social sign-in improves user onboarding and provides secure authentication.
+- **Description**: Configure Sign in with Apple and Google OAuth providers in Supabase, and add UI buttons.
+- **Implementation Details**:
+  - **Sign in with Apple**:
+    - Configure Apple Developer account with Services ID for Supabase
+    - Add Team ID, Key ID, and private key to Supabase Auth settings
+    - Enable Apple provider in both dev and prod Supabase projects
+  - **Google Sign-in**:
+    - Create Google Cloud project with OAuth 2.0 credentials
+    - Configure OAuth consent screen and authorized redirect URIs
+    - Add Client ID and Client Secret to Supabase Auth settings
+    - Enable Google provider in both dev and prod Supabase projects
+  - **UI Updates**:
+    - Add "Sign in with Apple" button to login sheet
+    - Add "Sign in with Google" button to login sheet
+    - Handle OAuth callbacks and session creation
+  - Update `docs/supabase-setup.md` with provider configuration steps
+- **Acceptance Criteria**:
+  - Sign in with Apple works in both dev and prod environments.
+  - Google Sign-in works in both dev and prod environments.
+  - Login sheet shows Apple and Google sign-in buttons.
+  - Documentation includes setup steps for both providers.
+- **Tests**:
+  - Manual: sign-in flow works with Apple credentials.
+  - Manual: sign-in flow works with Google credentials.
+- **Dependencies**: SPRD-84
+
+### [SPRD-92] Feature: Sign up + forgot password flows
+- **Context**: Users need to create accounts and recover forgotten passwords.
+- **Description**: Add sign up and forgot password UI flows to the login sheet.
+- **Implementation Details**:
+  - Add "Create Account" link/button to login sheet
+  - Sign up sheet with email/password fields and confirmation
+  - Add "Forgot Password?" link to login sheet
+  - Forgot password flow: email input, send reset link via Supabase
+  - Success/error states for both flows
+  - Handle email verification flow if required
+- **Acceptance Criteria**:
+  - Users can create new accounts via sign up flow.
+  - Users can request password reset via forgot password flow.
+  - Appropriate success/error feedback shown.
+- **Tests**:
+  - Manual: sign up flow creates account and allows login.
+  - Manual: forgot password sends reset email.
+- **Dependencies**: SPRD-84
+
+### [SPRD-93] Feature: Login form validation
+- **Context**: Login forms need client-side validation for better UX.
+- **Description**: Add validation rules to login and sign up forms.
+- **Implementation Details**:
+  - Email validation: valid email format check
+  - Password validation: minimum length (e.g., 8 characters)
+  - Inline validation feedback (show errors as user types or on blur)
+  - Disable submit button until validation passes
+  - Clear, user-friendly error messages
+- **Acceptance Criteria**:
+  - Invalid email format shows error message.
+  - Password below minimum length shows error message.
+  - Submit button disabled until form is valid.
+- **Tests**:
+  - Unit tests for validation logic.
+  - Manual: validation feedback appears correctly.
+- **Dependencies**: SPRD-84
+
+### [SPRD-47] Feature: Test data builders
+- **Context**: Tests need consistent fixtures for entries and spreads.
+- **Description**: Create test data builders for entries/spreads/multiday ranges.
+- **Implementation Details**:
+  - `TestData` struct with static methods:
+    - `testYear`, `testMonth`, `testDay` - fixed test dates
+    - `spreads(calendar:today:)` - hierarchical spread set
+    - `tasks(calendar:today:)` - comprehensive task scenarios
+    - `events(calendar:today:)` - v2-only, gated behind events-enabled
+    - `notes(calendar:today:)` - notes with various states
+    - Specialized setups: `migrationChainSetup()`, `batchMigrationSetup()`, `spreadDeletionSetup()`
+- **Acceptance Criteria**:
+  - Builders cover edge cases (month/year boundaries, multiday overlaps). (Spec: Edge Cases)
+- **Tests**:
+  - Unit tests for builder outputs.
+- **Dependencies**: SPRD-46
+
+### [SPRD-48] Feature: Debug logging hooks (Debug only)
+- **Context**: Assignment/migration debugging needs visibility.
+- **Description**: Add debug logging for assignment, migration, and inbox resolution.
+- **Implementation Details**:
+  - Logging wrapper gated by `#if DEBUG`
+  - Log events: assignment created, migration performed, inbox resolved, spread deleted
+  - Include relevant context (entry ID, spread info, status changes)
+- **Acceptance Criteria**:
+  - Logging is gated to Debug builds. (Spec: Development tooling)
+- **Tests**:
+  - Unit test for debug flag gating.
+- **Dependencies**: SPRD-47
+
+### [SPRD-65] Feature: Leap day boundary test data
+- **Context**: Leap day (Feb 29) is a special case for date boundary testing.
+- **Description**: Add leap day scenarios to the boundary mock data set and test data builders.
+- **Implementation Details**:
+  - Extend `MockDataSet.boundary` to include Feb 29 dates for the next leap year (2028)
+  - Add spreads and entries for Feb 28 → Feb 29 → Mar 1 transitions
+  - Include test cases for:
+    - Day spread on Feb 29
+    - Month spread for February in a leap year
+    - Multiday range spanning Feb 28-Mar 1 in a leap year
+    - Tasks/notes assigned to Feb 29 (events in v2)
+- **Acceptance Criteria**:
+  - Boundary data set includes leap day scenarios when applicable. (Spec: Edge Cases)
+- **Tests**:
+  - Unit tests verifying leap day spreads are correctly generated.
+  - Unit tests for date normalization on Feb 29.
+- **Dependencies**: SPRD-46
+## Story: Task lifecycle UI: edit and migration surfaces
+
+### User Story
+- As a user, I want to edit task details and migrate tasks from the UI so I can keep my work accurate.
+
+### Definition of Done
+- Task edit view supports status updates and migration.
+- Migrated tasks section and migration banner are wired to JournalManager.
+
+### [SPRD-24] Feature: Entry detail/edit view (Task)
+- **Context**: Task editing must support status and migration.
+- **Description**: Implement detail view for editing task title, date/period, status, and migration.
+- **Implementation Details**:
+  - `TaskEditView`:
+    - Edit title, preferred date/period
+    - Status picker (open/complete/migrated/cancelled)
+    - Assignment history (conventional mode)
+    - Migrate action: button to migrate to current spread
+    - Delete action with confirmation alert
+  - Migration respects type rules (Task-only in this view)
+- **Acceptance Criteria**:
+  - Task status includes cancelled. (Spec: Task Status)
+  - Migration action respects type rules. (Spec: Entries)
+- **Tests**:
+  - Unit tests for save behavior by type.
+  - UI tests: edit task title/status, migrate action, and delete confirmation flow.
+- **Dependencies**: SPRD-22, SPRD-15, SPRD-16
+
+
+### [SPRD-29] Feature: Migrated tasks section
+- **Context**: Conventional mode shows migrated history.
+- **Description**: Add a collapsible migrated tasks section.
+- **Implementation Details**:
+  - `MigratedTasksSection`:
+    - Collapsible section at bottom of spread
+    - Shows tasks that were migrated FROM this spread
+    - Each row shows destination spread info
+    - Expandable with animation
+- **Acceptance Criteria**:
+  - Migrated tasks are visible with destination info. (Spec: Modes)
+- **Tests**:
+  - Unit tests for destination formatting.
+  - UI tests: migrated tasks section appears, collapses/expands, and shows destination labels.
+- **Dependencies**: SPRD-28, SPRD-15
+
+### [SPRD-30] Feature: Migration banner + selection
+- **Context**: Users can migrate eligible tasks in bulk.
+- **Description**: Implement migration banner and selection sheet for eligible tasks.
+- **Implementation Details**:
+  - `MigrationBannerView`:
+    - Shows when eligible tasks exist (tasks only, not notes)
+    - Count of migratable tasks
+    - "Review" button: opens selection sheet
+    - "Migrate All" button: batch migrate
+    - Dismiss button
+  - Selection sheet: checkbox list of eligible tasks
+  - Uses `JournalManager.eligibleTasksForMigration(to:)`
+- **Acceptance Criteria**:
+  - Banner only appears when eligible tasks exist. (Spec: Navigation and UI)
+  - Batch migration is manual. (Spec: Entries)
+  - Notes excluded from batch suggestions. (Spec: Entries)
+- **Tests**:
+  - Unit tests for eligibility detection and selection behavior.
+  - UI tests: banner appears only with eligible tasks, review sheet selection, and migrate-all action.
+- **Dependencies**: SPRD-29
+
+## Story: Scope trim for v1 (event deferment)
+
+### User Story
+- As a user, I want a focused v1 experience without event features so I can ship quickly and avoid half-built integrations.
+
+### Definition of Done
+- Event references are removed from v1 UI and copy. [SPRD-69]
+- Events never appear in Release builds (data is stubbed/hidden). [SPRD-70]
+- Event scaffolding remains in the codebase for v2 integration. [SPRD-70]
+
+### [SPRD-69] Feature: Hide event surfaces in v1 UI
+- **Context**: Event scaffolding exists, but v1 should not expose events.
+- **Description**: Remove event-specific UI and copy from v1 surfaces.
+- **Implementation Details**:
+  - Update spread header count summary to omit events.
+  - Update empty state copy to reference tasks/notes only.
+  - Gate entry list rendering to tasks/notes when events are disabled.
+  - Remove event wording from placeholders and navigation labels.
+- **Acceptance Criteria**:
+  - Release UI does not mention events. (Spec: Non-Goals)
+  - Entry lists show only tasks and notes in v1. (Spec: Entries)
+- **Tests**:
+  - UI tests for empty state copy and count summary.
+- **Dependencies**: SPRD-28, SPRD-62
+
+### [SPRD-70] Feature: Stub event data paths for v1
+- **Context**: Production data should not surface events before integrations are ready.
+- **Description**: Ensure event data is empty or ignored in v1 while keeping v2 scaffolding intact.
+- **Implementation Details**:
+  - Ensure production uses empty event repositories and v1 ignores event lists when building views.
+  - Gate debug/mock event seeds behind an "events enabled" switch (or remove from v1 datasets).
+  - Add a single gating mechanism to re-enable event plumbing in v2 (feature flag or build-time toggle).
+- **Acceptance Criteria**:
+  - Events never appear in Release builds. (Spec: Non-Goals)
+  - Event scaffolding remains compile-ready for v2. (Spec: Events v2)
+- **Tests**:
+  - Unit test verifying event lists are empty when events are disabled.
+- **Dependencies**: SPRD-9, SPRD-11
+
+## Story: Events integration (v2 - deferred)
+
+### User Story
+- As a user, I want calendar-backed events integrated into my journal so I can see scheduled items alongside tasks.
+
+### Definition of Done
+- Event sources (EventKit and/or Google) are connected and synchronized.
+- Event cache persists locally for offline display and is refreshed on app lifecycle events.
+- Events render on applicable spreads without migrate actions.
+
+### [SPRD-57] Feature: Event source + cache repository
+- **Context**: Events are sourced from external calendars and cached locally.
+- **Description**: Implement EventRepository backed by SwiftData to store cached external events and source metadata.
+- **Implementation Details**:
+  - `EventRepository` protocol:
+    ```swift
+    protocol EventRepository {
+        func getEvents() -> [DataModel.Event]
+        func getEvents(from startDate: Date, to endDate: Date) -> [DataModel.Event]
+        func save(_ event: DataModel.Event) throws
+        func delete(_ event: DataModel.Event) throws
+    }
+    ```
+  - `SwiftDataEventRepository`: ModelContext-based implementation
+  - Extend `DataModel.Event` with external identifiers (source/provider/calendar IDs) as needed for sync
+  - Date range query uses FetchDescriptor with predicate for efficient filtering
+  - Mock/test implementations for previews and tests
+- **Acceptance Criteria**:
+  - CRUD for events works via repository. (Spec: Persistence)
+  - Cached events persist with source identifiers. (Spec: Events v2)
+- **Tests**:
+  - Repository CRUD integration tests
+  - Date range query tests
+- **Dependencies**: SPRD-9, SPRD-3
+
+### [SPRD-59] Feature: Event sync + visibility logic
+- **Context**: Events appear on spreads based on date overlap, not assignments.
+- **Description**: Add event sync hooks and visibility queries to JournalManager.
+- **Implementation Details**:
+  - Sync entry point (manual + lifecycle triggers): pull from EventKit/Google into cache.
+  - `JournalManager.eventsForSpread(period:date:) -> [DataModel.Event]`:
+    - Query cached events from repository
+    - Filter using `event.appearsOn(period:date:calendar:)`
+  - `SpreadDataModel` includes `events: [DataModel.Event]?`
+  - Event visibility computed on data model build (not stored)
+- **Acceptance Criteria**:
+  - Events appear on all applicable spreads. (Spec: Events v2)
+  - Multiday events span multiple day spreads. (Spec: Events v2)
+- **Tests**:
+  - Unit tests for event visibility across year/month/day/multiday
+  - Unit tests for multiday event spanning multiple spreads
+- **Dependencies**: SPRD-57, SPRD-11
+
+
+### [SPRD-60] Feature: Event source setup + settings
+- **Context**: Users need to connect calendars and control what is shown.
+- **Description**: Build event source setup flows and settings for calendar selection.
+- **Implementation Details**:
+  - EventKit permission request + calendar selection UI.
+  - Google OAuth flow (if in scope) + calendar selection UI.
+  - Per-calendar visibility toggles and refresh controls.
+  - Surface authorization errors and limited-access states.
+- **Acceptance Criteria**:
+  - Users can connect calendar sources and control visibility. (Spec: Events v2)
+- **Tests**:
+  - Unit tests for calendar selection persistence
+  - UI tests: source connection, permission denied states, and visibility toggles.
+- **Dependencies**: SPRD-57, SPRD-11
+
+### [SPRD-33] Feature: Event visibility in spread UI (v2)
+- **Context**: Events must appear on all applicable spreads based on date overlap.
+- **Description**: Render events in spread views for year/month/day/multiday.
+- **Implementation Details**:
+  - Events rendered with empty circle symbol
+  - Events grouped with other entries or in separate section
+  - Event row shows: symbol, title, timing indicator (all-day, time range, date range)
+  - No swipe actions for migrate (events don't migrate)
+  - Swipe actions: edit, delete only
+  - Tapping opens `EventDetailView` (read-only unless write-back is in scope)
+  - Multiday events: show on each day spread they span
+- **Acceptance Criteria**:
+  - Events visible on all applicable spread views. (Spec: Events v2)
+  - Events not migratable from UI. (Spec: Events v2)
+- **Tests**:
+  - Unit tests for event inclusion across spread types
+  - UI tests: events render in spread list and do not expose migrate actions.
+- **Dependencies**: SPRD-59, SPRD-22
+
+## Story: Notes support
+
+### User Story
+- As a user, I want to capture notes with extended content and migrate them explicitly so I can preserve important information.
+
+### Definition of Done
+- Note repository and note creation/edit UI are implemented.
+- Notes migrate only explicitly and are excluded from batch migration.
+
+### [SPRD-58] Feature: Note repository
+- **Context**: Notes need separate CRUD operations.
+- **Description**: Implement NoteRepository protocol and SwiftData implementation.
+- **Implementation Details**:
+  - `NoteRepository` protocol:
+    ```swift
+    protocol NoteRepository {
+        func getNotes() -> [DataModel.Note]
+        func save(_ note: DataModel.Note) throws
+        func delete(_ note: DataModel.Note) throws
+    }
+    ```
+  - `SwiftDataNoteRepository`: ModelContext-based implementation
+  - Mock/test implementations for previews and tests
+- **Acceptance Criteria**:
+  - CRUD for notes works via repository. (Spec: Persistence)
+- **Tests**:
+  - Repository CRUD integration tests
+- **Dependencies**: SPRD-9, SPRD-3
+
+### [SPRD-61] Feature: Note creation and edit views
+- **Context**: Notes have content field and different migration semantics.
+- **Description**: Build note creation/edit UI with extended content support.
+- **Implementation Details**:
+  - `NoteCreationSheet`:
+    - Title (required)
+    - Content (multiline TextEditor, optional)
+    - Preferred date/period
+  - `NoteEditView`:
+    - Edit title, content, date, period
+    - Show assignment history (conventional mode only)
+    - Migrate action (explicit only - button, not swipe suggestion)
+    - Status: active/migrated (no complete/cancelled)
+  - Migration: available via explicit button, NOT in batch migration banner
+- **Acceptance Criteria**:
+  - Notes can have extended content. (Spec: Entries)
+  - Notes migrate only explicitly. (Spec: Entries)
+- **Tests**:
+  - Unit tests for note validation
+  - Unit tests confirming notes excluded from batch migration
+  - UI tests: note creation/edit with content, explicit migrate button only.
+- **Dependencies**: SPRD-58, SPRD-22, SPRD-15
+
+### [SPRD-34] Feature: Note migration UX
+- **Context**: Notes can migrate only explicitly.
+- **Description**: Ensure note rows expose migrate action only when explicitly invoked.
+- **Implementation Details**:
+  - Note rows have migrate swipe action BUT:
+    - NOT included in migration banner batch
+    - NOT suggested in "Review" sheet
+  - Migration only via:
+    - Explicit swipe action on note row
+    - "Migrate" button in NoteEditView
+  - JournalManager excludes notes from `eligibleTasksForMigration()`
+- **Acceptance Criteria**:
+  - Notes are not suggested in migration banners. (Spec: Entries)
+- **Tests**:
+  - Unit tests for note eligibility rules.
+  - UI tests: notes do not appear in migration banner but expose explicit migrate action.
+- **Dependencies**: SPRD-61, SPRD-30
+
+
+## Story: Multiday aggregation and UI
+
+### User Story
+- As a user, I want a multiday view that aggregates entries across a range so I can plan across several days.
+
+### Definition of Done
+- Multiday aggregation logic includes tasks and notes in range (events added in v2).
+- Multiday spread UI shows range and grouped entries.
+
+### [SPRD-18] Feature: Multiday aggregation
+- **Context**: Multiday spreads aggregate entries in range.
+- **Description**: Aggregate entries by date range for multiday spreads (no direct assignment).
+- **Implementation Details**:
+  - `JournalManager.entriesForMultidaySpread(_:) -> [any Entry]`:
+    - Query tasks/notes whose preferred date falls within multiday's startDate...endDate
+    - No assignment status for multiday - show aggregated view
+  - Multiday spread view uses aggregated data, not assignments
+- **Acceptance Criteria**:
+  - Multiday spreads show aggregated entries within range. (Spec: Spreads)
+- **Tests**:
+  - Unit tests for range aggregation across month/year boundaries.
+- **Dependencies**: SPRD-14, SPRD-8
+
+### [SPRD-32] Feature: Multiday spread UI
+- **Context**: Multiday spreads need a dedicated view.
+- **Description**: Render multiday spread with range header and aggregated entries.
+- **Implementation Details**:
+  - `MultidaySpreadView`:
+    - Header shows date range (e.g., "Jan 6 - Jan 12, 2026")
+    - Entries grouped by day within range
+    - Uses aggregation (not direct assignments)
+    - No migration banner (multiday doesn't own entries)
+- **Acceptance Criteria**:
+  - Multiday UI shows range and aggregated entries. (Spec: Spreads)
+- **Tests**:
+  - Unit tests for range label formatting.
+  - UI tests: multiday view shows range header, grouped entries, and no migration banner.
+- **Dependencies**: SPRD-18, SPRD-28
+
+## Story: Settings and preferences
+
+### User Story
+- As a user, I want to set my BuJo mode and first day of week so the app matches my workflow and calendar.
+
+### Definition of Done
+- Settings view exposes mode and first-day-of-week preferences.
+- Preferences persist and affect multiday presets and mode state.
+
+### [SPRD-20] Feature: Settings view (Mode + First Day of Week)
+- **Context**: Users need to configure BuJo mode and locale preferences.
+- **Description**: Build Settings screen with mode selection and week start preference.
+- **Implementation Details**:
+  - Settings accessible via gear icon in navigation header
+  - `SettingsView` sections:
+    1. **Task Management Style** (mode selection)
+       - Conventional: "Track tasks across spreads with migration history"
+       - Traditional: "View tasks on their preferred date only"
+       - Radio-button style selection using `ModeSelectionRow`
+    2. **Calendar Preferences**
+       - First day of week: "System Default", "Sunday", "Monday"
+       - "System Default" uses `Locale.current.calendar.firstWeekday`
+    3. **About** section (version, credits)
+  - Persist settings via `@AppStorage` or UserDefaults
+  - JournalManager observes mode changes and recomputes assignments
+  - firstWeekday affects multiday preset calculations
+- **Acceptance Criteria**:
+  - Mode toggle reflects and updates current mode. (Spec: Modes)
+  - First day of week preference persists and affects multiday presets. (Spec: Settings)
+- **Tests**:
+  - Unit tests for mode toggle state binding
+  - Unit tests for firstWeekday affecting multiday date calculations
+  - UI tests: changing mode and first-weekday persists and affects multiday preset ranges.
+- **Dependencies**: SPRD-19, SPRD-7
+
+
+## Story: Traditional mode navigation
+
+### User Story
+- As a user, I want a calendar-style year, month, and day flow so I can browse entries like a traditional journal.
+
+### Definition of Done
+- Traditional mapping uses virtual spreads without mutating created spreads.
+- Year/month/day navigation works with proper entry filtering.
+- Traditional mode tests pass.
+
+### [SPRD-17] Feature: Traditional mode mapping
+- **Context**: Traditional mode uses virtual spreads without mutating created spreads.
+- **Description**: Map preferred assignments to virtual spreads; migration updates preferred date/period.
+- **Implementation Details**:
+  - `TraditionalSpreadService`:
+    - All year/month/day spreads are "available" regardless of created spreads
+    - Entries appear only on their preferred period/date
+    - No migration history shown (single assignment view)
+  - Traditional navigation:
+    - Virtual spread data model generated on-the-fly from entries
+    - Does NOT create Spread records
+  - Traditional migration:
+    - Updates entry's preferred date/period
+    - If conventional spread exists for destination, create assignment
+    - If no conventional spread, assign to nearest parent or Inbox
+    - Never mutate created spreads data
+- **Acceptance Criteria**:
+  - Traditional mode ignores created-spread records for navigation. (Spec: Modes)
+  - Traditional migration falls back to nearest created parent or Inbox. (Spec: Modes)
+- **Tests**:
+  - Unit tests for virtual spread mapping and fallback logic.
+- **Dependencies**: SPRD-20, SPRD-16
+
+### [SPRD-35] Feature: Traditional year view
+- **Context**: Traditional mode starts at year view.
+- **Description**: Build a year view listing months with entry counts.
+- **Implementation Details**:
+  - `TraditionalYearView`:
+    - Grid of 12 months
+    - Each month shows entry count for that month
+    - Tapping month navigates to month view
+    - Uses virtual spread data (not created spreads)
+- **Acceptance Criteria**:
+  - Year view is accessible in traditional mode. (Spec: Navigation and UI)
+- **Tests**:
+  - Unit tests for year aggregation logic.
+  - UI tests: traditional year grid displays months and navigates to month view.
+- **Dependencies**: SPRD-17
+
+### [SPRD-36] Feature: Traditional month view
+- **Context**: Month view needs calendar-style layout.
+- **Description**: Build a calendar grid month view for traditional mode.
+- **Implementation Details**:
+  - `TraditionalMonthView`:
+    - Calendar grid layout (7 columns, 5-6 rows)
+    - Day cells show entry count dots
+    - Tapping day navigates to day view
+    - Respects firstWeekday setting for column order
+- **Acceptance Criteria**:
+  - Month view supports drill-in to day. (Spec: Navigation and UI)
+- **Tests**:
+  - Unit tests for day selection mapping.
+  - UI tests: traditional month grid taps a day and navigates to day view.
+- **Dependencies**: SPRD-35
+
+### [SPRD-37] Feature: Traditional day view
+- **Context**: Day view shows preferred assignments (events added in v2).
+- **Description**: Render entries for a single day in traditional mode.
+- **Implementation Details**:
+  - `TraditionalDayView`:
+    - Shows entries with preferred date matching this day
+    - No migration history visible
+    - Uses same `EntryRowView` components
+- **Acceptance Criteria**:
+  - Day view shows preferred assignments for the selected date. (Spec: Modes)
+- **Tests**:
+  - Unit tests for day view entry filtering.
+  - UI tests: traditional day view shows entries for the selected date.
+- **Dependencies**: SPRD-36
+
+### [SPRD-38] Feature: Traditional navigation flow
+- **Context**: Drill-in should mirror iOS Calendar.
+- **Description**: Wire year -> month -> day navigation with back stack.
+- **Implementation Details**:
+  - NavigationStack with path management
+  - Year view at root
+  - Push month view on month tap
+  - Push day view on day tap
+  - Back navigation via standard iOS patterns
+  - Optional: pinch-to-zoom between levels
+- **Acceptance Criteria**:
+  - Navigation mirrors iOS Calendar drill-in. (Spec: Navigation and UI)
+- **Tests**:
+  - Integration test for navigation state transitions.
+  - UI tests: traditional navigation drill-in and back stack behavior.
+- **Dependencies**: SPRD-37
+
+
+### [SPRD-53] Feature: Unit tests for traditional mode mapping
+- **Context**: Virtual spreads must be correct and stable.
+- **Description**: Add tests for traditional mapping and parent fallback.
+- **Acceptance Criteria**:
+  - Tests confirm no mutation of created spread data. (Spec: Modes)
+- **Tests**:
+  - Unit tests for fallback to parent or Inbox.
+- **Dependencies**: SPRD-38
+
+## Story: Collections and repository tests
+
+### User Story
+- As a user, I want to create and edit collections as standalone pages so I can keep long-form notes.
+
+### Definition of Done
+- Collections model, list, and editor are implemented.
+- Repository integration tests and collection tests pass.
+
+### [SPRD-39] Feature: Collection model + repository
+- **Context**: Collections are plain text pages.
+- **Description**: Implement Collection model and repository storage.
+- **Implementation Details**:
+  - `DataModel.Collection` @Model:
+    ```swift
+    @Model
+    final class Collection: Hashable {
+        @Attribute(.unique) var id: UUID
+        var title: String
+        var content: String
+        var createdDate: Date
+        var modifiedDate: Date
+    }
+    ```
+  - `CollectionRepository` protocol with CRUD
+  - SwiftData implementation
+- **Acceptance Criteria**:
+  - Collections persist title + plain text content. (Spec: Collections)
+- **Tests**:
+  - Unit tests for collection CRUD.
+- **Dependencies**: SPRD-38
+
+### [SPRD-40] Feature: Collections list UI
+- **Context**: Users need access to collections list.
+- **Description**: Build collections list with create/delete actions.
+- **Implementation Details**:
+  - `CollectionsListView`:
+    - Accessible from root navigation (button in header)
+    - List of collections with title preview
+    - "+" button to create new collection
+    - Swipe to delete with confirmation
+    - Tapping opens collection editor
+- **Acceptance Criteria**:
+  - Collections list is accessible from root navigation. (Spec: Navigation and UI)
+- **Tests**:
+  - Unit tests for list empty state and CRUD triggers.
+  - UI tests: collections list create/open/delete flows.
+- **Dependencies**: SPRD-39
+
+### [SPRD-41] Feature: Collection detail editor
+- **Context**: Collections are plain text only.
+- **Description**: Provide a plain text editor for a collection.
+- **Implementation Details**:
+  - `CollectionEditorView`:
+    - Editable title field
+    - TextEditor for content (plain text)
+    - Auto-save on changes (debounced)
+    - Updates modifiedDate on save
+- **Acceptance Criteria**:
+  - Edits persist to storage. (Spec: Collections)
+- **Tests**:
+  - Integration test for persistence of edits.
+  - UI tests: collection editor autosaves and persists after navigation.
+- **Dependencies**: SPRD-40
+
+
+### [SPRD-54] Feature: Integration tests for repositories
+- **Context**: Persistence should be validated end-to-end.
+- **Description**: Add integration tests for SwiftData repositories using test containers.
+- **Acceptance Criteria**:
+  - CRUD works for spreads/entries/collections. (Spec: Persistence)
+- **Tests**:
+  - Integration tests across all repositories.
+- **Dependencies**: SPRD-41, SPRD-57, SPRD-58
+
+### [SPRD-55] Feature: Integration tests for collections
+- **Context**: Collections are new model + UI flow.
+- **Description**: Add integration tests for collection CRUD and persistence.
+- **Acceptance Criteria**:
+  - Collection edits persist across reloads. (Spec: Collections)
+- **Tests**:
+  - Integration test with in-memory container.
+- **Dependencies**: SPRD-54
+
+## Story: Sync and persistence
+
+### User Story
+- As a user, I want my data to sync across devices and work offline so I can journal anywhere.
+
+### Definition of Done
+- Supabase offline-first sync is implemented and validated.
+- CloudKit is removed from v1 configuration and documentation.
+- Offline-first QA checklist exists.
+
+### [SPRD-42] Feature: Remove CloudKit configuration remnants
+- **Context**: CloudKit is removed from v1; SwiftData must remain local-only.
+- **Description**: Remove CloudKit TODOs and configuration references from the codebase.
+- **Implementation Details**:
+  - Remove CloudKit TODOs/comments in `ModelContainerFactory`.
+  - Verify SwiftData uses local storage only (no CloudKit configuration).
+  - Ensure build settings do not include CloudKit containers.
+- **Acceptance Criteria**:
+  - No CloudKit configuration is present in v1 code or build settings. (Spec: Persistence)
+- **Tests**:
+  - Manual: confirm no CloudKit entitlements or container references in the project.
+- **Dependencies**: SPRD-41
+
+### [SPRD-43] Feature: Remove CloudKit entitlements + document Supabase-only config
+- **Context**: CloudKit is out of scope for v1.
+- **Description**: Ensure CloudKit entitlements are removed and documentation reflects Supabase-only sync.
+- **Implementation Details**:
+  - Remove iCloud/CloudKit capabilities if present.
+  - Update docs to remove CloudKit references and clarify Supabase-only sync.
+- **Acceptance Criteria**:
+  - No CloudKit entitlements are present; docs reflect Supabase-only sync. (Spec: Persistence)
+- **Tests**:
+  - Manual: verify entitlements and docs.
+- **Dependencies**: SPRD-42
+
+### [SPRD-44] Feature: Offline-first manual QA checklist
+- **Context**: Offline-first sync must be validated.
+- **Description**: Add a manual QA checklist for offline usage and sync behavior.
+- **Implementation Details**:
+  - Create QA document covering:
+    - Offline create/edit/delete operations
+    - Sync when coming back online
+    - Conflict resolution behavior
+    - Multi-device sync scenarios
+- **Acceptance Criteria**:
+  - QA doc covers offline create/edit/delete and sync reconciliation. (Spec: Persistence)
+- **Tests**:
+  - Manual test plan included.
+- **Dependencies**: SPRD-43
+
+
+## Story: Scope guard tests
+
+### User Story
+- As a user, I want guardrails that prevent out-of-scope features so v1 stays focused.
+
+### Definition of Done
+- Scope guard tests enforce non-goals (no week period, no automated migration, no past entry creation, no events in v1 UI).
+
+### [SPRD-56] Feature: Scope guard tests
+- **Context**: Non-goals must not regress into v1.
+- **Description**: Add tests that enforce no week assignment, no automated migration, no past entry creation, and no event surfaces in v1.
+- **Acceptance Criteria**:
+  - Tests fail if week periods, automated migration, or event surfaces appear in v1. (Spec: Non-Goals)
+- **Tests**:
+  - Unit tests for no-past-date creation and no week period exposure.
+  - UI tests verifying event copy/actions are absent in v1.
+- **Dependencies**: SPRD-55
+
+
+## Dependency Graph (Simplified)
+
+```
+SPRD-1 -> SPRD-2 -> SPRD-3 -> SPRD-4 -> SPRD-5 -> SPRD-6 -> SPRD-7 -> SPRD-8
+SPRD-8 -> SPRD-49
+SPRD-8 -> SPRD-9 -> SPRD-10 -> SPRD-11 -> SPRD-12 -> SPRD-50
+SPRD-11 -> SPRD-13 -> SPRD-14 -> SPRD-51 -> SPRD-15 -> SPRD-16 -> SPRD-52
+SPRD-16 -> SPRD-19 -> SPRD-21 -> SPRD-22 -> SPRD-23
+SPRD-23 -> SPRD-71
+SPRD-22 -> SPRD-64
+SPRD-19 -> SPRD-25 -> SPRD-26 -> SPRD-27 -> SPRD-62 -> SPRD-28 -> SPRD-31
+SPRD-22 -> SPRD-24 -> SPRD-29 -> SPRD-30
+SPRD-28 -> SPRD-69
+SPRD-9 -> SPRD-70
+SPRD-11 -> SPRD-70
+V2: SPRD-9 -> SPRD-57 -> SPRD-59 -> SPRD-60 -> SPRD-33
+SPRD-9 -> SPRD-58 -> SPRD-61 -> SPRD-34
+SPRD-14 -> SPRD-18 -> SPRD-32
+SPRD-19 -> SPRD-20 -> SPRD-17 -> SPRD-35 -> SPRD-36 -> SPRD-37 -> SPRD-38 -> SPRD-53
+SPRD-38 -> SPRD-39 -> SPRD-40 -> SPRD-41 -> SPRD-54 -> SPRD-55 -> SPRD-56
+SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-63 -> SPRD-46 -> SPRD-47 -> SPRD-48
+SPRD-46 -> SPRD-65
+SPRD-62 -> SPRD-63
+Supabase: SPRD-80 -> SPRD-81 -> SPRD-82 -> SPRD-83 -> SPRD-84
+Supabase: SPRD-80 -> SPRD-94 -> SPRD-95 -> SPRD-97 -> SPRD-85 -> SPRD-99 -> SPRD-96 -> SPRD-86
+Supabase: SPRD-85 -> SPRD-98, SPRD-87, SPRD-88, SPRD-89, SPRD-90
+Supabase: SPRD-84 -> SPRD-91, SPRD-92, SPRD-93
+Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
+```
+
+## Completed Tasks
+
 ### [SPRD-1] Feature: New Xcode project bootstrap (iPadOS/iOS 26) - [x] Complete
 - **Context**: Work starts from a brand-new SwiftUI project with only boilerplate code.
 - **Description**: Create a new iPadOS/iOS 26 SwiftUI app, set up folder structure, minimal root view, and baseline build/test configuration.
@@ -170,16 +1389,6 @@
   - Unit tests for mock repo behavior (save/delete/idempotency).
 - **Dependencies**: SPRD-5
 
-## Story: Core time and data models
-
-### User Story
-- As a user, I want the app to understand days, months, years, and multiday ranges so my journal entries are organized correctly.
-
-### Definition of Done
-- Date utilities and period normalization support first-weekday settings.
-- Spread/Entry/Assignment models exist with multiday support.
-- Date and multiday preset tests pass.
-
 ### [SPRD-7] Feature: Date utilities + period normalization - [x] Complete
 - **Context**: Spread/date normalization must be consistent across modes and locales.
 - **Description**: Add date helpers for year/month/day normalization and locale-based first weekday logic.
@@ -200,8 +1409,6 @@
   - Unit tests for normalization across locales and boundary dates.
   - Tests for different firstWeekday values.
 - **Dependencies**: SPRD-6
-
-
 
 ### [SPRD-8] Feature: Spread model with multiday range - [x] Complete
 - **Context**: Multiday spreads require start/end ranges and preset options. Week period removed.
@@ -234,16 +1441,6 @@
   - Unit tests for multiday preset date calculation with different firstWeekday values
   - Unit tests confirming week period does not exist
 - **Dependencies**: SPRD-7
-
-### [SPRD-49] Feature: Unit tests for date + multiday presets
-- **Context**: Date logic is error-prone.
-- **Description**: Add unit tests for normalization, presets, and first weekday override.
-- **Acceptance Criteria**:
-  - Tests cover locale week start, overrides, and boundaries. (Spec: Edge Cases)
-- **Tests**:
-  - Unit tests across month/year boundaries.
-- **Dependencies**: SPRD-7, SPRD-8
-
 
 ### [SPRD-9] Feature: Entry protocol + Task/Note models (Event stub for v2) - [x] Complete
 - **Context**: Entries are the parent concept; Task/Note are v1 types, Event is reserved for v2 integration.
@@ -323,19 +1520,6 @@
   - Unit tests for assignment matching by period/date
   - Unit tests for assignment status updates
 - **Dependencies**: SPRD-9
-
-
-
-## Story: Journal core: creation, assignment, inbox, migration
-
-### User Story
-- As a user, I want to create spreads, assign entries, and migrate tasks so my journal stays current as plans change.
-
-### Definition of Done
-- JournalManager loads data and enforces spread creation rules.
-- Assignment engine and Inbox auto-resolve logic are implemented.
-- Migration logic and cancelled-task behavior are implemented.
-- Unit tests for creation, assignment, and migration pass.
 
 ### [SPRD-11] Feature: JournalManager base - [x] Complete
 - **Context**: Central coordinator is needed for spreads/entries lifecycle.
@@ -504,18 +1688,6 @@
 - **Dependencies**: SPRD-16
 - **Note**: Tests implemented as part of SPRD-15 in `MigrationTests.swift` and SPRD-16 in `CancelledTaskTests.swift`
 
-## Story: Conventional MVP UI: create spreads and tasks
-
-### User Story
-- As a user, I want to create spreads and tasks from a clear navigation shell so I can start journaling quickly.
-
-### Definition of Done
-- Adaptive root navigation renders spreads and content for iPad and iPhone.
-- User can create spreads and tasks; tasks render in spread lists.
-- Entry list grouping and Inbox sheet behavior work end-to-end.
-- Entry rows and symbols are used consistently in lists.
-- Spread content surfaces use dot grid background and minimal paper styling.
-
 ### [SPRD-19] Feature: Root navigation shell (adaptive layout) - [x] Complete
 - **Context**: Collections must be outside spread navigation; Inbox in header. App must adapt to iPad and iPhone.
 - **Description**: Build adaptive root navigation with entry points for Spreads, Collections, Settings, and Inbox.
@@ -626,53 +1798,6 @@
   - Unit tests for EntryRowConfiguration `isGreyedOut` and `hasStrikethrough` properties.
   - Unit tests for past event rules (timed, all-day, multi-day) in v2.
 - **Dependencies**: SPRD-22
-
-### [SPRD-23] Feature: Task creation sheet
-- **Context**: Task creation must enforce date/period rules.
-- **Description**: Build task creation UI with validation (no past dates).
-- **Implementation Details**:
-  - `TaskCreationSheet` presented as sheet (medium detent)
-  - Entry point: replace the create spread "+" with a menu that offers "Create Spread" or "Create Task"
-  - Defaults:
-    - If a spread is selected, default to that spread's period/date
-    - If no spread is selected, default to the same "initial selection" logic as the spreads view
-  - Card 1: Core task creation UI
-    - Title (required, auto-focus)
-    - Period picker (year/month/day only)
-    - Date selection varies by period:
-      - Year: list of years
-      - Month: two-step picker (year, then month)
-      - Day: standard date picker
-    - Date range uses same min/max as spread creation
-    - Validation behavior:
-      - Create button is hidden until title is edited once
-      - After first edit, Create is visible even if invalid; tapping shows inline errors
-      - Inline errors clear on next change
-      - Title required (whitespace-only invalid, no trimming)
-      - Date must be >= today using period-normalized comparison
-    - On save: create Task via JournalManager; assignment logic follows existing best-match rules
-- **Acceptance Criteria**:
-  - "+" create action offers "Create Spread" and "Create Task". (Spec: Entries)
-  - Task sheet defaults to selected spread; otherwise uses initial spread selection logic. (Spec: Navigation and UI)
-  - Period picker allows year/month/day only, with period-appropriate date controls. (Spec: Entries)
-  - Date range limits match spread creation. (Spec: Spreads)
-  - Create button is hidden until title is edited once; after first edit it stays visible. (Spec: Entries)
-  - Inline validation:
-    - Title required; whitespace-only invalid (no trimming). (Spec: Entries)
-    - Date is blocked when period-normalized date is before today. (Spec: Entries)
-    - Validation errors clear on next change. (Spec: Entries)
-  - Saving creates a task with normalized date for the selected period and runs normal assignment logic. (Spec: Entries)
-- **Tests**:
-  - Unit tests:
-    - Default selections with/without a selected spread.
-    - Period-normalized date validation (year/month/day).
-    - Title validation (empty vs whitespace-only).
-  - UI tests:
-    - Create Task flow opens from "+" menu.
-    - Create button visibility follows first-edit rule and inline errors appear on invalid submit.
-    - Past-dated selections are blocked for each period.
-    - Task created with selected period/date and assigns to matching spread when available.
-- **Dependencies**: SPRD-22, SPRD-13
 
 ### [SPRD-71] Feature: Task creation sheet - existing spread picker - [x] Complete
 - **Context**: Users need a fast way to assign tasks to already created spreads.
@@ -858,17 +1983,6 @@
 - **Dependencies**: SPRD-14, SPRD-22, SPRD-19
 - **Note**: Incorporates SPRD-68 (button placement + tint)
 
-## Story: Debug and dev tools
-
-### User Story
-- As a user, I want debug tools and quick actions so I can inspect data and iterate faster.
-
-### Definition of Done
-- Debug menu and quick actions are available in Debug builds only.
-- Test data builders and debug logging hooks are implemented.
-- Debug menu includes appearance overrides for paper tone, dot grid, heading font, and accent color.
-- Debug menu is a top-level navigation destination: tab bar item on iPhone and sidebar item on iPad (SF Symbol `ant`), with the overlay removed.
-
 ### [SPRD-45] Feature: Debug menu (Debug builds only) - [x] Complete
 - **Context**: Debug tooling is required for faster iteration.
 - **Description**: Add debug menu to inspect environment, spreads, entries, inbox, and collections.
@@ -890,26 +2004,6 @@
 - **Tests**:
   - Unit test ensures debug menu is excluded in Release builds.
 - **Dependencies**: SPRD-11
-
-### [SPRD-63] Feature: Debug appearance overrides
-- **Context**: Visual tuning needs fast iteration without rebuilding UI constants.
-- **Description**: Add Debug-only controls to adjust paper tone, dot grid, typography, and accent color.
-- **Implementation Details**:
-  - Add an "Appearance" section to `DebugMenuView` (DEBUG only).
-  - Controls:
-    - Paper tone presets (warm off-white default, clean white, cool gray).
-    - Dot grid toggle plus sliders for dot size, spacing, and opacity.
-    - Heading font picker (default sans and a few alternatives for comparison).
-    - Accent color picker with a muted blue default and a reset button.
-  - Store overrides in `@AppStorage` or a `DebugAppearanceSettings` observable to update SwiftUI live.
-  - Provide "Reset to defaults" action to revert to spec defaults.
-- **Acceptance Criteria**:
-  - Changing Debug appearance values updates spread content surfaces immediately. (Spec: Visual Design)
-  - Overrides are DEBUG-only and do not ship in Release builds. (Spec: Development Tooling)
-- **Tests**:
-  - Unit test ensures appearance controls are excluded in Release builds.
-  - UI tests: changing appearance controls updates spread surface (dot grid toggle, accent color, paper tone).
-- **Dependencies**: SPRD-45, SPRD-62
 
 ### [SPRD-46] Feature: Debug quick actions - [x] Complete
 - **Context**: Developers need to create test data quickly.
@@ -945,18 +2039,6 @@
 - **Tests**:
   - Manual QA: load each mock data set, verify spreads render immediately, then add a spread and task to confirm no crash.
 - **Dependencies**: SPRD-46, SPRD-11
-
-## Story: Supabase offline-first sync + auth migration (priority)
-
-### User Story
-- As a user, I want my data to work offline first and sync across devices and platforms when signed in.
-
-### Definition of Done
-- Supabase dev/prod environments are configured with migrations, RLS, and merge RPCs.
-- App uses SwiftData locally with an outbox-based sync engine (push + incremental pull).
-- Auth supports email/password + Apple + Google; local-only usage is supported.
-- Debug builds can switch Supabase environments at runtime (prod guarded).
-- Sync status and error feedback are visible; CloudKit is no longer required.
 
 ### [SPRD-80] Feature: Supabase environments + MCP workflow - [x] Complete
 - **Context**: CloudKit is replaced with Supabase; we need dev/prod environments and a repeatable workflow.
@@ -1057,842 +2139,58 @@
 - **Dependencies**: SPRD-80, SPRD-83
 - **Note**: Sign up, forgot password (SPRD-92), form validation (SPRD-93), and Apple/Google sign-in (SPRD-91) are separate tasks.
 
-### [SPRD-85] Feature: Offline-first sync engine (outbox + pull)
-- **Context**: Sync must work without reliable connectivity.
-- **Description**: Implement outbox-based push + incremental pull with status UI.
+### [SPRD-85A] Feature: Debug sync + network mocking controls - [x] Complete
+- **Context**: SPRD-85 requires testing offline, auth failures, and sync UI states without relying on real network behavior.
+- **Description**: Add Debug-only runtime overrides for network, auth, and sync engine behavior plus scenario presets.
 - **Implementation Details**:
-  - Add `SyncMutation` SwiftData model for outbox entries (full record + `changed_fields`).
-  - Enqueue outbox mutations on repository writes (tasks/notes/spreads/assignments/collections/settings).
-  - Push: batch RPC merge calls (parent-first ordering).
-  - Pull: incremental per-table sync using `revision`, with pagination and `last_sync` cursor stored locally.
-  - Gate sync with `NWPathMonitor`; auto sync on launch/foreground + manual refresh.
-  - Add exponential backoff on failure; store a capped local SyncLog.
-  - Show toolbar sync status (last sync time + non-blocking error).
+  - Add `DebugSyncOverrides` (DEBUG-only) to hold overrides:
+    - `blockAllNetwork: Bool` (forces NWPathMonitor offline and fails all requests).
+    - `disableSync: Bool` (prevents auto/manual sync triggers).
+    - `forcedAuthError: AuthErrorType?` (invalid credentials, email not confirmed, user not found, rate limited, network timeout).
+    - `forcedSyncFailure: Bool` (whole-sync failure injection).
+    - `forceSyncingDuration: TimeInterval` (default 5s) with engine paused while UI shows syncing.
+    - `outboxSeedCount: Int` (creates real `SyncMutation` rows).
+  - Add "Sync & Network" section in Debug destination:
+    - Manual toggles/sliders for each override.
+    - Scenario presets (one-tap combinations) + "Reset overrides".
+    - Live sync readout: network status, last sync time, outbox count, current sync error.
+  - Network blocking:
+    - Route app network requests through a debug-interceptable client (e.g., custom `URLSession` + `URLProtocol`) so block-all works for Supabase and any other requests.
+    - When `blockAllNetwork` is on, force connectivity status to offline and return a deterministic offline error for requests.
+  - Auth mocking:
+    - Auth service consults `forcedAuthError` before making network calls and returns a matching error.
+  - Sync engine:
+    - All sync triggers (auto + manual) consult overrides.
+    - `disableSync` bypasses scheduling and manual sync.
+    - `forceSyncingDuration` pins UI state to syncing for 5s while engine is paused, then resumes.
+    - `forcedSyncFailure` returns a single whole-sync error (no partial-table failures for now).
+  - Outbox seeding:
+    - "Seed outbox" action creates real `SyncMutation` rows using existing schema, then refreshes status.
+  - Overrides do not need to persist across relaunch.
+  - **Architecture note (debug-only policies/extensions)**:
+    - Implement debug policies in `Spread/Debug` to avoid `#if DEBUG` in core services.
+    - Pseudocode:
+      ```swift
+      #if DEBUG
+      struct DebugSyncPolicy: SyncPolicy {
+        @MainActor let overrides = DebugSyncOverrides.shared
+        func shouldAllowSync() -> Bool { !overrides.disableSync }
+        func forceSyncFailure() -> Bool { overrides.forcedSyncFailure }
+        func forceSyncingDuration() -> TimeInterval? { overrides.forceSyncingDuration }
+      }
+      #endif
+      ```
 - **Acceptance Criteria**:
-  - Offline edits sync when connectivity returns.
-  - Sync is idempotent and resilient to retries.
-  - UI shows last sync and errors.
+  - Debug builds can block all network traffic and observe offline UI consistently.
+  - Auth error selection produces the chosen login failure without real network.
+  - Sync can be disabled, forced to show syncing for 5s, or forced to fail as a whole.
+  - Outbox seeding creates real rows and reflects in sync status UI.
+  - Scenario presets apply multiple overrides at once and can be reset.
 - **Tests**:
-  - Unit tests for outbox enqueue and sync ordering.
-  - Integration tests for push/pull with dev Supabase project.
-- **Dependencies**: SPRD-83, SPRD-84
-
-### [SPRD-86] Feature: Debug environment switcher
-- **Context**: Debug builds must switch between dev/prod safely.
-- **Description**: Add environment switcher to Debug destination with guardrails.
-- **Implementation Details**:
-  - Add Supabase Environment section in Debug destination.
-  - Require type-to-confirm for prod; show persistent PROD badge.
-  - On switch: sign out, wipe local store, rebuild ModelContainer, reset sync state.
-- **Acceptance Criteria**:
-  - Debug builds can switch environments at runtime.
-  - Prod access requires explicit confirmation.
-- **Tests**:
-  - Manual: switch environments and verify local wipe + re-auth.
-- **Dependencies**: SPRD-84, SPRD-85
-
-### [SPRD-87] Feature: SwiftData model sync metadata
-- **Context**: Local models must carry sync metadata for field-level LWW.
-- **Description**: Extend SwiftData models with sync fields and update schema.
-- **Implementation Details**:
-  - Add per-field `*_updated_at`, `deleted_at`, `revision`, and `device_id` fields.
-  - Add settings model fields needed for sync.
-  - Update schema version + migration plan.
-  - Ensure repositories populate metadata on local edits.
-- **Acceptance Criteria**:
-  - Local models serialize to/from Supabase records without loss.
-  - Schema migration is tested.
-- **Tests**:
-  - Unit tests for model encoding/decoding and migration.
-- **Dependencies**: SPRD-85
-
-### [SPRD-88] Feature: Settings sync (Supabase)
-- **Context**: Settings should be consistent across devices.
-- **Description**: Sync settings via Supabase and merge locally.
-- **Implementation Details**:
-  - Store a single `settings` row per user in Supabase.
-  - Sync settings through outbox + pull; resolve with field-level LWW.
-  - Fall back to local values when offline or signed out.
-- **Acceptance Criteria**:
-  - Settings sync across devices after sign-in.
-- **Tests**:
-  - Unit tests for settings merge and conflict resolution.
-- **Dependencies**: SPRD-85, SPRD-87
-
-### [SPRD-89] Feature: Tombstone cleanup job
-- **Context**: Soft deletes need periodic cleanup.
-- **Description**: Add a scheduled cleanup job to remove rows deleted > 90 days.
-- **Implementation Details**:
-  - Implement scheduled cleanup (Supabase scheduled SQL or Edge Function).
-  - Ensure cleanup uses service role and respects RLS.
-- **Acceptance Criteria**:
-  - Soft-deleted rows older than 90 days are removed.
-- **Tests**:
-  - Manual: create old tombstones and verify cleanup job behavior.
-- **Dependencies**: SPRD-82
-
-### [SPRD-90] Feature: Sync QA + test plan
-- **Context**: Offline-first sync needs dedicated test coverage.
-- **Description**: Add integration tests and a QA checklist for sync scenarios.
-- **Implementation Details**:
-  - Add tests for offline edits, conflict resolution, and delete-wins.
-  - Add QA checklist for environment switching and sign-in merge.
-  - Document manual sync verification steps.
-- **Acceptance Criteria**:
-  - QA checklist exists and covers core sync scenarios.
-- **Tests**:
-  - Integration test coverage for push/pull and merge conflicts.
-- **Dependencies**: SPRD-85
-
-### [SPRD-91] Feature: Apple + Google auth providers
-- **Context**: Social sign-in improves user onboarding and provides secure authentication.
-- **Description**: Configure Sign in with Apple and Google OAuth providers in Supabase, and add UI buttons.
-- **Implementation Details**:
-  - **Sign in with Apple**:
-    - Configure Apple Developer account with Services ID for Supabase
-    - Add Team ID, Key ID, and private key to Supabase Auth settings
-    - Enable Apple provider in both dev and prod Supabase projects
-  - **Google Sign-in**:
-    - Create Google Cloud project with OAuth 2.0 credentials
-    - Configure OAuth consent screen and authorized redirect URIs
-    - Add Client ID and Client Secret to Supabase Auth settings
-    - Enable Google provider in both dev and prod Supabase projects
-  - **UI Updates**:
-    - Add "Sign in with Apple" button to login sheet
-    - Add "Sign in with Google" button to login sheet
-    - Handle OAuth callbacks and session creation
-  - Update `docs/supabase-setup.md` with provider configuration steps
-- **Acceptance Criteria**:
-  - Sign in with Apple works in both dev and prod environments.
-  - Google Sign-in works in both dev and prod environments.
-  - Login sheet shows Apple and Google sign-in buttons.
-  - Documentation includes setup steps for both providers.
-- **Tests**:
-  - Manual: sign-in flow works with Apple credentials.
-  - Manual: sign-in flow works with Google credentials.
-- **Dependencies**: SPRD-84
-
-### [SPRD-92] Feature: Sign up + forgot password flows
-- **Context**: Users need to create accounts and recover forgotten passwords.
-- **Description**: Add sign up and forgot password UI flows to the login sheet.
-- **Implementation Details**:
-  - Add "Create Account" link/button to login sheet
-  - Sign up sheet with email/password fields and confirmation
-  - Add "Forgot Password?" link to login sheet
-  - Forgot password flow: email input, send reset link via Supabase
-  - Success/error states for both flows
-  - Handle email verification flow if required
-- **Acceptance Criteria**:
-  - Users can create new accounts via sign up flow.
-  - Users can request password reset via forgot password flow.
-  - Appropriate success/error feedback shown.
-- **Tests**:
-  - Manual: sign up flow creates account and allows login.
-  - Manual: forgot password sends reset email.
-- **Dependencies**: SPRD-84
-
-### [SPRD-93] Feature: Login form validation
-- **Context**: Login forms need client-side validation for better UX.
-- **Description**: Add validation rules to login and sign up forms.
-- **Implementation Details**:
-  - Email validation: valid email format check
-  - Password validation: minimum length (e.g., 8 characters)
-  - Inline validation feedback (show errors as user types or on blur)
-  - Disable submit button until validation passes
-  - Clear, user-friendly error messages
-- **Acceptance Criteria**:
-  - Invalid email format shows error message.
-  - Password below minimum length shows error message.
-  - Submit button disabled until form is valid.
-- **Tests**:
-  - Unit tests for validation logic.
-  - Manual: validation feedback appears correctly.
-- **Dependencies**: SPRD-84
-
-### [SPRD-47] Feature: Test data builders
-- **Context**: Tests need consistent fixtures for entries and spreads.
-- **Description**: Create test data builders for entries/spreads/multiday ranges.
-- **Implementation Details**:
-  - `TestData` struct with static methods:
-    - `testYear`, `testMonth`, `testDay` - fixed test dates
-    - `spreads(calendar:today:)` - hierarchical spread set
-    - `tasks(calendar:today:)` - comprehensive task scenarios
-    - `events(calendar:today:)` - v2-only, gated behind events-enabled
-    - `notes(calendar:today:)` - notes with various states
-    - Specialized setups: `migrationChainSetup()`, `batchMigrationSetup()`, `spreadDeletionSetup()`
-- **Acceptance Criteria**:
-  - Builders cover edge cases (month/year boundaries, multiday overlaps). (Spec: Edge Cases)
-- **Tests**:
-  - Unit tests for builder outputs.
-- **Dependencies**: SPRD-46
-
-### [SPRD-48] Feature: Debug logging hooks (Debug only)
-- **Context**: Assignment/migration debugging needs visibility.
-- **Description**: Add debug logging for assignment, migration, and inbox resolution.
-- **Implementation Details**:
-  - Logging wrapper gated by `#if DEBUG`
-  - Log events: assignment created, migration performed, inbox resolved, spread deleted
-  - Include relevant context (entry ID, spread info, status changes)
-- **Acceptance Criteria**:
-  - Logging is gated to Debug builds. (Spec: Development tooling)
-- **Tests**:
-  - Unit test for debug flag gating.
-- **Dependencies**: SPRD-47
-
-### [SPRD-65] Feature: Leap day boundary test data
-- **Context**: Leap day (Feb 29) is a special case for date boundary testing.
-- **Description**: Add leap day scenarios to the boundary mock data set and test data builders.
-- **Implementation Details**:
-  - Extend `MockDataSet.boundary` to include Feb 29 dates for the next leap year (2028)
-  - Add spreads and entries for Feb 28 → Feb 29 → Mar 1 transitions
-  - Include test cases for:
-    - Day spread on Feb 29
-    - Month spread for February in a leap year
-    - Multiday range spanning Feb 28-Mar 1 in a leap year
-    - Tasks/notes assigned to Feb 29 (events in v2)
-- **Acceptance Criteria**:
-  - Boundary data set includes leap day scenarios when applicable. (Spec: Edge Cases)
-- **Tests**:
-  - Unit tests verifying leap day spreads are correctly generated.
-  - Unit tests for date normalization on Feb 29.
-- **Dependencies**: SPRD-46
-
-## Story: Task lifecycle UI: edit and migration surfaces
-
-### User Story
-- As a user, I want to edit task details and migrate tasks from the UI so I can keep my work accurate.
-
-### Definition of Done
-- Task edit view supports status updates and migration.
-- Migrated tasks section and migration banner are wired to JournalManager.
-
-### [SPRD-24] Feature: Entry detail/edit view (Task)
-- **Context**: Task editing must support status and migration.
-- **Description**: Implement detail view for editing task title, date/period, status, and migration.
-- **Implementation Details**:
-  - `TaskEditView`:
-    - Edit title, preferred date/period
-    - Status picker (open/complete/migrated/cancelled)
-    - Assignment history (conventional mode)
-    - Migrate action: button to migrate to current spread
-    - Delete action with confirmation alert
-  - Migration respects type rules (Task-only in this view)
-- **Acceptance Criteria**:
-  - Task status includes cancelled. (Spec: Task Status)
-  - Migration action respects type rules. (Spec: Entries)
-- **Tests**:
-  - Unit tests for save behavior by type.
-  - UI tests: edit task title/status, migrate action, and delete confirmation flow.
-- **Dependencies**: SPRD-22, SPRD-15, SPRD-16
-
-
-
-### [SPRD-29] Feature: Migrated tasks section
-- **Context**: Conventional mode shows migrated history.
-- **Description**: Add a collapsible migrated tasks section.
-- **Implementation Details**:
-  - `MigratedTasksSection`:
-    - Collapsible section at bottom of spread
-    - Shows tasks that were migrated FROM this spread
-    - Each row shows destination spread info
-    - Expandable with animation
-- **Acceptance Criteria**:
-  - Migrated tasks are visible with destination info. (Spec: Modes)
-- **Tests**:
-  - Unit tests for destination formatting.
-  - UI tests: migrated tasks section appears, collapses/expands, and shows destination labels.
-- **Dependencies**: SPRD-28, SPRD-15
-
-### [SPRD-30] Feature: Migration banner + selection
-- **Context**: Users can migrate eligible tasks in bulk.
-- **Description**: Implement migration banner and selection sheet for eligible tasks.
-- **Implementation Details**:
-  - `MigrationBannerView`:
-    - Shows when eligible tasks exist (tasks only, not notes)
-    - Count of migratable tasks
-    - "Review" button: opens selection sheet
-    - "Migrate All" button: batch migrate
-    - Dismiss button
-  - Selection sheet: checkbox list of eligible tasks
-  - Uses `JournalManager.eligibleTasksForMigration(to:)`
-- **Acceptance Criteria**:
-  - Banner only appears when eligible tasks exist. (Spec: Navigation and UI)
-  - Batch migration is manual. (Spec: Entries)
-  - Notes excluded from batch suggestions. (Spec: Entries)
-- **Tests**:
-  - Unit tests for eligibility detection and selection behavior.
-  - UI tests: banner appears only with eligible tasks, review sheet selection, and migrate-all action.
-- **Dependencies**: SPRD-29
-
-## Story: Scope trim for v1 (event deferment)
-
-### User Story
-- As a user, I want a focused v1 experience without event features so I can ship quickly and avoid half-built integrations.
-
-### Definition of Done
-- Event references are removed from v1 UI and copy. [SPRD-69]
-- Events never appear in Release builds (data is stubbed/hidden). [SPRD-70]
-- Event scaffolding remains in the codebase for v2 integration. [SPRD-70]
-
-### [SPRD-69] Feature: Hide event surfaces in v1 UI
-- **Context**: Event scaffolding exists, but v1 should not expose events.
-- **Description**: Remove event-specific UI and copy from v1 surfaces.
-- **Implementation Details**:
-  - Update spread header count summary to omit events.
-  - Update empty state copy to reference tasks/notes only.
-  - Gate entry list rendering to tasks/notes when events are disabled.
-  - Remove event wording from placeholders and navigation labels.
-- **Acceptance Criteria**:
-  - Release UI does not mention events. (Spec: Non-Goals)
-  - Entry lists show only tasks and notes in v1. (Spec: Entries)
-- **Tests**:
-  - UI tests for empty state copy and count summary.
-- **Dependencies**: SPRD-28, SPRD-62
-
-### [SPRD-70] Feature: Stub event data paths for v1
-- **Context**: Production data should not surface events before integrations are ready.
-- **Description**: Ensure event data is empty or ignored in v1 while keeping v2 scaffolding intact.
-- **Implementation Details**:
-  - Ensure production uses empty event repositories and v1 ignores event lists when building views.
-  - Gate debug/mock event seeds behind an "events enabled" switch (or remove from v1 datasets).
-  - Add a single gating mechanism to re-enable event plumbing in v2 (feature flag or build-time toggle).
-- **Acceptance Criteria**:
-  - Events never appear in Release builds. (Spec: Non-Goals)
-  - Event scaffolding remains compile-ready for v2. (Spec: Events v2)
-- **Tests**:
-  - Unit test verifying event lists are empty when events are disabled.
-- **Dependencies**: SPRD-9, SPRD-11
-
-## Story: Events integration (v2 - deferred)
-
-### User Story
-- As a user, I want calendar-backed events integrated into my journal so I can see scheduled items alongside tasks.
-
-### Definition of Done
-- Event sources (EventKit and/or Google) are connected and synchronized.
-- Event cache persists locally for offline display and is refreshed on app lifecycle events.
-- Events render on applicable spreads without migrate actions.
-
-### [SPRD-57] Feature: Event source + cache repository
-- **Context**: Events are sourced from external calendars and cached locally.
-- **Description**: Implement EventRepository backed by SwiftData to store cached external events and source metadata.
-- **Implementation Details**:
-  - `EventRepository` protocol:
-    ```swift
-    protocol EventRepository {
-        func getEvents() -> [DataModel.Event]
-        func getEvents(from startDate: Date, to endDate: Date) -> [DataModel.Event]
-        func save(_ event: DataModel.Event) throws
-        func delete(_ event: DataModel.Event) throws
-    }
-    ```
-  - `SwiftDataEventRepository`: ModelContext-based implementation
-  - Extend `DataModel.Event` with external identifiers (source/provider/calendar IDs) as needed for sync
-  - Date range query uses FetchDescriptor with predicate for efficient filtering
-  - Mock/test implementations for previews and tests
-- **Acceptance Criteria**:
-  - CRUD for events works via repository. (Spec: Persistence)
-  - Cached events persist with source identifiers. (Spec: Events v2)
-- **Tests**:
-  - Repository CRUD integration tests
-  - Date range query tests
-- **Dependencies**: SPRD-9, SPRD-3
-
-### [SPRD-59] Feature: Event sync + visibility logic
-- **Context**: Events appear on spreads based on date overlap, not assignments.
-- **Description**: Add event sync hooks and visibility queries to JournalManager.
-- **Implementation Details**:
-  - Sync entry point (manual + lifecycle triggers): pull from EventKit/Google into cache.
-  - `JournalManager.eventsForSpread(period:date:) -> [DataModel.Event]`:
-    - Query cached events from repository
-    - Filter using `event.appearsOn(period:date:calendar:)`
-  - `SpreadDataModel` includes `events: [DataModel.Event]?`
-  - Event visibility computed on data model build (not stored)
-- **Acceptance Criteria**:
-  - Events appear on all applicable spreads. (Spec: Events v2)
-  - Multiday events span multiple day spreads. (Spec: Events v2)
-- **Tests**:
-  - Unit tests for event visibility across year/month/day/multiday
-  - Unit tests for multiday event spanning multiple spreads
-- **Dependencies**: SPRD-57, SPRD-11
-
-
-
-### [SPRD-60] Feature: Event source setup + settings
-- **Context**: Users need to connect calendars and control what is shown.
-- **Description**: Build event source setup flows and settings for calendar selection.
-- **Implementation Details**:
-  - EventKit permission request + calendar selection UI.
-  - Google OAuth flow (if in scope) + calendar selection UI.
-  - Per-calendar visibility toggles and refresh controls.
-  - Surface authorization errors and limited-access states.
-- **Acceptance Criteria**:
-  - Users can connect calendar sources and control visibility. (Spec: Events v2)
-- **Tests**:
-  - Unit tests for calendar selection persistence
-  - UI tests: source connection, permission denied states, and visibility toggles.
-- **Dependencies**: SPRD-57, SPRD-11
-
-### [SPRD-33] Feature: Event visibility in spread UI (v2)
-- **Context**: Events must appear on all applicable spreads based on date overlap.
-- **Description**: Render events in spread views for year/month/day/multiday.
-- **Implementation Details**:
-  - Events rendered with empty circle symbol
-  - Events grouped with other entries or in separate section
-  - Event row shows: symbol, title, timing indicator (all-day, time range, date range)
-  - No swipe actions for migrate (events don't migrate)
-  - Swipe actions: edit, delete only
-  - Tapping opens `EventDetailView` (read-only unless write-back is in scope)
-  - Multiday events: show on each day spread they span
-- **Acceptance Criteria**:
-  - Events visible on all applicable spread views. (Spec: Events v2)
-  - Events not migratable from UI. (Spec: Events v2)
-- **Tests**:
-  - Unit tests for event inclusion across spread types
-  - UI tests: events render in spread list and do not expose migrate actions.
-- **Dependencies**: SPRD-59, SPRD-22
-
-## Story: Notes support
-
-### User Story
-- As a user, I want to capture notes with extended content and migrate them explicitly so I can preserve important information.
-
-### Definition of Done
-- Note repository and note creation/edit UI are implemented.
-- Notes migrate only explicitly and are excluded from batch migration.
-
-### [SPRD-58] Feature: Note repository
-- **Context**: Notes need separate CRUD operations.
-- **Description**: Implement NoteRepository protocol and SwiftData implementation.
-- **Implementation Details**:
-  - `NoteRepository` protocol:
-    ```swift
-    protocol NoteRepository {
-        func getNotes() -> [DataModel.Note]
-        func save(_ note: DataModel.Note) throws
-        func delete(_ note: DataModel.Note) throws
-    }
-    ```
-  - `SwiftDataNoteRepository`: ModelContext-based implementation
-  - Mock/test implementations for previews and tests
-- **Acceptance Criteria**:
-  - CRUD for notes works via repository. (Spec: Persistence)
-- **Tests**:
-  - Repository CRUD integration tests
-- **Dependencies**: SPRD-9, SPRD-3
-
-### [SPRD-61] Feature: Note creation and edit views
-- **Context**: Notes have content field and different migration semantics.
-- **Description**: Build note creation/edit UI with extended content support.
-- **Implementation Details**:
-  - `NoteCreationSheet`:
-    - Title (required)
-    - Content (multiline TextEditor, optional)
-    - Preferred date/period
-  - `NoteEditView`:
-    - Edit title, content, date, period
-    - Show assignment history (conventional mode only)
-    - Migrate action (explicit only - button, not swipe suggestion)
-    - Status: active/migrated (no complete/cancelled)
-  - Migration: available via explicit button, NOT in batch migration banner
-- **Acceptance Criteria**:
-  - Notes can have extended content. (Spec: Entries)
-  - Notes migrate only explicitly. (Spec: Entries)
-- **Tests**:
-  - Unit tests for note validation
-  - Unit tests confirming notes excluded from batch migration
-  - UI tests: note creation/edit with content, explicit migrate button only.
-- **Dependencies**: SPRD-58, SPRD-22, SPRD-15
-
-### [SPRD-34] Feature: Note migration UX
-- **Context**: Notes can migrate only explicitly.
-- **Description**: Ensure note rows expose migrate action only when explicitly invoked.
-- **Implementation Details**:
-  - Note rows have migrate swipe action BUT:
-    - NOT included in migration banner batch
-    - NOT suggested in "Review" sheet
-  - Migration only via:
-    - Explicit swipe action on note row
-    - "Migrate" button in NoteEditView
-  - JournalManager excludes notes from `eligibleTasksForMigration()`
-- **Acceptance Criteria**:
-  - Notes are not suggested in migration banners. (Spec: Entries)
-- **Tests**:
-  - Unit tests for note eligibility rules.
-  - UI tests: notes do not appear in migration banner but expose explicit migrate action.
-- **Dependencies**: SPRD-61, SPRD-30
-
-
-
-## Story: Multiday aggregation and UI
-
-### User Story
-- As a user, I want a multiday view that aggregates entries across a range so I can plan across several days.
-
-### Definition of Done
-- Multiday aggregation logic includes tasks and notes in range (events added in v2).
-- Multiday spread UI shows range and grouped entries.
-
-### [SPRD-18] Feature: Multiday aggregation
-- **Context**: Multiday spreads aggregate entries in range.
-- **Description**: Aggregate entries by date range for multiday spreads (no direct assignment).
-- **Implementation Details**:
-  - `JournalManager.entriesForMultidaySpread(_:) -> [any Entry]`:
-    - Query tasks/notes whose preferred date falls within multiday's startDate...endDate
-    - No assignment status for multiday - show aggregated view
-  - Multiday spread view uses aggregated data, not assignments
-- **Acceptance Criteria**:
-  - Multiday spreads show aggregated entries within range. (Spec: Spreads)
-- **Tests**:
-  - Unit tests for range aggregation across month/year boundaries.
-- **Dependencies**: SPRD-14, SPRD-8
-
-### [SPRD-32] Feature: Multiday spread UI
-- **Context**: Multiday spreads need a dedicated view.
-- **Description**: Render multiday spread with range header and aggregated entries.
-- **Implementation Details**:
-  - `MultidaySpreadView`:
-    - Header shows date range (e.g., "Jan 6 - Jan 12, 2026")
-    - Entries grouped by day within range
-    - Uses aggregation (not direct assignments)
-    - No migration banner (multiday doesn't own entries)
-- **Acceptance Criteria**:
-  - Multiday UI shows range and aggregated entries. (Spec: Spreads)
-- **Tests**:
-  - Unit tests for range label formatting.
-  - UI tests: multiday view shows range header, grouped entries, and no migration banner.
-- **Dependencies**: SPRD-18, SPRD-28
-
-## Story: Settings and preferences
-
-### User Story
-- As a user, I want to set my BuJo mode and first day of week so the app matches my workflow and calendar.
-
-### Definition of Done
-- Settings view exposes mode and first-day-of-week preferences.
-- Preferences persist and affect multiday presets and mode state.
-
-### [SPRD-20] Feature: Settings view (Mode + First Day of Week)
-- **Context**: Users need to configure BuJo mode and locale preferences.
-- **Description**: Build Settings screen with mode selection and week start preference.
-- **Implementation Details**:
-  - Settings accessible via gear icon in navigation header
-  - `SettingsView` sections:
-    1. **Task Management Style** (mode selection)
-       - Conventional: "Track tasks across spreads with migration history"
-       - Traditional: "View tasks on their preferred date only"
-       - Radio-button style selection using `ModeSelectionRow`
-    2. **Calendar Preferences**
-       - First day of week: "System Default", "Sunday", "Monday"
-       - "System Default" uses `Locale.current.calendar.firstWeekday`
-    3. **About** section (version, credits)
-  - Persist settings via `@AppStorage` or UserDefaults
-  - JournalManager observes mode changes and recomputes assignments
-  - firstWeekday affects multiday preset calculations
-- **Acceptance Criteria**:
-  - Mode toggle reflects and updates current mode. (Spec: Modes)
-  - First day of week preference persists and affects multiday presets. (Spec: Settings)
-- **Tests**:
-  - Unit tests for mode toggle state binding
-  - Unit tests for firstWeekday affecting multiday date calculations
-  - UI tests: changing mode and first-weekday persists and affects multiday preset ranges.
-- **Dependencies**: SPRD-19, SPRD-7
-
-
-
-## Story: Traditional mode navigation
-
-### User Story
-- As a user, I want a calendar-style year, month, and day flow so I can browse entries like a traditional journal.
-
-### Definition of Done
-- Traditional mapping uses virtual spreads without mutating created spreads.
-- Year/month/day navigation works with proper entry filtering.
-- Traditional mode tests pass.
-
-### [SPRD-17] Feature: Traditional mode mapping
-- **Context**: Traditional mode uses virtual spreads without mutating created spreads.
-- **Description**: Map preferred assignments to virtual spreads; migration updates preferred date/period.
-- **Implementation Details**:
-  - `TraditionalSpreadService`:
-    - All year/month/day spreads are "available" regardless of created spreads
-    - Entries appear only on their preferred period/date
-    - No migration history shown (single assignment view)
-  - Traditional navigation:
-    - Virtual spread data model generated on-the-fly from entries
-    - Does NOT create Spread records
-  - Traditional migration:
-    - Updates entry's preferred date/period
-    - If conventional spread exists for destination, create assignment
-    - If no conventional spread, assign to nearest parent or Inbox
-    - Never mutate created spreads data
-- **Acceptance Criteria**:
-  - Traditional mode ignores created-spread records for navigation. (Spec: Modes)
-  - Traditional migration falls back to nearest created parent or Inbox. (Spec: Modes)
-- **Tests**:
-  - Unit tests for virtual spread mapping and fallback logic.
-- **Dependencies**: SPRD-20, SPRD-16
-
-### [SPRD-35] Feature: Traditional year view
-- **Context**: Traditional mode starts at year view.
-- **Description**: Build a year view listing months with entry counts.
-- **Implementation Details**:
-  - `TraditionalYearView`:
-    - Grid of 12 months
-    - Each month shows entry count for that month
-    - Tapping month navigates to month view
-    - Uses virtual spread data (not created spreads)
-- **Acceptance Criteria**:
-  - Year view is accessible in traditional mode. (Spec: Navigation and UI)
-- **Tests**:
-  - Unit tests for year aggregation logic.
-  - UI tests: traditional year grid displays months and navigates to month view.
-- **Dependencies**: SPRD-17
-
-### [SPRD-36] Feature: Traditional month view
-- **Context**: Month view needs calendar-style layout.
-- **Description**: Build a calendar grid month view for traditional mode.
-- **Implementation Details**:
-  - `TraditionalMonthView`:
-    - Calendar grid layout (7 columns, 5-6 rows)
-    - Day cells show entry count dots
-    - Tapping day navigates to day view
-    - Respects firstWeekday setting for column order
-- **Acceptance Criteria**:
-  - Month view supports drill-in to day. (Spec: Navigation and UI)
-- **Tests**:
-  - Unit tests for day selection mapping.
-  - UI tests: traditional month grid taps a day and navigates to day view.
-- **Dependencies**: SPRD-35
-
-### [SPRD-37] Feature: Traditional day view
-- **Context**: Day view shows preferred assignments (events added in v2).
-- **Description**: Render entries for a single day in traditional mode.
-- **Implementation Details**:
-  - `TraditionalDayView`:
-    - Shows entries with preferred date matching this day
-    - No migration history visible
-    - Uses same `EntryRowView` components
-- **Acceptance Criteria**:
-  - Day view shows preferred assignments for the selected date. (Spec: Modes)
-- **Tests**:
-  - Unit tests for day view entry filtering.
-  - UI tests: traditional day view shows entries for the selected date.
-- **Dependencies**: SPRD-36
-
-### [SPRD-38] Feature: Traditional navigation flow
-- **Context**: Drill-in should mirror iOS Calendar.
-- **Description**: Wire year -> month -> day navigation with back stack.
-- **Implementation Details**:
-  - NavigationStack with path management
-  - Year view at root
-  - Push month view on month tap
-  - Push day view on day tap
-  - Back navigation via standard iOS patterns
-  - Optional: pinch-to-zoom between levels
-- **Acceptance Criteria**:
-  - Navigation mirrors iOS Calendar drill-in. (Spec: Navigation and UI)
-- **Tests**:
-  - Integration test for navigation state transitions.
-  - UI tests: traditional navigation drill-in and back stack behavior.
-- **Dependencies**: SPRD-37
-
-
-
-### [SPRD-53] Feature: Unit tests for traditional mode mapping
-- **Context**: Virtual spreads must be correct and stable.
-- **Description**: Add tests for traditional mapping and parent fallback.
-- **Acceptance Criteria**:
-  - Tests confirm no mutation of created spread data. (Spec: Modes)
-- **Tests**:
-  - Unit tests for fallback to parent or Inbox.
-- **Dependencies**: SPRD-38
-
-## Story: Collections and repository tests
-
-### User Story
-- As a user, I want to create and edit collections as standalone pages so I can keep long-form notes.
-
-### Definition of Done
-- Collections model, list, and editor are implemented.
-- Repository integration tests and collection tests pass.
-
-### [SPRD-39] Feature: Collection model + repository
-- **Context**: Collections are plain text pages.
-- **Description**: Implement Collection model and repository storage.
-- **Implementation Details**:
-  - `DataModel.Collection` @Model:
-    ```swift
-    @Model
-    final class Collection: Hashable {
-        @Attribute(.unique) var id: UUID
-        var title: String
-        var content: String
-        var createdDate: Date
-        var modifiedDate: Date
-    }
-    ```
-  - `CollectionRepository` protocol with CRUD
-  - SwiftData implementation
-- **Acceptance Criteria**:
-  - Collections persist title + plain text content. (Spec: Collections)
-- **Tests**:
-  - Unit tests for collection CRUD.
-- **Dependencies**: SPRD-38
-
-### [SPRD-40] Feature: Collections list UI
-- **Context**: Users need access to collections list.
-- **Description**: Build collections list with create/delete actions.
-- **Implementation Details**:
-  - `CollectionsListView`:
-    - Accessible from root navigation (button in header)
-    - List of collections with title preview
-    - "+" button to create new collection
-    - Swipe to delete with confirmation
-    - Tapping opens collection editor
-- **Acceptance Criteria**:
-  - Collections list is accessible from root navigation. (Spec: Navigation and UI)
-- **Tests**:
-  - Unit tests for list empty state and CRUD triggers.
-  - UI tests: collections list create/open/delete flows.
-- **Dependencies**: SPRD-39
-
-### [SPRD-41] Feature: Collection detail editor
-- **Context**: Collections are plain text only.
-- **Description**: Provide a plain text editor for a collection.
-- **Implementation Details**:
-  - `CollectionEditorView`:
-    - Editable title field
-    - TextEditor for content (plain text)
-    - Auto-save on changes (debounced)
-    - Updates modifiedDate on save
-- **Acceptance Criteria**:
-  - Edits persist to storage. (Spec: Collections)
-- **Tests**:
-  - Integration test for persistence of edits.
-  - UI tests: collection editor autosaves and persists after navigation.
-- **Dependencies**: SPRD-40
-
-
-
-### [SPRD-54] Feature: Integration tests for repositories
-- **Context**: Persistence should be validated end-to-end.
-- **Description**: Add integration tests for SwiftData repositories using test containers.
-- **Acceptance Criteria**:
-  - CRUD works for spreads/entries/collections. (Spec: Persistence)
-- **Tests**:
-  - Integration tests across all repositories.
-- **Dependencies**: SPRD-41, SPRD-57, SPRD-58
-
-### [SPRD-55] Feature: Integration tests for collections
-- **Context**: Collections are new model + UI flow.
-- **Description**: Add integration tests for collection CRUD and persistence.
-- **Acceptance Criteria**:
-  - Collection edits persist across reloads. (Spec: Collections)
-- **Tests**:
-  - Integration test with in-memory container.
-- **Dependencies**: SPRD-54
-
-## Story: Sync and persistence
-
-### User Story
-- As a user, I want my data to sync across devices and work offline so I can journal anywhere.
-
-### Definition of Done
-- CloudKit configuration and entitlements are documented.
-- Offline-first QA checklist exists.
-
-### [SPRD-42] Feature: CloudKit configuration for SwiftData
-- **Context**: iCloud sync is required.
-- **Description**: Configure CloudKit-backed SwiftData for production/development.
-- **Implementation Details**:
-  - Update `ModelContainerFactory` for CloudKit:
-    - Production: CloudKit-enabled ModelConfiguration
-    - Development: CloudKit-enabled with separate container
-    - Preview/Testing: unchanged (in-memory)
-  - CloudKit container name convention: `iCloud.com.yourapp.Bulleted`
-- **Acceptance Criteria**:
-  - Production/development uses CloudKit configuration. (Spec: Persistence)
-- **Tests**:
-  - Unit test for container configuration selection.
-- **Dependencies**: SPRD-41
-
-### [SPRD-43] Feature: CloudKit entitlements + environment mapping
-- **Context**: iCloud requires entitlements and container names.
-- **Description**: Add entitlements and document container naming conventions.
-- **Implementation Details**:
-  - Add iCloud capability to project
-  - Enable CloudKit
-  - Add container identifier
-  - Document in CLAUDE.md or separate doc:
-    - Container naming convention
-    - Environment mapping
-    - Entitlement requirements
-- **Acceptance Criteria**:
-  - Entitlements and container names documented in repo. (Spec: Persistence)
-- **Tests**:
-  - Manual checklist in documentation.
-- **Dependencies**: SPRD-42
-
-### [SPRD-44] Feature: Offline-first manual QA checklist
-- **Context**: Offline-first sync must be validated.
-- **Description**: Add a manual QA checklist for offline usage and sync behavior.
-- **Implementation Details**:
-  - Create QA document covering:
-    - Offline create/edit/delete operations
-    - Sync when coming back online
-    - Conflict resolution behavior
-    - Multi-device sync scenarios
-- **Acceptance Criteria**:
-  - QA doc covers offline create/edit/delete and sync reconciliation. (Spec: Persistence)
-- **Tests**:
-  - Manual test plan included.
-- **Dependencies**: SPRD-43
-
-
-
-## Story: Scope guard tests
-
-### User Story
-- As a user, I want guardrails that prevent out-of-scope features so v1 stays focused.
-
-### Definition of Done
-- Scope guard tests enforce non-goals (no week period, no automated migration, no past entry creation, no events in v1 UI).
-
-### [SPRD-56] Feature: Scope guard tests
-- **Context**: Non-goals must not regress into v1.
-- **Description**: Add tests that enforce no week assignment, no automated migration, no past entry creation, and no event surfaces in v1.
-- **Acceptance Criteria**:
-  - Tests fail if week periods, automated migration, or event surfaces appear in v1. (Spec: Non-Goals)
-- **Tests**:
-  - Unit tests for no-past-date creation and no week period exposure.
-  - UI tests verifying event copy/actions are absent in v1.
-- **Dependencies**: SPRD-55
-
-
-## Dependency Graph (Simplified)
-
-```
-SPRD-1 -> SPRD-2 -> SPRD-3 -> SPRD-4 -> SPRD-5 -> SPRD-6 -> SPRD-7 -> SPRD-8
-SPRD-8 -> SPRD-49
-SPRD-8 -> SPRD-9 -> SPRD-10 -> SPRD-11 -> SPRD-12 -> SPRD-50
-SPRD-11 -> SPRD-13 -> SPRD-14 -> SPRD-51 -> SPRD-15 -> SPRD-16 -> SPRD-52
-SPRD-16 -> SPRD-19 -> SPRD-21 -> SPRD-22 -> SPRD-23
-SPRD-23 -> SPRD-71
-SPRD-22 -> SPRD-64
-SPRD-19 -> SPRD-25 -> SPRD-26 -> SPRD-27 -> SPRD-62 -> SPRD-28 -> SPRD-31
-SPRD-22 -> SPRD-24 -> SPRD-29 -> SPRD-30
-SPRD-28 -> SPRD-69
-SPRD-9 -> SPRD-70
-SPRD-11 -> SPRD-70
-V2: SPRD-9 -> SPRD-57 -> SPRD-59 -> SPRD-60 -> SPRD-33
-SPRD-9 -> SPRD-58 -> SPRD-61 -> SPRD-34
-SPRD-14 -> SPRD-18 -> SPRD-32
-SPRD-19 -> SPRD-20 -> SPRD-17 -> SPRD-35 -> SPRD-36 -> SPRD-37 -> SPRD-38 -> SPRD-53
-SPRD-38 -> SPRD-39 -> SPRD-40 -> SPRD-41 -> SPRD-54 -> SPRD-55 -> SPRD-56
-SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-63 -> SPRD-46 -> SPRD-47 -> SPRD-48
-SPRD-46 -> SPRD-65
-SPRD-62 -> SPRD-63
-Supabase: SPRD-80 -> SPRD-81 -> SPRD-82 -> SPRD-83 -> SPRD-84 -> SPRD-85 -> SPRD-86, SPRD-87, SPRD-88, SPRD-89, SPRD-90
-SPRD-84 -> SPRD-91, SPRD-92, SPRD-93
-```
+  - Manual QA in Debug:
+    - Toggle block-all network and verify sync + login behave as offline.
+    - Choose each auth error and verify login sheet displays the error.
+    - Force syncing for 5s and confirm engine pauses and resumes.
+    - Force whole-sync failure and verify error status.
+    - Seed outbox and verify count/status changes.
+- **Dependencies**: SPRD-45, SPRD-84, SPRD-85
