@@ -167,7 +167,7 @@
 - Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
 - Sync status and error feedback are visible; CloudKit is no longer required.
 
-### [SPRD-94] Feature: Build configurations (Debug/QA/Release)
+### [SPRD-94] Feature: Build configurations (Debug/QA/Release) ✅
 - **Context**: Environment switching must be enabled in Debug + QA TestFlight builds but disabled in Release.
 - **Description**: Add a QA/TestFlight build configuration that behaves like Debug, with separate bundle id from Release.
 - **Implementation Details**:
