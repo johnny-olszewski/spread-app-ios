@@ -395,6 +395,22 @@
   - Manual: switch between localhost/dev/prod with and without outbox; verify wipe + sign-out.
 - **Dependencies**: SPRD-85, SPRD-95, SPRD-99
 
+### [SPRD-100] Feature: Apply environment switch (restart required)
+- **Context**: Data environment changes must propagate to newly created services; existing clients should not keep stale configuration.
+- **Description**: After a confirmed environment switch, reinitialize app services and require a restart flow so the new configuration is used.
+- **Implementation Details**:
+  - Add a lightweight app lifecycle coordinator that can rebuild `DependencyContainer` and `JournalManager`.
+  - After the SPRD-96 switch flow completes (sign out + wipe), trigger a restart-required UI state.
+  - Restart action recreates auth/sync/services using the new DataEnvironment/Supabase configuration.
+  - Keep restart logic outside Debug-only files; Debug menu just triggers the switch flow.
+- **Acceptance Criteria**:
+  - Switching environments results in new Supabase URL/key being used by fresh services.
+  - Old auth session and sync state are cleared after the restart flow.
+  - Debug/QA builds can complete a switch and return to a working app state without manual relaunch.
+- **Tests**:
+  - Manual: switch between environments and verify the Supabase host and auth state reflect the new environment.
+- **Dependencies**: SPRD-95, SPRD-96
+
 ### [SPRD-86] Feature: Debug environment switcher
 - **Context**: Debug/QA builds must switch between data environments safely; Release must expose no debug UI.
 - **Description**: Add data-environment switcher to Debug destination with guardrails (Debug + QA builds only).
@@ -428,7 +444,7 @@
   - Prod access requires explicit confirmation.
 - **Tests**:
   - Manual: switch environments and verify local wipe + re-auth.
-- **Dependencies**: SPRD-94, SPRD-95, SPRD-96
+- **Dependencies**: SPRD-94, SPRD-95, SPRD-96, SPRD-100
 
 ### [SPRD-98] Feature: Immediate push on commit (not per keystroke)
 - **Context**: Sync should be automatic without excessive per-keystroke calls.
@@ -1244,7 +1260,7 @@ SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-63 -> SPRD-46 -> SPR
 SPRD-46 -> SPRD-65
 SPRD-62 -> SPRD-63
 Supabase: SPRD-80 -> SPRD-81 -> SPRD-82 -> SPRD-83 -> SPRD-84
-Supabase: SPRD-80 -> SPRD-94 -> SPRD-95 -> SPRD-97 -> SPRD-85 -> SPRD-99 -> SPRD-96 -> SPRD-86
+Supabase: SPRD-80 -> SPRD-94 -> SPRD-95 -> SPRD-97 -> SPRD-85 -> SPRD-99 -> SPRD-96 -> SPRD-100 -> SPRD-86
 Supabase: SPRD-85 -> SPRD-98, SPRD-87, SPRD-88, SPRD-89, SPRD-90
 Supabase: SPRD-84 -> SPRD-91, SPRD-92, SPRD-93
 Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
