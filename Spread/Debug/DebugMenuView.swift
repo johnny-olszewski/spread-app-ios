@@ -195,7 +195,7 @@ struct DebugMenuView: View {
 
     private var buildInfoSection: some View {
         Section {
-            LabeledContent("Configuration", value: "DEBUG")
+            LabeledContent("Configuration", value: BuildInfo.configurationName)
             LabeledContent("Date", value: Date.now.formatted(date: .abbreviated, time: .shortened))
             launchArgumentsView
         } header: {
