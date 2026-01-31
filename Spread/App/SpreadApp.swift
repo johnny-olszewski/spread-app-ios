@@ -22,13 +22,14 @@ struct SpreadApp: App {
     }
 
     private static func logSupabaseConfiguration() {
+        let dataEnv = DataEnvironment.current
         let host = SupabaseConfiguration.url.host ?? SupabaseConfiguration.url.absoluteString
-        var overrideSource = SupabaseConfiguration.explicitOverrideSourceDescription ?? "None"
-        #if DEBUG
-        if let runtimeOverride = SupabaseConfiguration.runtimeOverrideDescription {
-            overrideSource = runtimeOverride
-        }
-        #endif
-        SpreadApp.logger.info("Supabase host: \(host, privacy: .public) (override: \(overrideSource, privacy: .public))")
+        let overrideSource = SupabaseConfiguration.explicitOverrideSourceDescription ?? "None"
+        SpreadApp.logger.info("""
+            DataEnvironment: \(dataEnv.rawValue, privacy: .public), \
+            Supabase available: \(SupabaseConfiguration.isAvailable, privacy: .public), \
+            host: \(host, privacy: .public), \
+            override: \(overrideSource, privacy: .public)
+            """)
     }
 }
