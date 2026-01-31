@@ -167,7 +167,7 @@
 - Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
 - Sync status and error feedback are visible; CloudKit is no longer required.
 
-### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment
+### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment ✅
 - **Context**: Current AppEnvironment mixes build intent with data target and debug behavior.
 - **Description**: Introduce a DataEnvironment (localhost/dev/prod) separate from build configuration.
 - **Implementation Details**:
