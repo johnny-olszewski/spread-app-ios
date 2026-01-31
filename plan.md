@@ -167,33 +167,6 @@
 - Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
 - Sync status and error feedback are visible; CloudKit is no longer required.
 
-### [SPRD-94] Feature: Build configurations (Debug/QA/Release) ✅
-- **Context**: Environment switching must be enabled in Debug + QA TestFlight builds but disabled in Release.
-- **Description**: Add a QA/TestFlight build configuration that behaves like Debug, with separate bundle id from Release.
-- **Implementation Details**:
-  - Add build configs: Debug, QA (TestFlight), Release.
-  - QA uses DEBUG compile flag to include Debug menu; Release excludes all debug UI.
-  - QA and Release have distinct bundle identifiers.
-  - Add QA xcconfig with default Supabase dev values (same as Debug) and clear naming in build settings.
-  - **Architecture note (build gating)**:
-    - Centralize build gating in a small helper (e.g., `BuildInfo`) used by UI and resolvers.
-    - Pseudocode:
-      ```swift
-      enum BuildInfo {
-        static var allowsDebugUI: Bool { /* DEBUG or QA */ }
-        static var defaultDataEnvironment: DataEnvironment { /* Debug->localhost, QA->dev, Release->prod */ }
-        static var isRelease: Bool { /* Release only */ }
-      }
-      ```
-- **Acceptance Criteria**:
-  - Debug + QA builds show Debug menu and environment switcher.
-  - Release build hides all debug UI.
-  - Release build can target dev/localhost via launch args/env vars (with explicit URL/key overrides).
-  - QA build installs alongside Release due to distinct bundle id.
-- **Tests**:
-  - Manual: verify Debug/QA show Debug menu; Release does not.
-- **Dependencies**: SPRD-80
-
 ### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment
 - **Context**: Current AppEnvironment mixes build intent with data target and debug behavior.
 - **Description**: Introduce a DataEnvironment (localhost/dev/prod) separate from build configuration.
@@ -2210,3 +2183,32 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
     - Force whole-sync failure and verify error status.
     - Seed outbox and verify count/status changes.
 - **Dependencies**: SPRD-45, SPRD-84, SPRD-85
+
+### [SPRD-94] Feature: Build configurations (Debug/QA/Release) - [x] Complete
+- **Context**: Environment switching must be enabled in Debug + QA TestFlight builds but disabled in Release.
+- **Description**: Add a QA/TestFlight build configuration that behaves like Debug, with separate bundle id from Release.
+- **Implementation Details**:
+  - Add build configs: Debug, QA (TestFlight), Release.
+  - QA uses DEBUG compile flag to include Debug menu; Release excludes all debug UI.
+  - QA and Release have distinct bundle identifiers.
+  - Add QA xcconfig with default Supabase dev values (same as Debug) and clear naming in build settings.
+  - **Architecture note (build gating)**:
+    - Centralize build gating in a small helper (e.g., `BuildInfo`) used by UI and resolvers.
+    - Pseudocode:
+      ```swift
+      enum BuildInfo {
+        static var allowsDebugUI: Bool { /* DEBUG or QA */ }
+        static var defaultDataEnvironment: DataEnvironment { /* Debug->localhost, QA->dev, Release->prod */ }
+        static var isRelease: Bool { /* Release only */ }
+      }
+      ```
+- **Acceptance Criteria**:
+  - Debug + QA builds show Debug menu and environment switcher.
+  - Release build hides all debug UI.
+  - Release build can target dev/localhost via launch args/env vars (with explicit URL/key overrides).
+  - QA build installs alongside Release due to distinct bundle id.
+- **Tests**:
+  - Manual: verify Debug/QA show Debug menu; Release does not.
+- **Dependencies**: SPRD-80
+
+
