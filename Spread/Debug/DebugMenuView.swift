@@ -26,6 +26,7 @@ struct DebugMenuView: View {
     @State private var errorMessage = ""
     @State private var showSuccess = false
     @State private var successMessage = ""
+    @State private var selectedDataEnvironment: DataEnvironment = DataEnvironment.current
 
     private var environment: AppEnvironment {
         AppEnvironment.current
@@ -33,6 +34,7 @@ struct DebugMenuView: View {
 
     var body: some View {
         List {
+            dataEnvironmentSection
             environmentSection
             supabaseSection
             dependenciesSection
@@ -51,6 +53,36 @@ struct DebugMenuView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(successMessage)
+        }
+    }
+
+    // MARK: - Data Environment Section
+
+    private var dataEnvironmentSection: some View {
+        Section {
+            Picker("Target", selection: $selectedDataEnvironment) {
+                ForEach(DataEnvironment.allCases, id: \.self) { env in
+                    Text(env.displayName).tag(env)
+                }
+            }
+            .onChange(of: selectedDataEnvironment) { _, newValue in
+                DataEnvironment.persistSelection(newValue)
+            }
+
+            LabeledContent("Auth Required", value: selectedDataEnvironment.requiresAuth ? "Yes" : "No")
+            LabeledContent("Sync Enabled", value: selectedDataEnvironment.syncEnabled ? "Yes" : "No")
+            LabeledContent("Local Only", value: selectedDataEnvironment.isLocalOnly ? "Yes" : "No")
+
+            if DataEnvironment.persistedSelection != nil {
+                Button("Clear Persisted Selection") {
+                    DataEnvironment.clearPersistedSelection()
+                    selectedDataEnvironment = BuildInfo.defaultDataEnvironment
+                }
+            }
+        } header: {
+            Label("Data Environment", systemImage: "externaldrive.connected.to.line.below")
+        } footer: {
+            Text("Selects the data target (localhost/dev/prod). Persisted across launches in Debug/QA builds. Restart the app for changes to take full effect.")
         }
     }
 
@@ -73,36 +105,20 @@ struct DebugMenuView: View {
 
     private var supabaseSection: some View {
         Section {
-            LabeledContent("Environment", value: SupabaseConfiguration.environment.rawValue)
+            LabeledContent("Available", value: SupabaseConfiguration.isAvailable ? "Yes" : "No")
             LabeledContent("URL Host", value: supabaseHostLabel)
-            LabeledContent("Override", value: supabaseOverrideLabel)
-
-            Button("Use Development") {
-                SupabaseConfiguration.useDevEnvironment()
-            }
-
-            Button("Use Production") {
-                SupabaseConfiguration.useProdEnvironment()
-            }
-
-            Button("Clear Overrides") {
-                SupabaseConfiguration.clearRuntimeOverrides()
+            if let overrideSource = SupabaseConfiguration.explicitOverrideSourceDescription {
+                LabeledContent("Override", value: overrideSource)
             }
         } header: {
             Label("Supabase", systemImage: "cloud")
         } footer: {
-            Text("Debug/QA builds can switch Supabase environments here. Release builds require explicit URL/key overrides.")
+            Text("Supabase configuration is driven by the Data Environment. Use -SupabaseURL and -SupabaseKey launch arguments for explicit overrides.")
         }
     }
 
     private var supabaseHostLabel: String {
         SupabaseConfiguration.url.host ?? SupabaseConfiguration.url.absoluteString
-    }
-
-    private var supabaseOverrideLabel: String {
-        SupabaseConfiguration.runtimeOverrideDescription
-            ?? SupabaseConfiguration.explicitOverrideSourceDescription
-            ?? "None"
     }
 
     // MARK: - Dependencies Section
