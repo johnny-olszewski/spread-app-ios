@@ -89,19 +89,23 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "-AppEnvironment &quot;development&quot;"
+            argument = "-DataEnvironment &quot;localhost&quot;"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-DataEnvironment &quot;development&quot;"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-DataEnvironment &quot;production&quot;"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-SupabaseURL https://apblzzondjcughtgqowd.supabase.co"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-SupabaseKey sb_publishable_G74Nb3IoMfnsmrZfp6dcaA_0_UD6QLT"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "-AppEnvironment &quot;production&quot;"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -115,8 +119,8 @@
       </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
-            key = "APP_ENVIRONMENT"
-            value = "preview"
+            key = "DATA_ENVIRONMENT"
+            value = "development"
             isEnabled = "NO">
          </EnvironmentVariable>
       </EnvironmentVariables>
