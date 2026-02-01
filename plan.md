@@ -167,72 +167,6 @@
 - Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
 - Sync status and error feedback are visible; CloudKit is no longer required.
 
-### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment ✅
-- **Context**: Current AppEnvironment mixes build intent with data target and debug behavior.
-- **Description**: Introduce a DataEnvironment (localhost/dev/prod) separate from build configuration.
-- **Implementation Details**:
-  - Add `DataEnvironment` enum with behaviors: auth required, sync enabled, local-only availability.
-  - Build configuration determines whether debug UI is available (via `BuildInfo`), not the data target.
-  - Resolution order (all builds): `-DataEnvironment` -> `DATA_ENVIRONMENT` -> persisted selection (Debug/QA only) -> build default.
-  - Release honors launch args/env vars for the current run but does not persist overrides.
-  - Persist selected DataEnvironment and track last-used value in UserDefaults for Debug/QA only.
-  - Add Supabase URL/key overrides via launch args and env vars in all builds:
-    - Args: `-SupabaseURL`, `-SupabaseKey`
-    - Env vars: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
-  - Require explicit URL/key overrides when targeting non-prod in Release; otherwise fall back to build defaults.
-  - Rename launch arguments and env vars from AppEnvironment to DataEnvironment.
-  - Update Debug menu to show only DataEnvironment options (localhost/dev/prod) and to respect build gating.
-  - Keep AppEnvironment focused on preview/testing behaviors (in-memory, mock data); data targeting lives in DataEnvironment.
-  - **Architecture note (separate debug implementations)**:
-    - Keep DataEnvironment resolution in non-debug files; debug-only overrides live in `Spread/Debug`.
-    - Pseudocode:
-      ```swift
-      protocol DataEnvironmentResolver {
-        func resolve() -> DataEnvironment
-      }
-
-      struct DefaultDataEnvironmentResolver: DataEnvironmentResolver {
-        func resolve() -> DataEnvironment {
-          if let arg = launchArg("-DataEnvironment") { return arg }
-          if let env = envVar("DATA_ENVIRONMENT") { return env }
-          if BuildInfo.allowsDebugUI, let persisted = persistedSelection { return persisted }
-          return BuildInfo.defaultDataEnvironment
-        }
-      }
-      ```
-  - **Carry-over from feature/SPRD-85 (do not cherry-pick whole commits, port selectively):**
-    - `b86ae37` (`Spread/Environment/AppEnvironment.swift`): reuse resolution-order pattern + behavior flags, but move into new `DataEnvironment`.
-    - `dcc3deb` (`Spread/Environment/SupabaseConfiguration.swift`): reuse `isAvailable` + `configure(for:)` pattern; update to DataEnvironment/build gating.
-    - `d79b227` (`Spread/Environment/DependencyContainer.swift`): keep optional `supabaseClient` and only create it when sync is enabled; pass DataEnvironment into SyncEngine factory.
-    - `35658f9` (`Spread/Services/AuthManager.swift`): keep localhost mock-auth path and optional Supabase client, but adapt to DataEnvironment.
-    - `7c06c01` (`Spread/Debug/DebugSyncOverrides.swift`), `14dcb15` (`Spread/Services/Sync/NetworkMonitor.swift`), `785500a` (`Spread/Services/AuthManager.swift`), `ce46dca` (`Spread/Debug/DebugSyncNetworkSection.swift`): reapply debug overrides + Sync & Network section as Debug/QA-only tooling.
-    - **Avoid** `226370a` (`Spread/DataModel/ModelContainerFactory.swift`): it adds per-environment container names, which conflicts with the single-store requirement.
-- **Acceptance Criteria**:
-  - DataEnvironment drives auth/sync/mock-data availability.
-  - Resolver precedence works in all builds (args/env override persisted selection).
-  - Debug/QA persist selection; Release never persists overrides.
-  - Release uses build defaults when no overrides are provided.
-  - Supabase URL/key can be overridden via args/env vars in any build.
-- **Tests**:
-  - Unit tests for DataEnvironment resolution precedence (Debug/QA vs Release behavior).
-- **Dependencies**: SPRD-94
-
-### [SPRD-97] Feature: Single SwiftData store + debug UI visibility
-- **Context**: Environment switches should not require multiple store names, and debug info should only be visible in Debug menu.
-- **Description**: Use a single SwiftData container name and remove always-on debug overlays.
-- **Implementation Details**:
-  - Update ModelContainerFactory to use one persistent container name for all data environments.
-  - Remove DebugEnvironmentOverlay from app surfaces; keep debug info in Debug menu only.
-  - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
-    - `ab85bfe` (`Spread/Services/Sync/SyncStatus.swift`): keep `.localOnly` status.
-    - `4fb52b9` (`Spread/Views/Components/SyncStatusView.swift`): keep local-only color only; ignore DebugEnvironmentOverlay changes.
-- **Acceptance Criteria**:
-  - All environments use the same local store name.
-  - Debug environment info appears only in Debug menu.
-- **Tests**:
-  - Manual: confirm no overlay badge in Debug/QA builds.
-- **Dependencies**: SPRD-95
-
 ### [SPRD-85] Feature: Offline-first sync engine (outbox + pull) - [ ] Reopened
 - **Context**: Sync must work without reliable connectivity.
 - **Description**: Implement outbox-based push + incremental pull with status UI.
@@ -270,6 +204,7 @@
       }
       ```
 - **Acceptance Criteria**:
+  - Mock data loading options in Debug menu only available when localhost Data Environment is selected.
   - Offline edits sync when connectivity returns.
   - Sync is idempotent and resilient to retries.
   - UI shows last sync and errors.
@@ -1233,7 +1168,7 @@ SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-63 -> SPRD-46 -> SPR
 SPRD-46 -> SPRD-65
 SPRD-62 -> SPRD-63
 Supabase: SPRD-80 -> SPRD-81 -> SPRD-82 -> SPRD-83 -> SPRD-84
-Supabase: SPRD-80 -> SPRD-94 -> SPRD-95 -> SPRD-97 -> SPRD-85 -> SPRD-99 -> SPRD-96 -> SPRD-100 -> SPRD-86
+Supabase: SPRD-80 -> SPRD-94 -> SPRD-95 -> SPRD-85 -> SPRD-99 -> SPRD-96 -> SPRD-100 -> SPRD-86
 Supabase: SPRD-85 -> SPRD-98, SPRD-87, SPRD-88, SPRD-89, SPRD-90
 Supabase: SPRD-84 -> SPRD-91, SPRD-92, SPRD-93
 Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
@@ -2211,4 +2146,52 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
   - Manual: verify Debug/QA show Debug menu; Release does not.
 - **Dependencies**: SPRD-80
 
+### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment ✅
+- **Context**: Current AppEnvironment mixes build intent with data target and debug behavior.
+- **Description**: Introduce a DataEnvironment (localhost/dev/prod) separate from build configuration.
+- **Implementation Details**:
+  - Add `DataEnvironment` enum with behaviors: auth required, sync enabled, local-only availability.
+  - Build configuration determines whether debug UI is available (via `BuildInfo`), not the data target.
+  - Resolution order (all builds): `-DataEnvironment` -> `DATA_ENVIRONMENT` -> persisted selection (Debug/QA only) -> build default.
+  - Release honors launch args/env vars for the current run but does not persist overrides.
+  - Persist selected DataEnvironment and track last-used value in UserDefaults for Debug/QA only.
+  - Add Supabase URL/key overrides via launch args and env vars in all builds:
+    - Args: `-SupabaseURL`, `-SupabaseKey`
+    - Env vars: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
+  - Require explicit URL/key overrides when targeting non-prod in Release; otherwise fall back to build defaults.
+  - Rename launch arguments and env vars from AppEnvironment to DataEnvironment.
+  - Update Debug menu to show only DataEnvironment options (localhost/dev/prod) and to respect build gating.
+  - Keep AppEnvironment focused on preview/testing behaviors (in-memory, mock data); data targeting lives in DataEnvironment.
+  - **Architecture note (separate debug implementations)**:
+    - Keep DataEnvironment resolution in non-debug files; debug-only overrides live in `Spread/Debug`.
+    - Pseudocode:
+      ```swift
+      protocol DataEnvironmentResolver {
+        func resolve() -> DataEnvironment
+      }
 
+      struct DefaultDataEnvironmentResolver: DataEnvironmentResolver {
+        func resolve() -> DataEnvironment {
+          if let arg = launchArg("-DataEnvironment") { return arg }
+          if let env = envVar("DATA_ENVIRONMENT") { return env }
+          if BuildInfo.allowsDebugUI, let persisted = persistedSelection { return persisted }
+          return BuildInfo.defaultDataEnvironment
+        }
+      }
+      ```
+  - **Carry-over from feature/SPRD-85 (do not cherry-pick whole commits, port selectively):**
+    - `b86ae37` (`Spread/Environment/AppEnvironment.swift`): reuse resolution-order pattern + behavior flags, but move into new `DataEnvironment`.
+    - `dcc3deb` (`Spread/Environment/SupabaseConfiguration.swift`): reuse `isAvailable` + `configure(for:)` pattern; update to DataEnvironment/build gating.
+    - `d79b227` (`Spread/Environment/DependencyContainer.swift`): keep optional `supabaseClient` and only create it when sync is enabled; pass DataEnvironment into SyncEngine factory.
+    - `35658f9` (`Spread/Services/AuthManager.swift`): keep localhost mock-auth path and optional Supabase client, but adapt to DataEnvironment.
+    - `7c06c01` (`Spread/Debug/DebugSyncOverrides.swift`), `14dcb15` (`Spread/Services/Sync/NetworkMonitor.swift`), `785500a` (`Spread/Services/AuthManager.swift`), `ce46dca` (`Spread/Debug/DebugSyncNetworkSection.swift`): reapply debug overrides + Sync & Network section as Debug/QA-only tooling.
+    - **Avoid** `226370a` (`Spread/DataModel/ModelContainerFactory.swift`): it adds per-environment container names, which conflicts with the single-store requirement.
+- **Acceptance Criteria**:
+  - DataEnvironment drives auth/sync/mock-data availability.
+  - Resolver precedence works in all builds (args/env override persisted selection).
+  - Debug/QA persist selection; Release never persists overrides.
+  - Release uses build defaults when no overrides are provided.
+  - Supabase URL/key can be overridden via args/env vars in any build.
+- **Tests**:
+  - Unit tests for DataEnvironment resolution precedence (Debug/QA vs Release behavior).
+- **Dependencies**: SPRD-94
