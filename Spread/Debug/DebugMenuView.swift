@@ -4,7 +4,7 @@ import SwiftUI
 /// Debug menu for inspecting environment, container, and app state.
 ///
 /// Provides grouped sections for:
-/// - Current AppEnvironment and configuration
+/// - Current DataEnvironment and Supabase configuration
 /// - Dependency container summary
 /// - Mock data sets loader with overwrite + reload behavior
 ///
@@ -28,18 +28,13 @@ struct DebugMenuView: View {
     @State private var successMessage = ""
     @State private var selectedDataEnvironment: DataEnvironment = DataEnvironment.current
 
-    private var environment: AppEnvironment {
-        AppEnvironment.current
-    }
-
     var body: some View {
         List {
+            buildInfoSection
             dataEnvironmentSection
-            environmentSection
             supabaseSection
             dependenciesSection
             mockDataSection
-            buildInfoSection
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Debug")
@@ -83,21 +78,6 @@ struct DebugMenuView: View {
             Label("Data Environment", systemImage: "externaldrive.connected.to.line.below")
         } footer: {
             Text("Selects the data target (localhost/dev/prod). Persisted across launches in Debug/QA builds. Restart the app for changes to take full effect.")
-        }
-    }
-
-    // MARK: - Environment Section
-
-    private var environmentSection: some View {
-        Section {
-            LabeledContent("Current", value: environment.rawValue)
-            LabeledContent("Container Name", value: environment.containerName)
-            LabeledContent("In-Memory Only", value: environment.isStoredInMemoryOnly ? "Yes" : "No")
-            LabeledContent("Uses Mock Data", value: environment.usesMockData ? "Yes" : "No")
-        } header: {
-            Label("Environment", systemImage: "gearshape.2")
-        } footer: {
-            Text("AppEnvironment controls storage mode and mock data. Override via -AppEnvironment launch arg.")
         }
     }
 

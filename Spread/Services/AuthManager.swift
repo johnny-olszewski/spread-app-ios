@@ -12,6 +12,11 @@ final class AuthManager {
 
     // MARK: - Auth State
 
+    /// Errors thrown when auth actions are unavailable.
+    enum AuthManagerError: Error {
+        case unavailable
+    }
+
     /// The current authentication state.
     enum AuthState: Equatable {
         /// User is not authenticated.
@@ -44,7 +49,12 @@ final class AuthManager {
     // MARK: - Dependencies
 
     /// The Supabase client.
-    private let client: SupabaseClient
+    private let client: SupabaseClient?
+
+    /// Whether authentication is available for the current data environment.
+    var isAuthAvailable: Bool {
+        client != nil
+    }
 
     /// Callback for when sign-out completes (to wipe local data).
     var onSignOut: (() async -> Void)?
@@ -56,14 +66,18 @@ final class AuthManager {
 
     /// Creates an AuthManager with the current Supabase configuration.
     init() {
-        self.client = SupabaseClient(
-            supabaseURL: SupabaseConfiguration.url,
-            supabaseKey: SupabaseConfiguration.publishableKey
-        )
+        if SupabaseConfiguration.isAvailable {
+            self.client = SupabaseClient(
+                supabaseURL: SupabaseConfiguration.url,
+                supabaseKey: SupabaseConfiguration.publishableKey
+            )
 
-        // Check initial session
-        Task {
-            await checkSession()
+            // Check initial session
+            Task {
+                await checkSession()
+            }
+        } else {
+            self.client = nil
         }
     }
 
@@ -80,6 +94,10 @@ final class AuthManager {
 
     /// Checks for an existing session on startup.
     private func checkSession() async {
+        guard let client else {
+            state = .signedOut
+            return
+        }
         do {
             let session = try await client.auth.session
             state = .signedIn(session.user)
@@ -98,6 +116,11 @@ final class AuthManager {
     ///   - password: The user's password.
     /// - Throws: An error if sign-in fails.
     func signIn(email: String, password: String) async throws {
+        guard let client else {
+            errorMessage = "Sign in is unavailable in local-only mode."
+            throw AuthManagerError.unavailable
+        }
+
         isLoading = true
         errorMessage = nil
 
@@ -129,6 +152,11 @@ final class AuthManager {
     ///
     /// This will wipe local data via the `onSignOut` callback.
     func signOut() async throws {
+        guard let client else {
+            state = .signedOut
+            return
+        }
+
         isLoading = true
         errorMessage = nil
 
