@@ -6,18 +6,15 @@ import struct Foundation.Date
 ///
 /// Provides environment-specific configurations for repositories and services.
 /// Use factory methods to create containers for different environments.
-///
-/// Example usage:
-/// ```swift
-/// let container = try DependencyContainer.make(for: .development)
-/// let tasks = await container.taskRepository.getTasks()
-/// ```
 struct DependencyContainer: @unchecked Sendable {
 
     // MARK: - Properties
 
-    /// The current application environment.
-    let environment: AppEnvironment
+    /// A label describing the container's configuration (e.g. "live", "testing", "preview").
+    let configurationLabel: String
+
+    /// Whether data is stored in memory only (not persisted to disk).
+    let isStoredInMemoryOnly: Bool
 
     /// The SwiftData model container for persistence.
     let modelContainer: ModelContainer
@@ -39,43 +36,28 @@ struct DependencyContainer: @unchecked Sendable {
 
     // MARK: - Factory Methods
 
-    /// Creates a dependency container for the specified environment.
+    /// Creates a dependency container for live app use.
     ///
-    /// - Parameter environment: The target application environment.
+    /// Uses persistent SwiftData-backed repositories.
     /// - Returns: A configured dependency container.
     /// - Throws: An error if container creation fails.
-    ///
-    /// For production/development environments, creates SwiftData-backed repositories.
-    /// For preview/testing, uses empty repositories for isolation.
     @MainActor
-    static func make(for environment: AppEnvironment) throws -> DependencyContainer {
-        let modelContainer = try ModelContainerFactory.make(for: environment)
+    static func makeForLive() throws -> DependencyContainer {
+        let modelContainer = try ModelContainerFactory.makePersistent()
 
-        switch environment {
-        case .live:
-            return DependencyContainer(
-                environment: environment,
-                modelContainer: modelContainer,
-                taskRepository: SwiftDataTaskRepository(modelContainer: modelContainer),
-                spreadRepository: SwiftDataSpreadRepository(modelContainer: modelContainer),
-                // TODO: SPRD-57 - Create SwiftDataEventRepository
-                eventRepository: EmptyEventRepository(),
-                // TODO: SPRD-58 - Create SwiftDataNoteRepository
-                noteRepository: EmptyNoteRepository(),
-                // TODO: SPRD-39 - Create SwiftDataCollectionRepository
-                collectionRepository: EmptyCollectionRepository()
-            )
-        case .preview, .testing:
-            return DependencyContainer(
-                environment: environment,
-                modelContainer: modelContainer,
-                taskRepository: InMemoryTaskRepository(),
-                spreadRepository: InMemorySpreadRepository(),
-                eventRepository: InMemoryEventRepository(),
-                noteRepository: InMemoryNoteRepository(),
-                collectionRepository: EmptyCollectionRepository()
-            )
-        }
+        return DependencyContainer(
+            configurationLabel: "live",
+            isStoredInMemoryOnly: false,
+            modelContainer: modelContainer,
+            taskRepository: SwiftDataTaskRepository(modelContainer: modelContainer),
+            spreadRepository: SwiftDataSpreadRepository(modelContainer: modelContainer),
+            // TODO: SPRD-57 - Create SwiftDataEventRepository
+            eventRepository: EmptyEventRepository(),
+            // TODO: SPRD-58 - Create SwiftDataNoteRepository
+            noteRepository: EmptyNoteRepository(),
+            // TODO: SPRD-39 - Create SwiftDataCollectionRepository
+            collectionRepository: EmptyCollectionRepository()
+        )
     }
 
     /// Creates a dependency container for testing with custom repositories.
@@ -100,7 +82,8 @@ struct DependencyContainer: @unchecked Sendable {
     ) throws -> DependencyContainer {
         let container = try modelContainer ?? ModelContainerFactory.makeForTesting()
         return DependencyContainer(
-            environment: .testing,
+            configurationLabel: "testing",
+            isStoredInMemoryOnly: true,
             modelContainer: container,
             taskRepository: taskRepository ?? EmptyTaskRepository(),
             spreadRepository: spreadRepository ?? EmptySpreadRepository(),
@@ -119,7 +102,8 @@ struct DependencyContainer: @unchecked Sendable {
     static func makeForPreview() throws -> DependencyContainer {
         let modelContainer = try ModelContainerFactory.makeInMemory()
         return DependencyContainer(
-            environment: .preview,
+            configurationLabel: "preview",
+            isStoredInMemoryOnly: true,
             modelContainer: modelContainer,
             taskRepository: MockTaskRepository(),
             spreadRepository: MockSpreadRepository(),
@@ -164,7 +148,7 @@ extension DependencyContainer {
     /// A summary of the container configuration for debugging.
     var debugSummary: DependencyContainerDebugInfo {
         DependencyContainerDebugInfo(
-            environment: environment.rawValue,
+            environment: configurationLabel,
             taskRepositoryType: String(describing: type(of: taskRepository)),
             spreadRepositoryType: String(describing: type(of: spreadRepository)),
             eventRepositoryType: String(describing: type(of: eventRepository)),
