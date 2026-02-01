@@ -7,36 +7,31 @@ struct DependencyContainerTests {
 
     // MARK: - Factory Method Tests
 
-    /// Conditions: Create container for development environment.
-    /// Expected: Container should have development environment set.
-    @Test @MainActor func testMakeForEnvironmentReturnsContainer() throws {
-        let container = try DependencyContainer.make(for: .development)
+    /// Conditions: Create container using live factory method.
+    /// Expected: Container should have "live" configuration label and persistent storage.
+    @Test @MainActor func testMakeForLiveSetsLiveConfiguration() throws {
+        let container = try DependencyContainer.makeForLive()
 
-        #expect(container.environment == .development)
-    }
-
-    /// Conditions: Create container for production environment.
-    /// Expected: Container should have production environment set.
-    @Test @MainActor func testMakeForProductionSetsProductionEnvironment() throws {
-        let container = try DependencyContainer.make(for: .production)
-
-        #expect(container.environment == .production)
+        #expect(container.configurationLabel == "live")
+        #expect(container.isStoredInMemoryOnly == false)
     }
 
     /// Conditions: Create container using preview factory method.
-    /// Expected: Container should have preview environment set.
-    @Test @MainActor func testMakeForPreviewSetsPreviewEnvironment() throws {
+    /// Expected: Container should have "preview" configuration label and in-memory storage.
+    @Test @MainActor func testMakeForPreviewSetsPreviewConfiguration() throws {
         let container = try DependencyContainer.makeForPreview()
 
-        #expect(container.environment == .preview)
+        #expect(container.configurationLabel == "preview")
+        #expect(container.isStoredInMemoryOnly == true)
     }
 
     /// Conditions: Create container using testing factory method.
-    /// Expected: Container should have testing environment set.
-    @Test func testMakeForTestingSetsTestingEnvironment() throws {
+    /// Expected: Container should have "testing" configuration label and in-memory storage.
+    @Test func testMakeForTestingSetsTestingConfiguration() throws {
         let container = try DependencyContainer.makeForTesting()
 
-        #expect(container.environment == .testing)
+        #expect(container.configurationLabel == "testing")
+        #expect(container.isStoredInMemoryOnly == true)
     }
 
     // MARK: - Repository Injection Tests

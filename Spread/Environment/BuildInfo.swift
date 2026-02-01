@@ -35,6 +35,19 @@ enum BuildInfo {
         #endif
     }
 
+    /// The default data environment for the current build configuration.
+    ///
+    /// - Debug: localhost (local-only, no backend)
+    /// - QA: development (Supabase dev project)
+    /// - Release: production (Supabase prod project)
+    static var defaultDataEnvironment: DataEnvironment {
+        #if DEBUG
+        return isQABuild ? .development : .localhost
+        #else
+        return .production
+        #endif
+    }
+
     // MARK: - Private
 
     /// Detects QA builds by checking the bundle identifier suffix.
