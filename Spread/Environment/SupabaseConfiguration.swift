@@ -53,31 +53,31 @@ enum SupabaseConfiguration {
     ///
     /// Returns `false` for localhost (local-only mode).
     static var isAvailable: Bool {
-        !DataEnvironment.current.isLocalOnly
+        !effectiveDataEnvironment.isLocalOnly
     }
 
     /// The active Supabase URL based on the current data environment.
     ///
     /// Resolution order:
     /// 1. Explicit override via launch args (`-SupabaseURL`) or env vars (`SUPABASE_URL`)
-    /// 2. URL for the current `DataEnvironment`
+    /// 2. URL for the resolved `DataEnvironment`
     static var url: URL {
         if let override = explicitOverride {
             return override.url
         }
-        return url(for: DataEnvironment.current)
+        return url(for: effectiveDataEnvironment)
     }
 
     /// The active Supabase publishable key based on the current data environment.
     ///
     /// Resolution order:
     /// 1. Explicit override via launch args (`-SupabaseKey`) or env vars (`SUPABASE_PUBLISHABLE_KEY`)
-    /// 2. Key for the current `DataEnvironment`
+    /// 2. Key for the resolved `DataEnvironment`
     static var publishableKey: String {
         if let override = explicitOverride {
             return override.key
         }
-        return publishableKey(for: DataEnvironment.current)
+        return publishableKey(for: effectiveDataEnvironment)
     }
 
     /// Returns the Supabase URL for a specific data environment.
@@ -102,6 +102,33 @@ enum SupabaseConfiguration {
         case .production:
             return KnownEnvironment.prodKey
         }
+    }
+
+    // MARK: - Effective Environment Resolution
+
+    /// Resolves the data environment used for Supabase configuration.
+    ///
+    /// Release builds require explicit URL/key overrides to target non-production environments.
+    /// When overrides are missing in Release, this falls back to the build default.
+    static func resolvedDataEnvironment(
+        current: DataEnvironment,
+        isRelease: Bool,
+        explicitOverridePresent: Bool,
+        buildDefault: DataEnvironment
+    ) -> DataEnvironment {
+        if isRelease, current != .production, !explicitOverridePresent {
+            return buildDefault
+        }
+        return current
+    }
+
+    private static var effectiveDataEnvironment: DataEnvironment {
+        resolvedDataEnvironment(
+            current: DataEnvironment.current,
+            isRelease: BuildInfo.isRelease,
+            explicitOverridePresent: explicitOverride != nil,
+            buildDefault: BuildInfo.defaultDataEnvironment
+        )
     }
 
     // MARK: - Explicit Overrides (Launch Args / Env Vars)

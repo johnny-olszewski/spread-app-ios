@@ -116,6 +116,9 @@ enum DataEnvironment: String, CaseIterable, Sendable {
     /// The persisted data environment selection from UserDefaults.
     /// Only used in Debug/QA builds.
     static var persistedSelection: DataEnvironment? {
+        guard BuildInfo.allowsDebugUI else {
+            return nil
+        }
         guard let value = UserDefaults.standard.string(forKey: persistenceKey) else {
             return nil
         }
@@ -125,11 +128,17 @@ enum DataEnvironment: String, CaseIterable, Sendable {
     /// Persists the selected data environment to UserDefaults.
     /// Should only be called in Debug/QA builds.
     static func persistSelection(_ environment: DataEnvironment) {
+        guard BuildInfo.allowsDebugUI else {
+            return
+        }
         UserDefaults.standard.set(environment.rawValue, forKey: persistenceKey)
     }
 
     /// Clears the persisted data environment selection.
     static func clearPersistedSelection() {
+        guard BuildInfo.allowsDebugUI else {
+            return
+        }
         UserDefaults.standard.removeObject(forKey: persistenceKey)
     }
 }
