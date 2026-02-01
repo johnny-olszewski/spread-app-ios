@@ -18,6 +18,9 @@ struct SidebarNavigationView: View {
     /// The dependency container for app-wide services.
     let container: DependencyContainer
 
+    /// The sync engine for data synchronization.
+    let syncEngine: SyncEngine?
+
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             sidebar
@@ -52,7 +55,7 @@ struct SidebarNavigationView: View {
             SettingsPlaceholderView()
         #if DEBUG
         case .debug:
-            DebugMenuView(container: container, journalManager: journalManager)
+            DebugMenuView(container: container, journalManager: journalManager, syncEngine: syncEngine)
         #endif
         case .none:
             Text("Select an item")
@@ -77,6 +80,7 @@ struct SidebarNavigationView: View {
     SidebarNavigationView(
         journalManager: .previewInstance,
         authManager: AuthManager(),
-        container: try! .makeForPreview()
+        container: try! .makeForPreview(),
+        syncEngine: nil
     )
 }

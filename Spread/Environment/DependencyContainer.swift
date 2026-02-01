@@ -34,6 +34,9 @@ struct DependencyContainer: @unchecked Sendable {
     /// Repository for collection persistence operations.
     let collectionRepository: any CollectionRepository
 
+    /// Network connectivity monitor.
+    let networkMonitor: NetworkMonitor
+
     // MARK: - Factory Methods
 
     /// Creates a dependency container for live app use.
@@ -56,7 +59,8 @@ struct DependencyContainer: @unchecked Sendable {
             // TODO: SPRD-58 - Create SwiftDataNoteRepository
             noteRepository: EmptyNoteRepository(),
             // TODO: SPRD-39 - Create SwiftDataCollectionRepository
-            collectionRepository: EmptyCollectionRepository()
+            collectionRepository: EmptyCollectionRepository(),
+            networkMonitor: NetworkMonitor()
         )
     }
 
@@ -89,7 +93,8 @@ struct DependencyContainer: @unchecked Sendable {
             spreadRepository: spreadRepository ?? EmptySpreadRepository(),
             eventRepository: eventRepository ?? EmptyEventRepository(),
             noteRepository: noteRepository ?? EmptyNoteRepository(),
-            collectionRepository: collectionRepository ?? EmptyCollectionRepository()
+            collectionRepository: collectionRepository ?? EmptyCollectionRepository(),
+            networkMonitor: NetworkMonitor()
         )
     }
 
@@ -112,7 +117,8 @@ struct DependencyContainer: @unchecked Sendable {
             // TODO: SPRD-58 - Create MockNoteRepository with seeded data
             noteRepository: EmptyNoteRepository(),
             // TODO: SPRD-39 - Create MockCollectionRepository with seeded data
-            collectionRepository: EmptyCollectionRepository()
+            collectionRepository: EmptyCollectionRepository(),
+            networkMonitor: NetworkMonitor()
         )
     }
 

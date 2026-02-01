@@ -20,6 +20,9 @@ struct DebugMenuView: View {
     /// stays synchronized with repository data.
     let journalManager: JournalManager
 
+    /// The sync engine for inspecting sync state.
+    let syncEngine: SyncEngine?
+
     @State private var isLoading = false
     @State private var loadingDataSet: MockDataSet?
     @State private var showError = false
@@ -33,6 +36,7 @@ struct DebugMenuView: View {
             buildInfoSection
             dataEnvironmentSection
             supabaseSection
+            syncSection
             dependenciesSection
             mockDataSection
         }
@@ -101,6 +105,45 @@ struct DebugMenuView: View {
         SupabaseConfiguration.url.host ?? SupabaseConfiguration.url.absoluteString
     }
 
+    // MARK: - Sync Section
+
+    @ViewBuilder
+    private var syncSection: some View {
+        if let syncEngine {
+            Section {
+                LabeledContent("Status", value: syncEngine.status.displayText)
+                LabeledContent("Outbox Count", value: "\(syncEngine.outboxCount)")
+                if let lastSync = syncEngine.lastSyncDate {
+                    LabeledContent("Last Sync", value: lastSync.formatted(date: .abbreviated, time: .shortened))
+                }
+                LabeledContent("Network", value: container.networkMonitor.isConnected ? "Connected" : "Disconnected")
+                Button("Sync Now") {
+                    Task {
+                        await syncEngine.syncNow()
+                    }
+                }
+                if !syncEngine.syncLog.entries.isEmpty {
+                    DisclosureGroup("Sync Log (\(syncEngine.syncLog.entries.count))") {
+                        ForEach(syncEngine.syncLog.entries) { entry in
+                            HStack {
+                                Circle()
+                                    .fill(entry.level == .error ? Color.red : entry.level == .warning ? Color.orange : Color.green)
+                                    .frame(width: 8, height: 8)
+                                Text(entry.message)
+                                    .font(.caption)
+                                    .monospaced()
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Label("Sync", systemImage: "arrow.triangle.2.circlepath")
+            } footer: {
+                Text("Current sync engine state. Tap 'Sync Now' to trigger a manual sync attempt.")
+            }
+        }
+    }
+
     // MARK: - Dependencies Section
 
     private var dependenciesSection: some View {
@@ -143,15 +186,18 @@ struct DebugMenuView: View {
 
     // MARK: - Mock Data Section
 
+    @ViewBuilder
     private var mockDataSection: some View {
-        Section {
-            ForEach(MockDataSet.allCases, id: \.rawValue) { dataSet in
-                mockDataSetButton(for: dataSet)
+        if DataEnvironment.current == .localhost {
+            Section {
+                ForEach(MockDataSet.allCases, id: \.rawValue) { dataSet in
+                    mockDataSetButton(for: dataSet)
+                }
+            } header: {
+                Label("Mock Data Sets", systemImage: "doc.on.doc")
+            } footer: {
+                Text("Load predefined data sets to test various scenarios. Loading a data set will overwrite existing data. Only available in localhost mode.")
             }
-        } header: {
-            Label("Mock Data Sets", systemImage: "doc.on.doc")
-        } footer: {
-            Text("Load predefined data sets to test various scenarios. Loading a data set will overwrite existing data.")
         }
     }
 
@@ -257,7 +303,8 @@ struct DebugMenuView: View {
     NavigationStack {
         DebugMenuView(
             container: try! .makeForPreview(),
-            journalManager: .previewInstance
+            journalManager: .previewInstance,
+            syncEngine: nil
         )
     }
 }
