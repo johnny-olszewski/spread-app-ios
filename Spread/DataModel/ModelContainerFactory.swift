@@ -8,22 +8,21 @@ enum ModelContainerFactory {
 
     // MARK: - Factory Methods
 
-    /// Creates a ModelContainer for the specified environment.
+    /// Creates a persistent ModelContainer for live app use.
     ///
-    /// - Parameter environment: The target application environment.
-    /// - Returns: A configured ModelContainer.
-    /// - Throws: An error if container creation fails.
-    static func make(for environment: AppEnvironment) throws -> ModelContainer {
-        switch environment {
-        case .production:
-            return try makeProduction()
-        case .development:
-            return try makeDevelopment()
-        case .preview:
-            return try makeInMemory()
-        case .testing:
-            return try makeInMemory()
-        }
+    /// Uses a single container name for all data environments.
+    static func makePersistent() throws -> ModelContainer {
+        let schema = Schema(versionedSchema: DataModelSchemaV1.self)
+        let configuration = ModelConfiguration(
+            "Spread",
+            schema: schema,
+            isStoredInMemoryOnly: false
+        )
+        return try ModelContainer(
+            for: schema,
+            migrationPlan: DataModelMigrationPlan.self,
+            configurations: [configuration]
+        )
     }
 
     /// Creates an in-memory ModelContainer for testing and previews.
@@ -51,42 +50,5 @@ enum ModelContainerFactory {
     /// - Throws: An error if container creation fails.
     static func makeForTesting() throws -> ModelContainer {
         try makeInMemory()
-    }
-
-    // MARK: - Private Factory Methods
-
-    /// Creates a ModelContainer for production use.
-    ///
-    /// Uses persistent storage with CloudKit sync (TODO: SPRD-42).
-    private static func makeProduction() throws -> ModelContainer {
-        let schema = Schema(versionedSchema: DataModelSchemaV1.self)
-        let configuration = ModelConfiguration(
-            AppEnvironment.production.containerName,
-            schema: schema,
-            isStoredInMemoryOnly: false
-            // TODO: SPRD-42 - Add CloudKit configuration
-        )
-        return try ModelContainer(
-            for: schema,
-            migrationPlan: DataModelMigrationPlan.self,
-            configurations: [configuration]
-        )
-    }
-
-    /// Creates a ModelContainer for development use.
-    ///
-    /// Uses persistent storage with a separate container name from production.
-    private static func makeDevelopment() throws -> ModelContainer {
-        let schema = Schema(versionedSchema: DataModelSchemaV1.self)
-        let configuration = ModelConfiguration(
-            AppEnvironment.development.containerName,
-            schema: schema,
-            isStoredInMemoryOnly: false
-        )
-        return try ModelContainer(
-            for: schema,
-            migrationPlan: DataModelMigrationPlan.self,
-            configurations: [configuration]
-        )
     }
 }
