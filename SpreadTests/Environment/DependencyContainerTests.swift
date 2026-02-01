@@ -7,20 +7,12 @@ struct DependencyContainerTests {
 
     // MARK: - Factory Method Tests
 
-    /// Conditions: Create container for development environment.
-    /// Expected: Container should have development environment set.
-    @Test @MainActor func testMakeForEnvironmentReturnsContainer() throws {
-        let container = try DependencyContainer.make(for: .development)
+    /// Conditions: Create container for live environment.
+    /// Expected: Container should have live environment set.
+    @Test @MainActor func testMakeForLiveSetsLiveEnvironment() throws {
+        let container = try DependencyContainer.make(for: .live)
 
-        #expect(container.environment == .development)
-    }
-
-    /// Conditions: Create container for production environment.
-    /// Expected: Container should have production environment set.
-    @Test @MainActor func testMakeForProductionSetsProductionEnvironment() throws {
-        let container = try DependencyContainer.make(for: .production)
-
-        #expect(container.environment == .production)
+        #expect(container.environment == .live)
     }
 
     /// Conditions: Create container using preview factory method.

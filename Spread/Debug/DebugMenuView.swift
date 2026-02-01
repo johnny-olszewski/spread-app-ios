@@ -97,7 +97,7 @@ struct DebugMenuView: View {
         } header: {
             Label("Environment", systemImage: "gearshape.2")
         } footer: {
-            Text("Current AppEnvironment resolved from launch arguments, environment variables, or build configuration.")
+            Text("AppEnvironment controls storage mode and mock data. Override via -AppEnvironment launch arg.")
         }
     }
 

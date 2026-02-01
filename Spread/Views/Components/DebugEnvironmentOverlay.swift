@@ -113,9 +113,7 @@ struct DebugEnvironmentOverlay: ViewModifier {
 
     private var badgeColor: Color {
         switch environment {
-        case .production:
-            return .red
-        case .development:
+        case .live:
             return .blue
         case .preview:
             return .purple
