@@ -66,10 +66,8 @@ struct TabNavigationView: View {
                         InboxButton(inboxCount: journalManager.inboxCount) {
                             isInboxPresented = true
                         }
-                        if authManager.isAuthAvailable {
-                            AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                                isAuthPresented = true
-                            }
+                        AuthButton(isSignedIn: authManager.state.isSignedIn) {
+                            isAuthPresented = true
                         }
                     }
                 }

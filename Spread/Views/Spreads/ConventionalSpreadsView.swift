@@ -65,10 +65,8 @@ struct ConventionalSpreadsView: View {
                         InboxButton(inboxCount: journalManager.inboxCount) {
                             isShowingInboxSheet = true
                         }
-                        if authManager.isAuthAvailable {
-                            AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                                isShowingAuthSheet = true
-                            }
+                        AuthButton(isSignedIn: authManager.state.isSignedIn) {
+                            isShowingAuthSheet = true
                         }
                     }
                 }
