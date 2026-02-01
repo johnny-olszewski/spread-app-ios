@@ -9,7 +9,7 @@ struct SpreadApp: App {
     init() {
         SpreadApp.logSupabaseConfiguration()
         do {
-            container = try DependencyContainer.make(for: .current)
+            container = try DependencyContainer.makeForLive()
         } catch {
             fatalError("Failed to create DependencyContainer: \(error)")
         }

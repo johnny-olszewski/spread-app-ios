@@ -81,18 +81,18 @@ struct DataModelSchemaTests {
         #expect(configuration?.isStoredInMemoryOnly == true)
     }
 
-    /// Conditions: Create containers for testing and preview environments.
+    /// Conditions: Create containers for testing and in-memory use.
     /// Expected: Both should use in-memory storage.
-    @Test func testContainerConfigurationForEnvironment() throws {
-        // Testing environment should use in-memory storage
-        let testingContainer = try ModelContainerFactory.make(for: .testing)
+    @Test func testContainerConfigurationForInMemoryFactories() throws {
+        // Testing factory should use in-memory storage
+        let testingContainer = try ModelContainerFactory.makeForTesting()
         let testingConfig = testingContainer.configurations.first
         #expect(testingConfig?.isStoredInMemoryOnly == true)
 
-        // Preview environment should use in-memory storage
-        let previewContainer = try ModelContainerFactory.make(for: .preview)
-        let previewConfig = previewContainer.configurations.first
-        #expect(previewConfig?.isStoredInMemoryOnly == true)
+        // In-memory factory should use in-memory storage
+        let inMemoryContainer = try ModelContainerFactory.makeInMemory()
+        let inMemoryConfig = inMemoryContainer.configurations.first
+        #expect(inMemoryConfig?.isStoredInMemoryOnly == true)
     }
 
     // MARK: - Model CRUD Tests
