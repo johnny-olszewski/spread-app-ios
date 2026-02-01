@@ -15,13 +15,9 @@ enum ModelContainerFactory {
     /// - Throws: An error if container creation fails.
     static func make(for environment: AppEnvironment) throws -> ModelContainer {
         switch environment {
-        case .production:
-            return try makeProduction()
-        case .development:
-            return try makeDevelopment()
-        case .preview:
-            return try makeInMemory()
-        case .testing:
+        case .live:
+            return try makePersistent()
+        case .preview, .testing:
             return try makeInMemory()
         }
     }
@@ -55,31 +51,13 @@ enum ModelContainerFactory {
 
     // MARK: - Private Factory Methods
 
-    /// Creates a ModelContainer for production use.
+    /// Creates a persistent ModelContainer for live app use.
     ///
-    /// Uses persistent storage with CloudKit sync (TODO: SPRD-42).
-    private static func makeProduction() throws -> ModelContainer {
+    /// Uses a single container name for all data environments.
+    private static func makePersistent() throws -> ModelContainer {
         let schema = Schema(versionedSchema: DataModelSchemaV1.self)
         let configuration = ModelConfiguration(
-            AppEnvironment.production.containerName,
-            schema: schema,
-            isStoredInMemoryOnly: false
-            // TODO: SPRD-42 - Add CloudKit configuration
-        )
-        return try ModelContainer(
-            for: schema,
-            migrationPlan: DataModelMigrationPlan.self,
-            configurations: [configuration]
-        )
-    }
-
-    /// Creates a ModelContainer for development use.
-    ///
-    /// Uses persistent storage with a separate container name from production.
-    private static func makeDevelopment() throws -> ModelContainer {
-        let schema = Schema(versionedSchema: DataModelSchemaV1.self)
-        let configuration = ModelConfiguration(
-            AppEnvironment.development.containerName,
+            AppEnvironment.live.containerName,
             schema: schema,
             isStoredInMemoryOnly: false
         )

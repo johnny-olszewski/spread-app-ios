@@ -1,25 +1,26 @@
 import Foundation
 
-/// Represents the current execution environment of the app.
+/// Represents the execution context of the app.
 ///
-/// Use `AppEnvironment.current` to get the resolved environment based on:
+/// `AppEnvironment` controls app lifecycle concerns: storage mode, mock data, and container naming.
+/// Data targeting (localhost/dev/prod) is handled separately by `DataEnvironment`.
+///
+/// Resolution order for `AppEnvironment.current`:
 /// 1. Launch arguments (`-AppEnvironment <value>`)
 /// 2. Environment variables (`APP_ENVIRONMENT`)
-/// 3. Build configuration (DEBUG vs Release)
+/// 3. Default: `.live`
 enum AppEnvironment: String, CaseIterable {
-    case production
-    case development
+    case live
     case preview
     case testing
 
     // MARK: - Current Environment
 
-    /// The current app environment, resolved from launch arguments, environment variables, or build configuration.
+    /// The current app environment, resolved from launch arguments, environment variables, or default.
     static var current: AppEnvironment {
         resolve(
             launchArguments: ProcessInfo.processInfo.arguments,
-            environmentVariables: ProcessInfo.processInfo.environment,
-            isDebugBuild: isDebugBuild
+            environmentVariables: ProcessInfo.processInfo.environment
         )
     }
 
@@ -28,19 +29,16 @@ enum AppEnvironment: String, CaseIterable {
     /// Resolution order:
     /// 1. Launch arguments (`-AppEnvironment <value>`)
     /// 2. Environment variables (`APP_ENVIRONMENT`)
-    /// 3. Build configuration (development for DEBUG, production for Release)
+    /// 3. Default: `.live`
     static func resolve(
         launchArguments: [String],
-        environmentVariables: [String: String],
-        isDebugBuild: Bool
+        environmentVariables: [String: String]
     ) -> AppEnvironment {
         // 1. Check launch arguments
         if let index = launchArguments.firstIndex(of: "-AppEnvironment"),
-           index + 1 < launchArguments.count {
-            let value = launchArguments[index + 1]
-            if let environment = AppEnvironment(rawValue: value) {
-                return environment
-            }
+           index + 1 < launchArguments.count,
+           let environment = AppEnvironment(rawValue: launchArguments[index + 1]) {
+            return environment
         }
 
         // 2. Check environment variables
@@ -49,8 +47,8 @@ enum AppEnvironment: String, CaseIterable {
             return environment
         }
 
-        // 3. Default based on build configuration
-        return isDebugBuild ? .development : .production
+        // 3. Default
+        return .live
     }
 
     // MARK: - Configuration Properties
@@ -60,7 +58,7 @@ enum AppEnvironment: String, CaseIterable {
     /// Returns `true` for preview and testing environments to ensure isolation.
     var isStoredInMemoryOnly: Bool {
         switch self {
-        case .production, .development:
+        case .live:
             return false
         case .preview, .testing:
             return true
@@ -71,33 +69,18 @@ enum AppEnvironment: String, CaseIterable {
     ///
     /// Returns `true` only for preview environment.
     var usesMockData: Bool {
-        switch self {
-        case .production, .development, .testing:
-            return false
-        case .preview:
-            return true
-        }
+        self == .preview
     }
 
     /// The container name for SwiftData storage.
-    ///
-    /// Each environment has a unique container name to prevent data mixing.
     var containerName: String {
         switch self {
-        case .production:
+        case .live:
             return "Spread"
-        case .development:
-            return "Spread.development"
         case .preview:
             return "Spread.preview"
         case .testing:
             return "Spread.testing"
         }
-    }
-
-    // MARK: - Private
-
-    private static var isDebugBuild: Bool {
-        BuildInfo.allowsDebugUI
     }
 }

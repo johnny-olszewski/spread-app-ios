@@ -52,7 +52,7 @@ struct DependencyContainer: @unchecked Sendable {
         let modelContainer = try ModelContainerFactory.make(for: environment)
 
         switch environment {
-        case .production, .development:
+        case .live:
             return DependencyContainer(
                 environment: environment,
                 modelContainer: modelContainer,
