@@ -15,7 +15,7 @@ enum SyncDateFormatting {
     static let dateOnlyFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
-        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.timeZone = .autoupdatingCurrent
         formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter
     }()
