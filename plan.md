@@ -157,15 +157,15 @@
 ## Story: Supabase offline-first sync + auth migration (priority)
 
 ### User Story
-- As a user, I want my data to work offline first and sync across devices and platforms when signed in.
+- As a user, I want my data to work offline first and sync across devices and platforms when signed in with a backup entitlement.
 
 ### Definition of Done
 - Supabase dev/prod environments are configured with migrations, RLS, and merge RPCs.
 - App uses SwiftData locally with an outbox-based sync engine (push + incremental pull).
-- Auth supports email/password; local-only usage is supported. (Apple/Google deferred to SPRD-91.)
+- Auth supports email/password; local-only usage is supported when logged out or not entitled for backup. (Apple/Google deferred to SPRD-91.)
 - Debug/QA builds can switch DataEnvironment at runtime (prod guarded).
 - Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
-- Sync status and error feedback are visible; CloudKit is no longer required.
+- Sync status and error feedback are visible (including a distinct "no backup entitlement" state); CloudKit is no longer required.
 
 ### [SPRD-85] Feature: Offline-first sync engine (outbox + pull) - [x] Complete
 - **Context**: Sync must work without reliable connectivity.
@@ -227,16 +227,37 @@
   - Set `onSignIn` to trigger a merge-aware sync and reload JournalManager data after completion.
   - Set `onSignOut` to wipe local store + outbox and reset JournalManager state.
   - Ensure `DeviceIdManager.getOrCreateDeviceId()` is called once at app startup and provided to SyncEngine/outbox.
-  - Keep local-only mode functional when no Supabase client is available.
+- Keep local-only mode functional when no Supabase client is available.
+- When signed in but not entitled for backup, do not trigger merge sync and keep local-only behavior.
 - **Acceptance Criteria**:
   - Sign-in triggers a merge flow and updates the UI with synced data.
   - Sign-out wipes local store/outbox and returns the app to local-only state.
-  - Device ID is generated once and is available to sync/outbox.
+- Device ID is generated once and is available to sync/outbox.
+- Signed-in without backup entitlement stays local-only and does not attempt sync.
 - **Tests**:
   - Unit test: sign-in triggers merge callback.
-  - Unit test: sign-out triggers wipe + JournalManager reset.
-  - Manual: sign in/out flows on dev environment.
+- Unit test: sign-out triggers wipe + JournalManager reset.
+- Manual: sign in/out flows on dev environment.
 - **Dependencies**: SPRD-85, SPRD-95
+
+### [SPRD-101] Feature: Sync eligibility gating (auth + premium backup)
+- **Context**: Backup is a premium feature; not every signed-in account can sync.
+- **Description**: Gate sync availability on both auth state and backup entitlement, and surface a distinct UI state when backup is unavailable.
+- **Implementation Details**:
+  - Introduce a sync entitlement flag (e.g., `AuthState.canSync` or `SyncEligibility`) populated from a profile flag.
+  - Update `SyncEngine` to block auto/manual sync when `canSync == false` and set a distinct status for signed-in-but-not-entitled users.
+  - Update `SyncStatus`/`SyncStatusView` to use SF Symbol `exclamationmark.arrow.triangle.2.circlepath` (grey) for the "backup unavailable" state.
+  - Keep outbox mutations enqueued locally while not entitled; block sync attempts only.
+  - Make toolbar sync status icon-only and surface any status copy in main content.
+  - Trigger a sync attempt when entitlement becomes active (e.g., after purchase or refresh).
+- **Acceptance Criteria**:
+  - Logged out: sync is unavailable; local-only behavior persists.
+  - Logged in without backup entitlement: no sync attempts; status icon shows `exclamationmark.arrow.triangle.2.circlepath`.
+  - Logged in with backup entitlement: normal sync behavior.
+- **Tests**:
+  - Unit tests: sync gating for logged-out, logged-in without entitlement, and entitled states.
+  - Unit tests: status icon/state mapping for "backup unavailable."
+- **Dependencies**: SPRD-85, SPRD-99, subscription/entitlement infrastructure
 
 ### [SPRD-84B] Feature: Auth policy isolation + DataEnvironment behavior
 - **Context**: Debug behavior must remain in separate files and avoid `#if DEBUG` in core auth services while DataEnvironment behavior stays consistent across builds.
