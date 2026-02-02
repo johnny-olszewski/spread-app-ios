@@ -1,5 +1,6 @@
 #if DEBUG
 import SwiftUI
+import struct Auth.User
 
 /// Debug menu for inspecting environment, container, and app state.
 ///
@@ -20,6 +21,9 @@ struct DebugMenuView: View {
     /// stays synchronized with repository data.
     let journalManager: JournalManager
 
+    /// The auth manager for inspecting authentication state.
+    let authManager: AuthManager
+
     /// The sync engine for inspecting sync state.
     let syncEngine: SyncEngine?
 
@@ -36,6 +40,7 @@ struct DebugMenuView: View {
             buildInfoSection
             dataEnvironmentSection
             supabaseSection
+            authSection
             syncSection
             dependenciesSection
             mockDataSection
@@ -68,10 +73,6 @@ struct DebugMenuView: View {
                 DataEnvironment.persistSelection(newValue)
             }
 
-            LabeledContent("Auth Required", value: selectedDataEnvironment.requiresAuth ? "Yes" : "No")
-            LabeledContent("Sync Enabled", value: selectedDataEnvironment.syncEnabled ? "Yes" : "No")
-            LabeledContent("Local Only", value: selectedDataEnvironment.isLocalOnly ? "Yes" : "No")
-
             if DataEnvironment.persistedSelection != nil {
                 Button("Clear Persisted Selection") {
                     DataEnvironment.clearPersistedSelection()
@@ -81,7 +82,7 @@ struct DebugMenuView: View {
         } header: {
             Label("Data Environment", systemImage: "externaldrive.connected.to.line.below")
         } footer: {
-            Text("Selects the data target (localhost/dev/prod). Persisted across launches in Debug/QA builds. Restart the app for changes to take full effect.")
+            Text("Selects the data target (localhost/dev/prod). Restart for changes to take effect. Auth: \(selectedDataEnvironment.requiresAuth ? "required" : "none") · Sync: \(selectedDataEnvironment.syncEnabled ? "enabled" : "disabled") · \(selectedDataEnvironment.isLocalOnly ? "local only" : "remote")")
         }
     }
 
@@ -103,6 +104,25 @@ struct DebugMenuView: View {
 
     private var supabaseHostLabel: String {
         SupabaseConfiguration.url.host ?? SupabaseConfiguration.url.absoluteString
+    }
+
+    // MARK: - Auth Section
+
+    private var authSection: some View {
+        Section {
+            LabeledContent("Status", value: authManager.state.isSignedIn ? "Signed in" : "Signed out")
+            if let email = authManager.userEmail {
+                LabeledContent("User", value: email)
+            }
+            if let userId = authManager.state.user?.id.uuidString {
+                LabeledContent("User ID", value: userId)
+                    .font(.caption)
+                    .monospaced()
+            }
+            LabeledContent("Backup Entitled", value: authManager.hasBackupEntitlement ? "Yes" : "No")
+        } header: {
+            Label("Auth", systemImage: "person.badge.key")
+        }
     }
 
     // MARK: - Sync Section
@@ -304,6 +324,7 @@ struct DebugMenuView: View {
         DebugMenuView(
             container: try! .makeForPreview(),
             journalManager: .previewInstance,
+            authManager: AuthManager(),
             syncEngine: nil
         )
     }
