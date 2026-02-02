@@ -19,6 +19,9 @@ struct ConventionalSpreadsView: View {
     /// The auth manager for handling authentication.
     let authManager: AuthManager
 
+    /// The sync engine for data synchronization.
+    let syncEngine: SyncEngine?
+
     /// The currently selected spread.
     @State private var selectedSpread: DataModel.Spread?
 
@@ -60,6 +63,11 @@ struct ConventionalSpreadsView: View {
         .toolbar {
             // Inbox and auth buttons for iPad (regular width)
             if horizontalSizeClass == .regular {
+                if let syncEngine {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        SyncStatusView(syncEngine: syncEngine)
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     HStack(spacing: 16) {
                         InboxButton(inboxCount: journalManager.inboxCount) {
@@ -194,5 +202,9 @@ private struct SpreadContentView: View {
 // MARK: - Preview
 
 #Preview {
-    ConventionalSpreadsView(journalManager: .previewInstance, authManager: AuthManager())
+    ConventionalSpreadsView(
+        journalManager: .previewInstance,
+        authManager: AuthManager(),
+        syncEngine: nil
+    )
 }

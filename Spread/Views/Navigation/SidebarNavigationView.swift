@@ -69,7 +69,11 @@ struct SidebarNavigationView: View {
     private var spreadsView: some View {
         switch journalManager.bujoMode {
         case .conventional:
-            ConventionalSpreadsView(journalManager: journalManager, authManager: authManager)
+            ConventionalSpreadsView(
+                journalManager: journalManager,
+                authManager: authManager,
+                syncEngine: syncEngine
+            )
         case .traditional:
             TraditionalSpreadsPlaceholderView()
         }

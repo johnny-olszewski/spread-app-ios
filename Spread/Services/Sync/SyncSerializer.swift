@@ -343,7 +343,8 @@ enum SyncSerializer {
     static func serializeSpread(
         _ spread: DataModel.Spread,
         deviceId: UUID,
-        timestamp: Date
+        timestamp: Date,
+        deletedAt: Date? = nil
     ) -> Data? {
         let ts = SyncDateFormatting.formatTimestamp(timestamp)
         let record: [String: Any?] = [
@@ -354,7 +355,7 @@ enum SyncSerializer {
             "start_date": spread.startDate.map { SyncDateFormatting.formatDate($0) },
             "end_date": spread.endDate.map { SyncDateFormatting.formatDate($0) },
             "created_at": SyncDateFormatting.formatTimestamp(spread.createdDate),
-            "deleted_at": nil as String?,
+            "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
             "period_updated_at": ts,
             "date_updated_at": ts,
             "start_date_updated_at": ts,
@@ -369,7 +370,8 @@ enum SyncSerializer {
     static func serializeTask(
         _ task: DataModel.Task,
         deviceId: UUID,
-        timestamp: Date
+        timestamp: Date,
+        deletedAt: Date? = nil
     ) -> Data? {
         let ts = SyncDateFormatting.formatTimestamp(timestamp)
         let record: [String: Any?] = [
@@ -380,7 +382,7 @@ enum SyncSerializer {
             "period": task.period.rawValue,
             "status": task.status.rawValue,
             "created_at": SyncDateFormatting.formatTimestamp(task.createdDate),
-            "deleted_at": nil as String?,
+            "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
             "title_updated_at": ts,
             "date_updated_at": ts,
             "period_updated_at": ts,
@@ -395,7 +397,8 @@ enum SyncSerializer {
     static func serializeNote(
         _ note: DataModel.Note,
         deviceId: UUID,
-        timestamp: Date
+        timestamp: Date,
+        deletedAt: Date? = nil
     ) -> Data? {
         let ts = SyncDateFormatting.formatTimestamp(timestamp)
         let record: [String: Any?] = [
@@ -407,7 +410,7 @@ enum SyncSerializer {
             "period": note.period.rawValue,
             "status": note.status.rawValue,
             "created_at": SyncDateFormatting.formatTimestamp(note.createdDate),
-            "deleted_at": nil as String?,
+            "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
             "title_updated_at": ts,
             "content_updated_at": ts,
             "date_updated_at": ts,
@@ -423,7 +426,8 @@ enum SyncSerializer {
     static func serializeCollection(
         _ collection: DataModel.Collection,
         deviceId: UUID,
-        timestamp: Date
+        timestamp: Date,
+        deletedAt: Date? = nil
     ) -> Data? {
         let ts = SyncDateFormatting.formatTimestamp(timestamp)
         let record: [String: Any?] = [
@@ -431,7 +435,7 @@ enum SyncSerializer {
             "device_id": deviceId.uuidString,
             "title": collection.title,
             "created_at": SyncDateFormatting.formatTimestamp(collection.createdDate),
-            "deleted_at": nil as String?,
+            "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
             "title_updated_at": ts
         ]
         return try? JSONSerialization.data(

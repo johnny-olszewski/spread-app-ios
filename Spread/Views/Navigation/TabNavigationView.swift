@@ -64,6 +64,11 @@ struct TabNavigationView: View {
             }
             .navigationTitle(tab.title)
             .toolbar {
+                if let syncEngine {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        SyncStatusView(syncEngine: syncEngine)
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     HStack(spacing: 16) {
                         InboxButton(inboxCount: journalManager.inboxCount) {
@@ -84,7 +89,11 @@ struct TabNavigationView: View {
     private var spreadsView: some View {
         switch journalManager.bujoMode {
         case .conventional:
-            ConventionalSpreadsView(journalManager: journalManager, authManager: authManager)
+            ConventionalSpreadsView(
+                journalManager: journalManager,
+                authManager: authManager,
+                syncEngine: syncEngine
+            )
         case .traditional:
             TraditionalSpreadsPlaceholderView()
         }

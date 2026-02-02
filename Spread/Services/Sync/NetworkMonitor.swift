@@ -33,6 +33,9 @@ final class NetworkMonitor {
     /// The current connection type.
     private(set) var connectionType: ConnectionType = .unknown
 
+    /// Called when connectivity changes.
+    var onConnectionChange: ((Bool) -> Void)?
+
     /// The types of network connection available.
     enum ConnectionType: String, Sendable {
         case wifi
@@ -74,6 +77,7 @@ final class NetworkMonitor {
                     self.logger.info(
                         "Network status changed: \(self.actuallyConnected ? "connected" : "disconnected") (\(self.connectionType.rawValue))"
                     )
+                    self.onConnectionChange?(self.isConnected)
                 }
             }
         }

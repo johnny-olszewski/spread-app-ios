@@ -44,6 +44,7 @@ final class SyncEngine {
     private let networkMonitor: NetworkMonitor
     private let deviceId: UUID
     private let isSyncEnabled: Bool
+    private let policy: SyncPolicy
 
     // MARK: - Private State
 
@@ -71,13 +72,15 @@ final class SyncEngine {
     ///   - networkMonitor: The network connectivity monitor.
     ///   - deviceId: The unique device identifier.
     ///   - isSyncEnabled: Whether sync is enabled for the current data environment.
+    ///   - policy: Policy overrides for sync behavior.
     init(
         client: SupabaseClient?,
         modelContainer: ModelContainer,
         authManager: AuthManager,
         networkMonitor: NetworkMonitor,
         deviceId: UUID,
-        isSyncEnabled: Bool
+        isSyncEnabled: Bool,
+        policy: SyncPolicy = DefaultSyncPolicy()
     ) {
         self.client = client
         self.modelContainer = modelContainer
@@ -85,6 +88,7 @@ final class SyncEngine {
         self.networkMonitor = networkMonitor
         self.deviceId = deviceId
         self.isSyncEnabled = isSyncEnabled
+        self.policy = policy
 
         if !isSyncEnabled {
             self.status = .localOnly
@@ -106,6 +110,18 @@ final class SyncEngine {
 
         logger.info("Auto sync started")
         syncLog.info("Auto sync started")
+
+        networkMonitor.onConnectionChange = { [weak self] isConnected in
+            guard let self else { return }
+            if isConnected {
+                Task { @MainActor in
+                    await self.syncNow()
+                }
+            } else if self.status != .syncing {
+                self.status = .offline
+                self.syncLog.warning("Sync paused: offline")
+            }
+        }
 
         foregroundObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.willEnterForegroundNotification,
@@ -135,6 +151,7 @@ final class SyncEngine {
             NotificationCenter.default.removeObserver(foregroundObserver)
         }
         foregroundObserver = nil
+        networkMonitor.onConnectionChange = nil
     }
 
     // MARK: - Manual Sync
@@ -146,6 +163,11 @@ final class SyncEngine {
     func syncNow() async {
         guard isSyncEnabled else {
             logger.debug("Sync disabled")
+            return
+        }
+
+        guard policy.shouldAllowSync() else {
+            logger.debug("Sync blocked by policy")
             return
         }
 
@@ -162,6 +184,20 @@ final class SyncEngine {
 
         guard authManager.state.isSignedIn else {
             logger.debug("Sync skipped: not signed in")
+            return
+        }
+
+        if let forcedDuration = policy.forceSyncingDuration() {
+            await simulateSync(duration: forcedDuration)
+            return
+        }
+
+        if policy.forceSyncFailure() {
+            let message = "Sync failed. Will retry."
+            status = .error(message)
+            syncLog.error("Sync failed (forced)")
+            consecutiveFailures += 1
+            scheduleRetry()
             return
         }
 
@@ -209,7 +245,7 @@ final class SyncEngine {
     // MARK: - Core Sync
 
     private func performSync() async {
-        guard let client else {
+        guard client != nil else {
             logger.warning("Sync attempted without Supabase client")
             return
         }
@@ -242,6 +278,25 @@ final class SyncEngine {
 
             scheduleRetry()
         }
+    }
+
+    private func simulateSync(duration: TimeInterval) async {
+        status = .syncing
+        syncLog.info("Sync started (forced)")
+        logger.info("Sync started (forced)")
+
+        do {
+            try await Task.sleep(for: .seconds(duration))
+        } catch {
+            status = .idle
+            syncLog.warning("Sync cancelled")
+            return
+        }
+
+        lastSyncDate = .now
+        status = .synced(.now)
+        syncLog.info("Sync completed (forced)")
+        logger.info("Sync completed (forced)")
     }
 
     // MARK: - Push
