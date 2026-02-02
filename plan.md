@@ -167,7 +167,7 @@
 - Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
 - Sync status and error feedback are visible; CloudKit is no longer required.
 
-### [SPRD-85] Feature: Offline-first sync engine (outbox + pull) - [ ] Reopened
+### [SPRD-85] Feature: Offline-first sync engine (outbox + pull) - [x] Complete
 - **Context**: Sync must work without reliable connectivity.
 - **Description**: Implement outbox-based push + incremental pull with status UI.
 - **Implementation Details**:
