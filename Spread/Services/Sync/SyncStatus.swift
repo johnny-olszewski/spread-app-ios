@@ -20,6 +20,9 @@ enum SyncStatus: Equatable, Sendable {
     /// Sync is disabled for this environment (e.g., localhost mode).
     case localOnly
 
+    /// User is signed in but lacks backup entitlement.
+    case backupUnavailable
+
     /// A short display string for the current status.
     var displayText: String {
         switch self {
@@ -35,6 +38,8 @@ enum SyncStatus: Equatable, Sendable {
             "Offline"
         case .localOnly:
             "Local only"
+        case .backupUnavailable:
+            "Backup unavailable"
         }
     }
 
@@ -53,12 +58,20 @@ enum SyncStatus: Equatable, Sendable {
             "icloud.slash"
         case .localOnly:
             "internaldrive"
+        case .backupUnavailable:
+            "exclamationmark.arrow.triangle.2.circlepath"
         }
     }
 
     /// Whether the status represents an error state.
     var isError: Bool {
         if case .error = self { return true }
+        return false
+    }
+
+    /// Whether the status represents a missing backup entitlement.
+    var isBackupUnavailable: Bool {
+        if case .backupUnavailable = self { return true }
         return false
     }
 }
