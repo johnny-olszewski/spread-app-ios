@@ -70,6 +70,23 @@ struct MergeSpreadParams: Encodable, Sendable {
         case pStartDateUpdatedAt = "p_start_date_updated_at"
         case pEndDateUpdatedAt = "p_end_date_updated_at"
     }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pId, forKey: .pId)
+        try container.encode(pUserId, forKey: .pUserId)
+        try container.encode(pDeviceId, forKey: .pDeviceId)
+        try container.encode(pPeriod, forKey: .pPeriod)
+        try container.encode(pDate, forKey: .pDate)
+        try container.encode(pStartDate, forKey: .pStartDate)
+        try container.encode(pEndDate, forKey: .pEndDate)
+        try container.encode(pCreatedAt, forKey: .pCreatedAt)
+        try container.encode(pDeletedAt, forKey: .pDeletedAt)
+        try container.encode(pPeriodUpdatedAt, forKey: .pPeriodUpdatedAt)
+        try container.encode(pDateUpdatedAt, forKey: .pDateUpdatedAt)
+        try container.encode(pStartDateUpdatedAt, forKey: .pStartDateUpdatedAt)
+        try container.encode(pEndDateUpdatedAt, forKey: .pEndDateUpdatedAt)
+    }
 }
 
 /// Parameters for the `merge_task` RPC.
@@ -102,6 +119,23 @@ struct MergeTaskParams: Encodable, Sendable {
         case pDateUpdatedAt = "p_date_updated_at"
         case pPeriodUpdatedAt = "p_period_updated_at"
         case pStatusUpdatedAt = "p_status_updated_at"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pId, forKey: .pId)
+        try container.encode(pUserId, forKey: .pUserId)
+        try container.encode(pDeviceId, forKey: .pDeviceId)
+        try container.encode(pTitle, forKey: .pTitle)
+        try container.encode(pDate, forKey: .pDate)
+        try container.encode(pPeriod, forKey: .pPeriod)
+        try container.encode(pStatus, forKey: .pStatus)
+        try container.encode(pCreatedAt, forKey: .pCreatedAt)
+        try container.encode(pDeletedAt, forKey: .pDeletedAt)
+        try container.encode(pTitleUpdatedAt, forKey: .pTitleUpdatedAt)
+        try container.encode(pDateUpdatedAt, forKey: .pDateUpdatedAt)
+        try container.encode(pPeriodUpdatedAt, forKey: .pPeriodUpdatedAt)
+        try container.encode(pStatusUpdatedAt, forKey: .pStatusUpdatedAt)
     }
 }
 
@@ -140,6 +174,25 @@ struct MergeNoteParams: Encodable, Sendable {
         case pPeriodUpdatedAt = "p_period_updated_at"
         case pStatusUpdatedAt = "p_status_updated_at"
     }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pId, forKey: .pId)
+        try container.encode(pUserId, forKey: .pUserId)
+        try container.encode(pDeviceId, forKey: .pDeviceId)
+        try container.encode(pTitle, forKey: .pTitle)
+        try container.encode(pContent, forKey: .pContent)
+        try container.encode(pDate, forKey: .pDate)
+        try container.encode(pPeriod, forKey: .pPeriod)
+        try container.encode(pStatus, forKey: .pStatus)
+        try container.encode(pCreatedAt, forKey: .pCreatedAt)
+        try container.encode(pDeletedAt, forKey: .pDeletedAt)
+        try container.encode(pTitleUpdatedAt, forKey: .pTitleUpdatedAt)
+        try container.encode(pContentUpdatedAt, forKey: .pContentUpdatedAt)
+        try container.encode(pDateUpdatedAt, forKey: .pDateUpdatedAt)
+        try container.encode(pPeriodUpdatedAt, forKey: .pPeriodUpdatedAt)
+        try container.encode(pStatusUpdatedAt, forKey: .pStatusUpdatedAt)
+    }
 }
 
 /// Parameters for the `merge_collection` RPC.
@@ -160,6 +213,17 @@ struct MergeCollectionParams: Encodable, Sendable {
         case pCreatedAt = "p_created_at"
         case pDeletedAt = "p_deleted_at"
         case pTitleUpdatedAt = "p_title_updated_at"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pId, forKey: .pId)
+        try container.encode(pUserId, forKey: .pUserId)
+        try container.encode(pDeviceId, forKey: .pDeviceId)
+        try container.encode(pTitle, forKey: .pTitle)
+        try container.encode(pCreatedAt, forKey: .pCreatedAt)
+        try container.encode(pDeletedAt, forKey: .pDeletedAt)
+        try container.encode(pTitleUpdatedAt, forKey: .pTitleUpdatedAt)
     }
 }
 
@@ -188,6 +252,20 @@ struct MergeTaskAssignmentParams: Encodable, Sendable {
         case pDeletedAt = "p_deleted_at"
         case pStatusUpdatedAt = "p_status_updated_at"
     }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pId, forKey: .pId)
+        try container.encode(pUserId, forKey: .pUserId)
+        try container.encode(pDeviceId, forKey: .pDeviceId)
+        try container.encode(pTaskId, forKey: .pTaskId)
+        try container.encode(pPeriod, forKey: .pPeriod)
+        try container.encode(pDate, forKey: .pDate)
+        try container.encode(pStatus, forKey: .pStatus)
+        try container.encode(pCreatedAt, forKey: .pCreatedAt)
+        try container.encode(pDeletedAt, forKey: .pDeletedAt)
+        try container.encode(pStatusUpdatedAt, forKey: .pStatusUpdatedAt)
+    }
 }
 
 /// Parameters for the `merge_note_assignment` RPC.
@@ -214,6 +292,20 @@ struct MergeNoteAssignmentParams: Encodable, Sendable {
         case pCreatedAt = "p_created_at"
         case pDeletedAt = "p_deleted_at"
         case pStatusUpdatedAt = "p_status_updated_at"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pId, forKey: .pId)
+        try container.encode(pUserId, forKey: .pUserId)
+        try container.encode(pDeviceId, forKey: .pDeviceId)
+        try container.encode(pNoteId, forKey: .pNoteId)
+        try container.encode(pPeriod, forKey: .pPeriod)
+        try container.encode(pDate, forKey: .pDate)
+        try container.encode(pStatus, forKey: .pStatus)
+        try container.encode(pCreatedAt, forKey: .pCreatedAt)
+        try container.encode(pDeletedAt, forKey: .pDeletedAt)
+        try container.encode(pStatusUpdatedAt, forKey: .pStatusUpdatedAt)
     }
 }
 
