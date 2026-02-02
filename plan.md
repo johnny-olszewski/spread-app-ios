@@ -248,7 +248,7 @@
   - Update `SyncEngine` to block auto/manual sync when `canSync == false` and set a distinct status for signed-in-but-not-entitled users.
   - Update `SyncStatus`/`SyncStatusView` to use SF Symbol `exclamationmark.arrow.triangle.2.circlepath` (grey) for the "backup unavailable" state.
   - Keep outbox mutations enqueued locally while not entitled; block sync attempts only.
-  - Make toolbar sync status icon-only and surface any status copy in main content.
+  - Make toolbar sync status icon-only and surface any status copy in a minimal banner/status line near the top of the main spreads content.
   - Trigger a sync attempt when entitlement becomes active (e.g., after purchase or refresh).
 - **Acceptance Criteria**:
   - Logged out: sync is unavailable; local-only behavior persists.
