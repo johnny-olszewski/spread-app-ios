@@ -231,7 +231,7 @@
 - Sync eligibility requires (a) signed-in and (b) backup entitlement active; otherwise the app remains local-only and sync attempts are blocked. [SPRD-85]
 - Signed-in but not entitled remains local-only across launches; outbox mutations still enqueue locally for future upgrade. [SPRD-85]
 - Signed-in but not entitled shows a distinct sync status state using SF Symbol `exclamationmark.arrow.triangle.2.circlepath` in a grey tint. [SPRD-85]
-- Toolbar sync status is icon-only; any status copy is shown in main content (not in the toolbar). [SPRD-85]
+- Toolbar sync status is icon-only; any status copy is shown in main content (not in the toolbar). Use a minimal, visible banner or status line near the top of the main spreads content. [SPRD-85]
 
 ### Supabase Sync + Auth (v1)
 - Supabase environments: separate dev and prod projects; Debug and QA TestFlight builds can switch data environments (localhost/dev/prod) at runtime; Release builds are locked to prod. [SPRD-80, SPRD-86]
