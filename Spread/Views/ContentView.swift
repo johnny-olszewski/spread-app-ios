@@ -79,8 +79,17 @@ struct ContentView: View {
             authManager: authManager,
             networkMonitor: container.networkMonitor,
             deviceId: DeviceIdManager.getOrCreateDeviceId(),
-            isSyncEnabled: dataEnv.syncEnabled
+            isSyncEnabled: dataEnv.syncEnabled,
+            policy: makeSyncPolicy()
         )
+    }
+
+    private func makeSyncPolicy() -> SyncPolicy {
+        #if DEBUG
+        return DebugSyncPolicy()
+        #else
+        return DefaultSyncPolicy()
+        #endif
     }
 
     private func wireAuthCallbacks(syncEngine: SyncEngine) {
@@ -96,4 +105,3 @@ struct ContentView: View {
 #Preview {
     ContentView(container: try! .makeForPreview())
 }
-

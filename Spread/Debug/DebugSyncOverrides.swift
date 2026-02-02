@@ -1,4 +1,5 @@
 #if DEBUG
+import Foundation
 import Observation
 
 /// Debug-only runtime overrides for network behavior.
@@ -19,11 +20,21 @@ final class DebugSyncOverrides {
     /// When true, forces NetworkMonitor to report offline and all requests fail.
     var blockAllNetwork = false
 
+    // MARK: - Sync Overrides
+
+    /// When true, forces sync operations to fail immediately.
+    var forceSyncFailure = false
+
+    /// When set, forces sync to remain in the syncing state for this duration.
+    var forcedSyncingDuration: TimeInterval?
+
     // MARK: - Reset
 
     /// Resets all overrides to default values.
     func reset() {
         blockAllNetwork = false
+        forceSyncFailure = false
+        forcedSyncingDuration = nil
     }
 }
 #endif
