@@ -57,6 +57,11 @@ struct ConventionalSpreadsView: View {
 
             Divider()
 
+            // Sync status banner
+            if let syncEngine {
+                SyncStatusBanner(syncEngine: syncEngine)
+            }
+
             // Content area
             spreadContent
         }
