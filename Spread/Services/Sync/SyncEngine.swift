@@ -108,6 +108,13 @@ final class SyncEngine {
             return
         }
 
+        if authManager.state.isSignedIn && !authManager.hasBackupEntitlement {
+            status = .backupUnavailable
+            logger.info("Auto sync not started (no backup entitlement)")
+            syncLog.warning("Backup unavailable")
+            return
+        }
+
         logger.info("Auto sync started")
         syncLog.info("Auto sync started")
 
@@ -184,6 +191,13 @@ final class SyncEngine {
 
         guard authManager.state.isSignedIn else {
             logger.debug("Sync skipped: not signed in")
+            return
+        }
+
+        guard authManager.hasBackupEntitlement else {
+            status = .backupUnavailable
+            logger.debug("Sync skipped: no backup entitlement")
+            syncLog.warning("Backup unavailable")
             return
         }
 
@@ -463,32 +477,84 @@ final class SyncEngine {
         context: ModelContext
     ) throws {
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
 
         for rowDict in rows {
+            if rowDict["created_at"] == nil {
+                let keys = rowDict.keys.compactMap { $0 as? String }.sorted()
+                let id = rowDict["id"] as? String ?? "unknown"
+                let revision = rowDict["revision"] as? NSNumber
+                logger.error(
+                    "Pull row missing created_at for \(entityType.rawValue) id=\(id) rev=\(revision?.int64Value ?? -1) keys=\(keys)"
+                )
+                syncLog.error("Pull row missing created_at for \(entityType.rawValue)")
+            }
             let rowData = try JSONSerialization.data(withJSONObject: rowDict)
 
             switch entityType {
             case .spread:
-                let row = try decoder.decode(ServerSpreadRow.self, from: rowData)
-                try applySpreadRow(row, context: context)
+                do {
+                    let row = try decoder.decode(ServerSpreadRow.self, from: rowData)
+                    try applySpreadRow(row, context: context)
+                } catch {
+                    logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
+                    throw error
+                }
             case .task:
-                let row = try decoder.decode(ServerTaskRow.self, from: rowData)
-                try applyTaskRow(row, context: context)
+                do {
+                    let row = try decoder.decode(ServerTaskRow.self, from: rowData)
+                    try applyTaskRow(row, context: context)
+                } catch {
+                    logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
+                    throw error
+                }
             case .note:
-                let row = try decoder.decode(ServerNoteRow.self, from: rowData)
-                try applyNoteRow(row, context: context)
+                do {
+                    let row = try decoder.decode(ServerNoteRow.self, from: rowData)
+                    try applyNoteRow(row, context: context)
+                } catch {
+                    logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
+                    throw error
+                }
             case .collection:
-                let row = try decoder.decode(ServerCollectionRow.self, from: rowData)
-                try applyCollectionRow(row, context: context)
+                do {
+                    let row = try decoder.decode(ServerCollectionRow.self, from: rowData)
+                    try applyCollectionRow(row, context: context)
+                } catch {
+                    logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
+                    throw error
+                }
             case .taskAssignment:
-                let row = try decoder.decode(ServerTaskAssignmentRow.self, from: rowData)
-                try applyTaskAssignmentRow(row, context: context)
+                do {
+                    let row = try decoder.decode(ServerTaskAssignmentRow.self, from: rowData)
+                    try applyTaskAssignmentRow(row, context: context)
+                } catch {
+                    logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
+                    throw error
+                }
             case .noteAssignment:
-                let row = try decoder.decode(ServerNoteAssignmentRow.self, from: rowData)
-                try applyNoteAssignmentRow(row, context: context)
+                do {
+                    let row = try decoder.decode(ServerNoteAssignmentRow.self, from: rowData)
+                    try applyNoteAssignmentRow(row, context: context)
+                } catch {
+                    logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
+                    throw error
+                }
             }
         }
+    }
+
+    private func logDecodeFailure(
+        _ error: Error,
+        entityType: SyncEntityType,
+        rowDict: [String: Any]
+    ) {
+        let keys = rowDict.keys.compactMap { $0 as? String }.sorted()
+        let id = rowDict["id"] as? String ?? "unknown"
+        let revision = rowDict["revision"] as? NSNumber
+        logger.error(
+            "Failed to decode \(entityType.rawValue) row id=\(id) rev=\(revision?.int64Value ?? -1): \(error). keys=\(keys)"
+        )
+        syncLog.error("Decode failure for \(entityType.rawValue)")
     }
 
     // MARK: - Pull Apply Helpers
