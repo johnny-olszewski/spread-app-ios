@@ -167,9 +167,9 @@
 - Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
 - Sync status and error feedback are visible (including a distinct "no backup entitlement" state); CloudKit is no longer required.
 
-### [SPRD-85] Feature: Offline-first sync engine (outbox + pull) - [x] Complete
-- **Context**: Sync must work without reliable connectivity.
-- **Description**: Implement outbox-based push + incremental pull with status UI.
+### [SPRD-85] Feature: Offline-first sync engine (outbox + pull + eligibility gating)
+- **Context**: Sync must work without reliable connectivity. Backup is a premium feature; not every signed-in account can sync.
+- **Description**: Implement outbox-based push + incremental pull with status UI, and gate sync availability on both auth state and backup entitlement.
 - **Implementation Details**:
   - Add `SyncMutation` SwiftData model for outbox entries (full record + `changed_fields`).
   - Enqueue outbox mutations on repository writes (tasks/notes/spreads/assignments/collections/settings).
@@ -177,7 +177,12 @@
   - Pull: incremental per-table sync using `revision`, with pagination and `last_sync` cursor stored locally.
   - Gate sync with `NWPathMonitor`; auto sync on launch/foreground + manual refresh.
   - Add exponential backoff on failure; store a capped local SyncLog.
-  - Show toolbar sync status (last sync time + non-blocking error).
+  - Introduce a sync entitlement flag (e.g., `AuthState.canSync` or `SyncEligibility`) populated from a profile flag.
+  - Update `SyncEngine` to block auto/manual sync when `canSync == false` and set a distinct status for signed-in-but-not-entitled users.
+  - Update `SyncStatus`/`SyncStatusView` to use SF Symbol `exclamationmark.arrow.triangle.2.circlepath` (grey) for the "backup unavailable" state.
+  - Keep outbox mutations enqueued locally while not entitled; block sync attempts only.
+  - Make toolbar sync status icon-only and surface any status copy in a minimal banner/status line near the top of the main spreads content.
+  - Trigger a sync attempt when entitlement becomes active (e.g., after purchase or refresh).
   - **Architecture note (protocol + policy injection)**:
     - Define a `SyncPolicy` protocol in non-debug files and inject it into `SyncEngine`.
     - Use `DefaultSyncPolicy` in Release builds; debug policies live in `Spread/Debug`.
@@ -207,17 +212,19 @@
   - Mock data loading options in Debug menu only available when localhost Data Environment is selected.
   - Offline edits sync when connectivity returns.
   - Sync is idempotent and resilient to retries.
-  - UI shows last sync and errors.
   - Repository writes enqueue outbox mutations and use serializers.
   - Device ID is included in outbox record data.
+  - Logged out: sync is unavailable; local-only behavior persists.
+  - Logged in without backup entitlement: no sync attempts; status icon shows `exclamationmark.arrow.triangle.2.circlepath`.
+  - Logged in with backup entitlement: normal sync behavior.
+  - Toolbar sync status is icon-only; status copy appears in a minimal banner/status line near the top of the main spreads content.
 - **Tests**:
   - Unit tests for outbox enqueue and sync ordering.
   - Integration tests for push/pull with dev Supabase project.
   - Unit tests for enqueue + serializer output coverage (task/spread/note/assignment/collection).
-  - UI verification that sync status surfaces last sync time and errors (not icon-only).
+  - Unit tests: sync gating for logged-out, logged-in without entitlement, and entitled states.
+  - Unit tests: status icon/state mapping for "backup unavailable."
 - **Dependencies**: SPRD-83, SPRD-84, SPRD-95
- - **Notes**:
-   - Current `feature/SPRD-85` implements SyncEngine + models but does not wire outbox enqueue to repositories; serializer is unused; deviceId is not applied; tests are missing.
 
 ### [SPRD-99] Feature: Auth lifecycle wiring (merge + wipe + device ID)
 - **Context**: SPRD-84 delivered auth UI but sign-in merge and sign-out wipe are not wired, and device ID is not used.
@@ -240,24 +247,6 @@
 - Manual: sign in/out flows on dev environment.
 - **Dependencies**: SPRD-85, SPRD-95
 
-### [SPRD-101] Feature: Sync eligibility gating (auth + premium backup)
-- **Context**: Backup is a premium feature; not every signed-in account can sync.
-- **Description**: Gate sync availability on both auth state and backup entitlement, and surface a distinct UI state when backup is unavailable.
-- **Implementation Details**:
-  - Introduce a sync entitlement flag (e.g., `AuthState.canSync` or `SyncEligibility`) populated from a profile flag.
-  - Update `SyncEngine` to block auto/manual sync when `canSync == false` and set a distinct status for signed-in-but-not-entitled users.
-  - Update `SyncStatus`/`SyncStatusView` to use SF Symbol `exclamationmark.arrow.triangle.2.circlepath` (grey) for the "backup unavailable" state.
-  - Keep outbox mutations enqueued locally while not entitled; block sync attempts only.
-  - Make toolbar sync status icon-only and surface any status copy in a minimal banner/status line near the top of the main spreads content.
-  - Trigger a sync attempt when entitlement becomes active (e.g., after purchase or refresh).
-- **Acceptance Criteria**:
-  - Logged out: sync is unavailable; local-only behavior persists.
-  - Logged in without backup entitlement: no sync attempts; status icon shows `exclamationmark.arrow.triangle.2.circlepath`.
-  - Logged in with backup entitlement: normal sync behavior.
-- **Tests**:
-  - Unit tests: sync gating for logged-out, logged-in without entitlement, and entitled states.
-  - Unit tests: status icon/state mapping for "backup unavailable."
-- **Dependencies**: SPRD-85, SPRD-99, subscription/entitlement infrastructure
 
 ### [SPRD-84B] Feature: Auth policy isolation + DataEnvironment behavior
 - **Context**: Debug behavior must remain in separate files and avoid `#if DEBUG` in core auth services while DataEnvironment behavior stays consistent across builds.
