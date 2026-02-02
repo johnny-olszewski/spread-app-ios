@@ -35,6 +35,9 @@ final class AuthManager {
     /// The current auth state.
     private(set) var state: AuthState = .signedOut
 
+    /// Whether the current user has backup entitlement.
+    private(set) var hasBackupEntitlement = false
+
     /// Whether an auth operation is in progress.
     private(set) var isLoading = false
 
@@ -83,6 +86,7 @@ final class AuthManager {
         do {
             let session = try await client.auth.session
             state = .signedIn(session.user)
+            hasBackupEntitlement = readBackupEntitlement(from: session.user)
         } catch {
             // No valid session, user is signed out
             state = .signedOut
@@ -110,6 +114,7 @@ final class AuthManager {
             )
 
             state = .signedIn(session.user)
+            hasBackupEntitlement = readBackupEntitlement(from: session.user)
 
             // Notify for data merge
             await onSignIn?(session.user)
@@ -137,6 +142,7 @@ final class AuthManager {
         do {
             try await client.auth.signOut()
             state = .signedOut
+            hasBackupEntitlement = false
 
             // Notify to wipe local data
             await onSignOut?()
@@ -178,5 +184,12 @@ final class AuthManager {
     /// The current user's email, if signed in.
     var userEmail: String? {
         state.user?.email
+    }
+
+    // MARK: - Entitlement
+
+    /// Reads the backup entitlement flag from the user's app metadata.
+    private func readBackupEntitlement(from user: User) -> Bool {
+        user.appMetadata["backup_entitled"]?.boolValue ?? false
     }
 }
