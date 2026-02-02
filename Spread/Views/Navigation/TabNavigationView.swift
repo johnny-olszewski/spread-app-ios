@@ -58,7 +58,7 @@ struct TabNavigationView: View {
                     SettingsPlaceholderView()
                 #if DEBUG
                 case .debug:
-                    DebugMenuView(container: container, journalManager: journalManager, syncEngine: syncEngine)
+                    DebugMenuView(container: container, journalManager: journalManager, authManager: authManager, syncEngine: syncEngine)
                 #endif
                 }
             }

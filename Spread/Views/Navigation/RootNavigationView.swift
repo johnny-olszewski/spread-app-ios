@@ -77,6 +77,10 @@ struct RootNavigationView: View {
                 )
             }
         }
+        .onChange(of: syncEngine?.status) { _, newValue in
+            guard case .synced = newValue else { return }
+            Task { await journalManager.reload() }
+        }
     }
 }
 
