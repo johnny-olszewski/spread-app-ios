@@ -118,6 +118,57 @@ struct SyncSerializerTests {
         #expect(result == nil)
     }
 
+    // MARK: - Nil Encoding
+
+    /// Conditions: MergeSpreadParams with nil optional fields.
+    /// Expected: Encoded JSON should contain null values for p_start_date, p_end_date, p_deleted_at.
+    @Test func testMergeSpreadParamsEncodesNilAsNull() throws {
+        let params = MergeSpreadParams(
+            pId: UUID().uuidString, pUserId: UUID().uuidString,
+            pDeviceId: UUID().uuidString, pPeriod: "day", pDate: "2025-03-15",
+            pStartDate: nil, pEndDate: nil,
+            pCreatedAt: "2025-03-15T10:00:00.000Z", pDeletedAt: nil,
+            pPeriodUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pDateUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pStartDateUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pEndDateUpdatedAt: "2025-03-15T10:00:00.000Z"
+        )
+
+        let data = try JSONEncoder().encode(params)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        // All keys must be present (PostgreSQL requires them for function signature matching)
+        #expect(json.keys.contains("p_start_date"))
+        #expect(json.keys.contains("p_end_date"))
+        #expect(json.keys.contains("p_deleted_at"))
+
+        // Values should be NSNull (JSON null)
+        #expect(json["p_start_date"] is NSNull)
+        #expect(json["p_end_date"] is NSNull)
+        #expect(json["p_deleted_at"] is NSNull)
+    }
+
+    /// Conditions: MergeTaskParams with nil deleted_at.
+    /// Expected: Encoded JSON should contain null value for p_deleted_at.
+    @Test func testMergeTaskParamsEncodesNilDeletedAtAsNull() throws {
+        let params = MergeTaskParams(
+            pId: UUID().uuidString, pUserId: UUID().uuidString,
+            pDeviceId: UUID().uuidString, pTitle: "Test", pDate: "2025-03-15",
+            pPeriod: "day", pStatus: "open",
+            pCreatedAt: "2025-03-15T10:00:00.000Z", pDeletedAt: nil,
+            pTitleUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pDateUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pPeriodUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pStatusUpdatedAt: "2025-03-15T10:00:00.000Z"
+        )
+
+        let data = try JSONEncoder().encode(params)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        #expect(json.keys.contains("p_deleted_at"))
+        #expect(json["p_deleted_at"] is NSNull)
+    }
+
     // MARK: - Pull: createTask
 
     /// Conditions: Valid server task row.
