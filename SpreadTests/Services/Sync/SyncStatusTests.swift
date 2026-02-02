@@ -30,6 +30,12 @@ struct SyncStatusTests {
         #expect(SyncStatus.localOnly.displayText == "Local only")
     }
 
+    /// Conditions: Backup unavailable status.
+    /// Expected: Display text should indicate backup is unavailable.
+    @Test func testBackupUnavailableDisplayText() {
+        #expect(SyncStatus.backupUnavailable.displayText == "Backup unavailable")
+    }
+
     /// Conditions: Error status with message.
     /// Expected: Display text should be the error message.
     @Test func testErrorDisplayText() {
@@ -39,11 +45,17 @@ struct SyncStatusTests {
 
     // MARK: - System Image
 
+    /// Conditions: Backup unavailable status.
+    /// Expected: System image should use the entitlement-specific icon.
+    @Test func testBackupUnavailableSystemImage() {
+        #expect(SyncStatus.backupUnavailable.systemImage == "exclamationmark.arrow.triangle.2.circlepath")
+    }
+
     /// Conditions: Each status case.
     /// Expected: Each should return a non-empty SF Symbol name.
     @Test func testAllStatusesHaveSystemImage() {
         let statuses: [SyncStatus] = [
-            .idle, .syncing, .synced(.now), .error("test"), .offline, .localOnly
+            .idle, .syncing, .synced(.now), .error("test"), .offline, .localOnly, .backupUnavailable
         ]
         for status in statuses {
             #expect(!status.systemImage.isEmpty)
@@ -66,6 +78,26 @@ struct SyncStatusTests {
         #expect(!SyncStatus.synced(.now).isError)
         #expect(!SyncStatus.offline.isError)
         #expect(!SyncStatus.localOnly.isError)
+        #expect(!SyncStatus.backupUnavailable.isError)
+    }
+
+    // MARK: - isBackupUnavailable
+
+    /// Conditions: Backup unavailable status.
+    /// Expected: isBackupUnavailable should be true.
+    @Test func testIsBackupUnavailableTrueForBackupUnavailableStatus() {
+        #expect(SyncStatus.backupUnavailable.isBackupUnavailable)
+    }
+
+    /// Conditions: Non-backup-unavailable statuses.
+    /// Expected: isBackupUnavailable should be false.
+    @Test func testIsBackupUnavailableFalseForOtherStatuses() {
+        #expect(!SyncStatus.idle.isBackupUnavailable)
+        #expect(!SyncStatus.syncing.isBackupUnavailable)
+        #expect(!SyncStatus.synced(.now).isBackupUnavailable)
+        #expect(!SyncStatus.error("fail").isBackupUnavailable)
+        #expect(!SyncStatus.offline.isBackupUnavailable)
+        #expect(!SyncStatus.localOnly.isBackupUnavailable)
     }
 
     // MARK: - Equatable
