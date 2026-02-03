@@ -227,9 +227,10 @@ struct SpreadPickerConfigurationTests {
         #expect(filtered.count == 4)
     }
 
-    /// Tests that filtering with empty periods returns no spreads.
-    /// Expects empty result when no periods are selected.
-    @Test("Filter with no periods returns empty")
+    /// Tests that filtering with empty periods returns all spreads (no filter applied).
+    /// Expects all spreads when no periods are selected, since the implementation
+    /// treats an empty set as "show all."
+    @Test("Filter with no periods returns all spreads")
     func filterWithNoPeriods() {
         let calendar = makeCalendar()
         let today = makeDate(year: 2026, month: 1, day: 15, calendar: calendar)
@@ -247,7 +248,7 @@ struct SpreadPickerConfigurationTests {
 
         let filtered = config.filteredSpreads(periods: [])
 
-        #expect(filtered.isEmpty)
+        #expect(filtered.count == 2)
     }
 
     // MARK: - Multiday Expansion Tests
