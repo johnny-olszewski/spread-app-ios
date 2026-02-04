@@ -5,7 +5,9 @@ import Supabase
 /// Manages authentication state and operations with Supabase.
 ///
 /// Provides email/password sign-in, sign-out with confirmation,
-/// and auth state observation for UI updates.
+/// and auth state observation for UI updates. Auth behavior is
+/// controlled by an injected `AuthPolicy` to support debug overrides
+/// and localhost mock auth without `#if DEBUG` in core logic.
 @Observable
 @MainActor
 final class AuthManager {
@@ -46,8 +48,11 @@ final class AuthManager {
 
     // MARK: - Dependencies
 
-    /// The Supabase client.
-    private let client: SupabaseClient
+    /// The Supabase client (nil for localhost).
+    private let client: SupabaseClient?
+
+    /// Policy controlling forced errors and localhost behavior.
+    private let policy: AuthPolicy
 
     /// Callback for when sign-out completes (to wipe local data).
     var onSignOut: (() async -> Void)?
@@ -58,21 +63,29 @@ final class AuthManager {
     // MARK: - Initialization
 
     /// Creates an AuthManager with the current Supabase configuration.
-    init() {
-        self.client = SupabaseClient(
-            supabaseURL: SupabaseConfiguration.url,
-            supabaseKey: SupabaseConfiguration.publishableKey
-        )
+    ///
+    /// - Parameter policy: Auth policy for environment behavior (defaults to `DefaultAuthPolicy`).
+    init(policy: AuthPolicy = DefaultAuthPolicy()) {
+        self.policy = policy
 
-        // Check initial session
+        if policy.isLocalhost {
+            self.client = nil
+        } else {
+            self.client = SupabaseClient(
+                supabaseURL: SupabaseConfiguration.url,
+                supabaseKey: SupabaseConfiguration.publishableKey
+            )
+        }
+
         Task {
             await checkSession()
         }
     }
 
     /// Creates an AuthManager with a custom Supabase client (for testing).
-    init(client: SupabaseClient) {
+    init(client: SupabaseClient, policy: AuthPolicy = DefaultAuthPolicy()) {
         self.client = client
+        self.policy = policy
 
         Task {
             await checkSession()
@@ -83,12 +96,14 @@ final class AuthManager {
 
     /// Checks for an existing session on startup.
     private func checkSession() async {
+        guard !policy.isLocalhost else { return }
+        guard let client else { return }
+
         do {
             let session = try await client.auth.session
             state = .signedIn(session.user)
             hasBackupEntitlement = readBackupEntitlement(from: session.user)
         } catch {
-            // No valid session, user is signed out
             state = .signedOut
         }
     }
@@ -96,6 +111,11 @@ final class AuthManager {
     // MARK: - Sign In
 
     /// Signs in with email and password.
+    ///
+    /// Behavior depends on the injected `AuthPolicy`:
+    /// - Forced error: throws immediately with a user-facing message.
+    /// - Localhost: auto-succeeds with a mock user and backup entitlement.
+    /// - Default: performs real Supabase sign-in.
     ///
     /// - Parameters:
     ///   - email: The user's email address.
@@ -107,6 +127,21 @@ final class AuthManager {
 
         defer { isLoading = false }
 
+        if let forced = policy.forcedAuthError() {
+            errorMessage = forced.userMessage
+            throw ForcedAuthSignInError(forced: forced)
+        }
+
+        if policy.isLocalhost {
+            let mockUser = makeLocalhostUser(email: email)
+            state = .signedIn(mockUser)
+            hasBackupEntitlement = true
+            await onSignIn?(mockUser)
+            return
+        }
+
+        guard let client else { return }
+
         do {
             let session = try await client.auth.signIn(
                 email: email,
@@ -116,7 +151,6 @@ final class AuthManager {
             state = .signedIn(session.user)
             hasBackupEntitlement = readBackupEntitlement(from: session.user)
 
-            // Notify for data merge
             await onSignIn?(session.user)
 
         } catch let error as AuthError {
@@ -139,12 +173,20 @@ final class AuthManager {
 
         defer { isLoading = false }
 
+        if policy.isLocalhost {
+            state = .signedOut
+            hasBackupEntitlement = false
+            await onSignOut?()
+            return
+        }
+
+        guard let client else { return }
+
         do {
             try await client.auth.signOut()
             state = .signedOut
             hasBackupEntitlement = false
 
-            // Notify to wipe local data
             await onSignOut?()
 
         } catch {
@@ -193,6 +235,28 @@ final class AuthManager {
         user.appMetadata["backup_entitled"]?.boolValue ?? false
     }
 
+    // MARK: - Localhost Mock User
+
+    /// Creates a mock User for localhost sign-in.
+    private func makeLocalhostUser(email: String) -> User {
+        let json = """
+        {
+            "id": "\(UUID().uuidString)",
+            "email": "\(email)",
+            "appMetadata": {"backup_entitled": true},
+            "userMetadata": {},
+            "aud": "authenticated",
+            "createdAt": "2024-01-01T00:00:00Z",
+            "updatedAt": "2024-01-01T00:00:00Z"
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        // Safe to force-unwrap: JSON is hardcoded and valid.
+        return try! decoder.decode(User.self, from: data)
+    }
+
     // MARK: - Test Support
 
     #if DEBUG
@@ -202,4 +266,13 @@ final class AuthManager {
         self.hasBackupEntitlement = hasBackupEntitlement
     }
     #endif
+}
+
+// MARK: - ForcedAuthSignInError
+
+/// Error thrown when a forced auth error is active.
+///
+/// Wraps a `ForcedAuthError` so the login sheet can display the user message.
+struct ForcedAuthSignInError: Error {
+    let forced: ForcedAuthError
 }
