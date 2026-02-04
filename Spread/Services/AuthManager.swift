@@ -192,4 +192,14 @@ final class AuthManager {
     private func readBackupEntitlement(from user: User) -> Bool {
         user.appMetadata["backup_entitled"]?.boolValue ?? false
     }
+
+    // MARK: - Test Support
+
+    #if DEBUG
+    /// Configures auth state for testing without hitting Supabase.
+    func configureForTesting(state: AuthState, hasBackupEntitlement: Bool = false) {
+        self.state = state
+        self.hasBackupEntitlement = hasBackupEntitlement
+    }
+    #endif
 }
