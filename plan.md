@@ -167,68 +167,68 @@
 - Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
 - Sync status and error feedback are visible (including a distinct "no backup entitlement" state); CloudKit is no longer required.
 
-### [SPRD-99] Feature: Auth lifecycle wiring (merge + wipe + device ID)
-- **Context**: Most auth lifecycle wiring was completed in SPRD-85 (commits 13-14): sign-in merge/discard prompt, sign-out wipe, DeviceIdManager injection, auto-sync start/stop, and post-sync reload. Remaining work is entitlement-aware merge gating, collection wipe, and unit tests.
-- **Description**: Gate the sign-in merge flow on backup entitlement, ensure sign-out wipes all local data including collections, and add unit tests for lifecycle callbacks.
-- **Implementation Details**:
-  - Gate `handleSignedIn` on `authManager.hasBackupEntitlement`: when not entitled, skip the migration prompt and auto-sync; set `.backupUnavailable` status and leave local data untouched.
-  - Add collection deletion to `JournalManager.clearAllDataFromRepositories()` so sign-out wipes collections alongside tasks, spreads, events, and notes.
-  - Add unit tests for the sign-in and sign-out lifecycle callbacks.
-- **Already completed in SPRD-85**:
-  - `onSignIn` → `handleSignedIn` with merge/discard prompt and `LocalDataMigrationStore` tracking.
-  - `onSignOut` → `clearLocalData` + `resetSyncState` + `stopAutoSync`.
-  - `DeviceIdManager.getOrCreateDeviceId()` called at startup and passed to `SyncEngine`.
-  - Post-sync `JournalManager.reload()` via `RootNavigationView.onChange(of: syncEngine?.status)`.
-  - `hasLocalData()`, `clearLocalData()`, and `clearAllDataFromRepositories()` on `JournalManager`.
-- **Acceptance Criteria**:
-  - Sign-in with entitlement and local data triggers merge/discard prompt, then syncs.
-  - Sign-in with entitlement and no local data syncs immediately.
-  - Sign-in without entitlement skips merge prompt, leaves local data untouched, and shows `backupUnavailable` status.
-  - Sign-out wipes all local data (including collections) and resets sync state.
-  - Device ID is generated once and is available to sync/outbox.
-- **Tests**:
-  - Unit test: sign-in with entitlement and local data → merge prompt shown.
-  - Unit test: sign-in without entitlement → no merge prompt, `backupUnavailable` status.
-  - Unit test: sign-out → `clearLocalData` + `resetSyncState` called.
-  - Manual: sign in/out flows on dev environment.
-- **Dependencies**: SPRD-85, SPRD-95
-
 
 ### [SPRD-84B] Feature: Auth policy isolation + DataEnvironment behavior
-- **Context**: Debug behavior must remain in separate files and avoid `#if DEBUG` in core auth services while DataEnvironment behavior stays consistent across builds.
+- **Context**: Debug behavior must remain in separate files and avoid `#if DEBUG` in core auth services while DataEnvironment behavior stays consistent across builds. Currently `AuthManager` always creates a `SupabaseClient` even in localhost mode, and there is no mechanism to force auth errors at runtime.
 - **Description**: Extend auth architecture to support debug overrides and localhost auth behavior via injected policies.
 - **Implementation Details**:
-  - Define `AuthPolicy` protocol and `DefaultAuthPolicy` in non-debug files.
-  - Inject `AuthPolicy` into `AuthManager` and consult it before real sign-in.
-  - Implement debug policy in `Spread/Debug` (e.g., `DebugAuthPolicy`) that reads `DebugSyncOverrides` and is only constructed when `BuildInfo.allowsDebugUI == true`.
-  - Ensure localhost DataEnvironment bypasses real auth and returns mock user.
-  - Keep debug-only types in `Spread/Debug`; core auth compiles without debug references.
+  - Define `AuthPolicy` protocol in non-debug file (`Spread/Services/AuthPolicy.swift`):
+    - `func forcedAuthError() -> ForcedAuthError?` — returns an error to throw before hitting Supabase.
+    - `var isLocalhost: Bool` — when true, `signIn()` auto-succeeds with a mock user instead of hitting Supabase.
+  - Define `DefaultAuthPolicy` in the same file: `forcedAuthError` returns `nil`, `isLocalhost` returns `false`.
+  - Define `ForcedAuthError` enum in the same file with cases matching spec line 295: `invalidCredentials`, `emailNotConfirmed`, `userNotFound`, `rateLimited`, `networkTimeout`.
+  - Inject `AuthPolicy` into `AuthManager` (default: `DefaultAuthPolicy`).
+  - In `signIn()`: check `policy.forcedAuthError()` first; if set, map to user-facing message and throw. Then check `policy.isLocalhost`; if true, create a mock `User` and set state to `.signedIn` with backup entitlement, skipping Supabase entirely.
+  - In `checkSession()`: if `policy.isLocalhost`, skip session restore (no Supabase client to query).
+  - Implement `DebugAuthPolicy` in `Spread/Debug/DebugAuthPolicy.swift` (`#if DEBUG`):
+    - Reads `DebugSyncOverrides.shared.forcedAuthError` (a new `ForcedAuthError?` property, single picker — one error active at a time).
+    - `isLocalhost` returns `DataEnvironment.current.isLocalOnly`.
+  - Add "Forced Auth Error" picker to the Debug menu's Sync & Network section (picker with None + 5 error cases).
+  - Wire `DebugAuthPolicy` in `ContentView` when `BuildInfo.allowsDebugUI` is true; otherwise use `DefaultAuthPolicy`.
+  - The `#if DEBUG configureForTesting` helper on AuthManager stays — it's for unit test state setup, not runtime auth logic.
   - Pseudocode:
     ```swift
-    protocol AuthPolicy {
-      func forcedAuthError() -> AuthErrorType?
+    enum ForcedAuthError: String, CaseIterable {
+      case invalidCredentials, emailNotConfirmed, userNotFound, rateLimited, networkTimeout
+    }
+
+    protocol AuthPolicy: Sendable {
+      func forcedAuthError() -> ForcedAuthError?
+      var isLocalhost: Bool { get }
     }
 
     struct DefaultAuthPolicy: AuthPolicy {
-      func forcedAuthError() -> AuthErrorType? { nil }
+      func forcedAuthError() -> ForcedAuthError? { nil }
+      var isLocalhost: Bool { false }
     }
 
     final class AuthManager {
       init(policy: AuthPolicy = DefaultAuthPolicy(), ...) { ... }
       func signIn(email: String, password: String) async throws {
-        if let forced = policy.forcedAuthError() { throw forced }
-        ...
+        if let forced = policy.forcedAuthError() {
+          errorMessage = forced.userMessage
+          throw forced
+        }
+        if policy.isLocalhost {
+          state = .signedIn(mockUser)
+          hasBackupEntitlement = true
+          await onSignIn?(mockUser)
+          return
+        }
+        // ... real Supabase sign-in
       }
     }
     ```
 - **Acceptance Criteria**:
-  - Debug overrides can force auth errors without network calls.
-  - Localhost DataEnvironment uses mock auth while dev/prod require real auth.
+  - Debug overrides can force auth errors (single picker: invalid credentials, email not confirmed, user not found, rate limited, network timeout) without network calls.
+  - Localhost DataEnvironment auto-succeeds sign-in with a mock user and backup entitlement; login sheet is still shown.
   - Debug auth overrides are available only in Debug/QA builds; Release has no debug-only auth types linked.
-  - No `#if DEBUG` is required inside core auth logic.
+  - No `#if DEBUG` is required inside core auth logic (the existing test helper in the test support section is acceptable).
 - **Tests**:
-  - Unit tests for default policy (no forced errors).
-  - Manual QA in Debug/QA: force each auth error and confirm login sheet displays it.
+  - Unit tests for default policy (no forced errors, not localhost).
+  - Unit test: localhost policy auto-succeeds sign-in with mock user.
+  - Unit test: forced error policy surfaces correct error message.
+  - Manual QA in Debug/QA: force each auth error via Debug menu picker and confirm login sheet displays it.
 - **Dependencies**: SPRD-84, SPRD-85A, SPRD-95
 
 ### [SPRD-96] Feature: Environment switching flow + store wipe
@@ -2210,3 +2210,25 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
   - Unit tests: sync gating for logged-out, logged-in without entitlement, and entitled states.
   - Unit tests: status icon/state mapping for "backup unavailable."
 - **Dependencies**: SPRD-83, SPRD-84, SPRD-95
+
+### [SPRD-99] Feature: Auth lifecycle wiring (merge + wipe + device ID) - [x] Complete
+- **Context**: Most auth lifecycle wiring was completed in SPRD-85 (commits 13-14): sign-in merge/discard prompt, sign-out wipe, DeviceIdManager injection, auto-sync start/stop, and post-sync reload. Remaining work is entitlement-aware merge gating, collection wipe, and unit tests.
+- **Description**: Gate the sign-in merge flow on backup entitlement, ensure sign-out wipes all local data including collections, and add unit tests for lifecycle callbacks.
+- **Implementation Details**:
+  - Extracted `AuthLifecycleCoordinator` from `ContentView` for testability.
+  - Created `MigrationStoreProtocol` and conformed `LocalDataMigrationStore` for dependency injection.
+  - Gate `handleSignedIn` on `authManager.hasBackupEntitlement`: when not entitled, skip the migration prompt and auto-sync; set `.backupUnavailable` status and leave local data untouched.
+  - Added collection deletion to `JournalManager.clearAllDataFromRepositories()` so sign-out wipes collections alongside tasks, spreads, events, and notes.
+  - Added 9 unit tests for the coordinator covering all sign-in/out lifecycle paths.
+- **Acceptance Criteria**:
+  - Sign-in with entitlement and local data triggers merge/discard prompt, then syncs.
+  - Sign-in with entitlement and no local data syncs immediately.
+  - Sign-in without entitlement skips merge prompt, leaves local data untouched, and shows `backupUnavailable` status.
+  - Sign-out wipes all local data (including collections) and resets sync state.
+  - Device ID is generated once and is available to sync/outbox.
+- **Tests**:
+  - Unit test: sign-in with entitlement and local data → merge prompt shown.
+  - Unit test: sign-in without entitlement → no merge prompt, `backupUnavailable` status.
+  - Unit test: sign-out → `clearLocalData` + `resetSyncState` called.
+  - Manual: sign in/out flows on dev environment.
+- **Dependencies**: SPRD-85, SPRD-95
