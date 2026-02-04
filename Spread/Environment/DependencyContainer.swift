@@ -143,6 +143,7 @@ struct DependencyContainer: @unchecked Sendable {
             spreadRepository: spreadRepository,
             eventRepository: eventRepository,
             noteRepository: noteRepository,
+            collectionRepository: collectionRepository,
             bujoMode: bujoMode
         )
     }

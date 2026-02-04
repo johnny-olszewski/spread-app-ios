@@ -33,6 +33,12 @@ final class JournalManager {
     /// Repository for note persistence.
     let noteRepository: any NoteRepository
 
+    /// Repository for collection persistence.
+    ///
+    /// Optional because collections are not yet managed by JournalManager.
+    /// Used by `clearAllDataFromRepositories` to wipe collections on sign-out.
+    let collectionRepository: (any CollectionRepository)?
+
     /// The current BuJo mode (conventional or traditional).
     var bujoMode: BujoMode
 
@@ -114,6 +120,7 @@ final class JournalManager {
     ///   - spreadRepository: Repository for spreads.
     ///   - eventRepository: Repository for events.
     ///   - noteRepository: Repository for notes.
+    ///   - collectionRepository: Optional repository for collections (used for sign-out wipe).
     ///   - bujoMode: The initial BuJo mode.
     ///   - creationPolicy: Policy for validating spread creation.
     init(
@@ -123,6 +130,7 @@ final class JournalManager {
         spreadRepository: any SpreadRepository,
         eventRepository: any EventRepository,
         noteRepository: any NoteRepository,
+        collectionRepository: (any CollectionRepository)? = nil,
         bujoMode: BujoMode,
         creationPolicy: SpreadCreationPolicy
     ) {
@@ -132,6 +140,7 @@ final class JournalManager {
         self.spreadRepository = spreadRepository
         self.eventRepository = eventRepository
         self.noteRepository = noteRepository
+        self.collectionRepository = collectionRepository
         self.bujoMode = bujoMode
         self.creationPolicy = creationPolicy
     }
@@ -157,6 +166,7 @@ final class JournalManager {
         spreadRepository: (any SpreadRepository)? = nil,
         eventRepository: (any EventRepository)? = nil,
         noteRepository: (any NoteRepository)? = nil,
+        collectionRepository: (any CollectionRepository)? = nil,
         bujoMode: BujoMode = .conventional,
         creationPolicy: SpreadCreationPolicy? = nil
     ) async throws -> JournalManager {
@@ -176,6 +186,7 @@ final class JournalManager {
             spreadRepository: spreadRepository ?? InMemorySpreadRepository(),
             eventRepository: eventRepository ?? InMemoryEventRepository(),
             noteRepository: noteRepository ?? InMemoryNoteRepository(),
+            collectionRepository: collectionRepository,
             bujoMode: bujoMode,
             creationPolicy: creationPolicy ?? defaultPolicy
         )
@@ -284,6 +295,13 @@ final class JournalManager {
         let allNotes = await noteRepository.getNotes()
         for note in allNotes {
             try await noteRepository.delete(note)
+        }
+
+        if let collectionRepository {
+            let allCollections = await collectionRepository.getCollections()
+            for collection in allCollections {
+                try await collectionRepository.delete(collection)
+            }
         }
     }
 
