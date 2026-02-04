@@ -52,7 +52,6 @@
   - Unit tests across month/year boundaries.
 - **Dependencies**: SPRD-7, SPRD-8
 
-
 ## Story: Journal core: creation, assignment, inbox, migration
 
 ### User Story
@@ -168,69 +167,6 @@
 - Sync status and error feedback are visible (including a distinct "no backup entitlement" state); CloudKit is no longer required.
 
 
-### [SPRD-84B] Feature: Auth policy isolation + DataEnvironment behavior
-- **Context**: Debug behavior must remain in separate files and avoid `#if DEBUG` in core auth services while DataEnvironment behavior stays consistent across builds. Currently `AuthManager` always creates a `SupabaseClient` even in localhost mode, and there is no mechanism to force auth errors at runtime.
-- **Description**: Extend auth architecture to support debug overrides and localhost auth behavior via injected policies.
-- **Implementation Details**:
-  - Define `AuthPolicy` protocol in non-debug file (`Spread/Services/AuthPolicy.swift`):
-    - `func forcedAuthError() -> ForcedAuthError?` — returns an error to throw before hitting Supabase.
-    - `var isLocalhost: Bool` — when true, `signIn()` auto-succeeds with a mock user instead of hitting Supabase.
-  - Define `DefaultAuthPolicy` in the same file: `forcedAuthError` returns `nil`, `isLocalhost` returns `false`.
-  - Define `ForcedAuthError` enum in the same file with cases matching spec line 295: `invalidCredentials`, `emailNotConfirmed`, `userNotFound`, `rateLimited`, `networkTimeout`.
-  - Inject `AuthPolicy` into `AuthManager` (default: `DefaultAuthPolicy`).
-  - In `signIn()`: check `policy.forcedAuthError()` first; if set, map to user-facing message and throw. Then check `policy.isLocalhost`; if true, create a mock `User` and set state to `.signedIn` with backup entitlement, skipping Supabase entirely.
-  - In `checkSession()`: if `policy.isLocalhost`, skip session restore (no Supabase client to query).
-  - Implement `DebugAuthPolicy` in `Spread/Debug/DebugAuthPolicy.swift` (`#if DEBUG`):
-    - Reads `DebugSyncOverrides.shared.forcedAuthError` (a new `ForcedAuthError?` property, single picker — one error active at a time).
-    - `isLocalhost` returns `DataEnvironment.current.isLocalOnly`.
-  - Add "Forced Auth Error" picker to the Debug menu's Sync & Network section (picker with None + 5 error cases).
-  - Wire `DebugAuthPolicy` in `ContentView` when `BuildInfo.allowsDebugUI` is true; otherwise use `DefaultAuthPolicy`.
-  - The `#if DEBUG configureForTesting` helper on AuthManager stays — it's for unit test state setup, not runtime auth logic.
-  - Pseudocode:
-    ```swift
-    enum ForcedAuthError: String, CaseIterable {
-      case invalidCredentials, emailNotConfirmed, userNotFound, rateLimited, networkTimeout
-    }
-
-    protocol AuthPolicy: Sendable {
-      func forcedAuthError() -> ForcedAuthError?
-      var isLocalhost: Bool { get }
-    }
-
-    struct DefaultAuthPolicy: AuthPolicy {
-      func forcedAuthError() -> ForcedAuthError? { nil }
-      var isLocalhost: Bool { false }
-    }
-
-    final class AuthManager {
-      init(policy: AuthPolicy = DefaultAuthPolicy(), ...) { ... }
-      func signIn(email: String, password: String) async throws {
-        if let forced = policy.forcedAuthError() {
-          errorMessage = forced.userMessage
-          throw forced
-        }
-        if policy.isLocalhost {
-          state = .signedIn(mockUser)
-          hasBackupEntitlement = true
-          await onSignIn?(mockUser)
-          return
-        }
-        // ... real Supabase sign-in
-      }
-    }
-    ```
-- **Acceptance Criteria**:
-  - Debug overrides can force auth errors (single picker: invalid credentials, email not confirmed, user not found, rate limited, network timeout) without network calls.
-  - Localhost DataEnvironment auto-succeeds sign-in with a mock user and backup entitlement; login sheet is still shown.
-  - Debug auth overrides are available only in Debug/QA builds; Release has no debug-only auth types linked.
-  - No `#if DEBUG` is required inside core auth logic (the existing test helper in the test support section is acceptable).
-- **Tests**:
-  - Unit tests for default policy (no forced errors, not localhost).
-  - Unit test: localhost policy auto-succeeds sign-in with mock user.
-  - Unit test: forced error policy surfaces correct error message.
-  - Manual QA in Debug/QA: force each auth error via Debug menu picker and confirm login sheet displays it.
-- **Dependencies**: SPRD-84, SPRD-85A, SPRD-95
-
 ### [SPRD-96] Feature: Environment switching flow + store wipe
 - **Context**: Switching data environments must be safe and predictable.
 - **Description**: Implement a guarded switch flow with sync attempt, sign out, and local wipe.
@@ -238,8 +174,9 @@
   - If sync is running, wait for completion before switching.
   - Attempt sync; on failure, warn the user and allow confirm to proceed.
   - On confirm, attempt one final push, then proceed regardless of result.
+  - If sync is blocked (signed out or not entitled), treat it as a failed sync when outbox is non-empty and show the warning; otherwise proceed without warning.
   - Sign out and clear auth session.
-  - Wipe local SwiftData store and outbox on every switch.
+  - Wipe local SwiftData store and outbox on every switch (including sync cursors).
   - On app launch, if resolved DataEnvironment differs from last-used, wipe before container creation.
   - Release does not persist selection for reuse; it only tracks last-used for wipe safety.
   - Require restart after switching (no hot reload for now).
@@ -253,10 +190,12 @@
       struct SwiftDataStoreWiper: StoreWiper { ... }
       ```
 - **Acceptance Criteria**:
-  - Switching environments always results in a clean local store.
-  - Failed sync attempts show a warning and require explicit confirmation to proceed.
+  - Switching environments always results in a clean local store (SwiftData + outbox + sync cursors).
+  - Failed sync attempts (including blocked sync with non-empty outbox) show a warning and require explicit confirmation to proceed.
+  - On app launch, if resolved DataEnvironment differs from last-used, the local store is wiped before container creation.
 - **Tests**:
-  - Manual: switch between localhost/dev/prod with and without outbox; verify wipe + sign-out.
+  - Manual: switch between localhost/dev/prod with and without outbox; verify warning behavior, wipe + sign-out, and restart required.
+  - Manual: launch after DataEnvironment mismatch; verify wipe occurs before container creation.
 - **Dependencies**: SPRD-85, SPRD-95, SPRD-99
 
 ### [SPRD-100] Feature: Apply environment switch (restart required)
@@ -528,7 +467,6 @@
   - UI tests: edit task title/status, migrate action, and delete confirmation flow.
 - **Dependencies**: SPRD-22, SPRD-15, SPRD-16
 
-
 ### [SPRD-29] Feature: Migrated tasks section
 - **Context**: Conventional mode shows migrated history.
 - **Description**: Add a collapsible migrated tasks section.
@@ -658,7 +596,6 @@
   - Unit tests for multiday event spanning multiple spreads
 - **Dependencies**: SPRD-57, SPRD-11
 
-
 ### [SPRD-60] Feature: Event source setup + settings
 - **Context**: Users need to connect calendars and control what is shown.
 - **Description**: Build event source setup flows and settings for calendar selection.
@@ -763,7 +700,6 @@
   - UI tests: notes do not appear in migration banner but expose explicit migrate action.
 - **Dependencies**: SPRD-61, SPRD-30
 
-
 ## Story: Multiday aggregation and UI
 
 ### User Story
@@ -837,7 +773,6 @@
   - Unit tests for firstWeekday affecting multiday date calculations
   - UI tests: changing mode and first-weekday persists and affects multiday preset ranges.
 - **Dependencies**: SPRD-19, SPRD-7
-
 
 ## Story: Traditional mode navigation
 
@@ -936,7 +871,6 @@
   - UI tests: traditional navigation drill-in and back stack behavior.
 - **Dependencies**: SPRD-37
 
-
 ### [SPRD-53] Feature: Unit tests for traditional mode mapping
 - **Context**: Virtual spreads must be correct and stable.
 - **Description**: Add tests for traditional mapping and parent fallback.
@@ -1011,7 +945,6 @@
   - UI tests: collection editor autosaves and persists after navigation.
 - **Dependencies**: SPRD-40
 
-
 ### [SPRD-54] Feature: Integration tests for repositories
 - **Context**: Persistence should be validated end-to-end.
 - **Description**: Add integration tests for SwiftData repositories using test containers.
@@ -1080,7 +1013,6 @@
   - Manual test plan included.
 - **Dependencies**: SPRD-43
 
-
 ## Story: Scope guard tests
 
 ### User Story
@@ -1098,7 +1030,6 @@
   - Unit tests for no-past-date creation and no week period exposure.
   - UI tests verifying event copy/actions are absent in v1.
 - **Dependencies**: SPRD-55
-
 
 ## Dependency Graph (Simplified)
 
@@ -2232,3 +2163,66 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
   - Unit test: sign-out → `clearLocalData` + `resetSyncState` called.
   - Manual: sign in/out flows on dev environment.
 - **Dependencies**: SPRD-85, SPRD-95
+
+### [SPRD-84B] Feature: Auth policy isolation + DataEnvironment behavior
+- **Context**: Debug behavior must remain in separate files and avoid `#if DEBUG` in core auth services while DataEnvironment behavior stays consistent across builds. Currently `AuthManager` always creates a `SupabaseClient` even in localhost mode, and there is no mechanism to force auth errors at runtime.
+- **Description**: Extend auth architecture to support debug overrides and localhost auth behavior via injected policies.
+- **Implementation Details**:
+  - Define `AuthPolicy` protocol in non-debug file (`Spread/Services/AuthPolicy.swift`):
+    - `func forcedAuthError() -> ForcedAuthError?` — returns an error to throw before hitting Supabase.
+    - `var isLocalhost: Bool` — when true, `signIn()` auto-succeeds with a mock user instead of hitting Supabase.
+  - Define `DefaultAuthPolicy` in the same file: `forcedAuthError` returns `nil`, `isLocalhost` returns `false`.
+  - Define `ForcedAuthError` enum in the same file with cases matching spec line 295: `invalidCredentials`, `emailNotConfirmed`, `userNotFound`, `rateLimited`, `networkTimeout`.
+  - Inject `AuthPolicy` into `AuthManager` (default: `DefaultAuthPolicy`).
+  - In `signIn()`: check `policy.forcedAuthError()` first; if set, map to user-facing message and throw. Then check `policy.isLocalhost`; if true, create a mock `User` and set state to `.signedIn` with backup entitlement, skipping Supabase entirely.
+  - In `checkSession()`: if `policy.isLocalhost`, skip session restore (no Supabase client to query).
+  - Implement `DebugAuthPolicy` in `Spread/Debug/DebugAuthPolicy.swift` (`#if DEBUG`):
+    - Reads `DebugSyncOverrides.shared.forcedAuthError` (a new `ForcedAuthError?` property, single picker — one error active at a time).
+    - `isLocalhost` returns `DataEnvironment.current.isLocalOnly`.
+  - Add "Forced Auth Error" picker to the Debug menu's Sync & Network section (picker with None + 5 error cases).
+  - Wire `DebugAuthPolicy` in `ContentView` when `BuildInfo.allowsDebugUI` is true; otherwise use `DefaultAuthPolicy`.
+  - The `#if DEBUG configureForTesting` helper on AuthManager stays — it's for unit test state setup, not runtime auth logic.
+  - Pseudocode:
+    ```swift
+    enum ForcedAuthError: String, CaseIterable {
+      case invalidCredentials, emailNotConfirmed, userNotFound, rateLimited, networkTimeout
+    }
+
+    protocol AuthPolicy: Sendable {
+      func forcedAuthError() -> ForcedAuthError?
+      var isLocalhost: Bool { get }
+    }
+
+    struct DefaultAuthPolicy: AuthPolicy {
+      func forcedAuthError() -> ForcedAuthError? { nil }
+      var isLocalhost: Bool { false }
+    }
+
+    final class AuthManager {
+      init(policy: AuthPolicy = DefaultAuthPolicy(), ...) { ... }
+      func signIn(email: String, password: String) async throws {
+        if let forced = policy.forcedAuthError() {
+          errorMessage = forced.userMessage
+          throw forced
+        }
+        if policy.isLocalhost {
+          state = .signedIn(mockUser)
+          hasBackupEntitlement = true
+          await onSignIn?(mockUser)
+          return
+        }
+        // ... real Supabase sign-in
+      }
+    }
+    ```
+- **Acceptance Criteria**:
+  - Debug overrides can force auth errors (single picker: invalid credentials, email not confirmed, user not found, rate limited, network timeout) without network calls.
+  - Localhost DataEnvironment auto-succeeds sign-in with a mock user and backup entitlement; login sheet is still shown.
+  - Debug auth overrides are available only in Debug/QA builds; Release has no debug-only auth types linked.
+  - No `#if DEBUG` is required inside core auth logic (the existing test helper in the test support section is acceptable).
+- **Tests**:
+  - Unit tests for default policy (no forced errors, not localhost).
+  - Unit test: localhost policy auto-succeeds sign-in with mock user.
+  - Unit test: forced error policy surfaces correct error message.
+  - Manual QA in Debug/QA: force each auth error via Debug menu picker and confirm login sheet displays it.
+- **Dependencies**: SPRD-84, SPRD-85A, SPRD-95
