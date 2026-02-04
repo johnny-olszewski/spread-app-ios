@@ -1,18 +1,27 @@
-import Foundation
+import class Foundation.UserDefaults
+import struct Foundation.UUID
 
-/// Stores per-user migration decisions for local data.
-enum LocalDataMigrationStore {
-    private static let keyPrefix = "local_data_migrated."
+/// Abstraction for per-user migration state storage.
+///
+/// Enables dependency injection for testing the auth lifecycle coordinator.
+protocol MigrationStoreProtocol: Sendable {
+    func hasMigrated(userId: UUID) -> Bool
+    func markMigrated(userId: UUID)
+}
 
-    static func hasMigrated(userId: UUID) -> Bool {
+/// Stores per-user migration decisions for local data in UserDefaults.
+struct LocalDataMigrationStore: MigrationStoreProtocol {
+    private let keyPrefix = "local_data_migrated."
+
+    func hasMigrated(userId: UUID) -> Bool {
         UserDefaults.standard.bool(forKey: key(for: userId))
     }
 
-    static func markMigrated(userId: UUID) {
+    func markMigrated(userId: UUID) {
         UserDefaults.standard.set(true, forKey: key(for: userId))
     }
 
-    private static func key(for userId: UUID) -> String {
+    private func key(for userId: UUID) -> String {
         "\(keyPrefix)\(userId.uuidString)"
     }
 }
