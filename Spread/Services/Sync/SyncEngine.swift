@@ -25,7 +25,8 @@ final class SyncEngine {
     // MARK: - Observable State
 
     /// The current sync status.
-    private(set) var status: SyncStatus = .idle
+    /// Settable by `AuthLifecycleCoordinator` for entitlement gating.
+    var status: SyncStatus = .idle
 
     /// The date of the last successful sync.
     private(set) var lastSyncDate: Date?
