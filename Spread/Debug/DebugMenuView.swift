@@ -1,5 +1,6 @@
 #if DEBUG
 import SwiftUI
+import struct Auth.User
 
 /// Debug menu for inspecting environment, container, and app state.
 ///
@@ -20,6 +21,12 @@ struct DebugMenuView: View {
     /// stays synchronized with repository data.
     let journalManager: JournalManager
 
+    /// The auth manager for inspecting authentication state.
+    let authManager: AuthManager
+
+    /// The sync engine for inspecting sync state.
+    let syncEngine: SyncEngine?
+
     @State private var isLoading = false
     @State private var loadingDataSet: MockDataSet?
     @State private var showError = false
@@ -33,6 +40,8 @@ struct DebugMenuView: View {
             buildInfoSection
             dataEnvironmentSection
             supabaseSection
+            authSection
+            syncSection
             dependenciesSection
             mockDataSection
         }
@@ -64,10 +73,6 @@ struct DebugMenuView: View {
                 DataEnvironment.persistSelection(newValue)
             }
 
-            LabeledContent("Auth Required", value: selectedDataEnvironment.requiresAuth ? "Yes" : "No")
-            LabeledContent("Sync Enabled", value: selectedDataEnvironment.syncEnabled ? "Yes" : "No")
-            LabeledContent("Local Only", value: selectedDataEnvironment.isLocalOnly ? "Yes" : "No")
-
             if DataEnvironment.persistedSelection != nil {
                 Button("Clear Persisted Selection") {
                     DataEnvironment.clearPersistedSelection()
@@ -77,7 +82,7 @@ struct DebugMenuView: View {
         } header: {
             Label("Data Environment", systemImage: "externaldrive.connected.to.line.below")
         } footer: {
-            Text("Selects the data target (localhost/dev/prod). Persisted across launches in Debug/QA builds. Restart the app for changes to take full effect.")
+            Text("Selects the data target (localhost/dev/prod). Restart for changes to take effect. Auth: \(selectedDataEnvironment.requiresAuth ? "required" : "none") · Sync: \(selectedDataEnvironment.syncEnabled ? "enabled" : "disabled") · \(selectedDataEnvironment.isLocalOnly ? "local only" : "remote")")
         }
     }
 
@@ -99,6 +104,64 @@ struct DebugMenuView: View {
 
     private var supabaseHostLabel: String {
         SupabaseConfiguration.url.host ?? SupabaseConfiguration.url.absoluteString
+    }
+
+    // MARK: - Auth Section
+
+    private var authSection: some View {
+        Section {
+            LabeledContent("Status", value: authManager.state.isSignedIn ? "Signed in" : "Signed out")
+            if let email = authManager.userEmail {
+                LabeledContent("User", value: email)
+            }
+            if let userId = authManager.state.user?.id.uuidString {
+                LabeledContent("User ID", value: userId)
+                    .font(.caption)
+                    .monospaced()
+            }
+            LabeledContent("Backup Entitled", value: authManager.hasBackupEntitlement ? "Yes" : "No")
+        } header: {
+            Label("Auth", systemImage: "person.badge.key")
+        }
+    }
+
+    // MARK: - Sync Section
+
+    @ViewBuilder
+    private var syncSection: some View {
+        if let syncEngine {
+            Section {
+                LabeledContent("Status", value: syncEngine.status.displayText)
+                LabeledContent("Outbox Count", value: "\(syncEngine.outboxCount)")
+                if let lastSync = syncEngine.lastSyncDate {
+                    LabeledContent("Last Sync", value: lastSync.formatted(date: .abbreviated, time: .shortened))
+                }
+                LabeledContent("Network", value: container.networkMonitor.isConnected ? "Connected" : "Disconnected")
+                Button("Sync Now") {
+                    Task {
+                        await syncEngine.syncNow()
+                    }
+                }
+                if !syncEngine.syncLog.entries.isEmpty {
+                    DisclosureGroup("Sync Log (\(syncEngine.syncLog.entries.count))") {
+                        ForEach(syncEngine.syncLog.entries) { entry in
+                            HStack {
+                                Circle()
+                                    .fill(entry.level == .error ? Color.red : entry.level == .warning ? Color.orange : Color.green)
+                                    .frame(width: 8, height: 8)
+                                Text(entry.message)
+                                    .font(.caption)
+                                    .monospaced()
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Label("Sync", systemImage: "arrow.triangle.2.circlepath")
+            } footer: {
+                Text("Current sync engine state. Tap 'Sync Now' to trigger a manual sync attempt.")
+            }
+        }
     }
 
     // MARK: - Dependencies Section
@@ -143,15 +206,18 @@ struct DebugMenuView: View {
 
     // MARK: - Mock Data Section
 
+    @ViewBuilder
     private var mockDataSection: some View {
-        Section {
-            ForEach(MockDataSet.allCases, id: \.rawValue) { dataSet in
-                mockDataSetButton(for: dataSet)
+        if DataEnvironment.current == .localhost {
+            Section {
+                ForEach(MockDataSet.allCases, id: \.rawValue) { dataSet in
+                    mockDataSetButton(for: dataSet)
+                }
+            } header: {
+                Label("Mock Data Sets", systemImage: "doc.on.doc")
+            } footer: {
+                Text("Load predefined data sets to test various scenarios. Loading a data set will overwrite existing data. Only available in localhost mode.")
             }
-        } header: {
-            Label("Mock Data Sets", systemImage: "doc.on.doc")
-        } footer: {
-            Text("Load predefined data sets to test various scenarios. Loading a data set will overwrite existing data.")
         }
     }
 
@@ -257,7 +323,9 @@ struct DebugMenuView: View {
     NavigationStack {
         DebugMenuView(
             container: try! .makeForPreview(),
-            journalManager: .previewInstance
+            journalManager: .previewInstance,
+            authManager: AuthManager(),
+            syncEngine: nil
         )
     }
 }

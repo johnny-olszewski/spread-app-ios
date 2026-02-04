@@ -18,4 +18,10 @@ enum DataModel {
     /// A plain text page for collections.
     /// Full implementation in SPRD-39.
     typealias Collection = DataModelSchemaV1.Collection
+
+    /// An outbox entry representing a local change that needs to be pushed.
+    typealias SyncMutation = DataModelSchemaV1.SyncMutation
+
+    /// Tracks the last-synced revision per server table for incremental pull.
+    typealias SyncCursor = DataModelSchemaV1.SyncCursor
 }

@@ -225,34 +225,5 @@ extension JournalManager {
 
         _ = try await addSpread(period: spread.period, date: spread.date)
     }
-
-    /// Clears all data from repositories (without updating in-memory state).
-    ///
-    /// Used internally by `loadMockDataSet` before loading new data.
-    private func clearAllDataFromRepositories() async throws {
-        // Clear tasks from repository
-        let allTasks = await taskRepository.getTasks()
-        for task in allTasks {
-            try await taskRepository.delete(task)
-        }
-
-        // Clear spreads from repository
-        let allSpreads = await spreadRepository.getSpreads()
-        for spread in allSpreads {
-            try await spreadRepository.delete(spread)
-        }
-
-        // Clear events from repository
-        let allEvents = await eventRepository.getEvents()
-        for event in allEvents {
-            try await eventRepository.delete(event)
-        }
-
-        // Clear notes from repository
-        let allNotes = await noteRepository.getNotes()
-        for note in allNotes {
-            try await noteRepository.delete(note)
-        }
-    }
 }
 #endif

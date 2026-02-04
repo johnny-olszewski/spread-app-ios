@@ -205,6 +205,27 @@ final class JournalManager {
         dataVersion += 1
     }
 
+    /// Returns true if any local data exists in repositories.
+    func hasLocalData() async -> Bool {
+        if !(await spreadRepository.getSpreads()).isEmpty { return true }
+        if !(await taskRepository.getTasks()).isEmpty { return true }
+        if !(await eventRepository.getEvents()).isEmpty { return true }
+        if !(await noteRepository.getNotes()).isEmpty { return true }
+        return false
+    }
+
+    /// Clears all local data from repositories and refreshes in-memory state.
+    ///
+    /// Used on sign-out to wipe local content.
+    func clearLocalData() async {
+        do {
+            try await clearAllDataFromRepositories()
+        } catch {
+            // Best-effort wipe; keep going to refresh UI state.
+        }
+        await reload()
+    }
+
     // MARK: - Data Model Building
 
     /// Builds the journal data model from loaded data.
@@ -239,6 +260,31 @@ final class JournalManager {
         }
 
         dataModel = model
+    }
+
+    /// Clears all data from repositories (without updating in-memory state).
+    ///
+    /// Helper for sign-out and debug data resets.
+    func clearAllDataFromRepositories() async throws {
+        let allTasks = await taskRepository.getTasks()
+        for task in allTasks {
+            try await taskRepository.delete(task)
+        }
+
+        let allSpreads = await spreadRepository.getSpreads()
+        for spread in allSpreads {
+            try await spreadRepository.delete(spread)
+        }
+
+        let allEvents = await eventRepository.getEvents()
+        for event in allEvents {
+            try await eventRepository.delete(event)
+        }
+
+        let allNotes = await noteRepository.getNotes()
+        for note in allNotes {
+            try await noteRepository.delete(note)
+        }
     }
 
     // MARK: - Entry Association Helpers
