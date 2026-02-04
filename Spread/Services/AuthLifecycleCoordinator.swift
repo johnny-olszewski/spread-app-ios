@@ -1,3 +1,4 @@
+import Auth
 import struct Foundation.UUID
 import Observation
 
