@@ -23,6 +23,9 @@ struct RootNavigationView: View {
     /// The dependency container for app-wide services.
     let container: DependencyContainer
 
+    /// The sync engine for data synchronization.
+    let syncEngine: SyncEngine?
+
     /// Optional layout override for deterministic testing and previews.
     private let layoutOverride: NavigationLayoutType?
 
@@ -32,16 +35,19 @@ struct RootNavigationView: View {
     ///   - journalManager: The journal manager for app data.
     ///   - authManager: The auth manager for authentication.
     ///   - container: The dependency container for app services.
+    ///   - syncEngine: The sync engine (nil in previews/tests).
     ///   - layoutOverride: Optional layout override for tests/previews.
     init(
         journalManager: JournalManager,
         authManager: AuthManager,
         container: DependencyContainer,
+        syncEngine: SyncEngine? = nil,
         layoutOverride: NavigationLayoutType? = nil
     ) {
         self.journalManager = journalManager
         self.authManager = authManager
         self.container = container
+        self.syncEngine = syncEngine
         self.layoutOverride = layoutOverride
     }
 
@@ -59,15 +65,21 @@ struct RootNavigationView: View {
                 SidebarNavigationView(
                     journalManager: journalManager,
                     authManager: authManager,
-                    container: container
+                    container: container,
+                    syncEngine: syncEngine
                 )
             case .tabBar:
                 TabNavigationView(
                     journalManager: journalManager,
                     authManager: authManager,
-                    container: container
+                    container: container,
+                    syncEngine: syncEngine
                 )
             }
+        }
+        .onChange(of: syncEngine?.status) { _, newValue in
+            guard case .synced = newValue else { return }
+            Task { await journalManager.reload() }
         }
     }
 }

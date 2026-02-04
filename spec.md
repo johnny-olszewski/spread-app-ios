@@ -24,7 +24,7 @@
 - Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with in-view hierarchical navigation, manual migration, and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29]
 - Provide calendar-style navigation in traditional mode (year/month/day) without altering created-spread data. [SPRD-17, SPRD-35, SPRD-38]
 - Support offline-first usage with SwiftData local storage and Supabase sync. [SPRD-80, SPRD-85]
-- Allow local-only usage without sign-in; sync when authenticated and online. [SPRD-84, SPRD-85]
+- Allow local-only usage without sign-in; sync only when authenticated, backup entitlement is active, and online. Backup entitlement is read from a profile flag. [SPRD-84, SPRD-85]
 
 ## Non-Goals (v1)
 - Search, filters, or tagging. [SPRD-56]
@@ -225,15 +225,23 @@
 ### Persistence
 - Use SwiftData for local storage. [SPRD-4, SPRD-5]
 - Schema includes Spread, Task, Note, Collection (Event model reserved for v2). [SPRD-4, SPRD-8, SPRD-9, SPRD-39]
-- Supabase sync required for v1 (CloudKit removed). [SPRD-80]
+- Supabase sync is the only cloud backend for v1 (CloudKit removed); availability is gated by auth + backup entitlement. [SPRD-80]
 - Offline-first, then sync; auto-sync on launch/foreground + manual refresh. [SPRD-85]
 - Local changes enqueue outbox and attempt immediate push on explicit Save/Done actions (not on every keystroke). Manual sync remains available. [SPRD-85]
+- Sync eligibility requires (a) signed-in and (b) backup entitlement active; otherwise the app remains local-only and sync attempts are blocked. [SPRD-85]
+- Signed-in but not entitled remains local-only across launches; outbox mutations still enqueue locally for future upgrade. [SPRD-85]
+- Signed-in but not entitled shows a distinct sync status state using SF Symbol `exclamationmark.arrow.triangle.2.circlepath` in a grey tint. [SPRD-85]
+- Toolbar sync status is icon-only; any status copy is shown in main content (not in the toolbar). Use a minimal, visible banner or status line near the top of the main spreads content. [SPRD-85]
 
 ### Supabase Sync + Auth (v1)
 - Supabase environments: separate dev and prod projects; Debug and QA TestFlight builds can switch data environments (localhost/dev/prod) at runtime; Release builds are locked to prod. [SPRD-80, SPRD-86]
-- Auth: email/password for v1; Sign in with Apple and Google deferred to SPRD-91. Local-only usage is allowed; sign-in merges local data; sign-out wipes local store. [SPRD-84, SPRD-85, SPRD-91]
+- Auth: email/password for v1; Sign in with Apple and Google deferred to SPRD-91. Local-only usage is allowed; sign-in merges local data only when backup entitlement is active; sign-out wipes local store. Backup entitlement is read from a profile flag. [SPRD-84, SPRD-85, SPRD-91]
 - Sync: field-level last-write-wins (server-arrival time), per-field timestamps set by DB triggers, monotonic revision per table for incremental sync, soft-delete with 90-day cleanup, delete wins conflicts, and device_id recorded on writes. [SPRD-81, SPRD-83, SPRD-85, SPRD-89]
 - Data integrity: unique constraints for spreads/assignments, foreign keys enforced, and RLS policies restrict rows to `auth.uid()`. [SPRD-81, SPRD-82]
+- Sync status semantics:
+  - Logged out: no sync is possible; status remains local-only.
+  - Logged in without backup entitlement: no sync; status icon uses `exclamationmark.arrow.triangle.2.circlepath`.
+  - Logged in with backup entitlement: normal sync states (idle/syncing/synced/offline/error). [SPRD-85]
 - Data environment resolution (Debug/QA only): launch args (`-DataEnvironment`) -> env vars (`DATA_ENVIRONMENT`) -> persisted selection -> build default. Release ignores overrides and always uses prod.
 - Build defaults: Debug defaults to localhost; QA TestFlight defaults to dev.
 - Data environment changes are runtime switches in Debug/QA; Release has no switcher UI.

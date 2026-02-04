@@ -11,6 +11,8 @@ final class SwiftDataSpreadRepository: SpreadRepository {
     // MARK: - Properties
 
     private let modelContainer: ModelContainer
+    private let deviceId: UUID
+    private let nowProvider: () -> Date
 
     private var modelContext: ModelContext {
         modelContainer.mainContext
@@ -21,8 +23,14 @@ final class SwiftDataSpreadRepository: SpreadRepository {
     /// Creates a repository with the specified model container.
     ///
     /// - Parameter modelContainer: The SwiftData container for persistence.
-    init(modelContainer: ModelContainer) {
+    init(
+        modelContainer: ModelContainer,
+        deviceId: UUID = DeviceIdManager.getOrCreateDeviceId(),
+        nowProvider: @escaping () -> Date = { .now }
+    ) {
         self.modelContainer = modelContainer
+        self.deviceId = deviceId
+        self.nowProvider = nowProvider
     }
 
     // MARK: - SpreadRepository
@@ -55,12 +63,51 @@ final class SwiftDataSpreadRepository: SpreadRepository {
     }
 
     func save(_ spread: DataModel.Spread) async throws {
+        let operation: SyncOperation = hasStoredSpread(id: spread.id) ? .update : .create
+        enqueueSpreadMutation(spread, operation: operation)
         modelContext.insert(spread)
         try modelContext.save()
     }
 
     func delete(_ spread: DataModel.Spread) async throws {
+        enqueueSpreadMutation(spread, operation: .delete)
         modelContext.delete(spread)
         try modelContext.save()
+    }
+
+    // MARK: - Outbox
+
+    private enum Constants {
+        static let changedFields = ["period", "date", "start_date", "end_date"]
+    }
+
+    private func enqueueSpreadMutation(_ spread: DataModel.Spread, operation: SyncOperation) {
+        let timestamp = nowProvider()
+        let deletedAt = operation == .delete ? timestamp : nil
+        guard let recordData = SyncSerializer.serializeSpread(
+            spread,
+            deviceId: deviceId,
+            timestamp: timestamp,
+            deletedAt: deletedAt
+        ) else {
+            return
+        }
+
+        let mutation = DataModel.SyncMutation(
+            entityType: SyncEntityType.spread.rawValue,
+            entityId: spread.id,
+            operation: operation.rawValue,
+            recordData: recordData,
+            changedFields: operation == .delete ? [] : Constants.changedFields
+        )
+        modelContext.insert(mutation)
+    }
+
+    private func hasStoredSpread(id: UUID) -> Bool {
+        var descriptor = FetchDescriptor<DataModel.Spread>(
+            predicate: #Predicate { $0.id == id }
+        )
+        descriptor.fetchLimit = 1
+        return (try? modelContext.fetchCount(descriptor)) ?? 0 > 0
     }
 }

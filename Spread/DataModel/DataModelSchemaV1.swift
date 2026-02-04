@@ -18,7 +18,9 @@ enum DataModelSchemaV1: VersionedSchema {
             Task.self,
             Event.self,
             Note.self,
-            Collection.self
+            Collection.self,
+            SyncMutation.self,
+            SyncCursor.self
         ]
     }
 

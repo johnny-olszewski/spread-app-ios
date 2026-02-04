@@ -1,3 +1,4 @@
+import Foundation
 import struct Foundation.Calendar
 import struct Foundation.Date
 import struct Foundation.TimeZone
@@ -111,6 +112,81 @@ struct SwiftDataRepositoryTests {
         #expect(tasks[2].title == "Newest")
     }
 
+    /// Conditions: Save a task with sync enabled.
+    /// Expected: An outbox mutation is created with device ID and create operation.
+    @Test func testTaskRepositorySaveEnqueuesCreateMutation() async throws {
+        let container = try ModelContainerFactory.makeForTesting()
+        let deviceId = UUID()
+        let repository = SwiftDataTaskRepository(
+            modelContainer: container,
+            deviceId: deviceId,
+            nowProvider: { Date(timeIntervalSince1970: 100) }
+        )
+
+        let task = DataModel.Task(title: "Sync Task")
+        try await repository.save(task)
+
+        let mutation = try fetchMutations(from: container).first
+
+        #expect(mutation != nil)
+        #expect(mutation?.entityType == SyncEntityType.task.rawValue)
+        #expect(mutation?.operation == SyncOperation.create.rawValue)
+
+        let record = try decodeRecord(mutation?.recordData)
+        #expect(record?["device_id"] as? String == deviceId.uuidString)
+    }
+
+    /// Conditions: Save a task, then save again after updating its title.
+    /// Expected: An update mutation is enqueued in the outbox.
+    @Test func testTaskRepositoryUpdateEnqueuesUpdateMutation() async throws {
+        let container = try ModelContainerFactory.makeForTesting()
+        let deviceId = UUID()
+        let repository = SwiftDataTaskRepository(
+            modelContainer: container,
+            deviceId: deviceId,
+            nowProvider: { Date(timeIntervalSince1970: 200) }
+        )
+
+        let task = DataModel.Task(title: "Original")
+        try await repository.save(task)
+
+        task.title = "Updated"
+        try await repository.save(task)
+
+        let operations = try fetchMutations(from: container).map { $0.operation }
+
+        #expect(operations.contains(SyncOperation.update.rawValue))
+    }
+
+    /// Conditions: Save a task, then delete it.
+    /// Expected: A delete mutation is enqueued with deleted_at set.
+    @Test func testTaskRepositoryDeleteEnqueuesDeleteMutation() async throws {
+        let container = try ModelContainerFactory.makeForTesting()
+        let deviceId = UUID()
+        var timestamps = [
+            Date(timeIntervalSince1970: 300),
+            Date(timeIntervalSince1970: 400)
+        ]
+        let repository = SwiftDataTaskRepository(
+            modelContainer: container,
+            deviceId: deviceId,
+            nowProvider: { timestamps.removeFirst() }
+        )
+
+        let task = DataModel.Task(title: "Delete Me")
+        try await repository.save(task)
+        try await repository.delete(task)
+
+        let mutations = try fetchMutations(from: container)
+        let deleteMutation = mutations.last(where: { $0.operation == SyncOperation.delete.rawValue })
+
+        #expect(deleteMutation != nil)
+
+        let record = try decodeRecord(deleteMutation?.recordData)
+        let deletedAt = record?["deleted_at"] as? String
+        #expect(deletedAt == SyncDateFormatting.formatTimestamp(Date(timeIntervalSince1970: 400)))
+    }
+
     // MARK: - SpreadRepository Tests
 
     /// Conditions: Save a spread to an empty SwiftData spread repository.
@@ -125,6 +201,30 @@ struct SwiftDataRepositoryTests {
         let spreads = await repository.getSpreads()
         #expect(spreads.count == 1)
         #expect(spreads.first?.id == spread.id)
+    }
+
+    /// Conditions: Save a spread with sync enabled.
+    /// Expected: An outbox mutation is created with device ID and create operation.
+    @Test func testSpreadRepositorySaveEnqueuesCreateMutation() async throws {
+        let container = try ModelContainerFactory.makeForTesting()
+        let deviceId = UUID()
+        let repository = SwiftDataSpreadRepository(
+            modelContainer: container,
+            deviceId: deviceId,
+            nowProvider: { Date(timeIntervalSince1970: 500) }
+        )
+
+        let spread = DataModel.Spread(period: .day, date: Date.now, calendar: testCalendar)
+        try await repository.save(spread)
+
+        let mutation = try fetchMutations(from: container).first
+
+        #expect(mutation != nil)
+        #expect(mutation?.entityType == SyncEntityType.spread.rawValue)
+        #expect(mutation?.operation == SyncOperation.create.rawValue)
+
+        let record = try decodeRecord(mutation?.recordData)
+        #expect(record?["device_id"] as? String == deviceId.uuidString)
     }
 
     /// Conditions: Save three spreads to the repository.
@@ -162,6 +262,35 @@ struct SwiftDataRepositoryTests {
 
         spreads = await repository.getSpreads()
         #expect(spreads.count == 0)
+    }
+
+    /// Conditions: Save a spread, then delete it.
+    /// Expected: A delete mutation is enqueued with deleted_at set.
+    @Test func testSpreadRepositoryDeleteEnqueuesDeleteMutation() async throws {
+        let container = try ModelContainerFactory.makeForTesting()
+        let deviceId = UUID()
+        var timestamps = [
+            Date(timeIntervalSince1970: 600),
+            Date(timeIntervalSince1970: 700)
+        ]
+        let repository = SwiftDataSpreadRepository(
+            modelContainer: container,
+            deviceId: deviceId,
+            nowProvider: { timestamps.removeFirst() }
+        )
+
+        let spread = DataModel.Spread(period: .day, date: Date.now, calendar: testCalendar)
+        try await repository.save(spread)
+        try await repository.delete(spread)
+
+        let mutations = try fetchMutations(from: container)
+        let deleteMutation = mutations.last(where: { $0.operation == SyncOperation.delete.rawValue })
+
+        #expect(deleteMutation != nil)
+
+        let record = try decodeRecord(deleteMutation?.recordData)
+        let deletedAt = record?["deleted_at"] as? String
+        #expect(deletedAt == SyncDateFormatting.formatTimestamp(Date(timeIntervalSince1970: 700)))
     }
 
     /// Conditions: Save spreads of different periods and dates in random order.
@@ -217,5 +346,19 @@ struct SwiftDataRepositoryTests {
 
         #expect(tasks1.count == 1)
         #expect(tasks2.count == 0)
+    }
+
+    // MARK: - Sync Outbox Helpers
+
+    private func fetchMutations(from container: ModelContainer) throws -> [DataModel.SyncMutation] {
+        let descriptor = FetchDescriptor<DataModel.SyncMutation>(
+            sortBy: [SortDescriptor(\.createdDate, order: .forward)]
+        )
+        return try container.mainContext.fetch(descriptor)
+    }
+
+    private func decodeRecord(_ data: Data?) throws -> [String: Any]? {
+        guard let data else { return nil }
+        return try JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 }

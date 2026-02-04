@@ -157,151 +157,42 @@
 ## Story: Supabase offline-first sync + auth migration (priority)
 
 ### User Story
-- As a user, I want my data to work offline first and sync across devices and platforms when signed in.
+- As a user, I want my data to work offline first and sync across devices and platforms when signed in with a backup entitlement.
 
 ### Definition of Done
 - Supabase dev/prod environments are configured with migrations, RLS, and merge RPCs.
 - App uses SwiftData locally with an outbox-based sync engine (push + incremental pull).
-- Auth supports email/password; local-only usage is supported. (Apple/Google deferred to SPRD-91.)
+- Auth supports email/password; local-only usage is supported when logged out or not entitled for backup. (Apple/Google deferred to SPRD-91.)
 - Debug/QA builds can switch DataEnvironment at runtime (prod guarded).
 - Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
-- Sync status and error feedback are visible; CloudKit is no longer required.
-
-### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment ✅
-- **Context**: Current AppEnvironment mixes build intent with data target and debug behavior.
-- **Description**: Introduce a DataEnvironment (localhost/dev/prod) separate from build configuration.
-- **Implementation Details**:
-  - Add `DataEnvironment` enum with behaviors: auth required, sync enabled, local-only availability.
-  - Build configuration determines whether debug UI is available (via `BuildInfo`), not the data target.
-  - Resolution order (all builds): `-DataEnvironment` -> `DATA_ENVIRONMENT` -> persisted selection (Debug/QA only) -> build default.
-  - Release honors launch args/env vars for the current run but does not persist overrides.
-  - Persist selected DataEnvironment and track last-used value in UserDefaults for Debug/QA only.
-  - Add Supabase URL/key overrides via launch args and env vars in all builds:
-    - Args: `-SupabaseURL`, `-SupabaseKey`
-    - Env vars: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
-  - Require explicit URL/key overrides when targeting non-prod in Release; otherwise fall back to build defaults.
-  - Rename launch arguments and env vars from AppEnvironment to DataEnvironment.
-  - Update Debug menu to show only DataEnvironment options (localhost/dev/prod) and to respect build gating.
-  - Keep AppEnvironment focused on preview/testing behaviors (in-memory, mock data); data targeting lives in DataEnvironment.
-  - **Architecture note (separate debug implementations)**:
-    - Keep DataEnvironment resolution in non-debug files; debug-only overrides live in `Spread/Debug`.
-    - Pseudocode:
-      ```swift
-      protocol DataEnvironmentResolver {
-        func resolve() -> DataEnvironment
-      }
-
-      struct DefaultDataEnvironmentResolver: DataEnvironmentResolver {
-        func resolve() -> DataEnvironment {
-          if let arg = launchArg("-DataEnvironment") { return arg }
-          if let env = envVar("DATA_ENVIRONMENT") { return env }
-          if BuildInfo.allowsDebugUI, let persisted = persistedSelection { return persisted }
-          return BuildInfo.defaultDataEnvironment
-        }
-      }
-      ```
-  - **Carry-over from feature/SPRD-85 (do not cherry-pick whole commits, port selectively):**
-    - `b86ae37` (`Spread/Environment/AppEnvironment.swift`): reuse resolution-order pattern + behavior flags, but move into new `DataEnvironment`.
-    - `dcc3deb` (`Spread/Environment/SupabaseConfiguration.swift`): reuse `isAvailable` + `configure(for:)` pattern; update to DataEnvironment/build gating.
-    - `d79b227` (`Spread/Environment/DependencyContainer.swift`): keep optional `supabaseClient` and only create it when sync is enabled; pass DataEnvironment into SyncEngine factory.
-    - `35658f9` (`Spread/Services/AuthManager.swift`): keep localhost mock-auth path and optional Supabase client, but adapt to DataEnvironment.
-    - `7c06c01` (`Spread/Debug/DebugSyncOverrides.swift`), `14dcb15` (`Spread/Services/Sync/NetworkMonitor.swift`), `785500a` (`Spread/Services/AuthManager.swift`), `ce46dca` (`Spread/Debug/DebugSyncNetworkSection.swift`): reapply debug overrides + Sync & Network section as Debug/QA-only tooling.
-    - **Avoid** `226370a` (`Spread/DataModel/ModelContainerFactory.swift`): it adds per-environment container names, which conflicts with the single-store requirement.
-- **Acceptance Criteria**:
-  - DataEnvironment drives auth/sync/mock-data availability.
-  - Resolver precedence works in all builds (args/env override persisted selection).
-  - Debug/QA persist selection; Release never persists overrides.
-  - Release uses build defaults when no overrides are provided.
-  - Supabase URL/key can be overridden via args/env vars in any build.
-- **Tests**:
-  - Unit tests for DataEnvironment resolution precedence (Debug/QA vs Release behavior).
-- **Dependencies**: SPRD-94
-
-### [SPRD-97] Feature: Single SwiftData store + debug UI visibility
-- **Context**: Environment switches should not require multiple store names, and debug info should only be visible in Debug menu.
-- **Description**: Use a single SwiftData container name and remove always-on debug overlays.
-- **Implementation Details**:
-  - Update ModelContainerFactory to use one persistent container name for all data environments.
-  - Remove DebugEnvironmentOverlay from app surfaces; keep debug info in Debug menu only.
-  - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
-    - `ab85bfe` (`Spread/Services/Sync/SyncStatus.swift`): keep `.localOnly` status.
-    - `4fb52b9` (`Spread/Views/Components/SyncStatusView.swift`): keep local-only color only; ignore DebugEnvironmentOverlay changes.
-- **Acceptance Criteria**:
-  - All environments use the same local store name.
-  - Debug environment info appears only in Debug menu.
-- **Tests**:
-  - Manual: confirm no overlay badge in Debug/QA builds.
-- **Dependencies**: SPRD-95
-
-### [SPRD-85] Feature: Offline-first sync engine (outbox + pull) - [ ] Reopened
-- **Context**: Sync must work without reliable connectivity.
-- **Description**: Implement outbox-based push + incremental pull with status UI.
-- **Implementation Details**:
-  - Add `SyncMutation` SwiftData model for outbox entries (full record + `changed_fields`).
-  - Enqueue outbox mutations on repository writes (tasks/notes/spreads/assignments/collections/settings).
-  - Push: batch RPC merge calls (parent-first ordering).
-  - Pull: incremental per-table sync using `revision`, with pagination and `last_sync` cursor stored locally.
-  - Gate sync with `NWPathMonitor`; auto sync on launch/foreground + manual refresh.
-  - Add exponential backoff on failure; store a capped local SyncLog.
-  - Show toolbar sync status (last sync time + non-blocking error).
-  - **Architecture note (protocol + policy injection)**:
-    - Define a `SyncPolicy` protocol in non-debug files and inject it into `SyncEngine`.
-    - Use `DefaultSyncPolicy` in Release builds; debug policies live in `Spread/Debug`.
-    - Pseudocode:
-      ```swift
-      protocol SyncPolicy {
-        func shouldAllowSync() -> Bool
-        func forceSyncFailure() -> Bool
-        func forceSyncingDuration() -> TimeInterval?
-      }
-
-      struct DefaultSyncPolicy: SyncPolicy {
-        func shouldAllowSync() -> Bool { true }
-        func forceSyncFailure() -> Bool { false }
-        func forceSyncingDuration() -> TimeInterval? { nil }
-      }
-
-      final class SyncEngine {
-        init(policy: SyncPolicy = DefaultSyncPolicy(), ...) { ... }
-        func syncNow() async {
-          guard policy.shouldAllowSync() else { return }
-          ...
-        }
-      }
-      ```
-- **Acceptance Criteria**:
-  - Offline edits sync when connectivity returns.
-  - Sync is idempotent and resilient to retries.
-  - UI shows last sync and errors.
-  - Repository writes enqueue outbox mutations and use serializers.
-  - Device ID is included in outbox record data.
-- **Tests**:
-  - Unit tests for outbox enqueue and sync ordering.
-  - Integration tests for push/pull with dev Supabase project.
-  - Unit tests for enqueue + serializer output coverage (task/spread/note/assignment/collection).
-  - UI verification that sync status surfaces last sync time and errors (not icon-only).
-- **Dependencies**: SPRD-83, SPRD-84, SPRD-95
- - **Notes**:
-   - Current `feature/SPRD-85` implements SyncEngine + models but does not wire outbox enqueue to repositories; serializer is unused; deviceId is not applied; tests are missing.
+- Sync status and error feedback are visible (including a distinct "no backup entitlement" state); CloudKit is no longer required.
 
 ### [SPRD-99] Feature: Auth lifecycle wiring (merge + wipe + device ID)
-- **Context**: SPRD-84 delivered auth UI but sign-in merge and sign-out wipe are not wired, and device ID is not used.
-- **Description**: Wire AuthManager callbacks to sync merge and store wipe, and ensure device ID is created and injected into sync context.
+- **Context**: Most auth lifecycle wiring was completed in SPRD-85 (commits 13-14): sign-in merge/discard prompt, sign-out wipe, DeviceIdManager injection, auto-sync start/stop, and post-sync reload. Remaining work is entitlement-aware merge gating, collection wipe, and unit tests.
+- **Description**: Gate the sign-in merge flow on backup entitlement, ensure sign-out wipes all local data including collections, and add unit tests for lifecycle callbacks.
 - **Implementation Details**:
-  - Initialize `AuthManager` with injected dependencies (DataEnvironment, optional Supabase client, Sync/Store services).
-  - Set `onSignIn` to trigger a merge-aware sync and reload JournalManager data after completion.
-  - Set `onSignOut` to wipe local store + outbox and reset JournalManager state.
-  - Ensure `DeviceIdManager.getOrCreateDeviceId()` is called once at app startup and provided to SyncEngine/outbox.
-  - Keep local-only mode functional when no Supabase client is available.
+  - Gate `handleSignedIn` on `authManager.hasBackupEntitlement`: when not entitled, skip the migration prompt and auto-sync; set `.backupUnavailable` status and leave local data untouched.
+  - Add collection deletion to `JournalManager.clearAllDataFromRepositories()` so sign-out wipes collections alongside tasks, spreads, events, and notes.
+  - Add unit tests for the sign-in and sign-out lifecycle callbacks.
+- **Already completed in SPRD-85**:
+  - `onSignIn` → `handleSignedIn` with merge/discard prompt and `LocalDataMigrationStore` tracking.
+  - `onSignOut` → `clearLocalData` + `resetSyncState` + `stopAutoSync`.
+  - `DeviceIdManager.getOrCreateDeviceId()` called at startup and passed to `SyncEngine`.
+  - Post-sync `JournalManager.reload()` via `RootNavigationView.onChange(of: syncEngine?.status)`.
+  - `hasLocalData()`, `clearLocalData()`, and `clearAllDataFromRepositories()` on `JournalManager`.
 - **Acceptance Criteria**:
-  - Sign-in triggers a merge flow and updates the UI with synced data.
-  - Sign-out wipes local store/outbox and returns the app to local-only state.
+  - Sign-in with entitlement and local data triggers merge/discard prompt, then syncs.
+  - Sign-in with entitlement and no local data syncs immediately.
+  - Sign-in without entitlement skips merge prompt, leaves local data untouched, and shows `backupUnavailable` status.
+  - Sign-out wipes all local data (including collections) and resets sync state.
   - Device ID is generated once and is available to sync/outbox.
 - **Tests**:
-  - Unit test: sign-in triggers merge callback.
-  - Unit test: sign-out triggers wipe + JournalManager reset.
+  - Unit test: sign-in with entitlement and local data → merge prompt shown.
+  - Unit test: sign-in without entitlement → no merge prompt, `backupUnavailable` status.
+  - Unit test: sign-out → `clearLocalData` + `resetSyncState` called.
   - Manual: sign in/out flows on dev environment.
 - **Dependencies**: SPRD-85, SPRD-95
+
 
 ### [SPRD-84B] Feature: Auth policy isolation + DataEnvironment behavior
 - **Context**: Debug behavior must remain in separate files and avoid `#if DEBUG` in core auth services while DataEnvironment behavior stays consistent across builds.
@@ -1233,7 +1124,7 @@ SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-63 -> SPRD-46 -> SPR
 SPRD-46 -> SPRD-65
 SPRD-62 -> SPRD-63
 Supabase: SPRD-80 -> SPRD-81 -> SPRD-82 -> SPRD-83 -> SPRD-84
-Supabase: SPRD-80 -> SPRD-94 -> SPRD-95 -> SPRD-97 -> SPRD-85 -> SPRD-99 -> SPRD-96 -> SPRD-100 -> SPRD-86
+Supabase: SPRD-80 -> SPRD-94 -> SPRD-95 -> SPRD-85 -> SPRD-99 -> SPRD-96 -> SPRD-100 -> SPRD-86
 Supabase: SPRD-85 -> SPRD-98, SPRD-87, SPRD-88, SPRD-89, SPRD-90
 Supabase: SPRD-84 -> SPRD-91, SPRD-92, SPRD-93
 Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
@@ -2211,4 +2102,111 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
   - Manual: verify Debug/QA show Debug menu; Release does not.
 - **Dependencies**: SPRD-80
 
+### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment ✅
+- **Context**: Current AppEnvironment mixes build intent with data target and debug behavior.
+- **Description**: Introduce a DataEnvironment (localhost/dev/prod) separate from build configuration.
+- **Implementation Details**:
+  - Add `DataEnvironment` enum with behaviors: auth required, sync enabled, local-only availability.
+  - Build configuration determines whether debug UI is available (via `BuildInfo`), not the data target.
+  - Resolution order (all builds): `-DataEnvironment` -> `DATA_ENVIRONMENT` -> persisted selection (Debug/QA only) -> build default.
+  - Release honors launch args/env vars for the current run but does not persist overrides.
+  - Persist selected DataEnvironment and track last-used value in UserDefaults for Debug/QA only.
+  - Add Supabase URL/key overrides via launch args and env vars in all builds:
+    - Args: `-SupabaseURL`, `-SupabaseKey`
+    - Env vars: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`
+  - Require explicit URL/key overrides when targeting non-prod in Release; otherwise fall back to build defaults.
+  - Rename launch arguments and env vars from AppEnvironment to DataEnvironment.
+  - Update Debug menu to show only DataEnvironment options (localhost/dev/prod) and to respect build gating.
+  - Keep AppEnvironment focused on preview/testing behaviors (in-memory, mock data); data targeting lives in DataEnvironment.
+  - **Architecture note (separate debug implementations)**:
+    - Keep DataEnvironment resolution in non-debug files; debug-only overrides live in `Spread/Debug`.
+    - Pseudocode:
+      ```swift
+      protocol DataEnvironmentResolver {
+        func resolve() -> DataEnvironment
+      }
 
+      struct DefaultDataEnvironmentResolver: DataEnvironmentResolver {
+        func resolve() -> DataEnvironment {
+          if let arg = launchArg("-DataEnvironment") { return arg }
+          if let env = envVar("DATA_ENVIRONMENT") { return env }
+          if BuildInfo.allowsDebugUI, let persisted = persistedSelection { return persisted }
+          return BuildInfo.defaultDataEnvironment
+        }
+      }
+      ```
+  - **Carry-over from feature/SPRD-85 (do not cherry-pick whole commits, port selectively):**
+    - `b86ae37` (`Spread/Environment/AppEnvironment.swift`): reuse resolution-order pattern + behavior flags, but move into new `DataEnvironment`.
+    - `dcc3deb` (`Spread/Environment/SupabaseConfiguration.swift`): reuse `isAvailable` + `configure(for:)` pattern; update to DataEnvironment/build gating.
+    - `d79b227` (`Spread/Environment/DependencyContainer.swift`): keep optional `supabaseClient` and only create it when sync is enabled; pass DataEnvironment into SyncEngine factory.
+    - `35658f9` (`Spread/Services/AuthManager.swift`): keep localhost mock-auth path and optional Supabase client, but adapt to DataEnvironment.
+    - `7c06c01` (`Spread/Debug/DebugSyncOverrides.swift`), `14dcb15` (`Spread/Services/Sync/NetworkMonitor.swift`), `785500a` (`Spread/Services/AuthManager.swift`), `ce46dca` (`Spread/Debug/DebugSyncNetworkSection.swift`): reapply debug overrides + Sync & Network section as Debug/QA-only tooling.
+    - **Avoid** `226370a` (`Spread/DataModel/ModelContainerFactory.swift`): it adds per-environment container names, which conflicts with the single-store requirement.
+- **Acceptance Criteria**:
+  - DataEnvironment drives auth/sync/mock-data availability.
+  - Resolver precedence works in all builds (args/env override persisted selection).
+  - Debug/QA persist selection; Release never persists overrides.
+  - Release uses build defaults when no overrides are provided.
+  - Supabase URL/key can be overridden via args/env vars in any build.
+- **Tests**:
+  - Unit tests for DataEnvironment resolution precedence (Debug/QA vs Release behavior).
+- **Dependencies**: SPRD-94
+
+### [SPRD-85] Feature: Offline-first sync engine (outbox + pull + eligibility gating)
+- **Context**: Sync must work without reliable connectivity. Backup is a premium feature; not every signed-in account can sync.
+- **Description**: Implement outbox-based push + incremental pull with status UI, and gate sync availability on both auth state and backup entitlement.
+- **Implementation Details**:
+  - Add `SyncMutation` SwiftData model for outbox entries (full record + `changed_fields`).
+  - Enqueue outbox mutations on repository writes (tasks/notes/spreads/assignments/collections/settings).
+  - Push: batch RPC merge calls (parent-first ordering).
+  - Pull: incremental per-table sync using `revision`, with pagination and `last_sync` cursor stored locally.
+  - Gate sync with `NWPathMonitor`; auto sync on launch/foreground + manual refresh.
+  - Add exponential backoff on failure; store a capped local SyncLog.
+  - Introduce a sync entitlement flag (e.g., `AuthState.canSync` or `SyncEligibility`) populated from a profile flag.
+  - Update `SyncEngine` to block auto/manual sync when `canSync == false` and set a distinct status for signed-in-but-not-entitled users.
+  - Update `SyncStatus`/`SyncStatusView` to use SF Symbol `exclamationmark.arrow.triangle.2.circlepath` (grey) for the "backup unavailable" state.
+  - Keep outbox mutations enqueued locally while not entitled; block sync attempts only.
+  - Make toolbar sync status icon-only and surface any status copy in a minimal banner/status line near the top of the main spreads content.
+  - Trigger a sync attempt when entitlement becomes active (e.g., after purchase or refresh).
+  - **Architecture note (protocol + policy injection)**:
+    - Define a `SyncPolicy` protocol in non-debug files and inject it into `SyncEngine`.
+    - Use `DefaultSyncPolicy` in Release builds; debug policies live in `Spread/Debug`.
+    - Pseudocode:
+      ```swift
+      protocol SyncPolicy {
+        func shouldAllowSync() -> Bool
+        func forceSyncFailure() -> Bool
+        func forceSyncingDuration() -> TimeInterval?
+      }
+
+      struct DefaultSyncPolicy: SyncPolicy {
+        func shouldAllowSync() -> Bool { true }
+        func forceSyncFailure() -> Bool { false }
+        func forceSyncingDuration() -> TimeInterval? { nil }
+      }
+
+      final class SyncEngine {
+        init(policy: SyncPolicy = DefaultSyncPolicy(), ...) { ... }
+        func syncNow() async {
+          guard policy.shouldAllowSync() else { return }
+          ...
+        }
+      }
+      ```
+- **Acceptance Criteria**:
+  - Mock data loading options in Debug menu only available when localhost Data Environment is selected.
+  - Offline edits sync when connectivity returns.
+  - Sync is idempotent and resilient to retries.
+  - Repository writes enqueue outbox mutations and use serializers.
+  - Device ID is included in outbox record data.
+  - Logged out: sync is unavailable; local-only behavior persists.
+  - Logged in without backup entitlement: no sync attempts; status icon shows `exclamationmark.arrow.triangle.2.circlepath`.
+  - Logged in with backup entitlement: normal sync behavior.
+  - Toolbar sync status is icon-only; status copy appears in a minimal banner/status line near the top of the main spreads content.
+- **Tests**:
+  - Unit tests for outbox enqueue and sync ordering.
+  - Integration tests for push/pull with dev Supabase project.
+  - Unit tests for enqueue + serializer output coverage (task/spread/note/assignment/collection).
+  - Unit tests: sync gating for logged-out, logged-in without entitlement, and entitled states.
+  - Unit tests: status icon/state mapping for "backup unavailable."
+- **Dependencies**: SPRD-83, SPRD-84, SPRD-95
