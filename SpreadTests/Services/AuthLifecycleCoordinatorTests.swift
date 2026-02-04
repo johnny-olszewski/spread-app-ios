@@ -1,5 +1,9 @@
 import struct Auth.User
-import Foundation
+import struct Foundation.Calendar
+import struct Foundation.Data
+import struct Foundation.Date
+import class Foundation.JSONDecoder
+import struct Foundation.UUID
 import Testing
 @testable import Spread
 
@@ -82,9 +86,15 @@ struct AuthLifecycleCoordinatorTests {
     // MARK: - Sign-In Without Entitlement
 
     /// Conditions: User is signed in but does not have backup entitlement.
-    /// Expected: Sync status should be set to backupUnavailable.
+    /// Expected: Sync status should be set to backupUnavailable and local data untouched.
     @Test func testSignedInWithoutEntitlementSetsBackupUnavailable() async throws {
-        let (coordinator, authManager, syncEngine, _, _) = try await makeCoordinator()
+        let manager = try await JournalManager.makeForTesting()
+        let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
+        try await manager.spreadRepository.save(spread)
+
+        let (coordinator, authManager, syncEngine, _, _) = try await makeCoordinator(
+            journalManager: manager
+        )
         let userId = UUID()
         authManager.configureForTesting(
             state: .signedIn(makeTestUser(id: userId)),
@@ -94,6 +104,8 @@ struct AuthLifecycleCoordinatorTests {
         await coordinator.handleSignedIn()
 
         #expect(syncEngine.status == .backupUnavailable)
+        #expect(!coordinator.isShowingMigrationPrompt)
+        #expect(await manager.hasLocalData())
     }
 
     // MARK: - Sign-In With Entitlement, No Local Data, Not Migrated
@@ -219,6 +231,7 @@ struct AuthLifecycleCoordinatorTests {
         #expect(!coordinator.isShowingMigrationPrompt)
         #expect(coordinator.pendingMigrationUser == nil)
         #expect(storeState.contains(userId))
+        #expect(await manager.hasLocalData() == false)
     }
 
     // MARK: - Sign-Out
@@ -226,11 +239,19 @@ struct AuthLifecycleCoordinatorTests {
     /// Conditions: User signs out.
     /// Expected: Should clear local data and reset sync.
     @Test func testSignOutClearsDataAndResetsSyncState() async throws {
-        let (coordinator, _, syncEngine, _, _) = try await makeCoordinator()
+        let manager = try await JournalManager.makeForTesting()
+        let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
+        try await manager.spreadRepository.save(spread)
+
+        let (coordinator, _, syncEngine, _, _) = try await makeCoordinator(
+            journalManager: manager
+        )
+        syncEngine.status = .synced(.now)
 
         await coordinator.handleSignedOut()
 
         #expect(syncEngine.status == .idle)
+        #expect(await manager.hasLocalData() == false)
     }
 
     // MARK: - Reentrancy Guard

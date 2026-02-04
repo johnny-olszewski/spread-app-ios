@@ -1,4 +1,3 @@
-import Auth
 import struct Foundation.UUID
 import Observation
 
@@ -89,8 +88,8 @@ final class AuthLifecycleCoordinator {
         isHandlingSignIn = true
 
         guard authManager.hasBackupEntitlement else {
+            resetMigrationState()
             syncEngine.status = .backupUnavailable
-            isHandlingSignIn = false
             return
         }
 
@@ -154,6 +153,7 @@ final class AuthLifecycleCoordinator {
 
     /// Processes a sign-out event: wipes local data and resets sync.
     func handleSignedOut() async {
+        resetMigrationState()
         await journalManager.clearLocalData()
         syncEngine.resetSyncState()
         stopAutoSyncIfNeeded()
