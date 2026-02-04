@@ -35,6 +35,13 @@ struct DebugMenuView: View {
     @State private var successMessage = ""
     @State private var selectedDataEnvironment: DataEnvironment = DataEnvironment.current
 
+    private var forcedAuthErrorBinding: Binding<ForcedAuthError?> {
+        Binding(
+            get: { DebugSyncOverrides.shared.forcedAuthError },
+            set: { DebugSyncOverrides.shared.forcedAuthError = $0 }
+        )
+    }
+
     var body: some View {
         List {
             buildInfoSection
@@ -120,8 +127,17 @@ struct DebugMenuView: View {
                     .monospaced()
             }
             LabeledContent("Backup Entitled", value: authManager.hasBackupEntitlement ? "Yes" : "No")
+
+            Picker("Forced Auth Error", selection: forcedAuthErrorBinding) {
+                Text("None").tag(nil as ForcedAuthError?)
+                ForEach(ForcedAuthError.allCases, id: \.self) { error in
+                    Text(error.displayName).tag(error as ForcedAuthError?)
+                }
+            }
         } header: {
             Label("Auth", systemImage: "person.badge.key")
+        } footer: {
+            Text("Forced auth error will cause the next sign-in attempt to fail with the selected error.")
         }
     }
 

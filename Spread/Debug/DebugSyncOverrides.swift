@@ -28,6 +28,11 @@ final class DebugSyncOverrides {
     /// When set, forces sync to remain in the syncing state for this duration.
     var forcedSyncingDuration: TimeInterval?
 
+    // MARK: - Auth Overrides
+
+    /// When set, forces sign-in to fail with this error before hitting Supabase.
+    var forcedAuthError: ForcedAuthError?
+
     // MARK: - Reset
 
     /// Resets all overrides to default values.
@@ -35,6 +40,7 @@ final class DebugSyncOverrides {
         blockAllNetwork = false
         forceSyncFailure = false
         forcedSyncingDuration = nil
+        forcedAuthError = nil
     }
 }
 #endif
