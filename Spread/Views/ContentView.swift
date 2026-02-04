@@ -8,7 +8,7 @@ import SwiftUI
 /// Auth lifecycle logic is delegated to `AuthLifecycleCoordinator`.
 struct ContentView: View {
     @State private var journalManager: JournalManager?
-    @State private var authManager = AuthManager()
+    @State private var authManager = AuthManager(policy: ContentView.makeAuthPolicy())
     @State private var syncEngine: SyncEngine?
     @State private var coordinator: AuthLifecycleCoordinator?
 
@@ -125,6 +125,14 @@ struct ContentView: View {
         return DebugSyncPolicy()
         #else
         return DefaultSyncPolicy()
+        #endif
+    }
+
+    private static func makeAuthPolicy() -> AuthPolicy {
+        #if DEBUG
+        return DebugAuthPolicy()
+        #else
+        return DefaultAuthPolicy()
         #endif
     }
 }
