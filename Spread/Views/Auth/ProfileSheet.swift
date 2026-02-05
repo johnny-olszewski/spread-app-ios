@@ -74,5 +74,5 @@ struct ProfileSheet: View {
 // MARK: - Previews
 
 #Preview {
-    ProfileSheet(authManager: AuthManager())
+    ProfileSheet(authManager: .makeForPreview())
 }

@@ -340,7 +340,7 @@ struct DebugMenuView: View {
         DebugMenuView(
             container: try! .makeForPreview(),
             journalManager: .previewInstance,
-            authManager: AuthManager(),
+            authManager: .makeForPreview(),
             syncEngine: nil
         )
     }

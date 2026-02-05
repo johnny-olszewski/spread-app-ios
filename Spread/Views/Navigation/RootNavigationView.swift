@@ -87,7 +87,7 @@ struct RootNavigationView: View {
 #Preview("iPad - Sidebar") {
     RootNavigationView(
         journalManager: .previewInstance,
-        authManager: AuthManager(),
+        authManager: .makeForPreview(),
         container: try! .makeForPreview()
     )
     .environment(\.horizontalSizeClass, .regular)
@@ -96,7 +96,7 @@ struct RootNavigationView: View {
 #Preview("iPhone - Tab Bar") {
     RootNavigationView(
         journalManager: .previewInstance,
-        authManager: AuthManager(),
+        authManager: .makeForPreview(),
         container: try! .makeForPreview()
     )
     .environment(\.horizontalSizeClass, .compact)
