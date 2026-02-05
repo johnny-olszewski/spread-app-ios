@@ -8,7 +8,7 @@ import SwiftUI
 /// Auth lifecycle logic is delegated to `AuthLifecycleCoordinator`.
 struct ContentView: View {
     @State private var journalManager: JournalManager?
-    @State private var authManager = AuthManager(policy: ContentView.makeAuthPolicy())
+    @State private var authManager = AuthManager(service: ContentView.makeAuthService())
     @State private var syncEngine: SyncEngine?
     @State private var coordinator: AuthLifecycleCoordinator?
 
@@ -128,11 +128,14 @@ struct ContentView: View {
         #endif
     }
 
-    private static func makeAuthPolicy() -> AuthPolicy {
+    private static func makeAuthService() -> AuthService {
         #if DEBUG
-        return DebugAuthPolicy()
+        let base: AuthService = DataEnvironment.current.isLocalOnly
+            ? MockAuthService()
+            : SupabaseAuthService()
+        return DebugAuthService(wrapping: base)
         #else
-        return DefaultAuthPolicy()
+        return SupabaseAuthService()
         #endif
     }
 }
