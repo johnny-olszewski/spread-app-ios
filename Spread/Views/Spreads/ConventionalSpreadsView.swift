@@ -209,7 +209,7 @@ private struct SpreadContentView: View {
 #Preview {
     ConventionalSpreadsView(
         journalManager: .previewInstance,
-        authManager: AuthManager(),
+        authManager: .makeForPreview(),
         syncEngine: nil
     )
 }
