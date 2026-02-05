@@ -2,12 +2,12 @@ import Foundation
 import Observation
 import Supabase
 
-/// Manages authentication state and operations with Supabase.
+/// Manages authentication state and operations.
 ///
 /// Provides email/password sign-in, sign-out with confirmation,
-/// and auth state observation for UI updates. Auth behavior is
-/// controlled by an injected `AuthPolicy` to support debug overrides
-/// and localhost mock auth without `#if DEBUG` in core logic.
+/// and auth state observation for UI updates. Auth operations are
+/// delegated to an injected `AuthService` to support different
+/// implementations (Supabase, mock, debug).
 @Observable
 @MainActor
 final class AuthManager {
@@ -48,11 +48,8 @@ final class AuthManager {
 
     // MARK: - Dependencies
 
-    /// The Supabase client (nil for localhost).
-    private let client: SupabaseClient?
-
-    /// Policy controlling forced errors and localhost behavior.
-    private let policy: AuthPolicy
+    /// The service that performs auth operations.
+    private let service: AuthService
 
     /// Callback for when sign-out completes (to wipe local data).
     var onSignOut: (() async -> Void)?
@@ -62,30 +59,11 @@ final class AuthManager {
 
     // MARK: - Initialization
 
-    /// Creates an AuthManager with the current Supabase configuration.
+    /// Creates an AuthManager with the specified auth service.
     ///
-    /// - Parameter policy: Auth policy for environment behavior (defaults to `DefaultAuthPolicy`).
-    init(policy: AuthPolicy = DefaultAuthPolicy()) {
-        self.policy = policy
-
-        if policy.isLocalhost {
-            self.client = nil
-        } else {
-            self.client = SupabaseClient(
-                supabaseURL: SupabaseConfiguration.url,
-                supabaseKey: SupabaseConfiguration.publishableKey
-            )
-        }
-
-        Task {
-            await checkSession()
-        }
-    }
-
-    /// Creates an AuthManager with a custom Supabase client (for testing).
-    init(client: SupabaseClient, policy: AuthPolicy = DefaultAuthPolicy()) {
-        self.client = client
-        self.policy = policy
+    /// - Parameter service: The service to delegate auth operations to.
+    init(service: AuthService) {
+        self.service = service
 
         Task {
             await checkSession()
@@ -96,14 +74,10 @@ final class AuthManager {
 
     /// Checks for an existing session on startup.
     private func checkSession() async {
-        guard !policy.isLocalhost else { return }
-        guard let client else { return }
-
-        do {
-            let session = try await client.auth.session
-            state = .signedIn(session.user)
-            hasBackupEntitlement = readBackupEntitlement(from: session.user)
-        } catch {
+        if let result = await service.checkSession() {
+            state = .signedIn(result.user)
+            hasBackupEntitlement = result.hasBackupEntitlement
+        } else {
             state = .signedOut
         }
     }
@@ -111,11 +85,6 @@ final class AuthManager {
     // MARK: - Sign In
 
     /// Signs in with email and password.
-    ///
-    /// Behavior depends on the injected `AuthPolicy`:
-    /// - Forced error: throws immediately with a user-facing message.
-    /// - Localhost: auto-succeeds with a mock user and backup entitlement.
-    /// - Default: performs real Supabase sign-in.
     ///
     /// - Parameters:
     ///   - email: The user's email address.
@@ -127,32 +96,17 @@ final class AuthManager {
 
         defer { isLoading = false }
 
-        if let forced = policy.forcedAuthError() {
-            errorMessage = forced.userMessage
-            throw ForcedAuthSignInError(forced: forced)
-        }
-
-        if policy.isLocalhost {
-            let mockUser = makeLocalhostUser(email: email)
-            state = .signedIn(mockUser)
-            hasBackupEntitlement = true
-            await onSignIn?(mockUser)
-            return
-        }
-
-        guard let client else { return }
-
         do {
-            let session = try await client.auth.signIn(
-                email: email,
-                password: password
-            )
+            let result = try await service.signIn(email: email, password: password)
 
-            state = .signedIn(session.user)
-            hasBackupEntitlement = readBackupEntitlement(from: session.user)
+            state = .signedIn(result.user)
+            hasBackupEntitlement = result.hasBackupEntitlement
 
-            await onSignIn?(session.user)
+            await onSignIn?(result.user)
 
+        } catch let error as ForcedAuthSignInError {
+            errorMessage = error.forced.userMessage
+            throw error
         } catch let error as AuthError {
             errorMessage = mapAuthError(error)
             throw error
@@ -173,17 +127,8 @@ final class AuthManager {
 
         defer { isLoading = false }
 
-        if policy.isLocalhost {
-            state = .signedOut
-            hasBackupEntitlement = false
-            await onSignOut?()
-            return
-        }
-
-        guard let client else { return }
-
         do {
-            try await client.auth.signOut()
+            try await service.signOut()
             state = .signedOut
             hasBackupEntitlement = false
 
@@ -228,38 +173,14 @@ final class AuthManager {
         state.user?.email
     }
 
-    // MARK: - Entitlement
-
-    /// Reads the backup entitlement flag from the user's app metadata.
-    private func readBackupEntitlement(from user: User) -> Bool {
-        user.appMetadata["backup_entitled"]?.boolValue ?? false
-    }
-
-    // MARK: - Localhost Mock User
-
-    /// Creates a mock User for localhost sign-in.
-    private func makeLocalhostUser(email: String) -> User {
-        let json = """
-        {
-            "id": "\(UUID().uuidString)",
-            "email": "\(email)",
-            "appMetadata": {"backup_entitled": true},
-            "userMetadata": {},
-            "aud": "authenticated",
-            "createdAt": "2024-01-01T00:00:00Z",
-            "updatedAt": "2024-01-01T00:00:00Z"
-        }
-        """
-        let data = json.data(using: .utf8)!
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        // Safe to force-unwrap: JSON is hardcoded and valid.
-        return try! decoder.decode(User.self, from: data)
-    }
-
     // MARK: - Test Support
 
     #if DEBUG
+    /// Creates an AuthManager with a mock service for previews.
+    static func makeForPreview() -> AuthManager {
+        AuthManager(service: MockAuthService())
+    }
+
     /// Configures auth state for testing without hitting Supabase.
     func configureForTesting(state: AuthState, hasBackupEntitlement: Bool = false) {
         self.state = state
