@@ -28,10 +28,10 @@ final class SupabaseAuthService: AuthService {
 
     // MARK: - AuthService
 
-    func checkSession() async -> AuthResult? {
+    func checkSession() async -> AuthSuccess? {
         do {
             let session = try await client.auth.session
-            return AuthResult(
+            return AuthSuccess(
                 user: session.user,
                 hasBackupEntitlement: readBackupEntitlement(from: session.user)
             )
@@ -40,12 +40,12 @@ final class SupabaseAuthService: AuthService {
         }
     }
 
-    func signIn(email: String, password: String) async throws -> AuthResult {
+    func signIn(email: String, password: String) async throws -> AuthSuccess {
         let session = try await client.auth.signIn(
             email: email,
             password: password
         )
-        return AuthResult(
+        return AuthSuccess(
             user: session.user,
             hasBackupEntitlement: readBackupEntitlement(from: session.user)
         )

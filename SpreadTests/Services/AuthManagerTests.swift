@@ -13,13 +13,13 @@ struct AuthManagerTests {
         var hasBackupEntitlement = true
         var lastSignInEmail: String?
 
-        func checkSession() async -> AuthResult? {
+        func checkSession() async -> AuthSuccess? {
             nil
         }
 
-        func signIn(email: String, password: String) async throws -> AuthResult {
+        func signIn(email: String, password: String) async throws -> AuthSuccess {
             lastSignInEmail = email
-            return AuthResult(
+            return AuthSuccess(
                 user: makeUser(email: email),
                 hasBackupEntitlement: hasBackupEntitlement
             )
@@ -56,11 +56,11 @@ struct AuthManagerTests {
             self.error = error
         }
 
-        func checkSession() async -> AuthResult? {
+        func checkSession() async -> AuthSuccess? {
             nil
         }
 
-        func signIn(email: String, password: String) async throws -> AuthResult {
+        func signIn(email: String, password: String) async throws -> AuthSuccess {
             throw error
         }
 
