@@ -97,5 +97,5 @@ struct LoginSheet: View {
 // MARK: - Previews
 
 #Preview("Empty") {
-    LoginSheet(authManager: AuthManager())
+    LoginSheet(authManager: .makeForPreview())
 }

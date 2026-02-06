@@ -41,10 +41,10 @@ struct SyncStatusBanner: View {
     let syncEngine = SyncEngine(
         client: nil,
         modelContainer: try! ModelContainerFactory.makeForTesting(),
-        authManager: AuthManager(),
+        authManager: .makeForPreview(),
         networkMonitor: NetworkMonitor(),
         deviceId: UUID(),
         isSyncEnabled: false
     )
-    return SyncStatusBanner(syncEngine: syncEngine)
+    SyncStatusBanner(syncEngine: syncEngine)
 }

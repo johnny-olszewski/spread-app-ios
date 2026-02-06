@@ -2,10 +2,12 @@ import Foundation
 import Observation
 import Supabase
 
-/// Manages authentication state and operations with Supabase.
+/// Manages authentication state and operations.
 ///
 /// Provides email/password sign-in, sign-out with confirmation,
-/// and auth state observation for UI updates.
+/// and auth state observation for UI updates. Auth operations are
+/// delegated to an injected `AuthService` to support different
+/// implementations (Supabase, mock, debug).
 @Observable
 @MainActor
 final class AuthManager {
@@ -46,8 +48,8 @@ final class AuthManager {
 
     // MARK: - Dependencies
 
-    /// The Supabase client.
-    private let client: SupabaseClient
+    /// The service that performs auth operations.
+    private let service: AuthService
 
     /// Callback for when sign-out completes (to wipe local data).
     var onSignOut: (() async -> Void)?
@@ -57,22 +59,11 @@ final class AuthManager {
 
     // MARK: - Initialization
 
-    /// Creates an AuthManager with the current Supabase configuration.
-    init() {
-        self.client = SupabaseClient(
-            supabaseURL: SupabaseConfiguration.url,
-            supabaseKey: SupabaseConfiguration.publishableKey
-        )
-
-        // Check initial session
-        Task {
-            await checkSession()
-        }
-    }
-
-    /// Creates an AuthManager with a custom Supabase client (for testing).
-    init(client: SupabaseClient) {
-        self.client = client
+    /// Creates an AuthManager with the specified auth service.
+    ///
+    /// - Parameter service: The service to delegate auth operations to.
+    init(service: AuthService) {
+        self.service = service
 
         Task {
             await checkSession()
@@ -83,12 +74,10 @@ final class AuthManager {
 
     /// Checks for an existing session on startup.
     private func checkSession() async {
-        do {
-            let session = try await client.auth.session
-            state = .signedIn(session.user)
-            hasBackupEntitlement = readBackupEntitlement(from: session.user)
-        } catch {
-            // No valid session, user is signed out
+        if let result = await service.checkSession() {
+            state = .signedIn(result.user)
+            hasBackupEntitlement = result.hasBackupEntitlement
+        } else {
             state = .signedOut
         }
     }
@@ -108,17 +97,16 @@ final class AuthManager {
         defer { isLoading = false }
 
         do {
-            let session = try await client.auth.signIn(
-                email: email,
-                password: password
-            )
+            let result = try await service.signIn(email: email, password: password)
 
-            state = .signedIn(session.user)
-            hasBackupEntitlement = readBackupEntitlement(from: session.user)
+            state = .signedIn(result.user)
+            hasBackupEntitlement = result.hasBackupEntitlement
 
-            // Notify for data merge
-            await onSignIn?(session.user)
+            await onSignIn?(result.user)
 
+        } catch let error as ForcedAuthSignInError {
+            errorMessage = error.forced.userMessage
+            throw error
         } catch let error as AuthError {
             errorMessage = mapAuthError(error)
             throw error
@@ -140,11 +128,10 @@ final class AuthManager {
         defer { isLoading = false }
 
         do {
-            try await client.auth.signOut()
+            try await service.signOut()
             state = .signedOut
             hasBackupEntitlement = false
 
-            // Notify to wipe local data
             await onSignOut?()
 
         } catch {
@@ -186,20 +173,27 @@ final class AuthManager {
         state.user?.email
     }
 
-    // MARK: - Entitlement
-
-    /// Reads the backup entitlement flag from the user's app metadata.
-    private func readBackupEntitlement(from user: User) -> Bool {
-        user.appMetadata["backup_entitled"]?.boolValue ?? false
-    }
-
     // MARK: - Test Support
 
     #if DEBUG
+    /// Creates an AuthManager with a mock service for previews.
+    static func makeForPreview() -> AuthManager {
+        AuthManager(service: MockAuthService())
+    }
+
     /// Configures auth state for testing without hitting Supabase.
     func configureForTesting(state: AuthState, hasBackupEntitlement: Bool = false) {
         self.state = state
         self.hasBackupEntitlement = hasBackupEntitlement
     }
     #endif
+}
+
+// MARK: - ForcedAuthSignInError
+
+/// Error thrown when a forced auth error is active.
+///
+/// Wraps a `ForcedAuthError` so the login sheet can display the user message.
+struct ForcedAuthSignInError: Error {
+    let forced: ForcedAuthError
 }

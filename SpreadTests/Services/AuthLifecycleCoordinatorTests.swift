@@ -54,7 +54,7 @@ struct AuthLifecycleCoordinatorTests {
         journalManager: JournalManager,
         migrationStoreState: MigrationStoreState
     ) {
-        let auth = authManager ?? AuthManager()
+        let auth = authManager ?? AuthManager(service: MockAuthService())
         let manager: JournalManager
         if let journalManager {
             manager = journalManager
