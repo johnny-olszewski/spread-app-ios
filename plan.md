@@ -199,24 +199,29 @@
 - **Dependencies**: SPRD-85, SPRD-95, SPRD-99
 
 ### [SPRD-100] Feature: Apply environment switch (restart required)
-- **Context**: Data environment changes must propagate to newly created services; existing clients should not keep stale configuration.
-- **Description**: After a confirmed environment switch, reinitialize app services and require a restart flow so the new configuration is used.
+- **Context**: Data environment changes must propagate to newly created services; existing clients should not keep stale configuration. SPRD-96 already handles sign-out + store wipe + sync reset; this task wires the restart flow so the app actually rebuilds its service graph and handles launch-time mismatches.
+- **Description**: After a confirmed environment switch, perform an in-app soft restart that tears down and rebuilds the service graph so the new DataEnvironment is used. Also wire launch-time mismatch detection so a cold launch after an environment change wipes before container creation.
 - **Implementation Details**:
-  - Add a lightweight app lifecycle coordinator that can rebuild `DependencyContainer` and `JournalManager`.
-  - After the SPRD-96 switch flow completes (sign out + wipe), trigger a restart-required UI state.
-  - Restart action recreates auth/sync/services using the new DataEnvironment/Supabase configuration.
-  - Keep restart logic outside Debug-only files; Debug menu just triggers the switch flow.
-  - On app launch, check `DataEnvironment.requiresWipeOnLaunch(current:)` before container creation; if true, wipe store first.
-  - After successful container creation, call `DataEnvironment.markAsLastUsed()` to track the current environment.
+  - **Soft restart flow (in-app rebuild)**:
+    - `ContentView` already holds `journalManager`, `authManager`, `syncEngine`, and `coordinator` as `@State`. A soft restart nils these out, which returns the UI to the loading state, then re-runs `initializeApp()` to rebuild everything from the new `DataEnvironment.current`.
+    - Wire `DebugMenuView.onRestartRequired` in `SidebarNavigationView` and `TabNavigationView` to a callback that triggers this teardown/rebuild cycle.
+    - `AuthManager` must be recreated (not reused) because it holds an `AuthService` bound to the old environment. Either make `authManager` resettable or nil + recreate it.
+    - `SyncEngine` and `AuthLifecycleCoordinator` are already recreated in `initializeApp()`.
+    - No new "app lifecycle coordinator" type is needed — the rebuild lives in `ContentView` via a `restartApp()` method that nils state and re-triggers `.task`.
+  - **Launch-time mismatch wipe**:
+    - In `SpreadApp.init()`, before `DependencyContainer.makeForLive()`, check `DataEnvironment.requiresWipeOnLaunch(current:)`. If true, perform a synchronous wipe (create a temporary container, call `StoreWiper.wipeAll()`, then discard it before creating the real container).
+    - After successful container creation, call `DataEnvironment.markAsLastUsed()`.
+  - Keep restart logic outside `#if DEBUG` — the soft restart mechanism itself is not debug-only, even though the debug menu is the only trigger today.
 - **Acceptance Criteria**:
-  - Switching environments results in new Supabase URL/key being used by fresh services.
-  - Old auth session and sync state are cleared after the restart flow.
-  - Debug/QA builds can complete a switch and return to a working app state without manual relaunch.
-  - On app launch, if resolved DataEnvironment differs from last-used, the local store is wiped before container creation.
+  - After an environment switch, the app rebuilds its service graph and the new Supabase URL/key are used by fresh `SyncEngine` and `AuthService` instances.
+  - Debug/QA builds can complete a switch and return to a working app state without manually killing and relaunching the process.
+  - On app launch, if `DataEnvironment.requiresWipeOnLaunch(current:)` returns true, the local store is wiped before the real container is created.
+  - After successful app initialization (both cold launch and soft restart), `DataEnvironment.lastUsed` reflects the current environment.
 - **Tests**:
-  - Manual: switch between environments and verify the Supabase host and auth state reflect the new environment.
-  - Manual: launch after DataEnvironment mismatch; verify wipe occurs before container creation.
-- **Dependencies**: SPRD-95, SPRD-96
+  - Manual: switch environments via debug menu; verify the app returns to loading, re-initializes, and the Supabase host in logs reflects the new environment.
+  - Manual: switch environments, force-quit, relaunch; verify wipe occurs before container creation (check logs for wipe + new host).
+  - Unit: verify `SpreadApp` launch-time wipe logic calls `StoreWiper.wipeAll()` when `requiresWipeOnLaunch` returns true (if extractable into a testable function).
+- **Dependencies**: SPRD-96
 
 ### [SPRD-98] Feature: Immediate push on commit (not per keystroke)
 - **Context**: Sync should be automatic without excessive per-keystroke calls.
