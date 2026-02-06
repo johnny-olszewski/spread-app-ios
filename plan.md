@@ -177,7 +177,7 @@
   - If sync is blocked (signed out or not entitled), treat it as a failed sync when outbox is non-empty and show the warning; otherwise proceed without warning.
   - Sign out and clear auth session.
   - Wipe local SwiftData store and outbox on every switch (including sync cursors).
-  - On app launch, if resolved DataEnvironment differs from last-used, wipe before container creation.
+  - Provide infrastructure for launch-time mismatch detection (`DataEnvironment.lastUsed`, `markAsLastUsed`, `requiresWipeOnLaunch`); wiring into app startup is handled in SPRD-100.
   - Release does not persist selection for reuse; it only tracks last-used for wipe safety.
   - Require restart after switching (no hot reload for now).
   - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
@@ -192,10 +192,10 @@
 - **Acceptance Criteria**:
   - Switching environments always results in a clean local store (SwiftData + outbox + sync cursors).
   - Failed sync attempts (including blocked sync with non-empty outbox) show a warning and require explicit confirmation to proceed.
-  - On app launch, if resolved DataEnvironment differs from last-used, the local store is wiped before container creation.
+  - Infrastructure for launch-time mismatch detection is provided (wiring deferred to SPRD-100).
 - **Tests**:
   - Manual: switch between localhost/dev/prod with and without outbox; verify warning behavior, wipe + sign-out, and restart required.
-  - Manual: launch after DataEnvironment mismatch; verify wipe occurs before container creation.
+  - Unit: DataEnvironment.lastUsed, markAsLastUsed, requiresWipeOnLaunch work correctly.
 - **Dependencies**: SPRD-85, SPRD-95, SPRD-99
 
 ### [SPRD-100] Feature: Apply environment switch (restart required)
@@ -206,48 +206,17 @@
   - After the SPRD-96 switch flow completes (sign out + wipe), trigger a restart-required UI state.
   - Restart action recreates auth/sync/services using the new DataEnvironment/Supabase configuration.
   - Keep restart logic outside Debug-only files; Debug menu just triggers the switch flow.
+  - On app launch, check `DataEnvironment.requiresWipeOnLaunch(current:)` before container creation; if true, wipe store first.
+  - After successful container creation, call `DataEnvironment.markAsLastUsed()` to track the current environment.
 - **Acceptance Criteria**:
   - Switching environments results in new Supabase URL/key being used by fresh services.
   - Old auth session and sync state are cleared after the restart flow.
   - Debug/QA builds can complete a switch and return to a working app state without manual relaunch.
+  - On app launch, if resolved DataEnvironment differs from last-used, the local store is wiped before container creation.
 - **Tests**:
   - Manual: switch between environments and verify the Supabase host and auth state reflect the new environment.
+  - Manual: launch after DataEnvironment mismatch; verify wipe occurs before container creation.
 - **Dependencies**: SPRD-95, SPRD-96
-
-### [SPRD-86] Feature: Debug environment switcher
-- **Context**: Debug/QA builds must switch between data environments safely; Release must expose no debug UI.
-- **Description**: Add data-environment switcher to Debug destination with guardrails (Debug + QA builds only).
-- **Implementation Details**:
-  - Add DataEnvironment section in Debug destination (localhost/dev/prod).
-  - Use standard confirm alert when switching to prod (no typed confirmation).
-  - Switching flow is implemented by SPRD-96 (sync attempt -> warn -> sign out -> wipe -> restart required).
-  - Debug/TestFlight gating is handled by SPRD-94/95 (Release hides switcher entirely).
-  - Show current resolved DataEnvironment and whether a runtime override is active.
-  - **Architecture note (switch coordinator)**:
-    - Use a coordinator/service to encapsulate the switch flow so DebugMenuView stays thin.
-    - Pseudocode:
-      ```swift
-      final class EnvironmentSwitchCoordinator {
-        func switchTo(_ env: DataEnvironment) async {
-          await syncService.waitIfSyncing()
-          if !(await syncService.syncNowSucceeded()) {
-            guard await confirmLossWarning() else { return }
-            _ = await syncService.tryFinalPush()
-          }
-          await authService.signOut()
-          wipeLocalStore()
-          persist(env)
-          showRestartRequired()
-        }
-      }
-      ```
-- **Acceptance Criteria**:
-  - Debug/QA builds can switch environments at runtime.
-  - Release builds show no switcher UI.
-  - Prod access requires explicit confirmation.
-- **Tests**:
-  - Manual: switch environments and verify local wipe + re-auth.
-- **Dependencies**: SPRD-94, SPRD-95, SPRD-96, SPRD-100
 
 ### [SPRD-98] Feature: Immediate push on commit (not per keystroke)
 - **Context**: Sync should be automatic without excessive per-keystroke calls.
@@ -2033,7 +2002,7 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
   - Manual: verify Debug/QA show Debug menu; Release does not.
 - **Dependencies**: SPRD-80
 
-### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment ✅
+### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment - [x] Complete
 - **Context**: Current AppEnvironment mixes build intent with data target and debug behavior.
 - **Description**: Introduce a DataEnvironment (localhost/dev/prod) separate from build configuration.
 - **Implementation Details**:
@@ -2226,3 +2195,20 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
   - Unit test: forced error policy surfaces correct error message.
   - Manual QA in Debug/QA: force each auth error via Debug menu picker and confirm login sheet displays it.
 - **Dependencies**: SPRD-84, SPRD-85A, SPRD-95
+
+### [SPRD-86] Feature: Debug environment switcher - [x] Complete
+- **Context**: Debug/QA builds must switch between data environments safely; Release must expose no debug UI.
+- **Description**: Add data-environment switcher to Debug destination with guardrails (Debug + QA builds only).
+- **Implementation Details**:
+  - Environment switcher UI added to DebugMenuView with localhost/dev/prod options.
+  - Production requires typed "PRODUCTION" confirmation for safety.
+  - Switching flow implemented via EnvironmentSwitchCoordinator (SPRD-96).
+  - Debug/TestFlight gating handled by #if DEBUG (Release hides switcher entirely).
+  - Shows current environment with checkmark indicator and progress during switch.
+- **Acceptance Criteria**:
+  - Debug/QA builds can switch environments at runtime.
+  - Release builds show no switcher UI.
+  - Prod access requires explicit confirmation.
+- **Tests**:
+  - Manual: switch environments and verify local wipe + re-auth.
+- **Dependencies**: SPRD-94, SPRD-95, SPRD-96
