@@ -141,4 +141,39 @@ enum DataEnvironment: String, CaseIterable, Sendable {
         }
         UserDefaults.standard.removeObject(forKey: persistenceKey)
     }
+
+    // MARK: - Last Used Tracking
+
+    private static let lastUsedKey = "DataEnvironment.lastUsed"
+
+    /// The last data environment that was successfully used.
+    ///
+    /// Tracked across all builds to detect environment changes on launch.
+    /// When the resolved environment differs from lastUsed, the local store
+    /// should be wiped before creating the container.
+    static var lastUsed: DataEnvironment? {
+        guard let value = UserDefaults.standard.string(forKey: lastUsedKey) else {
+            return nil
+        }
+        return DataEnvironment(rawValue: value)
+    }
+
+    /// Marks the given environment as the last successfully used.
+    ///
+    /// Call this after the container is created and before showing UI.
+    static func markAsLastUsed(_ environment: DataEnvironment) {
+        UserDefaults.standard.set(environment.rawValue, forKey: lastUsedKey)
+    }
+
+    /// Checks if a wipe is required on launch due to environment mismatch.
+    ///
+    /// - Parameter current: The resolved data environment for this launch.
+    /// - Returns: `true` if lastUsed differs from current (requires wipe).
+    static func requiresWipeOnLaunch(current: DataEnvironment) -> Bool {
+        guard let lastUsed else {
+            // First launch or cleared - no wipe needed
+            return false
+        }
+        return lastUsed != current
+    }
 }
