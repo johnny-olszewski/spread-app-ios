@@ -63,25 +63,40 @@ final class EnvironmentSwitchCoordinator {
     func beginSwitch(to targetEnvironment: DataEnvironment) async {
         guard phase == .idle else { return }
 
-        // If sync is enabled (not localOnly), attempt to sync first
-        if let syncEngine, syncEngine.status != .localOnly {
-            // Wait for running sync
-            if syncEngine.status == .syncing {
-                phase = .waitingForSync
-                await waitForSyncCompletion(syncEngine)
-            }
+        guard let syncEngine else {
+            await completeSwitch(to: targetEnvironment)
+            return
+        }
 
-            // Attempt final sync
-            phase = .syncing
-            await syncEngine.syncNow()
-
-            // Check if there's unsynced data
+        if syncEngine.status == .localOnly {
+            syncEngine.refreshOutboxCount()
             let outboxCount = syncEngine.outboxCount
             if outboxCount > 0 {
-                // Sync failed or blocked with pending data - warn user
                 phase = .pendingConfirmation(outboxCount: outboxCount)
                 return
             }
+
+            await completeSwitch(to: targetEnvironment)
+            return
+        }
+
+        // Wait for running sync
+        if syncEngine.status == .syncing {
+            phase = .waitingForSync
+            await waitForSyncCompletion(syncEngine)
+        }
+
+        // Attempt final sync
+        phase = .syncing
+        await syncEngine.syncNow()
+        syncEngine.refreshOutboxCount()
+
+        // Check if there's unsynced data
+        let outboxCount = syncEngine.outboxCount
+        if outboxCount > 0 {
+            // Sync failed or blocked with pending data - warn user
+            phase = .pendingConfirmation(outboxCount: outboxCount)
+            return
         }
 
         // No sync concerns or sync succeeded - proceed with switch
@@ -93,6 +108,8 @@ final class EnvironmentSwitchCoordinator {
     /// Called when user acknowledges the warning about pending outbox data.
     func confirmSwitchDespiteUnsyncedData(to targetEnvironment: DataEnvironment) async {
         guard case .pendingConfirmation = phase else { return }
+        phase = .syncing
+        await syncEngine?.syncNow()
         await completeSwitch(to: targetEnvironment)
     }
 
