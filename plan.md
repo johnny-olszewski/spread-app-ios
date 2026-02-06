@@ -2083,7 +2083,7 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
   - Unit tests for DataEnvironment resolution precedence (Debug/QA vs Release behavior).
 - **Dependencies**: SPRD-94
 
-### [SPRD-85] Feature: Offline-first sync engine (outbox + pull + eligibility gating)
+### [SPRD-85] Feature: Offline-first sync engine (outbox + pull + eligibility gating) - [x] Complete
 - **Context**: Sync must work without reliable connectivity. Backup is a premium feature; not every signed-in account can sync.
 - **Description**: Implement outbox-based push + incremental pull with status UI, and gate sync availability on both auth state and backup entitlement.
 - **Implementation Details**:
@@ -2164,7 +2164,7 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
   - Manual: sign in/out flows on dev environment.
 - **Dependencies**: SPRD-85, SPRD-95
 
-### [SPRD-84B] Feature: Auth policy isolation + DataEnvironment behavior
+### [SPRD-84B] Feature: Auth policy isolation + DataEnvironment behavior - [x] Complete
 - **Context**: Debug behavior must remain in separate files and avoid `#if DEBUG` in core auth services while DataEnvironment behavior stays consistent across builds. Currently `AuthManager` always creates a `SupabaseClient` even in localhost mode, and there is no mechanism to force auth errors at runtime.
 - **Description**: Extend auth architecture to support debug overrides and localhost auth behavior via injected policies.
 - **Implementation Details**:
