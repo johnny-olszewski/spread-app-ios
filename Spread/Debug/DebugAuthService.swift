@@ -22,11 +22,11 @@ final class DebugAuthService: AuthService {
 
     // MARK: - AuthService
 
-    func checkSession() async -> AuthResult? {
+    func checkSession() async -> AuthSuccess? {
         await wrapped.checkSession()
     }
 
-    func signIn(email: String, password: String) async throws -> AuthResult {
+    func signIn(email: String, password: String) async throws -> AuthSuccess {
         if let forced = DebugSyncOverrides.shared.forcedAuthError {
             throw ForcedAuthSignInError(forced: forced)
         }

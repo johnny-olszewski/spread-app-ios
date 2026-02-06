@@ -1,9 +1,9 @@
 import struct Auth.User
 
-/// The result of a successful authentication operation.
+/// Successful authentication outcome.
 ///
 /// Contains the authenticated user and their entitlement status.
-struct AuthResult: Sendable {
+struct AuthSuccess: Sendable {
     /// The authenticated user.
     let user: User
 
@@ -23,7 +23,7 @@ protocol AuthService: Sendable {
     /// Checks for an existing session on startup.
     ///
     /// - Returns: The auth result if a valid session exists, nil otherwise.
-    func checkSession() async -> AuthResult?
+    func checkSession() async -> AuthSuccess?
 
     /// Signs in with email and password.
     ///
@@ -32,7 +32,7 @@ protocol AuthService: Sendable {
     ///   - password: The user's password.
     /// - Returns: The auth result on success.
     /// - Throws: An error if sign-in fails.
-    func signIn(email: String, password: String) async throws -> AuthResult
+    func signIn(email: String, password: String) async throws -> AuthSuccess
 
     /// Signs out the current user.
     ///

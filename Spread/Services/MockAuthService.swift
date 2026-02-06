@@ -19,14 +19,14 @@ final class MockAuthService: AuthService {
 
     // MARK: - AuthService
 
-    func checkSession() async -> AuthResult? {
+    func checkSession() async -> AuthSuccess? {
         // Mock service has no persistent session
         nil
     }
 
-    func signIn(email: String, password: String) async throws -> AuthResult {
+    func signIn(email: String, password: String) async throws -> AuthSuccess {
         currentEmail = email
-        return AuthResult(
+        return AuthSuccess(
             user: makeLocalhostUser(email: email),
             hasBackupEntitlement: mockHasBackupEntitlement
         )
