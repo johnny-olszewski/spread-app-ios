@@ -167,7 +167,7 @@
 - Sync status and error feedback are visible (including a distinct "no backup entitlement" state); CloudKit is no longer required.
 
 
-### [SPRD-96] Feature: Environment switching flow + store wipe
+### [SPRD-96] Feature: Environment switching flow + store wipe - [x] Complete
 - **Context**: Switching data environments must be safe and predictable.
 - **Description**: Implement a guarded switch flow with sync attempt, sign out, and local wipe.
 - **Implementation Details**:
