@@ -83,7 +83,7 @@ struct SidebarNavigationView: View {
 #Preview {
     SidebarNavigationView(
         journalManager: .previewInstance,
-        authManager: AuthManager(),
+        authManager: .makeForPreview(),
         container: try! .makeForPreview(),
         syncEngine: nil
     )

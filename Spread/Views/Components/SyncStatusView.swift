@@ -31,11 +31,11 @@ struct SyncStatusView: View {
     let syncEngine = SyncEngine(
         client: nil,
         modelContainer: try! ModelContainerFactory.makeForTesting(),
-        authManager: AuthManager(),
+        authManager: .makeForPreview(),
         networkMonitor: NetworkMonitor(),
         deviceId: UUID(),
         isSyncEnabled: false
     )
-    return SyncStatusView(syncEngine: syncEngine)
+    SyncStatusView(syncEngine: syncEngine)
         .padding()
 }

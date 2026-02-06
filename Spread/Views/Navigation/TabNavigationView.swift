@@ -103,7 +103,7 @@ struct TabNavigationView: View {
 #Preview {
     TabNavigationView(
         journalManager: .previewInstance,
-        authManager: AuthManager(),
+        authManager: .makeForPreview(),
         container: try! .makeForPreview(),
         syncEngine: nil
     )
