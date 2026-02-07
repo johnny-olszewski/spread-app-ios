@@ -153,6 +153,27 @@
   - UI tests: changing appearance controls updates spread surface (dot grid toggle, accent color, paper tone).
 - **Dependencies**: SPRD-45, SPRD-62
 
+### [SPRD-101] Refactor: Retrofit architecture decisions to existing code
+- **Context**: New architecture decisions were added to CLAUDE.md (view coordinators, `#if DEBUG` separation, struct-by-default). Existing code predates these conventions and should be updated for consistency.
+- **Description**: Update existing views and services to follow the new architecture patterns in a single cleanup pass.
+- **Implementation Details**:
+  - **View coordinators**:
+    - Extract `SpreadsCoordinator` from `ConventionalSpreadsView` — move 4 sheet presentation bools into a single `SheetDestination` enum, add action methods, replace child callback closures with coordinator method calls.
+    - Evaluate `TabNavigationView` (2 sheet bools for inbox/auth) — consider sharing presentation coordination with `SpreadsCoordinator` or extracting a lightweight coordinator if warranted.
+  - **`#if DEBUG` extraction**:
+    - `ContentView.swift` has 3 `#if DEBUG` blocks (launch config, sync policy factory, auth service factory). Extract these into `Debug/` files or `+Debug.swift` extensions.
+    - Audit remaining source files for any other `#if DEBUG` blocks in production code.
+  - **Struct-by-default audit**:
+    - Review existing classes in `Services/` — confirm each class requires identity semantics (`@Observable`, `@Model`, or shared mutable state). Convert any that don't to structs.
+- **Acceptance Criteria**:
+  - `ConventionalSpreadsView` uses a `SpreadsCoordinator` with a single `SheetDestination` enum for sheet presentation.
+  - No production source files (outside `Debug/`) contain `#if DEBUG` blocks.
+  - All service/coordinator types that don't require identity semantics are structs.
+- **Tests**:
+  - Unit: `SpreadsCoordinator` action methods set the correct `activeSheet` destination.
+  - Existing tests continue to pass (no behavioral changes).
+- **Dependencies**: None (can be done at any time)
+
 ## Story: Supabase offline-first sync + auth migration (priority)
 
 ### User Story
