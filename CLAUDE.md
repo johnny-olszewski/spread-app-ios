@@ -84,6 +84,15 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 - **Extensions per conformance**: Each protocol conformance gets its own extension, in a separate file when non-trivial (e.g., `TypeName+Codable.swift`, `TypeName+CustomStringConvertible.swift`).
 - **Single responsibility for new types**: Extract a new coordinator or service when it has a distinct lifecycle, distinct dependencies, or the existing type exceeds ~200 lines. Prefer composition over growing existing types.
 
+### View Coordinators
+
+- **When to use**: Introduce a coordinator for a view when it manages 3+ presentation states (sheets, alerts, navigation) or when child views thread callbacks to trigger parent presentations. Simple single-sheet views do not need a coordinator.
+- **Shape**: `@Observable @MainActor final class FeatureCoordinator`. Owns presentation state and action methods. Does **not** contain `@ViewBuilder` methods — views construct their own sheet content.
+- **Sheet state as enum**: Use a single `activeSheet: SheetDestination?` with an `Identifiable` enum instead of multiple booleans. Use `.sheet(item:)` binding. This guarantees only one sheet at a time and scales as sheets are added.
+- **Dependencies stay on views**: Coordinators own only presentation state and actions. Dependencies (`JournalManager`, `AuthManager`, etc.) continue to be init-injected into views. The coordinator is not a service locator.
+- **Child view interaction**: Child views receive the coordinator and call action methods (e.g., `coordinator.showTaskCreation()`) instead of receiving closure callbacks.
+- **Stored in `@State`**: The parent view that creates the coordinator stores it in `@State` and passes it to children.
+
 ### Concurrency (Swift 6 Strict)
 
 - **`@MainActor`-first**: Default to `@MainActor` for services, coordinators, managers, and any type that touches UI state. Only opt out with `nonisolated` when a method provably does no UI work and benefits from running off-main.
