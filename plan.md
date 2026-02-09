@@ -187,68 +187,6 @@
 - Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
 - Sync status and error feedback are visible (including a distinct "no backup entitlement" state); CloudKit is no longer required.
 
-
-### [SPRD-96] Feature: Environment switching flow + store wipe - [x] Complete
-- **Context**: Switching data environments must be safe and predictable.
-- **Description**: Implement a guarded switch flow with sync attempt, sign out, and local wipe.
-- **Implementation Details**:
-  - Check outbox for unsynced changes; if non-empty, warn the user and require explicit confirmation.
-  - On confirm (or if outbox is empty), sign out and clear auth session.
-  - Wipe local SwiftData store and outbox on every switch (including sync cursors).
-  - Provide infrastructure for launch-time mismatch detection (`DataEnvironment.lastUsed`, `markAsLastUsed`, `requiresWipeOnLaunch`); wiring into app startup is handled in SPRD-100.
-  - Release does not persist selection for reuse; it only tracks last-used for wipe safety.
-  - Require restart after switching (no hot reload for now).
-  - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
-    - `253fa5f` (`Spread/Debug/DebugMenuView.swift`): environment switcher UI section + `onEnvironmentSwitch` callback wiring.
-  - **Architecture note (store wipe boundary)**:
-    - Encapsulate wipe logic in a single service so both "switch" and "launch mismatch" paths call the same code.
-    - Pseudocode:
-      ```swift
-      protocol StoreWiper { func wipeAll() throws }
-      struct SwiftDataStoreWiper: StoreWiper { ... }
-      ```
-  - Note: The sync dance (wait for sync, attempt push, final push on confirm) has been simplified to an immediate outbox count check. Full implementation in SPRD-100.
-- **Acceptance Criteria**:
-  - Switching environments always results in a clean local store (SwiftData + outbox + sync cursors).
-  - Non-empty outbox shows a warning and requires explicit confirmation to proceed.
-  - Infrastructure for launch-time mismatch detection is provided (wiring deferred to SPRD-100).
-- **Tests**:
-  - Manual: switch between localhost/dev/prod with and without outbox; verify warning behavior, wipe + sign-out, and restart required.
-  - Unit: DataEnvironment.lastUsed, markAsLastUsed, requiresWipeOnLaunch work correctly.
-- **Dependencies**: SPRD-85, SPRD-95, SPRD-99
-
-### [SPRD-100] Feature: Apply environment switch (restart required) - [x]
-- **Context**: Data environment changes must propagate to newly created services; existing clients should not keep stale configuration. SPRD-96 already handles sign-out + store wipe + sync reset; this task wires the restart flow so the app actually rebuilds its service graph and handles launch-time mismatches.
-- **Description**: Simplify the environment switch coordinator to use an outbox count check (no sync dance), implement in-app soft restart via `ContentView`, wire the restart callback through the navigation hierarchy, and handle launch-time mismatch wipes.
-- **Implementation Details**:
-  - **Coordinator simplification**:
-    - Replace the 5-phase sync dance (waiting → syncing → pendingConfirmation → finalPush → restartRequired) with 3 phases: `idle`, `pendingConfirmation` (shown only when outbox is non-empty), `restartRequired`.
-    - Check outbox count directly instead of attempting sync. If outbox is empty, skip straight to `restartRequired`.
-  - **Soft restart via ContentView**:
-    - Make `authManager` optional (`@State private var authManager: AuthManager?`). When nil, ContentView shows the loading state.
-    - Add `@State private var appSessionId = UUID()` and use `.task(id: appSessionId)` to trigger `initializeApp()`.
-    - Add `restartApp()` method that nils out `journalManager`, `authManager`, `syncEngine`, `coordinator`, and sets a new `appSessionId` to re-trigger `.task(id:)`.
-    - `AuthManager` must be recreated (not reused) because it holds an `AuthService` bound to the old environment.
-  - **Wire `onRestartRequired`**:
-    - Pass `restartApp` callback from `ContentView` → `RootNavigationView` → `SidebarNavigationView`/`TabNavigationView` → `DebugMenuView.onRestartRequired`.
-  - **Launch-time mismatch wipe**:
-    - In `initializeApp()`, before `DependencyContainer.makeForLive()`, check `DataEnvironment.requiresWipeOnLaunch(current:)`. If true, perform a synchronous wipe (create a temporary container, call `StoreWiper.wipeAll()`, then discard it before creating the real container).
-    - After successful container creation, call `DataEnvironment.markAsLastUsed()`.
-  - Keep restart logic outside `#if DEBUG` — the soft restart mechanism itself is not debug-only, even though the debug menu is the only trigger today.
-- **Acceptance Criteria**:
-  - Environment switch coordinator uses at most 3 phases (`idle`, `pendingConfirmation`, `restartRequired`) with no sync attempt — only an outbox count check.
-  - After an environment switch, the app rebuilds its service graph and the new Supabase URL/key are used by fresh `SyncEngine` and `AuthService` instances.
-  - Debug/QA builds can complete a switch and return to a working app state without manually killing and relaunching the process.
-  - `restartApp()` callback is wired from `ContentView` through navigation views to `DebugMenuView`.
-  - On app launch, if `DataEnvironment.requiresWipeOnLaunch(current:)` returns true, the local store is wiped before the real container is created.
-  - After successful app initialization (both cold launch and soft restart), `DataEnvironment.lastUsed` reflects the current environment.
-- **Tests**:
-  - Manual: switch environments via debug menu; verify the app returns to loading, re-initializes, and the Supabase host in logs reflects the new environment.
-  - Manual: switch environments, force-quit, relaunch; verify wipe occurs before container creation (check logs for wipe + new host).
-  - Unit: coordinator transitions — empty outbox skips to `restartRequired`; non-empty outbox goes to `pendingConfirmation`.
-  - Unit: verify launch-time wipe logic calls `StoreWiper.wipeAll()` when `requiresWipeOnLaunch` returns true (if extractable into a testable function).
-- **Dependencies**: SPRD-96
-
 ### [SPRD-98] Feature: Immediate push on commit (not per keystroke)
 - **Context**: Sync should be automatic without excessive per-keystroke calls.
 - **Description**: Attempt a sync push when a user explicitly saves a change (Save/Done).
@@ -2243,3 +2181,67 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
 - **Tests**:
   - Manual: switch environments and verify local wipe + re-auth.
 - **Dependencies**: SPRD-94, SPRD-95, SPRD-96
+
+
+### [SPRD-96] Feature: Environment switching flow + store wipe - [x] Complete
+- **Context**: Switching data environments must be safe and predictable.
+- **Description**: Implement a guarded switch flow with sync attempt, sign out, and local wipe.
+- **Implementation Details**:
+  - Check outbox for unsynced changes; if non-empty, warn the user and require explicit confirmation.
+  - On confirm (or if outbox is empty), sign out and clear auth session.
+  - Wipe local SwiftData store and outbox on every switch (including sync cursors).
+  - Provide infrastructure for launch-time mismatch detection (`DataEnvironment.lastUsed`, `markAsLastUsed`, `requiresWipeOnLaunch`); wiring into app startup is handled in SPRD-100.
+  - Release does not persist selection for reuse; it only tracks last-used for wipe safety.
+  - Require restart after switching (no hot reload for now).
+  - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
+    - `253fa5f` (`Spread/Debug/DebugMenuView.swift`): environment switcher UI section + `onEnvironmentSwitch` callback wiring.
+  - **Architecture note (store wipe boundary)**:
+    - Encapsulate wipe logic in a single service so both "switch" and "launch mismatch" paths call the same code.
+    - Pseudocode:
+      ```swift
+      protocol StoreWiper { func wipeAll() throws }
+      struct SwiftDataStoreWiper: StoreWiper { ... }
+      ```
+  - Note: The sync dance (wait for sync, attempt push, final push on confirm) has been simplified to an immediate outbox count check. Full implementation in SPRD-100.
+- **Acceptance Criteria**:
+  - Switching environments always results in a clean local store (SwiftData + outbox + sync cursors).
+  - Non-empty outbox shows a warning and requires explicit confirmation to proceed.
+  - Infrastructure for launch-time mismatch detection is provided (wiring deferred to SPRD-100).
+- **Tests**:
+  - Manual: switch between localhost/dev/prod with and without outbox; verify warning behavior, wipe + sign-out, and restart required.
+  - Unit: DataEnvironment.lastUsed, markAsLastUsed, requiresWipeOnLaunch work correctly.
+- **Dependencies**: SPRD-85, SPRD-95, SPRD-99
+
+### [SPRD-100] Feature: Apply environment switch (restart required) - [x]
+- **Context**: Data environment changes must propagate to newly created services; existing clients should not keep stale configuration. SPRD-96 already handles sign-out + store wipe + sync reset; this task wires the restart flow so the app actually rebuilds its service graph and handles launch-time mismatches.
+- **Description**: Simplify the environment switch coordinator to use an outbox count check (no sync dance), implement in-app soft restart via `ContentView`, wire the restart callback through the navigation hierarchy, and handle launch-time mismatch wipes.
+- **Implementation Details**:
+  - **Coordinator simplification**:
+    - Replace the 5-phase sync dance (waiting → syncing → pendingConfirmation → finalPush → restartRequired) with 3 phases: `idle`, `pendingConfirmation` (shown only when outbox is non-empty), `restartRequired`.
+    - Check outbox count directly instead of attempting sync. If outbox is empty, skip straight to `restartRequired`.
+  - **Soft restart via ContentView**:
+    - Make `authManager` optional (`@State private var authManager: AuthManager?`). When nil, ContentView shows the loading state.
+    - Add `@State private var appSessionId = UUID()` and use `.task(id: appSessionId)` to trigger `initializeApp()`.
+    - Add `restartApp()` method that nils out `journalManager`, `authManager`, `syncEngine`, `coordinator`, and sets a new `appSessionId` to re-trigger `.task(id:)`.
+    - `AuthManager` must be recreated (not reused) because it holds an `AuthService` bound to the old environment.
+  - **Wire `onRestartRequired`**:
+    - Pass `restartApp` callback from `ContentView` → `RootNavigationView` → `SidebarNavigationView`/`TabNavigationView` → `DebugMenuView.onRestartRequired`.
+  - **Launch-time mismatch wipe**:
+    - In `initializeApp()`, before `DependencyContainer.makeForLive()`, check `DataEnvironment.requiresWipeOnLaunch(current:)`. If true, perform a synchronous wipe (create a temporary container, call `StoreWiper.wipeAll()`, then discard it before creating the real container).
+    - After successful container creation, call `DataEnvironment.markAsLastUsed()`.
+  - Keep restart logic outside `#if DEBUG` — the soft restart mechanism itself is not debug-only, even though the debug menu is the only trigger today.
+- **Acceptance Criteria**:
+  - Environment switch coordinator uses at most 3 phases (`idle`, `pendingConfirmation`, `restartRequired`) with no sync attempt — only an outbox count check.
+  - After an environment switch, the app rebuilds its service graph and the new Supabase URL/key are used by fresh `SyncEngine` and `AuthService` instances.
+  - Debug/QA builds can complete a switch and return to a working app state without manually killing and relaunching the process.
+  - `restartApp()` callback is wired from `ContentView` through navigation views to `DebugMenuView`.
+  - On app launch, if `DataEnvironment.requiresWipeOnLaunch(current:)` returns true, the local store is wiped before the real container is created.
+  - After successful app initialization (both cold launch and soft restart), `DataEnvironment.lastUsed` reflects the current environment.
+- **Tests**:
+  - Manual: switch environments via debug menu; verify the app returns to loading, re-initializes, and the Supabase host in logs reflects the new environment.
+  - Manual: switch environments, force-quit, relaunch; verify wipe occurs before container creation (check logs for wipe + new host).
+  - Unit: coordinator transitions — empty outbox skips to `restartRequired`; non-empty outbox goes to `pendingConfirmation`.
+  - Unit: verify launch-time wipe logic calls `StoreWiper.wipeAll()` when `requiresWipeOnLaunch` returns true (if extractable into a testable function).
+- **Dependencies**: SPRD-96
+
+
