@@ -217,7 +217,7 @@
   - Unit: DataEnvironment.lastUsed, markAsLastUsed, requiresWipeOnLaunch work correctly.
 - **Dependencies**: SPRD-85, SPRD-95, SPRD-99
 
-### [SPRD-100] Feature: Apply environment switch (restart required)
+### [SPRD-100] Feature: Apply environment switch (restart required) - [x]
 - **Context**: Data environment changes must propagate to newly created services; existing clients should not keep stale configuration. SPRD-96 already handles sign-out + store wipe + sync reset; this task wires the restart flow so the app actually rebuilds its service graph and handles launch-time mismatches.
 - **Description**: Simplify the environment switch coordinator to use an outbox count check (no sync dance), implement in-app soft restart via `ContentView`, wire the restart callback through the navigation hierarchy, and handle launch-time mismatch wipes.
 - **Implementation Details**:
