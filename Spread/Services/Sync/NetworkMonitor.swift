@@ -7,24 +7,15 @@ import os
 ///
 /// Provides observable `isConnected` state for gating sync operations.
 /// The sync engine checks connectivity before attempting push/pull.
-///
-/// In DEBUG builds, connectivity can be overridden via `DebugSyncOverrides.blockAllNetwork`.
 @Observable
 @MainActor
-final class NetworkMonitor {
+final class NetworkMonitor: NetworkMonitoring {
 
     // MARK: - Properties
 
     /// Whether the device currently has network connectivity.
-    ///
-    /// In DEBUG builds, this returns false when `DebugSyncOverrides.blockAllNetwork` is true.
     var isConnected: Bool {
-        #if DEBUG
-        if DebugSyncOverrides.shared.blockAllNetwork {
-            return false
-        }
-        #endif
-        return actuallyConnected
+        actuallyConnected
     }
 
     /// The actual network connectivity state from NWPathMonitor.
