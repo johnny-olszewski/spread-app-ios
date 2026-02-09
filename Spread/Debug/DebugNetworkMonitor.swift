@@ -30,6 +30,11 @@ final class DebugNetworkMonitor: NetworkMonitoring {
 
     // MARK: - Initialization
 
+    /// Creates a debug network monitor with its own internal `NetworkMonitor`.
+    init() {
+        self.wrapped = NetworkMonitor()
+    }
+
     /// Creates a debug network monitor wrapping another monitor.
     ///
     /// - Parameter wrapping: The underlying monitor to delegate to.
