@@ -153,6 +153,27 @@
   - UI tests: changing appearance controls updates spread surface (dot grid toggle, accent color, paper tone).
 - **Dependencies**: SPRD-45, SPRD-62
 
+### [SPRD-101] Refactor: Retrofit architecture decisions to existing code
+- **Context**: New architecture decisions were added to CLAUDE.md (view coordinators, `#if DEBUG` separation, struct-by-default). Existing code predates these conventions and should be updated for consistency.
+- **Description**: Update existing views and services to follow the new architecture patterns in a single cleanup pass.
+- **Implementation Details**:
+  - **View coordinators**:
+    - Extract `SpreadsCoordinator` from `ConventionalSpreadsView` — move 4 sheet presentation bools into a single `SheetDestination` enum, add action methods, replace child callback closures with coordinator method calls.
+    - Evaluate `TabNavigationView` (2 sheet bools for inbox/auth) — consider sharing presentation coordination with `SpreadsCoordinator` or extracting a lightweight coordinator if warranted.
+  - **`#if DEBUG` extraction**:
+    - `ContentView.swift` has 3 `#if DEBUG` blocks (launch config, sync policy factory, auth service factory). Extract these into `Debug/` files or `+Debug.swift` extensions.
+    - Audit remaining source files for any other `#if DEBUG` blocks in production code.
+  - **Struct-by-default audit**:
+    - Review existing classes in `Services/` — confirm each class requires identity semantics (`@Observable`, `@Model`, or shared mutable state). Convert any that don't to structs.
+- **Acceptance Criteria**:
+  - `ConventionalSpreadsView` uses a `SpreadsCoordinator` with a single `SheetDestination` enum for sheet presentation.
+  - No production source files (outside `Debug/`) contain `#if DEBUG` blocks.
+  - All service/coordinator types that don't require identity semantics are structs.
+- **Tests**:
+  - Unit: `SpreadsCoordinator` action methods set the correct `activeSheet` destination.
+  - Existing tests continue to pass (no behavioral changes).
+- **Dependencies**: None (can be done at any time)
+
 ## Story: Supabase offline-first sync + auth migration (priority)
 
 ### User Story
@@ -167,87 +188,66 @@
 - Sync status and error feedback are visible (including a distinct "no backup entitlement" state); CloudKit is no longer required.
 
 
-### [SPRD-96] Feature: Environment switching flow + store wipe
+### [SPRD-96] Feature: Environment switching flow + store wipe - [x] Complete
 - **Context**: Switching data environments must be safe and predictable.
 - **Description**: Implement a guarded switch flow with sync attempt, sign out, and local wipe.
 - **Implementation Details**:
-  - If sync is running, wait for completion before switching.
-  - Attempt sync; on failure, warn the user and allow confirm to proceed.
-  - On confirm, attempt one final push, then proceed regardless of result.
-  - If sync is blocked (signed out or not entitled), treat it as a failed sync when outbox is non-empty and show the warning; otherwise proceed without warning.
-  - Sign out and clear auth session.
+  - Check outbox for unsynced changes; if non-empty, warn the user and require explicit confirmation.
+  - On confirm (or if outbox is empty), sign out and clear auth session.
   - Wipe local SwiftData store and outbox on every switch (including sync cursors).
-  - On app launch, if resolved DataEnvironment differs from last-used, wipe before container creation.
+  - Provide infrastructure for launch-time mismatch detection (`DataEnvironment.lastUsed`, `markAsLastUsed`, `requiresWipeOnLaunch`); wiring into app startup is handled in SPRD-100.
   - Release does not persist selection for reuse; it only tracks last-used for wipe safety.
   - Require restart after switching (no hot reload for now).
   - **Carry-over from feature/SPRD-85 (cherry-pick guidance):**
     - `253fa5f` (`Spread/Debug/DebugMenuView.swift`): environment switcher UI section + `onEnvironmentSwitch` callback wiring.
   - **Architecture note (store wipe boundary)**:
-    - Encapsulate wipe logic in a single service so both “switch” and “launch mismatch” paths call the same code.
+    - Encapsulate wipe logic in a single service so both "switch" and "launch mismatch" paths call the same code.
     - Pseudocode:
       ```swift
       protocol StoreWiper { func wipeAll() throws }
       struct SwiftDataStoreWiper: StoreWiper { ... }
       ```
+  - Note: The sync dance (wait for sync, attempt push, final push on confirm) has been simplified to an immediate outbox count check. Full implementation in SPRD-100.
 - **Acceptance Criteria**:
   - Switching environments always results in a clean local store (SwiftData + outbox + sync cursors).
-  - Failed sync attempts (including blocked sync with non-empty outbox) show a warning and require explicit confirmation to proceed.
-  - On app launch, if resolved DataEnvironment differs from last-used, the local store is wiped before container creation.
+  - Non-empty outbox shows a warning and requires explicit confirmation to proceed.
+  - Infrastructure for launch-time mismatch detection is provided (wiring deferred to SPRD-100).
 - **Tests**:
   - Manual: switch between localhost/dev/prod with and without outbox; verify warning behavior, wipe + sign-out, and restart required.
-  - Manual: launch after DataEnvironment mismatch; verify wipe occurs before container creation.
+  - Unit: DataEnvironment.lastUsed, markAsLastUsed, requiresWipeOnLaunch work correctly.
 - **Dependencies**: SPRD-85, SPRD-95, SPRD-99
 
 ### [SPRD-100] Feature: Apply environment switch (restart required)
-- **Context**: Data environment changes must propagate to newly created services; existing clients should not keep stale configuration.
-- **Description**: After a confirmed environment switch, reinitialize app services and require a restart flow so the new configuration is used.
+- **Context**: Data environment changes must propagate to newly created services; existing clients should not keep stale configuration. SPRD-96 already handles sign-out + store wipe + sync reset; this task wires the restart flow so the app actually rebuilds its service graph and handles launch-time mismatches.
+- **Description**: Simplify the environment switch coordinator to use an outbox count check (no sync dance), implement in-app soft restart via `ContentView`, wire the restart callback through the navigation hierarchy, and handle launch-time mismatch wipes.
 - **Implementation Details**:
-  - Add a lightweight app lifecycle coordinator that can rebuild `DependencyContainer` and `JournalManager`.
-  - After the SPRD-96 switch flow completes (sign out + wipe), trigger a restart-required UI state.
-  - Restart action recreates auth/sync/services using the new DataEnvironment/Supabase configuration.
-  - Keep restart logic outside Debug-only files; Debug menu just triggers the switch flow.
+  - **Coordinator simplification**:
+    - Replace the 5-phase sync dance (waiting → syncing → pendingConfirmation → finalPush → restartRequired) with 3 phases: `idle`, `pendingConfirmation` (shown only when outbox is non-empty), `restartRequired`.
+    - Check outbox count directly instead of attempting sync. If outbox is empty, skip straight to `restartRequired`.
+  - **Soft restart via ContentView**:
+    - Make `authManager` optional (`@State private var authManager: AuthManager?`). When nil, ContentView shows the loading state.
+    - Add `@State private var appSessionId = UUID()` and use `.task(id: appSessionId)` to trigger `initializeApp()`.
+    - Add `restartApp()` method that nils out `journalManager`, `authManager`, `syncEngine`, `coordinator`, and sets a new `appSessionId` to re-trigger `.task(id:)`.
+    - `AuthManager` must be recreated (not reused) because it holds an `AuthService` bound to the old environment.
+  - **Wire `onRestartRequired`**:
+    - Pass `restartApp` callback from `ContentView` → `RootNavigationView` → `SidebarNavigationView`/`TabNavigationView` → `DebugMenuView.onRestartRequired`.
+  - **Launch-time mismatch wipe**:
+    - In `initializeApp()`, before `DependencyContainer.makeForLive()`, check `DataEnvironment.requiresWipeOnLaunch(current:)`. If true, perform a synchronous wipe (create a temporary container, call `StoreWiper.wipeAll()`, then discard it before creating the real container).
+    - After successful container creation, call `DataEnvironment.markAsLastUsed()`.
+  - Keep restart logic outside `#if DEBUG` — the soft restart mechanism itself is not debug-only, even though the debug menu is the only trigger today.
 - **Acceptance Criteria**:
-  - Switching environments results in new Supabase URL/key being used by fresh services.
-  - Old auth session and sync state are cleared after the restart flow.
-  - Debug/QA builds can complete a switch and return to a working app state without manual relaunch.
+  - Environment switch coordinator uses at most 3 phases (`idle`, `pendingConfirmation`, `restartRequired`) with no sync attempt — only an outbox count check.
+  - After an environment switch, the app rebuilds its service graph and the new Supabase URL/key are used by fresh `SyncEngine` and `AuthService` instances.
+  - Debug/QA builds can complete a switch and return to a working app state without manually killing and relaunching the process.
+  - `restartApp()` callback is wired from `ContentView` through navigation views to `DebugMenuView`.
+  - On app launch, if `DataEnvironment.requiresWipeOnLaunch(current:)` returns true, the local store is wiped before the real container is created.
+  - After successful app initialization (both cold launch and soft restart), `DataEnvironment.lastUsed` reflects the current environment.
 - **Tests**:
-  - Manual: switch between environments and verify the Supabase host and auth state reflect the new environment.
-- **Dependencies**: SPRD-95, SPRD-96
-
-### [SPRD-86] Feature: Debug environment switcher
-- **Context**: Debug/QA builds must switch between data environments safely; Release must expose no debug UI.
-- **Description**: Add data-environment switcher to Debug destination with guardrails (Debug + QA builds only).
-- **Implementation Details**:
-  - Add DataEnvironment section in Debug destination (localhost/dev/prod).
-  - Use standard confirm alert when switching to prod (no typed confirmation).
-  - Switching flow is implemented by SPRD-96 (sync attempt -> warn -> sign out -> wipe -> restart required).
-  - Debug/TestFlight gating is handled by SPRD-94/95 (Release hides switcher entirely).
-  - Show current resolved DataEnvironment and whether a runtime override is active.
-  - **Architecture note (switch coordinator)**:
-    - Use a coordinator/service to encapsulate the switch flow so DebugMenuView stays thin.
-    - Pseudocode:
-      ```swift
-      final class EnvironmentSwitchCoordinator {
-        func switchTo(_ env: DataEnvironment) async {
-          await syncService.waitIfSyncing()
-          if !(await syncService.syncNowSucceeded()) {
-            guard await confirmLossWarning() else { return }
-            _ = await syncService.tryFinalPush()
-          }
-          await authService.signOut()
-          wipeLocalStore()
-          persist(env)
-          showRestartRequired()
-        }
-      }
-      ```
-- **Acceptance Criteria**:
-  - Debug/QA builds can switch environments at runtime.
-  - Release builds show no switcher UI.
-  - Prod access requires explicit confirmation.
-- **Tests**:
-  - Manual: switch environments and verify local wipe + re-auth.
-- **Dependencies**: SPRD-94, SPRD-95, SPRD-96, SPRD-100
+  - Manual: switch environments via debug menu; verify the app returns to loading, re-initializes, and the Supabase host in logs reflects the new environment.
+  - Manual: switch environments, force-quit, relaunch; verify wipe occurs before container creation (check logs for wipe + new host).
+  - Unit: coordinator transitions — empty outbox skips to `restartRequired`; non-empty outbox goes to `pendingConfirmation`.
+  - Unit: verify launch-time wipe logic calls `StoreWiper.wipeAll()` when `requiresWipeOnLaunch` returns true (if extractable into a testable function).
+- **Dependencies**: SPRD-96
 
 ### [SPRD-98] Feature: Immediate push on commit (not per keystroke)
 - **Context**: Sync should be automatic without excessive per-keystroke calls.
@@ -319,7 +319,7 @@
 - **Description**: Add integration tests and a QA checklist for sync scenarios.
 - **Implementation Details**:
   - Add tests for offline edits, conflict resolution, and delete-wins.
-  - Add QA checklist for environment switching and sign-in merge.
+  - Add QA checklist for environment switching and sign-in merge. Note: the switch flow uses an outbox count check (not a sync attempt); the QA checklist should reflect this simplified flow.
   - Document manual sync verification steps.
 - **Acceptance Criteria**:
   - QA checklist exists and covers core sync scenarios.
@@ -2033,7 +2033,7 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
   - Manual: verify Debug/QA show Debug menu; Release does not.
 - **Dependencies**: SPRD-80
 
-### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment ✅
+### [SPRD-95] Feature: Split BuildEnvironment vs DataEnvironment - [x] Complete
 - **Context**: Current AppEnvironment mixes build intent with data target and debug behavior.
 - **Description**: Introduce a DataEnvironment (localhost/dev/prod) separate from build configuration.
 - **Implementation Details**:
@@ -2083,7 +2083,7 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
   - Unit tests for DataEnvironment resolution precedence (Debug/QA vs Release behavior).
 - **Dependencies**: SPRD-94
 
-### [SPRD-85] Feature: Offline-first sync engine (outbox + pull + eligibility gating)
+### [SPRD-85] Feature: Offline-first sync engine (outbox + pull + eligibility gating) - [x] Complete
 - **Context**: Sync must work without reliable connectivity. Backup is a premium feature; not every signed-in account can sync.
 - **Description**: Implement outbox-based push + incremental pull with status UI, and gate sync availability on both auth state and backup entitlement.
 - **Implementation Details**:
@@ -2164,7 +2164,7 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
   - Manual: sign in/out flows on dev environment.
 - **Dependencies**: SPRD-85, SPRD-95
 
-### [SPRD-84B] Feature: Auth policy isolation + DataEnvironment behavior
+### [SPRD-84B] Feature: Auth policy isolation + DataEnvironment behavior - [x] Complete
 - **Context**: Debug behavior must remain in separate files and avoid `#if DEBUG` in core auth services while DataEnvironment behavior stays consistent across builds. Currently `AuthManager` always creates a `SupabaseClient` even in localhost mode, and there is no mechanism to force auth errors at runtime.
 - **Description**: Extend auth architecture to support debug overrides and localhost auth behavior via injected policies.
 - **Implementation Details**:
@@ -2226,3 +2226,20 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
   - Unit test: forced error policy surfaces correct error message.
   - Manual QA in Debug/QA: force each auth error via Debug menu picker and confirm login sheet displays it.
 - **Dependencies**: SPRD-84, SPRD-85A, SPRD-95
+
+### [SPRD-86] Feature: Debug environment switcher - [x] Complete
+- **Context**: Debug/QA builds must switch between data environments safely; Release must expose no debug UI.
+- **Description**: Add data-environment switcher to Debug destination with guardrails (Debug + QA builds only).
+- **Implementation Details**:
+  - Environment switcher UI added to DebugMenuView with localhost/dev/prod options.
+  - Production requires typed "PRODUCTION" confirmation for safety.
+  - Switching flow implemented via EnvironmentSwitchCoordinator (SPRD-96).
+  - Debug/TestFlight gating handled by #if DEBUG (Release hides switcher entirely).
+  - Shows current environment with checkmark indicator and progress during switch.
+- **Acceptance Criteria**:
+  - Debug/QA builds can switch environments at runtime.
+  - Release builds show no switcher UI.
+  - Prod access requires explicit confirmation.
+- **Tests**:
+  - Manual: switch environments and verify local wipe + re-auth.
+- **Dependencies**: SPRD-94, SPRD-95, SPRD-96
