@@ -49,7 +49,7 @@ final class AuthManager {
     // MARK: - Dependencies
 
     /// The service that performs auth operations.
-    private let service: AuthService
+    let service: AuthService
 
     /// Callback for when sign-out completes (to wipe local data).
     var onSignOut: (() async -> Void)?

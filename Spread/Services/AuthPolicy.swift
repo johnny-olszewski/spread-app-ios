@@ -45,7 +45,7 @@ enum ForcedAuthError: String, CaseIterable, Sendable {
 /// Policy that controls auth behavior for different environments.
 ///
 /// Core services inject this protocol to keep debug logic out of production files.
-/// `DefaultAuthPolicy` is used in Release; `DebugAuthPolicy` is used in Debug/QA builds.
+/// `DefaultAuthPolicy` is used in Release builds.
 protocol AuthPolicy: Sendable {
     /// Returns an error to throw before hitting Supabase, if any.
     func forcedAuthError() -> ForcedAuthError?

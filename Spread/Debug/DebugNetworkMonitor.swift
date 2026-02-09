@@ -1,10 +1,10 @@
 #if DEBUG
 import Observation
 
-/// Debug decorator that intercepts connectivity via `DebugSyncOverrides`.
+/// Debug decorator that intercepts connectivity with a local toggle.
 ///
 /// Wraps a real `NetworkMonitoring` instance and overrides `isConnected`
-/// to return `false` when `DebugSyncOverrides.shared.blockAllNetwork` is true.
+/// to return `false` when `blockAllNetwork` is true.
 /// Follows the same decorator pattern as `DebugAuthService`.
 @Observable
 @MainActor
@@ -14,9 +14,12 @@ final class DebugNetworkMonitor: NetworkMonitoring {
 
     private let wrapped: any NetworkMonitoring
 
+    /// When true, forces `isConnected` to return false regardless of real connectivity.
+    var blockAllNetwork = false
+
     /// Returns false when `blockAllNetwork` is true, otherwise delegates to wrapped monitor.
     var isConnected: Bool {
-        if DebugSyncOverrides.shared.blockAllNetwork {
+        if blockAllNetwork {
             return false
         }
         return wrapped.isConnected

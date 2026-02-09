@@ -101,7 +101,7 @@ struct ContentView: View {
                 try await wiper.wipeAll()
             }
 
-            let newAuthManager = ContentView.makeAuthManager()
+            let newAuthManager = makeAuthManager()
 
             #if DEBUG
             let launchConfiguration = AppLaunchConfiguration.current
@@ -168,16 +168,16 @@ struct ContentView: View {
         #endif
     }
 
-    private static func makeAuthManager() -> AuthManager {
+    private func makeAuthManager() -> AuthManager {
         AuthManager(service: makeAuthService())
     }
 
-    private static func makeAuthService() -> AuthService {
+    private func makeAuthService() -> AuthService {
         #if DEBUG
         let base: AuthService = DataEnvironment.current.isLocalOnly
             ? MockAuthService()
             : SupabaseAuthService()
-        return DebugAuthService(wrapping: base)
+        return DebugAuthService(wrapping: base, networkMonitor: container.networkMonitor)
         #else
         return SupabaseAuthService()
         #endif
