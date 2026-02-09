@@ -5,6 +5,7 @@ import struct Auth.User
 /// Debug menu for inspecting environment, container, and app state.
 ///
 /// Provides grouped sections for:
+/// - Environment switcher with safe switch flow
 /// - Current DataEnvironment and Supabase configuration
 /// - Dependency container summary
 /// - Mock data sets loader with overwrite + reload behavior
@@ -27,13 +28,24 @@ struct DebugMenuView: View {
     /// The sync engine for inspecting sync state.
     let syncEngine: SyncEngine?
 
+    /// Callback when environment switch completes and restart is needed.
+    var onRestartRequired: (() -> Void)?
+
     @State private var isLoading = false
     @State private var loadingDataSet: MockDataSet?
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var showSuccess = false
     @State private var successMessage = ""
-    @State private var selectedDataEnvironment: DataEnvironment = DataEnvironment.current
+
+    // Environment switch state
+    @State private var switchCoordinator: EnvironmentSwitchCoordinator?
+    @State private var pendingTargetEnvironment: DataEnvironment?
+    @State private var showProdConfirmation = false
+    @State private var prodConfirmationText = ""
+    @State private var showUnsyncedWarning = false
+    @State private var unsyncedOutboxCount = 0
+    @State private var showRestartRequired = false
 
     private var forcedAuthErrorBinding: Binding<ForcedAuthError?> {
         Binding(
@@ -45,7 +57,7 @@ struct DebugMenuView: View {
     var body: some View {
         List {
             buildInfoSection
-            dataEnvironmentSection
+            environmentSwitcherSection
             supabaseSection
             authSection
             syncSection
@@ -54,7 +66,7 @@ struct DebugMenuView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Debug")
-        .disabled(isLoading)
+        .disabled(isLoading || switchCoordinator?.isInProgress == true)
         .alert("Error", isPresented: $showError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -65,31 +77,144 @@ struct DebugMenuView: View {
         } message: {
             Text(successMessage)
         }
+        .alert("Switch to Production", isPresented: $showProdConfirmation) {
+            TextField("Type PRODUCTION to confirm", text: $prodConfirmationText)
+                .textInputAutocapitalization(.characters)
+            Button("Cancel", role: .cancel) {
+                prodConfirmationText = ""
+                pendingTargetEnvironment = nil
+            }
+            Button("Switch", role: .destructive) {
+                if prodConfirmationText.uppercased() == "PRODUCTION" {
+                    Task {
+                        await beginSwitch(to: .production)
+                    }
+                }
+                prodConfirmationText = ""
+            }
+            .disabled(prodConfirmationText.uppercased() != "PRODUCTION")
+        } message: {
+            Text("Switching to production will sign you out and wipe all local data. Type PRODUCTION to confirm.")
+        }
+        .alert("Unsynced Data", isPresented: $showUnsyncedWarning) {
+            Button("Cancel", role: .cancel) {
+                switchCoordinator?.cancelSwitch()
+                pendingTargetEnvironment = nil
+            }
+            Button("Switch Anyway", role: .destructive) {
+                Task {
+                    if let target = pendingTargetEnvironment {
+                        await switchCoordinator?.confirmSwitchDespiteUnsyncedData(to: target)
+                        checkForRestartRequired()
+                    }
+                }
+            }
+        } message: {
+            Text("You have \(unsyncedOutboxCount) unsynced change(s) that will be lost. Are you sure you want to switch environments?")
+        }
+        .alert("Restart Required", isPresented: $showRestartRequired) {
+            Button("OK") {
+                onRestartRequired?()
+            }
+        } message: {
+            Text("Environment switched successfully. Please restart the app for changes to take effect.")
+        }
+        .onAppear {
+            initializeSwitchCoordinator()
+        }
     }
 
-    // MARK: - Data Environment Section
+    // MARK: - Environment Switcher Section
 
-    private var dataEnvironmentSection: some View {
+    private var environmentSwitcherSection: some View {
         Section {
-            Picker("Target", selection: $selectedDataEnvironment) {
-                ForEach(DataEnvironment.allCases, id: \.self) { env in
-                    Text(env.displayName).tag(env)
-                }
-            }
-            .onChange(of: selectedDataEnvironment) { _, newValue in
-                DataEnvironment.persistSelection(newValue)
-            }
-
-            if DataEnvironment.persistedSelection != nil {
-                Button("Clear Persisted Selection") {
-                    DataEnvironment.clearPersistedSelection()
-                    selectedDataEnvironment = BuildInfo.defaultDataEnvironment
-                }
+            ForEach(DataEnvironment.allCases, id: \.rawValue) { env in
+                environmentButton(for: env)
             }
         } header: {
-            Label("Data Environment", systemImage: "externaldrive.connected.to.line.below")
+            Label("Switch Environment", systemImage: "arrow.triangle.swap")
         } footer: {
-            Text("Selects the data target (localhost/dev/prod). Restart for changes to take effect. Auth: \(selectedDataEnvironment.requiresAuth ? "required" : "none") · Sync: \(selectedDataEnvironment.syncEnabled ? "enabled" : "disabled") · \(selectedDataEnvironment.isLocalOnly ? "local only" : "remote")")
+            Text("Switching environments will sign out and wipe local data. Production requires confirmation.")
+        }
+    }
+
+    @ViewBuilder
+    private func environmentButton(for env: DataEnvironment) -> some View {
+        Button {
+            handleEnvironmentSwitch(to: env)
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(env.displayName)
+                        .fontWeight(.medium)
+                    Text(environmentDescription(for: env))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if DataEnvironment.current == env {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                } else if switchCoordinator?.isInProgress == true && pendingTargetEnvironment == env {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            }
+        }
+        .disabled(DataEnvironment.current == env || switchCoordinator?.isInProgress == true)
+    }
+
+    private func environmentDescription(for env: DataEnvironment) -> String {
+        switch env {
+        case .localhost:
+            "No network, any credentials work, mock data available"
+        case .development:
+            "Dev Supabase project, real auth required"
+        case .production:
+            "Prod Supabase project, real auth required"
+        }
+    }
+
+    private func handleEnvironmentSwitch(to env: DataEnvironment) {
+        pendingTargetEnvironment = env
+        if env == .production {
+            showProdConfirmation = true
+        } else {
+            Task {
+                await beginSwitch(to: env)
+            }
+        }
+    }
+
+    private func initializeSwitchCoordinator() {
+        guard switchCoordinator == nil else { return }
+        let wiper = SwiftDataStoreWiper(modelContainer: container.modelContainer)
+        switchCoordinator = EnvironmentSwitchCoordinator(
+            authManager: authManager,
+            syncEngine: syncEngine,
+            storeWiper: wiper
+        )
+    }
+
+    private func beginSwitch(to env: DataEnvironment) async {
+        initializeSwitchCoordinator()
+        await switchCoordinator?.beginSwitch(to: env)
+        checkForRestartRequired()
+    }
+
+    private func checkForRestartRequired() {
+        guard let coordinator = switchCoordinator else { return }
+
+        switch coordinator.phase {
+        case .pendingConfirmation(let outboxCount):
+            unsyncedOutboxCount = outboxCount
+            showUnsyncedWarning = true
+        case .restartRequired:
+            showRestartRequired = true
+        default:
+            break
         }
     }
 
@@ -273,17 +398,17 @@ struct DebugMenuView: View {
     private func iconName(for dataSet: MockDataSet) -> String {
         switch dataSet {
         case .empty:
-            return "trash"
+            "trash"
         case .baseline:
-            return "doc.text"
+            "doc.text"
         case .multiday:
-            return "calendar"
+            "calendar"
         case .boundary:
-            return "arrow.left.arrow.right"
+            "arrow.left.arrow.right"
         case .highVolume:
-            return "chart.bar.fill"
+            "chart.bar.fill"
         case .inboxNextYear:
-            return "tray.full"
+            "tray.full"
         }
     }
 

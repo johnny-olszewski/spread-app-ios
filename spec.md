@@ -245,7 +245,7 @@
 - Data environment resolution (Debug/QA only): launch args (`-DataEnvironment`) -> env vars (`DATA_ENVIRONMENT`) -> persisted selection -> build default. Release ignores overrides and always uses prod.
 - Build defaults: Debug defaults to localhost; QA TestFlight defaults to dev.
 - Data environment changes are runtime switches in Debug/QA; Release has no switcher UI.
-- On environment switch: wait for active sync to finish, attempt sync, warn on failure, allow user to confirm switch and attempt one final push; then sign out, wipe local store/outbox, and require restart.
+- On environment switch: check outbox for unsynced changes, warn if non-empty and require explicit confirmation; then sign out, wipe local store/outbox, and restart the app. Debug/QA builds perform an in-app soft restart (tear down and rebuild the service graph); no manual relaunch required.
 - Localhost uses mock auth and no Supabase; dev/prod require real auth.
 - Single local SwiftData store is used; it is wiped on any data environment change and on launch if the resolved environment differs from the last used.
 - Architecture expectations:
