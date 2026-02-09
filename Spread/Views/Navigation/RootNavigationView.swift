@@ -26,6 +26,9 @@ struct RootNavigationView: View {
     /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
 
+    /// Callback when environment switch completes and restart is needed.
+    var onRestartRequired: (() -> Void)?
+
     /// Optional layout override for deterministic testing and previews.
     private let layoutOverride: NavigationLayoutType?
 
@@ -36,18 +39,21 @@ struct RootNavigationView: View {
     ///   - authManager: The auth manager for authentication.
     ///   - container: The dependency container for app services.
     ///   - syncEngine: The sync engine (nil in previews/tests).
+    ///   - onRestartRequired: Callback for soft restart after environment switch.
     ///   - layoutOverride: Optional layout override for tests/previews.
     init(
         journalManager: JournalManager,
         authManager: AuthManager,
         container: DependencyContainer,
         syncEngine: SyncEngine? = nil,
+        onRestartRequired: (() -> Void)? = nil,
         layoutOverride: NavigationLayoutType? = nil
     ) {
         self.journalManager = journalManager
         self.authManager = authManager
         self.container = container
         self.syncEngine = syncEngine
+        self.onRestartRequired = onRestartRequired
         self.layoutOverride = layoutOverride
     }
 
@@ -66,14 +72,16 @@ struct RootNavigationView: View {
                     journalManager: journalManager,
                     authManager: authManager,
                     container: container,
-                    syncEngine: syncEngine
+                    syncEngine: syncEngine,
+                    onRestartRequired: onRestartRequired
                 )
             case .tabBar:
                 TabNavigationView(
                     journalManager: journalManager,
                     authManager: authManager,
                     container: container,
-                    syncEngine: syncEngine
+                    syncEngine: syncEngine,
+                    onRestartRequired: onRestartRequired
                 )
             }
         }

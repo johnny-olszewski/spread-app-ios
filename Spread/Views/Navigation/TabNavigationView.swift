@@ -21,6 +21,9 @@ struct TabNavigationView: View {
     /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
 
+    /// Callback when environment switch completes and restart is needed.
+    var onRestartRequired: (() -> Void)?
+
     var body: some View {
         TabView(selection: $selectedTab) {
             ForEach(NavigationTab.allCases) { tab in
@@ -58,7 +61,7 @@ struct TabNavigationView: View {
                     SettingsPlaceholderView()
                 #if DEBUG
                 case .debug:
-                    DebugMenuView(container: container, journalManager: journalManager, authManager: authManager, syncEngine: syncEngine)
+                    DebugMenuView(container: container, journalManager: journalManager, authManager: authManager, syncEngine: syncEngine, onRestartRequired: onRestartRequired)
                 #endif
                 }
             }
