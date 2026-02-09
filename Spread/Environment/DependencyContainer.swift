@@ -35,7 +35,7 @@ struct DependencyContainer: @unchecked Sendable {
     let collectionRepository: any CollectionRepository
 
     /// Network connectivity monitor.
-    let networkMonitor: NetworkMonitor
+    let networkMonitor: any NetworkMonitoring
 
     // MARK: - Factory Methods
 
