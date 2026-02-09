@@ -45,7 +45,7 @@ final class SyncEngine {
     private let networkMonitor: any NetworkMonitoring
     private let deviceId: UUID
     private let isSyncEnabled: Bool
-    private let policy: SyncPolicy
+    let policy: SyncPolicy
 
     // MARK: - Private State
 

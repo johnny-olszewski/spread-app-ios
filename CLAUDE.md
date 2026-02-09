@@ -77,6 +77,7 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 - **Protocols at boundaries**: Introduce protocols at dependency injection points (services, repositories, coordinators) to enable test substitution. Simple value types, helpers, and internal logic stay concrete.
 - **Manual mocks**: Hand-written mock types conforming to protocols. Each mock lives in its own file (`MockTypeName.swift`). No code-generation or spy frameworks.
 - **Structs by default**: Prefer structs for services, coordinators, and data types. Use classes only when identity semantics are required (`@Observable`, SwiftData `@Model`, or shared mutable state).
+- **No singletons**: Avoid `static let shared` singletons. Prefer init-injected dependencies so that tests can substitute implementations without global state coupling.
 
 ### Separation of Concerns
 

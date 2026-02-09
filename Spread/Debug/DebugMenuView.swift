@@ -48,16 +48,22 @@ struct DebugMenuView: View {
     @State private var showRestartRequired = false
 
     private var blockAllNetworkBinding: Binding<Bool> {
-        Binding(
-            get: { DebugSyncOverrides.shared.blockAllNetwork },
-            set: { DebugSyncOverrides.shared.blockAllNetwork = $0 }
+        guard let debugMonitor = container.networkMonitor as? DebugNetworkMonitor else {
+            return .constant(false)
+        }
+        return Binding(
+            get: { debugMonitor.blockAllNetwork },
+            set: { debugMonitor.blockAllNetwork = $0 }
         )
     }
 
     private var forcedAuthErrorBinding: Binding<ForcedAuthError?> {
-        Binding(
-            get: { DebugSyncOverrides.shared.forcedAuthError },
-            set: { DebugSyncOverrides.shared.forcedAuthError = $0 }
+        guard let debugService = authManager.service as? DebugAuthService else {
+            return .constant(nil)
+        }
+        return Binding(
+            get: { debugService.forcedAuthError },
+            set: { debugService.forcedAuthError = $0 }
         )
     }
 
