@@ -173,20 +173,14 @@ final class AuthManager {
         state.user?.email
     }
 
-    // MARK: - Test Support
+    // MARK: - Testing Support
 
-    #if DEBUG
-    /// Creates an AuthManager with a mock service for previews.
-    static func makeForPreview() -> AuthManager {
-        AuthManager(service: MockAuthService())
-    }
-
-    /// Configures auth state for testing without hitting Supabase.
-    func configureForTesting(state: AuthState, hasBackupEntitlement: Bool = false) {
+    /// Updates auth state for tests without hitting the network.
+    func setStateForTesting(_ state: AuthState, hasBackupEntitlement: Bool = false) {
         self.state = state
         self.hasBackupEntitlement = hasBackupEntitlement
     }
-    #endif
+
 }
 
 // MARK: - ForcedAuthSignInError

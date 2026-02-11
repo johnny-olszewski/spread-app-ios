@@ -1,34 +1,34 @@
 import OSLog
-import Supabase
 import SwiftUI
 
 /// Root view for the Spread app.
 ///
-/// Handles async JournalManager initialization and displays the appropriate
+/// Handles async session initialization and displays the appropriate
 /// navigation shell once ready. Shows a loading state during initialization.
 /// Auth lifecycle logic is delegated to `AuthLifecycleCoordinator`.
 ///
 /// Supports soft restart for environment switching: calling `restartApp()` nils
-/// out all managers and bumps `appSessionId` to re-trigger `.task(id:)`.
+/// out the session and bumps `appSessionId` to re-trigger `.task(id:)`.
 struct ContentView: View {
-    @State private var journalManager: JournalManager?
-    @State private var authManager: AuthManager?
-    @State private var syncEngine: SyncEngine?
-    @State private var coordinator: AuthLifecycleCoordinator?
+    @State private var session: AppSession?
     @State private var appSessionId = UUID()
 
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "ContentView")
 
-    let container: DependencyContainer
+    private let containerOverride: DependencyContainer?
+
+    init(container: DependencyContainer? = nil) {
+        self.containerOverride = container
+    }
 
     var body: some View {
         Group {
-            if let journalManager, let authManager {
+            if let session {
                 RootNavigationView(
-                    journalManager: journalManager,
-                    authManager: authManager,
-                    container: container,
-                    syncEngine: syncEngine,
+                    journalManager: session.journalManager,
+                    authManager: session.authManager,
+                    container: session.container,
+                    syncEngine: session.syncEngine,
                     onRestartRequired: restartApp
                 )
             } else {
@@ -41,20 +41,20 @@ struct ContentView: View {
         .alert(
             "Local Data Found",
             isPresented: Binding(
-                get: { coordinator?.isShowingMigrationPrompt ?? false },
+                get: { session?.coordinator.isShowingMigrationPrompt ?? false },
                 set: { newValue in
-                    if !newValue { coordinator?.isShowingMigrationPrompt = false }
+                    if !newValue { session?.coordinator.isShowingMigrationPrompt = false }
                 }
             )
         ) {
             Button("Merge into Account") {
                 Task {
-                    await coordinator?.handleMigrationDecision(.merge)
+                    await session?.coordinator.handleMigrationDecision(.merge)
                 }
             }
             Button("Discard Local Data", role: .destructive) {
                 Task {
-                    await coordinator?.handleMigrationDecision(.discard)
+                    await session?.coordinator.handleMigrationDecision(.discard)
                 }
             }
         } message: {
@@ -74,16 +74,13 @@ struct ContentView: View {
 
     // MARK: - Soft Restart
 
-    /// Tears down all managers and re-triggers app initialization.
+    /// Tears down the session and re-triggers app initialization.
     ///
     /// Called after an environment switch to rebuild the service graph
     /// with fresh instances bound to the new data environment.
     private func restartApp() {
         Self.logger.info("Soft restart initiated")
-        journalManager = nil
-        authManager = nil
-        syncEngine = nil
-        coordinator = nil
+        session = nil
         appSessionId = UUID()
     }
 
@@ -91,96 +88,15 @@ struct ContentView: View {
 
     private func initializeApp() async {
         do {
-            // Check for launch-time environment mismatch
-            let currentEnvironment = DataEnvironment.current
-            if DataEnvironment.requiresWipeOnLaunch(current: currentEnvironment) {
-                Self.logger.warning(
-                    "Environment mismatch detected (lastUsed: \(DataEnvironment.lastUsed?.rawValue ?? "nil", privacy: .public), current: \(currentEnvironment.rawValue, privacy: .public)). Wiping store."
-                )
-                let wiper = SwiftDataStoreWiper(modelContainer: container.modelContainer)
-                try await wiper.wipeAll()
+            if let containerOverride {
+                session = try await AppSessionFactory.make(container: containerOverride)
+            } else {
+                session = try await AppSessionFactory.makeLive()
             }
-
-            let newAuthManager = makeAuthManager()
-
-            #if DEBUG
-            let launchConfiguration = AppLaunchConfiguration.current
-            let resolvedToday = launchConfiguration.today ?? .now
-
-            var manager = try await container.makeJournalManager(today: resolvedToday)
-            if let dataSet = launchConfiguration.mockDataSet {
-                try await manager.loadMockDataSet(dataSet)
-            }
-            journalManager = manager
-            #else
-            journalManager = try await container.makeJournalManager()
-            #endif
-
-            let engine = createSyncEngine(authManager: newAuthManager)
-            syncEngine = engine
-            authManager = newAuthManager
-
-            guard let journalManager else { return }
-
-            let lifecycleCoordinator = AuthLifecycleCoordinator(
-                authManager: newAuthManager,
-                syncEngine: engine,
-                journalManager: journalManager
-            )
-            coordinator = lifecycleCoordinator
-            lifecycleCoordinator.wireAuthCallbacks()
-            await lifecycleCoordinator.handleInitialAuthState()
-
-            // Mark environment as last used after successful initialization
-            DataEnvironment.markAsLastUsed(currentEnvironment)
-            Self.logger.info("App initialized with environment: \(currentEnvironment.rawValue, privacy: .public)")
         } catch {
             // TODO: SPRD-45 - Add error handling UI for initialization failures
-            fatalError("Failed to initialize JournalManager: \(error)")
+            fatalError("Failed to initialize app session: \(error)")
         }
-    }
-
-    private func createSyncEngine(authManager: AuthManager) -> SyncEngine {
-        let dataEnv = DataEnvironment.current
-        let client: SupabaseClient? = dataEnv.syncEnabled
-            ? SupabaseClient(
-                supabaseURL: SupabaseConfiguration.url,
-                supabaseKey: SupabaseConfiguration.publishableKey
-            )
-            : nil
-
-        return SyncEngine(
-            client: client,
-            modelContainer: container.modelContainer,
-            authManager: authManager,
-            networkMonitor: container.networkMonitor,
-            deviceId: DeviceIdManager.getOrCreateDeviceId(),
-            isSyncEnabled: dataEnv.syncEnabled,
-            policy: makeSyncPolicy()
-        )
-    }
-
-    private func makeSyncPolicy() -> SyncPolicy {
-        #if DEBUG
-        return DebugSyncPolicy()
-        #else
-        return DefaultSyncPolicy()
-        #endif
-    }
-
-    private func makeAuthManager() -> AuthManager {
-        AuthManager(service: makeAuthService())
-    }
-
-    private func makeAuthService() -> AuthService {
-        #if DEBUG
-        let base: AuthService = DataEnvironment.current.isLocalOnly
-            ? MockAuthService()
-            : SupabaseAuthService()
-        return DebugAuthService(wrapping: base, networkMonitor: container.networkMonitor)
-        #else
-        return SupabaseAuthService()
-        #endif
     }
 }
 

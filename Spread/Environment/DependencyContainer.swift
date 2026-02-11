@@ -60,7 +60,7 @@ struct DependencyContainer: @unchecked Sendable {
             noteRepository: EmptyNoteRepository(),
             // TODO: SPRD-39 - Create SwiftDataCollectionRepository
             collectionRepository: EmptyCollectionRepository(),
-            networkMonitor: AppNetworkMonitor()
+            networkMonitor: NetworkMonitorFactory.make()
         )
     }
 
@@ -94,7 +94,7 @@ struct DependencyContainer: @unchecked Sendable {
             eventRepository: eventRepository ?? EmptyEventRepository(),
             noteRepository: noteRepository ?? EmptyNoteRepository(),
             collectionRepository: collectionRepository ?? EmptyCollectionRepository(),
-            networkMonitor: AppNetworkMonitor()
+            networkMonitor: NetworkMonitorFactory.make()
         )
     }
 
@@ -118,7 +118,7 @@ struct DependencyContainer: @unchecked Sendable {
             noteRepository: EmptyNoteRepository(),
             // TODO: SPRD-39 - Create MockCollectionRepository with seeded data
             collectionRepository: EmptyCollectionRepository(),
-            networkMonitor: AppNetworkMonitor()
+            networkMonitor: NetworkMonitorFactory.make()
         )
     }
 

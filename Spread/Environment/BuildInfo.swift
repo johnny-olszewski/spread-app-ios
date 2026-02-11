@@ -8,31 +8,19 @@ enum BuildInfo {
 
     /// The human-readable name of the current build configuration.
     static var configurationName: String {
-        #if DEBUG
-        return isQABuild ? "QA" : "Debug"
-        #else
-        return "Release"
-        #endif
+        buildConfiguration.displayName
     }
 
     /// Whether the current build allows debug UI (debug menu, environment switcher, etc.).
     ///
-    /// Returns `true` for Debug and QA builds (both compile with the DEBUG flag).
+    /// Returns `true` for Debug and QA builds.
     static var allowsDebugUI: Bool {
-        #if DEBUG
-        return true
-        #else
-        return false
-        #endif
+        buildConfiguration != .release
     }
 
     /// Whether the current build is a Release build.
     static var isRelease: Bool {
-        #if DEBUG
-        return false
-        #else
-        return true
-        #endif
+        buildConfiguration == .release
     }
 
     /// The default data environment for the current build configuration.
@@ -41,17 +29,45 @@ enum BuildInfo {
     /// - QA: development (Supabase dev project)
     /// - Release: production (Supabase prod project)
     static var defaultDataEnvironment: DataEnvironment {
-        #if DEBUG
-        return isQABuild ? .development : .localhost
-        #else
-        return .production
-        #endif
+        switch buildConfiguration {
+        case .debug:
+            return .localhost
+        case .qa:
+            return .development
+        case .release:
+            return .production
+        }
     }
 
     // MARK: - Private
 
-    /// Detects QA builds by checking the bundle identifier suffix.
-    private static var isQABuild: Bool {
-        Bundle.main.bundleIdentifier?.hasSuffix(".qa") ?? false
+    private enum BuildConfiguration: Equatable {
+        case debug
+        case qa
+        case release
+
+        var displayName: String {
+            switch self {
+            case .debug:
+                return "Debug"
+            case .qa:
+                return "QA"
+            case .release:
+                return "Release"
+            }
+        }
     }
+
+    private static var buildConfiguration: BuildConfiguration {
+        let bundleIdentifier = Bundle(for: BuildInfoBundleToken.self).bundleIdentifier ?? ""
+        if bundleIdentifier.hasSuffix(".qa") {
+            return .qa
+        }
+        if bundleIdentifier.hasSuffix(".debug") {
+            return .debug
+        }
+        return .release
+    }
+
+    private final class BuildInfoBundleToken {}
 }
