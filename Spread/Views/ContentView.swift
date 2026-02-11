@@ -29,7 +29,8 @@ struct ContentView: View {
                     authManager: session.authManager,
                     container: session.container,
                     syncEngine: session.syncEngine,
-                    onRestartRequired: restartApp
+                    onRestartRequired: restartApp,
+                    makeDebugMenuView: session.makeDebugMenuView
                 )
             } else {
                 loadingView

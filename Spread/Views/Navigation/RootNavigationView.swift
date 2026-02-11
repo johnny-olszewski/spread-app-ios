@@ -29,6 +29,9 @@ struct RootNavigationView: View {
     /// Callback when environment switch completes and restart is needed.
     var onRestartRequired: (() -> Void)?
 
+    /// Optional factory for constructing the debug menu view.
+    let makeDebugMenuView: DebugMenuViewFactory?
+
     /// Optional layout override for deterministic testing and previews.
     private let layoutOverride: NavigationLayoutType?
 
@@ -40,6 +43,7 @@ struct RootNavigationView: View {
     ///   - container: The dependency container for app services.
     ///   - syncEngine: The sync engine (nil in previews/tests).
     ///   - onRestartRequired: Callback for soft restart after environment switch.
+    ///   - makeDebugMenuView: Optional factory for the debug menu view.
     ///   - layoutOverride: Optional layout override for tests/previews.
     init(
         journalManager: JournalManager,
@@ -47,6 +51,7 @@ struct RootNavigationView: View {
         container: DependencyContainer,
         syncEngine: SyncEngine? = nil,
         onRestartRequired: (() -> Void)? = nil,
+        makeDebugMenuView: DebugMenuViewFactory? = nil,
         layoutOverride: NavigationLayoutType? = nil
     ) {
         self.journalManager = journalManager
@@ -54,6 +59,7 @@ struct RootNavigationView: View {
         self.container = container
         self.syncEngine = syncEngine
         self.onRestartRequired = onRestartRequired
+        self.makeDebugMenuView = makeDebugMenuView
         self.layoutOverride = layoutOverride
     }
 
@@ -73,7 +79,8 @@ struct RootNavigationView: View {
                     authManager: authManager,
                     container: container,
                     syncEngine: syncEngine,
-                    onRestartRequired: onRestartRequired
+                    onRestartRequired: onRestartRequired,
+                    makeDebugMenuView: makeDebugMenuView
                 )
             case .tabBar:
                 TabNavigationView(
@@ -81,7 +88,8 @@ struct RootNavigationView: View {
                     authManager: authManager,
                     container: container,
                     syncEngine: syncEngine,
-                    onRestartRequired: onRestartRequired
+                    onRestartRequired: onRestartRequired,
+                    makeDebugMenuView: makeDebugMenuView
                 )
             }
         }

@@ -23,7 +23,7 @@ enum SidebarItem: String, Identifiable, Sendable {
     /// All sidebar items, conditionally including Debug when enabled.
     static var allCases: [SidebarItem] {
         var cases: [SidebarItem] = [.spreads, .collections, .settings]
-        if DebugUIHooks.isEnabled {
+        if BuildInfo.allowsDebugUI {
             cases.append(.debug)
         }
         return cases
