@@ -23,7 +23,7 @@ struct JournalManagerTests {
     /// Conditions: Create a testing JournalManager with default settings.
     /// Expected: Manager uses the Gregorian calendar.
     @Test @MainActor func testInitializesWithMockRepositories() async throws {
-        let manager = try await JournalManager.makeForTesting()
+        let manager = try await JournalManager.make()
 
         #expect(manager.calendar.identifier == .gregorian)
     }
@@ -34,7 +34,7 @@ struct JournalManagerTests {
         var calendar = Calendar(identifier: .japanese)
         calendar.timeZone = .init(identifier: "UTC")!
 
-        let manager = try await JournalManager.makeForTesting(calendar: calendar)
+        let manager = try await JournalManager.make(calendar: calendar)
 
         #expect(manager.calendar.identifier == .japanese)
     }
@@ -44,7 +44,7 @@ struct JournalManagerTests {
     @Test @MainActor func testInitializesWithCustomToday() async throws {
         let today = Self.testDate
 
-        let manager = try await JournalManager.makeForTesting(today: today)
+        let manager = try await JournalManager.make(today: today)
 
         #expect(manager.today == today)
     }
@@ -52,7 +52,7 @@ struct JournalManagerTests {
     /// Conditions: Create a testing JournalManager without specifying bujo mode.
     /// Expected: Manager defaults to conventional bujo mode.
     @Test @MainActor func testInitializesWithDefaultBujoMode() async throws {
-        let manager = try await JournalManager.makeForTesting()
+        let manager = try await JournalManager.make()
 
         #expect(manager.bujoMode == .conventional)
     }
@@ -60,7 +60,7 @@ struct JournalManagerTests {
     /// Conditions: Create a testing JournalManager with bujo mode set to traditional.
     /// Expected: Manager uses traditional bujo mode.
     @Test @MainActor func testInitializesWithCustomBujoMode() async throws {
-        let manager = try await JournalManager.makeForTesting(bujoMode: .traditional)
+        let manager = try await JournalManager.make(bujoMode: .traditional)
 
         #expect(manager.bujoMode == .traditional)
     }
@@ -78,7 +78,7 @@ struct JournalManagerTests {
         )
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             spreadRepository: spreadRepo
         )
@@ -93,7 +93,7 @@ struct JournalManagerTests {
         let task = DataModel.Task(title: "Test Task")
         let taskRepo = InMemoryTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.makeForTesting(taskRepository: taskRepo)
+        let manager = try await JournalManager.make(taskRepository: taskRepo)
 
         #expect(manager.tasks.count == 1)
         #expect(manager.tasks.first?.id == task.id)
@@ -105,7 +105,7 @@ struct JournalManagerTests {
         let event = DataModel.Event(title: "Test Event")
         let eventRepo = InMemoryEventRepository(events: [event])
 
-        let manager = try await JournalManager.makeForTesting(eventRepository: eventRepo)
+        let manager = try await JournalManager.make(eventRepository: eventRepo)
 
         #expect(manager.events.count == 1)
         #expect(manager.events.first?.id == event.id)
@@ -117,7 +117,7 @@ struct JournalManagerTests {
         let note = DataModel.Note(title: "Test Note")
         let noteRepo = InMemoryNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.makeForTesting(noteRepository: noteRepo)
+        let manager = try await JournalManager.make(noteRepository: noteRepo)
 
         #expect(manager.notes.count == 1)
         #expect(manager.notes.first?.id == note.id)
@@ -141,7 +141,7 @@ struct JournalManagerTests {
         )
         let spreadRepo = InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             spreadRepository: spreadRepo
         )
@@ -161,7 +161,7 @@ struct JournalManagerTests {
         )
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             spreadRepository: spreadRepo
         )
@@ -198,7 +198,7 @@ struct JournalManagerTests {
         let taskRepo = InMemoryTaskRepository(tasks: [inRangeTask, outOfRangeTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             taskRepository: taskRepo,
             spreadRepository: spreadRepo
@@ -235,7 +235,7 @@ struct JournalManagerTests {
         let noteRepo = InMemoryNoteRepository(notes: [inRangeNote, outOfRangeNote])
         let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             spreadRepository: spreadRepo,
             noteRepository: noteRepo
@@ -252,7 +252,7 @@ struct JournalManagerTests {
     /// Conditions: Create a testing JournalManager.
     /// Expected: Data version starts at zero.
     @Test @MainActor func testDataVersionStartsAtZero() async throws {
-        let manager = try await JournalManager.makeForTesting()
+        let manager = try await JournalManager.make()
 
         #expect(manager.dataVersion == 0)
     }
@@ -260,7 +260,7 @@ struct JournalManagerTests {
     /// Conditions: Create a testing JournalManager and call reload once.
     /// Expected: Data version increments by one.
     @Test @MainActor func testDataVersionIncrementsOnReload() async throws {
-        let manager = try await JournalManager.makeForTesting()
+        let manager = try await JournalManager.make()
         let initialVersion = manager.dataVersion
 
         await manager.reload()
@@ -273,7 +273,7 @@ struct JournalManagerTests {
     /// Conditions: Create a testing JournalManager and change bujo mode.
     /// Expected: Manager reflects the updated bujo mode.
     @Test @MainActor func testBujoModeCanBeChanged() async throws {
-        let manager = try await JournalManager.makeForTesting(bujoMode: .conventional)
+        let manager = try await JournalManager.make(bujoMode: .conventional)
 
         manager.bujoMode = .traditional
 
@@ -285,7 +285,7 @@ struct JournalManagerTests {
     /// Conditions: Create a testing JournalManager with empty repositories.
     /// Expected: Spreads, tasks, events, notes, and data model are empty.
     @Test @MainActor func testHandlesEmptyRepositories() async throws {
-        let manager = try await JournalManager.makeForTesting()
+        let manager = try await JournalManager.make()
 
         #expect(manager.spreads.isEmpty)
         #expect(manager.tasks.isEmpty)

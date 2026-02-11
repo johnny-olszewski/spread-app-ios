@@ -8,7 +8,7 @@ import Observation
 /// repositories, and provides access to spreads and entries. It coordinates
 /// between the UI layer and persistence layer.
 ///
-/// Use `makeForTesting` factory method to create instances with mock repositories.
+/// Use `make` factory method to create instances with mock repositories.
 @Observable
 @MainActor
 final class JournalManager {
@@ -111,7 +111,7 @@ final class JournalManager {
 
     /// Creates a new JournalManager.
     ///
-    /// Loads data from repositories asynchronously. Use `makeForTesting` for tests.
+    /// Loads data from repositories asynchronously. Use `make` for tests.
     ///
     /// - Parameters:
     ///   - calendar: The calendar for date calculations.
@@ -159,7 +159,7 @@ final class JournalManager {
     ///   - bujoMode: The initial BuJo mode (defaults to conventional).
     ///   - creationPolicy: Policy for spread creation (defaults to standard policy).
     /// - Returns: A configured JournalManager with data loaded.
-    static func makeForTesting(
+    static func make(
         calendar: Calendar? = nil,
         today: Date? = nil,
         taskRepository: (any TaskRepository)? = nil,

@@ -32,7 +32,7 @@ struct InboxTests {
         )
         let taskRepo = InMemoryTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -53,7 +53,7 @@ struct InboxTests {
         )
         let noteRepo = InMemoryNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: Self.testCalendar,
             today: Self.testDate,
             noteRepository: noteRepo
@@ -86,7 +86,7 @@ struct InboxTests {
         let taskRepo = InMemoryTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -118,7 +118,7 @@ struct InboxTests {
         let taskRepo = InMemoryTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -144,7 +144,7 @@ struct InboxTests {
         let taskRepo = InMemoryTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -167,7 +167,7 @@ struct InboxTests {
         )
         let eventRepo = InMemoryEventRepository(events: [event])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: Self.testCalendar,
             today: Self.testDate,
             eventRepository: eventRepo
@@ -187,7 +187,7 @@ struct InboxTests {
         let eventRepo = InMemoryEventRepository(events: [event])
         // No spreads
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: Self.testCalendar,
             today: Self.testDate,
             eventRepository: eventRepo
@@ -210,7 +210,7 @@ struct InboxTests {
         )
         let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -237,7 +237,7 @@ struct InboxTests {
         )
         let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -251,7 +251,7 @@ struct InboxTests {
     /// Conditions: No inbox-eligible entries exist.
     /// Expected: Inbox count is zero.
     @Test @MainActor func testInboxCountReturnsZeroWhenEmpty() async throws {
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: Self.testCalendar,
             today: Self.testDate
         )
@@ -268,7 +268,7 @@ struct InboxTests {
         let taskRepo = InMemoryTaskRepository(tasks: [task1, task2])
         let noteRepo = InMemoryNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -293,7 +293,7 @@ struct InboxTests {
         )
         let taskRepo = InMemoryTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -322,7 +322,7 @@ struct InboxTests {
         )
         let noteRepo = InMemoryNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: Self.testDate,
             noteRepository: noteRepo
@@ -349,7 +349,7 @@ struct InboxTests {
         let taskRepo = InMemoryTaskRepository(tasks: [task1, task2])
         let noteRepo = InMemoryNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -376,7 +376,7 @@ struct InboxTests {
         )
         let taskRepo = InMemoryTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -404,7 +404,7 @@ struct InboxTests {
         )
         let taskRepo = InMemoryTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -429,7 +429,7 @@ struct InboxTests {
     @Test @MainActor func testAddSpreadIncrementsDataVersion() async throws {
         let calendar = Self.testCalendar
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: Self.testDate
         )
@@ -447,7 +447,7 @@ struct InboxTests {
         let calendar = Self.testCalendar
         let spreadRepo = InMemorySpreadRepository()
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: Self.testDate,
             spreadRepository: spreadRepo
@@ -474,7 +474,7 @@ struct InboxTests {
         )
         let taskRepo = InMemoryTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -502,7 +502,7 @@ struct InboxTests {
         let noteRepo = InMemoryNoteRepository(notes: [note])
         let eventRepo = InMemoryEventRepository(events: [event])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo,
