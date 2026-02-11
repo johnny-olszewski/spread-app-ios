@@ -14,14 +14,12 @@ struct AppSession {
 ///
 /// Handles launch-time wipe checks, dependency container creation,
 /// and consistent service wiring for auth, sync, and journal state.
-enum AppSessionFactory {
+enum ProdAppSessionFactory {
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "AppSessionFactory")
 
     /// Creates a live session for app runtime.
     @MainActor
     static func makeLive() async throws -> AppSession {
-        DebugHooksBootstrapper.installIfPresent()
-
         let currentEnvironment = DataEnvironment.current
 
         if DataEnvironment.requiresWipeOnLaunch(current: currentEnvironment) {
@@ -45,8 +43,6 @@ enum AppSessionFactory {
     /// Creates a session from an injected container (previews/tests).
     @MainActor
     static func make(container: DependencyContainer) async throws -> AppSession {
-        DebugHooksBootstrapper.installIfPresent()
-
         let currentEnvironment = DataEnvironment.current
         return try await makeSession(container: container, environment: currentEnvironment)
     }

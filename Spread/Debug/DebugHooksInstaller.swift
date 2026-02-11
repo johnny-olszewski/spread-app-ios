@@ -1,8 +1,8 @@
 #if DEBUG
 import SwiftUI
 
-@objc final class DebugHooksInstaller: NSObject, DebugHookInstalling {
-    @objc static func install() {
+enum DebugHooksInstaller {
+    static func install() {
         AppSessionHooks.makeAuthService = { container in
             let base: AuthService = DataEnvironment.current.isLocalOnly
                 ? MockAuthService()
