@@ -1,5 +1,15 @@
 import OSLog
+import struct SwiftUI.AnyView
 import Supabase
+
+/// Closure that constructs the debug menu view, threaded through the view hierarchy.
+typealias DebugMenuViewFactory = (
+    DependencyContainer,
+    JournalManager,
+    AuthManager,
+    SyncEngine?,
+    (() -> Void)?
+) -> AnyView
 
 /// Aggregates app-level services created for a running session.
 struct AppSession {
@@ -8,31 +18,47 @@ struct AppSession {
     let authManager: AuthManager
     let syncEngine: SyncEngine
     let coordinator: AuthLifecycleCoordinator
+
+    /// Optional factory for constructing the debug menu view.
+    ///
+    /// Non-nil in debug/QA builds where `DebugHooksInstaller` sets the hook.
+    /// Production builds leave this nil, hiding the debug tab entirely.
+    let makeDebugMenuView: DebugMenuViewFactory?
 }
 
 /// Central factory for building an application session.
 ///
 /// Handles launch-time wipe checks, dependency container creation,
 /// and consistent service wiring for auth, sync, and journal state.
-enum ProdAppSessionFactory {
+enum SessionFactory {
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "AppSessionFactory")
 
     /// Creates a live session for app runtime.
+    ///
+    /// - Parameter configuration: Optional overrides for debug/QA builds.
     @MainActor
-    static func makeLive() async throws -> AppSession {
+    static func makeLive(configuration: SessionConfiguration = SessionConfiguration()) async throws -> AppSession {
         let currentEnvironment = DataEnvironment.current
 
         if DataEnvironment.requiresWipeOnLaunch(current: currentEnvironment) {
             logger.warning(
                 "Environment mismatch detected (lastUsed: \(DataEnvironment.lastUsed?.rawValue ?? "nil", privacy: .public), current: \(currentEnvironment.rawValue, privacy: .public)). Wiping store."
             )
-            let tempContainer = try DependencyContainer.makeForLive()
+            let tempContainer = try DependencyContainer.makeForLive(
+                makeNetworkMonitor: configuration.makeNetworkMonitor
+            )
             let wiper = SwiftDataStoreWiper(modelContainer: tempContainer.modelContainer)
             try await wiper.wipeAll()
         }
 
-        let container = try DependencyContainer.makeForLive()
-        let session = try await makeSession(container: container, environment: currentEnvironment)
+        let container = try DependencyContainer.makeForLive(
+            makeNetworkMonitor: configuration.makeNetworkMonitor
+        )
+        let session = try await makeSession(
+            container: container,
+            environment: currentEnvironment,
+            configuration: configuration
+        )
 
         DataEnvironment.markAsLastUsed(currentEnvironment)
         logger.info("App initialized with environment: \(currentEnvironment.rawValue, privacy: .public)")
@@ -41,10 +67,21 @@ enum ProdAppSessionFactory {
     }
 
     /// Creates a session from an injected container (previews/tests).
+    ///
+    /// - Parameters:
+    ///   - container: The dependency container to use.
+    ///   - configuration: Optional overrides for debug/QA builds.
     @MainActor
-    static func make(container: DependencyContainer) async throws -> AppSession {
+    static func make(
+        container: DependencyContainer,
+        configuration: SessionConfiguration = SessionConfiguration()
+    ) async throws -> AppSession {
         let currentEnvironment = DataEnvironment.current
-        return try await makeSession(container: container, environment: currentEnvironment)
+        return try await makeSession(
+            container: container,
+            environment: currentEnvironment,
+            configuration: configuration
+        )
     }
 
     // MARK: - Private
@@ -52,22 +89,24 @@ enum ProdAppSessionFactory {
     @MainActor
     private static func makeSession(
         container: DependencyContainer,
-        environment: DataEnvironment
+        environment: DataEnvironment,
+        configuration: SessionConfiguration
     ) async throws -> AppSession {
-        let authService = AppSessionHooks.makeAuthService?(container) ?? SupabaseAuthService()
+        let authService = configuration.makeAuthService?(container) ?? SupabaseAuthService()
         let authManager = AuthManager(service: authService)
 
-        let today = AppSessionHooks.resolveToday?() ?? .now
+        let today = configuration.resolveToday?() ?? .now
         let journalManager = try await container.makeJournalManager(today: today)
 
-        if let loadMockDataSet = AppSessionHooks.loadMockDataSet {
+        if let loadMockDataSet = configuration.loadMockDataSet {
             try await loadMockDataSet(journalManager)
         }
 
         let syncEngine = createSyncEngine(
             container: container,
             authManager: authManager,
-            environment: environment
+            environment: environment,
+            configuration: configuration
         )
 
         let coordinator = AuthLifecycleCoordinator(
@@ -83,7 +122,8 @@ enum ProdAppSessionFactory {
             journalManager: journalManager,
             authManager: authManager,
             syncEngine: syncEngine,
-            coordinator: coordinator
+            coordinator: coordinator,
+            makeDebugMenuView: configuration.makeDebugMenuView
         )
     }
 
@@ -91,7 +131,8 @@ enum ProdAppSessionFactory {
     private static func createSyncEngine(
         container: DependencyContainer,
         authManager: AuthManager,
-        environment: DataEnvironment
+        environment: DataEnvironment,
+        configuration: SessionConfiguration
     ) -> SyncEngine {
         let client: SupabaseClient? = environment.syncEnabled
             ? SupabaseClient(
@@ -100,7 +141,7 @@ enum ProdAppSessionFactory {
             )
             : nil
 
-        let policy = AppSessionHooks.makeSyncPolicy?() ?? DefaultSyncPolicy()
+        let policy = configuration.makeSyncPolicy?() ?? DefaultSyncPolicy()
 
         return SyncEngine(
             client: client,
