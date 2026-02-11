@@ -81,7 +81,7 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 
 ### Separation of Concerns
 
-- **No `#if DEBUG` in production files**: Debug-only code (mock decorators, debug services, test helpers) must live in dedicated files under the `Debug/` folder or as `TypeName+Debug.swift` extensions. Production source files must not contain `#if DEBUG` blocks.
+- **Minimize `#if DEBUG` in production files**: Debug-only code (mock decorators, debug services, test helpers) must live in dedicated files under the `Debug/` folder or as `TypeName+Debug.swift` extensions. Production source files must not contain `#if DEBUG` blocks to the maximum extent practical. Shim files that use `#if DEBUG` solely for typealias configuration (e.g., switching factory types between debug and release) are acceptable.
 - **Extensions per conformance**: Each protocol conformance gets its own extension, in a separate file when non-trivial (e.g., `TypeName+Codable.swift`, `TypeName+CustomStringConvertible.swift`).
 - **Single responsibility for new types**: Extract a new coordinator or service when it has a distinct lifecycle, distinct dependencies, or the existing type exceeds ~200 lines. Prefer composition over growing existing types.
 
