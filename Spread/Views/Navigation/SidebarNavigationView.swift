@@ -56,12 +56,26 @@ struct SidebarNavigationView: View {
             CollectionsPlaceholderView()
         case .settings:
             SettingsPlaceholderView()
-        #if DEBUG
         case .debug:
-            DebugMenuView(container: container, journalManager: journalManager, authManager: authManager, syncEngine: syncEngine, onRestartRequired: onRestartRequired)
-        #endif
+            debugMenuView
         case .none:
             Text("Select an item")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var debugMenuView: some View {
+        if let debugView = DebugUIHooks.makeDebugMenuView?(
+            container,
+            journalManager,
+            authManager,
+            syncEngine,
+            onRestartRequired
+        ) {
+            debugView
+        } else {
+            Text("Debug tools unavailable")
                 .foregroundStyle(.secondary)
         }
     }

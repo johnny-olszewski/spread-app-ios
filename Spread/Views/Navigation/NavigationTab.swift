@@ -1,7 +1,6 @@
 /// Navigation tabs for iPhone (compact width) tab-based navigation.
 ///
 /// Defines the main navigation destinations accessible from the tab bar.
-/// In DEBUG builds, includes an additional Debug tab.
 enum NavigationTab: String, Identifiable, Sendable {
     /// Spreads tab showing journal spreads.
     case spreads
@@ -12,10 +11,8 @@ enum NavigationTab: String, Identifiable, Sendable {
     /// Settings tab for app preferences.
     case settings
 
-    #if DEBUG
     /// Debug tab for development tools and inspection.
     case debug
-    #endif
 
     // MARK: - Identifiable
 
@@ -23,12 +20,12 @@ enum NavigationTab: String, Identifiable, Sendable {
 
     // MARK: - All Cases
 
-    /// All navigation tabs, conditionally including Debug in DEBUG builds.
+    /// All navigation tabs, conditionally including Debug when enabled.
     static var allCases: [NavigationTab] {
         var cases: [NavigationTab] = [.spreads, .collections, .settings]
-        #if DEBUG
-        cases.append(.debug)
-        #endif
+        if DebugUIHooks.isEnabled {
+            cases.append(.debug)
+        }
         return cases
     }
 
@@ -43,10 +40,8 @@ enum NavigationTab: String, Identifiable, Sendable {
             return "Collections"
         case .settings:
             return "Settings"
-        #if DEBUG
         case .debug:
             return "Debug"
-        #endif
         }
     }
 
@@ -59,10 +54,8 @@ enum NavigationTab: String, Identifiable, Sendable {
             return "folder"
         case .settings:
             return "gear"
-        #if DEBUG
         case .debug:
             return "ant"
-        #endif
         }
     }
 }

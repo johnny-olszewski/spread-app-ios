@@ -59,10 +59,8 @@ struct TabNavigationView: View {
                     CollectionsPlaceholderView()
                 case .settings:
                     SettingsPlaceholderView()
-                #if DEBUG
                 case .debug:
-                    DebugMenuView(container: container, journalManager: journalManager, authManager: authManager, syncEngine: syncEngine, onRestartRequired: onRestartRequired)
-                #endif
+                    debugMenuView
                 }
             }
             .navigationTitle(tab.title)
@@ -83,6 +81,22 @@ struct TabNavigationView: View {
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var debugMenuView: some View {
+        if let debugView = DebugUIHooks.makeDebugMenuView?(
+            container,
+            journalManager,
+            authManager,
+            syncEngine,
+            onRestartRequired
+        ) {
+            debugView
+        } else {
+            Text("Debug tools unavailable")
+                .foregroundStyle(.secondary)
         }
     }
 
