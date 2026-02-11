@@ -23,7 +23,7 @@ enum NavigationTab: String, Identifiable, Sendable {
     /// All navigation tabs, conditionally including Debug when enabled.
     static var allCases: [NavigationTab] {
         var cases: [NavigationTab] = [.spreads, .collections, .settings]
-        if DebugUIHooks.isEnabled {
+        if BuildInfo.allowsDebugUI {
             cases.append(.debug)
         }
         return cases

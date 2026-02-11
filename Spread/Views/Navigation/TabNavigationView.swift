@@ -24,6 +24,9 @@ struct TabNavigationView: View {
     /// Callback when environment switch completes and restart is needed.
     var onRestartRequired: (() -> Void)?
 
+    /// Optional factory for constructing the debug menu view.
+    let makeDebugMenuView: DebugMenuViewFactory?
+
     var body: some View {
         TabView(selection: $selectedTab) {
             ForEach(NavigationTab.allCases) { tab in
@@ -86,14 +89,10 @@ struct TabNavigationView: View {
 
     @ViewBuilder
     private var debugMenuView: some View {
-        if let debugView = DebugUIHooks.makeDebugMenuView?(
-            container,
-            journalManager,
-            authManager,
-            syncEngine,
-            onRestartRequired
+        if let view = makeDebugMenuView?(
+            container, journalManager, authManager, syncEngine, onRestartRequired
         ) {
-            debugView
+            view
         } else {
             Text("Debug tools unavailable")
                 .foregroundStyle(.secondary)
@@ -122,6 +121,7 @@ struct TabNavigationView: View {
         journalManager: .previewInstance,
         authManager: .makeForPreview(),
         container: try! .makeForPreview(),
-        syncEngine: nil
+        syncEngine: nil,
+        makeDebugMenuView: nil
     )
 }
