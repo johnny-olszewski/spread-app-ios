@@ -763,6 +763,9 @@ final class SyncEngine {
 // MARK: - AnyEncodable
 
 /// Type-erased Encodable wrapper for passing heterogeneous params to the RPC client.
+///
+/// @unchecked Sendable: The stored closure captures only `Sendable` values (enforced by the `init`
+/// parameter constraint), but the compiler cannot verify closure captures automatically.
 private struct AnyEncodable: Encodable, @unchecked Sendable {
     private let encodeClosure: @Sendable (Encoder) throws -> Void
 
