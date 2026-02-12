@@ -1,7 +1,4 @@
-import class Foundation.DateFormatter
-import struct Foundation.Calendar
-import struct Foundation.Date
-import struct Foundation.UUID
+import Foundation
 
 /// Organizes spreads into a hierarchical structure for display.
 ///

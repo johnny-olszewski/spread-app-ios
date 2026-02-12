@@ -1,5 +1,5 @@
+import Foundation
 import SwiftUI
-import struct Foundation.UUID
 
 /// Icon-only sync status display for navigation toolbars.
 ///

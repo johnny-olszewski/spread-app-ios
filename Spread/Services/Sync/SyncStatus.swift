@@ -1,4 +1,4 @@
-import struct Foundation.Date
+import Foundation
 
 /// The current state of the sync engine.
 enum SyncStatus: Equatable, Sendable {

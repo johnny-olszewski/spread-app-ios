@@ -1,4 +1,4 @@
-import struct Foundation.Date
+import Foundation
 
 /// Assignment state for a task on a spread.
 struct TaskAssignment: Codable, Hashable, AssignmentMatchable {

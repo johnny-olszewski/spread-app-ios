@@ -1,7 +1,6 @@
+import Foundation
 #if DEBUG
 import Testing
-import struct Foundation.Calendar
-import struct Foundation.Date
 @testable import Spread
 
 /// Tests for mock data set functionality.

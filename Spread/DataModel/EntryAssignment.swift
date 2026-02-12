@@ -1,5 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
+import Foundation
 
 /// Shared assignment data used for spread matching.
 protocol AssignmentMatchable {

@@ -1,6 +1,5 @@
+import Foundation
 import SwiftData
-import struct Foundation.Calendar
-import struct Foundation.Date
 
 /// Central container for application dependencies.
 ///

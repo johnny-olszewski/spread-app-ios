@@ -1,6 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
-import struct Foundation.UUID
+import Foundation
 import SwiftData
 
 /// Version 1.0.0 of the data model schema.

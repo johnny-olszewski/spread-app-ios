@@ -1,7 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
-import struct Foundation.TimeZone
-import struct Foundation.UUID
+import Foundation
 import Testing
 @testable import Spread
 

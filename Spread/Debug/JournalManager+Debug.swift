@@ -1,6 +1,5 @@
 #if DEBUG
-import struct Foundation.Calendar
-import struct Foundation.Date
+import Foundation
 
 /// Debug-only extension for JournalManager.
 ///

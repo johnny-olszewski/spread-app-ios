@@ -1,6 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
-import struct Foundation.UUID
+import Foundation
 
 /// Sample data for previews and testing.
 ///
