@@ -41,3 +41,10 @@ enum ForcedAuthError: String, CaseIterable, Sendable {
         }
     }
 }
+
+/// Error thrown when a forced auth error is active.
+///
+/// Wraps a `ForcedAuthError` so the login sheet can display the user message.
+struct ForcedAuthSignInError: Error {
+    let forced: ForcedAuthError
+}
