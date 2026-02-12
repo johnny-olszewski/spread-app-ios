@@ -1,7 +1,5 @@
+import Foundation
 import SwiftUI
-import class Foundation.DateFormatter
-import struct Foundation.Calendar
-import struct Foundation.Date
 
 /// A row displaying an inbox entry with symbol, title, and preferred date.
 ///

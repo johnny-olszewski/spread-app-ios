@@ -1,5 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
+import Foundation
 
 /// Preset options for creating multiday spreads.
 ///

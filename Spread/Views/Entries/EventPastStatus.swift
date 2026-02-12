@@ -1,5 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
+import Foundation
 
 /// Utility for determining whether an event is past.
 ///

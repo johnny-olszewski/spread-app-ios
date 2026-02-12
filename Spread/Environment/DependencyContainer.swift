@@ -1,11 +1,12 @@
+import Foundation
 import SwiftData
-import struct Foundation.Calendar
-import struct Foundation.Date
 
 /// Central container for application dependencies.
 ///
 /// Provides environment-specific configurations for repositories and services.
 /// Use factory methods to create containers for different environments.
+/// @unchecked Sendable: All stored properties are `let` and their concrete types are Sendable,
+/// but the existential `any XRepository` wrappers prevent the compiler from verifying this automatically.
 struct DependencyContainer: @unchecked Sendable {
 
     // MARK: - Properties
@@ -35,17 +36,19 @@ struct DependencyContainer: @unchecked Sendable {
     let collectionRepository: any CollectionRepository
 
     /// Network connectivity monitor.
-    let networkMonitor: NetworkMonitor
+    let networkMonitor: any NetworkMonitoring
 
     // MARK: - Factory Methods
 
     /// Creates a dependency container for live app use.
     ///
-    /// Uses persistent SwiftData-backed repositories.
+    /// - Parameter makeNetworkMonitor: Factory for creating the network monitor.
     /// - Returns: A configured dependency container.
     /// - Throws: An error if container creation fails.
     @MainActor
-    static func makeForLive() throws -> DependencyContainer {
+    static func makeForLive(
+        makeNetworkMonitor: @MainActor () -> any NetworkMonitoring = { NetworkMonitor() }
+    ) throws -> DependencyContainer {
         let modelContainer = try ModelContainerFactory.makePersistent()
 
         return DependencyContainer(
@@ -60,7 +63,7 @@ struct DependencyContainer: @unchecked Sendable {
             noteRepository: EmptyNoteRepository(),
             // TODO: SPRD-39 - Create SwiftDataCollectionRepository
             collectionRepository: EmptyCollectionRepository(),
-            networkMonitor: NetworkMonitor()
+            networkMonitor: makeNetworkMonitor()
         )
     }
 
@@ -76,15 +79,16 @@ struct DependencyContainer: @unchecked Sendable {
     /// - Returns: A configured dependency container for testing.
     /// - Throws: An error if model container creation fails.
     @MainActor
-    static func makeForTesting(
+    static func make(
         modelContainer: ModelContainer? = nil,
         taskRepository: (any TaskRepository)? = nil,
         spreadRepository: (any SpreadRepository)? = nil,
         eventRepository: (any EventRepository)? = nil,
         noteRepository: (any NoteRepository)? = nil,
-        collectionRepository: (any CollectionRepository)? = nil
+        collectionRepository: (any CollectionRepository)? = nil,
+        makeNetworkMonitor: @MainActor () -> any NetworkMonitoring = { NetworkMonitor() }
     ) throws -> DependencyContainer {
-        let container = try modelContainer ?? ModelContainerFactory.makeForTesting()
+        let container = try modelContainer ?? ModelContainerFactory.makeInMemory()
         return DependencyContainer(
             configurationLabel: "testing",
             isStoredInMemoryOnly: true,
@@ -94,7 +98,7 @@ struct DependencyContainer: @unchecked Sendable {
             eventRepository: eventRepository ?? EmptyEventRepository(),
             noteRepository: noteRepository ?? EmptyNoteRepository(),
             collectionRepository: collectionRepository ?? EmptyCollectionRepository(),
-            networkMonitor: NetworkMonitor()
+            networkMonitor: makeNetworkMonitor()
         )
     }
 
@@ -104,7 +108,9 @@ struct DependencyContainer: @unchecked Sendable {
     /// - Returns: A configured dependency container for previews.
     /// - Throws: An error if model container creation fails.
     @MainActor
-    static func makeForPreview() throws -> DependencyContainer {
+    static func makeForPreview(
+        makeNetworkMonitor: @MainActor () -> any NetworkMonitoring = { NetworkMonitor() }
+    ) throws -> DependencyContainer {
         let modelContainer = try ModelContainerFactory.makeInMemory()
         return DependencyContainer(
             configurationLabel: "preview",
@@ -118,7 +124,7 @@ struct DependencyContainer: @unchecked Sendable {
             noteRepository: EmptyNoteRepository(),
             // TODO: SPRD-39 - Create MockCollectionRepository with seeded data
             collectionRepository: EmptyCollectionRepository(),
-            networkMonitor: NetworkMonitor()
+            networkMonitor: makeNetworkMonitor()
         )
     }
 
@@ -136,7 +142,7 @@ struct DependencyContainer: @unchecked Sendable {
         today: Date = .now,
         bujoMode: BujoMode = .conventional
     ) async throws -> JournalManager {
-        try await JournalManager.makeForTesting(
+        try await JournalManager.make(
             calendar: calendar,
             today: today,
             taskRepository: taskRepository,

@@ -77,10 +77,11 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 - **Protocols at boundaries**: Introduce protocols at dependency injection points (services, repositories, coordinators) to enable test substitution. Simple value types, helpers, and internal logic stay concrete.
 - **Manual mocks**: Hand-written mock types conforming to protocols. Each mock lives in its own file (`MockTypeName.swift`). No code-generation or spy frameworks.
 - **Structs by default**: Prefer structs for services, coordinators, and data types. Use classes only when identity semantics are required (`@Observable`, SwiftData `@Model`, or shared mutable state).
+- **No singletons**: Avoid `static let shared` singletons. Prefer init-injected dependencies so that tests can substitute implementations without global state coupling.
 
 ### Separation of Concerns
 
-- **No `#if DEBUG` in production files**: Debug-only code (mock decorators, debug services, test helpers) must live in dedicated files under the `Debug/` folder or as `TypeName+Debug.swift` extensions. Production source files must not contain `#if DEBUG` blocks.
+- **Minimize `#if DEBUG` in production files**: Debug-only code (mock decorators, debug services, test helpers) must live in dedicated files under the `Debug/` folder or as `TypeName+Debug.swift` extensions. Production source files must not contain `#if DEBUG` blocks to the maximum extent practical. Shim files that use `#if DEBUG` solely for typealias configuration (e.g., switching factory types between debug and release) are acceptable.
 - **Extensions per conformance**: Each protocol conformance gets its own extension, in a separate file when non-trivial (e.g., `TypeName+Codable.swift`, `TypeName+CustomStringConvertible.swift`).
 - **Single responsibility for new types**: Extract a new coordinator or service when it has a distinct lifecycle, distinct dependencies, or the existing type exceeds ~200 lines. Prefer composition over growing existing types.
 
@@ -162,7 +163,7 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 
 ### Imports
 
-- **Minimal**: Only import what's needed (prefer `import struct Foundation.UUID` over `import Foundation` when applicable)
+- **Foundation**: Prefer `import Foundation` over selective imports (`import struct Foundation.UUID`). Selective imports add noise and break easily when new Foundation types are used.
 - **Grouped**: System frameworks first, then third-party, then local modules
 
 ### Documentation

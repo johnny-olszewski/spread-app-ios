@@ -1,5 +1,5 @@
+import Foundation
 import Auth
-import struct Foundation.UUID
 import Observation
 
 /// Coordinates auth lifecycle events with sync and local data management.

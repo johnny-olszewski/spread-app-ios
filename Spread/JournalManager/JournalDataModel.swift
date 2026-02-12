@@ -1,4 +1,4 @@
-import struct Foundation.Date
+import Foundation
 
 /// Data model for a single spread's content.
 ///

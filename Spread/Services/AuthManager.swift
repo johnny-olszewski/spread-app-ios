@@ -49,7 +49,7 @@ final class AuthManager {
     // MARK: - Dependencies
 
     /// The service that performs auth operations.
-    private let service: AuthService
+    let service: AuthService
 
     /// Callback for when sign-out completes (to wipe local data).
     var onSignOut: (() async -> Void)?
@@ -173,27 +173,12 @@ final class AuthManager {
         state.user?.email
     }
 
-    // MARK: - Test Support
+    // MARK: - Testing Support
 
-    #if DEBUG
-    /// Creates an AuthManager with a mock service for previews.
-    static func makeForPreview() -> AuthManager {
-        AuthManager(service: MockAuthService())
-    }
-
-    /// Configures auth state for testing without hitting Supabase.
-    func configureForTesting(state: AuthState, hasBackupEntitlement: Bool = false) {
+    /// Updates auth state for tests without hitting the network.
+    func setStateForTesting(_ state: AuthState, hasBackupEntitlement: Bool = false) {
         self.state = state
         self.hasBackupEntitlement = hasBackupEntitlement
     }
-    #endif
-}
 
-// MARK: - ForcedAuthSignInError
-
-/// Error thrown when a forced auth error is active.
-///
-/// Wraps a `ForcedAuthError` so the login sheet can display the user message.
-struct ForcedAuthSignInError: Error {
-    let forced: ForcedAuthError
 }

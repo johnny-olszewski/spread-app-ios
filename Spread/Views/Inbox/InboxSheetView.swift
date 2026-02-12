@@ -1,5 +1,5 @@
+import Foundation
 import SwiftUI
-import struct Foundation.Calendar
 
 /// Sheet view displaying inbox entries.
 ///

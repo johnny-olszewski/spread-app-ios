@@ -1,4 +1,4 @@
-import struct Foundation.UUID
+import Foundation
 
 /// In-memory task repository for unit testing.
 ///

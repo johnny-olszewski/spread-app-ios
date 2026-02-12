@@ -1,6 +1,4 @@
-import class Foundation.DateFormatter
-import struct Foundation.Calendar
-import struct Foundation.Date
+import Foundation
 
 /// Configuration for displaying spread header information.
 ///

@@ -26,6 +26,12 @@ struct RootNavigationView: View {
     /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
 
+    /// Callback when environment switch completes and restart is needed.
+    var onRestartRequired: (() -> Void)?
+
+    /// Optional factory for constructing the debug menu view.
+    let makeDebugMenuView: DebugMenuViewFactory?
+
     /// Optional layout override for deterministic testing and previews.
     private let layoutOverride: NavigationLayoutType?
 
@@ -36,18 +42,24 @@ struct RootNavigationView: View {
     ///   - authManager: The auth manager for authentication.
     ///   - container: The dependency container for app services.
     ///   - syncEngine: The sync engine (nil in previews/tests).
+    ///   - onRestartRequired: Callback for soft restart after environment switch.
+    ///   - makeDebugMenuView: Optional factory for the debug menu view.
     ///   - layoutOverride: Optional layout override for tests/previews.
     init(
         journalManager: JournalManager,
         authManager: AuthManager,
         container: DependencyContainer,
         syncEngine: SyncEngine? = nil,
+        onRestartRequired: (() -> Void)? = nil,
+        makeDebugMenuView: DebugMenuViewFactory? = nil,
         layoutOverride: NavigationLayoutType? = nil
     ) {
         self.journalManager = journalManager
         self.authManager = authManager
         self.container = container
         self.syncEngine = syncEngine
+        self.onRestartRequired = onRestartRequired
+        self.makeDebugMenuView = makeDebugMenuView
         self.layoutOverride = layoutOverride
     }
 
@@ -66,14 +78,18 @@ struct RootNavigationView: View {
                     journalManager: journalManager,
                     authManager: authManager,
                     container: container,
-                    syncEngine: syncEngine
+                    syncEngine: syncEngine,
+                    onRestartRequired: onRestartRequired,
+                    makeDebugMenuView: makeDebugMenuView
                 )
             case .tabBar:
                 TabNavigationView(
                     journalManager: journalManager,
                     authManager: authManager,
                     container: container,
-                    syncEngine: syncEngine
+                    syncEngine: syncEngine,
+                    onRestartRequired: onRestartRequired,
+                    makeDebugMenuView: makeDebugMenuView
                 )
             }
         }

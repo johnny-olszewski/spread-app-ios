@@ -1,5 +1,5 @@
+import Foundation
 import SwiftUI
-import struct Foundation.UUID
 
 /// Icon-only sync status display for navigation toolbars.
 ///
@@ -30,7 +30,7 @@ struct SyncStatusView: View {
 #Preview("Local Only") {
     let syncEngine = SyncEngine(
         client: nil,
-        modelContainer: try! ModelContainerFactory.makeForTesting(),
+        modelContainer: try! ModelContainerFactory.makeInMemory(),
         authManager: .makeForPreview(),
         networkMonitor: NetworkMonitor(),
         deviceId: UUID(),

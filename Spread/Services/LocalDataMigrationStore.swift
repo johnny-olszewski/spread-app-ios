@@ -1,5 +1,4 @@
-import class Foundation.UserDefaults
-import struct Foundation.UUID
+import Foundation
 
 /// Abstraction for per-user migration state storage.
 ///

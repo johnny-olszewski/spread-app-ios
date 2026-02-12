@@ -11,7 +11,7 @@ struct StoreWiperTests {
     /// Conditions: Store has spreads, tasks, and notes.
     /// Expected: All data is deleted after wipeAll().
     @Test func wipeAllDeletesAllEntities() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let context = container.mainContext
 
         // Insert test data
@@ -47,7 +47,7 @@ struct StoreWiperTests {
     /// Conditions: Store has sync mutations and cursors.
     /// Expected: Sync data is also deleted after wipeAll().
     @Test func wipeAllDeletesSyncData() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let context = container.mainContext
 
         // Insert sync data
@@ -83,7 +83,7 @@ struct StoreWiperTests {
     /// Conditions: Store is already empty.
     /// Expected: wipeAll() succeeds without error.
     @Test func wipeAllSucceedsOnEmptyStore() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let wiper = SwiftDataStoreWiper(modelContainer: container)
 
         // Should not throw

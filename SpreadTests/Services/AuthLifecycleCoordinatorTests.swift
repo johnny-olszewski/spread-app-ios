@@ -1,9 +1,5 @@
+import Foundation
 import struct Auth.User
-import struct Foundation.Calendar
-import struct Foundation.Data
-import struct Foundation.Date
-import class Foundation.JSONDecoder
-import struct Foundation.UUID
 import Testing
 @testable import Spread
 
@@ -13,6 +9,10 @@ struct AuthLifecycleCoordinatorTests {
     // MARK: - Test Helpers
 
     /// Shared mutable state for the test migration store.
+    ///
+    /// @unchecked Sendable: Test-only helper with unprotected mutable state. Safe because
+    /// tests run serially on `@MainActor` and the closure capturing this is `@Sendable` only
+    /// to satisfy the protocol requirement.
     private final class MigrationStoreState: @unchecked Sendable {
         private var migratedUserIds: Set<UUID> = []
 
@@ -59,9 +59,9 @@ struct AuthLifecycleCoordinatorTests {
         if let journalManager {
             manager = journalManager
         } else {
-            manager = try await JournalManager.makeForTesting()
+            manager = try await JournalManager.make()
         }
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let engine = syncEngine ?? SyncEngine(
             client: nil,
             modelContainer: container,
@@ -88,7 +88,7 @@ struct AuthLifecycleCoordinatorTests {
     /// Conditions: User is signed in but does not have backup entitlement.
     /// Expected: Sync status should be set to backupUnavailable and local data untouched.
     @Test func testSignedInWithoutEntitlementSetsBackupUnavailable() async throws {
-        let manager = try await JournalManager.makeForTesting()
+        let manager = try await JournalManager.make()
         let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
         try await manager.spreadRepository.save(spread)
 
@@ -131,7 +131,7 @@ struct AuthLifecycleCoordinatorTests {
     /// Conditions: User signs in with entitlement and local data exists, not previously migrated.
     /// Expected: Should show migration prompt.
     @Test func testSignedInWithEntitlementAndLocalDataShowsPrompt() async throws {
-        let manager = try await JournalManager.makeForTesting()
+        let manager = try await JournalManager.make()
         let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
         try await manager.spreadRepository.save(spread)
 
@@ -179,7 +179,7 @@ struct AuthLifecycleCoordinatorTests {
     /// Expected: Should mark as migrated and dismiss prompt.
     @Test func testMergeDecisionMarksMigratedAndDismisses() async throws {
         let storeState = MigrationStoreState()
-        let manager = try await JournalManager.makeForTesting()
+        let manager = try await JournalManager.make()
         let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
         try await manager.spreadRepository.save(spread)
 
@@ -209,7 +209,7 @@ struct AuthLifecycleCoordinatorTests {
     /// Expected: Should clear local data, mark as migrated, and dismiss prompt.
     @Test func testDiscardDecisionClearsDataAndMarksMigrated() async throws {
         let storeState = MigrationStoreState()
-        let manager = try await JournalManager.makeForTesting()
+        let manager = try await JournalManager.make()
         let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
         try await manager.spreadRepository.save(spread)
 
@@ -239,7 +239,7 @@ struct AuthLifecycleCoordinatorTests {
     /// Conditions: User signs out.
     /// Expected: Should clear local data and reset sync.
     @Test func testSignOutClearsDataAndResetsSyncState() async throws {
-        let manager = try await JournalManager.makeForTesting()
+        let manager = try await JournalManager.make()
         let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
         try await manager.spreadRepository.save(spread)
 
@@ -259,7 +259,7 @@ struct AuthLifecycleCoordinatorTests {
     /// Conditions: handleSignedIn is called twice for the same user with a pending prompt.
     /// Expected: Second call should be a no-op.
     @Test func testDuplicateSignInCallIsNoOp() async throws {
-        let manager = try await JournalManager.makeForTesting()
+        let manager = try await JournalManager.make()
         let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
         try await manager.spreadRepository.save(spread)
 

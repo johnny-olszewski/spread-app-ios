@@ -4,20 +4,14 @@ import SwiftUI
 @main
 struct SpreadApp: App {
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "App")
-    private let container: DependencyContainer
 
     init() {
         SpreadApp.logSupabaseConfiguration()
-        do {
-            container = try DependencyContainer.makeForLive()
-        } catch {
-            fatalError("Failed to create DependencyContainer: \(error)")
-        }
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView(container: container)
+            ContentView()
         }
     }
 

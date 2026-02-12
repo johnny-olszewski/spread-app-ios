@@ -1,6 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
-import struct Foundation.UUID
+import Foundation
 
 /// A journal entry with a unique identity and creation timestamp.
 ///
