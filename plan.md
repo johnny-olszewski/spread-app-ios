@@ -997,6 +997,7 @@ Supabase: SPRD-80 -> SPRD-94 -> SPRD-95 -> SPRD-85 -> SPRD-99 -> SPRD-96 -> SPRD
 Supabase: SPRD-85 -> SPRD-98, SPRD-87, SPRD-88, SPRD-89, SPRD-90
 Supabase: SPRD-84 -> SPRD-91, SPRD-92, SPRD-93
 Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
+Supabase: SPRD-85A -> SPRD-85C
 ```
 
 ## Completed Tasks
@@ -1888,7 +1889,7 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
 - **Dependencies**: SPRD-80, SPRD-83
 - **Note**: Sign up, forgot password (SPRD-92), form validation (SPRD-93), and Apple/Google sign-in (SPRD-91) are separate tasks.
 
-### [SPRD-85A] Feature: Debug sync + network mocking controls - [x] Complete
+### [SPRD-85A] Feature: Debug sync + network mocking controls - [x] Partial
 - **Context**: SPRD-85 requires testing offline, auth failures, and sync UI states without relying on real network behavior.
 - **Description**: Add Debug-only runtime overrides for network, auth, and sync engine behavior plus scenario presets.
 - **Implementation Details**:
@@ -1943,6 +1944,33 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
     - Force whole-sync failure and verify error status.
     - Seed outbox and verify count/status changes.
 - **Dependencies**: SPRD-45, SPRD-84, SPRD-85
+- **Partial completion note**: Network blocking, auth error forcing, and live sync readout are implemented. Force sync states UI, disable sync toggle, outbox seeding, and scenario presets are deferred to SPRD-85C.
+
+### [SPRD-85C] Feature: Debug sync forcing, outbox seeding, and scenario presets - [ ]
+- **Context**: SPRD-85A delivered the core debug mocking controls (network blocking, auth error forcing, live sync readout) but deferred several acceptance criteria. The backend wiring exists (`DebugSyncPolicy.forcedSyncingDuration`, `DebugSyncPolicy.isForceSyncFailure`) but UI controls and additional features are missing.
+- **Description**: Complete the remaining SPRD-85A acceptance criteria by adding DebugMenuView controls for sync state forcing, a disable-sync toggle, outbox seeding, and scenario presets.
+- **Implementation Details**:
+  - Add DebugMenuView toggles/controls for:
+    - Disable sync toggle (prevents auto/manual sync triggers via `DebugSyncPolicy`).
+    - Force "syncing" state for 5s (binds to `DebugSyncPolicy.forcedSyncingDuration`; engine pauses while UI shows syncing, then resumes).
+    - Force whole-sync failure toggle (binds to `DebugSyncPolicy.isForceSyncFailure`).
+  - Add "Seed Outbox" action that creates real `SyncMutation` rows using existing schema, then refreshes sync status UI.
+  - Add scenario presets section with one-tap combinations of overrides (e.g., "Offline + Auth Failure", "Sync Backlog") plus a "Reset All Overrides" button.
+  - Access `DebugSyncPolicy` from `syncEngine.policy` (already internal access) via downcast, consistent with existing `DebugNetworkMonitor` and `DebugAuthService` patterns.
+- **Acceptance Criteria**:
+  - Sync can be disabled via toggle; auto and manual sync triggers are blocked while active.
+  - Force syncing for 5s pins UI state to syncing while engine is paused, then resumes.
+  - Force whole-sync failure produces error status on next sync attempt.
+  - "Seed outbox" creates real `SyncMutation` rows and count is reflected in sync status UI.
+  - Scenario presets apply multiple overrides at once and can be reset with one tap.
+- **Tests**:
+  - Manual QA in Debug:
+    - Toggle disable sync and verify auto/manual sync is blocked.
+    - Force syncing for 5s and confirm engine pauses and resumes.
+    - Force whole-sync failure and verify error status.
+    - Seed outbox and verify count/status changes.
+    - Apply a scenario preset and verify all overrides are set; reset and verify all cleared.
+- **Dependencies**: SPRD-85A
 
 ### [SPRD-94] Feature: Build configurations (Debug/QA/Release) - [x] Complete
 - **Context**: Environment switching must be enabled in Debug + QA TestFlight builds but disabled in Release.
