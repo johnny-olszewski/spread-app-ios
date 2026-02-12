@@ -61,7 +61,7 @@ struct AuthLifecycleCoordinatorTests {
         } else {
             manager = try await JournalManager.make()
         }
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let engine = syncEngine ?? SyncEngine(
             client: nil,
             modelContainer: container,

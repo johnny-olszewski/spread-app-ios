@@ -22,7 +22,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save a task to an empty SwiftData task repository.
     /// Expected: Fetching tasks returns one task with the saved title.
     @Test func testTaskRepositorySaveAndRetrieve() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let repository = SwiftDataTaskRepository(modelContainer: container)
 
         let task = DataModel.Task(title: "Test Task")
@@ -36,7 +36,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save three tasks to the repository.
     /// Expected: Fetching tasks returns three tasks.
     @Test func testTaskRepositorySaveMultipleTasks() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let repository = SwiftDataTaskRepository(modelContainer: container)
 
         let task1 = DataModel.Task(title: "Task 1")
@@ -54,7 +54,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save a task, then delete it.
     /// Expected: Fetching tasks returns an empty list.
     @Test func testTaskRepositoryDelete() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let repository = SwiftDataTaskRepository(modelContainer: container)
 
         let task = DataModel.Task(title: "Task to Delete")
@@ -72,7 +72,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save a task, update its title, and save again.
     /// Expected: Repository has one task with the updated title.
     @Test func testTaskRepositoryUpdateExistingTask() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let repository = SwiftDataTaskRepository(modelContainer: container)
 
         let task = DataModel.Task(title: "Original Title")
@@ -89,7 +89,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save tasks with different created dates in non-chronological order.
     /// Expected: Fetching tasks returns them sorted by date ascending.
     @Test func testTaskRepositoryReturnsTasksSortedByDateAscending() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let repository = SwiftDataTaskRepository(modelContainer: container)
 
         let now = Date.now
@@ -112,7 +112,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save a task with sync enabled.
     /// Expected: An outbox mutation is created with device ID and create operation.
     @Test func testTaskRepositorySaveEnqueuesCreateMutation() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let deviceId = UUID()
         let repository = SwiftDataTaskRepository(
             modelContainer: container,
@@ -136,7 +136,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save a task, then save again after updating its title.
     /// Expected: An update mutation is enqueued in the outbox.
     @Test func testTaskRepositoryUpdateEnqueuesUpdateMutation() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let deviceId = UUID()
         let repository = SwiftDataTaskRepository(
             modelContainer: container,
@@ -158,7 +158,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save a task, then delete it.
     /// Expected: A delete mutation is enqueued with deleted_at set.
     @Test func testTaskRepositoryDeleteEnqueuesDeleteMutation() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let deviceId = UUID()
         var timestamps = [
             Date(timeIntervalSince1970: 300),
@@ -189,7 +189,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save a spread to an empty SwiftData spread repository.
     /// Expected: Fetching spreads returns one spread with the same id.
     @Test func testSpreadRepositorySaveAndRetrieve() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let repository = SwiftDataSpreadRepository(modelContainer: container)
 
         let spread = DataModel.Spread(period: .day, date: Date.now, calendar: testCalendar)
@@ -203,7 +203,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save a spread with sync enabled.
     /// Expected: An outbox mutation is created with device ID and create operation.
     @Test func testSpreadRepositorySaveEnqueuesCreateMutation() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let deviceId = UUID()
         let repository = SwiftDataSpreadRepository(
             modelContainer: container,
@@ -227,7 +227,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save three spreads to the repository.
     /// Expected: Fetching spreads returns three spreads.
     @Test func testSpreadRepositorySaveMultipleSpreads() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let repository = SwiftDataSpreadRepository(modelContainer: container)
 
         let now = Date.now
@@ -246,7 +246,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save a spread, then delete it.
     /// Expected: Fetching spreads returns an empty list.
     @Test func testSpreadRepositoryDelete() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let repository = SwiftDataSpreadRepository(modelContainer: container)
 
         let spread = DataModel.Spread(period: .day, date: Date.now, calendar: testCalendar)
@@ -264,7 +264,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save a spread, then delete it.
     /// Expected: A delete mutation is enqueued with deleted_at set.
     @Test func testSpreadRepositoryDeleteEnqueuesDeleteMutation() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let deviceId = UUID()
         var timestamps = [
             Date(timeIntervalSince1970: 600),
@@ -293,7 +293,7 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save spreads of different periods and dates in random order.
     /// Expected: Fetching spreads returns period order (year, month, day), then date descending.
     @Test func testSpreadRepositoryReturnsSortedByPeriodThenDateDescending() async throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let repository = SwiftDataSpreadRepository(modelContainer: container)
 
         let now = Date.now
@@ -329,8 +329,8 @@ struct SwiftDataRepositoryTests {
     /// Conditions: Save a task in a repository backed by one container and read from another.
     /// Expected: First repository has the task, second repository is empty.
     @Test func testRepositoriesUseIsolatedContainers() async throws {
-        let container1 = try ModelContainerFactory.makeForTesting()
-        let container2 = try ModelContainerFactory.makeForTesting()
+        let container1 = try ModelContainerFactory.makeInMemory()
+        let container2 = try ModelContainerFactory.makeInMemory()
 
         let taskRepo1 = SwiftDataTaskRepository(modelContainer: container1)
         let taskRepo2 = SwiftDataTaskRepository(modelContainer: container2)

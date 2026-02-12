@@ -79,7 +79,7 @@ struct DependencyContainer: @unchecked Sendable {
     /// - Returns: A configured dependency container for testing.
     /// - Throws: An error if model container creation fails.
     @MainActor
-    static func makeForTesting(
+    static func make(
         modelContainer: ModelContainer? = nil,
         taskRepository: (any TaskRepository)? = nil,
         spreadRepository: (any SpreadRepository)? = nil,
@@ -88,7 +88,7 @@ struct DependencyContainer: @unchecked Sendable {
         collectionRepository: (any CollectionRepository)? = nil,
         makeNetworkMonitor: @MainActor () -> any NetworkMonitoring = { NetworkMonitor() }
     ) throws -> DependencyContainer {
-        let container = try modelContainer ?? ModelContainerFactory.makeForTesting()
+        let container = try modelContainer ?? ModelContainerFactory.makeInMemory()
         return DependencyContainer(
             configurationLabel: "testing",
             isStoredInMemoryOnly: true,

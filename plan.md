@@ -1069,7 +1069,7 @@ Supabase: SPRD-84 -> SPRD-85A -> SPRD-84B
     - Repository properties (TaskRepository, SpreadRepository, EventRepository, NoteRepository, CollectionRepository)
   - Factory methods:
     - `static func make(for environment: AppEnvironment) throws -> DependencyContainer`
-    - `static func makeForTesting(taskRepo:, spreadRepo:, ...) throws -> DependencyContainer`
+    - `static func make(taskRepo:, spreadRepo:, ...) throws -> DependencyContainer`
     - `func makeJournalManager(calendar:, today:, bujoMode:) -> JournalManager`
   - Service locator pattern for environment-specific implementations
 - **Acceptance Criteria**:

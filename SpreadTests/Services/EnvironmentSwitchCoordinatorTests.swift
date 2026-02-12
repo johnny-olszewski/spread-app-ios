@@ -30,7 +30,7 @@ struct EnvironmentSwitchCoordinatorTests {
         authManager: AuthManager,
         isSyncEnabled: Bool = false
     ) throws -> SyncEngine {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         return SyncEngine(
             client: nil,
             modelContainer: container,
@@ -80,7 +80,7 @@ struct EnvironmentSwitchCoordinatorTests {
     /// Expected: Transitions to pendingConfirmation with outbox count.
     @Test func beginSwitchLocalOnlyNonEmptyOutboxGoesToPendingConfirmation() async throws {
         let authManager = AuthManager(service: MockAuthService())
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let syncEngine = SyncEngine(
             client: nil,
             modelContainer: container,
@@ -119,7 +119,7 @@ struct EnvironmentSwitchCoordinatorTests {
     /// Expected: Transitions to restartRequired after wipe.
     @Test func confirmSwitchDespiteUnsyncedDataCompletesSwitch() async throws {
         let authManager = AuthManager(service: MockAuthService())
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let syncEngine = SyncEngine(
             client: nil,
             modelContainer: container,
@@ -160,7 +160,7 @@ struct EnvironmentSwitchCoordinatorTests {
     /// Expected: Returns to idle without wiping.
     @Test func cancelSwitchReturnsToIdle() async throws {
         let authManager = AuthManager(service: MockAuthService())
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let syncEngine = SyncEngine(
             client: nil,
             modelContainer: container,
@@ -216,7 +216,7 @@ struct EnvironmentSwitchCoordinatorTests {
     /// Expected: isInProgress is true during waitingForSync, syncing, and pendingConfirmation; false for idle and restartRequired.
     @Test func isInProgressCorrectForPhases() async throws {
         let authManager = AuthManager(service: MockAuthService())
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let syncEngine = SyncEngine(
             client: nil,
             modelContainer: container,
