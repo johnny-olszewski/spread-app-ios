@@ -1,5 +1,5 @@
+import Foundation
 import SwiftUI
-import struct Foundation.UUID
 
 /// Non-blocking status banner showing sync state in the main content area.
 ///

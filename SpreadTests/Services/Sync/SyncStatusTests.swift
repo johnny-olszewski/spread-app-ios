@@ -1,4 +1,4 @@
-import struct Foundation.Date
+import Foundation
 import Testing
 @testable import Spread
 

@@ -1,6 +1,5 @@
 #if DEBUG
-import struct Foundation.Calendar
-import struct Foundation.Date
+import Foundation
 
 /// Predefined mock data sets for debug testing.
 ///

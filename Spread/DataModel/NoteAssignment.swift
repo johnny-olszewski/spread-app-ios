@@ -1,4 +1,4 @@
-import struct Foundation.Date
+import Foundation
 
 /// Assignment state for a note on a spread.
 struct NoteAssignment: Codable, Hashable, AssignmentMatchable {

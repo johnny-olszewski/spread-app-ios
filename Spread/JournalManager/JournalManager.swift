@@ -1,5 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
+import Foundation
 import Observation
 
 /// Central coordinator for journal data and operations.

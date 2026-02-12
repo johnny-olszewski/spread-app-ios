@@ -1,5 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
+import Foundation
 
 /// Service for finding the best spread for task/note assignment in conventional mode.
 ///

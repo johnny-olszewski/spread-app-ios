@@ -1,5 +1,4 @@
-import struct Foundation.Date
-import struct Foundation.UUID
+import Foundation
 
 /// Empty task repository for isolated testing.
 ///

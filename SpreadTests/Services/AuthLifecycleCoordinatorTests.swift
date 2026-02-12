@@ -1,9 +1,5 @@
+import Foundation
 import struct Auth.User
-import struct Foundation.Calendar
-import struct Foundation.Data
-import struct Foundation.Date
-import class Foundation.JSONDecoder
-import struct Foundation.UUID
 import Testing
 @testable import Spread
 

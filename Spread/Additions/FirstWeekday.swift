@@ -1,4 +1,4 @@
-import struct Foundation.Calendar
+import Foundation
 
 /// User preference for the first day of the week.
 ///

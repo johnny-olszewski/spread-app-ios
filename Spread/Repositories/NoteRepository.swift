@@ -1,4 +1,4 @@
-import struct Foundation.UUID
+import Foundation
 
 /// Protocol defining persistence operations for notes.
 ///

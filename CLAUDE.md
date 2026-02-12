@@ -163,7 +163,7 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 
 ### Imports
 
-- **Minimal**: Only import what's needed (prefer `import struct Foundation.UUID` over `import Foundation` when applicable)
+- **Foundation**: Prefer `import Foundation` over selective imports (`import struct Foundation.UUID`). Selective imports add noise and break easily when new Foundation types are used.
 - **Grouped**: System frameworks first, then third-party, then local modules
 
 ### Documentation

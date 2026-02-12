@@ -1,6 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
-import struct Foundation.DateComponents
+import Foundation
 
 extension Date {
     // MARK: - Period Normalization
