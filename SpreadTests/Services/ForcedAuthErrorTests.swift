@@ -2,19 +2,7 @@ import Testing
 @testable import Spread
 
 @MainActor
-struct AuthPolicyTests {
-
-    // MARK: - DefaultAuthPolicy
-
-    /// Default policy returns no forced error and is not localhost.
-    @Test func defaultPolicyHasNoForcedError() {
-        let policy = DefaultAuthPolicy()
-
-        #expect(policy.forcedAuthError() == nil)
-        #expect(policy.isLocalhost == false)
-    }
-
-    // MARK: - ForcedAuthError
+struct ForcedAuthErrorTests {
 
     /// Each forced error case has a non-empty user message.
     @Test func forcedAuthErrorsHaveUserMessages() {
@@ -49,19 +37,5 @@ struct AuthPolicyTests {
     /// Network timeout error has the expected user message.
     @Test func networkTimeoutMessage() {
         #expect(ForcedAuthError.networkTimeout.userMessage == "Network timeout. Please check your connection.")
-    }
-
-    // MARK: - Custom AuthPolicy Conformance
-
-    /// A custom policy can return a forced error and report localhost status.
-    @Test func customPolicyReturnsForcedError() {
-        struct TestPolicy: AuthPolicy {
-            func forcedAuthError() -> ForcedAuthError? { .rateLimited }
-            var isLocalhost: Bool { true }
-        }
-
-        let policy = TestPolicy()
-        #expect(policy.forcedAuthError() == .rateLimited)
-        #expect(policy.isLocalhost == true)
     }
 }

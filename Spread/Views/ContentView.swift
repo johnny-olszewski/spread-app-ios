@@ -1,52 +1,61 @@
-import Supabase
+import OSLog
 import SwiftUI
 
 /// Root view for the Spread app.
 ///
-/// Handles async JournalManager initialization and displays the appropriate
+/// Handles async session initialization and displays the appropriate
 /// navigation shell once ready. Shows a loading state during initialization.
 /// Auth lifecycle logic is delegated to `AuthLifecycleCoordinator`.
+///
+/// Supports soft restart for environment switching: calling `restartApp()` nils
+/// out the session and bumps `appSessionId` to re-trigger `.task(id:)`.
 struct ContentView: View {
-    @State private var journalManager: JournalManager?
-    @State private var authManager = AuthManager(service: ContentView.makeAuthService())
-    @State private var syncEngine: SyncEngine?
-    @State private var coordinator: AuthLifecycleCoordinator?
+    @State private var session: AppSession?
+    @State private var appSessionId = UUID()
 
-    let container: DependencyContainer
+    private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "ContentView")
+
+    private let containerOverride: DependencyContainer?
+
+    init(container: DependencyContainer? = nil) {
+        self.containerOverride = container
+    }
 
     var body: some View {
         Group {
-            if let journalManager {
+            if let session {
                 RootNavigationView(
-                    journalManager: journalManager,
-                    authManager: authManager,
-                    container: container,
-                    syncEngine: syncEngine
+                    journalManager: session.journalManager,
+                    authManager: session.authManager,
+                    container: session.container,
+                    syncEngine: session.syncEngine,
+                    onRestartRequired: restartApp,
+                    makeDebugMenuView: session.makeDebugMenuView
                 )
             } else {
                 loadingView
             }
         }
-        .task {
+        .task(id: appSessionId) {
             await initializeApp()
         }
         .alert(
             "Local Data Found",
             isPresented: Binding(
-                get: { coordinator?.isShowingMigrationPrompt ?? false },
+                get: { session?.coordinator.isShowingMigrationPrompt ?? false },
                 set: { newValue in
-                    if !newValue { coordinator?.isShowingMigrationPrompt = false }
+                    if !newValue { session?.coordinator.isShowingMigrationPrompt = false }
                 }
             )
         ) {
             Button("Merge into Account") {
                 Task {
-                    await coordinator?.handleMigrationDecision(.merge)
+                    await session?.coordinator.handleMigrationDecision(.merge)
                 }
             }
             Button("Discard Local Data", role: .destructive) {
                 Task {
-                    await coordinator?.handleMigrationDecision(.discard)
+                    await session?.coordinator.handleMigrationDecision(.discard)
                 }
             }
         } message: {
@@ -64,79 +73,31 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    // MARK: - Soft Restart
+
+    /// Tears down the session and re-triggers app initialization.
+    ///
+    /// Called after an environment switch to rebuild the service graph
+    /// with fresh instances bound to the new data environment.
+    private func restartApp() {
+        Self.logger.info("Soft restart initiated")
+        session = nil
+        appSessionId = UUID()
+    }
+
     // MARK: - Initialization
 
     private func initializeApp() async {
         do {
-            #if DEBUG
-            let launchConfiguration = AppLaunchConfiguration.current
-            let resolvedToday = launchConfiguration.today ?? .now
-
-            var manager = try await container.makeJournalManager(today: resolvedToday)
-            if let dataSet = launchConfiguration.mockDataSet {
-                try await manager.loadMockDataSet(dataSet)
+            if let containerOverride {
+                session = try await AppSessionFactory.make(container: containerOverride)
+            } else {
+                session = try await AppSessionFactory.makeLive()
             }
-            journalManager = manager
-            #else
-            journalManager = try await container.makeJournalManager()
-            #endif
-
-            let engine = createSyncEngine()
-            syncEngine = engine
-
-            guard let journalManager else { return }
-
-            let lifecycleCoordinator = AuthLifecycleCoordinator(
-                authManager: authManager,
-                syncEngine: engine,
-                journalManager: journalManager
-            )
-            coordinator = lifecycleCoordinator
-            lifecycleCoordinator.wireAuthCallbacks()
-            await lifecycleCoordinator.handleInitialAuthState()
         } catch {
             // TODO: SPRD-45 - Add error handling UI for initialization failures
-            fatalError("Failed to initialize JournalManager: \(error)")
+            fatalError("Failed to initialize app session: \(error)")
         }
-    }
-
-    private func createSyncEngine() -> SyncEngine {
-        let dataEnv = DataEnvironment.current
-        let client: SupabaseClient? = dataEnv.syncEnabled
-            ? SupabaseClient(
-                supabaseURL: SupabaseConfiguration.url,
-                supabaseKey: SupabaseConfiguration.publishableKey
-            )
-            : nil
-
-        return SyncEngine(
-            client: client,
-            modelContainer: container.modelContainer,
-            authManager: authManager,
-            networkMonitor: container.networkMonitor,
-            deviceId: DeviceIdManager.getOrCreateDeviceId(),
-            isSyncEnabled: dataEnv.syncEnabled,
-            policy: makeSyncPolicy()
-        )
-    }
-
-    private func makeSyncPolicy() -> SyncPolicy {
-        #if DEBUG
-        return DebugSyncPolicy()
-        #else
-        return DefaultSyncPolicy()
-        #endif
-    }
-
-    private static func makeAuthService() -> AuthService {
-        #if DEBUG
-        let base: AuthService = DataEnvironment.current.isLocalOnly
-            ? MockAuthService()
-            : SupabaseAuthService()
-        return DebugAuthService(wrapping: base)
-        #else
-        return SupabaseAuthService()
-        #endif
     }
 }
 

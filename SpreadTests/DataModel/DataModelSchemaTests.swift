@@ -1,6 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
-import struct Foundation.TimeZone
+import Foundation
 import SwiftData
 import Testing
 @testable import Spread
@@ -71,7 +69,7 @@ struct DataModelSchemaTests {
     /// Conditions: Create test container.
     /// Expected: Container should have 7 entity types in schema.
     @Test func testCreateTestContainer() throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         #expect(container.schema.entities.count == 7)
     }
 
@@ -87,7 +85,7 @@ struct DataModelSchemaTests {
     /// Expected: Both should use in-memory storage.
     @Test func testContainerConfigurationForInMemoryFactories() throws {
         // Testing factory should use in-memory storage
-        let testingContainer = try ModelContainerFactory.makeForTesting()
+        let testingContainer = try ModelContainerFactory.makeInMemory()
         let testingConfig = testingContainer.configurations.first
         #expect(testingConfig?.isStoredInMemoryOnly == true)
 
@@ -103,7 +101,7 @@ struct DataModelSchemaTests {
     /// Expected: Spread should be fetchable with correct id and period.
     @MainActor
     @Test func testSpreadModelCanBeSavedAndFetched() throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let context = container.mainContext
 
         let spread = DataModel.Spread(period: .day, date: Date.now, calendar: testCalendar)
@@ -121,7 +119,7 @@ struct DataModelSchemaTests {
     /// Expected: Task should be fetchable with correct id.
     @MainActor
     @Test func testTaskModelCanBeSavedAndFetched() throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let context = container.mainContext
 
         let task = DataModel.Task()
@@ -138,7 +136,7 @@ struct DataModelSchemaTests {
     /// Expected: Event should be fetchable with correct id.
     @MainActor
     @Test func testEventModelCanBeSavedAndFetched() throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let context = container.mainContext
 
         let event = DataModel.Event()
@@ -155,7 +153,7 @@ struct DataModelSchemaTests {
     /// Expected: Note should be fetchable with correct id.
     @MainActor
     @Test func testNoteModelCanBeSavedAndFetched() throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let context = container.mainContext
 
         let note = DataModel.Note()
@@ -172,7 +170,7 @@ struct DataModelSchemaTests {
     /// Expected: Collection should be fetchable with correct id.
     @MainActor
     @Test func testCollectionModelCanBeSavedAndFetched() throws {
-        let container = try ModelContainerFactory.makeForTesting()
+        let container = try ModelContainerFactory.makeInMemory()
         let context = container.mainContext
 
         let collection = DataModel.Collection()

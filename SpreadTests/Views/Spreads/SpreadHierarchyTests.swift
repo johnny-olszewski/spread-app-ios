@@ -1,6 +1,5 @@
+import Foundation
 import Testing
-import struct Foundation.Calendar
-import struct Foundation.Date
 @testable import Spread
 
 /// Tests for spread hierarchy organization and selection logic.

@@ -1,5 +1,4 @@
-import struct Foundation.Date
-import struct Foundation.UUID
+import Foundation
 
 /// A single entry in the sync log.
 struct SyncLogEntry: Identifiable, Sendable {

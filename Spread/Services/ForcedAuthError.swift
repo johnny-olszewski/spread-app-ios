@@ -42,22 +42,9 @@ enum ForcedAuthError: String, CaseIterable, Sendable {
     }
 }
 
-/// Policy that controls auth behavior for different environments.
+/// Error thrown when a forced auth error is active.
 ///
-/// Core services inject this protocol to keep debug logic out of production files.
-/// `DefaultAuthPolicy` is used in Release; `DebugAuthPolicy` is used in Debug/QA builds.
-protocol AuthPolicy: Sendable {
-    /// Returns an error to throw before hitting Supabase, if any.
-    func forcedAuthError() -> ForcedAuthError?
-
-    /// Whether this environment bypasses real auth with a mock user.
-    var isLocalhost: Bool { get }
-}
-
-/// Default auth policy for Release builds.
-///
-/// No forced errors, no localhost behavior.
-struct DefaultAuthPolicy: AuthPolicy {
-    func forcedAuthError() -> ForcedAuthError? { nil }
-    var isLocalhost: Bool { false }
+/// Wraps a `ForcedAuthError` so the login sheet can display the user message.
+struct ForcedAuthSignInError: Error {
+    let forced: ForcedAuthError
 }

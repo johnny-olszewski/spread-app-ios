@@ -21,6 +21,12 @@ struct SidebarNavigationView: View {
     /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
 
+    /// Callback when environment switch completes and restart is needed.
+    var onRestartRequired: (() -> Void)?
+
+    /// Optional factory for constructing the debug menu view.
+    let makeDebugMenuView: DebugMenuViewFactory?
+
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             sidebar
@@ -53,12 +59,22 @@ struct SidebarNavigationView: View {
             CollectionsPlaceholderView()
         case .settings:
             SettingsPlaceholderView()
-        #if DEBUG
         case .debug:
-            DebugMenuView(container: container, journalManager: journalManager, authManager: authManager, syncEngine: syncEngine)
-        #endif
+            debugMenuView
         case .none:
             Text("Select an item")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var debugMenuView: some View {
+        if let view = makeDebugMenuView?(
+            container, journalManager, authManager, syncEngine, onRestartRequired
+        ) {
+            view
+        } else {
+            Text("Debug tools unavailable")
                 .foregroundStyle(.secondary)
         }
     }
@@ -85,6 +101,7 @@ struct SidebarNavigationView: View {
         journalManager: .previewInstance,
         authManager: .makeForPreview(),
         container: try! .makeForPreview(),
-        syncEngine: nil
+        syncEngine: nil,
+        makeDebugMenuView: nil
     )
 }

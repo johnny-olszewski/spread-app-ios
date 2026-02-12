@@ -42,10 +42,10 @@ final class SyncEngine {
     private let client: SupabaseClient?
     private let modelContainer: ModelContainer
     private let authManager: AuthManager
-    private let networkMonitor: NetworkMonitor
+    private let networkMonitor: any NetworkMonitoring
     private let deviceId: UUID
     private let isSyncEnabled: Bool
-    private let policy: SyncPolicy
+    let policy: SyncPolicy
 
     // MARK: - Private State
 
@@ -70,7 +70,7 @@ final class SyncEngine {
     ///   - client: The Supabase client for network operations (nil for localhost).
     ///   - modelContainer: The SwiftData container for local persistence.
     ///   - authManager: The auth manager to check sign-in state.
-    ///   - networkMonitor: The network connectivity monitor.
+    ///   - networkMonitor: The network connectivity monitor (any NetworkMonitoring).
     ///   - deviceId: The unique device identifier.
     ///   - isSyncEnabled: Whether sync is enabled for the current data environment.
     ///   - policy: Policy overrides for sync behavior.
@@ -78,7 +78,7 @@ final class SyncEngine {
         client: SupabaseClient?,
         modelContainer: ModelContainer,
         authManager: AuthManager,
-        networkMonitor: NetworkMonitor,
+        networkMonitor: any NetworkMonitoring,
         deviceId: UUID,
         isSyncEnabled: Bool,
         policy: SyncPolicy = DefaultSyncPolicy()
@@ -763,6 +763,9 @@ final class SyncEngine {
 // MARK: - AnyEncodable
 
 /// Type-erased Encodable wrapper for passing heterogeneous params to the RPC client.
+///
+/// @unchecked Sendable: The stored closure captures only `Sendable` values (enforced by the `init`
+/// parameter constraint), but the compiler cannot verify closure captures automatically.
 private struct AnyEncodable: Encodable, @unchecked Sendable {
     private let encodeClosure: @Sendable (Encoder) throws -> Void
 

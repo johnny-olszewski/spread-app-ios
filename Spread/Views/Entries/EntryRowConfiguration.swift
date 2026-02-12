@@ -1,4 +1,4 @@
-import struct Foundation.UUID
+import Foundation
 
 /// Available swipe actions for entry rows.
 enum EntryRowAction: Hashable, Sendable {

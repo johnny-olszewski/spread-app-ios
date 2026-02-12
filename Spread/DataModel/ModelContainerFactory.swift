@@ -43,12 +43,4 @@ enum ModelContainerFactory {
         )
     }
 
-    /// Creates a ModelContainer for testing with isolated storage.
-    ///
-    /// Equivalent to `makeInMemory()` but with explicit testing semantics.
-    /// - Returns: A test ModelContainer.
-    /// - Throws: An error if container creation fails.
-    static func makeForTesting() throws -> ModelContainer {
-        try makeInMemory()
-    }
 }

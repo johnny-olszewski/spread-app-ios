@@ -1,5 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
+import Foundation
 
 extension JournalManager {
     /// A preview-compatible instance for SwiftUI previews.

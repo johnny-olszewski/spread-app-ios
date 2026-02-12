@@ -47,10 +47,23 @@ struct DebugMenuView: View {
     @State private var unsyncedOutboxCount = 0
     @State private var showRestartRequired = false
 
+    private var blockAllNetworkBinding: Binding<Bool> {
+        guard let debugMonitor = container.networkMonitor as? DebugNetworkMonitor else {
+            return .constant(false)
+        }
+        return Binding(
+            get: { debugMonitor.blockAllNetwork },
+            set: { debugMonitor.blockAllNetwork = $0 }
+        )
+    }
+
     private var forcedAuthErrorBinding: Binding<ForcedAuthError?> {
-        Binding(
-            get: { DebugSyncOverrides.shared.forcedAuthError },
-            set: { DebugSyncOverrides.shared.forcedAuthError = $0 }
+        guard let debugService = authManager.service as? DebugAuthService else {
+            return .constant(nil)
+        }
+        return Binding(
+            get: { debugService.forcedAuthError },
+            set: { debugService.forcedAuthError = $0 }
         )
     }
 
@@ -278,6 +291,7 @@ struct DebugMenuView: View {
                     LabeledContent("Last Sync", value: lastSync.formatted(date: .abbreviated, time: .shortened))
                 }
                 LabeledContent("Network", value: container.networkMonitor.isConnected ? "Connected" : "Disconnected")
+                Toggle("Block Network", isOn: blockAllNetworkBinding)
                 Button("Sync Now") {
                     Task {
                         await syncEngine.syncNow()

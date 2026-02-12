@@ -1,6 +1,4 @@
-import struct Foundation.Calendar
-import struct Foundation.Date
-import struct Foundation.UUID
+import Foundation
 import Testing
 @testable import Spread
 
@@ -44,7 +42,7 @@ struct CancelledTaskTests {
         let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -93,7 +91,7 @@ struct CancelledTaskTests {
         let taskRepo = InMemoryTaskRepository(tasks: [openTask, cancelledTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -131,7 +129,7 @@ struct CancelledTaskTests {
         let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -171,7 +169,7 @@ struct CancelledTaskTests {
         let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -201,7 +199,7 @@ struct CancelledTaskTests {
 
         let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo
@@ -245,7 +243,7 @@ struct CancelledTaskTests {
 
         let taskRepo = InMemoryTaskRepository(tasks: [openTask, completedTask, cancelledTask])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo
@@ -279,7 +277,7 @@ struct CancelledTaskTests {
         let taskRepo = InMemoryTaskRepository(tasks: [completedTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -316,7 +314,7 @@ struct CancelledTaskTests {
         let taskRepo = InMemoryTaskRepository(tasks: [migratedTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.makeForTesting(
+        let manager = try await JournalManager.make(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,

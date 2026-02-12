@@ -1,4 +1,4 @@
-import struct Foundation.UUID
+import Foundation
 
 /// Mock task repository pre-seeded with sample data for SwiftUI previews.
 ///

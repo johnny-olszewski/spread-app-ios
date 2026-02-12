@@ -21,6 +21,12 @@ struct TabNavigationView: View {
     /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
 
+    /// Callback when environment switch completes and restart is needed.
+    var onRestartRequired: (() -> Void)?
+
+    /// Optional factory for constructing the debug menu view.
+    let makeDebugMenuView: DebugMenuViewFactory?
+
     var body: some View {
         TabView(selection: $selectedTab) {
             ForEach(NavigationTab.allCases) { tab in
@@ -56,10 +62,8 @@ struct TabNavigationView: View {
                     CollectionsPlaceholderView()
                 case .settings:
                     SettingsPlaceholderView()
-                #if DEBUG
                 case .debug:
-                    DebugMenuView(container: container, journalManager: journalManager, authManager: authManager, syncEngine: syncEngine)
-                #endif
+                    debugMenuView
                 }
             }
             .navigationTitle(tab.title)
@@ -80,6 +84,18 @@ struct TabNavigationView: View {
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var debugMenuView: some View {
+        if let view = makeDebugMenuView?(
+            container, journalManager, authManager, syncEngine, onRestartRequired
+        ) {
+            view
+        } else {
+            Text("Debug tools unavailable")
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -105,6 +121,7 @@ struct TabNavigationView: View {
         journalManager: .previewInstance,
         authManager: .makeForPreview(),
         container: try! .makeForPreview(),
-        syncEngine: nil
+        syncEngine: nil,
+        makeDebugMenuView: nil
     )
 }

@@ -1,5 +1,5 @@
+import Foundation
 import SwiftUI
-import struct Foundation.UUID
 
 /// Non-blocking status banner showing sync state in the main content area.
 ///
@@ -40,7 +40,7 @@ struct SyncStatusBanner: View {
 #Preview("Offline") {
     let syncEngine = SyncEngine(
         client: nil,
-        modelContainer: try! ModelContainerFactory.makeForTesting(),
+        modelContainer: try! ModelContainerFactory.makeInMemory(),
         authManager: .makeForPreview(),
         networkMonitor: NetworkMonitor(),
         deviceId: UUID(),
