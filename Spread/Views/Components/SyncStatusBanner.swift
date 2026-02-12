@@ -40,7 +40,7 @@ struct SyncStatusBanner: View {
 #Preview("Offline") {
     let syncEngine = SyncEngine(
         client: nil,
-        modelContainer: try! ModelContainerFactory.makeForTesting(),
+        modelContainer: try! ModelContainerFactory.makeInMemory(),
         authManager: .makeForPreview(),
         networkMonitor: NetworkMonitor(),
         deviceId: UUID(),
