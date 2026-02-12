@@ -27,21 +27,23 @@ struct EnvironmentSwitchCoordinatorTests {
     }
 
     private func makeSyncEngine(
-        authManager: AuthManager,
+        authManager: AuthManager? = nil,
         isSyncEnabled: Bool = false
-    ) throws -> SyncEngine {
+    ) throws -> (SyncEngine, ModelContainer) {
+        let auth = authManager ?? AuthManager(service: MockAuthService())
         let container = try ModelContainerFactory.makeInMemory()
-        return SyncEngine(
+        let engine = SyncEngine(
             client: nil,
             modelContainer: container,
-            authManager: authManager,
+            authManager: auth,
             networkMonitor: MockNetworkMonitor(),
             deviceId: UUID(),
             isSyncEnabled: isSyncEnabled
         )
+        return (engine, container)
     }
 
-    // MARK: - No sync engine (localhost mode)
+    // MARK: - No sync engine
 
     /// Conditions: No sync engine provided (e.g., localhost mode).
     /// Expected: Transitions directly from idle to restartRequired.
@@ -54,13 +56,13 @@ struct EnvironmentSwitchCoordinatorTests {
         #expect(wiper.wipeAllCallCount == 1)
     }
 
-    // MARK: - Local-only sync engine with empty outbox
+    // MARK: - Empty outbox
 
-    /// Conditions: Sync engine exists in localOnly mode, outbox is empty.
+    /// Conditions: Sync engine exists with empty outbox.
     /// Expected: Skips to restartRequired without pendingConfirmation.
-    @Test func beginSwitchLocalOnlyEmptyOutboxGoesToRestartRequired() async throws {
+    @Test func beginSwitchEmptyOutboxGoesToRestartRequired() async throws {
         let authManager = AuthManager(service: MockAuthService())
-        let syncEngine = try makeSyncEngine(authManager: authManager, isSyncEnabled: false)
+        let (syncEngine, _) = try makeSyncEngine(authManager: authManager)
         let wiper = MockStoreWiper()
         let coordinator = EnvironmentSwitchCoordinator(
             authManager: authManager,
@@ -74,23 +76,14 @@ struct EnvironmentSwitchCoordinatorTests {
         #expect(wiper.wipeAllCallCount == 1)
     }
 
-    // MARK: - Local-only sync engine with non-empty outbox
+    // MARK: - Non-empty outbox
 
-    /// Conditions: Sync engine in localOnly mode has pending outbox mutations.
+    /// Conditions: Sync engine has pending outbox mutations.
     /// Expected: Transitions to pendingConfirmation with outbox count.
-    @Test func beginSwitchLocalOnlyNonEmptyOutboxGoesToPendingConfirmation() async throws {
+    @Test func beginSwitchNonEmptyOutboxGoesToPendingConfirmation() async throws {
         let authManager = AuthManager(service: MockAuthService())
-        let container = try ModelContainerFactory.makeInMemory()
-        let syncEngine = SyncEngine(
-            client: nil,
-            modelContainer: container,
-            authManager: authManager,
-            networkMonitor: MockNetworkMonitor(),
-            deviceId: UUID(),
-            isSyncEnabled: false
-        )
+        let (syncEngine, container) = try makeSyncEngine(authManager: authManager)
 
-        // Insert a mutation into the outbox
         let mutation = DataModel.SyncMutation(
             entityType: "tasks",
             entityId: UUID(),
@@ -116,18 +109,10 @@ struct EnvironmentSwitchCoordinatorTests {
     // MARK: - Confirm despite unsynced data
 
     /// Conditions: Coordinator is in pendingConfirmation, user confirms.
-    /// Expected: Transitions to restartRequired after wipe.
+    /// Expected: Transitions to restartRequired after wipe, no sync attempt.
     @Test func confirmSwitchDespiteUnsyncedDataCompletesSwitch() async throws {
         let authManager = AuthManager(service: MockAuthService())
-        let container = try ModelContainerFactory.makeInMemory()
-        let syncEngine = SyncEngine(
-            client: nil,
-            modelContainer: container,
-            authManager: authManager,
-            networkMonitor: MockNetworkMonitor(),
-            deviceId: UUID(),
-            isSyncEnabled: false
-        )
+        let (syncEngine, container) = try makeSyncEngine(authManager: authManager)
 
         let mutation = DataModel.SyncMutation(
             entityType: "tasks",
@@ -160,15 +145,7 @@ struct EnvironmentSwitchCoordinatorTests {
     /// Expected: Returns to idle without wiping.
     @Test func cancelSwitchReturnsToIdle() async throws {
         let authManager = AuthManager(service: MockAuthService())
-        let container = try ModelContainerFactory.makeInMemory()
-        let syncEngine = SyncEngine(
-            client: nil,
-            modelContainer: container,
-            authManager: authManager,
-            networkMonitor: MockNetworkMonitor(),
-            deviceId: UUID(),
-            isSyncEnabled: false
-        )
+        let (syncEngine, container) = try makeSyncEngine(authManager: authManager)
 
         let mutation = DataModel.SyncMutation(
             entityType: "tasks",
@@ -213,18 +190,10 @@ struct EnvironmentSwitchCoordinatorTests {
     // MARK: - isInProgress
 
     /// Conditions: Various phases.
-    /// Expected: isInProgress is true during waitingForSync, syncing, and pendingConfirmation; false for idle and restartRequired.
+    /// Expected: isInProgress is true only during pendingConfirmation.
     @Test func isInProgressCorrectForPhases() async throws {
         let authManager = AuthManager(service: MockAuthService())
-        let container = try ModelContainerFactory.makeInMemory()
-        let syncEngine = SyncEngine(
-            client: nil,
-            modelContainer: container,
-            authManager: authManager,
-            networkMonitor: MockNetworkMonitor(),
-            deviceId: UUID(),
-            isSyncEnabled: false
-        )
+        let (syncEngine, container) = try makeSyncEngine(authManager: authManager)
 
         let mutation = DataModel.SyncMutation(
             entityType: "tasks",
@@ -282,5 +251,55 @@ struct EnvironmentSwitchCoordinatorTests {
 
         #expect(coordinator.phase == .restartRequired)
         #expect(wiper.wipeAllCallCount == 1)
+    }
+
+    // MARK: - Sync-enabled engine with empty outbox
+
+    /// Conditions: Sync engine with sync enabled but empty outbox.
+    /// Expected: Skips to restartRequired (no sync attempt).
+    @Test func beginSwitchSyncEnabledEmptyOutboxGoesToRestartRequired() async throws {
+        let authManager = AuthManager(service: MockAuthService())
+        let (syncEngine, _) = try makeSyncEngine(authManager: authManager, isSyncEnabled: true)
+        let wiper = MockStoreWiper()
+        let coordinator = EnvironmentSwitchCoordinator(
+            authManager: authManager,
+            syncEngine: syncEngine,
+            storeWiper: wiper
+        )
+
+        await coordinator.beginSwitch(to: .development)
+
+        #expect(coordinator.phase == .restartRequired)
+        #expect(wiper.wipeAllCallCount == 1)
+    }
+
+    // MARK: - Sync-enabled engine with non-empty outbox
+
+    /// Conditions: Sync engine with sync enabled and pending outbox mutations.
+    /// Expected: Transitions to pendingConfirmation (no sync attempt).
+    @Test func beginSwitchSyncEnabledNonEmptyOutboxGoesToPendingConfirmation() async throws {
+        let authManager = AuthManager(service: MockAuthService())
+        let (syncEngine, container) = try makeSyncEngine(authManager: authManager, isSyncEnabled: true)
+
+        let mutation = DataModel.SyncMutation(
+            entityType: "tasks",
+            entityId: UUID(),
+            operation: "create",
+            recordData: Data()
+        )
+        container.mainContext.insert(mutation)
+        try container.mainContext.save()
+
+        let wiper = MockStoreWiper()
+        let coordinator = EnvironmentSwitchCoordinator(
+            authManager: authManager,
+            syncEngine: syncEngine,
+            storeWiper: wiper
+        )
+
+        await coordinator.beginSwitch(to: .development)
+
+        #expect(coordinator.phase == .pendingConfirmation(outboxCount: 1))
+        #expect(wiper.wipeAllCallCount == 0)
     }
 }
