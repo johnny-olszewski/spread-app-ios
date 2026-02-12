@@ -3,12 +3,13 @@ import Observation
 
 /// Coordinates the environment switching flow.
 ///
-/// Handles the multi-step process of switching data environments:
-/// 1. Wait for running sync to complete
-/// 2. Attempt final sync push
-/// 3. Warn if sync failed with pending outbox data
-/// 4. Sign out and wipe local store
-/// 5. Mark restart as required
+/// Handles the process of switching data environments:
+/// 1. Check outbox for unsynced data
+/// 2. Warn if non-empty and require explicit confirmation
+/// 3. Sign out, wipe local store, and mark restart required
+///
+/// Does not attempt sync — only checks outbox count. The user accepts
+/// data loss when confirming a switch with pending outbox data.
 @Observable
 @MainActor
 final class EnvironmentSwitchCoordinator {
@@ -19,10 +20,6 @@ final class EnvironmentSwitchCoordinator {
     enum Phase: Equatable {
         /// No switch in progress.
         case idle
-        /// Waiting for running sync to complete.
-        case waitingForSync
-        /// Attempting final sync push.
-        case syncing
         /// Showing warning about unsynced data.
         case pendingConfirmation(outboxCount: Int)
         /// Switch completed, restart required.
@@ -34,7 +31,8 @@ final class EnvironmentSwitchCoordinator {
 
     /// Whether a switch is currently in progress.
     var isInProgress: Bool {
-        phase != .idle && phase != .restartRequired
+        if case .pendingConfirmation = phase { return true }
+        return false
     }
 
     // MARK: - Dependencies
@@ -59,57 +57,32 @@ final class EnvironmentSwitchCoordinator {
 
     /// Initiates the environment switch flow.
     ///
+    /// Checks the outbox for unsynced data. If non-empty, transitions to
+    /// `pendingConfirmation` so the user can confirm data loss. If empty
+    /// (or no sync engine), proceeds directly to wipe and restart.
+    ///
     /// - Parameter targetEnvironment: The environment to switch to.
     func beginSwitch(to targetEnvironment: DataEnvironment) async {
         guard phase == .idle else { return }
 
-        guard let syncEngine else {
-            await completeSwitch(to: targetEnvironment)
-            return
-        }
-
-        if syncEngine.status == .localOnly {
+        if let syncEngine {
             syncEngine.refreshOutboxCount()
             let outboxCount = syncEngine.outboxCount
             if outboxCount > 0 {
                 phase = .pendingConfirmation(outboxCount: outboxCount)
                 return
             }
-
-            await completeSwitch(to: targetEnvironment)
-            return
         }
 
-        // Wait for running sync
-        if syncEngine.status == .syncing {
-            phase = .waitingForSync
-            await waitForSyncCompletion(syncEngine)
-        }
-
-        // Attempt final sync
-        phase = .syncing
-        await syncEngine.syncNow()
-        syncEngine.refreshOutboxCount()
-
-        // Check if there's unsynced data
-        let outboxCount = syncEngine.outboxCount
-        if outboxCount > 0 {
-            // Sync failed or blocked with pending data - warn user
-            phase = .pendingConfirmation(outboxCount: outboxCount)
-            return
-        }
-
-        // No sync concerns or sync succeeded - proceed with switch
         await completeSwitch(to: targetEnvironment)
     }
 
     /// Confirms the switch despite unsynced data.
     ///
     /// Called when user acknowledges the warning about pending outbox data.
+    /// Proceeds directly to wipe without attempting sync.
     func confirmSwitchDespiteUnsyncedData(to targetEnvironment: DataEnvironment) async {
         guard case .pendingConfirmation = phase else { return }
-        phase = .syncing
-        await syncEngine?.syncNow()
         await completeSwitch(to: targetEnvironment)
     }
 
@@ -125,19 +98,6 @@ final class EnvironmentSwitchCoordinator {
     }
 
     // MARK: - Private
-
-    private func waitForSyncCompletion(_ syncEngine: SyncEngine) async {
-        // Poll until sync completes (with timeout)
-        let timeout: TimeInterval = 30
-        let start = Date()
-
-        while syncEngine.status == .syncing {
-            if Date().timeIntervalSince(start) > timeout {
-                break
-            }
-            try? await Task.sleep(for: .milliseconds(100))
-        }
-    }
 
     private func completeSwitch(to targetEnvironment: DataEnvironment) async {
         // Sign out if signed in
