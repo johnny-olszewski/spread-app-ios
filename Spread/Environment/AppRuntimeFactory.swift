@@ -1,18 +1,18 @@
 import OSLog
 import Supabase
 
-/// Central factory for building an application session.
+/// Central factory for building an app runtime.
 ///
 /// Handles launch-time wipe checks, dependency container creation,
 /// and consistent service wiring for auth, sync, and journal state.
-enum SessionFactory {
-    private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "AppSessionFactory")
+enum AppRuntimeFactory {
+    private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "AppRuntimeFactory")
 
-    /// Creates a live session for app runtime.
+    /// Creates a live runtime for app launch.
     ///
     /// - Parameter configuration: Optional overrides for debug/QA builds.
     @MainActor
-    static func makeLive(configuration: SessionConfiguration = SessionConfiguration()) async throws -> AppSession {
+    static func makeLive(configuration: AppRuntimeConfiguration = AppRuntimeConfiguration()) async throws -> AppRuntime {
         let currentEnvironment = DataEnvironment.current
 
         if DataEnvironment.requiresWipeOnLaunch(current: currentEnvironment) {
@@ -29,7 +29,7 @@ enum SessionFactory {
         let container = try DependencyContainer.makeForLive(
             makeNetworkMonitor: configuration.makeNetworkMonitor
         )
-        let session = try await makeSession(
+        let runtime = try await makeRuntime(
             container: container,
             environment: currentEnvironment,
             configuration: configuration
@@ -38,10 +38,10 @@ enum SessionFactory {
         DataEnvironment.markAsLastUsed(currentEnvironment)
         logger.info("App initialized with environment: \(currentEnvironment.rawValue, privacy: .public)")
 
-        return session
+        return runtime
     }
 
-    /// Creates a session from an injected container (previews/tests).
+    /// Creates a runtime from an injected container (previews/tests).
     ///
     /// - Parameters:
     ///   - container: The dependency container to use.
@@ -49,10 +49,10 @@ enum SessionFactory {
     @MainActor
     static func make(
         container: DependencyContainer,
-        configuration: SessionConfiguration = SessionConfiguration()
-    ) async throws -> AppSession {
+        configuration: AppRuntimeConfiguration = AppRuntimeConfiguration()
+    ) async throws -> AppRuntime {
         let currentEnvironment = DataEnvironment.current
-        return try await makeSession(
+        return try await makeRuntime(
             container: container,
             environment: currentEnvironment,
             configuration: configuration
@@ -62,11 +62,11 @@ enum SessionFactory {
     // MARK: - Private
 
     @MainActor
-    private static func makeSession(
+    private static func makeRuntime(
         container: DependencyContainer,
         environment: DataEnvironment,
-        configuration: SessionConfiguration
-    ) async throws -> AppSession {
+        configuration: AppRuntimeConfiguration
+    ) async throws -> AppRuntime {
         let authService = configuration.makeAuthService?(container) ?? SupabaseAuthService()
         let authManager = AuthManager(service: authService)
 
@@ -92,7 +92,7 @@ enum SessionFactory {
         coordinator.wireAuthCallbacks()
         await coordinator.handleInitialAuthState()
 
-        return AppSession(
+        return AppRuntime(
             container: container,
             journalManager: journalManager,
             authManager: authManager,
@@ -107,7 +107,7 @@ enum SessionFactory {
         container: DependencyContainer,
         authManager: AuthManager,
         environment: DataEnvironment,
-        configuration: SessionConfiguration
+        configuration: AppRuntimeConfiguration
     ) -> SyncEngine {
         let client: SupabaseClient? = environment.syncEnabled
             ? SupabaseClient(
