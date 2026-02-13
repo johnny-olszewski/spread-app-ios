@@ -187,7 +187,7 @@
 - Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
 - Sync status and error feedback are visible (including a distinct "no backup entitlement" state); CloudKit is no longer required.
 
-### [SPRD-102] Refactor (Highest Priority): Runtime naming normalization, phases 1-4
+### [SPRD-102] Refactor (Highest Priority): Runtime naming normalization, phases 1-4 - [x]
 - **Context**: Naming in app bootstrap/runtime code is overloaded (`session`, `environment`, `container`) and conflicts with auth session terminology.
 - **Description**: Apply the naming normalization pass for phases 1-4 to make runtime assembly concepts explicit and reserve `session` for auth only.
 - **Implementation Details**:
