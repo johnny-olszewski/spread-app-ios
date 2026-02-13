@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Observation
 
 /// Central coordinator for journal data and operations.
@@ -13,6 +14,8 @@ import Observation
 final class JournalManager {
 
     // MARK: - Properties
+
+    private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "JournalManager")
 
     /// The calendar used for date calculations.
     let calendar: Calendar
@@ -496,6 +499,11 @@ final class JournalManager {
                 try await assignNoteToSpread(note, spread: spread)
             }
         }
+        if !entries.isEmpty {
+            Self.logger.info(
+                "Inbox resolved: \(entries.count) entry(ies) assigned to \(spread.period.rawValue) spread"
+            )
+        }
     }
 
     /// Creates an assignment for a task on the given spread.
@@ -507,6 +515,7 @@ final class JournalManager {
         )
         task.assignments.append(assignment)
         try await taskRepository.save(task)
+        Self.logger.info("Assignment created: task \(task.id) → \(spread.period.rawValue) spread")
     }
 
     /// Creates an assignment for a note on the given spread.
@@ -518,6 +527,7 @@ final class JournalManager {
         )
         note.assignments.append(assignment)
         try await noteRepository.save(note)
+        Self.logger.info("Assignment created: note \(note.id) → \(spread.period.rawValue) spread")
     }
 
     // MARK: - Task Migration
@@ -578,6 +588,9 @@ final class JournalManager {
 
         // Persist changes
         try await taskRepository.save(task)
+        Self.logger.info(
+            "Migration performed: task \(task.id) from \(source.period.rawValue) to \(destination.period.rawValue)"
+        )
 
         // Reload tasks to ensure state is synchronized
         tasks = await taskRepository.getTasks()
@@ -640,6 +653,9 @@ final class JournalManager {
 
         // Persist changes
         try await noteRepository.save(note)
+        Self.logger.info(
+            "Migration performed: note \(note.id) from \(source.period.rawValue) to \(destination.period.rawValue)"
+        )
 
         // Reload notes to ensure state is synchronized
         notes = await noteRepository.getNotes()
@@ -714,6 +730,10 @@ final class JournalManager {
 
         // Only update state if we actually migrated something
         if migratedAny {
+            Self.logger.info(
+                "Batch migration performed: \(tasks.count) task(s) from \(source.period.rawValue) to \(destination.period.rawValue)"
+            )
+
             // Reload tasks to ensure state is synchronized
             self.tasks = await taskRepository.getTasks()
 
@@ -813,6 +833,7 @@ final class JournalManager {
 
         // Delete spread from repository
         try await spreadRepository.delete(spread)
+        Self.logger.info("Spread deleted: \(spread.period.rawValue) spread \(spread.id)")
 
         // Remove spread from local list
         spreads.removeAll { $0.id == spread.id }
@@ -997,6 +1018,12 @@ final class JournalManager {
 
         // Add to local list
         tasks.append(task)
+
+        if task.assignments.isEmpty {
+            Self.logger.debug("Task created: \(task.id) '\(task.title)' → Inbox (no matching spread)")
+        } else {
+            Self.logger.debug("Task created: \(task.id) '\(task.title)' → \(task.period.rawValue) spread")
+        }
 
         // Rebuild data model and trigger UI update
         buildDataModel()
