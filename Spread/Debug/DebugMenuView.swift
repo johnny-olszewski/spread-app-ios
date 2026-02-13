@@ -39,7 +39,7 @@ struct DebugMenuView: View {
     @State private var successMessage = ""
 
     // Environment switch state
-    @State private var switchCoordinator: EnvironmentSwitchCoordinator?
+    @State private var switchCoordinator: DataEnvironmentSwitchCoordinator?
     @State private var pendingTargetEnvironment: DataEnvironment?
     @State private var showProdConfirmation = false
     @State private var prodConfirmationText = ""
@@ -204,7 +204,7 @@ struct DebugMenuView: View {
     private func initializeSwitchCoordinator() {
         guard switchCoordinator == nil else { return }
         let wiper = SwiftDataStoreWiper(modelContainer: container.modelContainer)
-        switchCoordinator = EnvironmentSwitchCoordinator(
+        switchCoordinator = DataEnvironmentSwitchCoordinator(
             authManager: authManager,
             syncEngine: syncEngine,
             storeWiper: wiper

@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Coordinates the environment switching flow.
+/// Coordinates the data environment switching flow.
 ///
 /// Handles the process of switching data environments:
 /// 1. Check outbox for unsynced data
@@ -12,7 +12,7 @@ import Observation
 /// data loss when confirming a switch with pending outbox data.
 @Observable
 @MainActor
-final class EnvironmentSwitchCoordinator {
+final class DataEnvironmentSwitchCoordinator {
 
     // MARK: - State
 
