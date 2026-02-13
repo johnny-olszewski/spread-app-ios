@@ -124,11 +124,11 @@ struct RootNavigationViewTests {
     /// Expected: The resolved layout type is sidebar.
     @MainActor
     @Test func testRootNavigationViewUsesSidebarLayoutOverride() throws {
-        let container = try DependencyContainer.makeForPreview()
+        let dependencies = try AppDependencies.makeForPreview()
         let view = RootNavigationView(
             journalManager: .previewInstance,
             authManager: .makeForPreview(),
-            container: container,
+            dependencies: dependencies,
             layoutOverride: .sidebar
         )
 
@@ -139,11 +139,11 @@ struct RootNavigationViewTests {
     /// Expected: The resolved layout type is tabBar.
     @MainActor
     @Test func testRootNavigationViewUsesTabBarLayoutOverride() throws {
-        let container = try DependencyContainer.makeForPreview()
+        let dependencies = try AppDependencies.makeForPreview()
         let view = RootNavigationView(
             journalManager: .previewInstance,
             authManager: .makeForPreview(),
-            container: container,
+            dependencies: dependencies,
             layoutOverride: .tabBar
         )
 
