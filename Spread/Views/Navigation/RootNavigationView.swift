@@ -20,8 +20,8 @@ struct RootNavigationView: View {
     /// The auth manager for handling authentication.
     let authManager: AuthManager
 
-    /// The dependency container for app-wide services.
-    let container: DependencyContainer
+    /// The app dependencies for app-wide services.
+    let dependencies: AppDependencies
 
     /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
@@ -40,7 +40,7 @@ struct RootNavigationView: View {
     /// - Parameters:
     ///   - journalManager: The journal manager for app data.
     ///   - authManager: The auth manager for authentication.
-    ///   - container: The dependency container for app services.
+    ///   - dependencies: The app dependencies for app services.
     ///   - syncEngine: The sync engine (nil in previews/tests).
     ///   - onRestartRequired: Callback for soft restart after environment switch.
     ///   - makeDebugMenuView: Optional factory for the debug menu view.
@@ -48,7 +48,7 @@ struct RootNavigationView: View {
     init(
         journalManager: JournalManager,
         authManager: AuthManager,
-        container: DependencyContainer,
+        dependencies: AppDependencies,
         syncEngine: SyncEngine? = nil,
         onRestartRequired: (() -> Void)? = nil,
         makeDebugMenuView: DebugMenuViewFactory? = nil,
@@ -56,7 +56,7 @@ struct RootNavigationView: View {
     ) {
         self.journalManager = journalManager
         self.authManager = authManager
-        self.container = container
+        self.dependencies = dependencies
         self.syncEngine = syncEngine
         self.onRestartRequired = onRestartRequired
         self.makeDebugMenuView = makeDebugMenuView
@@ -77,7 +77,7 @@ struct RootNavigationView: View {
                 SidebarNavigationView(
                     journalManager: journalManager,
                     authManager: authManager,
-                    container: container,
+                    dependencies: dependencies,
                     syncEngine: syncEngine,
                     onRestartRequired: onRestartRequired,
                     makeDebugMenuView: makeDebugMenuView
@@ -86,7 +86,7 @@ struct RootNavigationView: View {
                 TabNavigationView(
                     journalManager: journalManager,
                     authManager: authManager,
-                    container: container,
+                    dependencies: dependencies,
                     syncEngine: syncEngine,
                     onRestartRequired: onRestartRequired,
                     makeDebugMenuView: makeDebugMenuView
@@ -104,7 +104,7 @@ struct RootNavigationView: View {
     RootNavigationView(
         journalManager: .previewInstance,
         authManager: .makeForPreview(),
-        container: try! .makeForPreview()
+        dependencies: try! .makeForPreview()
     )
     .environment(\.horizontalSizeClass, .regular)
 }
@@ -113,7 +113,7 @@ struct RootNavigationView: View {
     RootNavigationView(
         journalManager: .previewInstance,
         authManager: .makeForPreview(),
-        container: try! .makeForPreview()
+        dependencies: try! .makeForPreview()
     )
     .environment(\.horizontalSizeClass, .compact)
 }
