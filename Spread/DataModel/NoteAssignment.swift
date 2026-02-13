@@ -10,4 +10,7 @@ struct NoteAssignment: Codable, Hashable, AssignmentMatchable {
 
     /// The status of the note on this spread.
     var status: DataModel.Note.Status
+
+    /// LWW timestamp for the `status` field.
+    var statusUpdatedAt: Date?
 }
