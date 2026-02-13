@@ -15,8 +15,8 @@ struct TabNavigationView: View {
     /// The auth manager for handling authentication.
     let authManager: AuthManager
 
-    /// The dependency container for app-wide services.
-    let container: DependencyContainer
+    /// The app dependencies for app-wide services.
+    let dependencies: AppDependencies
 
     /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
@@ -90,7 +90,7 @@ struct TabNavigationView: View {
     @ViewBuilder
     private var debugMenuView: some View {
         if let view = makeDebugMenuView?(
-            container, journalManager, authManager, syncEngine, onRestartRequired
+            dependencies, journalManager, authManager, syncEngine, onRestartRequired
         ) {
             view
         } else {
@@ -120,7 +120,7 @@ struct TabNavigationView: View {
     TabNavigationView(
         journalManager: .previewInstance,
         authManager: .makeForPreview(),
-        container: try! .makeForPreview(),
+        dependencies: try! .makeForPreview(),
         syncEngine: nil,
         makeDebugMenuView: nil
     )

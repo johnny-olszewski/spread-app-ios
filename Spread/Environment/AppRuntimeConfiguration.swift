@@ -7,7 +7,7 @@ import Foundation
 /// Passed as a value through the factory chain — no global mutable state.
 struct AppRuntimeConfiguration {
     /// Override auth service creation (e.g., DebugAuthService wrapping Mock/Supabase).
-    var makeAuthService: ((DependencyContainer) -> AuthService)?
+    var makeAuthService: ((AppDependencies) -> AuthService)?
 
     /// Override sync policy selection (e.g., DebugSyncPolicy).
     var makeSyncPolicy: (() -> SyncPolicy)?

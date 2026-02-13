@@ -15,10 +15,10 @@ struct ContentView: View {
 
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "ContentView")
 
-    private let containerOverride: DependencyContainer?
+    private let dependenciesOverride: AppDependencies?
 
-    init(container: DependencyContainer? = nil) {
-        self.containerOverride = container
+    init(dependencies: AppDependencies? = nil) {
+        self.dependenciesOverride = dependencies
     }
 
     var body: some View {
@@ -27,7 +27,7 @@ struct ContentView: View {
                 RootNavigationView(
                     journalManager: runtime.journalManager,
                     authManager: runtime.authManager,
-                    container: runtime.container,
+                    dependencies: runtime.dependencies,
                     syncEngine: runtime.syncEngine,
                     onRestartRequired: restartApp,
                     makeDebugMenuView: runtime.makeDebugMenuView
@@ -89,8 +89,8 @@ struct ContentView: View {
 
     private func initializeApp() async {
         do {
-            if let containerOverride {
-                runtime = try await AppRuntimeBootstrapFactory.make(container: containerOverride)
+            if let dependenciesOverride {
+                runtime = try await AppRuntimeBootstrapFactory.make(dependencies: dependenciesOverride)
             } else {
                 runtime = try await AppRuntimeBootstrapFactory.makeLive()
             }
@@ -102,5 +102,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(container: try! .makeForPreview())
+    ContentView(dependencies: try! .makeForPreview())
 }
