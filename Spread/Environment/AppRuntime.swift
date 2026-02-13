@@ -15,7 +15,7 @@ struct AppRuntime {
     let journalManager: JournalManager
     let authManager: AuthManager
     let syncEngine: SyncEngine
-    let coordinator: AuthLifecycleCoordinator
+    let authCoordinator: AuthLifecycleCoordinator
 
     /// Optional factory for constructing the debug menu view.
     ///

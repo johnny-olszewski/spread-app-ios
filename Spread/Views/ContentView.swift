@@ -42,20 +42,20 @@ struct ContentView: View {
         .alert(
             "Local Data Found",
             isPresented: Binding(
-                get: { runtime?.coordinator.isShowingMigrationPrompt ?? false },
+                get: { runtime?.authCoordinator.isShowingMigrationPrompt ?? false },
                 set: { newValue in
-                    if !newValue { runtime?.coordinator.isShowingMigrationPrompt = false }
+                    if !newValue { runtime?.authCoordinator.isShowingMigrationPrompt = false }
                 }
             )
         ) {
             Button("Merge into Account") {
                 Task {
-                    await runtime?.coordinator.handleMigrationDecision(.merge)
+                    await runtime?.authCoordinator.handleMigrationDecision(.merge)
                 }
             }
             Button("Discard Local Data", role: .destructive) {
                 Task {
-                    await runtime?.coordinator.handleMigrationDecision(.discard)
+                    await runtime?.authCoordinator.handleMigrationDecision(.discard)
                 }
             }
         } message: {
