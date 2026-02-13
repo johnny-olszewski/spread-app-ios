@@ -45,3 +45,11 @@ struct EmptyCollectionRepository: CollectionRepository {
     func save(_ collection: DataModel.Collection) async throws {}
     func delete(_ collection: DataModel.Collection) async throws {}
 }
+
+/// Empty settings repository for isolated testing.
+///
+/// Returns nil and no-ops for all operations.
+struct EmptySettingsRepository: SettingsRepository {
+    func getSettings() async -> DataModel.Settings? { nil }
+    func save(_ settings: DataModel.Settings) async throws {}
+}

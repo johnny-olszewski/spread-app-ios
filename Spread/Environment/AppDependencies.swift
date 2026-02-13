@@ -35,6 +35,9 @@ struct AppDependencies: @unchecked Sendable {
     /// Repository for collection persistence operations.
     let collectionRepository: any CollectionRepository
 
+    /// Repository for settings persistence operations.
+    let settingsRepository: any SettingsRepository
+
     /// Network connectivity monitor.
     let networkMonitor: any NetworkMonitoring
 
@@ -63,6 +66,7 @@ struct AppDependencies: @unchecked Sendable {
             noteRepository: EmptyNoteRepository(),
             // TODO: SPRD-39 - Create SwiftDataCollectionRepository
             collectionRepository: EmptyCollectionRepository(),
+            settingsRepository: SwiftDataSettingsRepository(modelContainer: modelContainer),
             networkMonitor: makeNetworkMonitor()
         )
     }
@@ -86,6 +90,7 @@ struct AppDependencies: @unchecked Sendable {
         eventRepository: (any EventRepository)? = nil,
         noteRepository: (any NoteRepository)? = nil,
         collectionRepository: (any CollectionRepository)? = nil,
+        settingsRepository: (any SettingsRepository)? = nil,
         makeNetworkMonitor: @MainActor () -> any NetworkMonitoring = { NetworkMonitor() }
     ) throws -> AppDependencies {
         let resolvedModelContainer = try modelContainer ?? ModelContainerFactory.makeInMemory()
@@ -98,6 +103,7 @@ struct AppDependencies: @unchecked Sendable {
             eventRepository: eventRepository ?? EmptyEventRepository(),
             noteRepository: noteRepository ?? EmptyNoteRepository(),
             collectionRepository: collectionRepository ?? EmptyCollectionRepository(),
+            settingsRepository: settingsRepository ?? EmptySettingsRepository(),
             networkMonitor: makeNetworkMonitor()
         )
     }
@@ -124,6 +130,7 @@ struct AppDependencies: @unchecked Sendable {
             noteRepository: EmptyNoteRepository(),
             // TODO: SPRD-39 - Create MockCollectionRepository with seeded data
             collectionRepository: EmptyCollectionRepository(),
+            settingsRepository: EmptySettingsRepository(),
             networkMonitor: makeNetworkMonitor()
         )
     }
@@ -166,7 +173,8 @@ extension AppDependencies {
             spreadRepositoryType: String(describing: type(of: spreadRepository)),
             eventRepositoryType: String(describing: type(of: eventRepository)),
             noteRepositoryType: String(describing: type(of: noteRepository)),
-            collectionRepositoryType: String(describing: type(of: collectionRepository))
+            collectionRepositoryType: String(describing: type(of: collectionRepository)),
+            settingsRepositoryType: String(describing: type(of: settingsRepository))
         )
     }
 }
@@ -179,6 +187,7 @@ struct AppDependenciesDebugInfo: Sendable {
     let eventRepositoryType: String
     let noteRepositoryType: String
     let collectionRepositoryType: String
+    let settingsRepositoryType: String
 
     /// Simplified repository type name (removes "Repository" suffix for display).
     func shortTypeName(for fullName: String) -> String {
