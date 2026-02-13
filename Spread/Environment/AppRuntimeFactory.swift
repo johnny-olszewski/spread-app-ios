@@ -3,7 +3,7 @@ import Supabase
 
 /// Central factory for building an app runtime.
 ///
-/// Handles launch-time wipe checks, dependency container creation,
+/// Handles launch-time wipe checks, dependencies creation,
 /// and consistent service wiring for auth, sync, and journal state.
 enum AppRuntimeFactory {
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "AppRuntimeFactory")
@@ -19,18 +19,18 @@ enum AppRuntimeFactory {
             logger.warning(
                 "Environment mismatch detected (lastUsed: \(DataEnvironment.lastUsed?.rawValue ?? "nil", privacy: .public), current: \(currentEnvironment.rawValue, privacy: .public)). Wiping store."
             )
-            let tempContainer = try DependencyContainer.makeForLive(
+            let tempDependencies = try AppDependencies.makeForLive(
                 makeNetworkMonitor: configuration.makeNetworkMonitor
             )
-            let wiper = SwiftDataStoreWiper(modelContainer: tempContainer.modelContainer)
+            let wiper = SwiftDataStoreWiper(modelContainer: tempDependencies.modelContainer)
             try await wiper.wipeAll()
         }
 
-        let container = try DependencyContainer.makeForLive(
+        let dependencies = try AppDependencies.makeForLive(
             makeNetworkMonitor: configuration.makeNetworkMonitor
         )
         let runtime = try await makeRuntime(
-            container: container,
+            dependencies: dependencies,
             environment: currentEnvironment,
             configuration: configuration
         )
@@ -41,19 +41,19 @@ enum AppRuntimeFactory {
         return runtime
     }
 
-    /// Creates a runtime from an injected container (previews/tests).
+    /// Creates a runtime from injected dependencies (previews/tests).
     ///
     /// - Parameters:
-    ///   - container: The dependency container to use.
+    ///   - dependencies: The app dependencies to use.
     ///   - configuration: Optional overrides for debug/QA builds.
     @MainActor
     static func make(
-        container: DependencyContainer,
+        dependencies: AppDependencies,
         configuration: AppRuntimeConfiguration = AppRuntimeConfiguration()
     ) async throws -> AppRuntime {
         let currentEnvironment = DataEnvironment.current
         return try await makeRuntime(
-            container: container,
+            dependencies: dependencies,
             environment: currentEnvironment,
             configuration: configuration
         )
@@ -63,22 +63,22 @@ enum AppRuntimeFactory {
 
     @MainActor
     private static func makeRuntime(
-        container: DependencyContainer,
+        dependencies: AppDependencies,
         environment: DataEnvironment,
         configuration: AppRuntimeConfiguration
     ) async throws -> AppRuntime {
-        let authService = configuration.makeAuthService?(container) ?? SupabaseAuthService()
+        let authService = configuration.makeAuthService?(dependencies) ?? SupabaseAuthService()
         let authManager = AuthManager(service: authService)
 
         let today = configuration.resolveToday?() ?? .now
-        let journalManager = try await container.makeJournalManager(today: today)
+        let journalManager = try await dependencies.makeJournalManager(today: today)
 
         if let loadMockDataSet = configuration.loadMockDataSet {
             try await loadMockDataSet(journalManager)
         }
 
         let syncEngine = createSyncEngine(
-            container: container,
+            dependencies: dependencies,
             authManager: authManager,
             environment: environment,
             configuration: configuration
@@ -93,7 +93,7 @@ enum AppRuntimeFactory {
         await coordinator.handleInitialAuthState()
 
         return AppRuntime(
-            container: container,
+            dependencies: dependencies,
             journalManager: journalManager,
             authManager: authManager,
             syncEngine: syncEngine,
@@ -104,7 +104,7 @@ enum AppRuntimeFactory {
 
     @MainActor
     private static func createSyncEngine(
-        container: DependencyContainer,
+        dependencies: AppDependencies,
         authManager: AuthManager,
         environment: DataEnvironment,
         configuration: AppRuntimeConfiguration
@@ -120,9 +120,9 @@ enum AppRuntimeFactory {
 
         return SyncEngine(
             client: client,
-            modelContainer: container.modelContainer,
+            modelContainer: dependencies.modelContainer,
             authManager: authManager,
-            networkMonitor: container.networkMonitor,
+            networkMonitor: dependencies.networkMonitor,
             deviceId: DeviceIdManager.getOrCreateDeviceId(),
             isSyncEnabled: environment.syncEnabled,
             policy: policy

@@ -17,7 +17,7 @@ enum AppRuntimeBootstrapFactory {
     }
 
     @MainActor
-    static func make(container: DependencyContainer) async throws -> AppRuntime {
-        try await AppRuntimeFactory.make(container: container, configuration: configuration())
+    static func make(dependencies: AppDependencies) async throws -> AppRuntime {
+        try await AppRuntimeFactory.make(dependencies: dependencies, configuration: configuration())
     }
 }

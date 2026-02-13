@@ -1,17 +1,17 @@
 import Foundation
 import SwiftData
 
-/// Central container for application dependencies.
+/// Central aggregate for application dependencies.
 ///
 /// Provides environment-specific configurations for repositories and services.
-/// Use factory methods to create containers for different environments.
+/// Use factory methods to create instances for different environments.
 /// @unchecked Sendable: All stored properties are `let` and their concrete types are Sendable,
 /// but the existential `any XRepository` wrappers prevent the compiler from verifying this automatically.
-struct DependencyContainer: @unchecked Sendable {
+struct AppDependencies: @unchecked Sendable {
 
     // MARK: - Properties
 
-    /// A label describing the container's configuration (e.g. "live", "testing", "preview").
+    /// A label describing the configuration (e.g. "live", "testing", "preview").
     let configurationLabel: String
 
     /// Whether data is stored in memory only (not persisted to disk).
@@ -40,18 +40,18 @@ struct DependencyContainer: @unchecked Sendable {
 
     // MARK: - Factory Methods
 
-    /// Creates a dependency container for live app use.
+    /// Creates app dependencies for live app use.
     ///
     /// - Parameter makeNetworkMonitor: Factory for creating the network monitor.
-    /// - Returns: A configured dependency container.
-    /// - Throws: An error if container creation fails.
+    /// - Returns: Configured app dependencies.
+    /// - Throws: An error if model container creation fails.
     @MainActor
     static func makeForLive(
         makeNetworkMonitor: @MainActor () -> any NetworkMonitoring = { NetworkMonitor() }
-    ) throws -> DependencyContainer {
+    ) throws -> AppDependencies {
         let modelContainer = try ModelContainerFactory.makePersistent()
 
-        return DependencyContainer(
+        return AppDependencies(
             configurationLabel: "live",
             isStoredInMemoryOnly: false,
             modelContainer: modelContainer,
@@ -67,7 +67,7 @@ struct DependencyContainer: @unchecked Sendable {
         )
     }
 
-    /// Creates a dependency container for testing with custom repositories.
+    /// Creates app dependencies for testing with custom repositories.
     ///
     /// - Parameters:
     ///   - modelContainer: Optional custom model container. If nil, creates an in-memory container.
@@ -76,7 +76,7 @@ struct DependencyContainer: @unchecked Sendable {
     ///   - eventRepository: Custom event repository implementation.
     ///   - noteRepository: Custom note repository implementation.
     ///   - collectionRepository: Custom collection repository implementation.
-    /// - Returns: A configured dependency container for testing.
+    /// - Returns: Configured app dependencies for testing.
     /// - Throws: An error if model container creation fails.
     @MainActor
     static func make(
@@ -87,12 +87,12 @@ struct DependencyContainer: @unchecked Sendable {
         noteRepository: (any NoteRepository)? = nil,
         collectionRepository: (any CollectionRepository)? = nil,
         makeNetworkMonitor: @MainActor () -> any NetworkMonitoring = { NetworkMonitor() }
-    ) throws -> DependencyContainer {
-        let container = try modelContainer ?? ModelContainerFactory.makeInMemory()
-        return DependencyContainer(
+    ) throws -> AppDependencies {
+        let resolvedModelContainer = try modelContainer ?? ModelContainerFactory.makeInMemory()
+        return AppDependencies(
             configurationLabel: "testing",
             isStoredInMemoryOnly: true,
-            modelContainer: container,
+            modelContainer: resolvedModelContainer,
             taskRepository: taskRepository ?? EmptyTaskRepository(),
             spreadRepository: spreadRepository ?? EmptySpreadRepository(),
             eventRepository: eventRepository ?? EmptyEventRepository(),
@@ -102,17 +102,17 @@ struct DependencyContainer: @unchecked Sendable {
         )
     }
 
-    /// Creates a dependency container for SwiftUI previews.
+    /// Creates app dependencies for SwiftUI previews.
     ///
     /// Uses mock data seeded repositories for realistic preview content.
-    /// - Returns: A configured dependency container for previews.
+    /// - Returns: Configured app dependencies for previews.
     /// - Throws: An error if model container creation fails.
     @MainActor
     static func makeForPreview(
         makeNetworkMonitor: @MainActor () -> any NetworkMonitoring = { NetworkMonitor() }
-    ) throws -> DependencyContainer {
+    ) throws -> AppDependencies {
         let modelContainer = try ModelContainerFactory.makeInMemory()
-        return DependencyContainer(
+        return AppDependencies(
             configurationLabel: "preview",
             isStoredInMemoryOnly: true,
             modelContainer: modelContainer,
@@ -130,7 +130,7 @@ struct DependencyContainer: @unchecked Sendable {
 
     // MARK: - Service Factory Methods
 
-    /// Creates a JournalManager configured with this container's repositories.
+    /// Creates a JournalManager configured with these dependencies' repositories.
     ///
     /// - Parameters:
     ///   - calendar: The calendar for date calculations (defaults to current).
@@ -157,10 +157,10 @@ struct DependencyContainer: @unchecked Sendable {
 
 // MARK: - Debug Information
 
-extension DependencyContainer {
-    /// A summary of the container configuration for debugging.
-    var debugSummary: DependencyContainerDebugInfo {
-        DependencyContainerDebugInfo(
+extension AppDependencies {
+    /// A summary of the dependencies configuration for debugging.
+    var debugSummary: AppDependenciesDebugInfo {
+        AppDependenciesDebugInfo(
             environment: configurationLabel,
             taskRepositoryType: String(describing: type(of: taskRepository)),
             spreadRepositoryType: String(describing: type(of: spreadRepository)),
@@ -171,8 +171,8 @@ extension DependencyContainer {
     }
 }
 
-/// Debug information about a DependencyContainer's configuration.
-struct DependencyContainerDebugInfo: Sendable {
+/// Debug information about an AppDependencies configuration.
+struct AppDependenciesDebugInfo: Sendable {
     let environment: String
     let taskRepositoryType: String
     let spreadRepositoryType: String

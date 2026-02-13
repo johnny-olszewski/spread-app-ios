@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Closure that constructs the debug menu view, threaded through the view hierarchy.
 typealias DebugMenuViewFactory = (
-    DependencyContainer,
+    AppDependencies,
     JournalManager,
     AuthManager,
     SyncEngine?,
@@ -11,7 +11,7 @@ typealias DebugMenuViewFactory = (
 
 /// Aggregates app-level services created for a running app runtime.
 struct AppRuntime {
-    let container: DependencyContainer
+    let dependencies: AppDependencies
     let journalManager: JournalManager
     let authManager: AuthManager
     let syncEngine: SyncEngine

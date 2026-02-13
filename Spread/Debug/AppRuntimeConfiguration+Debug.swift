@@ -8,11 +8,11 @@ extension AppRuntimeConfiguration {
     /// a production dependency with a debug-controllable equivalent.
     static func debug() -> AppRuntimeConfiguration {
         AppRuntimeConfiguration(
-            makeAuthService: { container in
+            makeAuthService: { dependencies in
                 let base: AuthService = DataEnvironment.current.isLocalOnly
                     ? MockAuthService()
                     : SupabaseAuthService()
-                return DebugAuthService(wrapping: base, networkMonitor: container.networkMonitor)
+                return DebugAuthService(wrapping: base, networkMonitor: dependencies.networkMonitor)
             },
             makeSyncPolicy: {
                 DebugSyncPolicy()
@@ -25,10 +25,10 @@ extension AppRuntimeConfiguration {
                     try await journalManager.loadMockDataSet(dataSet)
                 }
             },
-            makeDebugMenuView: { container, journalManager, authManager, syncEngine, onRestartRequired in
+            makeDebugMenuView: { dependencies, journalManager, authManager, syncEngine, onRestartRequired in
                 AnyView(
                     DebugMenuView(
-                        container: container,
+                        dependencies: dependencies,
                         journalManager: journalManager,
                         authManager: authManager,
                         syncEngine: syncEngine,

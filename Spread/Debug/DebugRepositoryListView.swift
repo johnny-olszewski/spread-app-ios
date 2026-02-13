@@ -38,7 +38,7 @@ enum DebugRepositoryType: String, CaseIterable, Identifiable {
 /// Only available in DEBUG builds.
 struct DebugRepositoryListView: View {
     let repositoryType: DebugRepositoryType
-    let container: DependencyContainer
+    let dependencies: AppDependencies
 
     @State private var tasks: [DataModel.Task] = []
     @State private var spreads: [DataModel.Spread] = []
@@ -357,15 +357,15 @@ struct DebugRepositoryListView: View {
 
         switch repositoryType {
         case .tasks:
-            tasks = await container.taskRepository.getTasks()
+            tasks = await dependencies.taskRepository.getTasks()
         case .spreads:
-            spreads = await container.spreadRepository.getSpreads()
+            spreads = await dependencies.spreadRepository.getSpreads()
         case .events:
-            events = await container.eventRepository.getEvents()
+            events = await dependencies.eventRepository.getEvents()
         case .notes:
-            notes = await container.noteRepository.getNotes()
+            notes = await dependencies.noteRepository.getNotes()
         case .collections:
-            collections = await container.collectionRepository.getCollections()
+            collections = await dependencies.collectionRepository.getCollections()
         }
 
         isLoading = false
@@ -376,7 +376,7 @@ struct DebugRepositoryListView: View {
     NavigationStack {
         DebugRepositoryListView(
             repositoryType: .tasks,
-            container: try! .makeForPreview()
+            dependencies: try! .makeForPreview()
         )
     }
 }
@@ -385,7 +385,7 @@ struct DebugRepositoryListView: View {
     NavigationStack {
         DebugRepositoryListView(
             repositoryType: .spreads,
-            container: try! .makeForPreview()
+            dependencies: try! .makeForPreview()
         )
     }
 }
