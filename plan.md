@@ -187,6 +187,59 @@
 - Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
 - Sync status and error feedback are visible (including a distinct "no backup entitlement" state); CloudKit is no longer required.
 
+### [SPRD-102] Refactor (Highest Priority): Runtime naming normalization, phases 1-4
+- **Context**: Naming in app bootstrap/runtime code is overloaded (`session`, `environment`, `container`) and conflicts with auth session terminology.
+- **Description**: Apply the naming normalization pass for phases 1-4 to make runtime assembly concepts explicit and reserve `session` for auth only.
+- **Implementation Details**:
+  - Phase 1: Core type renames in `Spread/Environment/`
+    - `AppSession` -> `AppRuntime`
+    - `SessionConfiguration` -> `AppRuntimeConfiguration`
+    - `SessionFactory` -> `AppRuntimeFactory`
+    - `AppSessionFactory` -> `AppRuntimeBootstrapFactory` (or equivalent shim name)
+  - Phase 2: Call-site renames for clarity
+    - `ContentView` local state and identifiers updated from `session` naming to `runtime` naming
+    - Factory call sites updated to runtime names
+    - Inline comments/docs updated to runtime terminology
+  - Phase 3: Debug configuration wiring rename
+    - `SessionConfiguration+Debug.swift` -> `AppRuntimeConfiguration+Debug.swift`
+    - Extension and constructors renamed to match runtime configuration terminology
+  - Phase 4: Reduce environment naming ambiguity
+    - `EnvironmentSwitchCoordinator` -> `DataEnvironmentSwitchCoordinator`
+    - Related symbols/labels/docs updated to explicitly reference DataEnvironment switching
+- **Acceptance Criteria**:
+  - No bootstrap/runtime symbol uses `Session*` naming except auth session concepts.
+  - `ContentView` and runtime factories use consistent `runtime` terminology.
+  - Debug runtime configuration path compiles and behaves identically to current behavior.
+  - Data environment switching symbols are explicitly named around `DataEnvironment`.
+- **Tests**:
+  - Existing tests continue to pass with renamed symbols.
+  - Add/adjust tests only where symbol names changed and test fixtures require updates.
+- **Dependencies**: None
+
+### [SPRD-103] Refactor (Highest Priority): Runtime naming normalization, phase 5+
+- **Context**: After phases 1-4, DI and surrounding terminology still contain ambiguous `container`/`dependency` naming that can be improved in a second pass.
+- **Description**: Complete phase 5+ naming cleanup for DI/runtime vocabulary and downstream consistency updates.
+- **Implementation Details**:
+  - Phase 5: Optional DI naming pass
+    - `DependencyContainer` -> `AppDependencies` (or `AppDependencyGraph`, choose one and apply consistently)
+    - Call sites and parameter labels renamed from `container` to `dependencies` where this refers to the DI aggregate
+    - Keep `ModelContainer` naming unchanged where it refers specifically to SwiftData
+  - Phase 6: Test/docs/log alignment
+    - Rename impacted test files/symbols under `SpreadTests/Environment`, `SpreadTests/Views`, and `SpreadTests/Services`
+    - Update logger categories and comments referencing old runtime/session naming
+    - Run symbol sweep for stale identifiers and remove leftovers
+  - Phase 7: Validation checklist execution
+    - Confirm app launch path, preview path, and environment-switch flow remain behaviorally unchanged
+    - Confirm auth terminology still uses `session` exclusively for auth provider/user session concepts
+- **Acceptance Criteria**:
+  - DI aggregate naming is consistent and no longer overloaded with runtime/auth terms.
+  - `ModelContainer` remains clearly distinct from DI aggregate naming.
+  - No stale references to old runtime/session/container naming remain in production code or tests.
+- **Tests**:
+  - Full test suite passes after rename ripple updates.
+  - Add targeted regression tests only if required by renamed API surfaces.
+- **Dependencies**: SPRD-102
+
 ### [SPRD-98] Feature: Immediate push on commit (not per keystroke)
 - **Context**: Sync should be automatic without excessive per-keystroke calls.
 - **Description**: Attempt a sync push when a user explicitly saves a change (Save/Done).
@@ -2271,5 +2324,4 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit: coordinator transitions — empty outbox skips to `restartRequired`; non-empty outbox goes to `pendingConfirmation`.
   - Unit: verify launch-time wipe logic calls `StoreWiper.wipeAll()` when `requiresWipeOnLaunch` returns true (if extractable into a testable function).
 - **Dependencies**: SPRD-96
-
 
