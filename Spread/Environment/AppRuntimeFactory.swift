@@ -1,36 +1,36 @@
 import OSLog
 import Supabase
 
-/// Central factory for building an application session.
+/// Central factory for building an app runtime.
 ///
-/// Handles launch-time wipe checks, dependency container creation,
+/// Handles launch-time wipe checks, dependencies creation,
 /// and consistent service wiring for auth, sync, and journal state.
-enum SessionFactory {
-    private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "AppSessionFactory")
+enum AppRuntimeFactory {
+    private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "AppRuntimeFactory")
 
-    /// Creates a live session for app runtime.
+    /// Creates a live runtime for app launch.
     ///
     /// - Parameter configuration: Optional overrides for debug/QA builds.
     @MainActor
-    static func makeLive(configuration: SessionConfiguration = SessionConfiguration()) async throws -> AppSession {
+    static func makeLive(configuration: AppRuntimeConfiguration = AppRuntimeConfiguration()) async throws -> AppRuntime {
         let currentEnvironment = DataEnvironment.current
 
         if DataEnvironment.requiresWipeOnLaunch(current: currentEnvironment) {
             logger.warning(
                 "Environment mismatch detected (lastUsed: \(DataEnvironment.lastUsed?.rawValue ?? "nil", privacy: .public), current: \(currentEnvironment.rawValue, privacy: .public)). Wiping store."
             )
-            let tempContainer = try DependencyContainer.makeForLive(
+            let tempDependencies = try AppDependencies.makeForLive(
                 makeNetworkMonitor: configuration.makeNetworkMonitor
             )
-            let wiper = SwiftDataStoreWiper(modelContainer: tempContainer.modelContainer)
+            let wiper = SwiftDataStoreWiper(modelContainer: tempDependencies.modelContainer)
             try await wiper.wipeAll()
         }
 
-        let container = try DependencyContainer.makeForLive(
+        let dependencies = try AppDependencies.makeForLive(
             makeNetworkMonitor: configuration.makeNetworkMonitor
         )
-        let session = try await makeSession(
-            container: container,
+        let runtime = try await makeRuntime(
+            dependencies: dependencies,
             environment: currentEnvironment,
             configuration: configuration
         )
@@ -38,22 +38,22 @@ enum SessionFactory {
         DataEnvironment.markAsLastUsed(currentEnvironment)
         logger.info("App initialized with environment: \(currentEnvironment.rawValue, privacy: .public)")
 
-        return session
+        return runtime
     }
 
-    /// Creates a session from an injected container (previews/tests).
+    /// Creates a runtime from injected dependencies (previews/tests).
     ///
     /// - Parameters:
-    ///   - container: The dependency container to use.
+    ///   - dependencies: The app dependencies to use.
     ///   - configuration: Optional overrides for debug/QA builds.
     @MainActor
     static func make(
-        container: DependencyContainer,
-        configuration: SessionConfiguration = SessionConfiguration()
-    ) async throws -> AppSession {
+        dependencies: AppDependencies,
+        configuration: AppRuntimeConfiguration = AppRuntimeConfiguration()
+    ) async throws -> AppRuntime {
         let currentEnvironment = DataEnvironment.current
-        return try await makeSession(
-            container: container,
+        return try await makeRuntime(
+            dependencies: dependencies,
             environment: currentEnvironment,
             configuration: configuration
         )
@@ -62,23 +62,23 @@ enum SessionFactory {
     // MARK: - Private
 
     @MainActor
-    private static func makeSession(
-        container: DependencyContainer,
+    private static func makeRuntime(
+        dependencies: AppDependencies,
         environment: DataEnvironment,
-        configuration: SessionConfiguration
-    ) async throws -> AppSession {
-        let authService = configuration.makeAuthService?(container) ?? SupabaseAuthService()
+        configuration: AppRuntimeConfiguration
+    ) async throws -> AppRuntime {
+        let authService = configuration.makeAuthService?(dependencies) ?? SupabaseAuthService()
         let authManager = AuthManager(service: authService)
 
         let today = configuration.resolveToday?() ?? .now
-        let journalManager = try await container.makeJournalManager(today: today)
+        let journalManager = try await dependencies.makeJournalManager(today: today)
 
         if let loadMockDataSet = configuration.loadMockDataSet {
             try await loadMockDataSet(journalManager)
         }
 
         let syncEngine = createSyncEngine(
-            container: container,
+            dependencies: dependencies,
             authManager: authManager,
             environment: environment,
             configuration: configuration
@@ -92,22 +92,22 @@ enum SessionFactory {
         coordinator.wireAuthCallbacks()
         await coordinator.handleInitialAuthState()
 
-        return AppSession(
-            container: container,
+        return AppRuntime(
+            dependencies: dependencies,
             journalManager: journalManager,
             authManager: authManager,
             syncEngine: syncEngine,
-            coordinator: coordinator,
+            authCoordinator: coordinator,
             makeDebugMenuView: configuration.makeDebugMenuView
         )
     }
 
     @MainActor
     private static func createSyncEngine(
-        container: DependencyContainer,
+        dependencies: AppDependencies,
         authManager: AuthManager,
         environment: DataEnvironment,
-        configuration: SessionConfiguration
+        configuration: AppRuntimeConfiguration
     ) -> SyncEngine {
         let client: SupabaseClient? = environment.syncEnabled
             ? SupabaseClient(
@@ -120,9 +120,9 @@ enum SessionFactory {
 
         return SyncEngine(
             client: client,
-            modelContainer: container.modelContainer,
+            modelContainer: dependencies.modelContainer,
             authManager: authManager,
-            networkMonitor: container.networkMonitor,
+            networkMonitor: dependencies.networkMonitor,
             deviceId: DeviceIdManager.getOrCreateDeviceId(),
             isSyncEnabled: environment.syncEnabled,
             policy: policy

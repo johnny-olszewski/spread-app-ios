@@ -3,59 +3,59 @@ import SwiftUI
 
 /// Root view for the Spread app.
 ///
-/// Handles async session initialization and displays the appropriate
+/// Handles async runtime initialization and displays the appropriate
 /// navigation shell once ready. Shows a loading state during initialization.
 /// Auth lifecycle logic is delegated to `AuthLifecycleCoordinator`.
 ///
 /// Supports soft restart for environment switching: calling `restartApp()` nils
-/// out the session and bumps `appSessionId` to re-trigger `.task(id:)`.
+/// out the runtime and bumps `appRuntimeId` to re-trigger `.task(id:)`.
 struct ContentView: View {
-    @State private var session: AppSession?
-    @State private var appSessionId = UUID()
+    @State private var runtime: AppRuntime?
+    @State private var appRuntimeId = UUID()
 
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "ContentView")
 
-    private let containerOverride: DependencyContainer?
+    private let dependenciesOverride: AppDependencies?
 
-    init(container: DependencyContainer? = nil) {
-        self.containerOverride = container
+    init(dependencies: AppDependencies? = nil) {
+        self.dependenciesOverride = dependencies
     }
 
     var body: some View {
         Group {
-            if let session {
+            if let runtime {
                 RootNavigationView(
-                    journalManager: session.journalManager,
-                    authManager: session.authManager,
-                    container: session.container,
-                    syncEngine: session.syncEngine,
+                    journalManager: runtime.journalManager,
+                    authManager: runtime.authManager,
+                    dependencies: runtime.dependencies,
+                    syncEngine: runtime.syncEngine,
                     onRestartRequired: restartApp,
-                    makeDebugMenuView: session.makeDebugMenuView
+                    makeDebugMenuView: runtime.makeDebugMenuView
                 )
             } else {
                 loadingView
             }
         }
-        .task(id: appSessionId) {
+        .task(id: appRuntimeId) {
             await initializeApp()
         }
         .alert(
             "Local Data Found",
             isPresented: Binding(
-                get: { session?.coordinator.isShowingMigrationPrompt ?? false },
+                get: { runtime?.authCoordinator.isShowingMigrationPrompt ?? false },
                 set: { newValue in
-                    if !newValue { session?.coordinator.isShowingMigrationPrompt = false }
+                    if !newValue { runtime?.authCoordinator.isShowingMigrationPrompt = false }
                 }
             )
         ) {
             Button("Merge into Account") {
                 Task {
-                    await session?.coordinator.handleMigrationDecision(.merge)
+                    await runtime?.authCoordinator.handleMigrationDecision(.merge)
                 }
             }
             Button("Discard Local Data", role: .destructive) {
                 Task {
-                    await session?.coordinator.handleMigrationDecision(.discard)
+                    await runtime?.authCoordinator.handleMigrationDecision(.discard)
                 }
             }
         } message: {
@@ -75,32 +75,32 @@ struct ContentView: View {
 
     // MARK: - Soft Restart
 
-    /// Tears down the session and re-triggers app initialization.
+    /// Tears down the runtime and re-triggers app initialization.
     ///
     /// Called after an environment switch to rebuild the service graph
     /// with fresh instances bound to the new data environment.
     private func restartApp() {
         Self.logger.info("Soft restart initiated")
-        session = nil
-        appSessionId = UUID()
+        runtime = nil
+        appRuntimeId = UUID()
     }
 
     // MARK: - Initialization
 
     private func initializeApp() async {
         do {
-            if let containerOverride {
-                session = try await AppSessionFactory.make(container: containerOverride)
+            if let dependenciesOverride {
+                runtime = try await AppRuntimeBootstrapFactory.make(dependencies: dependenciesOverride)
             } else {
-                session = try await AppSessionFactory.makeLive()
+                runtime = try await AppRuntimeBootstrapFactory.makeLive()
             }
         } catch {
             // TODO: SPRD-45 - Add error handling UI for initialization failures
-            fatalError("Failed to initialize app session: \(error)")
+            fatalError("Failed to initialize app runtime: \(error)")
         }
     }
 }
 
 #Preview {
-    ContentView(container: try! .makeForPreview())
+    ContentView(dependencies: try! .makeForPreview())
 }

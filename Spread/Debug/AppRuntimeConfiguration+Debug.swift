@@ -1,18 +1,18 @@
 #if DEBUG
 import SwiftUI
 
-extension SessionConfiguration {
+extension AppRuntimeConfiguration {
     /// Creates a configuration with debug overrides for auth, sync, mock data, and network.
     ///
-    /// Called by `AppSessionFactory` in debug builds. Each closure wraps or replaces
+    /// Called by `AppRuntimeBootstrapFactory` in debug builds. Each closure wraps or replaces
     /// a production dependency with a debug-controllable equivalent.
-    static func debug() -> SessionConfiguration {
-        SessionConfiguration(
-            makeAuthService: { container in
+    static func debug() -> AppRuntimeConfiguration {
+        AppRuntimeConfiguration(
+            makeAuthService: { dependencies in
                 let base: AuthService = DataEnvironment.current.isLocalOnly
                     ? MockAuthService()
                     : SupabaseAuthService()
-                return DebugAuthService(wrapping: base, networkMonitor: container.networkMonitor)
+                return DebugAuthService(wrapping: base, networkMonitor: dependencies.networkMonitor)
             },
             makeSyncPolicy: {
                 DebugSyncPolicy()
@@ -25,10 +25,10 @@ extension SessionConfiguration {
                     try await journalManager.loadMockDataSet(dataSet)
                 }
             },
-            makeDebugMenuView: { container, journalManager, authManager, syncEngine, onRestartRequired in
+            makeDebugMenuView: { dependencies, journalManager, authManager, syncEngine, onRestartRequired in
                 AnyView(
                     DebugMenuView(
-                        container: container,
+                        dependencies: dependencies,
                         journalManager: journalManager,
                         authManager: authManager,
                         syncEngine: syncEngine,

@@ -2,19 +2,19 @@
 import SwiftUI
 import struct Auth.User
 
-/// Debug menu for inspecting environment, container, and app state.
+/// Debug menu for inspecting environment, dependencies, and app state.
 ///
 /// Provides grouped sections for:
 /// - Environment switcher with safe switch flow
 /// - Current DataEnvironment and Supabase configuration
-/// - Dependency container summary
+/// - App dependencies summary
 /// - Mock data sets loader with overwrite + reload behavior
 ///
 /// Only available in DEBUG builds. Accessible as a navigation destination
 /// via the Debug tab (iPhone) or sidebar item (iPad).
 struct DebugMenuView: View {
-    /// The dependency container for inspecting repository types.
-    let container: DependencyContainer
+    /// The app dependencies for inspecting repository types.
+    let dependencies: AppDependencies
 
     /// The journal manager for loading mock data sets.
     ///
@@ -39,7 +39,7 @@ struct DebugMenuView: View {
     @State private var successMessage = ""
 
     // Environment switch state
-    @State private var switchCoordinator: EnvironmentSwitchCoordinator?
+    @State private var switchCoordinator: DataEnvironmentSwitchCoordinator?
     @State private var pendingTargetEnvironment: DataEnvironment?
     @State private var showProdConfirmation = false
     @State private var prodConfirmationText = ""
@@ -48,7 +48,7 @@ struct DebugMenuView: View {
     @State private var showRestartRequired = false
 
     private var blockAllNetworkBinding: Binding<Bool> {
-        guard let debugMonitor = container.networkMonitor as? DebugNetworkMonitor else {
+        guard let debugMonitor = dependencies.networkMonitor as? DebugNetworkMonitor else {
             return .constant(false)
         }
         return Binding(
@@ -203,8 +203,8 @@ struct DebugMenuView: View {
 
     private func initializeSwitchCoordinator() {
         guard switchCoordinator == nil else { return }
-        let wiper = SwiftDataStoreWiper(modelContainer: container.modelContainer)
-        switchCoordinator = EnvironmentSwitchCoordinator(
+        let wiper = SwiftDataStoreWiper(modelContainer: dependencies.modelContainer)
+        switchCoordinator = DataEnvironmentSwitchCoordinator(
             authManager: authManager,
             syncEngine: syncEngine,
             storeWiper: wiper
@@ -290,7 +290,7 @@ struct DebugMenuView: View {
                 if let lastSync = syncEngine.lastSyncDate {
                     LabeledContent("Last Sync", value: lastSync.formatted(date: .abbreviated, time: .shortened))
                 }
-                LabeledContent("Network", value: container.networkMonitor.isConnected ? "Connected" : "Disconnected")
+                LabeledContent("Network", value: dependencies.networkMonitor.isConnected ? "Connected" : "Disconnected")
                 Toggle("Block Network", isOn: blockAllNetworkBinding)
                 Button("Sync Now") {
                     Task {
@@ -323,7 +323,7 @@ struct DebugMenuView: View {
 
     private var dependenciesSection: some View {
         Section {
-            let info = container.debugSummary
+            let info = dependencies.debugSummary
             repositoryLink(
                 type: .tasks,
                 implementationName: info.shortTypeName(for: info.taskRepositoryType)
@@ -353,7 +353,7 @@ struct DebugMenuView: View {
 
     private func repositoryLink(type: DebugRepositoryType, implementationName: String) -> some View {
         NavigationLink {
-            DebugRepositoryListView(repositoryType: type, container: container)
+            DebugRepositoryListView(repositoryType: type, dependencies: dependencies)
         } label: {
             LabeledContent(type.title, value: implementationName)
         }
@@ -477,7 +477,7 @@ struct DebugMenuView: View {
 #Preview {
     NavigationStack {
         DebugMenuView(
-            container: try! .makeForPreview(),
+            dependencies: try! .makeForPreview(),
             journalManager: .previewInstance,
             authManager: .makeForPreview(),
             syncEngine: nil

@@ -4,7 +4,7 @@ import Testing
 @testable import Spread
 
 @MainActor
-struct EnvironmentSwitchCoordinatorTests {
+struct DataEnvironmentSwitchCoordinatorTests {
 
     // MARK: - Test Helpers
 
@@ -12,13 +12,13 @@ struct EnvironmentSwitchCoordinatorTests {
         syncEngine: SyncEngine? = nil,
         storeWiper: MockStoreWiper? = nil
     ) -> (
-        coordinator: EnvironmentSwitchCoordinator,
+        coordinator: DataEnvironmentSwitchCoordinator,
         authManager: AuthManager,
         storeWiper: MockStoreWiper
     ) {
         let authManager = AuthManager(service: MockAuthService())
         let wiper = storeWiper ?? MockStoreWiper()
-        let coordinator = EnvironmentSwitchCoordinator(
+        let coordinator = DataEnvironmentSwitchCoordinator(
             authManager: authManager,
             syncEngine: syncEngine,
             storeWiper: wiper
@@ -64,7 +64,7 @@ struct EnvironmentSwitchCoordinatorTests {
         let authManager = AuthManager(service: MockAuthService())
         let (syncEngine, _) = try makeSyncEngine(authManager: authManager)
         let wiper = MockStoreWiper()
-        let coordinator = EnvironmentSwitchCoordinator(
+        let coordinator = DataEnvironmentSwitchCoordinator(
             authManager: authManager,
             syncEngine: syncEngine,
             storeWiper: wiper
@@ -94,7 +94,7 @@ struct EnvironmentSwitchCoordinatorTests {
         try container.mainContext.save()
 
         let wiper = MockStoreWiper()
-        let coordinator = EnvironmentSwitchCoordinator(
+        let coordinator = DataEnvironmentSwitchCoordinator(
             authManager: authManager,
             syncEngine: syncEngine,
             storeWiper: wiper
@@ -124,7 +124,7 @@ struct EnvironmentSwitchCoordinatorTests {
         try container.mainContext.save()
 
         let wiper = MockStoreWiper()
-        let coordinator = EnvironmentSwitchCoordinator(
+        let coordinator = DataEnvironmentSwitchCoordinator(
             authManager: authManager,
             syncEngine: syncEngine,
             storeWiper: wiper
@@ -157,7 +157,7 @@ struct EnvironmentSwitchCoordinatorTests {
         try container.mainContext.save()
 
         let wiper = MockStoreWiper()
-        let coordinator = EnvironmentSwitchCoordinator(
+        let coordinator = DataEnvironmentSwitchCoordinator(
             authManager: authManager,
             syncEngine: syncEngine,
             storeWiper: wiper
@@ -205,7 +205,7 @@ struct EnvironmentSwitchCoordinatorTests {
         try container.mainContext.save()
 
         let wiper = MockStoreWiper()
-        let coordinator = EnvironmentSwitchCoordinator(
+        let coordinator = DataEnvironmentSwitchCoordinator(
             authManager: authManager,
             syncEngine: syncEngine,
             storeWiper: wiper
@@ -261,7 +261,7 @@ struct EnvironmentSwitchCoordinatorTests {
         let authManager = AuthManager(service: MockAuthService())
         let (syncEngine, _) = try makeSyncEngine(authManager: authManager, isSyncEnabled: true)
         let wiper = MockStoreWiper()
-        let coordinator = EnvironmentSwitchCoordinator(
+        let coordinator = DataEnvironmentSwitchCoordinator(
             authManager: authManager,
             syncEngine: syncEngine,
             storeWiper: wiper
@@ -291,7 +291,7 @@ struct EnvironmentSwitchCoordinatorTests {
         try container.mainContext.save()
 
         let wiper = MockStoreWiper()
-        let coordinator = EnvironmentSwitchCoordinator(
+        let coordinator = DataEnvironmentSwitchCoordinator(
             authManager: authManager,
             syncEngine: syncEngine,
             storeWiper: wiper
