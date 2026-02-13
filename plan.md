@@ -216,7 +216,7 @@
   - Add/adjust tests only where symbol names changed and test fixtures require updates.
 - **Dependencies**: None
 
-### [SPRD-103] Refactor (Highest Priority): Runtime naming normalization, phase 5+
+### [SPRD-103] Refactor (Highest Priority): Runtime naming normalization, phase 5+ - [x]
 - **Context**: After phases 1-4, DI and surrounding terminology still contain ambiguous `container`/`dependency` naming that can be improved in a second pass.
 - **Description**: Complete phase 5+ naming cleanup for DI/runtime vocabulary and downstream consistency updates.
 - **Implementation Details**:
