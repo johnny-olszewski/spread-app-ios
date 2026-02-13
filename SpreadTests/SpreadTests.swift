@@ -4,11 +4,11 @@ import Testing
 @MainActor
 struct SpreadTests {
 
-    /// Conditions: Create a testing DependencyContainer and instantiate ContentView with it.
+    /// Conditions: Create a testing AppDependencies and instantiate ContentView with it.
     /// Expected: ContentView should successfully instantiate and have a non-nil body.
     @Test func testContentViewInstantiates() throws {
-        let container = try DependencyContainer.make()
-        let view = ContentView(container: container)
+        let dependencies = try AppDependencies.make()
+        let view = ContentView(dependencies: dependencies)
         #expect(view.body != nil)
     }
 }

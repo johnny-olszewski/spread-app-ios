@@ -3,100 +3,100 @@ import Testing
 @testable import Spread
 
 @MainActor
-struct DependencyContainerTests {
+struct AppDependenciesTests {
 
     // MARK: - Factory Method Tests
 
-    /// Conditions: Create container using live factory method.
-    /// Expected: Container should have "live" configuration label and persistent storage.
+    /// Conditions: Create dependencies using live factory method.
+    /// Expected: Dependencies should have "live" configuration label and persistent storage.
     @Test @MainActor func testMakeForLiveSetsLiveConfiguration() throws {
-        let container = try DependencyContainer.makeForLive()
+        let dependencies = try AppDependencies.makeForLive()
 
-        #expect(container.configurationLabel == "live")
-        #expect(container.isStoredInMemoryOnly == false)
+        #expect(dependencies.configurationLabel == "live")
+        #expect(dependencies.isStoredInMemoryOnly == false)
     }
 
-    /// Conditions: Create container using preview factory method.
-    /// Expected: Container should have "preview" configuration label and in-memory storage.
+    /// Conditions: Create dependencies using preview factory method.
+    /// Expected: Dependencies should have "preview" configuration label and in-memory storage.
     @Test @MainActor func testMakeForPreviewSetsPreviewConfiguration() throws {
-        let container = try DependencyContainer.makeForPreview()
+        let dependencies = try AppDependencies.makeForPreview()
 
-        #expect(container.configurationLabel == "preview")
-        #expect(container.isStoredInMemoryOnly == true)
+        #expect(dependencies.configurationLabel == "preview")
+        #expect(dependencies.isStoredInMemoryOnly == true)
     }
 
-    /// Conditions: Create container using testing factory method.
-    /// Expected: Container should have "testing" configuration label and in-memory storage.
+    /// Conditions: Create dependencies using testing factory method.
+    /// Expected: Dependencies should have "testing" configuration label and in-memory storage.
     @Test func testMakeForTestingSetsTestingConfiguration() throws {
-        let container = try DependencyContainer.make()
+        let dependencies = try AppDependencies.make()
 
-        #expect(container.configurationLabel == "testing")
-        #expect(container.isStoredInMemoryOnly == true)
+        #expect(dependencies.configurationLabel == "testing")
+        #expect(dependencies.isStoredInMemoryOnly == true)
     }
 
     // MARK: - Repository Injection Tests
 
-    /// Conditions: Create testing container with no custom repositories.
+    /// Conditions: Create testing dependencies with no custom repositories.
     /// Expected: Should use empty repository implementations for all repositories.
     @Test func testMakeForTestingUsesDefaultEmptyRepositories() throws {
-        let container = try DependencyContainer.make()
+        let dependencies = try AppDependencies.make()
 
-        #expect(container.taskRepository is EmptyTaskRepository)
-        #expect(container.spreadRepository is EmptySpreadRepository)
-        #expect(container.eventRepository is EmptyEventRepository)
-        #expect(container.noteRepository is EmptyNoteRepository)
-        #expect(container.collectionRepository is EmptyCollectionRepository)
+        #expect(dependencies.taskRepository is EmptyTaskRepository)
+        #expect(dependencies.spreadRepository is EmptySpreadRepository)
+        #expect(dependencies.eventRepository is EmptyEventRepository)
+        #expect(dependencies.noteRepository is EmptyNoteRepository)
+        #expect(dependencies.collectionRepository is EmptyCollectionRepository)
     }
 
-    /// Conditions: Create testing container with custom task repository.
-    /// Expected: Container should use the injected task repository.
+    /// Conditions: Create testing dependencies with custom task repository.
+    /// Expected: Dependencies should use the injected task repository.
     @Test func testMakeForTestingAcceptsCustomTaskRepository() throws {
         let customRepo = StubTaskRepository()
-        let container = try DependencyContainer.make(taskRepository: customRepo)
+        let dependencies = try AppDependencies.make(taskRepository: customRepo)
 
-        #expect(container.taskRepository is StubTaskRepository)
+        #expect(dependencies.taskRepository is StubTaskRepository)
     }
 
-    /// Conditions: Create testing container with custom spread repository.
-    /// Expected: Container should use the injected spread repository.
+    /// Conditions: Create testing dependencies with custom spread repository.
+    /// Expected: Dependencies should use the injected spread repository.
     @Test func testMakeForTestingAcceptsCustomSpreadRepository() throws {
         let customRepo = StubSpreadRepository()
-        let container = try DependencyContainer.make(spreadRepository: customRepo)
+        let dependencies = try AppDependencies.make(spreadRepository: customRepo)
 
-        #expect(container.spreadRepository is StubSpreadRepository)
+        #expect(dependencies.spreadRepository is StubSpreadRepository)
     }
 
-    /// Conditions: Create testing container with custom event repository.
-    /// Expected: Container should use the injected event repository.
+    /// Conditions: Create testing dependencies with custom event repository.
+    /// Expected: Dependencies should use the injected event repository.
     @Test func testMakeForTestingAcceptsCustomEventRepository() throws {
         let customRepo = StubEventRepository()
-        let container = try DependencyContainer.make(eventRepository: customRepo)
+        let dependencies = try AppDependencies.make(eventRepository: customRepo)
 
-        #expect(container.eventRepository is StubEventRepository)
+        #expect(dependencies.eventRepository is StubEventRepository)
     }
 
-    /// Conditions: Create testing container with custom note repository.
-    /// Expected: Container should use the injected note repository.
+    /// Conditions: Create testing dependencies with custom note repository.
+    /// Expected: Dependencies should use the injected note repository.
     @Test func testMakeForTestingAcceptsCustomNoteRepository() throws {
         let customRepo = StubNoteRepository()
-        let container = try DependencyContainer.make(noteRepository: customRepo)
+        let dependencies = try AppDependencies.make(noteRepository: customRepo)
 
-        #expect(container.noteRepository is StubNoteRepository)
+        #expect(dependencies.noteRepository is StubNoteRepository)
     }
 
-    /// Conditions: Create testing container with custom collection repository.
-    /// Expected: Container should use the injected collection repository.
+    /// Conditions: Create testing dependencies with custom collection repository.
+    /// Expected: Dependencies should use the injected collection repository.
     @Test func testMakeForTestingAcceptsCustomCollectionRepository() throws {
         let customRepo = StubCollectionRepository()
-        let container = try DependencyContainer.make(collectionRepository: customRepo)
+        let dependencies = try AppDependencies.make(collectionRepository: customRepo)
 
-        #expect(container.collectionRepository is StubCollectionRepository)
+        #expect(dependencies.collectionRepository is StubCollectionRepository)
     }
 
-    /// Conditions: Create testing container with all custom repositories.
-    /// Expected: Container should use all injected repositories.
+    /// Conditions: Create testing dependencies with all custom repositories.
+    /// Expected: Dependencies should use all injected repositories.
     @Test func testMakeForTestingAcceptsAllCustomRepositories() throws {
-        let container = try DependencyContainer.make(
+        let dependencies = try AppDependencies.make(
             taskRepository: StubTaskRepository(),
             spreadRepository: StubSpreadRepository(),
             eventRepository: StubEventRepository(),
@@ -104,29 +104,29 @@ struct DependencyContainerTests {
             collectionRepository: StubCollectionRepository()
         )
 
-        #expect(container.taskRepository is StubTaskRepository)
-        #expect(container.spreadRepository is StubSpreadRepository)
-        #expect(container.eventRepository is StubEventRepository)
-        #expect(container.noteRepository is StubNoteRepository)
-        #expect(container.collectionRepository is StubCollectionRepository)
+        #expect(dependencies.taskRepository is StubTaskRepository)
+        #expect(dependencies.spreadRepository is StubSpreadRepository)
+        #expect(dependencies.eventRepository is StubEventRepository)
+        #expect(dependencies.noteRepository is StubNoteRepository)
+        #expect(dependencies.collectionRepository is StubCollectionRepository)
     }
 
     // MARK: - Debug Summary Tests
 
-    /// Conditions: Create testing container and access debug summary.
+    /// Conditions: Create testing dependencies and access debug summary.
     /// Expected: Debug summary should report "testing" environment.
     @Test func testDebugSummaryReturnsEnvironment() throws {
-        let container = try DependencyContainer.make()
-        let summary = container.debugSummary
+        let dependencies = try AppDependencies.make()
+        let summary = dependencies.debugSummary
 
         #expect(summary.environment == "testing")
     }
 
-    /// Conditions: Create testing container with default repositories.
+    /// Conditions: Create testing dependencies with default repositories.
     /// Expected: Debug summary should report Empty repository types.
     @Test func testDebugSummaryReturnsRepositoryTypes() throws {
-        let container = try DependencyContainer.make()
-        let summary = container.debugSummary
+        let dependencies = try AppDependencies.make()
+        let summary = dependencies.debugSummary
 
         #expect(summary.taskRepositoryType == "EmptyTaskRepository")
         #expect(summary.spreadRepositoryType == "EmptySpreadRepository")
@@ -138,7 +138,7 @@ struct DependencyContainerTests {
     /// Conditions: Debug info with various repository type names.
     /// Expected: shortTypeName should strip "Repository" suffix from type names.
     @Test func testShortTypeNameRemovesRepositorySuffix() {
-        let summary = DependencyContainerDebugInfo(
+        let summary = AppDependenciesDebugInfo(
             environment: "testing",
             taskRepositoryType: "EmptyTaskRepository",
             spreadRepositoryType: "SwiftDataSpreadRepository",
