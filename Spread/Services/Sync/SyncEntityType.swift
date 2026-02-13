@@ -3,6 +3,7 @@
 /// Entity types define the push ordering (parents before children) and
 /// map to the corresponding merge RPC function on the server.
 enum SyncEntityType: String, CaseIterable, Codable, Sendable {
+    case settings = "settings"
     case spread = "spreads"
     case task = "tasks"
     case note = "notes"
@@ -13,6 +14,7 @@ enum SyncEntityType: String, CaseIterable, Codable, Sendable {
     /// The merge RPC function name on the server.
     var mergeRPCName: String {
         switch self {
+        case .settings: "merge_settings"
         case .spread: "merge_spread"
         case .task: "merge_task"
         case .note: "merge_note"
@@ -24,11 +26,11 @@ enum SyncEntityType: String, CaseIterable, Codable, Sendable {
 
     /// Push/pull ordering priority (lower = pushed first).
     ///
-    /// Parents must be pushed before children to satisfy foreign key constraints.
-    /// Spreads go first, then standalone entities, then assignments.
+    /// Settings and spreads go first (no dependencies), then standalone
+    /// entities, then assignments (depend on parent entities).
     var syncOrder: Int {
         switch self {
-        case .spread: 0
+        case .settings, .spread: 0
         case .task, .note, .collection: 1
         case .taskAssignment, .noteAssignment: 2
         }

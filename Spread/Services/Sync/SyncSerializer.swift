@@ -39,6 +39,44 @@ enum SyncDateFormatting {
 
 // MARK: - Merge RPC Parameter Types
 
+/// Parameters for the `merge_settings` RPC.
+struct MergeSettingsParams: Encodable, Sendable {
+    let pId: String
+    let pUserId: String
+    let pDeviceId: String
+    let pBujoMode: String
+    let pFirstWeekday: Int
+    let pCreatedAt: String
+    let pDeletedAt: String?
+    let pBujoModeUpdatedAt: String
+    let pFirstWeekdayUpdatedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case pId = "p_id"
+        case pUserId = "p_user_id"
+        case pDeviceId = "p_device_id"
+        case pBujoMode = "p_bujo_mode"
+        case pFirstWeekday = "p_first_weekday"
+        case pCreatedAt = "p_created_at"
+        case pDeletedAt = "p_deleted_at"
+        case pBujoModeUpdatedAt = "p_bujo_mode_updated_at"
+        case pFirstWeekdayUpdatedAt = "p_first_weekday_updated_at"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pId, forKey: .pId)
+        try container.encode(pUserId, forKey: .pUserId)
+        try container.encode(pDeviceId, forKey: .pDeviceId)
+        try container.encode(pBujoMode, forKey: .pBujoMode)
+        try container.encode(pFirstWeekday, forKey: .pFirstWeekday)
+        try container.encode(pCreatedAt, forKey: .pCreatedAt)
+        try container.encode(pDeletedAt, forKey: .pDeletedAt)
+        try container.encode(pBujoModeUpdatedAt, forKey: .pBujoModeUpdatedAt)
+        try container.encode(pFirstWeekdayUpdatedAt, forKey: .pFirstWeekdayUpdatedAt)
+    }
+}
+
 /// Parameters for the `merge_spread` RPC.
 struct MergeSpreadParams: Encodable, Sendable {
     let pId: String
@@ -311,6 +349,24 @@ struct MergeNoteAssignmentParams: Encodable, Sendable {
 
 // MARK: - Server Row Types (Pull)
 
+/// A row from the `settings` table.
+struct ServerSettingsRow: Decodable, Sendable {
+    let id: UUID
+    let bujoMode: String
+    let firstWeekday: Int
+    let createdAt: String
+    let deletedAt: String?
+    let revision: Int64
+
+    enum CodingKeys: String, CodingKey {
+        case id, revision
+        case bujoMode = "bujo_mode"
+        case firstWeekday = "first_weekday"
+        case createdAt = "created_at"
+        case deletedAt = "deleted_at"
+    }
+}
+
 /// A row from the `spreads` table.
 struct ServerSpreadRow: Decodable, Sendable {
     let id: UUID
@@ -430,6 +486,33 @@ struct ServerNoteAssignmentRow: Decodable, Sendable {
 enum SyncSerializer {
 
     // MARK: - Push Serialization (Local → Record Data)
+
+    /// Serializes settings into JSON record data for the outbox.
+    ///
+    /// Uses the model's LWW timestamps if available, falling back to the
+    /// provided timestamp for new records.
+    static func serializeSettings(
+        _ settings: DataModel.Settings,
+        deviceId: UUID,
+        timestamp: Date
+    ) -> Data? {
+        let ts = SyncDateFormatting.formatTimestamp(timestamp)
+        let record: [String: Any?] = [
+            "id": settings.id.uuidString,
+            "device_id": deviceId.uuidString,
+            "bujo_mode": settings.bujoMode.rawValue,
+            "first_weekday": settings.firstWeekday,
+            "created_at": SyncDateFormatting.formatTimestamp(settings.createdDate),
+            "deleted_at": settings.deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
+            "bujo_mode_updated_at": settings.bujoModeUpdatedAt
+                .map { SyncDateFormatting.formatTimestamp($0) } ?? ts,
+            "first_weekday_updated_at": settings.firstWeekdayUpdatedAt
+                .map { SyncDateFormatting.formatTimestamp($0) } ?? ts
+        ]
+        return try? JSONSerialization.data(
+            withJSONObject: record.compactMapValues { $0 ?? NSNull() }
+        )
+    }
 
     /// Serializes a spread into JSON record data for the outbox.
     static func serializeSpread(
@@ -599,6 +682,26 @@ enum SyncSerializer {
         let uid = userId.uuidString
 
         switch entityType {
+        case .settings:
+            guard let id = json["id"] as? String,
+                  let deviceId = json["device_id"] as? String,
+                  let bujoMode = json["bujo_mode"] as? String,
+                  let firstWeekday = json["first_weekday"] as? Int,
+                  let createdAt = json["created_at"] as? String,
+                  let bujoModeUpdatedAt = json["bujo_mode_updated_at"] as? String,
+                  let firstWeekdayUpdatedAt = json["first_weekday_updated_at"] as? String else {
+                return nil
+            }
+            let params = MergeSettingsParams(
+                pId: id, pUserId: uid, pDeviceId: deviceId,
+                pBujoMode: bujoMode, pFirstWeekday: firstWeekday,
+                pCreatedAt: createdAt,
+                pDeletedAt: json["deleted_at"] as? String,
+                pBujoModeUpdatedAt: bujoModeUpdatedAt,
+                pFirstWeekdayUpdatedAt: firstWeekdayUpdatedAt
+            )
+            return (entityType.mergeRPCName, params)
+
         case .spread:
             guard let id = json["id"] as? String,
                   let deviceId = json["device_id"] as? String,
@@ -868,5 +971,30 @@ enum SyncSerializer {
             return nil
         }
         return NoteAssignment(period: period, date: date, status: status)
+    }
+
+    /// Applies a server settings row to a local settings model.
+    static func applySettingsRow(_ row: ServerSettingsRow, to settings: DataModel.Settings) -> Bool {
+        guard row.deletedAt == nil else { return false }
+        if let bujoMode = BujoMode(rawValue: row.bujoMode) { settings.bujoMode = bujoMode }
+        settings.firstWeekday = row.firstWeekday
+        settings.revision = row.revision
+        return true
+    }
+
+    /// Creates a new local settings from a server row.
+    static func createSettings(from row: ServerSettingsRow) -> DataModel.Settings? {
+        guard row.deletedAt == nil,
+              let bujoMode = BujoMode(rawValue: row.bujoMode),
+              let createdAt = SyncDateFormatting.parseTimestamp(row.createdAt) else {
+            return nil
+        }
+        return DataModel.Settings(
+            id: row.id,
+            bujoMode: bujoMode,
+            firstWeekday: row.firstWeekday,
+            createdDate: createdAt,
+            revision: row.revision
+        )
     }
 }
