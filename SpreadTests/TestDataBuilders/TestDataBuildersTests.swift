@@ -408,4 +408,140 @@ struct TestDataBuildersTests {
         #expect(components.day == 31)
         #expect(boundary.taskOnLastDay.status == .open)
     }
+
+    // MARK: - Leap Day Scenario
+
+    /// Conditions: Generate leap day setup with default leap year (2028).
+    /// Expected: Feb 29 day spread is on Feb 29 of a leap year.
+    @Test func leapDaySetupFeb29IsOnLeapDay() {
+        let calendar = TestDataBuilders.testCalendar
+        let leapDay = TestDataBuilders.leapDaySetup()
+        let components = calendar.dateComponents([.year, .month, .day], from: leapDay.feb29.date)
+
+        #expect(components.year == 2028)
+        #expect(components.month == 2)
+        #expect(components.day == 29)
+        #expect(leapDay.feb29.period == .day)
+    }
+
+    /// Conditions: Generate leap day setup.
+    /// Expected: Feb 28 and Mar 1 day spreads bracket the leap day.
+    @Test func leapDaySetupHasAdjacentDays() {
+        let calendar = TestDataBuilders.testCalendar
+        let leapDay = TestDataBuilders.leapDaySetup()
+
+        let feb28 = calendar.dateComponents([.month, .day], from: leapDay.feb28.date)
+        let mar1 = calendar.dateComponents([.month, .day], from: leapDay.mar1.date)
+
+        #expect(feb28.month == 2)
+        #expect(feb28.day == 28)
+        #expect(mar1.month == 3)
+        #expect(mar1.day == 1)
+    }
+
+    /// Conditions: Generate leap day setup.
+    /// Expected: February month spread is normalized to Feb 1 of the leap year.
+    @Test func leapDaySetupFebruaryMonthSpreadIsNormalized() {
+        let calendar = TestDataBuilders.testCalendar
+        let leapDay = TestDataBuilders.leapDaySetup()
+        let components = calendar.dateComponents([.year, .month, .day], from: leapDay.february.date)
+
+        #expect(leapDay.february.period == .month)
+        #expect(components.year == 2028)
+        #expect(components.month == 2)
+        #expect(components.day == 1)
+    }
+
+    /// Conditions: Generate leap day setup.
+    /// Expected: Multiday spread spans Feb 28 – Mar 1.
+    @Test func leapDaySetupMultidaySpansTransition() {
+        let calendar = TestDataBuilders.testCalendar
+        let leapDay = TestDataBuilders.leapDaySetup()
+
+        #expect(leapDay.crossLeapDayMultiday.period == .multiday)
+
+        let startComponents = calendar.dateComponents(
+            [.month, .day],
+            from: leapDay.crossLeapDayMultiday.startDate!
+        )
+        let endComponents = calendar.dateComponents(
+            [.month, .day],
+            from: leapDay.crossLeapDayMultiday.endDate!
+        )
+
+        #expect(startComponents.month == 2)
+        #expect(startComponents.day == 28)
+        #expect(endComponents.month == 3)
+        #expect(endComponents.day == 1)
+    }
+
+    /// Conditions: Generate leap day setup.
+    /// Expected: Task assigned to Feb 29 has correct date and open status.
+    @Test func leapDaySetupTaskIsOnFeb29() {
+        let calendar = TestDataBuilders.testCalendar
+        let leapDay = TestDataBuilders.leapDaySetup()
+        let components = calendar.dateComponents([.month, .day], from: leapDay.taskOnLeapDay.date)
+
+        #expect(components.month == 2)
+        #expect(components.day == 29)
+        #expect(leapDay.taskOnLeapDay.status == .open)
+        #expect(leapDay.taskOnLeapDay.assignments.count == 1)
+        #expect(leapDay.taskOnLeapDay.assignments[0].period == .day)
+    }
+
+    /// Conditions: Generate leap day setup.
+    /// Expected: Note assigned to Feb 29 has correct date and active status.
+    @Test func leapDaySetupNoteIsOnFeb29() {
+        let calendar = TestDataBuilders.testCalendar
+        let leapDay = TestDataBuilders.leapDaySetup()
+        let components = calendar.dateComponents([.month, .day], from: leapDay.noteOnLeapDay.date)
+
+        #expect(components.month == 2)
+        #expect(components.day == 29)
+        #expect(leapDay.noteOnLeapDay.status == .active)
+        #expect(leapDay.noteOnLeapDay.assignments.count == 1)
+    }
+
+    /// Conditions: Generate leap day setup with all spreads.
+    /// Expected: Returns 5 spreads (feb28, feb29, mar1, february, multiday).
+    @Test func leapDaySetupHasFiveSpreads() {
+        let leapDay = TestDataBuilders.leapDaySetup()
+
+        #expect(leapDay.allSpreads.count == 5)
+    }
+
+    /// Conditions: Generate leap day setup with custom leap year.
+    /// Expected: Dates use the specified leap year.
+    @Test func leapDaySetupWithCustomLeapYear() {
+        let calendar = TestDataBuilders.testCalendar
+        let leapDay = TestDataBuilders.leapDaySetup(leapYear: 2032)
+        let components = calendar.dateComponents([.year], from: leapDay.feb29.date)
+
+        #expect(leapDay.leapYear == 2032)
+        #expect(components.year == 2032)
+    }
+
+    /// Conditions: Date normalization on Feb 29.
+    /// Expected: normalizeDate for .day returns Feb 29 unchanged (start of day).
+    @Test func dateNormalizationOnFeb29PreservesDay() {
+        let calendar = TestDataBuilders.testCalendar
+        let feb29 = TestDataBuilders.makeDate(year: 2028, month: 2, day: 29, calendar: calendar)
+        let normalized = Period.day.normalizeDate(feb29, calendar: calendar)
+        let components = calendar.dateComponents([.month, .day], from: normalized)
+
+        #expect(components.month == 2)
+        #expect(components.day == 29)
+    }
+
+    /// Conditions: Date normalization on Feb 29 for month period.
+    /// Expected: normalizeDate for .month returns Feb 1.
+    @Test func dateNormalizationOnFeb29ForMonthReturnsFeb1() {
+        let calendar = TestDataBuilders.testCalendar
+        let feb29 = TestDataBuilders.makeDate(year: 2028, month: 2, day: 29, calendar: calendar)
+        let normalized = Period.month.normalizeDate(feb29, calendar: calendar)
+        let components = calendar.dateComponents([.month, .day], from: normalized)
+
+        #expect(components.month == 2)
+        #expect(components.day == 1)
+    }
 }
