@@ -1,11 +1,11 @@
 import Foundation
 
-/// Optional overrides for session creation behavior.
+/// Optional overrides for app runtime creation behavior.
 ///
 /// Production builds use a default configuration (all hooks nil, standard network monitor).
 /// Debug builds construct a configuration with overrides for auth, sync, mock data, etc.
 /// Passed as a value through the factory chain — no global mutable state.
-struct SessionConfiguration {
+struct AppRuntimeConfiguration {
     /// Override auth service creation (e.g., DebugAuthService wrapping Mock/Supabase).
     var makeAuthService: ((DependencyContainer) -> AuthService)?
 

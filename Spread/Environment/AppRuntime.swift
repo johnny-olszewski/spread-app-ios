@@ -9,8 +9,8 @@ typealias DebugMenuViewFactory = (
     (() -> Void)?
 ) -> AnyView
 
-/// Aggregates app-level services created for a running session.
-struct AppSession {
+/// Aggregates app-level services created for a running app runtime.
+struct AppRuntime {
     let container: DependencyContainer
     let journalManager: JournalManager
     let authManager: AuthManager
@@ -19,7 +19,7 @@ struct AppSession {
 
     /// Optional factory for constructing the debug menu view.
     ///
-    /// Non-nil in debug/QA builds where `SessionConfiguration.debug()` provides the hook.
+    /// Non-nil in debug/QA builds where `AppRuntimeConfiguration.debug()` provides the hook.
     /// Production builds leave this nil, hiding the debug tab entirely.
     let makeDebugMenuView: DebugMenuViewFactory?
 }
