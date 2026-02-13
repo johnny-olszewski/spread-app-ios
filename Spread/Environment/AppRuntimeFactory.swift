@@ -97,7 +97,7 @@ enum AppRuntimeFactory {
             journalManager: journalManager,
             authManager: authManager,
             syncEngine: syncEngine,
-            coordinator: coordinator,
+            authCoordinator: coordinator,
             makeDebugMenuView: configuration.makeDebugMenuView
         )
     }
