@@ -383,7 +383,7 @@
   - Manual: validation feedback appears correctly.
 - **Dependencies**: SPRD-84
 
-### [SPRD-47] Feature: Test data builders
+### [SPRD-47] Feature: Test data builders - [x] Complete
 - **Context**: Tests need consistent fixtures for entries and spreads.
 - **Description**: Create test data builders for entries/spreads/multiday ranges.
 - **Implementation Details**:
