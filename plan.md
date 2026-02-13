@@ -265,7 +265,7 @@
   - Manual: edit a task and tap Save; verify a sync attempt occurs.
 - **Dependencies**: SPRD-85
 
-### [SPRD-87] Feature: SwiftData model sync metadata
+### [SPRD-87] Feature: SwiftData model sync metadata - [x] Complete
 - **Context**: Local models must carry sync metadata for field-level LWW.
 - **Description**: Extend SwiftData models with sync fields and update schema.
 - **Implementation Details**:
