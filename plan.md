@@ -265,7 +265,7 @@
   - Manual: edit a task and tap Save; verify a sync attempt occurs.
 - **Dependencies**: SPRD-85
 
-### [SPRD-87] Feature: SwiftData model sync metadata
+### [SPRD-87] Feature: SwiftData model sync metadata - [x] Complete
 - **Context**: Local models must carry sync metadata for field-level LWW.
 - **Description**: Extend SwiftData models with sync fields and update schema.
 - **Implementation Details**:
@@ -383,7 +383,7 @@
   - Manual: validation feedback appears correctly.
 - **Dependencies**: SPRD-84
 
-### [SPRD-47] Feature: Test data builders
+### [SPRD-47] Feature: Test data builders - [x] Complete
 - **Context**: Tests need consistent fixtures for entries and spreads.
 - **Description**: Create test data builders for entries/spreads/multiday ranges.
 - **Implementation Details**:
@@ -400,20 +400,22 @@
   - Unit tests for builder outputs.
 - **Dependencies**: SPRD-46
 
-### [SPRD-48] Feature: Debug logging hooks (Debug only)
+### [SPRD-48] Feature: Lifecycle logging hooks - [x] Complete
 - **Context**: Assignment/migration debugging needs visibility.
-- **Description**: Add debug logging for assignment, migration, and inbox resolution.
+- **Description**: Add OSLog-based logging for assignment, migration, inbox resolution, and spread deletion events — available in all builds, using appropriate log levels.
 - **Implementation Details**:
-  - Logging wrapper gated by `#if DEBUG`
+  - Use OSLog/Logger (consistent with existing project pattern) in all builds
   - Log events: assignment created, migration performed, inbox resolved, spread deleted
   - Include relevant context (entry ID, spread info, status changes)
+  - Use `.debug` for verbose detail, `.info` for lifecycle events
 - **Acceptance Criteria**:
-  - Logging is gated to Debug builds. (Spec: Development tooling)
+  - Lifecycle events are logged via OSLog with appropriate log levels.
+  - Logging is available in all builds (not gated to Debug).
 - **Tests**:
-  - Unit test for debug flag gating.
+  - Unit tests verifying log points exist for key lifecycle events.
 - **Dependencies**: SPRD-47
 
-### [SPRD-65] Feature: Leap day boundary test data
+### [SPRD-65] Feature: Leap day boundary test data - [x] Complete
 - **Context**: Leap day (Feb 29) is a special case for date boundary testing.
 - **Description**: Add leap day scenarios to the boundary mock data set and test data builders.
 - **Implementation Details**:

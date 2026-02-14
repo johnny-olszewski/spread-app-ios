@@ -447,11 +447,11 @@ enum SyncSerializer {
             "start_date": spread.startDate.map { SyncDateFormatting.formatDate($0) },
             "end_date": spread.endDate.map { SyncDateFormatting.formatDate($0) },
             "created_at": SyncDateFormatting.formatTimestamp(spread.createdDate),
-            "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
-            "period_updated_at": ts,
-            "date_updated_at": ts,
-            "start_date_updated_at": ts,
-            "end_date_updated_at": ts
+            "deleted_at": (deletedAt ?? spread.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
+            "period_updated_at": SyncDateFormatting.formatTimestamp(spread.periodUpdatedAt ?? timestamp),
+            "date_updated_at": SyncDateFormatting.formatTimestamp(spread.dateUpdatedAt ?? timestamp),
+            "start_date_updated_at": SyncDateFormatting.formatTimestamp(spread.startDateUpdatedAt ?? timestamp),
+            "end_date_updated_at": SyncDateFormatting.formatTimestamp(spread.endDateUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(
             withJSONObject: record.compactMapValues { $0 ?? NSNull() }
@@ -465,7 +465,6 @@ enum SyncSerializer {
         timestamp: Date,
         deletedAt: Date? = nil
     ) -> Data? {
-        let ts = SyncDateFormatting.formatTimestamp(timestamp)
         let record: [String: Any?] = [
             "id": task.id.uuidString,
             "device_id": deviceId.uuidString,
@@ -474,11 +473,11 @@ enum SyncSerializer {
             "period": task.period.rawValue,
             "status": task.status.rawValue,
             "created_at": SyncDateFormatting.formatTimestamp(task.createdDate),
-            "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
-            "title_updated_at": ts,
-            "date_updated_at": ts,
-            "period_updated_at": ts,
-            "status_updated_at": ts
+            "deleted_at": (deletedAt ?? task.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
+            "title_updated_at": SyncDateFormatting.formatTimestamp(task.titleUpdatedAt ?? timestamp),
+            "date_updated_at": SyncDateFormatting.formatTimestamp(task.dateUpdatedAt ?? timestamp),
+            "period_updated_at": SyncDateFormatting.formatTimestamp(task.periodUpdatedAt ?? timestamp),
+            "status_updated_at": SyncDateFormatting.formatTimestamp(task.statusUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(
             withJSONObject: record.compactMapValues { $0 ?? NSNull() }
@@ -492,7 +491,6 @@ enum SyncSerializer {
         timestamp: Date,
         deletedAt: Date? = nil
     ) -> Data? {
-        let ts = SyncDateFormatting.formatTimestamp(timestamp)
         let record: [String: Any?] = [
             "id": note.id.uuidString,
             "device_id": deviceId.uuidString,
@@ -502,12 +500,12 @@ enum SyncSerializer {
             "period": note.period.rawValue,
             "status": note.status.rawValue,
             "created_at": SyncDateFormatting.formatTimestamp(note.createdDate),
-            "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
-            "title_updated_at": ts,
-            "content_updated_at": ts,
-            "date_updated_at": ts,
-            "period_updated_at": ts,
-            "status_updated_at": ts
+            "deleted_at": (deletedAt ?? note.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
+            "title_updated_at": SyncDateFormatting.formatTimestamp(note.titleUpdatedAt ?? timestamp),
+            "content_updated_at": SyncDateFormatting.formatTimestamp(note.contentUpdatedAt ?? timestamp),
+            "date_updated_at": SyncDateFormatting.formatTimestamp(note.dateUpdatedAt ?? timestamp),
+            "period_updated_at": SyncDateFormatting.formatTimestamp(note.periodUpdatedAt ?? timestamp),
+            "status_updated_at": SyncDateFormatting.formatTimestamp(note.statusUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(
             withJSONObject: record.compactMapValues { $0 ?? NSNull() }
@@ -521,14 +519,13 @@ enum SyncSerializer {
         timestamp: Date,
         deletedAt: Date? = nil
     ) -> Data? {
-        let ts = SyncDateFormatting.formatTimestamp(timestamp)
         let record: [String: Any?] = [
             "id": collection.id.uuidString,
             "device_id": deviceId.uuidString,
             "title": collection.title,
             "created_at": SyncDateFormatting.formatTimestamp(collection.createdDate),
-            "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
-            "title_updated_at": ts
+            "deleted_at": (deletedAt ?? collection.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
+            "title_updated_at": SyncDateFormatting.formatTimestamp(collection.titleUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(
             withJSONObject: record.compactMapValues { $0 ?? NSNull() }
@@ -553,7 +550,7 @@ enum SyncSerializer {
             "status": assignment.status.rawValue,
             "created_at": ts,
             "deleted_at": nil as String?,
-            "status_updated_at": ts
+            "status_updated_at": SyncDateFormatting.formatTimestamp(assignment.statusUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(
             withJSONObject: record.compactMapValues { $0 ?? NSNull() }
@@ -578,7 +575,7 @@ enum SyncSerializer {
             "status": assignment.status.rawValue,
             "created_at": ts,
             "deleted_at": nil as String?,
-            "status_updated_at": ts
+            "status_updated_at": SyncDateFormatting.formatTimestamp(assignment.statusUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(
             withJSONObject: record.compactMapValues { $0 ?? NSNull() }

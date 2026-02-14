@@ -55,6 +55,29 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The date this spread was created.
         var createdDate: Date
 
+        // MARK: Sync Metadata
+
+        /// Soft delete timestamp. Nil means the record is active.
+        var deletedAt: Date?
+
+        /// The device that last modified this record.
+        var deviceId: UUID?
+
+        /// Monotonic version for incremental sync.
+        var revision: Int64
+
+        /// LWW timestamp for the `period` field.
+        var periodUpdatedAt: Date?
+
+        /// LWW timestamp for the `date` field.
+        var dateUpdatedAt: Date?
+
+        /// LWW timestamp for the `startDate` field.
+        var startDateUpdatedAt: Date?
+
+        /// LWW timestamp for the `endDate` field.
+        var endDateUpdatedAt: Date?
+
         /// Creates a spread for a year, month, or day period.
         ///
         /// - Parameters:
@@ -68,7 +91,14 @@ enum DataModelSchemaV1: VersionedSchema {
             period: Period,
             date: Date,
             calendar: Calendar,
-            createdDate: Date = .now
+            createdDate: Date = .now,
+            deletedAt: Date? = nil,
+            deviceId: UUID? = nil,
+            revision: Int64 = 0,
+            periodUpdatedAt: Date? = nil,
+            dateUpdatedAt: Date? = nil,
+            startDateUpdatedAt: Date? = nil,
+            endDateUpdatedAt: Date? = nil
         ) {
             self.id = id
             self.period = period
@@ -76,6 +106,13 @@ enum DataModelSchemaV1: VersionedSchema {
             self.startDate = nil
             self.endDate = nil
             self.createdDate = createdDate
+            self.deletedAt = deletedAt
+            self.deviceId = deviceId
+            self.revision = revision
+            self.periodUpdatedAt = periodUpdatedAt
+            self.dateUpdatedAt = dateUpdatedAt
+            self.startDateUpdatedAt = startDateUpdatedAt
+            self.endDateUpdatedAt = endDateUpdatedAt
         }
 
         /// Creates a multiday spread with a custom date range.
@@ -91,7 +128,14 @@ enum DataModelSchemaV1: VersionedSchema {
             startDate: Date,
             endDate: Date,
             calendar: Calendar,
-            createdDate: Date = .now
+            createdDate: Date = .now,
+            deletedAt: Date? = nil,
+            deviceId: UUID? = nil,
+            revision: Int64 = 0,
+            periodUpdatedAt: Date? = nil,
+            dateUpdatedAt: Date? = nil,
+            startDateUpdatedAt: Date? = nil,
+            endDateUpdatedAt: Date? = nil
         ) {
             self.id = id
             self.period = .multiday
@@ -99,6 +143,13 @@ enum DataModelSchemaV1: VersionedSchema {
             self.startDate = startDate.startOfDay(calendar: calendar)
             self.endDate = endDate.startOfDay(calendar: calendar)
             self.createdDate = createdDate
+            self.deletedAt = deletedAt
+            self.deviceId = deviceId
+            self.revision = revision
+            self.periodUpdatedAt = periodUpdatedAt
+            self.dateUpdatedAt = dateUpdatedAt
+            self.startDateUpdatedAt = startDateUpdatedAt
+            self.endDateUpdatedAt = endDateUpdatedAt
         }
 
         /// Creates a multiday spread from a preset.
@@ -117,7 +168,14 @@ enum DataModelSchemaV1: VersionedSchema {
             today: Date,
             calendar: Calendar,
             firstWeekday: FirstWeekday,
-            createdDate: Date = .now
+            createdDate: Date = .now,
+            deletedAt: Date? = nil,
+            deviceId: UUID? = nil,
+            revision: Int64 = 0,
+            periodUpdatedAt: Date? = nil,
+            dateUpdatedAt: Date? = nil,
+            startDateUpdatedAt: Date? = nil,
+            endDateUpdatedAt: Date? = nil
         ) {
             guard let range = preset.dateRange(from: today, calendar: calendar, firstWeekday: firstWeekday) else {
                 return nil
@@ -128,6 +186,13 @@ enum DataModelSchemaV1: VersionedSchema {
             self.startDate = range.startDate
             self.endDate = range.endDate
             self.createdDate = createdDate
+            self.deletedAt = deletedAt
+            self.deviceId = deviceId
+            self.revision = revision
+            self.periodUpdatedAt = periodUpdatedAt
+            self.dateUpdatedAt = dateUpdatedAt
+            self.startDateUpdatedAt = startDateUpdatedAt
+            self.endDateUpdatedAt = endDateUpdatedAt
         }
     }
 
@@ -178,6 +243,29 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The type of entry.
         var entryType: EntryType { .task }
 
+        // MARK: Sync Metadata
+
+        /// Soft delete timestamp. Nil means the record is active.
+        var deletedAt: Date?
+
+        /// The device that last modified this record.
+        var deviceId: UUID?
+
+        /// Monotonic version for incremental sync.
+        var revision: Int64
+
+        /// LWW timestamp for the `title` field.
+        var titleUpdatedAt: Date?
+
+        /// LWW timestamp for the `date` field.
+        var dateUpdatedAt: Date?
+
+        /// LWW timestamp for the `period` field.
+        var periodUpdatedAt: Date?
+
+        /// LWW timestamp for the `status` field.
+        var statusUpdatedAt: Date?
+
         /// Creates a new task.
         ///
         /// - Parameters:
@@ -195,7 +283,14 @@ enum DataModelSchemaV1: VersionedSchema {
             date: Date = .now,
             period: Period = .day,
             status: Status = .open,
-            assignments: [TaskAssignment] = []
+            assignments: [TaskAssignment] = [],
+            deletedAt: Date? = nil,
+            deviceId: UUID? = nil,
+            revision: Int64 = 0,
+            titleUpdatedAt: Date? = nil,
+            dateUpdatedAt: Date? = nil,
+            periodUpdatedAt: Date? = nil,
+            statusUpdatedAt: Date? = nil
         ) {
             self.id = id
             self.title = title
@@ -204,6 +299,13 @@ enum DataModelSchemaV1: VersionedSchema {
             self.period = period
             self.status = status
             self.assignments = assignments
+            self.deletedAt = deletedAt
+            self.deviceId = deviceId
+            self.revision = revision
+            self.titleUpdatedAt = titleUpdatedAt
+            self.dateUpdatedAt = dateUpdatedAt
+            self.periodUpdatedAt = periodUpdatedAt
+            self.statusUpdatedAt = statusUpdatedAt
         }
     }
 
@@ -246,6 +348,35 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The type of entry.
         var entryType: EntryType { .event }
 
+        // MARK: Sync Metadata
+
+        /// Soft delete timestamp. Nil means the record is active.
+        var deletedAt: Date?
+
+        /// The device that last modified this record.
+        var deviceId: UUID?
+
+        /// Monotonic version for incremental sync.
+        var revision: Int64
+
+        /// LWW timestamp for the `title` field.
+        var titleUpdatedAt: Date?
+
+        /// LWW timestamp for the `timing` field.
+        var timingUpdatedAt: Date?
+
+        /// LWW timestamp for the `startDate` field.
+        var startDateUpdatedAt: Date?
+
+        /// LWW timestamp for the `endDate` field.
+        var endDateUpdatedAt: Date?
+
+        /// LWW timestamp for the `startTime` field.
+        var startTimeUpdatedAt: Date?
+
+        /// LWW timestamp for the `endTime` field.
+        var endTimeUpdatedAt: Date?
+
         /// Creates a new event.
         ///
         /// - Parameters:
@@ -265,7 +396,16 @@ enum DataModelSchemaV1: VersionedSchema {
             startDate: Date = .now,
             endDate: Date = .now,
             startTime: Date? = nil,
-            endTime: Date? = nil
+            endTime: Date? = nil,
+            deletedAt: Date? = nil,
+            deviceId: UUID? = nil,
+            revision: Int64 = 0,
+            titleUpdatedAt: Date? = nil,
+            timingUpdatedAt: Date? = nil,
+            startDateUpdatedAt: Date? = nil,
+            endDateUpdatedAt: Date? = nil,
+            startTimeUpdatedAt: Date? = nil,
+            endTimeUpdatedAt: Date? = nil
         ) {
             self.id = id
             self.title = title
@@ -275,6 +415,15 @@ enum DataModelSchemaV1: VersionedSchema {
             self.endDate = endDate
             self.startTime = startTime
             self.endTime = endTime
+            self.deletedAt = deletedAt
+            self.deviceId = deviceId
+            self.revision = revision
+            self.titleUpdatedAt = titleUpdatedAt
+            self.timingUpdatedAt = timingUpdatedAt
+            self.startDateUpdatedAt = startDateUpdatedAt
+            self.endDateUpdatedAt = endDateUpdatedAt
+            self.startTimeUpdatedAt = startTimeUpdatedAt
+            self.endTimeUpdatedAt = endTimeUpdatedAt
         }
 
         /// Determines whether this event appears on a spread.
@@ -361,6 +510,32 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The type of entry.
         var entryType: EntryType { .note }
 
+        // MARK: Sync Metadata
+
+        /// Soft delete timestamp. Nil means the record is active.
+        var deletedAt: Date?
+
+        /// The device that last modified this record.
+        var deviceId: UUID?
+
+        /// Monotonic version for incremental sync.
+        var revision: Int64
+
+        /// LWW timestamp for the `title` field.
+        var titleUpdatedAt: Date?
+
+        /// LWW timestamp for the `content` field.
+        var contentUpdatedAt: Date?
+
+        /// LWW timestamp for the `date` field.
+        var dateUpdatedAt: Date?
+
+        /// LWW timestamp for the `period` field.
+        var periodUpdatedAt: Date?
+
+        /// LWW timestamp for the `status` field.
+        var statusUpdatedAt: Date?
+
         /// Creates a new note.
         ///
         /// - Parameters:
@@ -380,7 +555,15 @@ enum DataModelSchemaV1: VersionedSchema {
             date: Date = .now,
             period: Period = .day,
             status: Status = .active,
-            assignments: [NoteAssignment] = []
+            assignments: [NoteAssignment] = [],
+            deletedAt: Date? = nil,
+            deviceId: UUID? = nil,
+            revision: Int64 = 0,
+            titleUpdatedAt: Date? = nil,
+            contentUpdatedAt: Date? = nil,
+            dateUpdatedAt: Date? = nil,
+            periodUpdatedAt: Date? = nil,
+            statusUpdatedAt: Date? = nil
         ) {
             self.id = id
             self.title = title
@@ -390,6 +573,14 @@ enum DataModelSchemaV1: VersionedSchema {
             self.period = period
             self.status = status
             self.assignments = assignments
+            self.deletedAt = deletedAt
+            self.deviceId = deviceId
+            self.revision = revision
+            self.titleUpdatedAt = titleUpdatedAt
+            self.contentUpdatedAt = contentUpdatedAt
+            self.dateUpdatedAt = dateUpdatedAt
+            self.periodUpdatedAt = periodUpdatedAt
+            self.statusUpdatedAt = statusUpdatedAt
         }
     }
 
@@ -409,10 +600,36 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The date this collection was created.
         var createdDate: Date
 
-        init(id: UUID = UUID(), title: String = "", createdDate: Date = .now) {
+        // MARK: Sync Metadata
+
+        /// Soft delete timestamp. Nil means the record is active.
+        var deletedAt: Date?
+
+        /// The device that last modified this record.
+        var deviceId: UUID?
+
+        /// Monotonic version for incremental sync.
+        var revision: Int64
+
+        /// LWW timestamp for the `title` field.
+        var titleUpdatedAt: Date?
+
+        init(
+            id: UUID = UUID(),
+            title: String = "",
+            createdDate: Date = .now,
+            deletedAt: Date? = nil,
+            deviceId: UUID? = nil,
+            revision: Int64 = 0,
+            titleUpdatedAt: Date? = nil
+        ) {
             self.id = id
             self.title = title
             self.createdDate = createdDate
+            self.deletedAt = deletedAt
+            self.deviceId = deviceId
+            self.revision = revision
+            self.titleUpdatedAt = titleUpdatedAt
         }
     }
 }
