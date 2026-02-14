@@ -91,6 +91,7 @@ struct ConventionalSpreadsView: View {
                 firstWeekday: .sunday, // TODO: SPRD-20 - Get from user settings
                 onSpreadCreated: { spread in
                     selectedSpread = spread
+                    Task { await syncEngine?.syncNow() }
                 }
             )
         }
@@ -99,7 +100,7 @@ struct ConventionalSpreadsView: View {
                 journalManager: journalManager,
                 selectedSpread: selectedSpread,
                 onTaskCreated: { _ in
-                    // Task created - UI will refresh via dataVersion
+                    Task { await syncEngine?.syncNow() }
                 }
             )
         }

@@ -240,7 +240,7 @@
   - Add targeted regression tests only if required by renamed API surfaces.
 - **Dependencies**: SPRD-102
 
-### [SPRD-98] Feature: Immediate push on commit (not per keystroke)
+### [SPRD-98] Feature: Immediate push on commit (not per keystroke) - [x] Complete
 - **Context**: Sync should be automatic without excessive per-keystroke calls.
 - **Description**: Attempt a sync push when a user explicitly saves a change (Save/Done).
 - **Implementation Details**:
