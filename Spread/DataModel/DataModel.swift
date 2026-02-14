@@ -19,6 +19,9 @@ enum DataModel {
     /// Full implementation in SPRD-39.
     typealias Collection = DataModelSchemaV1.Collection
 
+    /// Per-user settings synced to the server.
+    typealias Settings = DataModelSchemaV1.Settings
+
     /// An outbox entry representing a local change that needs to be pushed.
     typealias SyncMutation = DataModelSchemaV1.SyncMutation
 

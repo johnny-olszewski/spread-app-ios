@@ -46,6 +46,7 @@ struct AppDependenciesTests {
         #expect(dependencies.eventRepository is EmptyEventRepository)
         #expect(dependencies.noteRepository is EmptyNoteRepository)
         #expect(dependencies.collectionRepository is EmptyCollectionRepository)
+        #expect(dependencies.settingsRepository is EmptySettingsRepository)
     }
 
     /// Conditions: Create testing dependencies with custom task repository.
@@ -133,6 +134,7 @@ struct AppDependenciesTests {
         #expect(summary.eventRepositoryType == "EmptyEventRepository")
         #expect(summary.noteRepositoryType == "EmptyNoteRepository")
         #expect(summary.collectionRepositoryType == "EmptyCollectionRepository")
+        #expect(summary.settingsRepositoryType == "EmptySettingsRepository")
     }
 
     /// Conditions: Debug info with various repository type names.
@@ -144,7 +146,8 @@ struct AppDependenciesTests {
             spreadRepositoryType: "SwiftDataSpreadRepository",
             eventRepositoryType: "MockEventRepository",
             noteRepositoryType: "TestNoteRepository",
-            collectionRepositoryType: "EmptyCollectionRepository"
+            collectionRepositoryType: "EmptyCollectionRepository",
+            settingsRepositoryType: "EmptySettingsRepository"
         )
 
         #expect(summary.shortTypeName(for: summary.taskRepositoryType) == "EmptyTask")

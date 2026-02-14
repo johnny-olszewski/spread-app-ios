@@ -280,7 +280,7 @@
   - Unit tests for model encoding/decoding and migration.
 - **Dependencies**: SPRD-85
 
-### [SPRD-88] Feature: Settings sync (Supabase)
+### [SPRD-88] Feature: Settings sync (Supabase) ✅
 - **Context**: Settings should be consistent across devices.
 - **Description**: Sync settings via Supabase and merge locally.
 - **Implementation Details**:
