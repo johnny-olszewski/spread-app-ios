@@ -317,6 +317,41 @@ enum MockDataSet: String, CaseIterable {
             ))
         }
 
+        // Leap day scenarios (next leap year: 2028)
+        let leapYear = nextLeapYear(after: calendar.component(.year, from: today))
+        if let feb28 = calendar.date(from: DateComponents(year: leapYear, month: 2, day: 28)),
+           let feb29 = calendar.date(from: DateComponents(year: leapYear, month: 2, day: 29)),
+           let mar1 = calendar.date(from: DateComponents(year: leapYear, month: 3, day: 1)) {
+
+            // February month spread for the leap year
+            spreads.append(DataModel.Spread(period: .month, date: feb29, calendar: calendar))
+
+            // Day spreads: Feb 28, Feb 29, Mar 1
+            spreads.append(DataModel.Spread(period: .day, date: feb28, calendar: calendar))
+            spreads.append(DataModel.Spread(period: .day, date: feb29, calendar: calendar))
+            spreads.append(DataModel.Spread(period: .day, date: mar1, calendar: calendar))
+
+            // Multiday spanning Feb 28 – Mar 1
+            spreads.append(DataModel.Spread(startDate: feb28, endDate: mar1, calendar: calendar))
+
+            // Task assigned to Feb 29
+            let normalizedFeb29 = Period.day.normalizeDate(feb29, calendar: calendar)
+            tasks.append(DataModel.Task(
+                title: "Leap day task",
+                date: feb29,
+                period: .day,
+                assignments: [TaskAssignment(period: .day, date: normalizedFeb29, status: .open)]
+            ))
+
+            // Note assigned to Feb 29
+            notes.append(DataModel.Note(
+                title: "Leap day note",
+                date: feb29,
+                period: .day,
+                assignments: [NoteAssignment(period: .day, date: normalizedFeb29, status: .active)]
+            ))
+        }
+
         return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes)
     }
 
@@ -454,6 +489,18 @@ enum MockDataSet: String, CaseIterable {
             return nil
         }
         return lastDay
+    }
+
+    private func nextLeapYear(after year: Int) -> Int {
+        var candidate = year + 1
+        while !isLeapYear(candidate) {
+            candidate += 1
+        }
+        return candidate
+    }
+
+    private func isLeapYear(_ year: Int) -> Bool {
+        (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
     }
 
     private func lastDayOfYear(for date: Date, calendar: Calendar) -> Date? {

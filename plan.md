@@ -415,7 +415,7 @@
   - Unit tests verifying log points exist for key lifecycle events.
 - **Dependencies**: SPRD-47
 
-### [SPRD-65] Feature: Leap day boundary test data
+### [SPRD-65] Feature: Leap day boundary test data - [x] Complete
 - **Context**: Leap day (Feb 29) is a special case for date boundary testing.
 - **Description**: Add leap day scenarios to the boundary mock data set and test data builders.
 - **Implementation Details**:
