@@ -235,6 +235,73 @@ struct MockDataSetTests {
         #expect(years.count >= 2, "Boundary should include spreads in different years")
     }
 
+    // MARK: - Boundary Leap Day
+
+    /// Conditions: Boundary data set generated with a non-leap year today.
+    /// Expected: Includes a day spread on Feb 29 of the next leap year.
+    @Test("Boundary includes leap day spread")
+    func boundaryIncludesLeapDaySpread() {
+        let calendar = makeTestCalendar()
+        let today = makeTestDate(year: 2026, month: 1, day: 15, calendar: calendar)
+        let data = MockDataSet.boundary.generateData(calendar: calendar, today: today)
+
+        let feb29Spreads = data.spreads.filter { spread in
+            let components = calendar.dateComponents([.month, .day], from: spread.date)
+            return spread.period == .day && components.month == 2 && components.day == 29
+        }
+        #expect(!feb29Spreads.isEmpty, "Boundary should include a Feb 29 day spread")
+    }
+
+    /// Conditions: Boundary data set generated with a non-leap year today.
+    /// Expected: Includes a task assigned to Feb 29.
+    @Test("Boundary includes leap day task")
+    func boundaryIncludesLeapDayTask() {
+        let calendar = makeTestCalendar()
+        let today = makeTestDate(year: 2026, month: 1, day: 15, calendar: calendar)
+        let data = MockDataSet.boundary.generateData(calendar: calendar, today: today)
+
+        let leapDayTasks = data.tasks.filter { task in
+            let components = calendar.dateComponents([.month, .day], from: task.date)
+            return components.month == 2 && components.day == 29
+        }
+        #expect(!leapDayTasks.isEmpty, "Boundary should include a task on Feb 29")
+    }
+
+    /// Conditions: Boundary data set generated with a non-leap year today.
+    /// Expected: Includes a multiday spread spanning Feb 28 – Mar 1.
+    @Test("Boundary includes leap day multiday span")
+    func boundaryIncludesLeapDayMultidaySpan() {
+        let calendar = makeTestCalendar()
+        let today = makeTestDate(year: 2026, month: 1, day: 15, calendar: calendar)
+        let data = MockDataSet.boundary.generateData(calendar: calendar, today: today)
+
+        let crossLeapMultiday = data.spreads.filter { spread in
+            guard spread.period == .multiday,
+                  let start = spread.startDate,
+                  let end = spread.endDate else { return false }
+            let startComponents = calendar.dateComponents([.month, .day], from: start)
+            let endComponents = calendar.dateComponents([.month, .day], from: end)
+            return startComponents.month == 2 && startComponents.day == 28
+                && endComponents.month == 3 && endComponents.day == 1
+        }
+        #expect(!crossLeapMultiday.isEmpty, "Boundary should include a Feb 28-Mar 1 multiday spread")
+    }
+
+    /// Conditions: Boundary data set generated with a non-leap year today.
+    /// Expected: Includes a note assigned to Feb 29.
+    @Test("Boundary includes leap day note")
+    func boundaryIncludesLeapDayNote() {
+        let calendar = makeTestCalendar()
+        let today = makeTestDate(year: 2026, month: 1, day: 15, calendar: calendar)
+        let data = MockDataSet.boundary.generateData(calendar: calendar, today: today)
+
+        let leapDayNotes = data.notes.filter { note in
+            let components = calendar.dateComponents([.month, .day], from: note.date)
+            return components.month == 2 && components.day == 29
+        }
+        #expect(!leapDayNotes.isEmpty, "Boundary should include a note on Feb 29")
+    }
+
     // MARK: - High Volume Data Set
 
     /// Verifies that high-volume data set generates many spreads.

@@ -272,4 +272,79 @@ extension TestDataBuilders {
             )
         )
     }
+
+    // MARK: - Leap Day Scenarios
+
+    /// Data for testing leap day (Feb 29) boundary transitions.
+    struct LeapDayData {
+        /// The leap year used (e.g. 2028).
+        let leapYear: Int
+        /// Day spread for Feb 28.
+        let feb28: DataModel.Spread
+        /// Day spread for Feb 29.
+        let feb29: DataModel.Spread
+        /// Day spread for Mar 1.
+        let mar1: DataModel.Spread
+        /// Month spread for February in the leap year.
+        let february: DataModel.Spread
+        /// Multiday spread spanning Feb 28 – Mar 1.
+        let crossLeapDayMultiday: DataModel.Spread
+        /// Task assigned to Feb 29 day spread.
+        let taskOnLeapDay: DataModel.Task
+        /// Note assigned to Feb 29 day spread.
+        let noteOnLeapDay: DataModel.Note
+
+        var allSpreads: [DataModel.Spread] {
+            [feb28, feb29, mar1, february, crossLeapDayMultiday]
+        }
+    }
+
+    /// Creates spreads and entries around Feb 29 for leap day boundary testing.
+    ///
+    /// Uses 2028 as the reference leap year. Includes day spreads for Feb 28, 29,
+    /// and Mar 1, a February month spread, a multiday spanning the transition,
+    /// and a task/note assigned to Feb 29.
+    static func leapDaySetup(
+        calendar: Calendar = testCalendar,
+        leapYear: Int = 2028
+    ) -> LeapDayData {
+        let feb28Date = makeDate(year: leapYear, month: 2, day: 28, calendar: calendar)
+        let feb29Date = makeDate(year: leapYear, month: 2, day: 29, calendar: calendar)
+        let mar1Date = makeDate(year: leapYear, month: 3, day: 1, calendar: calendar)
+
+        let normalizedFeb29 = Period.day.normalizeDate(feb29Date, calendar: calendar)
+
+        return LeapDayData(
+            leapYear: leapYear,
+            feb28: DataModel.Spread(period: .day, date: feb28Date, calendar: calendar),
+            feb29: DataModel.Spread(period: .day, date: feb29Date, calendar: calendar),
+            mar1: DataModel.Spread(period: .day, date: mar1Date, calendar: calendar),
+            february: DataModel.Spread(period: .month, date: feb29Date, calendar: calendar),
+            crossLeapDayMultiday: DataModel.Spread(
+                startDate: feb28Date,
+                endDate: mar1Date,
+                calendar: calendar
+            ),
+            taskOnLeapDay: DataModel.Task(
+                title: "Leap day task",
+                createdDate: feb29Date,
+                date: normalizedFeb29,
+                period: .day,
+                status: .open,
+                assignments: [
+                    TaskAssignment(period: .day, date: normalizedFeb29, status: .open)
+                ]
+            ),
+            noteOnLeapDay: DataModel.Note(
+                title: "Leap day note",
+                createdDate: feb29Date,
+                date: normalizedFeb29,
+                period: .day,
+                status: .active,
+                assignments: [
+                    NoteAssignment(period: .day, date: normalizedFeb29, status: .active)
+                ]
+            )
+        )
+    }
 }
