@@ -400,7 +400,7 @@
   - Unit tests for builder outputs.
 - **Dependencies**: SPRD-46
 
-### [SPRD-48] Feature: Lifecycle logging hooks
+### [SPRD-48] Feature: Lifecycle logging hooks - [x] Complete
 - **Context**: Assignment/migration debugging needs visibility.
 - **Description**: Add OSLog-based logging for assignment, migration, inbox resolution, and spread deletion events — available in all builds, using appropriate log levels.
 - **Implementation Details**:
