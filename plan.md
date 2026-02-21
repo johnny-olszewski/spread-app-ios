@@ -383,7 +383,7 @@
   - Manual: validation feedback appears correctly.
 - **Dependencies**: SPRD-84
 
-### [SPRD-47] Feature: Test data builders
+### [SPRD-47] Feature: Test data builders - [x] Complete
 - **Context**: Tests need consistent fixtures for entries and spreads.
 - **Description**: Create test data builders for entries/spreads/multiday ranges.
 - **Implementation Details**:
@@ -400,17 +400,19 @@
   - Unit tests for builder outputs.
 - **Dependencies**: SPRD-46
 
-### [SPRD-48] Feature: Debug logging hooks (Debug only)
+### [SPRD-48] Feature: Lifecycle logging hooks
 - **Context**: Assignment/migration debugging needs visibility.
-- **Description**: Add debug logging for assignment, migration, and inbox resolution.
+- **Description**: Add OSLog-based logging for assignment, migration, inbox resolution, and spread deletion events — available in all builds, using appropriate log levels.
 - **Implementation Details**:
-  - Logging wrapper gated by `#if DEBUG`
+  - Use OSLog/Logger (consistent with existing project pattern) in all builds
   - Log events: assignment created, migration performed, inbox resolved, spread deleted
   - Include relevant context (entry ID, spread info, status changes)
+  - Use `.debug` for verbose detail, `.info` for lifecycle events
 - **Acceptance Criteria**:
-  - Logging is gated to Debug builds. (Spec: Development tooling)
+  - Lifecycle events are logged via OSLog with appropriate log levels.
+  - Logging is available in all builds (not gated to Debug).
 - **Tests**:
-  - Unit test for debug flag gating.
+  - Unit tests verifying log points exist for key lifecycle events.
 - **Dependencies**: SPRD-47
 
 ### [SPRD-65] Feature: Leap day boundary test data
