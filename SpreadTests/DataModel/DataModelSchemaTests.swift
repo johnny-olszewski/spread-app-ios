@@ -25,10 +25,10 @@ struct DataModelSchemaTests {
     }
 
     /// Conditions: Access schema models.
-    /// Expected: Should contain 7 models: Spread, Task, Event, Note, Collection, SyncMutation, SyncCursor.
+    /// Expected: Should contain 8 models: Spread, Task, Event, Note, Collection, Settings, SyncMutation, SyncCursor.
     @Test func testSchemaContainsAllModels() {
         let models = DataModelSchemaV1.models
-        #expect(models.count == 7)
+        #expect(models.count == 8)
 
         let modelTypes = models.map { String(describing: $0) }
         #expect(modelTypes.contains { $0.contains("Spread") })
@@ -36,6 +36,7 @@ struct DataModelSchemaTests {
         #expect(modelTypes.contains { $0.contains("Event") })
         #expect(modelTypes.contains { $0.contains("Note") })
         #expect(modelTypes.contains { $0.contains("Collection") })
+        #expect(modelTypes.contains { $0.contains("Settings") })
         #expect(modelTypes.contains { $0.contains("SyncMutation") })
         #expect(modelTypes.contains { $0.contains("SyncCursor") })
     }
@@ -60,17 +61,17 @@ struct DataModelSchemaTests {
     // MARK: - ModelContainerFactory Tests
 
     /// Conditions: Create in-memory container.
-    /// Expected: Container should have 7 entity types in schema.
+    /// Expected: Container should have 8 entity types in schema.
     @Test func testCreateInMemoryContainer() throws {
         let container = try ModelContainerFactory.makeInMemory()
-        #expect(container.schema.entities.count == 7)
+        #expect(container.schema.entities.count == 8)
     }
 
     /// Conditions: Create test container.
-    /// Expected: Container should have 7 entity types in schema.
+    /// Expected: Container should have 8 entity types in schema.
     @Test func testCreateTestContainer() throws {
         let container = try ModelContainerFactory.makeInMemory()
-        #expect(container.schema.entities.count == 7)
+        #expect(container.schema.entities.count == 8)
     }
 
     /// Conditions: Create in-memory container and check configuration.

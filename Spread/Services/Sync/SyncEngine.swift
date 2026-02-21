@@ -492,6 +492,14 @@ final class SyncEngine {
             let rowData = try JSONSerialization.data(withJSONObject: rowDict)
 
             switch entityType {
+            case .settings:
+                do {
+                    let row = try decoder.decode(ServerSettingsRow.self, from: rowData)
+                    try applySettingsRow(row, context: context)
+                } catch {
+                    logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
+                    throw error
+                }
             case .spread:
                 do {
                     let row = try decoder.decode(ServerSpreadRow.self, from: rowData)
@@ -559,6 +567,23 @@ final class SyncEngine {
     }
 
     // MARK: - Pull Apply Helpers
+
+    private func applySettingsRow(_ row: ServerSettingsRow, context: ModelContext) throws {
+        var descriptor = FetchDescriptor<DataModel.Settings>()
+        descriptor.fetchLimit = 1
+
+        if let existing = try context.fetch(descriptor).first {
+            if row.deletedAt != nil {
+                context.delete(existing)
+            } else {
+                _ = SyncSerializer.applySettingsRow(row, to: existing)
+            }
+        } else if row.deletedAt == nil {
+            if let settings = SyncSerializer.createSettings(from: row) {
+                context.insert(settings)
+            }
+        }
+    }
 
     private func applySpreadRow(_ row: ServerSpreadRow, context: ModelContext) throws {
         let id = row.id
