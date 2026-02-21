@@ -10,4 +10,7 @@ struct TaskAssignment: Codable, Hashable, AssignmentMatchable {
 
     /// The status of the task on this spread.
     var status: DataModel.Task.Status
+
+    /// LWW timestamp for the `status` field.
+    var statusUpdatedAt: Date?
 }
