@@ -240,7 +240,7 @@
   - Add targeted regression tests only if required by renamed API surfaces.
 - **Dependencies**: SPRD-102
 
-### [SPRD-98] Feature: Immediate push on commit (not per keystroke)
+### [SPRD-98] Feature: Immediate push on commit (not per keystroke) - [x] Complete
 - **Context**: Sync should be automatic without excessive per-keystroke calls.
 - **Description**: Attempt a sync push when a user explicitly saves a change (Save/Done).
 - **Implementation Details**:
@@ -265,7 +265,7 @@
   - Manual: edit a task and tap Save; verify a sync attempt occurs.
 - **Dependencies**: SPRD-85
 
-### [SPRD-87] Feature: SwiftData model sync metadata
+### [SPRD-87] Feature: SwiftData model sync metadata - [x] Complete
 - **Context**: Local models must carry sync metadata for field-level LWW.
 - **Description**: Extend SwiftData models with sync fields and update schema.
 - **Implementation Details**:
