@@ -476,7 +476,7 @@
   - UI tests: migrated tasks section appears, collapses/expands, and shows destination labels.
 - **Dependencies**: SPRD-28, SPRD-15
 
-### [SPRD-30] Feature: Migration banner + selection
+### [SPRD-30] Feature: Migration banner + selection - [x] Complete
 - **Context**: Users can migrate eligible tasks in bulk.
 - **Description**: Implement migration banner and selection sheet for eligible tasks.
 - **Implementation Details**:
