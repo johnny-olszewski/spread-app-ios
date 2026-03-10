@@ -702,7 +702,7 @@
 - Multiday aggregation logic includes tasks and notes in range (events added in v2).
 - Multiday spread UI shows range and grouped entries.
 
-### [SPRD-18] Feature: Multiday aggregation
+### [SPRD-18] Feature: Multiday aggregation - [x] Complete
 - **Context**: Multiday spreads aggregate entries in range.
 - **Description**: Aggregate entries by date range for multiday spreads (no direct assignment).
 - **Implementation Details**:
