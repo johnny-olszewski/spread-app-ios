@@ -83,10 +83,37 @@ struct Definitions {
             }
         }
 
+        struct NoteCreationSheet {
+            static let titleField = "notes.create.title"
+            static let contentField = "notes.create.content"
+            static let periodPicker = "notes.create.period"
+            static let createButton = "notes.create.create"
+            static let cancelButton = "notes.create.cancel"
+            static let datePicker = "notes.create.date"
+            static let yearPicker = "notes.create.year"
+            static let monthPicker = "notes.create.month"
+            static let monthYearPicker = "notes.create.month.year"
+            static let spreadPickerButton = "notes.create.spreadpicker"
+
+            static func periodSegment(_ periodRawValue: String) -> String {
+                "notes.create.period.\(periodRawValue)"
+            }
+        }
+
+        struct NoteDetailSheet {
+            static let titleField = "notes.detail.title"
+            static let contentField = "notes.detail.content"
+            static let periodPicker = "notes.detail.period"
+            static let saveButton = "notes.detail.save"
+            static let cancelButton = "notes.detail.cancel"
+            static let deleteButton = "notes.detail.delete"
+        }
+
         struct CreateMenu {
             static let button = "spreads.tabbar.create.menu"
             static let createSpread = "spreads.tabbar.create.menu.spread"
             static let createTask = "spreads.tabbar.create.menu.task"
+            static let createNote = "spreads.tabbar.create.menu.note"
         }
 
         struct SpreadPicker {
