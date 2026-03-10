@@ -777,7 +777,7 @@
 - Year/month/day navigation works with proper entry filtering.
 - Traditional mode tests pass.
 
-### [SPRD-17] Feature: Traditional mode mapping
+### [SPRD-17] Feature: Traditional mode mapping - [x] Complete
 - **Context**: Traditional mode uses virtual spreads without mutating created spreads.
 - **Description**: Map preferred assignments to virtual spreads; migration updates preferred date/period.
 - **Implementation Details**:
