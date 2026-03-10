@@ -741,7 +741,7 @@
 - Settings view exposes mode and first-day-of-week preferences.
 - Preferences persist and affect multiday presets and mode state.
 
-### [SPRD-20] Feature: Settings view (Mode + First Day of Week)
+### [SPRD-20] Feature: Settings view (Mode + First Day of Week) - [x] Complete
 - **Context**: Users need to configure BuJo mode and locale preferences.
 - **Description**: Build Settings screen with mode selection and week start preference.
 - **Implementation Details**:
