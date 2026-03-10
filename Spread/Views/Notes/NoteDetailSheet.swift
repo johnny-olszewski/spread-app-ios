@@ -134,7 +134,8 @@ struct NoteDetailSheet: View {
                 calendar: journalManager.calendar,
                 today: journalManager.today,
                 minimumDate: configuration.minimumDate(for: .day),
-                maximumDate: configuration.maximumDate
+                maximumDate: configuration.maximumDate,
+                accessibilityIdentifiers: nil
             )
         }
     }
