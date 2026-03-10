@@ -270,6 +270,30 @@ struct EntryListView: View {
     EntryListView(spreadDataModel: dataModel, calendar: calendar, today: today)
 }
 
+#Preview("Multiday Spread - Grouped by Day") {
+    let calendar = Calendar.current
+    let today = Date()
+    let startDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 6))!
+    let endDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 12))!
+    let spread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
+    let day6 = calendar.date(from: DateComponents(year: 2026, month: 1, day: 6))!
+    let day8 = calendar.date(from: DateComponents(year: 2026, month: 1, day: 8))!
+    let day10 = calendar.date(from: DateComponents(year: 2026, month: 1, day: 10))!
+    let dataModel = SpreadDataModel(
+        spread: spread,
+        tasks: [
+            DataModel.Task(title: "Day 6 task", date: day6),
+            DataModel.Task(title: "Day 8 task 1", date: day8),
+            DataModel.Task(title: "Day 8 task 2", date: day8)
+        ],
+        notes: [
+            DataModel.Note(title: "Day 10 note", date: day10)
+        ],
+        events: []
+    )
+    EntryListView(spreadDataModel: dataModel, calendar: calendar, today: today)
+}
+
 #Preview("All Entry Types") {
     let calendar = Calendar.current
     let today = Date()
