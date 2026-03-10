@@ -73,9 +73,14 @@ final class JournalManager {
     /// returns the `SpreadDataModel` for that month spread.
     private(set) var dataModel: JournalDataModel = [:]
 
-    /// Service for finding best spreads for entry assignment.
+    /// Service for finding best spreads for entry assignment in conventional mode.
     private var spreadService: ConventionalSpreadService {
         ConventionalSpreadService(calendar: calendar)
+    }
+
+    /// Service for virtual spread generation and entry mapping in traditional mode.
+    private var traditionalSpreadService: TraditionalSpreadService {
+        TraditionalSpreadService(calendar: calendar)
     }
 
     // MARK: - Inbox
@@ -252,9 +257,20 @@ final class JournalManager {
 
     /// Builds the journal data model from loaded data.
     ///
-    /// Organizes spreads by period and date, then associates entries
-    /// with their corresponding spreads.
+    /// In conventional mode, organizes created spreads by period and date,
+    /// then associates entries via assignments.
+    /// In traditional mode, generates virtual spreads from entries' preferred dates.
     private func buildDataModel() {
+        switch bujoMode {
+        case .conventional:
+            buildConventionalDataModel()
+        case .traditional:
+            buildTraditionalDataModel()
+        }
+    }
+
+    /// Builds the data model for conventional mode using created spreads and assignments.
+    private func buildConventionalDataModel() {
         var model: JournalDataModel = [:]
 
         // Organize spreads by period and normalized date
@@ -279,6 +295,63 @@ final class JournalManager {
             }
 
             model[spread.period]?[normalizedDate] = spreadData
+        }
+
+        dataModel = model
+    }
+
+    /// Builds the data model for traditional mode using virtual spreads from entry preferred dates.
+    ///
+    /// Generates virtual spreads for every year, month, and day that contains entries.
+    /// Entries appear only on their preferred date/period (no assignment history).
+    private func buildTraditionalDataModel() {
+        var model: JournalDataModel = [:]
+        let service = traditionalSpreadService
+
+        // Collect all unique period/date combinations from entries
+        var virtualSpreads: [(period: Period, date: Date)] = []
+
+        // Gather year-level virtual spreads
+        let years = service.yearsWithEntries(tasks: tasks, notes: notes, events: events)
+        for yearDate in years {
+            virtualSpreads.append((.year, yearDate))
+        }
+
+        // Gather month-level virtual spreads
+        for yearDate in years {
+            let months = service.monthsWithEntries(inYear: yearDate, tasks: tasks, notes: notes, events: events)
+            for monthDate in months {
+                virtualSpreads.append((.month, monthDate))
+            }
+        }
+
+        // Gather day-level virtual spreads
+        let allMonths = years.flatMap {
+            service.monthsWithEntries(inYear: $0, tasks: tasks, notes: notes, events: events)
+        }
+        for monthDate in allMonths {
+            let days = service.daysWithEntries(inMonth: monthDate, tasks: tasks, notes: notes, events: events)
+            for dayDate in days {
+                virtualSpreads.append((.day, dayDate))
+            }
+        }
+
+        // Build SpreadDataModel for each virtual spread
+        for (period, date) in virtualSpreads {
+            let spreadData = service.virtualSpreadDataModel(
+                period: period,
+                date: date,
+                tasks: tasks,
+                notes: notes,
+                events: events
+            )
+
+            if model[period] == nil {
+                model[period] = [:]
+            }
+
+            let normalizedDate = period.normalizeDate(date, calendar: calendar)
+            model[period]?[normalizedDate] = spreadData
         }
 
         dataModel = model
@@ -750,6 +823,116 @@ final class JournalManager {
             buildDataModel()
             dataVersion += 1
         }
+    }
+
+    // MARK: - Traditional Mode Migration
+
+    /// Migrates a task in traditional mode by updating its preferred date and period.
+    ///
+    /// After updating the preferred date/period, conventional reassignment logic applies:
+    /// - If a conventional spread exists for the new date/period, an assignment is created
+    /// - If no spread exists, falls back to nearest parent or Inbox
+    ///
+    /// Does NOT create or mutate Spread records.
+    ///
+    /// - Parameters:
+    ///   - task: The task to migrate.
+    ///   - newDate: The new preferred date.
+    ///   - newPeriod: The new preferred period.
+    /// - Throws: Repository errors if persistence fails.
+    func traditionalMigrateTask(
+        _ task: DataModel.Task,
+        newDate: Date,
+        newPeriod: Period
+    ) async throws {
+        guard task.status != .cancelled else {
+            throw MigrationError.taskCancelled
+        }
+
+        let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
+
+        // Update preferred date/period
+        task.date = normalizedDate
+        task.period = newPeriod
+
+        // Clear all existing assignments and create a new one via conventional logic
+        task.assignments.removeAll()
+
+        if let bestSpread = traditionalSpreadService.findConventionalSpread(
+            forPreferredDate: normalizedDate,
+            preferredPeriod: newPeriod,
+            in: spreads
+        ) {
+            let assignment = TaskAssignment(
+                period: bestSpread.period,
+                date: bestSpread.date,
+                status: task.status == .complete ? .complete : .open
+            )
+            task.assignments.append(assignment)
+        }
+        // If no spread found, task goes to Inbox (no assignment)
+
+        try await taskRepository.save(task)
+        Self.logger.info(
+            "Traditional migration: task \(task.id) → \(newPeriod.rawValue) \(normalizedDate)"
+        )
+
+        // Reload and rebuild
+        tasks = await taskRepository.getTasks()
+        buildDataModel()
+        dataVersion += 1
+    }
+
+    /// Migrates a note in traditional mode by updating its preferred date and period.
+    ///
+    /// After updating the preferred date/period, conventional reassignment logic applies:
+    /// - If a conventional spread exists for the new date/period, an assignment is created
+    /// - If no spread exists, falls back to nearest parent or Inbox
+    ///
+    /// Does NOT create or mutate Spread records.
+    ///
+    /// - Parameters:
+    ///   - note: The note to migrate.
+    ///   - newDate: The new preferred date.
+    ///   - newPeriod: The new preferred period.
+    /// - Throws: Repository errors if persistence fails.
+    func traditionalMigrateNote(
+        _ note: DataModel.Note,
+        newDate: Date,
+        newPeriod: Period
+    ) async throws {
+        let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
+
+        // Update preferred date/period
+        note.date = normalizedDate
+        note.period = newPeriod
+
+        // Clear all existing assignments and create a new one via conventional logic
+        note.assignments.removeAll()
+
+        if let bestSpread = traditionalSpreadService.findConventionalSpread(
+            forPreferredDate: normalizedDate,
+            preferredPeriod: newPeriod,
+            in: spreads
+        ) {
+            let assignment = NoteAssignment(
+                period: bestSpread.period,
+                date: bestSpread.date,
+                status: .active
+            )
+            note.assignments.append(assignment)
+        }
+        // If no spread found, note goes to Inbox (no assignment)
+
+        try await noteRepository.save(note)
+        Self.logger.info(
+            "Traditional migration: note \(note.id) → \(newPeriod.rawValue) \(normalizedDate)"
+        )
+
+        // Reload and rebuild
+        notes = await noteRepository.getNotes()
+        buildDataModel()
+        dataVersion += 1
     }
 
     // MARK: - Event Migration (Blocked)
