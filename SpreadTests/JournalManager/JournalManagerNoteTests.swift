@@ -38,8 +38,8 @@ struct JournalManagerNoteTests {
         return try await JournalManager.make(
             calendar: calendar,
             today: today,
-            noteRepository: InMemoryNoteRepository(notes: notes),
-            spreadRepository: InMemorySpreadRepository(spreads: allSpreads)
+            spreadRepository: InMemorySpreadRepository(spreads: allSpreads),
+            noteRepository: InMemoryNoteRepository(notes: notes)
         )
     }
 
@@ -86,15 +86,16 @@ struct JournalManagerNoteTests {
     /// Expected: Note is created with no assignments (goes to inbox).
     @Test("Adding a note without matching spread goes to inbox")
     func testAddNoteWithoutSpreadGoesToInbox() async throws {
-        let manager = try await makeManager(spreads: [
-            DataModel.Spread(period: .year, date: Self.testDate, calendar: Self.testCalendar)
-        ])
         let calendar = Self.testCalendar
-        let futureMonth = calendar.date(byAdding: .month, value: 6, to: Self.testDate)!
+        // Create a spread for a different year so no spread matches the note's date
+        let differentYear = calendar.date(byAdding: .year, value: -2, to: Self.testDate)!
+        let manager = try await makeManager(spreads: [
+            DataModel.Spread(period: .year, date: differentYear, calendar: calendar)
+        ])
 
         let note = try await manager.addNote(
             title: "Inbox note",
-            date: futureMonth,
+            date: Self.testDate,
             period: .day
         )
 
