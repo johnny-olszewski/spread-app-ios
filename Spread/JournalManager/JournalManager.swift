@@ -44,6 +44,9 @@ final class JournalManager {
     /// The current BuJo mode (conventional or traditional).
     var bujoMode: BujoMode
 
+    /// The user's first day of week preference.
+    var firstWeekday: FirstWeekday
+
     /// Policy for validating spread creation.
     let creationPolicy: SpreadCreationPolicy
 
@@ -124,6 +127,7 @@ final class JournalManager {
     ///   - noteRepository: Repository for notes.
     ///   - collectionRepository: Optional repository for collections (used for sign-out wipe).
     ///   - bujoMode: The initial BuJo mode.
+    ///   - firstWeekday: The user's first day of week preference.
     ///   - creationPolicy: Policy for validating spread creation.
     init(
         calendar: Calendar,
@@ -134,6 +138,7 @@ final class JournalManager {
         noteRepository: any NoteRepository,
         collectionRepository: (any CollectionRepository)? = nil,
         bujoMode: BujoMode,
+        firstWeekday: FirstWeekday = .systemDefault,
         creationPolicy: SpreadCreationPolicy
     ) {
         self.calendar = calendar
@@ -144,6 +149,7 @@ final class JournalManager {
         self.noteRepository = noteRepository
         self.collectionRepository = collectionRepository
         self.bujoMode = bujoMode
+        self.firstWeekday = firstWeekday
         self.creationPolicy = creationPolicy
     }
 
@@ -159,6 +165,7 @@ final class JournalManager {
     ///   - eventRepository: Repository for events (defaults to empty in-memory).
     ///   - noteRepository: Repository for notes (defaults to empty in-memory).
     ///   - bujoMode: The initial BuJo mode (defaults to conventional).
+    ///   - firstWeekday: The user's first day of week preference (defaults to system default).
     ///   - creationPolicy: Policy for spread creation (defaults to standard policy).
     /// - Returns: A configured JournalManager with data loaded.
     static func make(
@@ -170,6 +177,7 @@ final class JournalManager {
         noteRepository: (any NoteRepository)? = nil,
         collectionRepository: (any CollectionRepository)? = nil,
         bujoMode: BujoMode = .conventional,
+        firstWeekday: FirstWeekday = .systemDefault,
         creationPolicy: SpreadCreationPolicy? = nil
     ) async throws -> JournalManager {
         var testCalendar: Calendar {
@@ -179,7 +187,7 @@ final class JournalManager {
         }
 
         let resolvedToday = today ?? .now
-        let defaultPolicy = StandardCreationPolicy(today: resolvedToday, firstWeekday: .sunday)
+        let defaultPolicy = StandardCreationPolicy(today: resolvedToday, firstWeekday: firstWeekday)
 
         let manager = JournalManager(
             calendar: calendar ?? testCalendar,
@@ -190,6 +198,7 @@ final class JournalManager {
             noteRepository: noteRepository ?? InMemoryNoteRepository(),
             collectionRepository: collectionRepository,
             bujoMode: bujoMode,
+            firstWeekday: firstWeekday,
             creationPolicy: creationPolicy ?? defaultPolicy
         )
         await manager.loadData()

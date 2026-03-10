@@ -17,6 +17,11 @@ struct AppRuntime {
     let syncEngine: SyncEngine
     let authCoordinator: AuthLifecycleCoordinator
 
+    /// Repository for persisting user settings changes.
+    var settingsRepository: any SettingsRepository {
+        dependencies.settingsRepository
+    }
+
     /// Optional factory for constructing the debug menu view.
     ///
     /// Non-nil in debug/QA builds where `AppRuntimeConfiguration.debug()` provides the hook.

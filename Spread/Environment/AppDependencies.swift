@@ -143,11 +143,13 @@ struct AppDependencies: @unchecked Sendable {
     ///   - calendar: The calendar for date calculations (defaults to current).
     ///   - today: The current date (defaults to now).
     ///   - bujoMode: The initial BuJo mode (defaults to conventional).
+    ///   - firstWeekday: The user's first day of week preference (defaults to system default).
     /// - Returns: A configured JournalManager with data loaded.
     func makeJournalManager(
         calendar: Calendar = .current,
         today: Date = .now,
-        bujoMode: BujoMode = .conventional
+        bujoMode: BujoMode = .conventional,
+        firstWeekday: FirstWeekday = .systemDefault
     ) async throws -> JournalManager {
         try await JournalManager.make(
             calendar: calendar,
@@ -157,7 +159,8 @@ struct AppDependencies: @unchecked Sendable {
             eventRepository: eventRepository,
             noteRepository: noteRepository,
             collectionRepository: collectionRepository,
-            bujoMode: bujoMode
+            bujoMode: bujoMode,
+            firstWeekday: firstWeekday
         )
     }
 }
