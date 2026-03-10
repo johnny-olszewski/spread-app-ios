@@ -55,7 +55,7 @@ struct ConventionalSpreadService {
     ///   - preferredPeriod: The entry's preferred period.
     ///   - spreads: The available spreads to search.
     /// - Returns: The best matching spread, or `nil` if no spread matches.
-    private func findBestSpread(
+    func findBestSpread(
         preferredDate: Date,
         preferredPeriod: Period,
         in spreads: [DataModel.Spread]
