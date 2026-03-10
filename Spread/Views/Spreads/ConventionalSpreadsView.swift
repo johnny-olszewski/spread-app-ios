@@ -43,6 +43,12 @@ struct ConventionalSpreadsView: View {
     /// Whether the auth sheet is presented.
     @State private var isShowingAuthSheet = false
 
+    /// Whether the migration selection sheet is presented.
+    @State private var isShowingMigrationSheet = false
+
+    /// Whether the migration banner has been dismissed for the current spread.
+    @State private var isMigrationBannerDismissed = false
+
     // MARK: - Body
 
     var body: some View {
@@ -141,12 +147,33 @@ struct ConventionalSpreadsView: View {
                 LoginSheet(authManager: authManager)
             }
         }
+        .sheet(isPresented: $isShowingMigrationSheet) {
+            if let spread = selectedSpread {
+                MigrationSelectionSheet(
+                    destinationSpread: spread,
+                    eligibleTasks: eligibleMigrationTasks.map(\.task),
+                    calendar: journalManager.calendar,
+                    onMigrate: { tasks in
+                        migrateSelectedTasks(tasks)
+                    }
+                )
+            }
+        }
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()
+        }
+        .onChange(of: selectedSpread?.id) { _, _ in
+            isMigrationBannerDismissed = false
         }
     }
 
     // MARK: - Content
+
+    /// Eligible tasks for migration to the selected spread.
+    private var eligibleMigrationTasks: [(task: DataModel.Task, source: DataModel.Spread)] {
+        guard let spread = selectedSpread else { return [] }
+        return journalManager.allEligibleTasksForMigration(to: spread)
+    }
 
     @ViewBuilder
     private var spreadContent: some View {
@@ -164,7 +191,11 @@ struct ConventionalSpreadsView: View {
                         try? await journalManager.deleteNote(note)
                         await syncEngine?.syncNow()
                     }
-                }
+                },
+                eligibleTaskCount: isMigrationBannerDismissed ? 0 : eligibleMigrationTasks.count,
+                onMigrateAll: { migrateAllEligibleTasks() },
+                onReviewMigration: { isShowingMigrationSheet = true },
+                onDismissBanner: { isMigrationBannerDismissed = true }
             )
         } else {
             ContentUnavailableView {
@@ -179,6 +210,34 @@ struct ConventionalSpreadsView: View {
     private func spreadDataModel(for spread: DataModel.Spread) -> SpreadDataModel? {
         let normalizedDate = spread.period.normalizeDate(spread.date, calendar: journalManager.calendar)
         return journalManager.dataModel[spread.period]?[normalizedDate]
+    }
+
+    // MARK: - Migration
+
+    private func migrateAllEligibleTasks() {
+        guard let destination = selectedSpread else { return }
+        let pairs = eligibleMigrationTasks
+
+        Task {
+            for (task, source) in pairs {
+                try? await journalManager.migrateTask(task, from: source, to: destination)
+            }
+            await syncEngine?.syncNow()
+        }
+    }
+
+    private func migrateSelectedTasks(_ tasks: [DataModel.Task]) {
+        guard let destination = selectedSpread else { return }
+        let pairs = eligibleMigrationTasks.filter { pair in
+            tasks.contains { $0.id == pair.task.id }
+        }
+
+        Task {
+            for (task, source) in pairs {
+                try? await journalManager.migrateTask(task, from: source, to: destination)
+            }
+            await syncEngine?.syncNow()
+        }
     }
 
     private func resetSelectionIfNeeded() {
@@ -211,6 +270,18 @@ private struct SpreadContentView: View {
     /// Callback when a note is deleted via swipe.
     var onDeleteNote: ((DataModel.Note) -> Void)?
 
+    /// Number of tasks eligible for migration (0 hides the banner).
+    var eligibleTaskCount: Int = 0
+
+    /// Callback to migrate all eligible tasks.
+    var onMigrateAll: (() -> Void)?
+
+    /// Callback to open migration review sheet.
+    var onReviewMigration: (() -> Void)?
+
+    /// Callback to dismiss the migration banner.
+    var onDismissBanner: (() -> Void)?
+
     var body: some View {
         VStack(spacing: 0) {
             // Header with title and counts
@@ -222,6 +293,16 @@ private struct SpreadContentView: View {
             )
 
             Divider()
+
+            // Migration banner (only shows when eligible tasks exist)
+            if eligibleTaskCount > 0 {
+                MigrationBannerView(
+                    eligibleTaskCount: eligibleTaskCount,
+                    onMigrateAll: { onMigrateAll?() },
+                    onReview: { onReviewMigration?() },
+                    onDismiss: { onDismissBanner?() }
+                )
+            }
 
             // Entry list grouped by period
             entryList
