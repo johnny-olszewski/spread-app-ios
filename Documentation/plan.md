@@ -675,7 +675,7 @@
   - UI tests: note creation/edit with content, explicit migrate button only.
 - **Dependencies**: SPRD-58, SPRD-22, SPRD-15
 
-### [SPRD-34] Feature: Note migration UX
+### [SPRD-34] Feature: Note migration UX - [x] Complete
 - **Context**: Notes can migrate only explicitly.
 - **Description**: Ensure note rows expose migrate action only when explicitly invoked.
 - **Implementation Details**:
