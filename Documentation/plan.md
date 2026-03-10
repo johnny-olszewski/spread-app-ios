@@ -460,7 +460,7 @@
   - UI tests: edit task title/status, migrate action, and delete confirmation flow.
 - **Dependencies**: SPRD-22, SPRD-15, SPRD-16
 
-### [SPRD-29] Feature: Migrated tasks section
+### [SPRD-29] Feature: Migrated tasks section - [x] Complete
 - **Context**: Conventional mode shows migrated history.
 - **Description**: Add a collapsible migrated tasks section.
 - **Implementation Details**:
