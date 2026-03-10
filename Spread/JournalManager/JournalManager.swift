@@ -805,6 +805,43 @@ final class JournalManager {
         }
     }
 
+    /// Returns all tasks eligible for migration from any parent spread to the given destination.
+    ///
+    /// Walks up the period hierarchy (day → month → year) collecting eligible tasks
+    /// from each parent spread that exists. Deduplicates tasks that appear on multiple parents.
+    ///
+    /// - Parameter destination: The target spread.
+    /// - Returns: Array of unique tasks eligible for migration, with their source spreads.
+    func allEligibleTasksForMigration(
+        to destination: DataModel.Spread
+    ) -> [(task: DataModel.Task, source: DataModel.Spread)] {
+        guard destination.period.canHaveTasksAssigned else { return [] }
+
+        var results: [(task: DataModel.Task, source: DataModel.Spread)] = []
+        var seenTaskIds: Set<UUID> = []
+
+        var currentPeriod: Period? = destination.period.parentPeriod
+
+        while let period = currentPeriod {
+            let normalizedDate = period.normalizeDate(destination.date, calendar: calendar)
+
+            if let parentSpread = spreads.first(where: { spread in
+                spread.period == period &&
+                spread.period.normalizeDate(spread.date, calendar: calendar) == normalizedDate
+            }) {
+                let eligible = eligibleTasksForMigration(from: parentSpread, to: destination)
+                for task in eligible where !seenTaskIds.contains(task.id) {
+                    results.append((task: task, source: parentSpread))
+                    seenTaskIds.insert(task.id)
+                }
+            }
+
+            currentPeriod = period.parentPeriod
+        }
+
+        return results
+    }
+
     // MARK: - Spread Deletion
 
     /// Deletes a spread and reassigns all entries to a parent spread or Inbox.
