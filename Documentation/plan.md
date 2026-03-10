@@ -652,7 +652,7 @@
   - Repository CRUD integration tests
 - **Dependencies**: SPRD-9, SPRD-3
 
-### [SPRD-61] Feature: Note creation and edit views
+### [SPRD-61] Feature: Note creation and edit views - [x] Complete
 - **Context**: Notes have content field and different migration semantics.
 - **Description**: Build note creation/edit UI with extended content support.
 - **Implementation Details**:
