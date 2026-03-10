@@ -1031,4 +1031,123 @@ final class JournalManager {
 
         return task
     }
+
+    // MARK: - Note CRUD
+
+    /// Creates a new note with the given parameters.
+    ///
+    /// The note is created with:
+    /// - Normalized date for the selected period
+    /// - Status `.active`
+    /// - Assignment to the best matching spread (or Inbox if none)
+    ///
+    /// - Parameters:
+    ///   - title: The note title.
+    ///   - content: The note content (optional extended text).
+    ///   - date: The preferred date for the note.
+    ///   - period: The preferred period for the note.
+    /// - Returns: The newly created note.
+    /// - Throws: Repository errors if persistence fails.
+    func addNote(
+        title: String,
+        content: String = "",
+        date: Date,
+        period: Period
+    ) async throws -> DataModel.Note {
+        let normalizedDate = period.normalizeDate(date, calendar: calendar)
+
+        let note = DataModel.Note(
+            title: title,
+            content: content,
+            date: normalizedDate,
+            period: period,
+            assignments: []
+        )
+
+        // Find the best spread for assignment
+        if let bestSpread = spreadService.findBestSpread(for: note, in: spreads) {
+            let assignment = NoteAssignment(
+                period: bestSpread.period,
+                date: bestSpread.date,
+                status: .active
+            )
+            note.assignments.append(assignment)
+        }
+        // If no spread found, note goes to Inbox (no assignment)
+
+        try await noteRepository.save(note)
+        notes.append(note)
+
+        if note.assignments.isEmpty {
+            Self.logger.debug("Note created: \(note.id) '\(note.title)' → Inbox (no matching spread)")
+        } else {
+            Self.logger.debug("Note created: \(note.id) '\(note.title)' → \(note.period.rawValue) spread")
+        }
+
+        buildDataModel()
+        dataVersion += 1
+
+        return note
+    }
+
+    /// Deletes a note from the repository and local state.
+    ///
+    /// - Parameter note: The note to delete.
+    /// - Throws: Repository errors if deletion fails.
+    func deleteNote(_ note: DataModel.Note) async throws {
+        try await noteRepository.delete(note)
+        notes.removeAll { $0.id == note.id }
+
+        Self.logger.debug("Note deleted: \(note.id) '\(note.title)'")
+
+        buildDataModel()
+        dataVersion += 1
+    }
+
+    /// Updates a note's title and content.
+    ///
+    /// - Parameters:
+    ///   - note: The note to update.
+    ///   - newTitle: The new title for the note.
+    ///   - newContent: The new content for the note.
+    /// - Throws: Repository errors if persistence fails.
+    func updateNoteTitle(_ note: DataModel.Note, newTitle: String, newContent: String) async throws {
+        note.title = newTitle
+        note.content = newContent
+
+        try await noteRepository.save(note)
+        notes = await noteRepository.getNotes()
+
+        Self.logger.debug("Note updated: \(note.id) '\(note.title)'")
+
+        buildDataModel()
+        dataVersion += 1
+    }
+
+    /// Updates a note's preferred date and period.
+    ///
+    /// Also updates the note's assignment to the best matching spread.
+    ///
+    /// - Parameters:
+    ///   - note: The note to update.
+    ///   - newDate: The new preferred date.
+    ///   - newPeriod: The new preferred period.
+    /// - Throws: Repository errors if persistence fails.
+    func updateNoteDateAndPeriod(
+        _ note: DataModel.Note,
+        newDate: Date,
+        newPeriod: Period
+    ) async throws {
+        let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
+        note.date = normalizedDate
+        note.period = newPeriod
+
+        try await noteRepository.save(note)
+        notes = await noteRepository.getNotes()
+
+        Self.logger.debug("Note date updated: \(note.id) → \(newPeriod.rawValue) \(normalizedDate)")
+
+        buildDataModel()
+        dataVersion += 1
+    }
 }
