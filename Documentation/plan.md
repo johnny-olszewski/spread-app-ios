@@ -800,7 +800,7 @@
   - Unit tests for virtual spread mapping and fallback logic.
 - **Dependencies**: SPRD-20, SPRD-16
 
-### [SPRD-35] Feature: Traditional year view
+### [SPRD-35] Feature: Traditional year view - [x] Complete
 - **Context**: Traditional mode starts at year view.
 - **Description**: Build a year view listing months with entry counts.
 - **Implementation Details**:
