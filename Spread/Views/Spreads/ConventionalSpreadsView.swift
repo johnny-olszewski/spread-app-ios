@@ -103,7 +103,7 @@ struct ConventionalSpreadsView: View {
         .sheet(isPresented: $isShowingSpreadCreationSheet) {
             SpreadCreationSheet(
                 journalManager: journalManager,
-                firstWeekday: .sunday, // TODO: SPRD-20 - Get from user settings
+                firstWeekday: journalManager.firstWeekday,
                 onSpreadCreated: { spread in
                     selectedSpread = spread
                     Task { await syncEngine?.syncNow() }

@@ -61,7 +61,11 @@ struct TabNavigationView: View {
                 case .collections:
                     CollectionsPlaceholderView()
                 case .settings:
-                    SettingsPlaceholderView()
+                    SettingsView(
+                        journalManager: journalManager,
+                        settingsRepository: dependencies.settingsRepository,
+                        syncEngine: syncEngine
+                    )
                 case .debug:
                     debugMenuView
                 }
