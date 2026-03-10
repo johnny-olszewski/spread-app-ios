@@ -24,7 +24,7 @@
 - Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with in-view hierarchical navigation, manual migration, and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29]
 - Provide calendar-style navigation in traditional mode (year/month/day) without altering created-spread data. [SPRD-17, SPRD-35, SPRD-38]
 - Support offline-first usage with SwiftData local storage and Supabase sync. [SPRD-80, SPRD-85]
-- Allow local-only usage without sign-in; sync only when authenticated, backup entitlement is active, and online. Backup entitlement is read from a profile flag. [SPRD-84, SPRD-85]
+- Allow local-only usage without sign-in; sync only when authenticated, backup entitlement is active, and online. Backup entitlement is set via In-App Purchase (StoreKit) and read from `user.appMetadata["backup_entitled"]`. [SPRD-84, SPRD-85]
 
 ## Non-Goals (v1)
 - Search, filters, or tagging. [SPRD-56]
@@ -121,10 +121,11 @@
 - Multiday spreads aggregate entries by date range; entries are not assigned directly to multiday. [SPRD-18, SPRD-13]
 
 ### Spread Deletion
-- Deleting a spread reassigns all entries (open, completed, migrated) to the parent spread. [SPRD-15]
+- Deleting a year/month/day spread reassigns all entries (open, completed, migrated) to the parent spread. [SPRD-15]
 - If no parent spread exists, entries go to Inbox. [SPRD-14, SPRD-15]
 - Entries are NEVER deleted when a spread is deleted; history is preserved. [SPRD-15]
 - Deletion is blocked if it would orphan entries with no valid destination. [SPRD-15]
+- Multiday spread deletion is a simple delete with no reassignment needed (multiday spreads aggregate entries by date range and have no direct assignments). [SPRD-18]
 
 ### Entries (Tasks/Notes)
 - Create entries with title, preferred date, preferred period, and type. [SPRD-9, SPRD-23]
@@ -144,15 +145,16 @@
 - Delete entries across all spreads. [SPRD-11, SPRD-5]
 - Events are deferred to v2 and not available in v1. [SPRD-69]
 
-### Entry Date Changes (Reassignment)
-- Changing preferred date triggers reassignment logic in conventional mode. [SPRD-24]
-- Old assignments (on old date's spreads) are marked as migrated to preserve history. [SPRD-24]
-- New assignment is created on the best matching spread for the new date: [SPRD-24, SPRD-13]
+### Entry Date/Period Changes (Reassignment)
+- Changing preferred date or period triggers reassignment logic in conventional mode. [SPRD-24]
+- Period is independently editable (e.g., changing from month to day without changing the date month). [SPRD-24]
+- Old assignments (on old date/period's spreads) are marked as migrated to preserve history. [SPRD-24]
+- New assignment is created on the best matching spread for the new date/period: [SPRD-24, SPRD-13]
   - Search from finest to coarsest: day → month → year.
   - If a matching spread exists, create/update assignment with open/active status.
   - If no matching spread exists, entry goes to Inbox.
 - If destination spread already has an assignment, update its status (don't duplicate). [SPRD-52]
-- Traditional mode date changes also trigger conventional reassignment logic. [SPRD-17, SPRD-24]
+- Traditional mode date/period changes also trigger conventional reassignment logic. [SPRD-17, SPRD-24]
 
 ### Task Status
 - Statuses: open, complete, migrated, cancelled. [SPRD-10, SPRD-24]
@@ -219,8 +221,13 @@
 
 ### Collections
 - Collections are plain text pages (title + content). [SPRD-39]
+- Content is plain text with no character limit (unbounded). [SPRD-39]
 - Collections live outside spread navigation in a top-level entry point. [SPRD-19, SPRD-40]
 - Support create, edit, delete operations. [SPRD-40, SPRD-41]
+- Collections list is sorted by modified date, newest first. [SPRD-40]
+- Collections sync via Supabase using the same outbox + pull mechanism as other entities. [SPRD-85]
+- Collection model fields: id, title, content, createdDate, modifiedDate. [SPRD-39]
+- Auto-save on changes (debounced); updates modifiedDate on save. [SPRD-41]
 
 ### Persistence
 - Use SwiftData for local storage. [SPRD-4, SPRD-5]
@@ -235,7 +242,7 @@
 
 ### Supabase Sync + Auth (v1)
 - Supabase environments: separate dev and prod projects; Debug and QA TestFlight builds can switch data environments (localhost/dev/prod) at runtime; Release builds are locked to prod. [SPRD-80, SPRD-86]
-- Auth: email/password for v1; Sign in with Apple and Google deferred to SPRD-91. Local-only usage is allowed; sign-in merges local data only when backup entitlement is active; sign-out wipes local store. Backup entitlement is read from a profile flag. [SPRD-84, SPRD-85, SPRD-91]
+- Auth: email/password for v1; Sign in with Apple and Google deferred to SPRD-91. Local-only usage is allowed; sign-in merges local data only when backup entitlement is active; sign-out wipes local store. [SPRD-84, SPRD-85, SPRD-91]
 - Sync: field-level last-write-wins (server-arrival time), per-field timestamps set by DB triggers, monotonic revision per table for incremental sync, soft-delete with 90-day cleanup, delete wins conflicts, and device_id recorded on writes. [SPRD-81, SPRD-83, SPRD-85, SPRD-89]
 - Data integrity: unique constraints for spreads/assignments, foreign keys enforced, and RLS policies restrict rows to `auth.uid()`. [SPRD-81, SPRD-82]
 - Sync status semantics:
@@ -252,6 +259,33 @@
   - Core services expose protocols and accept injected policies (Sync/Auth/Network) to keep debug logic out of production files.
   - Debug overrides live under `Spread/Debug` and are compiled only in Debug/QA builds.
   - Minimize `#if DEBUG` inside core services; prefer debug-only extensions/policy files.
+
+### Backup Entitlement
+- Backup entitlement gates sync availability for signed-in users. [SPRD-85]
+- Entitlement source: In-App Purchase via Apple StoreKit; a server-side webhook sets the `backup_entitled` flag on the user's Supabase `appMetadata`. Future versions may migrate to a third-party purchase provider (e.g., RevenueCat) to optimize revenue share.
+- Client reads entitlement from `user.appMetadata["backup_entitled"]` (boolean); the client never writes this flag.
+- Entitlement can be revoked server-side (e.g., subscription expiry); when revoked:
+  - Sync stops on the next session check or auth refresh.
+  - Local data is preserved (not wiped) but no longer pushes or pulls.
+  - Outbox mutations continue to enqueue locally for future re-entitlement.
+  - Sync status shows `backupUnavailable` state.
+- When entitlement becomes active (purchase or renewal), sync resumes automatically on the next auth refresh or app foreground.
+
+### Sign-In Data Merge Flow
+- On sign-in, the app checks for local data and backup entitlement. [SPRD-99]
+- Sign-in with entitlement and local data present:
+  - User is shown a merge/discard prompt: "Keep local data and merge with cloud?" or "Discard local data and use cloud only?"
+  - **Merge**: Local data is pushed to the server via the normal outbox sync flow. If the server already has data for the same entities, field-level LWW resolves conflicts using per-field timestamps. The user ends up with a union of local + server data.
+  - **Discard**: Local data is wiped; a full pull from the server populates the local store.
+- Sign-in with entitlement and no local data: Sync starts immediately (pull from server).
+- Sign-in without backup entitlement: No merge prompt is shown; local data is preserved untouched; sync status shows `backupUnavailable`. [SPRD-99]
+
+### Sync Conflict Scenarios
+- **Duplicate spread creation**: Two devices create a spread with the same period + normalized date. The server's unique constraint (`user_id, period, date`) causes the second push to fail. The merge RPC detects the existing row and applies field-level LWW to update any differing fields; the client receives the canonical row and updates its local copy. No duplicate is created. [SPRD-81, SPRD-83]
+- **Concurrent task migration**: Two devices migrate the same task to different spreads. Both pushes succeed because they create different assignment rows. The task ends up with assignments on both destination spreads. The source assignment is marked migrated by whichever push arrives first; the second push's LWW timestamp for the source assignment status is compared and the later write wins. [SPRD-83]
+- **Concurrent field edits**: Two devices edit different fields of the same entity (e.g., one changes title, another changes status). Each field has its own `*_updated_at` timestamp; both edits are preserved because LWW is per-field, not per-row. [SPRD-83]
+- **Delete wins**: If one device deletes an entity while another edits it, the delete (`deleted_at` timestamp) wins regardless of field-level timestamps. The entity is soft-deleted on all devices after the next pull. [SPRD-83]
+- **Merge RPC response**: All merge RPCs return the canonical row after applying LWW, so the client can update its local copy to match the server's resolved state. [SPRD-83]
 
 ### Auth UI (v1)
 - Auth button in toolbar, trailing the Inbox button. [SPRD-84]
@@ -299,6 +333,53 @@
   - Live sync readout (network status, last sync time, outbox count, current sync error).
   - Override persistence across relaunch is not required.
 
+### Secrets and Configuration
+- Supabase publishable (anon) keys and project URLs are stored in build-time xcconfig files. These are client-side keys protected by RLS policies; they are not service role keys.
+- Configuration files:
+  - `Configuration/Debug.xcconfig` — dev Supabase URL + key, `development` environment, `dev.johnnyo.Spread.debug` bundle ID.
+  - `Configuration/QA.xcconfig` — dev Supabase URL + key (same as Debug), `development` environment, `dev.johnnyo.Spread.qa` bundle ID.
+  - `Configuration/Release.xcconfig` — prod Supabase URL + key, `production` environment, `dev.johnnyo.Spread` bundle ID.
+- `Info.plist` reads values via build variables: `$(SUPABASE_URL)`, `$(SUPABASE_PUBLISHABLE_KEY)`, `$(DATA_ENVIRONMENT)`.
+- `SupabaseConfiguration.swift` resolves configuration with this priority:
+  1. Launch arguments (`-SupabaseURL`, `-SupabaseKey`) — highest priority.
+  2. Environment variables (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`).
+  3. `DataEnvironment`-based hardcoded defaults (in code).
+  4. `Info.plist` build-time values (from xcconfig).
+- `DataEnvironment.swift` contains hardcoded URLs and keys for dev/prod as fallback defaults.
+- `.gitignore` blocks `.env` files but does not block `.xcconfig` files; publishable keys are committed to git (acceptable for client-side anon keys).
+- Service role keys, webhook secrets, and IAP shared secrets are never stored in the client codebase. They exist only in the Supabase dashboard and server-side infrastructure.
+
+### First Launch and Onboarding
+- On first launch, a brief onboarding walkthrough is shown (2-3 screens explaining BuJo concepts: spreads, tasks, migration). [SPRD-TBD]
+- Onboarding is shown only once; completion is tracked via a UserDefaults boolean flag (e.g., `hasCompletedOnboarding`).
+- After onboarding dismissal, the user lands on the empty spread view with a clear call-to-action to create their first spread via the "+" button.
+- Subsequent launches skip onboarding and go directly to the spread view.
+- Onboarding content (v1):
+  - Screen 1: Welcome — brief app description and BuJo philosophy.
+  - Screen 2: Spreads — explain year/month/day/multiday pages and how to create them.
+  - Screen 3: Tasks and Migration — explain rapid logging, task statuses, and manual migration.
+- Onboarding does not cover sign-in, sync, or collections (these are discoverable from the UI).
+
+### Error Handling UX
+- **Sign-in errors**: Error messages are displayed inline on the login sheet below the password field. Error text is human-readable and maps from auth error types: [SPRD-84]
+  - Invalid credentials: "Incorrect email or password."
+  - Email not confirmed: "Please check your email to confirm your account."
+  - User not found: "No account found with that email."
+  - Rate limited: "Too many attempts. Please try again later."
+  - Network timeout: "Unable to connect. Check your internet connection."
+- **Sync errors**: Sync failures are non-blocking. The sync status banner shows an error icon with a brief message. Automatic retry occurs with exponential backoff (2s base, 300s max). Manual retry is available via pull-to-refresh or the sync status view. [SPRD-85]
+- **Network errors**: When offline, the app continues to function normally with local data. Sync status shows "offline" state. When connectivity returns, sync resumes automatically. [SPRD-85]
+- **App initialization errors**: If the SwiftData container fails to create on launch, the app shows a fatal error screen with a message to restart the app. No recovery is attempted. [SPRD-TBD]
+- **Entry deletion**: Requires confirmation via a standard destructive alert ("Delete this task? This cannot be undone."). [SPRD-24]
+- **Spread deletion**: Requires confirmation with a message explaining that entries will be reassigned, not deleted. [SPRD-15]
+
+### Accessibility (v1)
+- **VoiceOver**: All interactive elements (buttons, list rows, toggles, pickers) must have descriptive accessibility labels. Entry rows announce entry type, title, and status (e.g., "Task, Buy groceries, open"). [SPRD-TBD]
+- **Dynamic Type**: Body text and entry list content support Dynamic Type at standard text sizes. Accessibility text sizes (xxxLarge and above) are not required for v1.
+- **Color contrast**: All text and interactive elements meet minimum contrast ratios against their backgrounds (4.5:1 for normal text, 3:1 for large text).
+- **Reduce Motion**: Not required for v1. Revisit post-v1 if animations are added.
+- **Switch Control**: Not explicitly targeted for v1; standard SwiftUI controls provide baseline support.
+
 ---
 
 ## BuJo Method Features (v1)
@@ -330,10 +411,14 @@
 - Date normalization: Use Calendar API with user's firstWeekday setting. [SPRD-7, SPRD-49]
 - Entries with no matching spread: Go to Inbox; auto-resolve on spread creation. [SPRD-13, SPRD-14]
 - Migration when destination has assignment: Update existing assignment status. [SPRD-15, SPRD-52]
-- Deleting spread with entries: Reassign all entries to parent or Inbox; never delete entries. [SPRD-15]
+- Deleting year/month/day spread with entries: Reassign all entries to parent or Inbox; never delete entries. [SPRD-15]
+- Deleting multiday spread: Simple delete with no reassignment (no direct assignments to multiday). [SPRD-18]
 - Overlapping multiday spreads: Each multiday is independent; entries appear on all applicable. [SPRD-8, SPRD-49]
 - Past-dated entries: Blocked in v1; validation prevents creation. [SPRD-23, SPRD-56]
 - Entry date change: Old assignments marked migrated; new assignment on best spread or Inbox. [SPRD-24]
+- Entry period change: Same reassignment logic as date change; period is independently editable. [SPRD-24]
+- Duplicate spread on sync: Server unique constraint prevents duplicates; merge RPC applies field-level LWW and returns canonical row. [SPRD-81, SPRD-83]
+- Concurrent migration: Both assignment rows are created; source assignment status resolved by LWW timestamp. [SPRD-83]
 
 ## Resolved Decisions
 - Entry architecture uses protocol + separate @Model classes for scalability. [SPRD-9]
@@ -341,13 +426,18 @@
 - Notes migrate only via explicit user action, not batch suggestions. [SPRD-34]
 - Inbox appears as a toolbar button in the spread content view and opens as sheet; when non-empty, the icon is tinted yellow. [SPRD-31, SPRD-68]
 - Settings include mode toggle + first day of week preference. [SPRD-20, SPRD-49]
-- Spread deletion never deletes entries; reassigns to parent or Inbox. [SPRD-15]
-- Collections are plain text pages outside spread navigation. [SPRD-19, SPRD-40]
+- Spread deletion never deletes entries; reassigns to parent or Inbox (multiday deletion has no reassignment). [SPRD-15, SPRD-18]
+- Collections are plain text pages outside spread navigation; sorted by modified date; content is unbounded; collections sync via Supabase. [SPRD-19, SPRD-40, SPRD-85]
 - Traditional mode in scope for v1. [SPRD-35, SPRD-38]
 - Traditional mode date changes trigger conventional reassignment. [SPRD-17, SPRD-24]
 - Multiplatform: iPadOS primary, iOS supported; adaptive layouts per size class. [SPRD-19]
 - macOS deferred to post-v1. [SPRD-56]
 - Visual style uses dot grid backgrounds on spread content surfaces only, muted blue accents, and Debug-only appearance overrides for paper tone and typography. [SPRD-62, SPRD-63]
+- Entry period is independently editable; period changes trigger the same reassignment logic as date changes. [SPRD-24]
+- Backup entitlement is sourced from In-App Purchase via StoreKit; server webhook sets `appMetadata["backup_entitled"]`. [SPRD-85]
+- Sign-in merge pushes local outbox to server with field-level LWW; result is a union of local + server data. [SPRD-99]
+- Brief onboarding walkthrough shown once on first launch, tracked via UserDefaults. [SPRD-TBD]
+- Minimum accessibility baseline for v1: VoiceOver labels, standard Dynamic Type, contrast ratios. [SPRD-TBD]
 
 ## Open Questions
 - For v2 events: EventKit only or EventKit + Google? [SPRD-57]

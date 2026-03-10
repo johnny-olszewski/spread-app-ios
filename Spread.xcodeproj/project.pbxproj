@@ -51,6 +51,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		318A6DCF2F5FC97B00A95F3D /* Documentation */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Documentation;
+			sourceTree = "<group>";
+		};
 		31E0DA822F0DB76200B0A403 /* Spread */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -100,6 +105,7 @@
 		31E0DA772F0DB76200B0A403 = {
 			isa = PBXGroup;
 			children = (
+				318A6DCF2F5FC97B00A95F3D /* Documentation */,
 				319A04C62F1E0080002D6FA2 /* AllUITests.xctestplan */,
 				A1B2C3D4E5F60718293A4B5C /* Definitions.swift */,
 				SPRD94011 /* Configuration */,
@@ -146,6 +152,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				318A6DCF2F5FC97B00A95F3D /* Documentation */,
 				31E0DA822F0DB76200B0A403 /* Spread */,
 			);
 			name = Spread;

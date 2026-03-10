@@ -899,11 +899,16 @@
     ```
   - `CollectionRepository` protocol with CRUD
   - SwiftData implementation
+  - Content is plain text with no character limit (unbounded).
+  - Collections list is sorted by modifiedDate descending (newest first).
+  - Collections sync via Supabase using the same outbox + pull mechanism as other entities.
 - **Acceptance Criteria**:
   - Collections persist title + plain text content. (Spec: Collections)
+  - Collections list is sorted by modified date, newest first. (Spec: Collections)
 - **Tests**:
   - Unit tests for collection CRUD.
-- **Dependencies**: SPRD-38
+- **Dependencies**: SPRD-19
+- **Note**: Dependency changed from SPRD-38 (traditional navigation) to SPRD-19 (root navigation shell). Collections are independent of traditional mode and only require the root navigation entry point to be in place.
 
 ### [SPRD-40] Feature: Collections list UI
 - **Context**: Users need access to collections list.
@@ -978,10 +983,12 @@
 - **Tests**:
   - Manual: confirm no CloudKit entitlements or container references in the project.
 - **Dependencies**: SPRD-41
+- **Note**: Likely already satisfied — the codebase has no CloudKit entitlements, no CloudKit container references, and no iCloud capability configuration. Verify manually and mark complete if confirmed.
 
 ### [SPRD-43] Feature: Remove CloudKit entitlements + document Supabase-only config
 - **Context**: CloudKit is out of scope for v1.
 - **Description**: Ensure CloudKit entitlements are removed and documentation reflects Supabase-only sync.
+- **Note**: Likely already satisfied — see SPRD-42 note. The project uses Supabase exclusively for sync.
 - **Implementation Details**:
   - Remove iCloud/CloudKit capabilities if present.
   - Update docs to remove CloudKit references and clarify Supabase-only sync.
@@ -1043,7 +1050,7 @@ V2: SPRD-9 -> SPRD-57 -> SPRD-59 -> SPRD-60 -> SPRD-33
 SPRD-9 -> SPRD-58 -> SPRD-61 -> SPRD-34
 SPRD-14 -> SPRD-18 -> SPRD-32
 SPRD-19 -> SPRD-20 -> SPRD-17 -> SPRD-35 -> SPRD-36 -> SPRD-37 -> SPRD-38 -> SPRD-53
-SPRD-38 -> SPRD-39 -> SPRD-40 -> SPRD-41 -> SPRD-54 -> SPRD-55 -> SPRD-56
+SPRD-19 -> SPRD-39 -> SPRD-40 -> SPRD-41 -> SPRD-54 -> SPRD-55 -> SPRD-56
 SPRD-41 -> SPRD-42 -> SPRD-43 -> SPRD-44 -> SPRD-45 -> SPRD-63 -> SPRD-46 -> SPRD-47 -> SPRD-48
 SPRD-46 -> SPRD-65
 SPRD-62 -> SPRD-63
