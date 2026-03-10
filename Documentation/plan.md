@@ -716,7 +716,7 @@
   - Unit tests for range aggregation across month/year boundaries.
 - **Dependencies**: SPRD-14, SPRD-8
 
-### [SPRD-32] Feature: Multiday spread UI
+### [SPRD-32] Feature: Multiday spread UI - [x] Complete
 - **Context**: Multiday spreads need a dedicated view.
 - **Description**: Render multiday spread with range header and aggregated entries.
 - **Implementation Details**:
