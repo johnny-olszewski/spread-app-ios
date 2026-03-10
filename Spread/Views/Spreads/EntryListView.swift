@@ -36,31 +36,69 @@ struct EntryListView: View {
 
     // MARK: - Computed Properties
 
-    /// All entries combined from the spread data model.
-    private var allEntries: [any Entry] {
+    /// Active (non-migrated) entries combined from the spread data model.
+    private var activeEntries: [any Entry] {
         var entries: [any Entry] = []
-        entries.append(contentsOf: spreadDataModel.tasks)
-        entries.append(contentsOf: spreadDataModel.notes)
+        entries.append(contentsOf: activeTasks)
+        entries.append(contentsOf: activeNotes)
         return entries
     }
 
-    /// Grouped sections for display.
+    /// Tasks that are not migrated on this spread.
+    private var activeTasks: [DataModel.Task] {
+        spreadDataModel.tasks.filter { task in
+            !isMigratedOnSpread(task)
+        }
+    }
+
+    /// Notes that are not migrated on this spread.
+    private var activeNotes: [DataModel.Note] {
+        spreadDataModel.notes.filter { note in
+            !isMigratedOnSpread(note)
+        }
+    }
+
+    /// Tasks migrated from this spread (have a migrated assignment on this spread).
+    private var migratedTasks: [DataModel.Task] {
+        spreadDataModel.tasks.filter { task in
+            isMigratedOnSpread(task)
+        }
+    }
+
+    /// Notes migrated from this spread (have a migrated assignment on this spread).
+    private var migratedNotes: [DataModel.Note] {
+        spreadDataModel.notes.filter { note in
+            isMigratedOnSpread(note)
+        }
+    }
+
+    /// Formatter for computing migration destination labels.
+    private var destinationFormatter: MigrationDestinationFormatter {
+        MigrationDestinationFormatter(calendar: calendar)
+    }
+
+    /// Grouped sections for display (active entries only).
     private var sections: [EntryListSection] {
         let grouper = EntryListGrouper(
             period: spreadDataModel.spread.period,
             spreadDate: spreadDataModel.spread.date,
             calendar: calendar
         )
-        return grouper.group(allEntries)
+        return grouper.group(activeEntries)
+    }
+
+    /// Whether there are any entries (active or migrated) to display.
+    private var hasAnyEntries: Bool {
+        !activeEntries.isEmpty || !migratedTasks.isEmpty || !migratedNotes.isEmpty
     }
 
     // MARK: - Body
 
     var body: some View {
-        if allEntries.isEmpty {
-            emptyState
-        } else {
+        if hasAnyEntries {
             entryList
+        } else {
+            emptyState
         }
     }
 
@@ -84,6 +122,15 @@ struct EntryListView: View {
                     }
                 }
             }
+
+            // Collapsible migrated entries section
+            MigratedEntriesSection(
+                spread: spreadDataModel.spread,
+                migratedTasks: migratedTasks,
+                migratedNotes: migratedNotes,
+                calendar: calendar,
+                onEdit: { entry in onEdit?(entry) }
+            )
         }
         .listStyle(.plain)
     }
@@ -107,7 +154,7 @@ struct EntryListView: View {
     private func taskRow(_ task: DataModel.Task) -> some View {
         EntryRowView(
             task: task,
-            migrationDestination: nil, // TODO: SPRD-29 - Add migration destination label
+            migrationDestination: destinationFormatter.destination(for: task, from: spreadDataModel.spread),
             onComplete: { onComplete?(task) },
             onMigrate: { onMigrate?(task) },
             onEdit: { onEdit?(task) },
@@ -118,11 +165,37 @@ struct EntryListView: View {
     private func noteRow(_ note: DataModel.Note) -> some View {
         EntryRowView(
             note: note,
-            migrationDestination: nil, // TODO: SPRD-29 - Add migration destination label
+            migrationDestination: destinationFormatter.destination(for: note, from: spreadDataModel.spread),
             onMigrate: { onMigrate?(note) },
             onEdit: { onEdit?(note) },
             onDelete: { onDelete?(note) }
         )
+    }
+
+    // MARK: - Helpers
+
+    /// Whether a task has a migrated assignment on this spread.
+    private func isMigratedOnSpread(_ task: DataModel.Task) -> Bool {
+        task.assignments.contains { assignment in
+            assignment.status == .migrated &&
+            assignment.matches(
+                period: spreadDataModel.spread.period,
+                date: spreadDataModel.spread.date,
+                calendar: calendar
+            )
+        }
+    }
+
+    /// Whether a note has a migrated assignment on this spread.
+    private func isMigratedOnSpread(_ note: DataModel.Note) -> Bool {
+        note.assignments.contains { assignment in
+            assignment.status == .migrated &&
+            assignment.matches(
+                period: spreadDataModel.spread.period,
+                date: spreadDataModel.spread.date,
+                calendar: calendar
+            )
+        }
     }
 
     private var emptyState: some View {
