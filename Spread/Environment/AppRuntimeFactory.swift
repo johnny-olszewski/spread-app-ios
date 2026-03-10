@@ -71,7 +71,17 @@ enum AppRuntimeFactory {
         let authManager = AuthManager(service: authService)
 
         let today = configuration.resolveToday?() ?? .now
-        let journalManager = try await dependencies.makeJournalManager(today: today)
+
+        // Load persisted settings to configure JournalManager
+        let savedSettings = await dependencies.settingsRepository.getSettings()
+        let bujoMode = savedSettings?.bujoMode ?? .conventional
+        let firstWeekday = savedSettings.flatMap { FirstWeekday.from(weekdayValue: $0.firstWeekday) } ?? .systemDefault
+
+        let journalManager = try await dependencies.makeJournalManager(
+            today: today,
+            bujoMode: bujoMode,
+            firstWeekday: firstWeekday
+        )
 
         if let loadMockDataSet = configuration.loadMockDataSet {
             try await loadMockDataSet(journalManager)
