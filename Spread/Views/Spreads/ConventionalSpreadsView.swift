@@ -31,6 +31,12 @@ struct ConventionalSpreadsView: View {
     /// Whether the task creation sheet is presented.
     @State private var isShowingTaskCreationSheet = false
 
+    /// Whether the note creation sheet is presented.
+    @State private var isShowingNoteCreationSheet = false
+
+    /// The note currently being edited via detail sheet.
+    @State private var noteBeingEdited: DataModel.Note?
+
     /// Whether the inbox sheet is presented.
     @State private var isShowingInboxSheet = false
 
@@ -52,6 +58,9 @@ struct ConventionalSpreadsView: View {
                 },
                 onCreateTaskTapped: {
                     isShowingTaskCreationSheet = true
+                },
+                onCreateNoteTapped: {
+                    isShowingNoteCreationSheet = true
                 }
             )
 
@@ -104,6 +113,24 @@ struct ConventionalSpreadsView: View {
                 }
             )
         }
+        .sheet(isPresented: $isShowingNoteCreationSheet) {
+            NoteCreationSheet(
+                journalManager: journalManager,
+                selectedSpread: selectedSpread,
+                onNoteCreated: { _ in
+                    Task { await syncEngine?.syncNow() }
+                }
+            )
+        }
+        .sheet(item: $noteBeingEdited) { note in
+            NoteDetailSheet(
+                note: note,
+                journalManager: journalManager,
+                onDelete: {
+                    Task { await syncEngine?.syncNow() }
+                }
+            )
+        }
         .sheet(isPresented: $isShowingInboxSheet) {
             InboxSheetView(journalManager: journalManager)
         }
@@ -128,7 +155,16 @@ struct ConventionalSpreadsView: View {
                 spread: spread,
                 spreadDataModel: spreadDataModel(for: spread),
                 calendar: journalManager.calendar,
-                today: journalManager.today
+                today: journalManager.today,
+                onEditNote: { note in
+                    noteBeingEdited = note
+                },
+                onDeleteNote: { note in
+                    Task {
+                        try? await journalManager.deleteNote(note)
+                        await syncEngine?.syncNow()
+                    }
+                }
             )
         } else {
             ContentUnavailableView {
@@ -169,6 +205,12 @@ private struct SpreadContentView: View {
     let calendar: Calendar
     let today: Date
 
+    /// Callback when a note is tapped for editing.
+    var onEditNote: ((DataModel.Note) -> Void)?
+
+    /// Callback when a note is deleted via swipe.
+    var onDeleteNote: ((DataModel.Note) -> Void)?
+
     var body: some View {
         VStack(spacing: 0) {
             // Header with title and counts
@@ -193,7 +235,17 @@ private struct SpreadContentView: View {
             EntryListView(
                 spreadDataModel: dataModel,
                 calendar: calendar,
-                today: today
+                today: today,
+                onEdit: { entry in
+                    if let note = entry as? DataModel.Note {
+                        onEditNote?(note)
+                    }
+                },
+                onDelete: { entry in
+                    if let note = entry as? DataModel.Note {
+                        onDeleteNote?(note)
+                    }
+                }
             )
         } else {
             ContentUnavailableView {

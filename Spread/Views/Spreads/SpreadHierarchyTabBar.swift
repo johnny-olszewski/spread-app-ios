@@ -32,6 +32,9 @@ struct SpreadHierarchyTabBar: View {
     /// Callback when "Create Task" is selected from the menu.
     var onCreateTaskTapped: (() -> Void)?
 
+    /// Callback when "Create Note" is selected from the menu.
+    var onCreateNoteTapped: (() -> Void)?
+
     /// The expanded year in the hierarchy (shows its months).
     @State private var expandedYear: DataModel.Spread?
 
@@ -193,6 +196,13 @@ struct SpreadHierarchyTabBar: View {
                 Label("Create Task", systemImage: "circle.fill")
             }
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createTask)
+
+            Button {
+                onCreateNoteTapped?()
+            } label: {
+                Label("Create Note", systemImage: "minus")
+            }
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createNote)
         } label: {
             Image(systemName: SpreadHierarchyDesign.createButtonSymbol)
                 .font(.system(size: 16, weight: .semibold))
