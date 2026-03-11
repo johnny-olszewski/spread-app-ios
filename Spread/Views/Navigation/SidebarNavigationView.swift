@@ -95,7 +95,11 @@ struct SidebarNavigationView: View {
                 syncEngine: syncEngine
             )
         case .traditional:
-            TraditionalSpreadsPlaceholderView()
+            TraditionalSpreadsView(
+                journalManager: journalManager,
+                authManager: authManager,
+                syncEngine: syncEngine
+            )
         }
     }
 }
