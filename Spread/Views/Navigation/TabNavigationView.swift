@@ -53,37 +53,42 @@ struct TabNavigationView: View {
 
     @ViewBuilder
     private func tabContent(for tab: NavigationTab) -> some View {
-        NavigationStack {
-            Group {
-                switch tab {
-                case .spreads:
-                    spreadsView
-                case .collections:
-                    CollectionsPlaceholderView()
-                case .settings:
-                    SettingsView(
-                        journalManager: journalManager,
-                        settingsRepository: dependencies.settingsRepository,
-                        syncEngine: syncEngine
-                    )
-                case .debug:
-                    debugMenuView
-                }
-            }
-            .navigationTitle(tab.title)
-            .toolbar {
-                if let syncEngine {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        SyncStatusView(syncEngine: syncEngine)
+        if tab == .spreads && journalManager.bujoMode == .traditional {
+            // Traditional mode provides its own NavigationStack for drill-in.
+            spreadsView
+        } else {
+            NavigationStack {
+                Group {
+                    switch tab {
+                    case .spreads:
+                        spreadsView
+                    case .collections:
+                        CollectionsPlaceholderView()
+                    case .settings:
+                        SettingsView(
+                            journalManager: journalManager,
+                            settingsRepository: dependencies.settingsRepository,
+                            syncEngine: syncEngine
+                        )
+                    case .debug:
+                        debugMenuView
                     }
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    HStack(spacing: 16) {
-                        InboxButton(inboxCount: journalManager.inboxCount) {
-                            isInboxPresented = true
+                .navigationTitle(tab.title)
+                .toolbar {
+                    if let syncEngine {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            SyncStatusView(syncEngine: syncEngine)
                         }
-                        AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                            isAuthPresented = true
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        HStack(spacing: 16) {
+                            InboxButton(inboxCount: journalManager.inboxCount) {
+                                isInboxPresented = true
+                            }
+                            AuthButton(isSignedIn: authManager.state.isSignedIn) {
+                                isAuthPresented = true
+                            }
                         }
                     }
                 }
@@ -115,7 +120,11 @@ struct TabNavigationView: View {
                 syncEngine: syncEngine
             )
         case .traditional:
-            TraditionalSpreadsPlaceholderView()
+            TraditionalSpreadsView(
+                journalManager: journalManager,
+                authManager: authManager,
+                syncEngine: syncEngine
+            )
         }
     }
 }
