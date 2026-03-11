@@ -832,7 +832,7 @@
   - UI tests: traditional month grid taps a day and navigates to day view.
 - **Dependencies**: SPRD-35
 
-### [SPRD-37] Feature: Traditional day view
+### [SPRD-37] Feature: Traditional day view - [x] Complete
 - **Context**: Day view shows preferred assignments (events added in v2).
 - **Description**: Render entries for a single day in traditional mode.
 - **Implementation Details**:
