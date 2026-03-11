@@ -816,7 +816,7 @@
   - UI tests: traditional year grid displays months and navigates to month view.
 - **Dependencies**: SPRD-17
 
-### [SPRD-36] Feature: Traditional month view
+### [SPRD-36] Feature: Traditional month view - [x] Complete
 - **Context**: Month view needs calendar-style layout.
 - **Description**: Build a calendar grid month view for traditional mode.
 - **Implementation Details**:
