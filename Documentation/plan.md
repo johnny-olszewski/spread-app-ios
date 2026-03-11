@@ -847,7 +847,7 @@
   - UI tests: traditional day view shows entries for the selected date.
 - **Dependencies**: SPRD-36
 
-### [SPRD-38] Feature: Traditional navigation flow
+### [SPRD-38] Feature: Traditional navigation flow - [x] Complete
 - **Context**: Drill-in should mirror iOS Calendar.
 - **Description**: Wire year -> month -> day navigation with back stack.
 - **Implementation Details**:
