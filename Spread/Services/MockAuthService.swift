@@ -32,6 +32,18 @@ final class MockAuthService: AuthService {
         )
     }
 
+    func signUp(email: String, password: String) async throws -> AuthSuccess {
+        currentEmail = email
+        return AuthSuccess(
+            user: makeLocalhostUser(email: email),
+            hasBackupEntitlement: mockHasBackupEntitlement
+        )
+    }
+
+    func resetPassword(email: String) async throws {
+        // No-op for mock
+    }
+
     func signOut() async throws {
         currentEmail = nil
     }
