@@ -864,7 +864,7 @@
   - UI tests: traditional navigation drill-in and back stack behavior.
 - **Dependencies**: SPRD-37
 
-### [SPRD-53] Feature: Unit tests for traditional mode mapping
+### [SPRD-53] Feature: Unit tests for traditional mode mapping - [x] Complete
 - **Context**: Virtual spreads must be correct and stable.
 - **Description**: Add tests for traditional mapping and parent fallback.
 - **Acceptance Criteria**:
