@@ -18,7 +18,7 @@ xcodebuild -scheme Spread -destination 'platform=iOS Simulator,name=iPhone 17 Pr
 
 ## Project Overview
 
-Spread is a SwiftUI bullet journal (BuJo) app for iOS 26+ using SwiftData for persistence with iCloud sync.
+Spread is a SwiftUI bullet journal (BuJo) app for iOS 26+ using SwiftData for local persistence with Supabase sync.
 
 ### Source of Truth
 
