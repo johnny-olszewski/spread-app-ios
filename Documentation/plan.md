@@ -910,7 +910,7 @@
 - **Dependencies**: SPRD-19
 - **Note**: Dependency changed from SPRD-38 (traditional navigation) to SPRD-19 (root navigation shell). Collections are independent of traditional mode and only require the root navigation entry point to be in place.
 
-### [SPRD-40] Feature: Collections list UI
+### [SPRD-40] Feature: Collections list UI - [x] Complete
 - **Context**: Users need access to collections list.
 - **Description**: Build collections list with create/delete actions.
 - **Implementation Details**:
