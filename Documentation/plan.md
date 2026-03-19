@@ -927,7 +927,7 @@
   - UI tests: collections list create/open/delete flows.
 - **Dependencies**: SPRD-39
 
-### [SPRD-41] Feature: Collection detail editor
+### [SPRD-41] Feature: Collection detail editor - [x] Complete
 - **Context**: Collections are plain text only.
 - **Description**: Provide a plain text editor for a collection.
 - **Implementation Details**:
