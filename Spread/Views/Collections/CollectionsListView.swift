@@ -83,12 +83,23 @@ struct CollectionsListView: View {
     private var collectionList: some View {
         List {
             ForEach(collections, id: \.id) { collection in
-                CollectionRow(collection: collection)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button("Delete", role: .destructive) {
-                            collectionToDelete = collection
+                NavigationLink {
+                    CollectionEditorView(
+                        collection: collection,
+                        collectionRepository: collectionRepository,
+                        syncEngine: syncEngine,
+                        onEdited: {
+                            Task { await loadCollections() }
                         }
+                    )
+                } label: {
+                    CollectionRow(collection: collection)
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button("Delete", role: .destructive) {
+                        collectionToDelete = collection
                     }
+                }
             }
         }
         .listStyle(.plain)
