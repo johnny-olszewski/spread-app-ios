@@ -346,7 +346,7 @@
   - Manual: sign-in flow works with Google credentials.
 - **Dependencies**: SPRD-84
 
-### [SPRD-92] Feature: Sign up + forgot password flows
+### [SPRD-92] Feature: Sign up + forgot password flows - [x] Complete
 - **Context**: Users need to create accounts and recover forgotten passwords.
 - **Description**: Add sign up and forgot password UI flows to the login sheet.
 - **Implementation Details**:
@@ -365,7 +365,7 @@
   - Manual: forgot password sends reset email.
 - **Dependencies**: SPRD-84
 
-### [SPRD-93] Feature: Login form validation
+### [SPRD-93] Feature: Login form validation - [x] Complete
 - **Context**: Login forms need client-side validation for better UX.
 - **Description**: Add validation rules to login and sign up forms.
 - **Implementation Details**:
