@@ -75,9 +75,11 @@ final class DebugDataService {
             try await taskRepository.save(task)
         }
 
-        // Save events
-        for event in generatedData.events {
-            try await eventRepository.save(event)
+        // Save events (gated behind feature flag — events deferred to v2)
+        if FeatureFlags.eventsEnabled {
+            for event in generatedData.events {
+                try await eventRepository.save(event)
+            }
         }
 
         // Save notes

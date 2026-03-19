@@ -39,7 +39,7 @@ struct TraditionalDayView: View {
             date: dayDate,
             tasks: journalManager.tasks,
             notes: journalManager.notes,
-            events: journalManager.events
+            events: FeatureFlags.eventsEnabled ? journalManager.events : []
         )
     }
 
@@ -147,7 +147,7 @@ struct TraditionalDayView: View {
             .accessibilityIdentifier("traditionalDayTitle")
 
             // Entry count summary
-            let totalEntries = dayDataModel.tasks.count + dayDataModel.notes.count + dayDataModel.events.count
+            let totalEntries = dayDataModel.tasks.count + dayDataModel.notes.count
             if totalEntries > 0 {
                 Text("\(totalEntries) entr\(totalEntries == 1 ? "y" : "ies")")
                     .font(SpreadTheme.Typography.caption)
