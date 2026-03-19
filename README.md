@@ -1,6 +1,6 @@
 # Spread
 
-A SwiftUI bullet journal (BuJo) app for iOS 26+ using SwiftData for persistence with iCloud sync.
+A SwiftUI bullet journal (BuJo) app for iOS 26+ using SwiftData for local persistence with Supabase sync.
 
 ## Getting Started
 
