@@ -589,7 +589,8 @@ enum DataModelSchemaV1: VersionedSchema {
 
     /// A plain text page for collections.
     ///
-    /// Full implementation with content field and modifiedDate in SPRD-39.
+    /// Collections are plain text pages (title + content) that live outside
+    /// spread navigation. Content is unbounded plain text with no character limit.
     @Model
     final class Collection {
         /// Unique identifier for the collection.
@@ -598,8 +599,14 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The title of the collection.
         var title: String
 
+        /// The plain text content of the collection.
+        var content: String
+
         /// The date this collection was created.
         var createdDate: Date
+
+        /// The date this collection was last modified.
+        var modifiedDate: Date
 
         // MARK: Sync Metadata
 
@@ -615,22 +622,31 @@ enum DataModelSchemaV1: VersionedSchema {
         /// LWW timestamp for the `title` field.
         var titleUpdatedAt: Date?
 
+        /// LWW timestamp for the `content` field.
+        var contentUpdatedAt: Date?
+
         init(
             id: UUID = UUID(),
             title: String = "",
+            content: String = "",
             createdDate: Date = .now,
+            modifiedDate: Date = .now,
             deletedAt: Date? = nil,
             deviceId: UUID? = nil,
             revision: Int64 = 0,
-            titleUpdatedAt: Date? = nil
+            titleUpdatedAt: Date? = nil,
+            contentUpdatedAt: Date? = nil
         ) {
             self.id = id
             self.title = title
+            self.content = content
             self.createdDate = createdDate
+            self.modifiedDate = modifiedDate
             self.deletedAt = deletedAt
             self.deviceId = deviceId
             self.revision = revision
             self.titleUpdatedAt = titleUpdatedAt
+            self.contentUpdatedAt = contentUpdatedAt
         }
     }
 

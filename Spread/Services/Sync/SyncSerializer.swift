@@ -239,18 +239,24 @@ struct MergeCollectionParams: Encodable, Sendable {
     let pUserId: String
     let pDeviceId: String
     let pTitle: String
+    let pContent: String
     let pCreatedAt: String
+    let pModifiedAt: String
     let pDeletedAt: String?
     let pTitleUpdatedAt: String
+    let pContentUpdatedAt: String
 
     enum CodingKeys: String, CodingKey {
         case pId = "p_id"
         case pUserId = "p_user_id"
         case pDeviceId = "p_device_id"
         case pTitle = "p_title"
+        case pContent = "p_content"
         case pCreatedAt = "p_created_at"
+        case pModifiedAt = "p_modified_at"
         case pDeletedAt = "p_deleted_at"
         case pTitleUpdatedAt = "p_title_updated_at"
+        case pContentUpdatedAt = "p_content_updated_at"
     }
 
     func encode(to encoder: Encoder) throws {
@@ -259,9 +265,12 @@ struct MergeCollectionParams: Encodable, Sendable {
         try container.encode(pUserId, forKey: .pUserId)
         try container.encode(pDeviceId, forKey: .pDeviceId)
         try container.encode(pTitle, forKey: .pTitle)
+        try container.encode(pContent, forKey: .pContent)
         try container.encode(pCreatedAt, forKey: .pCreatedAt)
+        try container.encode(pModifiedAt, forKey: .pModifiedAt)
         try container.encode(pDeletedAt, forKey: .pDeletedAt)
         try container.encode(pTitleUpdatedAt, forKey: .pTitleUpdatedAt)
+        try container.encode(pContentUpdatedAt, forKey: .pContentUpdatedAt)
     }
 }
 
@@ -428,13 +437,16 @@ struct ServerNoteRow: Decodable, Sendable {
 struct ServerCollectionRow: Decodable, Sendable {
     let id: UUID
     let title: String
+    let content: String
     let createdAt: String
+    let modifiedAt: String
     let deletedAt: String?
     let revision: Int64
 
     enum CodingKeys: String, CodingKey {
-        case id, title, revision
+        case id, title, content, revision
         case createdAt = "created_at"
+        case modifiedAt = "modified_at"
         case deletedAt = "deleted_at"
     }
 }
@@ -606,9 +618,12 @@ enum SyncSerializer {
             "id": collection.id.uuidString,
             "device_id": deviceId.uuidString,
             "title": collection.title,
+            "content": collection.content,
             "created_at": SyncDateFormatting.formatTimestamp(collection.createdDate),
+            "modified_at": SyncDateFormatting.formatTimestamp(collection.modifiedDate),
             "deleted_at": (deletedAt ?? collection.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
-            "title_updated_at": SyncDateFormatting.formatTimestamp(collection.titleUpdatedAt ?? timestamp)
+            "title_updated_at": SyncDateFormatting.formatTimestamp(collection.titleUpdatedAt ?? timestamp),
+            "content_updated_at": SyncDateFormatting.formatTimestamp(collection.contentUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(
             withJSONObject: record.compactMapValues { $0 ?? NSNull() }
@@ -788,16 +803,20 @@ enum SyncSerializer {
             guard let id = json["id"] as? String,
                   let deviceId = json["device_id"] as? String,
                   let title = json["title"] as? String,
+                  let content = json["content"] as? String,
                   let createdAt = json["created_at"] as? String,
-                  let titleUpdatedAt = json["title_updated_at"] as? String else {
+                  let modifiedAt = json["modified_at"] as? String,
+                  let titleUpdatedAt = json["title_updated_at"] as? String,
+                  let contentUpdatedAt = json["content_updated_at"] as? String else {
                 return nil
             }
             let params = MergeCollectionParams(
                 pId: id, pUserId: uid, pDeviceId: deviceId,
-                pTitle: title,
-                pCreatedAt: createdAt,
+                pTitle: title, pContent: content,
+                pCreatedAt: createdAt, pModifiedAt: modifiedAt,
                 pDeletedAt: json["deleted_at"] as? String,
-                pTitleUpdatedAt: titleUpdatedAt
+                pTitleUpdatedAt: titleUpdatedAt,
+                pContentUpdatedAt: contentUpdatedAt
             )
             return (entityType.mergeRPCName, params)
 
@@ -937,18 +956,30 @@ enum SyncSerializer {
         _ row: ServerCollectionRow,
         to collection: DataModel.Collection
     ) -> Bool {
-        guard row.deletedAt == nil else { return false }
+        guard row.deletedAt == nil,
+              let modifiedAt = SyncDateFormatting.parseTimestamp(row.modifiedAt) else {
+            return false
+        }
         collection.title = row.title
+        collection.content = row.content
+        collection.modifiedDate = modifiedAt
         return true
     }
 
     /// Creates a new local collection from a server row.
     static func createCollection(from row: ServerCollectionRow) -> DataModel.Collection? {
         guard row.deletedAt == nil,
-              let createdAt = SyncDateFormatting.parseTimestamp(row.createdAt) else {
+              let createdAt = SyncDateFormatting.parseTimestamp(row.createdAt),
+              let modifiedAt = SyncDateFormatting.parseTimestamp(row.modifiedAt) else {
             return nil
         }
-        return DataModel.Collection(id: row.id, title: row.title, createdDate: createdAt)
+        return DataModel.Collection(
+            id: row.id,
+            title: row.title,
+            content: row.content,
+            createdDate: createdAt,
+            modifiedDate: modifiedAt
+        )
     }
 
     /// Converts a server task assignment row to a local TaskAssignment value.
