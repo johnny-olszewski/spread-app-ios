@@ -2008,7 +2008,7 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Dependencies**: SPRD-45, SPRD-84, SPRD-85
 - **Partial completion note**: Network blocking, auth error forcing, and live sync readout are implemented. Force sync states UI, disable sync toggle, outbox seeding, and scenario presets are deferred to SPRD-85C.
 
-### [SPRD-85C] Feature: Debug sync forcing, outbox seeding, and scenario presets - [ ]
+### [SPRD-85C] Feature: Debug sync forcing, outbox seeding, and scenario presets - [x] Complete
 - **Context**: SPRD-85A delivered the core debug mocking controls (network blocking, auth error forcing, live sync readout) but deferred several acceptance criteria. The backend wiring exists (`DebugSyncPolicy.forcedSyncingDuration`, `DebugSyncPolicy.isForceSyncFailure`) but UI controls and additional features are missing.
 - **Description**: Complete the remaining SPRD-85A acceptance criteria by adding DebugMenuView controls for sync state forcing, a disable-sync toggle, outbox seeding, and scenario presets.
 - **Implementation Details**:
