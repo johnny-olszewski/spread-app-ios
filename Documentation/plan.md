@@ -507,7 +507,7 @@
 - Events never appear in Release builds (data is stubbed/hidden). [SPRD-70]
 - Event scaffolding remains in the codebase for v2 integration. [SPRD-70]
 
-### [SPRD-69] Feature: Hide event surfaces in v1 UI
+### [SPRD-69] Feature: Hide event surfaces in v1 UI - [x] Complete
 - **Context**: Event scaffolding exists, but v1 should not expose events.
 - **Description**: Remove event-specific UI and copy from v1 surfaces.
 - **Implementation Details**:
@@ -522,7 +522,7 @@
   - UI tests for empty state copy and count summary.
 - **Dependencies**: SPRD-28, SPRD-62
 
-### [SPRD-70] Feature: Stub event data paths for v1
+### [SPRD-70] Feature: Stub event data paths for v1 - [x] Complete
 - **Context**: Production data should not surface events before integrations are ready.
 - **Description**: Ensure event data is empty or ignored in v1 while keeping v2 scaffolding intact.
 - **Implementation Details**:
