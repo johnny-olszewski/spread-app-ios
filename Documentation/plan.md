@@ -43,7 +43,7 @@
 - Spread/Entry/Assignment models exist with multiday support.
 - Date and multiday preset tests pass.
 
-### [SPRD-49] Feature: Unit tests for date + multiday presets
+### [SPRD-49] Feature: Unit tests for date + multiday presets - [x] Complete
 - **Context**: Date logic is error-prone.
 - **Description**: Add unit tests for normalization, presets, and first weekday override.
 - **Acceptance Criteria**:
@@ -75,7 +75,7 @@
 - Entry rows and symbols are used consistently in lists.
 - Spread content surfaces use dot grid background and minimal paper styling.
 
-### [SPRD-23] Feature: Task creation sheet
+### [SPRD-23] Feature: Task creation sheet - [x] Complete
 - **Context**: Task creation must enforce date/period rules.
 - **Description**: Build task creation UI with validation (no past dates).
 - **Implementation Details**:
@@ -952,7 +952,7 @@
   - Integration tests across all repositories.
 - **Dependencies**: SPRD-41, SPRD-57, SPRD-58
 
-### [SPRD-55] Feature: Integration tests for collections
+### [SPRD-55] Feature: Integration tests for collections - [x] Complete
 - **Context**: Collections are new model + UI flow.
 - **Description**: Add integration tests for collection CRUD and persistence.
 - **Acceptance Criteria**:
@@ -1021,7 +1021,7 @@
 ### Definition of Done
 - Scope guard tests enforce non-goals (no week period, no automated migration, no past entry creation, no events in v1 UI).
 
-### [SPRD-56] Feature: Scope guard tests
+### [SPRD-56] Feature: Scope guard tests - [x] Complete
 - **Context**: Non-goals must not regress into v1.
 - **Description**: Add tests that enforce no week assignment, no automated migration, no past entry creation, and no event surfaces in v1.
 - **Acceptance Criteria**:
