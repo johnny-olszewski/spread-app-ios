@@ -281,22 +281,65 @@ struct DebugMenuView: View {
 
     // MARK: - Sync Section
 
+    private var debugSyncPolicy: DebugSyncPolicy? {
+        syncEngine?.policy as? DebugSyncPolicy
+    }
+
+    private var disableSyncBinding: Binding<Bool> {
+        guard let policy = debugSyncPolicy else {
+            return .constant(false)
+        }
+        return Binding(
+            get: { policy.isSyncDisabled },
+            set: { policy.isSyncDisabled = $0 }
+        )
+    }
+
+    private var forceSyncFailureBinding: Binding<Bool> {
+        guard let policy = debugSyncPolicy else {
+            return .constant(false)
+        }
+        return Binding(
+            get: { policy.isForceSyncFailure },
+            set: { policy.isForceSyncFailure = $0 }
+        )
+    }
+
     @ViewBuilder
     private var syncSection: some View {
         if let syncEngine {
             Section {
+                // Live readout
                 LabeledContent("Status", value: syncEngine.status.displayText)
                 LabeledContent("Outbox Count", value: "\(syncEngine.outboxCount)")
                 if let lastSync = syncEngine.lastSyncDate {
                     LabeledContent("Last Sync", value: lastSync.formatted(date: .abbreviated, time: .shortened))
                 }
                 LabeledContent("Network", value: dependencies.networkMonitor.isConnected ? "Connected" : "Disconnected")
+
+                // Controls
                 Toggle("Block Network", isOn: blockAllNetworkBinding)
+                Toggle("Disable Sync", isOn: disableSyncBinding)
+                Toggle("Force Sync Failure", isOn: forceSyncFailureBinding)
+
+                Button("Force Syncing (5s)") {
+                    Task {
+                        debugSyncPolicy?.forcedSyncingDuration = 5
+                        await syncEngine.syncNow()
+                        debugSyncPolicy?.forcedSyncingDuration = nil
+                    }
+                }
+
+                Button("Seed Outbox (5 mutations)") {
+                    seedOutbox(count: 5, syncEngine: syncEngine)
+                }
+
                 Button("Sync Now") {
                     Task {
                         await syncEngine.syncNow()
                     }
                 }
+
                 if !syncEngine.syncLog.entries.isEmpty {
                     DisclosureGroup("Sync Log (\(syncEngine.syncLog.entries.count))") {
                         ForEach(syncEngine.syncLog.entries) { entry in
@@ -314,9 +357,79 @@ struct DebugMenuView: View {
             } header: {
                 Label("Sync", systemImage: "arrow.triangle.2.circlepath")
             } footer: {
-                Text("Current sync engine state. Tap 'Sync Now' to trigger a manual sync attempt.")
+                Text("Current sync engine state. Disable Sync blocks auto/manual triggers. Force Syncing pins the UI for 5s.")
+            }
+
+            // Scenario presets
+            Section {
+                Button("Offline + Auth Error") {
+                    applyPreset(.offlineAuthError)
+                }
+                Button("Sync Backlog") {
+                    applyPreset(.syncBacklog(syncEngine: syncEngine))
+                }
+                Button("All Failures") {
+                    applyPreset(.allFailures)
+                }
+                Button("Reset All Overrides", role: .destructive) {
+                    resetAllOverrides(syncEngine: syncEngine)
+                }
+            } header: {
+                Label("Scenario Presets", systemImage: "theatermask.and.paintbrush")
+            } footer: {
+                Text("Apply multiple debug overrides at once. Reset clears all network, auth, and sync overrides.")
             }
         }
+    }
+
+    // MARK: - Outbox Seeding
+
+    private func seedOutbox(count: Int, syncEngine: SyncEngine) {
+        for _ in 0..<count {
+            let entityId = UUID()
+            let fakeData = try! JSONSerialization.data(
+                withJSONObject: ["id": entityId.uuidString, "title": "Debug seed"],
+                options: []
+            )
+            syncEngine.enqueueMutation(
+                entityType: .task,
+                entityId: entityId,
+                operation: .create,
+                recordData: fakeData,
+                changedFields: ["title"]
+            )
+        }
+        syncEngine.refreshOutboxCount()
+    }
+
+    // MARK: - Scenario Presets
+
+    private enum ScenarioPreset {
+        case offlineAuthError
+        case syncBacklog(syncEngine: SyncEngine)
+        case allFailures
+    }
+
+    private func applyPreset(_ preset: ScenarioPreset) {
+        switch preset {
+        case .offlineAuthError:
+            (dependencies.networkMonitor as? DebugNetworkMonitor)?.blockAllNetwork = true
+            (authManager.service as? DebugAuthService)?.forcedAuthError = .invalidCredentials
+
+        case .syncBacklog(let engine):
+            seedOutbox(count: 10, syncEngine: engine)
+
+        case .allFailures:
+            (dependencies.networkMonitor as? DebugNetworkMonitor)?.blockAllNetwork = true
+            (authManager.service as? DebugAuthService)?.forcedAuthError = .invalidCredentials
+            debugSyncPolicy?.isForceSyncFailure = true
+        }
+    }
+
+    private func resetAllOverrides(syncEngine: SyncEngine) {
+        (dependencies.networkMonitor as? DebugNetworkMonitor)?.blockAllNetwork = false
+        (authManager.service as? DebugAuthService)?.forcedAuthError = nil
+        debugSyncPolicy?.resetAll()
     }
 
     // MARK: - Dependencies Section
