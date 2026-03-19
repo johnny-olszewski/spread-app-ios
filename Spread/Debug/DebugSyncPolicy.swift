@@ -3,10 +3,14 @@ import Foundation
 
 /// Debug-only sync policy with mutable overrides.
 ///
-/// Owns `forceSyncFailure` and `forcedSyncingDuration` state directly,
-/// allowing the debug menu to toggle sync behavior without a singleton.
+/// Owns `forceSyncFailure`, `forcedSyncingDuration`, and `isSyncDisabled`
+/// state directly, allowing the debug menu to toggle sync behavior
+/// without a singleton.
 @MainActor
 final class DebugSyncPolicy: SyncPolicy {
+
+    /// When true, blocks both auto and manual sync triggers.
+    var isSyncDisabled = false
 
     /// When true, forces sync operations to fail immediately.
     var isForceSyncFailure = false
@@ -15,7 +19,7 @@ final class DebugSyncPolicy: SyncPolicy {
     var forcedSyncingDuration: TimeInterval?
 
     func shouldAllowSync() -> Bool {
-        true
+        !isSyncDisabled
     }
 
     func forceSyncFailure() -> Bool {
@@ -24,6 +28,13 @@ final class DebugSyncPolicy: SyncPolicy {
 
     func forceSyncingDuration() -> TimeInterval? {
         forcedSyncingDuration
+    }
+
+    /// Resets all overrides to defaults.
+    func resetAll() {
+        isSyncDisabled = false
+        isForceSyncFailure = false
+        forcedSyncingDuration = nil
     }
 }
 #endif
