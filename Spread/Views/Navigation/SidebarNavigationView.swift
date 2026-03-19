@@ -56,7 +56,10 @@ struct SidebarNavigationView: View {
         case .spreads:
             spreadsView
         case .collections:
-            CollectionsPlaceholderView()
+            CollectionsListView(
+                collectionRepository: dependencies.collectionRepository,
+                syncEngine: syncEngine
+            )
         case .settings:
             SettingsView(
                 journalManager: journalManager,
