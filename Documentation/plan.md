@@ -971,7 +971,7 @@
 - CloudKit is removed from v1 configuration and documentation.
 - Offline-first QA checklist exists.
 
-### [SPRD-42] Feature: Remove CloudKit configuration remnants
+### [SPRD-42] Feature: Remove CloudKit configuration remnants - [x] Complete
 - **Context**: CloudKit is removed from v1; SwiftData must remain local-only.
 - **Description**: Remove CloudKit TODOs and configuration references from the codebase.
 - **Implementation Details**:
@@ -985,7 +985,7 @@
 - **Dependencies**: SPRD-41
 - **Note**: Likely already satisfied — the codebase has no CloudKit entitlements, no CloudKit container references, and no iCloud capability configuration. Verify manually and mark complete if confirmed.
 
-### [SPRD-43] Feature: Remove CloudKit entitlements + document Supabase-only config
+### [SPRD-43] Feature: Remove CloudKit entitlements + document Supabase-only config - [x] Complete
 - **Context**: CloudKit is out of scope for v1.
 - **Description**: Ensure CloudKit entitlements are removed and documentation reflects Supabase-only sync.
 - **Note**: Likely already satisfied — see SPRD-42 note. The project uses Supabase exclusively for sync.
