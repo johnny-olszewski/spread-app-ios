@@ -271,6 +271,7 @@ struct SyncMetadataTests {
         #expect(fetched.deviceId == nil)
         #expect(fetched.revision == 0)
         #expect(fetched.titleUpdatedAt == nil)
+        #expect(fetched.contentUpdatedAt == nil)
     }
 
     /// Conditions: Create a collection with explicit sync metadata values.
@@ -286,7 +287,8 @@ struct SyncMetadataTests {
             deletedAt: now,
             deviceId: deviceId,
             revision: 99,
-            titleUpdatedAt: now
+            titleUpdatedAt: now,
+            contentUpdatedAt: now
         )
         context.insert(collection)
         try context.save()
@@ -296,6 +298,7 @@ struct SyncMetadataTests {
         #expect(fetched.deviceId == deviceId)
         #expect(fetched.revision == 99)
         #expect(fetched.titleUpdatedAt != nil)
+        #expect(fetched.contentUpdatedAt != nil)
     }
 
     // MARK: - Assignment statusUpdatedAt

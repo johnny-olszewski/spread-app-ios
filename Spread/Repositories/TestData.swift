@@ -136,15 +136,21 @@ enum TestData {
         return [
             DataModel.Collection(
                 title: "Books to Read",
-                createdDate: now.addingTimeInterval(-86400 * 14)
+                content: "- The Pragmatic Programmer\n- Designing Data-Intensive Applications\n- Clean Architecture",
+                createdDate: now.addingTimeInterval(-86400 * 14),
+                modifiedDate: now.addingTimeInterval(-86400 * 2)
             ),
             DataModel.Collection(
                 title: "Project Ideas",
-                createdDate: now.addingTimeInterval(-86400 * 7)
+                content: "- Weather dashboard app\n- Recipe organizer\n- Habit tracker with streaks",
+                createdDate: now.addingTimeInterval(-86400 * 7),
+                modifiedDate: now.addingTimeInterval(-86400)
             ),
             DataModel.Collection(
                 title: "Goals for 2026",
-                createdDate: now
+                content: "- Ship v1 of Spread\n- Read 24 books\n- Run a half marathon",
+                createdDate: now,
+                modifiedDate: now
             )
         ]
     }

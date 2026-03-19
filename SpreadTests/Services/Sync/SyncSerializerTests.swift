@@ -243,8 +243,10 @@ struct SyncSerializerTests {
     @Test func testCreateCollectionFromValidRow() {
         let id = UUID()
         let row = ServerCollectionRow(
-            id: id, title: "My Collection",
-            createdAt: "2025-01-01T00:00:00.000Z", deletedAt: nil, revision: 1
+            id: id, title: "My Collection", content: "Some text",
+            createdAt: "2025-01-01T00:00:00.000Z",
+            modifiedAt: "2025-01-02T00:00:00.000Z",
+            deletedAt: nil, revision: 1
         )
 
         let collection = SyncSerializer.createCollection(from: row)
@@ -252,6 +254,7 @@ struct SyncSerializerTests {
         #expect(collection != nil)
         #expect(collection?.id == id)
         #expect(collection?.title == "My Collection")
+        #expect(collection?.content == "Some text")
     }
 
     // MARK: - Pull: createSpread
@@ -388,20 +391,23 @@ struct SyncSerializerTests {
     }
 
     /// Conditions: A server collection row applied to an existing collection.
-    /// Expected: Collection title should be updated.
+    /// Expected: Collection title and content should be updated.
     @Test @MainActor func testApplyCollectionRowUpdatesTitle() {
         let collection = DataModel.Collection(
-            id: UUID(), title: "Old", createdDate: .now
+            id: UUID(), title: "Old", content: "old content", createdDate: .now
         )
         let row = ServerCollectionRow(
-            id: collection.id, title: "Updated",
-            createdAt: "2025-01-01T00:00:00.000Z", deletedAt: nil, revision: 3
+            id: collection.id, title: "Updated", content: "new content",
+            createdAt: "2025-01-01T00:00:00.000Z",
+            modifiedAt: "2025-01-02T00:00:00.000Z",
+            deletedAt: nil, revision: 3
         )
 
         let applied = SyncSerializer.applyCollectionRow(row, to: collection)
 
         #expect(applied)
         #expect(collection.title == "Updated")
+        #expect(collection.content == "new content")
     }
 
     // MARK: - Helpers
@@ -448,9 +454,12 @@ struct SyncSerializerTests {
             "id": UUID().uuidString,
             "device_id": UUID().uuidString,
             "title": "Test Collection",
+            "content": "Some content",
             "created_at": ts,
+            "modified_at": ts,
             "deleted_at": NSNull(),
-            "title_updated_at": ts
+            "title_updated_at": ts,
+            "content_updated_at": ts
         ]
         return try! JSONSerialization.data(withJSONObject: record)
     }
