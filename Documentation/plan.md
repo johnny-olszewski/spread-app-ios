@@ -882,7 +882,7 @@
 - Collections model, list, and editor are implemented.
 - Repository integration tests and collection tests pass.
 
-### [SPRD-39] Feature: Collection model + repository
+### [SPRD-39] Feature: Collection model + repository - [x] Complete
 - **Context**: Collections are plain text pages.
 - **Description**: Implement Collection model and repository storage.
 - **Implementation Details**:
