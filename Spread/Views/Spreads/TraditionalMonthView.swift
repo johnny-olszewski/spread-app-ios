@@ -162,9 +162,9 @@ struct TraditionalMonthView: View {
             date: date,
             tasks: journalManager.tasks,
             notes: journalManager.notes,
-            events: journalManager.events
+            events: FeatureFlags.eventsEnabled ? journalManager.events : []
         )
-        return dataModel.tasks.count + dataModel.notes.count + dataModel.events.count
+        return dataModel.tasks.count + dataModel.notes.count
     }
 
     /// Whether the given date is today.
