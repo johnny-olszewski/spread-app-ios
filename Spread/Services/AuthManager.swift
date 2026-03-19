@@ -116,6 +116,63 @@ final class AuthManager {
         }
     }
 
+    // MARK: - Sign Up
+
+    /// Creates a new account with email and password.
+    ///
+    /// - Parameters:
+    ///   - email: The new user's email address.
+    ///   - password: The new user's password.
+    /// - Throws: An error if sign-up fails.
+    func signUp(email: String, password: String) async throws {
+        isLoading = true
+        errorMessage = nil
+
+        defer { isLoading = false }
+
+        do {
+            let result = try await service.signUp(email: email, password: password)
+
+            state = .signedIn(result.user)
+            hasBackupEntitlement = result.hasBackupEntitlement
+
+            await onSignIn?(result.user)
+
+        } catch let error as ForcedAuthSignInError {
+            errorMessage = error.forced.userMessage
+            throw error
+        } catch let error as AuthError {
+            errorMessage = mapAuthError(error)
+            throw error
+        } catch {
+            errorMessage = "An unexpected error occurred. Please try again."
+            throw error
+        }
+    }
+
+    // MARK: - Reset Password
+
+    /// Sends a password reset email.
+    ///
+    /// - Parameter email: The email address to send the reset link to.
+    /// - Throws: An error if the request fails.
+    func resetPassword(email: String) async throws {
+        isLoading = true
+        errorMessage = nil
+
+        defer { isLoading = false }
+
+        do {
+            try await service.resetPassword(email: email)
+        } catch let error as ForcedAuthSignInError {
+            errorMessage = error.forced.userMessage
+            throw error
+        } catch {
+            errorMessage = "Failed to send reset email. Please try again."
+            throw error
+        }
+    }
+
     // MARK: - Sign Out
 
     /// Signs out the current user.

@@ -51,6 +51,21 @@ final class SupabaseAuthService: AuthService {
         )
     }
 
+    func signUp(email: String, password: String) async throws -> AuthSuccess {
+        let response = try await client.auth.signUp(
+            email: email,
+            password: password
+        )
+        return AuthSuccess(
+            user: response.user,
+            hasBackupEntitlement: readBackupEntitlement(from: response.user)
+        )
+    }
+
+    func resetPassword(email: String) async throws {
+        try await client.auth.resetPasswordForEmail(email)
+    }
+
     func signOut() async throws {
         try await client.auth.signOut()
     }
