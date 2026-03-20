@@ -301,6 +301,49 @@ Merge functions implement field-level last-write-wins (LWW) conflict resolution:
 
 All merge RPCs use `SECURITY DEFINER` and validate `user_id = auth.uid()`.
 
+## Tombstone Cleanup Job
+
+Added in SPRD-89. Migration: `20260320000000_tombstone_cleanup_job`
+
+Soft-deleted rows (`deleted_at IS NOT NULL`) older than 90 days are permanently removed by a scheduled PostgreSQL function.
+
+### How It Works
+
+- **Function**: `cleanup_tombstones()` — `SECURITY DEFINER` function that bypasses RLS and hard-deletes expired tombstones from all 7 tables.
+- **Schedule**: Runs daily at 03:00 UTC via `pg_cron`.
+- **Deletion order**: Child assignments first (task_assignments, note_assignments), then parent entries (tasks, notes), then other entities (spreads, collections, settings).
+
+### Manual Verification
+
+```sql
+-- Check cron job is registered
+SELECT * FROM cron.job WHERE jobname = 'cleanup-tombstones';
+
+-- Check recent job runs
+SELECT * FROM cron.job_run_details
+WHERE jobid = (SELECT jobid FROM cron.job WHERE jobname = 'cleanup-tombstones')
+ORDER BY start_time DESC
+LIMIT 5;
+
+-- Create a test tombstone older than 90 days (use a test user)
+UPDATE tasks
+SET deleted_at = now() - interval '91 days'
+WHERE id = '<test-task-id>';
+
+-- Run cleanup manually
+SELECT cleanup_tombstones();
+
+-- Verify the row was removed
+SELECT * FROM tasks WHERE id = '<test-task-id>';
+```
+
+### Disabling the Job
+
+```sql
+-- Unschedule the cron job
+SELECT cron.unschedule('cleanup-tombstones');
+```
+
 ## Troubleshooting
 
 ### Configuration Not Loading
@@ -333,4 +376,5 @@ All merge RPCs use `SECURITY DEFINER` and validate `user_id = auth.uid()`.
 - SPRD-83: DB triggers + merge RPCs
 - SPRD-84: Supabase client + auth integration
 - SPRD-86: Debug environment switcher
+- SPRD-89: Tombstone cleanup job (90-day cron)
 - SPRD-91: Apple + Google auth providers (deferred)
