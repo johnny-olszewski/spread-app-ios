@@ -632,7 +632,7 @@
 - Note repository and note creation/edit UI are implemented.
 - Notes migrate only explicitly and are excluded from batch migration.
 
-### [SPRD-58] Feature: Note repository
+### [SPRD-58] Feature: Note repository - [x] Complete
 - **Context**: Notes need separate CRUD operations.
 - **Description**: Implement NoteRepository protocol and SwiftData implementation.
 - **Implementation Details**:
