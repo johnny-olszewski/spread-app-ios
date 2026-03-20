@@ -62,8 +62,7 @@ struct AppDependencies: @unchecked Sendable {
             spreadRepository: SwiftDataSpreadRepository(modelContainer: modelContainer),
             // TODO: SPRD-57 - Create SwiftDataEventRepository
             eventRepository: EmptyEventRepository(),
-            // TODO: SPRD-58 - Create SwiftDataNoteRepository
-            noteRepository: EmptyNoteRepository(),
+            noteRepository: SwiftDataNoteRepository(modelContainer: modelContainer),
             collectionRepository: SwiftDataCollectionRepository(modelContainer: modelContainer),
             settingsRepository: SwiftDataSettingsRepository(modelContainer: modelContainer),
             networkMonitor: makeNetworkMonitor()
@@ -125,8 +124,7 @@ struct AppDependencies: @unchecked Sendable {
             spreadRepository: MockSpreadRepository(),
             // TODO: SPRD-57 - Create MockEventRepository with seeded data
             eventRepository: EmptyEventRepository(),
-            // TODO: SPRD-58 - Create MockNoteRepository with seeded data
-            noteRepository: EmptyNoteRepository(),
+            noteRepository: MockNoteRepository(),
             collectionRepository: MockCollectionRepository(),
             settingsRepository: EmptySettingsRepository(),
             networkMonitor: makeNetworkMonitor()
