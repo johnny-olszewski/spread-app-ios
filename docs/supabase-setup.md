@@ -30,10 +30,47 @@ In Debug builds, the Supabase environment can be switched at runtime via the Deb
 
 ### Currently Enabled
 - **Email/Password** - Basic authentication
+- **Sign in with Apple** - Native `ASAuthorizationController` + Supabase `signInWithIdToken`
+- **Google Sign-in** - Web-based OAuth via Supabase `signInWithOAuth` using `ASWebAuthenticationSession`
 
-### Deferred to SPRD-91
-- **Sign in with Apple** - Requires Apple Developer account configuration
-- **Google Sign-in** - Requires Google Cloud OAuth setup
+### Sign in with Apple Setup
+
+1. **Apple Developer Account**:
+   - Go to [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list)
+   - Create a Services ID for Supabase callback (e.g., `dev.johnnyo.spread.auth`)
+   - Configure the Web Authentication redirect URL: `https://<project-ref>.supabase.co/auth/v1/callback`
+   - Create a Sign in with Apple key and download the `.p8` file
+
+2. **Supabase Dashboard** (both dev and prod):
+   - Navigate to Authentication > Providers > Apple
+   - Enable the Apple provider
+   - Enter: Team ID, Key ID, and the private key (contents of `.p8` file)
+   - Enter: Services ID (e.g., `dev.johnnyo.spread.auth`)
+
+3. **Xcode Project**:
+   - Add "Sign in with Apple" capability to the app target (Signing & Capabilities)
+   - The app uses native `ASAuthorizationController` via SwiftUI's `SignInWithAppleButton`
+   - The resulting `ASAuthorizationAppleIDCredential.identityToken` is sent to Supabase via `signInWithIdToken`
+
+### Google Sign-in Setup
+
+1. **Google Cloud Console**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create or select a project
+   - Navigate to APIs & Services > OAuth consent screen
+   - Configure the consent screen (External, app name, support email)
+   - Navigate to APIs & Services > Credentials
+   - Create an OAuth 2.0 Client ID (Web application type)
+   - Add authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
+   - Note the Client ID and Client Secret
+
+2. **Supabase Dashboard** (both dev and prod):
+   - Navigate to Authentication > Providers > Google
+   - Enable the Google provider
+   - Enter: Client ID and Client Secret from Google Cloud Console
+
+3. **Xcode Project**:
+   - No additional SDK required — uses Supabase's `signInWithOAuth(provider: .google)` which opens `ASWebAuthenticationSession` automatically
 
 ## Supabase CLI Setup
 
