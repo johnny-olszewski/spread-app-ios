@@ -1261,6 +1261,83 @@ final class JournalManager {
         return task
     }
 
+    // MARK: - Task CRUD
+
+    /// Updates a task's title.
+    ///
+    /// - Parameters:
+    ///   - task: The task to update.
+    ///   - newTitle: The new title for the task.
+    /// - Throws: Repository errors if persistence fails.
+    func updateTaskTitle(_ task: DataModel.Task, newTitle: String) async throws {
+        task.title = newTitle
+
+        try await taskRepository.save(task)
+        tasks = await taskRepository.getTasks()
+
+        Self.logger.debug("Task title updated: \(task.id) '\(task.title)'")
+
+        buildDataModel()
+        dataVersion += 1
+    }
+
+    /// Updates a task's status.
+    ///
+    /// - Parameters:
+    ///   - task: The task to update.
+    ///   - newStatus: The new status for the task.
+    /// - Throws: Repository errors if persistence fails.
+    func updateTaskStatus(_ task: DataModel.Task, newStatus: DataModel.Task.Status) async throws {
+        task.status = newStatus
+
+        try await taskRepository.save(task)
+        tasks = await taskRepository.getTasks()
+
+        Self.logger.debug("Task status updated: \(task.id) → \(newStatus.rawValue)")
+
+        buildDataModel()
+        dataVersion += 1
+    }
+
+    /// Updates a task's preferred date and period.
+    ///
+    /// - Parameters:
+    ///   - task: The task to update.
+    ///   - newDate: The new preferred date.
+    ///   - newPeriod: The new preferred period.
+    /// - Throws: Repository errors if persistence fails.
+    func updateTaskDateAndPeriod(
+        _ task: DataModel.Task,
+        newDate: Date,
+        newPeriod: Period
+    ) async throws {
+        let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
+        task.date = normalizedDate
+        task.period = newPeriod
+
+        try await taskRepository.save(task)
+        tasks = await taskRepository.getTasks()
+
+        Self.logger.debug("Task date updated: \(task.id) → \(newPeriod.rawValue) \(normalizedDate)")
+
+        buildDataModel()
+        dataVersion += 1
+    }
+
+    /// Deletes a task from the repository and local state.
+    ///
+    /// - Parameter task: The task to delete.
+    /// - Throws: Repository errors if deletion fails.
+    func deleteTask(_ task: DataModel.Task) async throws {
+        try await taskRepository.delete(task)
+        tasks.removeAll { $0.id == task.id }
+
+        Self.logger.debug("Task deleted: \(task.id) '\(task.title)'")
+
+        buildDataModel()
+        dataVersion += 1
+    }
+
     // MARK: - Note CRUD
 
     /// Creates a new note with the given parameters.

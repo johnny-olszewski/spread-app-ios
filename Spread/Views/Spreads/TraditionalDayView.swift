@@ -24,6 +24,9 @@ struct TraditionalDayView: View {
     /// The note currently being edited via detail sheet.
     @State private var noteBeingEdited: DataModel.Note?
 
+    /// The task currently being edited via detail sheet.
+    @State private var taskBeingEdited: DataModel.Task?
+
     // MARK: - Private
 
     private var calendar: Calendar { journalManager.calendar }
@@ -81,16 +84,30 @@ struct TraditionalDayView: View {
                 calendar: calendar,
                 today: journalManager.today,
                 onEdit: { entry in
-                    if let note = entry as? DataModel.Note {
+                    if let task = entry as? DataModel.Task {
+                        taskBeingEdited = task
+                    } else if let note = entry as? DataModel.Note {
                         noteBeingEdited = note
                     }
                 },
                 onDelete: { entry in
-                    if let note = entry as? DataModel.Note {
+                    if let task = entry as? DataModel.Task {
+                        Task {
+                            try? await journalManager.deleteTask(task)
+                            await syncEngine?.syncNow()
+                        }
+                    } else if let note = entry as? DataModel.Note {
                         Task {
                             try? await journalManager.deleteNote(note)
                             await syncEngine?.syncNow()
                         }
+                    }
+                },
+                onComplete: { task in
+                    Task {
+                        let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
+                        try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
+                        await syncEngine?.syncNow()
                     }
                 }
             )
@@ -99,6 +116,15 @@ struct TraditionalDayView: View {
         .sheet(item: $noteBeingEdited) { note in
             NoteDetailSheet(
                 note: note,
+                journalManager: journalManager,
+                onDelete: {
+                    Task { await syncEngine?.syncNow() }
+                }
+            )
+        }
+        .sheet(item: $taskBeingEdited) { task in
+            TaskDetailSheet(
+                task: task,
                 journalManager: journalManager,
                 onDelete: {
                     Task { await syncEngine?.syncNow() }

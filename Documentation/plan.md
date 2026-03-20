@@ -441,7 +441,7 @@
 - Task edit view supports status updates and migration.
 - Migrated tasks section and migration banner are wired to JournalManager.
 
-### [SPRD-24] Feature: Entry detail/edit view (Task)
+### [SPRD-24] Feature: Entry detail/edit view (Task) - [x] Complete
 - **Context**: Task editing must support status and migration.
 - **Description**: Implement detail view for editing task title, date/period, status, and migration.
 - **Implementation Details**:
