@@ -305,7 +305,7 @@
   - Manual: create old tombstones and verify cleanup job behavior.
 - **Dependencies**: SPRD-82
 
-### [SPRD-90] Feature: Sync QA + test plan
+### [SPRD-90] Feature: Sync QA + test plan - [x] Complete
 - **Context**: Offline-first sync needs dedicated test coverage.
 - **Description**: Add integration tests and a QA checklist for sync scenarios.
 - **Implementation Details**:
