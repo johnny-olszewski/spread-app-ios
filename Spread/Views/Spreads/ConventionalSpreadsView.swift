@@ -22,32 +22,11 @@ struct ConventionalSpreadsView: View {
     /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
 
+    /// Coordinates sheet presentation for this view.
+    @State private var coordinator = SpreadsCoordinator()
+
     /// The currently selected spread.
     @State private var selectedSpread: DataModel.Spread?
-
-    /// Whether the spread creation sheet is presented.
-    @State private var isShowingSpreadCreationSheet = false
-
-    /// Whether the task creation sheet is presented.
-    @State private var isShowingTaskCreationSheet = false
-
-    /// Whether the note creation sheet is presented.
-    @State private var isShowingNoteCreationSheet = false
-
-    /// The note currently being edited via detail sheet.
-    @State private var noteBeingEdited: DataModel.Note?
-
-    /// The task currently being edited via detail sheet.
-    @State private var taskBeingEdited: DataModel.Task?
-
-    /// Whether the inbox sheet is presented.
-    @State private var isShowingInboxSheet = false
-
-    /// Whether the auth sheet is presented.
-    @State private var isShowingAuthSheet = false
-
-    /// Whether the migration selection sheet is presented.
-    @State private var isShowingMigrationSheet = false
 
     /// Whether the migration banner has been dismissed for the current spread.
     @State private var isMigrationBannerDismissed = false
@@ -62,15 +41,9 @@ struct ConventionalSpreadsView: View {
                 selectedSpread: $selectedSpread,
                 calendar: journalManager.calendar,
                 today: journalManager.today,
-                onCreateSpreadTapped: {
-                    isShowingSpreadCreationSheet = true
-                },
-                onCreateTaskTapped: {
-                    isShowingTaskCreationSheet = true
-                },
-                onCreateNoteTapped: {
-                    isShowingNoteCreationSheet = true
-                }
+                onCreateSpreadTapped: { coordinator.showSpreadCreation() },
+                onCreateTaskTapped: { coordinator.showTaskCreation() },
+                onCreateNoteTapped: { coordinator.showNoteCreation() }
             )
 
             Divider()
@@ -94,82 +67,17 @@ struct ConventionalSpreadsView: View {
                 ToolbarItem(placement: .primaryAction) {
                     HStack(spacing: 16) {
                         InboxButton(inboxCount: journalManager.inboxCount) {
-                            isShowingInboxSheet = true
+                            coordinator.showInbox()
                         }
                         AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                            isShowingAuthSheet = true
+                            coordinator.showAuth()
                         }
                     }
                 }
             }
         }
-        .sheet(isPresented: $isShowingSpreadCreationSheet) {
-            SpreadCreationSheet(
-                journalManager: journalManager,
-                firstWeekday: journalManager.firstWeekday,
-                onSpreadCreated: { spread in
-                    selectedSpread = spread
-                    Task { await syncEngine?.syncNow() }
-                }
-            )
-        }
-        .sheet(isPresented: $isShowingTaskCreationSheet) {
-            TaskCreationSheet(
-                journalManager: journalManager,
-                selectedSpread: selectedSpread,
-                onTaskCreated: { _ in
-                    Task { await syncEngine?.syncNow() }
-                }
-            )
-        }
-        .sheet(isPresented: $isShowingNoteCreationSheet) {
-            NoteCreationSheet(
-                journalManager: journalManager,
-                selectedSpread: selectedSpread,
-                onNoteCreated: { _ in
-                    Task { await syncEngine?.syncNow() }
-                }
-            )
-        }
-        .sheet(item: $noteBeingEdited) { note in
-            NoteDetailSheet(
-                note: note,
-                journalManager: journalManager,
-                onDelete: {
-                    Task { await syncEngine?.syncNow() }
-                }
-            )
-        }
-        .sheet(item: $taskBeingEdited) { task in
-            TaskDetailSheet(
-                task: task,
-                journalManager: journalManager,
-                onDelete: {
-                    Task { await syncEngine?.syncNow() }
-                }
-            )
-        }
-        .sheet(isPresented: $isShowingInboxSheet) {
-            InboxSheetView(journalManager: journalManager)
-        }
-        .sheet(isPresented: $isShowingAuthSheet) {
-            if authManager.state.isSignedIn {
-                ProfileSheet(authManager: authManager)
-            } else {
-                LoginSheet(authManager: authManager)
-            }
-        }
-        .sheet(isPresented: $isShowingMigrationSheet) {
-            if let spread = selectedSpread {
-                MigrationSelectionSheet(
-                    destinationSpread: spread,
-                    eligibleTasks: eligibleMigrationTasks.map(\.task),
-                    calendar: journalManager.calendar,
-                    onMigrate: { tasks in
-                        migrateSelectedTasks(tasks)
-                    }
-                )
-            }
+        .sheet(item: $coordinator.activeSheet) { destination in
+            sheetContent(for: destination)
         }
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()
@@ -195,12 +103,8 @@ struct ConventionalSpreadsView: View {
                 spreadDataModel: spreadDataModel(for: spread),
                 calendar: journalManager.calendar,
                 today: journalManager.today,
-                onEditTask: { task in
-                    taskBeingEdited = task
-                },
-                onEditNote: { note in
-                    noteBeingEdited = note
-                },
+                onEditTask: { coordinator.showTaskDetail($0) },
+                onEditNote: { coordinator.showNoteDetail($0) },
                 onDeleteTask: { task in
                     Task {
                         try? await journalManager.deleteTask(task)
@@ -222,7 +126,7 @@ struct ConventionalSpreadsView: View {
                 },
                 eligibleTaskCount: isMigrationBannerDismissed ? 0 : eligibleMigrationTasks.count,
                 onMigrateAll: { migrateAllEligibleTasks() },
-                onReviewMigration: { isShowingMigrationSheet = true },
+                onReviewMigration: { coordinator.showMigrationSelection() },
                 onDismissBanner: { isMigrationBannerDismissed = true }
             )
         } else {
@@ -238,6 +142,76 @@ struct ConventionalSpreadsView: View {
     private func spreadDataModel(for spread: DataModel.Spread) -> SpreadDataModel? {
         let normalizedDate = spread.period.normalizeDate(spread.date, calendar: journalManager.calendar)
         return journalManager.dataModel[spread.period]?[normalizedDate]
+    }
+
+    // MARK: - Sheet Content
+
+    @ViewBuilder
+    private func sheetContent(
+        for destination: SpreadsCoordinator.SheetDestination
+    ) -> some View {
+        switch destination {
+        case .spreadCreation:
+            SpreadCreationSheet(
+                journalManager: journalManager,
+                firstWeekday: journalManager.firstWeekday,
+                onSpreadCreated: { spread in
+                    selectedSpread = spread
+                    Task { await syncEngine?.syncNow() }
+                }
+            )
+        case .taskCreation:
+            TaskCreationSheet(
+                journalManager: journalManager,
+                selectedSpread: selectedSpread,
+                onTaskCreated: { _ in
+                    Task { await syncEngine?.syncNow() }
+                }
+            )
+        case .noteCreation:
+            NoteCreationSheet(
+                journalManager: journalManager,
+                selectedSpread: selectedSpread,
+                onNoteCreated: { _ in
+                    Task { await syncEngine?.syncNow() }
+                }
+            )
+        case .taskDetail(let task):
+            TaskDetailSheet(
+                task: task,
+                journalManager: journalManager,
+                onDelete: {
+                    Task { await syncEngine?.syncNow() }
+                }
+            )
+        case .noteDetail(let note):
+            NoteDetailSheet(
+                note: note,
+                journalManager: journalManager,
+                onDelete: {
+                    Task { await syncEngine?.syncNow() }
+                }
+            )
+        case .inbox:
+            InboxSheetView(journalManager: journalManager)
+        case .auth:
+            if authManager.state.isSignedIn {
+                ProfileSheet(authManager: authManager)
+            } else {
+                LoginSheet(authManager: authManager)
+            }
+        case .migrationSelection:
+            if let spread = selectedSpread {
+                MigrationSelectionSheet(
+                    destinationSpread: spread,
+                    eligibleTasks: eligibleMigrationTasks.map(\.task),
+                    calendar: journalManager.calendar,
+                    onMigrate: { tasks in
+                        migrateSelectedTasks(tasks)
+                    }
+                )
+            }
+        }
     }
 
     // MARK: - Migration
