@@ -291,6 +291,104 @@ struct MockRepositoryTests {
         #expect(!remainingSpreads.contains { $0.id == spreadToDelete.id })
     }
 
+    // MARK: - InMemoryNoteRepository Tests
+
+    /// Conditions: Save a new note to empty repository.
+    /// Expected: Repository should contain exactly one note with matching title.
+    @Test func testInMemoryNoteRepositorySaveAddsNote() async throws {
+        let repository = InMemoryNoteRepository()
+        let note = DataModel.Note(title: "Test Note")
+
+        try await repository.save(note)
+        let notes = await repository.getNotes()
+
+        #expect(notes.count == 1)
+        #expect(notes.first?.title == "Test Note")
+    }
+
+    /// Conditions: Initialize repository with an array of existing notes.
+    /// Expected: Repository should contain all provided notes.
+    @Test func testInMemoryNoteRepositoryInitializesWithNotes() async {
+        let existingNotes = [
+            DataModel.Note(title: "Note 1"),
+            DataModel.Note(title: "Note 2")
+        ]
+        let repository = InMemoryNoteRepository(notes: existingNotes)
+
+        let notes = await repository.getNotes()
+
+        #expect(notes.count == 2)
+    }
+
+    // MARK: - InMemoryEventRepository Tests
+
+    /// Conditions: Save a new event to empty repository.
+    /// Expected: Repository should contain exactly one event with matching title.
+    @Test func testInMemoryEventRepositorySaveAddsEvent() async throws {
+        let repository = InMemoryEventRepository()
+        let event = DataModel.Event(title: "Test Event")
+
+        try await repository.save(event)
+        let events = await repository.getEvents()
+
+        #expect(events.count == 1)
+        #expect(events.first?.title == "Test Event")
+    }
+
+    /// Conditions: Initialize repository with an array of existing events.
+    /// Expected: Repository should contain all provided events.
+    @Test func testInMemoryEventRepositoryInitializesWithEvents() async {
+        let existingEvents = [
+            DataModel.Event(title: "Event 1"),
+            DataModel.Event(title: "Event 2")
+        ]
+        let repository = InMemoryEventRepository(events: existingEvents)
+
+        let events = await repository.getEvents()
+
+        #expect(events.count == 2)
+    }
+
+    // MARK: - MockNoteRepository Tests
+
+    /// Conditions: Access notes from a newly initialized MockNoteRepository.
+    /// Expected: Repository should contain pre-populated sample notes.
+    @Test func testMockNoteRepositoryProvidesSampleNotes() async {
+        let repository = MockNoteRepository()
+        let notes = await repository.getNotes()
+
+        #expect(!notes.isEmpty)
+    }
+
+    /// Conditions: Save a new note into a mock note repository.
+    /// Expected: Note count increases by one.
+    @Test func testMockNoteRepositorySupportsSave() async throws {
+        let repository = MockNoteRepository()
+        let initialCount = await repository.getNotes().count
+        let note = DataModel.Note(title: "New Note")
+
+        try await repository.save(note)
+        let notes = await repository.getNotes()
+
+        #expect(notes.count == initialCount + 1)
+    }
+
+    /// Conditions: Delete an existing note from a mock note repository.
+    /// Expected: Remaining notes do not include the deleted note.
+    @Test func testMockNoteRepositorySupportsDelete() async throws {
+        let repository = MockNoteRepository()
+        let notes = await repository.getNotes()
+        guard let noteToDelete = notes.first else {
+            Issue.record("No notes to delete")
+            return
+        }
+
+        try await repository.delete(noteToDelete)
+        let remainingNotes = await repository.getNotes()
+
+        #expect(!remainingNotes.contains { $0.id == noteToDelete.id })
+    }
+
     // MARK: - TestData Tests
 
     /// Conditions: Generate sample tasks from TestData.
@@ -310,6 +408,33 @@ struct MockRepositoryTests {
         #expect(!spreads.isEmpty)
     }
 
+    /// Conditions: Generate sample events from TestData.
+    /// Expected: Events are non-empty and include non-empty titles.
+    @Test func testTestDataGeneratesSampleEvents() {
+        let events = TestData.sampleEvents()
+
+        #expect(!events.isEmpty)
+        #expect(events.allSatisfy { !$0.title.isEmpty })
+    }
+
+    /// Conditions: Generate sample notes from TestData.
+    /// Expected: Notes are non-empty and include non-empty titles.
+    @Test func testTestDataGeneratesSampleNotes() {
+        let notes = TestData.sampleNotes()
+
+        #expect(!notes.isEmpty)
+        #expect(notes.allSatisfy { !$0.title.isEmpty })
+    }
+
+    /// Conditions: Generate sample collections from TestData.
+    /// Expected: Collections are non-empty and include non-empty titles.
+    @Test func testTestDataGeneratesSampleCollections() {
+        let collections = TestData.sampleCollections()
+
+        #expect(!collections.isEmpty)
+        #expect(collections.allSatisfy { !$0.title.isEmpty })
+    }
+
     /// Conditions: Generate sample tasks from TestData.
     /// Expected: Each task has a unique id.
     @Test func testTestDataTasksHaveUniqueIds() {
@@ -326,5 +451,32 @@ struct MockRepositoryTests {
         let ids = Set(spreads.map(\.id))
 
         #expect(ids.count == spreads.count)
+    }
+
+    /// Conditions: Generate sample events from TestData.
+    /// Expected: Each event has a unique id.
+    @Test func testTestDataEventsHaveUniqueIds() {
+        let events = TestData.sampleEvents()
+        let ids = Set(events.map(\.id))
+
+        #expect(ids.count == events.count)
+    }
+
+    /// Conditions: Generate sample notes from TestData.
+    /// Expected: Each note has a unique id.
+    @Test func testTestDataNotesHaveUniqueIds() {
+        let notes = TestData.sampleNotes()
+        let ids = Set(notes.map(\.id))
+
+        #expect(ids.count == notes.count)
+    }
+
+    /// Conditions: Generate sample collections from TestData.
+    /// Expected: Each collection has a unique id.
+    @Test func testTestDataCollectionsHaveUniqueIds() {
+        let collections = TestData.sampleCollections()
+        let ids = Set(collections.map(\.id))
+
+        #expect(ids.count == collections.count)
     }
 }
