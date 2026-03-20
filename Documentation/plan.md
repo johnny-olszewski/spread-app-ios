@@ -153,7 +153,7 @@
   - UI tests: changing appearance controls updates spread surface (dot grid toggle, accent color, paper tone).
 - **Dependencies**: SPRD-45, SPRD-62
 
-### [SPRD-101] Refactor: Retrofit architecture decisions to existing code
+### [SPRD-101] Refactor: Retrofit architecture decisions to existing code - [x] Complete
 - **Context**: New architecture decisions were added to CLAUDE.md (view coordinators, `#if DEBUG` separation, struct-by-default). Existing code predates these conventions and should be updated for consistency.
 - **Description**: Update existing views and services to follow the new architecture patterns in a single cleanup pass.
 - **Implementation Details**:

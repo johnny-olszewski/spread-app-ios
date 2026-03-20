@@ -5,7 +5,7 @@ import Supabase
 /// Creates and manages its own Supabase client internally.
 /// Use `MockAuthService` for localhost or `DebugAuthService` to inject test errors.
 @MainActor
-final class SupabaseAuthService: AuthService {
+struct SupabaseAuthService: AuthService {
 
     // MARK: - Properties
 

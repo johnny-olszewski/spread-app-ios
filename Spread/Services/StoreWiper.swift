@@ -15,7 +15,7 @@ protocol StoreWiper: Sendable {
 /// Deletes all entities from all model types in the schema:
 /// Spread, Task, Event, Note, Collection, SyncMutation, SyncCursor.
 @MainActor
-final class SwiftDataStoreWiper: StoreWiper {
+struct SwiftDataStoreWiper: StoreWiper {
 
     private let modelContainer: ModelContainer
 
