@@ -293,7 +293,7 @@
   - Unit tests for settings merge and conflict resolution.
 - **Dependencies**: SPRD-85, SPRD-87
 
-### [SPRD-89] Feature: Tombstone cleanup job
+### [SPRD-89] Feature: Tombstone cleanup job - [x] Complete
 - **Context**: Soft deletes need periodic cleanup.
 - **Description**: Add a scheduled cleanup job to remove rows deleted > 90 days.
 - **Implementation Details**:
