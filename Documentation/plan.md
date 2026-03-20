@@ -998,7 +998,7 @@
   - Manual: verify entitlements and docs.
 - **Dependencies**: SPRD-42
 
-### [SPRD-44] Feature: Offline-first manual QA checklist
+### [SPRD-44] Feature: Offline-first manual QA checklist - [x] Complete
 - **Context**: Offline-first sync must be validated.
 - **Description**: Add a manual QA checklist for offline usage and sync behavior.
 - **Implementation Details**:
