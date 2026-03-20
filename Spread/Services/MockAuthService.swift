@@ -1,3 +1,4 @@
+import AuthenticationServices
 import struct Auth.User
 import Foundation
 
@@ -36,6 +37,23 @@ final class MockAuthService: AuthService {
         currentEmail = email
         return AuthSuccess(
             user: makeLocalhostUser(email: email),
+            hasBackupEntitlement: mockHasBackupEntitlement
+        )
+    }
+
+    func signInWithApple(_ credential: ASAuthorizationAppleIDCredential) async throws -> AuthSuccess {
+        let email = credential.email ?? "apple-user@example.com"
+        currentEmail = email
+        return AuthSuccess(
+            user: makeLocalhostUser(email: email),
+            hasBackupEntitlement: mockHasBackupEntitlement
+        )
+    }
+
+    func signInWithGoogle() async throws -> AuthSuccess {
+        currentEmail = "google-user@example.com"
+        return AuthSuccess(
+            user: makeLocalhostUser(email: "google-user@example.com"),
             hasBackupEntitlement: mockHasBackupEntitlement
         )
     }

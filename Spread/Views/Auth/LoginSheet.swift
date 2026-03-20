@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 
 /// A sheet for signing in with email and password.
@@ -48,6 +49,7 @@ struct LoginSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                socialSignInSection
                 credentialsSection
                 validationSection
                 errorSection
@@ -83,6 +85,31 @@ struct LoginSheet: View {
     }
 
     // MARK: - Sections
+
+    private var socialSignInSection: some View {
+        Section {
+            SignInWithAppleButton(.signIn) { request in
+                request.requestedScopes = [.email]
+            } onCompletion: { result in
+                handleAppleSignIn(result)
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 44)
+
+            Button {
+                Task {
+                    try? await authManager.signInWithGoogle()
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "globe")
+                    Text("Sign in with Google")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .disabled(authManager.isLoading)
+        }
+    }
 
     private var credentialsSection: some View {
         Section {
@@ -139,6 +166,22 @@ struct LoginSheet: View {
             Button("Forgot Password?") {
                 isShowingForgotPassword = true
             }
+        }
+    }
+
+    // MARK: - Apple Sign-In Handler
+
+    private func handleAppleSignIn(_ result: Result<ASAuthorization, any Error>) {
+        switch result {
+        case .success(let authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                return
+            }
+            Task {
+                try? await authManager.signInWithApple(credential)
+            }
+        case .failure:
+            authManager.clearError()
         }
     }
 

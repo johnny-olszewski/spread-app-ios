@@ -1,3 +1,4 @@
+import AuthenticationServices
 import Foundation
 import Observation
 import Supabase
@@ -112,6 +113,70 @@ final class AuthManager {
             throw error
         } catch {
             errorMessage = "An unexpected error occurred. Please try again."
+            throw error
+        }
+    }
+
+    // MARK: - Sign In with Apple
+
+    /// Signs in with an Apple ID credential.
+    ///
+    /// - Parameter credential: The Apple ID credential from `ASAuthorizationController`.
+    /// - Throws: An error if sign-in fails.
+    func signInWithApple(_ credential: ASAuthorizationAppleIDCredential) async throws {
+        isLoading = true
+        errorMessage = nil
+
+        defer { isLoading = false }
+
+        do {
+            let result = try await service.signInWithApple(credential)
+
+            state = .signedIn(result.user)
+            hasBackupEntitlement = result.hasBackupEntitlement
+
+            await onSignIn?(result.user)
+
+        } catch let error as ForcedAuthSignInError {
+            errorMessage = error.forced.userMessage
+            throw error
+        } catch let error as AuthError {
+            errorMessage = mapAuthError(error)
+            throw error
+        } catch {
+            errorMessage = "Apple sign-in failed. Please try again."
+            throw error
+        }
+    }
+
+    // MARK: - Sign In with Google
+
+    /// Signs in with Google OAuth.
+    ///
+    /// Opens a web-based OAuth flow via `ASWebAuthenticationSession`.
+    /// - Throws: An error if sign-in fails.
+    func signInWithGoogle() async throws {
+        isLoading = true
+        errorMessage = nil
+
+        defer { isLoading = false }
+
+        do {
+            let result = try await service.signInWithGoogle()
+
+            state = .signedIn(result.user)
+            hasBackupEntitlement = result.hasBackupEntitlement
+
+            await onSignIn?(result.user)
+
+        } catch let error as ForcedAuthSignInError {
+            errorMessage = error.forced.userMessage
+            throw error
+        } catch let error as AuthError {
+            errorMessage = mapAuthError(error)
+            throw error
+        } catch {
+            errorMessage = "Google sign-in failed. Please try again."
             throw error
         }
     }

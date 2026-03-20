@@ -1,3 +1,5 @@
+import AuthenticationServices
+import CryptoKit
 import Supabase
 
 /// Production auth service that authenticates with Supabase.
@@ -64,6 +66,34 @@ struct SupabaseAuthService: AuthService {
 
     func resetPassword(email: String) async throws {
         try await client.auth.resetPasswordForEmail(email)
+    }
+
+    func signInWithApple(_ credential: ASAuthorizationAppleIDCredential) async throws -> AuthSuccess {
+        guard let identityTokenData = credential.identityToken,
+              let idToken = String(data: identityTokenData, encoding: .utf8) else {
+            throw AppleSignInError.missingIdentityToken
+        }
+
+        let session = try await client.auth.signInWithIdToken(
+            credentials: .init(
+                provider: .apple,
+                idToken: idToken
+            )
+        )
+        return AuthSuccess(
+            user: session.user,
+            hasBackupEntitlement: readBackupEntitlement(from: session.user)
+        )
+    }
+
+    func signInWithGoogle() async throws -> AuthSuccess {
+        let session = try await client.auth.signInWithOAuth(
+            provider: .google
+        )
+        return AuthSuccess(
+            user: session.user,
+            hasBackupEntitlement: readBackupEntitlement(from: session.user)
+        )
     }
 
     func signOut() async throws {

@@ -318,7 +318,7 @@
   - Integration test coverage for push/pull and merge conflicts.
 - **Dependencies**: SPRD-85
 
-### [SPRD-91] Feature: Apple + Google auth providers
+### [SPRD-91] Feature: Apple + Google auth providers - [x] Complete
 - **Context**: Social sign-in improves user onboarding and provides secure authentication.
 - **Description**: Configure Sign in with Apple and Google OAuth providers in Supabase, and add UI buttons.
 - **Implementation Details**:
