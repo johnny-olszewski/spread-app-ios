@@ -109,6 +109,15 @@ struct Definitions {
             static let deleteButton = "notes.detail.delete"
         }
 
+        struct TaskDetailSheet {
+            static let titleField = "tasks.detail.title"
+            static let statusPicker = "tasks.detail.status"
+            static let periodPicker = "tasks.detail.period"
+            static let saveButton = "tasks.detail.save"
+            static let cancelButton = "tasks.detail.cancel"
+            static let deleteButton = "tasks.detail.delete"
+        }
+
         struct CreateMenu {
             static let button = "spreads.tabbar.create.menu"
             static let createSpread = "spreads.tabbar.create.menu.spread"

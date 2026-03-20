@@ -37,6 +37,9 @@ struct ConventionalSpreadsView: View {
     /// The note currently being edited via detail sheet.
     @State private var noteBeingEdited: DataModel.Note?
 
+    /// The task currently being edited via detail sheet.
+    @State private var taskBeingEdited: DataModel.Task?
+
     /// Whether the inbox sheet is presented.
     @State private var isShowingInboxSheet = false
 
@@ -137,6 +140,15 @@ struct ConventionalSpreadsView: View {
                 }
             )
         }
+        .sheet(item: $taskBeingEdited) { task in
+            TaskDetailSheet(
+                task: task,
+                journalManager: journalManager,
+                onDelete: {
+                    Task { await syncEngine?.syncNow() }
+                }
+            )
+        }
         .sheet(isPresented: $isShowingInboxSheet) {
             InboxSheetView(journalManager: journalManager)
         }
@@ -183,12 +195,28 @@ struct ConventionalSpreadsView: View {
                 spreadDataModel: spreadDataModel(for: spread),
                 calendar: journalManager.calendar,
                 today: journalManager.today,
+                onEditTask: { task in
+                    taskBeingEdited = task
+                },
                 onEditNote: { note in
                     noteBeingEdited = note
+                },
+                onDeleteTask: { task in
+                    Task {
+                        try? await journalManager.deleteTask(task)
+                        await syncEngine?.syncNow()
+                    }
                 },
                 onDeleteNote: { note in
                     Task {
                         try? await journalManager.deleteNote(note)
+                        await syncEngine?.syncNow()
+                    }
+                },
+                onCompleteTask: { task in
+                    Task {
+                        let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
+                        try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
                         await syncEngine?.syncNow()
                     }
                 },
@@ -264,11 +292,20 @@ private struct SpreadContentView: View {
     let calendar: Calendar
     let today: Date
 
+    /// Callback when a task is tapped for editing.
+    var onEditTask: ((DataModel.Task) -> Void)?
+
     /// Callback when a note is tapped for editing.
     var onEditNote: ((DataModel.Note) -> Void)?
 
+    /// Callback when a task is deleted via swipe.
+    var onDeleteTask: ((DataModel.Task) -> Void)?
+
     /// Callback when a note is deleted via swipe.
     var onDeleteNote: ((DataModel.Note) -> Void)?
+
+    /// Callback when a task is marked complete via swipe.
+    var onCompleteTask: ((DataModel.Task) -> Void)?
 
     /// Number of tasks eligible for migration (0 hides the banner).
     var eligibleTaskCount: Int = 0
@@ -318,14 +355,21 @@ private struct SpreadContentView: View {
                 calendar: calendar,
                 today: today,
                 onEdit: { entry in
-                    if let note = entry as? DataModel.Note {
+                    if let task = entry as? DataModel.Task {
+                        onEditTask?(task)
+                    } else if let note = entry as? DataModel.Note {
                         onEditNote?(note)
                     }
                 },
                 onDelete: { entry in
-                    if let note = entry as? DataModel.Note {
+                    if let task = entry as? DataModel.Task {
+                        onDeleteTask?(task)
+                    } else if let note = entry as? DataModel.Note {
                         onDeleteNote?(note)
                     }
+                },
+                onComplete: { task in
+                    onCompleteTask?(task)
                 }
             )
         } else {
