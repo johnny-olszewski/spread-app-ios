@@ -133,7 +133,7 @@
 - Debug menu includes appearance overrides for paper tone, dot grid, heading font, and accent color.
 - Debug menu is a top-level navigation destination: tab bar item on iPhone and sidebar item on iPad (SF Symbol `ant`), with the overlay removed.
 
-### [SPRD-63] Feature: Debug appearance overrides
+### [SPRD-63] Feature: Debug appearance overrides - [x] Complete
 - **Context**: Visual tuning needs fast iteration without rebuilding UI constants.
 - **Description**: Add Debug-only controls to adjust paper tone, dot grid, typography, and accent color.
 - **Implementation Details**:
