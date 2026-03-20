@@ -943,7 +943,7 @@
   - UI tests: collection editor autosaves and persists after navigation.
 - **Dependencies**: SPRD-40
 
-### [SPRD-54] Feature: Integration tests for repositories
+### [SPRD-54] Feature: Integration tests for repositories - [x] Complete
 - **Context**: Persistence should be validated end-to-end.
 - **Description**: Add integration tests for SwiftData repositories using test containers.
 - **Acceptance Criteria**:
