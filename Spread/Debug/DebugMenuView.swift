@@ -67,9 +67,12 @@ struct DebugMenuView: View {
         )
     }
 
+    @State private var appearanceSettings = DebugAppearanceSettings.shared
+
     var body: some View {
         List {
             buildInfoSection
+            appearanceSection
             environmentSwitcherSection
             supabaseSection
             authSection
@@ -134,6 +137,76 @@ struct DebugMenuView: View {
         }
         .onAppear {
             initializeSwitchCoordinator()
+        }
+    }
+
+    // MARK: - Appearance Section
+
+    private var appearanceSection: some View {
+        Section {
+            // Paper Tone
+            Picker("Paper Tone", selection: $appearanceSettings.paperTone) {
+                ForEach(DebugAppearanceSettings.PaperTonePreset.allCases) { preset in
+                    HStack {
+                        Circle()
+                            .fill(preset.color)
+                            .frame(width: 16, height: 16)
+                            .overlay(Circle().stroke(.secondary.opacity(0.3), lineWidth: 0.5))
+                        Text(preset.displayName)
+                    }
+                    .tag(preset)
+                }
+            }
+
+            // Dot Grid
+            Toggle("Dot Grid", isOn: $appearanceSettings.isDotGridVisible)
+
+            if appearanceSettings.isDotGridVisible {
+                LabeledContent("Dot Size: \(appearanceSettings.dotSize, specifier: "%.1f")pt") {
+                    Slider(value: $appearanceSettings.dotSize, in: 0.5...4.0, step: 0.5)
+                        .frame(width: 150)
+                }
+
+                LabeledContent("Spacing: \(appearanceSettings.dotSpacing, specifier: "%.0f")pt") {
+                    Slider(value: $appearanceSettings.dotSpacing, in: 8...40, step: 2)
+                        .frame(width: 150)
+                }
+
+                LabeledContent("Opacity: \(appearanceSettings.dotOpacity, specifier: "%.0f")%%") {
+                    Slider(value: $appearanceSettings.dotOpacity, in: 0.05...0.5, step: 0.01)
+                        .frame(width: 150)
+                }
+            }
+
+            // Heading Font
+            Picker("Heading Font", selection: $appearanceSettings.headingFont) {
+                ForEach(DebugAppearanceSettings.HeadingFont.allCases) { font in
+                    Text(font.displayName)
+                        .tag(font)
+                }
+            }
+
+            // Accent Color
+            Picker("Accent Color", selection: $appearanceSettings.accentColor) {
+                ForEach(DebugAppearanceSettings.AccentColorPreset.allCases) { preset in
+                    HStack {
+                        Circle()
+                            .fill(preset.color)
+                            .frame(width: 16, height: 16)
+                        Text(preset.displayName)
+                    }
+                    .tag(preset)
+                }
+            }
+
+            // Reset
+            Button("Reset to Defaults", role: .destructive) {
+                appearanceSettings.resetToDefaults()
+            }
+        } header: {
+            Label("Appearance", systemImage: "paintbrush")
+        } footer: {
+            Text("Override visual appearance settings for tuning. Changes apply immediately to spread content surfaces.")
         }
     }
 
