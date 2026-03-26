@@ -254,7 +254,7 @@
   - Add/update tests for launch-time resolution and `localhost` isolation wipe rules.
 - **Dependencies**: SPRD-104
 
-### [SPRD-106] Feature: Auth-gated launch, large auth sheet, and onboarding after auth
+### [SPRD-106] Feature: Auth-gated launch, large auth sheet, and onboarding after auth - [x] Complete
 - **Context**: The updated product model needs a clear, explicit entry flow instead of allowing the app to run meaningfully while signed out.
 - **Description**: Introduce a blocking auth gate in product environments and move onboarding to the first authenticated launch.
 - **Implementation Details**:
