@@ -335,6 +335,73 @@
   - Update QA checklists to match the simplified behavior exactly.
 - **Dependencies**: SPRD-104, SPRD-105, SPRD-106, SPRD-107, SPRD-108
 
+### [SPRD-110] Refactor: Formalize migration eligibility by desired assignment
+- **Context**: The current migration prompt behavior is parent-based but not yet fully specified around desired assignment limits, Inbox-source migration, or “most granular valid destination” resolution.
+- **Description**: Tighten JournalManager migration eligibility rules so prompts only appear for the correct spread and task combinations.
+- **Implementation Details**:
+  - Define migration eligibility from the task's current open assignment plus desired assignment period/date.
+  - Only allow migration into the most granular valid existing destination that does not exceed the task's desired assignment.
+  - Support `Inbox` as a migration source for newly available year/month/day spreads.
+  - Ensure completed, migrated-history-only, and cancelled tasks are excluded.
+  - Ensure multiday spreads never participate as migration destinations.
+- **Acceptance Criteria**:
+  - A month-desired task assigned to `2026` is prompted on `January 2026`, but never on `January 10, 2026`.
+  - A day-desired task assigned to `2026` is prompted on `January 2026` only until `January 10, 2026` exists; then only the day spread prompts it.
+  - Inbox tasks follow the same “most granular valid existing destination” rule.
+- **Tests**:
+  - Unit tests for desired-assignment bounding, Inbox-source eligibility, and “most granular valid destination” resolution.
+  - Remove any tests that assume any parent task can prompt on any deeper spread.
+- **Dependencies**: SPRD-15, SPRD-24, SPRD-52
+
+### [SPRD-111] Feature: Conventional migration review banner and sheet refinement
+- **Context**: The migration prompt needs clearer, scenario-driven behavior that stays spread-scoped and explicit.
+- **Description**: Refine the conventional-mode migration banner and review sheet around the new eligibility rules.
+- **Implementation Details**:
+  - Keep the migration banner only on conventional year/month/day spreads.
+  - Banner appears whenever eligible tasks exist and reappears on revisit while eligibility remains.
+  - Tapping the banner opens a review sheet with all eligible tasks preselected.
+  - Section rows by source (`Inbox`, year, month, or parent day when applicable) and show both source and destination.
+  - Batch-confirm selected migrations, revalidate on submit, skip stale rows with non-blocking feedback, and keep the sheet open only while eligible tasks remain.
+- **Acceptance Criteria**:
+  - Migration prompt is conventional-only and never appears on multiday or traditional spreads.
+  - Review sheet sections tasks by source and shows both source and destination.
+  - Batch migration behaves resiliently when some rows become stale before submit.
+- **Tests**:
+  - Unit/UI tests for banner visibility, section ordering by source, preselection, revalidation, and post-submit sheet dismissal rules.
+- **Dependencies**: SPRD-110
+
+### [SPRD-112] Feature: Global overdue review based on current assignment granularity
+- **Context**: Overdue needs a global review surface that is independent from spread-scoped migration prompts and consistent with assignment granularity.
+- **Description**: Add a global overdue toolbar button and review sheet for open tasks across the journal.
+- **Implementation Details**:
+  - Compute overdue from the current open assignment (`day` after day passes, `month` after month passes, `year` after year passes).
+  - Fall back to desired assignment rules for tasks still in Inbox.
+  - Show a yellow toolbar button with icon and count on all spreads in both modes whenever overdue tasks exist globally.
+  - Open a global overdue review sheet grouped by source assignment, ordered chronologically by source date.
+  - Keep the overdue sheet read/review-only in v1; rows open task editing but no bulk overdue actions exist yet.
+- **Acceptance Criteria**:
+  - Overdue count is global and appears from any spread when overdue tasks exist anywhere in the journal.
+  - Inbox tasks can become overdue using desired-assignment fallback.
+  - A task may appear in both overdue review and a spread migration review when both conditions are true.
+- **Tests**:
+  - Unit tests for overdue-by-assignment-period, Inbox fallback, and global count behavior across conventional/traditional modes.
+  - UI tests for yellow toolbar button visibility and overdue review sheet grouping.
+- **Dependencies**: SPRD-110
+
+### [SPRD-113] Quality: Scenario table coverage and docs for migration + overdue
+- **Context**: These rules are easy to regress unless the spec, QA docs, and tests all use the same concrete examples.
+- **Description**: Align code, tests, and QA material with explicit scenario tables for migration prompting and overdue behavior.
+- **Implementation Details**:
+  - Add unit-test matrices using absolute dates for day/month/year overdue thresholds.
+  - Add scenario coverage for year→month, month→day, Inbox→spread, and disappearing coarser prompts when a finer valid spread appears.
+  - Update manual QA docs to include migration-prompt and overdue-review scenarios with absolute dates.
+- **Acceptance Criteria**:
+  - Spec examples, QA steps, and automated tests use the same concrete scenarios.
+  - The migration and overdue rules are understandable without interpreting code.
+- **Tests**:
+  - Run the focused journal-manager, spread UI, and overdue-review suites added for SPRD-110 through SPRD-112.
+- **Dependencies**: SPRD-110, SPRD-111, SPRD-112
+
 ### [SPRD-102] Refactor (Highest Priority): Runtime naming normalization, phases 1-4 - [x]
 - **Context**: Naming in app bootstrap/runtime code is overloaded (`session`, `environment`, `container`) and conflicts with auth session terminology.
 - **Description**: Apply the naming normalization pass for phases 1-4 to make runtime assembly concepts explicit and reserve `session` for auth only.
