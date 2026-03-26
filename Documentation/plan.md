@@ -370,7 +370,7 @@
   - Unit/UI tests for banner visibility, section ordering by source, preselection, revalidation, and post-submit sheet dismissal rules.
 - **Dependencies**: SPRD-110
 
-### [SPRD-112] Feature: Global overdue review based on current assignment granularity
+### [SPRD-112] Feature: Global overdue review based on current assignment granularity - [x]
 - **Context**: Overdue needs a global review surface that is independent from spread-scoped migration prompts and consistent with assignment granularity.
 - **Description**: Add a global overdue toolbar button and review sheet for open tasks across the journal.
 - **Implementation Details**:

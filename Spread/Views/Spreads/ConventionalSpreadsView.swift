@@ -28,6 +28,9 @@ struct ConventionalSpreadsView: View {
     /// The currently selected spread.
     @State private var selectedSpread: DataModel.Spread?
 
+    /// Whether the overdue review sheet is visible.
+    @State private var isShowingOverdueSheet = false
+
     // MARK: - Body
 
     var body: some View {
@@ -63,6 +66,9 @@ struct ConventionalSpreadsView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     HStack(spacing: 16) {
+                        OverdueButton(overdueCount: journalManager.overdueTaskCount) {
+                            isShowingOverdueSheet = true
+                        }
                         InboxButton(inboxCount: journalManager.inboxCount) {
                             coordinator.showInbox()
                         }
@@ -75,6 +81,12 @@ struct ConventionalSpreadsView: View {
         }
         .sheet(item: $coordinator.activeSheet) { destination in
             sheetContent(for: destination)
+        }
+        .sheet(isPresented: $isShowingOverdueSheet) {
+            OverdueReviewSheet(
+                journalManager: journalManager,
+                syncEngine: syncEngine
+            )
         }
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()

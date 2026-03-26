@@ -8,6 +8,7 @@ struct TabNavigationView: View {
     @State private var selectedTab: NavigationTab = .spreads
     @State private var isInboxPresented = false
     @State private var isAuthPresented = false
+    @State private var isOverduePresented = false
 
     /// The journal manager for accessing spreads and inbox.
     let journalManager: JournalManager
@@ -39,6 +40,12 @@ struct TabNavigationView: View {
         }
         .sheet(isPresented: $isAuthPresented) {
             AuthEntrySheet(authManager: authManager, isBlocking: false)
+        }
+        .sheet(isPresented: $isOverduePresented) {
+            OverdueReviewSheet(
+                journalManager: journalManager,
+                syncEngine: syncEngine
+            )
         }
     }
 
@@ -79,6 +86,11 @@ struct TabNavigationView: View {
                     }
                     ToolbarItem(placement: .primaryAction) {
                         HStack(spacing: 16) {
+                            if tab == .spreads {
+                                OverdueButton(overdueCount: journalManager.overdueTaskCount) {
+                                    isOverduePresented = true
+                                }
+                            }
                             InboxButton(inboxCount: journalManager.inboxCount) {
                                 isInboxPresented = true
                             }

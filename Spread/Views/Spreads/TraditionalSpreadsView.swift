@@ -45,6 +45,9 @@ struct TraditionalSpreadsView: View {
     /// Whether the auth sheet is presented.
     @State private var isShowingAuthSheet = false
 
+    /// Whether the overdue review sheet is presented.
+    @State private var isShowingOverdueSheet = false
+
     // MARK: - Private
 
     /// The current year date (normalized to Jan 1) for the root view.
@@ -72,6 +75,12 @@ struct TraditionalSpreadsView: View {
         }
         .sheet(isPresented: $isShowingAuthSheet) {
             AuthEntrySheet(authManager: authManager, isBlocking: false)
+        }
+        .sheet(isPresented: $isShowingOverdueSheet) {
+            OverdueReviewSheet(
+                journalManager: journalManager,
+                syncEngine: syncEngine
+            )
         }
     }
 
@@ -139,6 +148,9 @@ struct TraditionalSpreadsView: View {
         }
         ToolbarItem(placement: .primaryAction) {
             HStack(spacing: 16) {
+                OverdueButton(overdueCount: journalManager.overdueTaskCount) {
+                    isShowingOverdueSheet = true
+                }
                 InboxButton(inboxCount: journalManager.inboxCount) {
                     isShowingInboxSheet = true
                 }
