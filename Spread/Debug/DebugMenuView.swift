@@ -5,12 +5,11 @@ import struct Auth.User
 /// Debug menu for inspecting environment, dependencies, and app state.
 ///
 /// Provides grouped sections for:
-/// - Environment switcher with safe switch flow
 /// - Current DataEnvironment and Supabase configuration
 /// - App dependencies summary
 /// - Mock data sets loader with overwrite + reload behavior
 ///
-/// Only available in DEBUG builds. Accessible as a navigation destination
+/// Only available in debug-enabled builds. Accessible as a navigation destination
 /// via the Debug tab (iPhone) or sidebar item (iPad).
 struct DebugMenuView: View {
     /// The app dependencies for inspecting repository types.
@@ -165,7 +164,7 @@ struct DebugMenuView: View {
         } header: {
             Label("Supabase", systemImage: "cloud")
         } footer: {
-            Text("Supabase configuration is driven by the Data Environment. Use -SupabaseURL and -SupabaseKey launch arguments for explicit overrides.")
+            Text("Supabase configuration is driven by the resolved Data Environment. Debug localhost bypasses Supabase entirely.")
         }
     }
 

@@ -8,6 +8,7 @@ import Foundation
 /// - Unit tests requiring predictable auth behavior
 @MainActor
 final class MockAuthService: AuthService {
+    private static let localhostEmail = "localhost@spread.debug"
 
     // MARK: - Configuration
 
@@ -17,8 +18,9 @@ final class MockAuthService: AuthService {
     // MARK: - AuthService
 
     func checkSession() async -> AuthSuccess? {
-        // Mock service has no persistent session
-        nil
+        let email = currentEmail ?? Self.localhostEmail
+        currentEmail = email
+        return AuthSuccess(user: makeLocalhostUser(email: email))
     }
 
     func signIn(email: String, password: String) async throws -> AuthSuccess {
@@ -45,7 +47,7 @@ final class MockAuthService: AuthService {
     private func makeLocalhostUser(email: String) -> User {
         let json = """
         {
-            "id": "\(UUID().uuidString)",
+            "id": "11111111-1111-1111-1111-111111111111",
             "email": "\(email)",
             "appMetadata": {},
             "userMetadata": {},

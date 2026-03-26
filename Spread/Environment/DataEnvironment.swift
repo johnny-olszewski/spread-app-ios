@@ -120,15 +120,18 @@ enum DataEnvironment: String, CaseIterable, Sendable {
         UserDefaults.standard.set(environment.rawValue, forKey: lastUsedKey)
     }
 
-    /// Checks if a wipe is required on launch due to environment mismatch.
+    /// Checks if a wipe is required on launch due to localhost isolation.
     ///
     /// - Parameter current: The resolved data environment for this launch.
-    /// - Returns: `true` if lastUsed differs from current (requires wipe).
+    /// - Returns: `true` if the launch transitions to or from localhost.
     static func requiresWipeOnLaunch(current: DataEnvironment) -> Bool {
         guard let lastUsed else {
             // First launch or cleared - no wipe needed
             return false
         }
-        return lastUsed != current
+        guard lastUsed != current else {
+            return false
+        }
+        return lastUsed == .localhost || current == .localhost
     }
 }

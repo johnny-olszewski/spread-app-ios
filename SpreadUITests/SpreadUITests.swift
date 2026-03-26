@@ -13,7 +13,7 @@ final class SpreadUITests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = [
-            "-AppEnvironment", "testing",
+            "-DataEnvironment", "localhost",
             "-MockDataSet", mockDataSet,
             "-Today", today
         ]

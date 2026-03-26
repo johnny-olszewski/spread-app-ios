@@ -35,4 +35,12 @@ struct BuildInfoTests {
     @Test func testAllowsDebugUIAndIsReleaseAreMutuallyExclusive() {
         #expect(BuildInfo.allowsDebugUI != BuildInfo.isRelease)
     }
+
+    // MARK: - defaultDataEnvironment
+
+    /// Conditions: Tests run under the Debug build configuration with a non-QA bundle identifier.
+    /// Expected: Debug builds default to development unless localhost is selected explicitly.
+    @Test func testDefaultDataEnvironmentIsDevelopmentInDebugBuild() {
+        #expect(BuildInfo.defaultDataEnvironment == .development)
+    }
 }
