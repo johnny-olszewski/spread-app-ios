@@ -25,14 +25,13 @@ extension AppRuntimeConfiguration {
                     try await journalManager.loadMockDataSet(dataSet)
                 }
             },
-            makeDebugMenuView: { dependencies, journalManager, authManager, syncEngine, onRestartRequired in
+            makeDebugMenuView: { dependencies, journalManager, authManager, syncEngine in
                 AnyView(
                     DebugMenuView(
                         dependencies: dependencies,
                         journalManager: journalManager,
                         authManager: authManager,
-                        syncEngine: syncEngine,
-                        onRestartRequired: onRestartRequired
+                        syncEngine: syncEngine
                     )
                 )
             },

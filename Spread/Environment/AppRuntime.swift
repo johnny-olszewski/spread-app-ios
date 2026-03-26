@@ -5,8 +5,7 @@ typealias DebugMenuViewFactory = (
     AppDependencies,
     JournalManager,
     AuthManager,
-    SyncEngine?,
-    (() -> Void)?
+    SyncEngine?
 ) -> AnyView
 
 /// Aggregates app-level services created for a running app runtime.

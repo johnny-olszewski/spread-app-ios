@@ -21,9 +21,6 @@ struct TabNavigationView: View {
     /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
 
-    /// Callback when environment switch completes and restart is needed.
-    var onRestartRequired: (() -> Void)?
-
     /// Optional factory for constructing the debug menu view.
     let makeDebugMenuView: DebugMenuViewFactory?
 
@@ -102,7 +99,7 @@ struct TabNavigationView: View {
     @ViewBuilder
     private var debugMenuView: some View {
         if let view = makeDebugMenuView?(
-            dependencies, journalManager, authManager, syncEngine, onRestartRequired
+            dependencies, journalManager, authManager, syncEngine
         ) {
             view
         } else {

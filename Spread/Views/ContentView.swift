@@ -6,12 +6,8 @@ import SwiftUI
 /// Handles async runtime initialization and displays the appropriate
 /// navigation shell once ready. Shows a loading state during initialization.
 /// Auth lifecycle logic is delegated to `AuthLifecycleCoordinator`.
-///
-/// Supports soft restart for environment switching: calling `restartApp()` nils
-/// out the runtime and bumps `appRuntimeId` to re-trigger `.task(id:)`.
 struct ContentView: View {
     @State private var runtime: AppRuntime?
-    @State private var appRuntimeId = UUID()
 
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "ContentView")
 
@@ -29,14 +25,13 @@ struct ContentView: View {
                     authManager: runtime.authManager,
                     dependencies: runtime.dependencies,
                     syncEngine: runtime.syncEngine,
-                    onRestartRequired: restartApp,
                     makeDebugMenuView: runtime.makeDebugMenuView
                 )
             } else {
                 loadingView
             }
         }
-        .task(id: appRuntimeId) {
+        .task {
             await initializeApp()
         }
     }
@@ -46,18 +41,6 @@ struct ContentView: View {
     private var loadingView: some View {
         ProgressView("Loading...")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // MARK: - Soft Restart
-
-    /// Tears down the runtime and re-triggers app initialization.
-    ///
-    /// Called after an environment switch to rebuild the service graph
-    /// with fresh instances bound to the new data environment.
-    private func restartApp() {
-        Self.logger.info("Soft restart initiated")
-        runtime = nil
-        appRuntimeId = UUID()
     }
 
     // MARK: - Initialization
