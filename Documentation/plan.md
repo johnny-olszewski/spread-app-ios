@@ -307,7 +307,7 @@
   - Update remaining tests to assert the new smaller state surface.
 - **Dependencies**: SPRD-104, SPRD-105, SPRD-106, SPRD-107
 
-### [SPRD-109] Quality: Rebuild the test and QA matrix for the simplified model
+### [SPRD-109] Quality: Rebuild the test and QA matrix for the simplified model - [x] Complete
 - **Context**: The current tests and QA docs encode a wider runtime/auth matrix than the new product requires.
 - **Description**: Rebuild the automated and manual verification matrix around the simplified environments and auth behavior.
 - **Implementation Details**:
