@@ -400,6 +400,46 @@
   - Live sync readout (network status, last sync time, outbox count, current sync error).
   - Override persistence across relaunch is not required.
 
+### Testing
+- Automated testing is split between deterministic unit tests for isolated logic and localhost-backed UI scenario tests for user-visible flows. [SPRD-113, SPRD-114]
+- Logic-heavy user scenarios must be exercised through Debug `localhost` launches with seeded mock data and a fixed `today` date so results remain deterministic. [SPRD-114]
+- UI scenario tests are additive to existing unit coverage; they do not replace unit tests for JournalManager, assignment logic, migration revalidation, or overdue computation. [SPRD-114]
+- Scenario UI tests focus on conventional-mode logic-heavy flows first: assignment fallback, Inbox resolution, migration prompting/review, overdue review, and edit-time reassignment. [SPRD-114]
+- UI scenario fixtures may seed the starting state, but the user action under test must still be performed through the UI. [SPRD-114]
+- A shared localhost scenario harness is required for UI tests. It must centralize:
+  - app launch with `localhost`, scenario dataset selection, and fixed `today`
+  - spread navigation
+  - migration banner/review interactions
+  - overdue toolbar/review interactions
+  - common assertions for relocated tasks, source sections, and migrated-history visibility
+- Scenario-only mock data sets may live in the same in-code catalog as debug mock data, but test-only cases must be hidden from normal debug-menu browsing. [SPRD-114]
+- Scenario-test-critical UI must expose explicit accessibility identifiers instead of relying only on visible copy. This includes:
+  - migration banner, review sheet, section headers, rows, selection controls, and confirm action
+  - overdue toolbar button, review sheet, section headers, rows, and row-open actions
+  - any supporting source/destination labels needed to assert assignment and migration outcomes
+- UI scenario assertions should prefer user-visible outcomes. Localhost-only debug inspection may be used only when the UI cannot distinguish a required state clearly enough. [SPRD-114]
+- Scenario coverage matrix required for v1: [SPRD-114, SPRD-115, SPRD-116, SPRD-117, SPRD-118]
+
+| Scenario area | Required localhost UI coverage | Key assertion |
+| --- | --- | --- |
+| Creation-time assignment | Creating a task on a created matching spread assigns it directly there. | The new task appears on the selected spread without using Inbox or migration UI. |
+| Inbox fallback | Creating a task when no matching spread exists routes it to Inbox. | The task is absent from spread content, present in Inbox, and can be identified by desired assignment. |
+| Inbox auto-resolution | A task seeded in Inbox becomes migration-eligible when a valid year/month/day spread is later created. | The destination spread exposes migration UI for that task and the task can be moved out of Inbox from the review sheet. |
+| Desired-assignment-bounded migration | A month-desired task on `2026` prompts on `January 2026` but not `January 10, 2026`. | Only the valid month destination shows migration UI. |
+| Most-granular-valid destination | A day-desired task on `2026` prompts on `January 2026` only until `January 10, 2026` exists, then only the day spread prompts. | The coarser prompt disappears once the finer valid destination exists. |
+| Migration review flow | Conventional migration banner opens a sheet with eligible tasks preselected and sectioned by source. | Source and destination labels are visible, default selection is correct, and confirm migrates the selected tasks. |
+| Migration post-submit behavior | After migration, the review sheet updates in place and only dismisses when no eligible tasks remain. | Remaining rows stay visible; fully resolved sheets dismiss automatically. |
+| Edit-time reassignment | Editing a task's preferred date/period relocates it according to conventional reassignment rules. | The task appears on the new destination, disappears from the active list on the old spread, and appears in migrated history there. |
+| Overdue day threshold | Day-assigned open tasks become overdue after the assigned day passes. | The yellow overdue toolbar button count includes the task and the sheet lists it under its current source. |
+| Overdue month/year thresholds | Month- and year-assigned tasks become overdue only after the full assigned period passes. | Counts and sections change only at the defined absolute-date boundaries. |
+| Inbox overdue fallback | Inbox tasks become overdue from their desired assignment when no open spread assignment exists. | The overdue review sheet includes an `Inbox` section for those tasks. |
+| Overdue review flow | Tapping the yellow overdue button opens the global review sheet and rows open task detail/edit UI. | Count, section grouping, and task opening behavior are correct from any spread. |
+| Note exclusions | Notes never appear in migration or overdue review surfaces. | Migration review and overdue review remain task-only even when notes share the same dates. |
+| Traditional-mode parity check | Traditional mode still shows the global overdue button when overdue tasks exist, but never shows migration UI. | Overdue remains available and migration controls remain absent. |
+- Device matrix:
+  - iPhone is the default scenario-test device. [SPRD-114]
+  - Add a targeted iPad subset only for scenarios where layout or navigation behavior differs materially from iPhone. [SPRD-114]
+
 ### Secrets and Configuration
 - Supabase publishable (anon) keys and project URLs are stored in build-time xcconfig files. These are client-side keys protected by RLS policies; they are not service role keys.
 - Configuration files:
