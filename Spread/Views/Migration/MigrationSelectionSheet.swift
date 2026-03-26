@@ -1,50 +1,58 @@
 import SwiftUI
 
-/// Sheet for selecting tasks to migrate to a destination spread.
-///
-/// Shows a checkbox list of eligible tasks with select/deselect all controls.
-/// All tasks are selected by default. Each row shows the task title and its
-/// current assignment location for context.
+/// Sheet for reviewing and confirming task migration into a destination spread.
 struct MigrationSelectionSheet: View {
 
-    // MARK: - Properties
-
-    /// The destination spread to migrate tasks to.
     let destinationSpread: DataModel.Spread
-
-    /// Eligible tasks that can be migrated.
-    let eligibleTasks: [DataModel.Task]
-
-    /// The calendar for date formatting.
+    let eligibleCandidates: [MigrationCandidate]
     let calendar: Calendar
-
-    /// Callback with the selected tasks to migrate.
-    let onMigrate: ([DataModel.Task]) -> Void
+    let onMigrate: ([MigrationCandidate]) async -> MigrationSelectionOutcome
 
     @Environment(\.dismiss) private var dismiss
 
-    /// IDs of currently selected tasks.
-    @State private var selectedTaskIds: Set<UUID> = []
+    @State private var selectedTaskIDs: Set<UUID> = []
+    @State private var isSubmitting = false
+    @State private var statusMessage: String?
 
-    // MARK: - Body
+    private var sections: [MigrationReviewSection] {
+        MigrationReviewGrouper(calendar: calendar).sections(
+            for: eligibleCandidates,
+            destination: destinationSpread
+        )
+    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 headerView
 
+                if let statusMessage {
+                    Text(statusMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                        .padding(.vertical, 10)
+                        .background(Color(.systemYellow).opacity(0.12))
+                }
+
                 List {
-                    ForEach(eligibleTasks, id: \.id) { task in
-                        TaskSelectionRow(
-                            task: task,
-                            isSelected: selectedTaskIds.contains(task.id),
-                            currentAssignment: currentAssignmentLabel(for: task)
-                        ) {
-                            toggleSelection(task)
+                    ForEach(sections) { section in
+                        Section(section.sourceTitle) {
+                            ForEach(section.candidates, id: \.task.id) { candidate in
+                                TaskSelectionRow(
+                                    task: candidate.task,
+                                    isSelected: selectedTaskIDs.contains(candidate.task.id),
+                                    sourceDisplayName: section.sourceDisplayName,
+                                    destinationDisplayName: section.destinationDisplayName
+                                ) {
+                                    toggleSelection(for: candidate.task.id)
+                                }
+                            }
                         }
                     }
                 }
-                .listStyle(.plain)
+                .listStyle(.insetGrouped)
             }
             .navigationTitle("Migrate Tasks")
             .navigationBarTitleDisplayMode(.inline)
@@ -53,41 +61,49 @@ struct MigrationSelectionSheet: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .disabled(isSubmitting)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Migrate (\(selectedTaskIds.count))") {
-                        migrateSelected()
+                    Button("Migrate Selected") {
+                        submitMigration()
                     }
-                    .disabled(selectedTaskIds.isEmpty)
+                    .disabled(selectedTaskIDs.isEmpty || isSubmitting)
                 }
             }
             .onAppear {
-                selectedTaskIds = Set(eligibleTasks.map(\.id))
+                resetSelection()
+            }
+            .onChange(of: eligibleCandidates.map(\.task.id)) { _, _ in
+                if eligibleCandidates.isEmpty {
+                    dismiss()
+                } else {
+                    resetSelection()
+                }
             }
         }
     }
 
-    // MARK: - Header
-
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Migrate to \(spreadDescription)")
+            Text("Move selected tasks into \(destinationDisplayName)")
                 .font(.headline)
 
-            Text("Select tasks to migrate from parent spreads")
+            Text("Eligible tasks stay grouped by where they currently live so migration remains explicit.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             HStack {
                 Button("Select All") {
-                    selectedTaskIds = Set(eligibleTasks.map(\.id))
+                    selectedTaskIDs = Set(eligibleCandidates.map(\.task.id))
                 }
                 .font(.caption)
+                .disabled(isSubmitting || eligibleCandidates.isEmpty)
 
                 Button("Deselect All") {
-                    selectedTaskIds = []
+                    selectedTaskIDs = []
                 }
                 .font(.caption)
+                .disabled(isSubmitting || eligibleCandidates.isEmpty)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -95,78 +111,84 @@ struct MigrationSelectionSheet: View {
         .background(Color(.systemGray6))
     }
 
-    // MARK: - Helpers
+    private var destinationDisplayName: String {
+        MigrationReviewGrouper(calendar: calendar)
+            .sections(for: eligibleCandidates, destination: destinationSpread)
+            .first?
+            .destinationDisplayName ?? fallbackSpreadLabel(for: destinationSpread)
+    }
 
-    private var spreadDescription: String {
+    private func toggleSelection(for taskID: UUID) {
+        if selectedTaskIDs.contains(taskID) {
+            selectedTaskIDs.remove(taskID)
+        } else {
+            selectedTaskIDs.insert(taskID)
+        }
+    }
+
+    private func resetSelection() {
+        selectedTaskIDs = Set(eligibleCandidates.map(\.task.id))
+        statusMessage = nil
+    }
+
+    private func submitMigration() {
+        let selected = eligibleCandidates.filter { selectedTaskIDs.contains($0.task.id) }
+        guard !selected.isEmpty else { return }
+
+        isSubmitting = true
+        Task {
+            let outcome = await onMigrate(selected)
+            await MainActor.run {
+                isSubmitting = false
+
+                if outcome.remainingCount == 0 {
+                    dismiss()
+                    return
+                }
+
+                statusMessage = statusMessage(for: outcome)
+            }
+        }
+    }
+
+    private func statusMessage(for outcome: MigrationSelectionOutcome) -> String? {
+        switch (outcome.migratedCount, outcome.skippedCount) {
+        case (_, 0):
+            return nil
+        case (0, let skipped):
+            return "\(skipped) task\(skipped == 1 ? "" : "s") changed and were skipped."
+        case (let migrated, let skipped):
+            return "\(migrated) task\(migrated == 1 ? "" : "s") migrated. \(skipped) task\(skipped == 1 ? "" : "s") changed and were skipped."
+        }
+    }
+
+    private func fallbackSpreadLabel(for spread: DataModel.Spread) -> String {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
 
-        switch destinationSpread.period {
+        switch spread.period {
         case .year:
-            let year = calendar.component(.year, from: destinationSpread.date)
-            return "\(year)"
+            return "\(calendar.component(.year, from: spread.date))"
         case .month:
             formatter.dateFormat = "MMMM yyyy"
-            return formatter.string(from: destinationSpread.date)
+            return formatter.string(from: spread.date)
         case .day:
-            formatter.dateFormat = "MMM d, yyyy"
-            return formatter.string(from: destinationSpread.date)
+            formatter.dateFormat = "MMMM d, yyyy"
+            return formatter.string(from: spread.date)
         case .multiday:
-            formatter.dateFormat = "MMM d"
-            return formatter.string(from: destinationSpread.date) + "+"
+            formatter.dateFormat = "MMMM d"
+            return formatter.string(from: spread.date) + "+"
         }
-    }
-
-    /// Returns a label describing the task's current open assignment location.
-    private func currentAssignmentLabel(for task: DataModel.Task) -> String? {
-        guard let openAssignment = task.assignments.first(where: { $0.status == .open }) else {
-            return nil
-        }
-
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-
-        switch openAssignment.period {
-        case .year:
-            let year = calendar.component(.year, from: openAssignment.date)
-            return "Year \(year)"
-        case .month:
-            formatter.dateFormat = "MMM yyyy"
-            return formatter.string(from: openAssignment.date)
-        case .day:
-            formatter.dateFormat = "M/d/yy"
-            return formatter.string(from: openAssignment.date)
-        case .multiday:
-            formatter.dateFormat = "M/d"
-            return formatter.string(from: openAssignment.date) + "+"
-        }
-    }
-
-    private func toggleSelection(_ task: DataModel.Task) {
-        if selectedTaskIds.contains(task.id) {
-            selectedTaskIds.remove(task.id)
-        } else {
-            selectedTaskIds.insert(task.id)
-        }
-    }
-
-    private func migrateSelected() {
-        let tasksToMigrate = eligibleTasks.filter { selectedTaskIds.contains($0.id) }
-        onMigrate(tasksToMigrate)
-        dismiss()
     }
 }
 
-// MARK: - Task Selection Row
-
-/// A row in the migration selection list with checkbox, title, and current location.
 private struct TaskSelectionRow: View {
 
     let task: DataModel.Task
     let isSelected: Bool
-    let currentAssignment: String?
+    let sourceDisplayName: String
+    let destinationDisplayName: String
     let onToggle: () -> Void
 
     var body: some View {
@@ -176,16 +198,18 @@ private struct TaskSelectionRow: View {
                     .font(.title3)
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(task.title)
                         .font(.body)
                         .foregroundStyle(.primary)
 
-                    if let assignment = currentAssignment {
-                        Text("Currently on: \(assignment)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("Currently on: \(sourceDisplayName)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Text("Move to: \(destinationDisplayName)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
@@ -195,49 +219,4 @@ private struct TaskSelectionRow: View {
         }
         .buttonStyle(.plain)
     }
-}
-
-// MARK: - Preview
-
-#Preview {
-    let calendar = Calendar.current
-    let spreadDate = calendar.date(from: DateComponents(year: 2026, month: 2, day: 1))!
-
-    let tasks = [
-        DataModel.Task(
-            title: "Task from year",
-            date: calendar.date(from: DateComponents(year: 2026, month: 2, day: 5))!,
-            period: .day,
-            status: .open
-        ),
-        DataModel.Task(
-            title: "Another task",
-            date: calendar.date(from: DateComponents(year: 2026, month: 2, day: 10))!,
-            period: .day,
-            status: .open
-        ),
-        DataModel.Task(
-            title: "Third task",
-            date: calendar.date(from: DateComponents(year: 2026, month: 2, day: 15))!,
-            period: .day,
-            status: .open
-        ),
-    ]
-
-    tasks[0].assignments = [
-        TaskAssignment(period: .year, date: calendar.date(from: DateComponents(year: 2026))!, status: .open)
-    ]
-    tasks[1].assignments = [
-        TaskAssignment(period: .year, date: calendar.date(from: DateComponents(year: 2026))!, status: .open)
-    ]
-    tasks[2].assignments = [
-        TaskAssignment(period: .month, date: calendar.date(from: DateComponents(year: 2026, month: 1))!, status: .open)
-    ]
-
-    return MigrationSelectionSheet(
-        destinationSpread: DataModel.Spread(period: .month, date: spreadDate, calendar: calendar),
-        eligibleTasks: tasks,
-        calendar: calendar,
-        onMigrate: { tasks in }
-    )
 }
