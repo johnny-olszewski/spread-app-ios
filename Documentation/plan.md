@@ -210,7 +210,7 @@
 - Debug, unit, and QA documentation are updated to the simplified matrix.
 - Obsolete tests and code paths are removed rather than preserved behind dead abstractions.
 
-### [SPRD-104] Refactor: Simplify auth and sync eligibility model
+### [SPRD-104] Refactor: Simplify auth and sync eligibility model - [x] Complete
 - **Context**: Backup entitlement, guest usage, and sign-in merge/discard create a large amount of product and infrastructure complexity for a small v1 benefit.
 - **Description**: Collapse the product model to authenticated usage in dev/prod with sync gated only by session validity.
 - **Implementation Details**:
@@ -232,7 +232,7 @@
   - Add/update unit tests for auth-gated launch, cached-session offline access, and sign-out wipe behavior.
 - **Dependencies**: None
 
-### [SPRD-105] Refactor: Simplify DataEnvironment model and launch behavior
+### [SPRD-105] Refactor: Simplify DataEnvironment model and launch behavior - [x] Complete
 - **Context**: Runtime environment switching, persisted environment selection, and restart flows add significant runtime and test complexity.
 - **Description**: Reduce `DataEnvironment` to a launch-time concern with Debug `localhost` support only.
 - **Implementation Details**:
