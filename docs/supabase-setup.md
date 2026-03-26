@@ -344,6 +344,10 @@ Added in SPRD-89. Migration: `20260320000000_tombstone_cleanup_job`
 
 Soft-deleted rows (`deleted_at IS NOT NULL`) older than 90 days are permanently removed by a scheduled PostgreSQL function.
 
+### Prerequisites
+
+- **`pg_cron` extension** must be enabled. The migration handles this automatically (`CREATE EXTENSION IF NOT EXISTS pg_cron`), or enable it manually via Dashboard > Database > Extensions.
+
 ### How It Works
 
 - **Function**: `cleanup_tombstones()` — `SECURITY DEFINER` function that bypasses RLS and hard-deletes expired tombstones from all 7 tables.

@@ -1,8 +1,12 @@
 -- Migration: tombstone_cleanup_job
 -- Task: SPRD-89
 -- Description: Scheduled job to hard-delete soft-deleted rows older than 90 days.
--- Uses pg_cron (enabled by default on Supabase) to run daily at 03:00 UTC.
+-- Uses pg_cron to run daily at 03:00 UTC.
 -- Executes with service role privileges, bypassing RLS.
+
+-- 0. Ensure pg_cron extension is enabled
+CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+GRANT USAGE ON SCHEMA cron TO postgres;
 
 -- 1. Create the cleanup function
 CREATE OR REPLACE FUNCTION cleanup_tombstones()
