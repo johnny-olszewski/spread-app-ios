@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Banner shown at top of spread when there are tasks eligible for migration.
 ///
-/// Displays a count of migratable tasks with quick actions to review individually
-/// or migrate all at once. Only shows for tasks, not notes (per spec).
+/// Displays a count of migratable tasks with a single review action.
+/// Only shows for tasks, not notes (per spec).
 struct MigrationBannerView: View {
 
     // MARK: - Properties
@@ -11,14 +11,8 @@ struct MigrationBannerView: View {
     /// Number of eligible tasks.
     let eligibleTaskCount: Int
 
-    /// Callback to migrate all eligible tasks.
-    let onMigrateAll: () -> Void
-
     /// Callback to open the selection sheet for review.
     let onReview: () -> Void
-
-    /// Callback to dismiss the banner.
-    let onDismiss: () -> Void
 
     // MARK: - Body
 
@@ -33,35 +27,18 @@ struct MigrationBannerView: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
 
-                Text("From parent spreads")
+                Text("Review tasks that can move into this spread")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            HStack(spacing: 8) {
-                Button("Review") {
-                    onReview()
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-
-                Button("Migrate All") {
-                    onMigrateAll()
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+            Button("Review") {
+                onReview()
             }
-
-            Button {
-                onDismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -80,9 +57,7 @@ struct MigrationBannerView: View {
     VStack {
         MigrationBannerView(
             eligibleTaskCount: 1,
-            onMigrateAll: {},
-            onReview: {},
-            onDismiss: {}
+            onReview: {}
         )
         Spacer()
     }
@@ -92,9 +67,7 @@ struct MigrationBannerView: View {
     VStack {
         MigrationBannerView(
             eligibleTaskCount: 5,
-            onMigrateAll: {},
-            onReview: {},
-            onDismiss: {}
+            onReview: {}
         )
         Spacer()
     }

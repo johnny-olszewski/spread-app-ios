@@ -28,9 +28,6 @@ struct ConventionalSpreadsView: View {
     /// The currently selected spread.
     @State private var selectedSpread: DataModel.Spread?
 
-    /// Whether the migration banner has been dismissed for the current spread.
-    @State private var isMigrationBannerDismissed = false
-
     // MARK: - Body
 
     var body: some View {
@@ -82,17 +79,14 @@ struct ConventionalSpreadsView: View {
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()
         }
-        .onChange(of: selectedSpread?.id) { _, _ in
-            isMigrationBannerDismissed = false
-        }
     }
 
     // MARK: - Content
 
     /// Eligible tasks for migration to the selected spread.
-    private var eligibleMigrationTasks: [(task: DataModel.Task, source: DataModel.Spread)] {
+    private var eligibleMigrationCandidates: [MigrationCandidate] {
         guard let spread = selectedSpread else { return [] }
-        return journalManager.allEligibleTasksForMigration(to: spread)
+        return journalManager.migrationCandidates(to: spread)
     }
 
     @ViewBuilder
@@ -124,10 +118,8 @@ struct ConventionalSpreadsView: View {
                         await syncEngine?.syncNow()
                     }
                 },
-                eligibleTaskCount: isMigrationBannerDismissed ? 0 : eligibleMigrationTasks.count,
-                onMigrateAll: { migrateAllEligibleTasks() },
-                onReviewMigration: { coordinator.showMigrationSelection() },
-                onDismissBanner: { isMigrationBannerDismissed = true }
+                eligibleTaskCount: eligibleMigrationCandidates.count,
+                onReviewMigration: { coordinator.showMigrationSelection() }
             )
         } else {
             ContentUnavailableView {
@@ -200,10 +192,10 @@ struct ConventionalSpreadsView: View {
             if let spread = selectedSpread {
                 MigrationSelectionSheet(
                     destinationSpread: spread,
-                    eligibleTasks: eligibleMigrationTasks.map(\.task),
+                    eligibleCandidates: eligibleMigrationCandidates,
                     calendar: journalManager.calendar,
-                    onMigrate: { tasks in
-                        migrateSelectedTasks(tasks)
+                    onMigrate: { candidates in
+                        await migrateSelectedCandidates(candidates)
                     }
                 )
             }
@@ -212,30 +204,44 @@ struct ConventionalSpreadsView: View {
 
     // MARK: - Migration
 
-    private func migrateAllEligibleTasks() {
-        guard let destination = selectedSpread else { return }
-        let pairs = eligibleMigrationTasks
+    private func migrateSelectedCandidates(
+        _ selectedCandidates: [MigrationCandidate]
+    ) async -> MigrationSelectionOutcome {
+        guard let destination = selectedSpread else {
+            return MigrationSelectionOutcome(
+                migratedCount: 0,
+                skippedCount: selectedCandidates.count,
+                remainingCount: 0
+            )
+        }
+        let latestCandidates = journalManager.migrationCandidates(to: destination)
+        let revalidation = MigrationSelectionRevalidator()
+        let result = revalidation.revalidate(selected: selectedCandidates, against: latestCandidates)
 
-        Task {
-            for (task, source) in pairs {
-                try? await journalManager.migrateTask(task, from: source, to: destination)
+        var migratedCount = 0
+        for candidate in result.valid {
+            do {
+                try await journalManager.moveTask(
+                    candidate.task,
+                    from: candidate.sourceKey,
+                    to: destination
+                )
+                migratedCount += 1
+            } catch {
+                continue
             }
+        }
+
+        if migratedCount > 0 {
             await syncEngine?.syncNow()
         }
-    }
 
-    private func migrateSelectedTasks(_ tasks: [DataModel.Task]) {
-        guard let destination = selectedSpread else { return }
-        let pairs = eligibleMigrationTasks.filter { pair in
-            tasks.contains { $0.id == pair.task.id }
-        }
-
-        Task {
-            for (task, source) in pairs {
-                try? await journalManager.migrateTask(task, from: source, to: destination)
-            }
-            await syncEngine?.syncNow()
-        }
+        let remainingCount = journalManager.migrationCandidates(to: destination).count
+        return MigrationSelectionOutcome(
+            migratedCount: migratedCount,
+            skippedCount: result.skippedCount,
+            remainingCount: remainingCount
+        )
     }
 
     private func resetSelectionIfNeeded() {
@@ -280,14 +286,8 @@ private struct SpreadContentView: View {
     /// Number of tasks eligible for migration (0 hides the banner).
     var eligibleTaskCount: Int = 0
 
-    /// Callback to migrate all eligible tasks.
-    var onMigrateAll: (() -> Void)?
-
     /// Callback to open migration review sheet.
     var onReviewMigration: (() -> Void)?
-
-    /// Callback to dismiss the migration banner.
-    var onDismissBanner: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -305,9 +305,7 @@ private struct SpreadContentView: View {
             if eligibleTaskCount > 0 {
                 MigrationBannerView(
                     eligibleTaskCount: eligibleTaskCount,
-                    onMigrateAll: { onMigrateAll?() },
-                    onReview: { onReviewMigration?() },
-                    onDismiss: { onDismissBanner?() }
+                    onReview: { onReviewMigration?() }
                 )
             }
 

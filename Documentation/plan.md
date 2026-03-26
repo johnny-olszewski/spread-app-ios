@@ -353,7 +353,7 @@
   - Remove any tests that assume any parent task can prompt on any deeper spread.
 - **Dependencies**: SPRD-15, SPRD-24, SPRD-52
 
-### [SPRD-111] Feature: Conventional migration review banner and sheet refinement
+### [SPRD-111] Feature: Conventional migration review banner and sheet refinement - [x]
 - **Context**: The migration prompt needs clearer, scenario-driven behavior that stays spread-scoped and explicit.
 - **Description**: Refine the conventional-mode migration banner and review sheet around the new eligibility rules.
 - **Implementation Details**:
