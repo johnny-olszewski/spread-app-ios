@@ -7,8 +7,8 @@ extension AuthManager {
     }
 
     /// Configures auth state for testing without hitting Supabase.
-    func configureForTesting(state: AuthState, hasBackupEntitlement: Bool = false) {
-        setStateForTesting(state, hasBackupEntitlement: hasBackupEntitlement)
+    func configureForTesting(state: AuthState) {
+        setStateForTesting(state)
     }
 }
 #endif

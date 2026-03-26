@@ -1,28 +1,9 @@
-import AuthenticationServices
 import struct Auth.User
 
-/// Error during Apple Sign-In flow.
-enum AppleSignInError: Error, LocalizedError {
-    /// The identity token was missing from the Apple credential.
-    case missingIdentityToken
-
-    var errorDescription: String? {
-        switch self {
-        case .missingIdentityToken:
-            return "Apple sign-in failed: missing identity token."
-        }
-    }
-}
-
 /// Successful authentication outcome.
-///
-/// Contains the authenticated user and their entitlement status.
 struct AuthSuccess: Sendable {
     /// The authenticated user.
     let user: User
-
-    /// Whether the user has backup entitlement.
-    let hasBackupEntitlement: Bool
 }
 
 /// Service that performs authentication operations.
@@ -62,20 +43,6 @@ protocol AuthService: Sendable {
     /// - Parameter email: The email address to send the reset link to.
     /// - Throws: An error if the request fails.
     func resetPassword(email: String) async throws
-
-    /// Signs in with Apple using a native credential.
-    ///
-    /// - Parameter credential: The Apple ID credential from `ASAuthorizationController`.
-    /// - Returns: The auth result on success.
-    /// - Throws: An error if sign-in fails.
-    func signInWithApple(_ credential: ASAuthorizationAppleIDCredential) async throws -> AuthSuccess
-
-    /// Signs in with Google using Supabase OAuth.
-    ///
-    /// Opens a web-based OAuth flow via `ASWebAuthenticationSession`.
-    /// - Returns: The auth result on success.
-    /// - Throws: An error if sign-in fails.
-    func signInWithGoogle() async throws -> AuthSuccess
 
     /// Signs out the current user.
     ///

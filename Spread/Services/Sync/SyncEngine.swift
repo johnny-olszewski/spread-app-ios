@@ -25,7 +25,6 @@ final class SyncEngine {
     // MARK: - Observable State
 
     /// The current sync status.
-    /// Settable by `AuthLifecycleCoordinator` for entitlement gating.
     var status: SyncStatus = .idle
 
     /// The date of the last successful sync.
@@ -109,13 +108,6 @@ final class SyncEngine {
             return
         }
 
-        if authManager.state.isSignedIn && !authManager.hasBackupEntitlement {
-            status = .backupUnavailable
-            logger.info("Auto sync not started (no backup entitlement)")
-            syncLog.warning("Backup unavailable")
-            return
-        }
-
         logger.info("Auto sync started")
         syncLog.info("Auto sync started")
 
@@ -192,13 +184,6 @@ final class SyncEngine {
 
         guard authManager.state.isSignedIn else {
             logger.debug("Sync skipped: not signed in")
-            return
-        }
-
-        guard authManager.hasBackupEntitlement else {
-            status = .backupUnavailable
-            logger.debug("Sync skipped: no backup entitlement")
-            syncLog.warning("Backup unavailable")
             return
         }
 

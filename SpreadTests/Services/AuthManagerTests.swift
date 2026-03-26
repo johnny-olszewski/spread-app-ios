@@ -1,4 +1,3 @@
-import AuthenticationServices
 import struct Auth.User
 import Foundation
 import Testing
@@ -11,7 +10,6 @@ struct AuthManagerTests {
 
     /// Auth service that always succeeds with configurable results.
     private final class SuccessfulAuthService: AuthService {
-        var hasBackupEntitlement = true
         var lastSignInEmail: String?
         var lastSignUpEmail: String?
         var lastResetEmail: String?
@@ -22,32 +20,12 @@ struct AuthManagerTests {
 
         func signIn(email: String, password: String) async throws -> AuthSuccess {
             lastSignInEmail = email
-            return AuthSuccess(
-                user: makeUser(email: email),
-                hasBackupEntitlement: hasBackupEntitlement
-            )
+            return AuthSuccess(user: makeUser(email: email))
         }
 
         func signUp(email: String, password: String) async throws -> AuthSuccess {
             lastSignUpEmail = email
-            return AuthSuccess(
-                user: makeUser(email: email),
-                hasBackupEntitlement: hasBackupEntitlement
-            )
-        }
-
-        func signInWithApple(_ credential: ASAuthorizationAppleIDCredential) async throws -> AuthSuccess {
-            AuthSuccess(
-                user: makeUser(email: "apple@example.com"),
-                hasBackupEntitlement: hasBackupEntitlement
-            )
-        }
-
-        func signInWithGoogle() async throws -> AuthSuccess {
-            AuthSuccess(
-                user: makeUser(email: "google@example.com"),
-                hasBackupEntitlement: hasBackupEntitlement
-            )
+            return AuthSuccess(user: makeUser(email: email))
         }
 
         func resetPassword(email: String) async throws {
@@ -97,14 +75,6 @@ struct AuthManagerTests {
             throw error
         }
 
-        func signInWithApple(_ credential: ASAuthorizationAppleIDCredential) async throws -> AuthSuccess {
-            throw error
-        }
-
-        func signInWithGoogle() async throws -> AuthSuccess {
-            throw error
-        }
-
         func resetPassword(email: String) async throws {
             throw error
         }
@@ -116,12 +86,10 @@ struct AuthManagerTests {
 
     // MARK: - Sign In Success
 
-    /// Conditions: Service returns success with backup entitlement.
-    /// Expected: Auth succeeds, sets entitlement true, and calls onSignIn.
+    /// Conditions: Service returns success.
+    /// Expected: Auth succeeds and calls onSignIn callback.
     @Test func signInSuccessSetsStateAndCallsCallback() async throws {
         let service = SuccessfulAuthService()
-        service.hasBackupEntitlement = true
-
         let authManager = AuthManager(service: service)
         var callbackEmail: String?
 
@@ -132,22 +100,7 @@ struct AuthManagerTests {
         try await authManager.signIn(email: "test@example.com", password: "password")
 
         #expect(authManager.state.isSignedIn)
-        #expect(authManager.hasBackupEntitlement)
         #expect(callbackEmail == "test@example.com")
-    }
-
-    /// Conditions: Service returns success without backup entitlement.
-    /// Expected: Auth succeeds with entitlement false.
-    @Test func signInSuccessWithoutEntitlement() async throws {
-        let service = SuccessfulAuthService()
-        service.hasBackupEntitlement = false
-
-        let authManager = AuthManager(service: service)
-
-        try await authManager.signIn(email: "test@example.com", password: "password")
-
-        #expect(authManager.state.isSignedIn)
-        #expect(!authManager.hasBackupEntitlement)
     }
 
     // MARK: - Forced Error
@@ -168,42 +121,6 @@ struct AuthManagerTests {
         }
 
         #expect(authManager.errorMessage == ForcedAuthError.rateLimited.userMessage)
-        #expect(!authManager.state.isSignedIn)
-    }
-
-    // MARK: - Sign In with Google
-
-    /// Conditions: Service returns success for Google sign-in.
-    /// Expected: Auth succeeds, state is signed in, and onSignIn callback is called.
-    @Test func signInWithGoogleSuccessSetsStateAndCallsCallback() async throws {
-        let service = SuccessfulAuthService()
-        let authManager = AuthManager(service: service)
-        var callbackCalled = false
-
-        authManager.onSignIn = { _ in
-            callbackCalled = true
-        }
-
-        try await authManager.signInWithGoogle()
-
-        #expect(authManager.state.isSignedIn)
-        #expect(callbackCalled)
-    }
-
-    /// Conditions: Service throws on Google sign-in.
-    /// Expected: Error message is set.
-    @Test func signInWithGoogleFailureSetsErrorMessage() async {
-        let service = FailingAuthService(error: ForcedAuthSignInError(forced: .networkTimeout))
-        let authManager = AuthManager(service: service)
-
-        do {
-            try await authManager.signInWithGoogle()
-            #expect(false, "Expected error.")
-        } catch {
-            // Expected
-        }
-
-        #expect(authManager.errorMessage == ForcedAuthError.networkTimeout.userMessage)
         #expect(!authManager.state.isSignedIn)
     }
 
@@ -280,7 +197,7 @@ struct AuthManagerTests {
     // MARK: - Sign Out
 
     /// Conditions: User is signed in, sign-out succeeds.
-    /// Expected: State becomes signedOut, entitlement false, callback called.
+    /// Expected: State becomes signedOut and callback is called.
     @Test func signOutClearsStateAndCallsCallback() async throws {
         let service = SuccessfulAuthService()
         let authManager = AuthManager(service: service)
@@ -298,7 +215,6 @@ struct AuthManagerTests {
         try await authManager.signOut()
 
         #expect(!authManager.state.isSignedIn)
-        #expect(!authManager.hasBackupEntitlement)
         #expect(signOutCalled)
     }
 }

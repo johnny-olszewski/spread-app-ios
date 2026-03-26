@@ -1,4 +1,3 @@
-import AuthenticationServices
 import Foundation
 import Observation
 import Supabase
@@ -38,9 +37,6 @@ final class AuthManager {
     /// The current auth state.
     private(set) var state: AuthState = .signedOut
 
-    /// Whether the current user has backup entitlement.
-    private(set) var hasBackupEntitlement = false
-
     /// Whether an auth operation is in progress.
     private(set) var isLoading = false
 
@@ -55,7 +51,7 @@ final class AuthManager {
     /// Callback for when sign-out completes (to wipe local data).
     var onSignOut: (() async -> Void)?
 
-    /// Callback for when sign-in completes (to merge local data).
+    /// Callback for when sign-in completes (to start sync).
     var onSignIn: ((User) async -> Void)?
 
     // MARK: - Initialization
@@ -77,7 +73,6 @@ final class AuthManager {
     private func checkSession() async {
         if let result = await service.checkSession() {
             state = .signedIn(result.user)
-            hasBackupEntitlement = result.hasBackupEntitlement
         } else {
             state = .signedOut
         }
@@ -101,7 +96,6 @@ final class AuthManager {
             let result = try await service.signIn(email: email, password: password)
 
             state = .signedIn(result.user)
-            hasBackupEntitlement = result.hasBackupEntitlement
 
             await onSignIn?(result.user)
 
@@ -113,70 +107,6 @@ final class AuthManager {
             throw error
         } catch {
             errorMessage = "An unexpected error occurred. Please try again."
-            throw error
-        }
-    }
-
-    // MARK: - Sign In with Apple
-
-    /// Signs in with an Apple ID credential.
-    ///
-    /// - Parameter credential: The Apple ID credential from `ASAuthorizationController`.
-    /// - Throws: An error if sign-in fails.
-    func signInWithApple(_ credential: ASAuthorizationAppleIDCredential) async throws {
-        isLoading = true
-        errorMessage = nil
-
-        defer { isLoading = false }
-
-        do {
-            let result = try await service.signInWithApple(credential)
-
-            state = .signedIn(result.user)
-            hasBackupEntitlement = result.hasBackupEntitlement
-
-            await onSignIn?(result.user)
-
-        } catch let error as ForcedAuthSignInError {
-            errorMessage = error.forced.userMessage
-            throw error
-        } catch let error as AuthError {
-            errorMessage = mapAuthError(error)
-            throw error
-        } catch {
-            errorMessage = "Apple sign-in failed. Please try again."
-            throw error
-        }
-    }
-
-    // MARK: - Sign In with Google
-
-    /// Signs in with Google OAuth.
-    ///
-    /// Opens a web-based OAuth flow via `ASWebAuthenticationSession`.
-    /// - Throws: An error if sign-in fails.
-    func signInWithGoogle() async throws {
-        isLoading = true
-        errorMessage = nil
-
-        defer { isLoading = false }
-
-        do {
-            let result = try await service.signInWithGoogle()
-
-            state = .signedIn(result.user)
-            hasBackupEntitlement = result.hasBackupEntitlement
-
-            await onSignIn?(result.user)
-
-        } catch let error as ForcedAuthSignInError {
-            errorMessage = error.forced.userMessage
-            throw error
-        } catch let error as AuthError {
-            errorMessage = mapAuthError(error)
-            throw error
-        } catch {
-            errorMessage = "Google sign-in failed. Please try again."
             throw error
         }
     }
@@ -199,7 +129,6 @@ final class AuthManager {
             let result = try await service.signUp(email: email, password: password)
 
             state = .signedIn(result.user)
-            hasBackupEntitlement = result.hasBackupEntitlement
 
             await onSignIn?(result.user)
 
@@ -252,7 +181,6 @@ final class AuthManager {
         do {
             try await service.signOut()
             state = .signedOut
-            hasBackupEntitlement = false
 
             await onSignOut?()
 
@@ -298,9 +226,8 @@ final class AuthManager {
     // MARK: - Testing Support
 
     /// Updates auth state for tests without hitting the network.
-    func setStateForTesting(_ state: AuthState, hasBackupEntitlement: Bool = false) {
+    func setStateForTesting(_ state: AuthState) {
         self.state = state
-        self.hasBackupEntitlement = hasBackupEntitlement
     }
 
 }

@@ -39,31 +39,6 @@ struct ContentView: View {
         .task(id: appRuntimeId) {
             await initializeApp()
         }
-        .alert(
-            "Local Data Found",
-            isPresented: Binding(
-                get: { runtime?.authCoordinator.isShowingMigrationPrompt ?? false },
-                set: { newValue in
-                    if !newValue { runtime?.authCoordinator.isShowingMigrationPrompt = false }
-                }
-            )
-        ) {
-            Button("Merge into Account") {
-                Task {
-                    await runtime?.authCoordinator.handleMigrationDecision(.merge)
-                }
-            }
-            Button("Discard Local Data", role: .destructive) {
-                Task {
-                    await runtime?.authCoordinator.handleMigrationDecision(.discard)
-                }
-            }
-        } message: {
-            Text(
-                "This device has local data from a signed-out session. "
-                    + "Choose whether to merge it into this account or discard it."
-            )
-        }
     }
 
     // MARK: - Loading View

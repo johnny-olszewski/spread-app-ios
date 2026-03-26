@@ -1,7 +1,5 @@
 #if DEBUG
 
-import AuthenticationServices
-
 /// Debug decorator that injects forced auth errors and network blocking before delegating.
 ///
 /// Wraps any `AuthService` and checks `forcedAuthError` and the network monitor's
@@ -53,26 +51,6 @@ final class DebugAuthService: AuthService {
             throw ForcedAuthSignInError(forced: forced)
         }
         return try await wrapped.signUp(email: email, password: password)
-    }
-
-    func signInWithApple(_ credential: ASAuthorizationAppleIDCredential) async throws -> AuthSuccess {
-        if !networkMonitor.isConnected {
-            throw ForcedAuthSignInError(forced: .networkTimeout)
-        }
-        if let forced = forcedAuthError {
-            throw ForcedAuthSignInError(forced: forced)
-        }
-        return try await wrapped.signInWithApple(credential)
-    }
-
-    func signInWithGoogle() async throws -> AuthSuccess {
-        if !networkMonitor.isConnected {
-            throw ForcedAuthSignInError(forced: .networkTimeout)
-        }
-        if let forced = forcedAuthError {
-            throw ForcedAuthSignInError(forced: forced)
-        }
-        return try await wrapped.signInWithGoogle()
     }
 
     func resetPassword(email: String) async throws {
