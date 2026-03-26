@@ -1,193 +1,162 @@
 # Sync QA Checklist
 
-Manual verification checklist for the offline-first sync system. Run through these scenarios after any change to sync, auth, or data model code.
+Manual verification checklist for the simplified v1 sync model. This checklist separates product-environment behavior from Debug `localhost` so removed flows do not drift back into QA.
+
+## Scope
+
+- Product environments: Debug default (`development`), QA (`development`), Release (`production`)
+- Debug-only engineering mode: `-DataEnvironment localhost`
 
 ## Prerequisites
 
-- Access to both **development** and **production** Supabase dashboards
-- Two test accounts (one per environment, or the same email registered in both)
-- A physical device or simulator with network control (Airplane Mode)
-- Debug build with the Debug menu enabled
+- Access to both development and production Supabase dashboards
+- Two test accounts, or one email registered in both environments
+- A device or simulator that can toggle Airplane Mode
+- A Debug build for Debug-menu scenarios
 
-## 1. Push — Local Edits Sync to Server
+## 1. Product Environment Auth Gate
 
-### 1.1 Create Entities Offline, Then Sync
+### 1.1 Signed-Out Launch Is Blocked
 
-1. Enable Airplane Mode.
-2. Create a spread, task, note, and event.
-3. Open Debug menu > Sync Status. Confirm outbox count reflects the new mutations.
-4. Disable Airplane Mode.
-5. Wait for auto-sync (or trigger manually from Debug menu).
-6. Verify outbox count drops to 0.
-7. Check Supabase Dashboard > Table Editor. Confirm all entities exist with correct field values.
+1. Launch the app in a product environment with no valid session.
+2. Verify a large auth sheet blocks access before journal content appears.
+3. Verify sign-in, sign-up, and forgot-password entry points are available.
 
-### 1.2 Update Entities Offline, Then Sync
+### 1.2 Signed-In Launch Opens Normally
 
-1. While online, create a task and wait for sync to complete.
+1. Sign in with email/password.
+2. Relaunch the app while the session is still valid.
+3. Verify the app opens directly into journal content.
+4. Verify onboarding appears only on the first authenticated launch.
+
+### 1.3 Offline Launch With Cached Session
+
+1. Sign in successfully in a product environment.
+2. Fully quit the app.
+3. Enable Airplane Mode.
+4. Relaunch the app.
+5. Verify cached local data remains accessible and the app does not fall back to the auth gate.
+
+### 1.4 Sign-Out Wipes Local Data
+
+1. Sign in and allow data to sync locally.
+2. Use the profile sheet to sign out.
+3. Confirm the sign-out warning.
+4. Verify local data is wiped and the app returns to the auth gate.
+
+## 2. Push and Pull Sync
+
+### 2.1 Create Entities Offline, Then Sync
+
+1. Sign in to a product environment.
 2. Enable Airplane Mode.
-3. Edit the task title, change status to complete, update date.
-4. Confirm outbox count increases.
-5. Disable Airplane Mode and wait for sync.
-6. Verify the server row has the updated title, status, and date.
-7. Verify per-field `*_updated_at` timestamps match the local edit time.
+3. Create a spread, task, note, and event.
+4. Open Debug menu > Sync section and confirm the outbox count increases.
+5. Disable Airplane Mode.
+6. Wait for auto-sync or trigger a manual sync.
+7. Verify outbox count returns to 0 and the rows exist in Supabase.
 
-### 1.3 Delete Entities Offline, Then Sync
+### 2.2 Update Entities Offline, Then Sync
 
-1. While online, create a note and wait for sync.
+1. While online, create a task and wait for sync.
 2. Enable Airplane Mode.
-3. Delete the note.
-4. Disable Airplane Mode and wait for sync.
-5. Verify the server row has `deleted_at` set (soft delete).
-6. Verify the note no longer appears in the app.
+3. Edit the task title, status, and date.
+4. Verify the outbox count increases.
+5. Disable Airplane Mode and sync.
+6. Verify the server row reflects the updated fields.
 
-## 2. Pull — Server Changes Sync to Device
+### 2.3 Pull Server Changes
 
-### 2.1 New Entities From Server
+1. Use Supabase SQL Editor to insert or update a task for the signed-in user.
+2. Trigger sync by foregrounding the app or using Debug > Sync Now.
+3. Verify the app reflects the server-side change.
 
-1. Using Supabase Dashboard SQL Editor, insert a new task for the test user.
-2. Trigger sync in the app (background or manual).
-3. Verify the task appears in the correct spread.
+### 2.4 Soft Delete From Server
 
-### 2.2 Updated Entities From Server
-
-1. Using SQL Editor, update an existing task's title on the server.
+1. Use SQL Editor to set `deleted_at = now()` for an existing task.
 2. Trigger sync.
-3. Verify the title change is reflected in the app.
-
-### 2.3 Deleted Entities From Server
-
-1. Using SQL Editor, set `deleted_at = now()` on a task.
-2. Trigger sync.
-3. Verify the task no longer appears in the app.
+3. Verify the task disappears from the app.
 
 ## 3. Conflict Resolution
 
 ### 3.1 Field-Level Last-Write-Wins
 
-1. While online, create a task titled "Original" and wait for sync.
-2. Enable Airplane Mode.
-3. Change the title to "Local Edit".
-4. Using SQL Editor, update the same task's title to "Server Edit" on the server (set `title_updated_at` to a timestamp older than your local edit).
-5. Disable Airplane Mode and sync.
-6. **Expected**: The task title is "Local Edit" (local timestamp is newer).
+1. Create a task and sync it.
+2. Go offline and change the title locally.
+3. On the server, update the same title with an older `title_updated_at`.
+4. Reconnect and sync.
+5. Verify the local title wins.
 
-### 3.2 Delete-Wins
+### 3.2 Delete Wins Over Update
 
-1. While online, create a task and wait for sync.
-2. Enable Airplane Mode.
-3. Edit the task's title locally.
-4. Using SQL Editor, soft-delete the task on the server (set `deleted_at = now()`).
-5. Disable Airplane Mode and sync.
-6. **Expected**: The task is deleted (delete-wins policy).
+1. Create a task and sync it.
+2. Go offline and edit the task locally.
+3. On the server, soft-delete the same task.
+4. Reconnect and sync.
+5. Verify the task is deleted.
 
-### 3.3 Concurrent Edits to Different Fields
+### 3.3 Different Fields Merge
 
-1. Create a task online and sync.
-2. Enable Airplane Mode.
-3. Change the title locally.
-4. Using SQL Editor, change the status on the server.
-5. Disable Airplane Mode and sync.
-6. **Expected**: Both changes merge — title from local, status from server (field-level LWW).
+1. Create a task and sync it.
+2. Go offline and change the title locally.
+3. On the server, change the status.
+4. Reconnect and sync.
+5. Verify both changes are preserved.
 
-## 4. Environment Switching
+## 4. Network Resilience
 
-### 4.1 Switch With Empty Outbox
+### 4.1 Retry After Failure
 
-1. Sign in on the development environment.
-2. Ensure outbox count is 0 (fully synced).
-3. Open Debug menu > Data Environment > switch to production.
-4. **Expected**: Switch proceeds immediately. App shows restart prompt. After restart, app connects to production Supabase.
+1. Sign in and begin a sync.
+2. Force a failure with Airplane Mode or Debug sync overrides.
+3. Verify sync shows an error and retries later.
+4. Restore connectivity.
+5. Verify a later retry succeeds.
 
-### 4.2 Switch With Pending Outbox
-
-1. Enable Airplane Mode while on development.
-2. Create some entries (outbox count > 0).
-3. Open Debug menu > Data Environment > switch to production.
-4. **Expected**: Warning shown with outbox count. User must confirm to proceed (data loss).
-5. Confirm the switch.
-6. **Expected**: Local data wiped, sync state reset, restart prompt shown.
-
-### 4.3 Cancel Switch
-
-1. Same setup as 4.2 (pending outbox).
-2. When warning appears, cancel the switch.
-3. **Expected**: No data lost, outbox unchanged, environment unchanged.
-
-## 5. Sign-In and Data Merge
-
-### 5.1 First Sign-In With No Local Data
-
-1. Fresh install or wiped app (no spreads, tasks, etc.).
-2. Sign in with backup entitlement.
-3. **Expected**: No migration prompt. Sync starts pulling server data.
-
-### 5.2 First Sign-In With Local Data
-
-1. Create entries while signed out.
-2. Sign in with backup entitlement.
-3. **Expected**: Migration prompt appears asking to merge or discard local data.
-4. Choose "Merge".
-5. **Expected**: Local entries are pushed to server. Server entries are pulled.
-
-### 5.3 First Sign-In — Discard
-
-1. Create entries while signed out.
-2. Sign in with backup entitlement.
-3. Choose "Discard" at the migration prompt.
-4. **Expected**: Local data wiped. Only server data remains.
-
-### 5.4 Sign-In Without Backup Entitlement
-
-1. Sign in with an account that does NOT have backup entitlement.
-2. **Expected**: Sync status shows "Backup unavailable". No sync attempts made.
-
-### 5.5 Sign-Out
-
-1. While signed in with synced data, sign out.
-2. Confirm the sign-out warning.
-3. **Expected**: Local data wiped. Sync state reset to idle.
-
-## 6. Network Resilience
-
-### 6.1 Sync Retry With Backoff
-
-1. Sign in and enable Airplane Mode mid-sync (or use Debug sync policy to force failure).
-2. **Expected**: Sync status shows error. Retries with exponential backoff (2s, 4s, 8s, ...).
-3. Re-enable network.
-4. **Expected**: Next retry succeeds. Status returns to "synced".
-
-### 6.2 Auto-Sync on Foreground
+### 4.2 Foreground Trigger
 
 1. Background the app.
-2. Make a server-side change via SQL Editor.
-3. Bring app to foreground.
-4. **Expected**: Auto-sync triggers and pulls the change.
+2. Make a server-side change.
+3. Return the app to the foreground.
+4. Verify sync runs and pulls the change.
 
-### 6.3 Auto-Sync on Connectivity Restore
+### 4.3 Connectivity Restore Trigger
 
-1. Enable Airplane Mode.
-2. Create local edits.
-3. Disable Airplane Mode.
-4. **Expected**: Sync triggers automatically and pushes edits.
+1. Go offline and make local edits.
+2. Restore connectivity.
+3. Verify sync starts automatically.
 
-## 7. Parent-Child Ordering
+## 5. Debug Localhost Isolation
 
-### 7.1 Create Assignment Before Spread
+### 5.1 Localhost Bypasses Product Auth
 
-1. Enable Airplane Mode.
-2. Create a spread, then add a task to that spread (creates task + task_assignment).
-3. Disable Airplane Mode and sync.
-4. **Expected**: Spread is pushed first (sync order 0), then task (order 1), then task_assignment (order 2). No FK constraint violations.
+1. Launch Debug with `-DataEnvironment localhost`.
+2. Verify the app opens directly into journal content without the product auth gate.
 
-## 8. Debug Menu Verification
+### 5.2 Mock Data Loads Only In Localhost
 
-### 8.1 Sync Status Display
+1. Launch Debug with `-DataEnvironment localhost -MockDataSet baseline`.
+2. Verify the mock data set loads.
+3. Relaunch Debug without `localhost`.
+4. Verify the mock data set is not loaded into the dev-backed run.
 
-1. Check Debug menu > Sync Status section.
-2. Verify it shows: current status, last sync date, outbox count.
+### 5.3 Localhost Transition Wipes Local Store
 
-### 8.2 Sync Log
+1. Launch Debug in `localhost` and load mock data.
+2. Quit the app.
+3. Relaunch Debug without `localhost`.
+4. Verify the local store is wiped before the dev-backed run starts.
 
-1. Trigger several sync operations (success, failure, offline).
-2. Check Debug menu > Sync Log.
-3. Verify entries appear with correct timestamps and severity levels.
+## 6. Debug Menu Verification
+
+### 6.1 Sync Section
+
+1. In a product environment, open Debug > Sync.
+2. Verify status, outbox count, and last-sync information are visible.
+
+### 6.2 Mock Data Section
+
+1. Launch Debug in `localhost`.
+2. Verify Debug shows a Mock Data Sets section.
+3. Launch Debug in `development`.
+4. Verify the Mock Data Sets section is absent.
