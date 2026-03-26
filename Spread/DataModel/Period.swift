@@ -95,6 +95,23 @@ enum Period: String, CaseIterable, Codable {
         }
     }
 
+    /// Relative granularity rank for assignable periods.
+    ///
+    /// Higher values are more granular. Multiday is excluded from direct
+    /// assignment workflows and uses rank 0 to stay out of comparisons.
+    var granularityRank: Int {
+        switch self {
+        case .year:
+            return 1
+        case .month:
+            return 2
+        case .day:
+            return 3
+        case .multiday:
+            return 0
+        }
+    }
+
     // MARK: - Date Normalization
 
     /// Normalizes a date to the start of this period.
