@@ -388,7 +388,7 @@
   - UI tests for yellow toolbar button visibility and overdue review sheet grouping.
 - **Dependencies**: SPRD-110
 
-### [SPRD-113] Quality: Scenario table coverage and docs for migration + overdue
+### [SPRD-113] Quality: Scenario table coverage and docs for migration + overdue - [x]
 - **Context**: These rules are easy to regress unless the spec, QA docs, and tests all use the same concrete examples.
 - **Description**: Align code, tests, and QA material with explicit scenario tables for migration prompting and overdue behavior.
 - **Implementation Details**:
