@@ -145,7 +145,12 @@ struct TaskDetailSheet: View {
                 today: journalManager.today,
                 minimumDate: configuration.minimumDate(for: .day),
                 maximumDate: configuration.maximumDate,
-                accessibilityIdentifiers: nil
+                accessibilityIdentifiers: .init(
+                    dayPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.datePicker,
+                    yearPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.yearPicker,
+                    monthPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.monthPicker,
+                    monthYearPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.monthYearPicker
+                )
             )
         }
     }
@@ -153,7 +158,7 @@ struct TaskDetailSheet: View {
     private var assignmentHistorySection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Assignment History")
-            ForEach(task.assignments, id: \.self) { assignment in
+            ForEach(Array(task.assignments.enumerated()), id: \.element) { index, assignment in
                 HStack {
                     Image(systemName: assignmentIcon(for: assignment.status))
                         .foregroundStyle(assignmentColor(for: assignment.status))
@@ -170,8 +175,12 @@ struct TaskDetailSheet: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 2)
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.TaskDetailSheet.assignmentHistoryRow(index)
+                )
             }
         }
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.assignmentHistory)
     }
 
     private var deleteSection: some View {

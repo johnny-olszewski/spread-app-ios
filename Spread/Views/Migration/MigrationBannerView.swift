@@ -39,6 +39,7 @@ struct MigrationBannerView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Migration.reviewButton)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -48,6 +49,8 @@ struct MigrationBannerView: View {
                 .fill(Color.accentColor.opacity(0.3))
                 .frame(height: 1)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Migration.banner)
     }
 }
 

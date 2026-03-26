@@ -27,6 +27,8 @@ struct MockDataSetTests {
         #expect(allCases.contains(.multiday))
         #expect(allCases.contains(.boundary))
         #expect(allCases.contains(.highVolume))
+        #expect(allCases.contains(.scenarioMigrationMonthBound))
+        #expect(allCases.contains(.scenarioOverdueReview))
     }
 
     // MARK: - Display Properties
@@ -85,6 +87,19 @@ struct MockDataSetTests {
         for dataSet in MockDataSet.allCases {
             #expect(!dataSet.description.isEmpty, "Data set \(dataSet) should have a description")
         }
+    }
+
+    /// Verifies that scenario-only fixtures are hidden from the debug menu list.
+    ///
+    /// Setup: visible debug-menu cases
+    /// Expected: generic debug fixtures remain visible, scenario fixtures do not
+    @Test("Scenario fixtures are hidden from debug menu cases")
+    func scenarioFixturesAreHiddenFromDebugMenu() {
+        let visible = MockDataSet.debugMenuCases
+        #expect(visible.contains(.baseline))
+        #expect(visible.contains(.inboxNextYear))
+        #expect(!visible.contains(.scenarioMigrationMonthBound))
+        #expect(!visible.contains(.scenarioOverdueReview))
     }
 
     // MARK: - Empty Data Set

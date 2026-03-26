@@ -2,6 +2,20 @@ import Foundation
 
 struct Definitions {
     struct AccessibilityIdentifiers {
+        static func token(_ value: String) -> String {
+            let lowercased = value.lowercased()
+            let scalars = lowercased.unicodeScalars.map { scalar -> Character in
+                if CharacterSet.alphanumerics.contains(scalar) {
+                    return Character(scalar)
+                }
+                return "."
+            }
+            let collapsed = String(scalars)
+                .split(separator: ".", omittingEmptySubsequences: true)
+                .joined(separator: ".")
+            return collapsed.isEmpty ? "item" : collapsed
+        }
+
         struct SpreadHierarchyTabBar {
             static let createButton = "spreads.tabbar.create"
 
@@ -116,6 +130,67 @@ struct Definitions {
             static let saveButton = "tasks.detail.save"
             static let cancelButton = "tasks.detail.cancel"
             static let deleteButton = "tasks.detail.delete"
+            static let datePicker = "tasks.detail.date"
+            static let yearPicker = "tasks.detail.year"
+            static let monthPicker = "tasks.detail.month"
+            static let monthYearPicker = "tasks.detail.month.year"
+            static let assignmentHistory = "tasks.detail.assignmentHistory"
+
+            static func assignmentHistoryRow(_ index: Int) -> String {
+                "tasks.detail.assignmentHistory.\(index)"
+            }
+        }
+
+        struct Migration {
+            static let banner = "migration.banner"
+            static let reviewButton = "migration.banner.review"
+            static let sheet = "migration.sheet"
+            static let header = "migration.sheet.header"
+            static let selectAllButton = "migration.sheet.selectAll"
+            static let deselectAllButton = "migration.sheet.deselectAll"
+            static let submitButton = "migration.sheet.submit"
+            static let cancelButton = "migration.sheet.cancel"
+            static let statusMessage = "migration.sheet.status"
+
+            static func section(_ sourceID: String) -> String {
+                "migration.sheet.section.\(token(sourceID))"
+            }
+
+            static func row(_ taskTitle: String) -> String {
+                "migration.sheet.row.\(token(taskTitle))"
+            }
+
+            static func selection(_ taskTitle: String) -> String {
+                "migration.sheet.row.\(token(taskTitle)).selection"
+            }
+
+            static func sourceLabel(_ taskTitle: String) -> String {
+                "migration.sheet.row.\(token(taskTitle)).source"
+            }
+
+            static func destinationLabel(_ taskTitle: String) -> String {
+                "migration.sheet.row.\(token(taskTitle)).destination"
+            }
+        }
+
+        struct Overdue {
+            static let button = "overdue.toolbar.button"
+            static let sheet = "overdue.sheet"
+            static let doneButton = "overdue.sheet.done"
+
+            static func section(_ sourceID: String) -> String {
+                "overdue.sheet.section.\(token(sourceID))"
+            }
+
+            static func row(_ taskTitle: String) -> String {
+                "overdue.sheet.row.\(token(taskTitle))"
+            }
+        }
+
+        struct Settings {
+            static func modeOption(_ rawValue: String) -> String {
+                "settings.mode.\(rawValue)"
+            }
         }
 
         struct CreateMenu {

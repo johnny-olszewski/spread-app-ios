@@ -397,7 +397,7 @@ struct DebugMenuView: View {
     private var mockDataSection: some View {
         if DataEnvironment.current == .localhost {
             Section {
-                ForEach(MockDataSet.allCases, id: \.rawValue) { dataSet in
+                ForEach(MockDataSet.debugMenuCases, id: \.rawValue) { dataSet in
                     mockDataSetButton(for: dataSet)
                 }
             } header: {
@@ -455,6 +455,16 @@ struct DebugMenuView: View {
             "chart.bar.fill"
         case .inboxNextYear:
             "tray.full"
+        case .scenarioAssignmentExistingSpread,
+                .scenarioAssignmentInboxFallback,
+                .scenarioInboxResolution,
+                .scenarioMigrationMonthBound,
+                .scenarioMigrationDayUpgrade,
+                .scenarioReassignment,
+                .scenarioOverdueReview,
+                .scenarioOverdueInbox,
+                .scenarioNoteExclusions:
+            "testtube.2"
         }
     }
 
