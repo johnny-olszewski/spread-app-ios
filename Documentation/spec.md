@@ -79,6 +79,7 @@
 - Inherits Entry protocol. [SPRD-9]
 - Has status: open, complete, migrated, cancelled. [SPRD-10]
 - Can be assigned to year, month, or day spreads. [SPRD-13]
+- Has a desired assignment defined by its preferred `date` and preferred `period`; this is the finest spread granularity the task should ultimately live on in conventional mode. [SPRD-24, SPRD-110]
 - Tracks migration history via TaskAssignment array. [SPRD-10]
 - Eligible for batch migration suggestions. [SPRD-15]
 - Symbol: solid circle (●). [SPRD-21]
@@ -104,6 +105,23 @@
 - Source assignment status becomes migrated; destination assignment becomes open/active. [SPRD-15]
 - Manual only - user must trigger migration. [SPRD-15]
 - Notes migrate only via explicit action (not in batch suggestions). [SPRD-15, SPRD-34]
+- Migration prompt logic in v1 applies to tasks only and only in conventional mode. [SPRD-110, SPRD-111]
+- A task is eligible to migrate into a spread only when all of the following are true: [SPRD-110]
+  - The task has a current open assignment on a coarser source (`Inbox`, year, or month/day parent) aligned to the destination's date hierarchy.
+  - The destination spread is more granular than the current open assignment.
+  - The destination spread is not more granular than the task's desired assignment period.
+  - The destination spread is the most granular valid existing destination currently available for that task.
+  - The task is open; completed, migrated-history-only, and cancelled tasks are not migration-eligible.
+- Migration prompt source rules: [SPRD-110]
+  - A year spread may pull from `Inbox` only.
+  - A month spread may pull from `Inbox` and year spreads.
+  - A day spread may pull from `Inbox`, month spreads, and year spreads.
+  - Multiday spreads never show migration prompts and never receive direct assignment migrations.
+- Migration prompting examples: [SPRD-110]
+  - Example A: `2026` and `January 2026` exist. A task desired for `January 1, 2026` day is currently open on `January 2026`. When `January 1, 2026` day is created, that day spread prompts migration.
+  - Example B: `2026` exists. A task desired for `January 2026` month is open on `2026`. When `January 2026` is created, the month spread prompts migration. If `January 10, 2026` is later created, that day spread does not prompt for this task because day is more granular than the task's desired assignment.
+  - Example C: A task desired for `January 10, 2026` day is in `Inbox`. If `2026`, `January 2026`, and `January 10, 2026` all exist, only `January 10, 2026` prompts it because that is the most granular valid existing destination.
+  - Example D: A task desired for `January 10, 2026` day is open on `2026`. If `January 2026` exists and `January 10, 2026` does not, the month spread prompts it. Once the day spread exists, the month prompt disappears and only the day spread prompts it.
 
 ### BuJo Mode
 - Conventional: show migration history across spreads, tasks appear on multiple spreads. [SPRD-29]
@@ -161,6 +179,22 @@
 - Statuses: open, complete, migrated, cancelled. [SPRD-10, SPRD-24]
 - Cancelled tasks are hidden in v1 (excluded from Inbox, migration, and default lists). [SPRD-16, SPRD-31]
 
+### Overdue Tasks
+- Overdue review is task-only and global across the journal. [SPRD-112]
+- Only tasks whose current actionable state is `open` can be overdue. Completed, migrated-history-only, and cancelled tasks are not overdue. [SPRD-112]
+- Overdue is determined by the task's current open assignment when one exists. [SPRD-112]
+  - Day-assigned task: overdue after that assigned day has passed.
+  - Month-assigned task: overdue only after the assigned month has fully passed.
+  - Year-assigned task: overdue only after the assigned year has fully passed.
+- If a task is still in `Inbox`, overdue falls back to the task's desired assignment period/date. [SPRD-112]
+- Overdue examples using absolute dates: [SPRD-112]
+  - Assume today is `January 12, 2026`. A task open on `January 10, 2026` day is overdue.
+  - Assume today is `January 12, 2026`. A task open on `January 2026` month is not overdue yet; it becomes overdue on `February 1, 2026`.
+  - Assume today is `June 1, 2026`. A task open on `2026` year is not overdue yet; it becomes overdue on `January 1, 2027`.
+  - Assume today is `February 1, 2026`. A task still in `Inbox` with desired assignment `January 2026` month is overdue.
+  - Assume today is `January 11, 2026`. A task still in `Inbox` with desired assignment `January 10, 2026` day is overdue.
+- Overdue remains based on the current open assignment until the user actually migrates the task; the existence of a finer valid destination does not change overdue status by itself. [SPRD-112]
+
 ### Inbox
 - Unassigned entries (tasks/notes) are stored in a global Inbox. [SPRD-14]
 - Inbox appears as a toolbar button in the spread content view (not a tab). [SPRD-31, SPRD-68]
@@ -183,7 +217,24 @@
 - Traditional mode uses calendar-style navigation (year → month → day). [SPRD-35, SPRD-38]
 - Traditional navigation mirrors iOS Calendar-style drill-in. [SPRD-35, SPRD-38]
 - Spread content view shows active entries and migrated entries section (conventional). [SPRD-27, SPRD-29]
-- Migration banner appears when tasks can move into the current spread. [SPRD-30]
+- Conventional-mode migration prompt UI: [SPRD-111]
+  - Year, month, and day spreads may show a small migration banner when at least one task is eligible to move into that spread.
+  - Multiday spreads never show the migration banner.
+  - The banner reappears on every visit as long as eligible tasks still exist; dismissal state is not persisted in v1.
+  - Tapping the banner opens a migration review sheet; it never auto-migrates tasks.
+  - The sheet lists only tasks, never notes.
+  - Eligible tasks are preselected by default.
+  - Tasks are sectioned by source (`Inbox`, year, or month/day parent spread).
+  - Each row shows both source and destination.
+  - Confirming migration applies one batch action to all selected tasks.
+  - On submit, eligibility is revalidated. Still-eligible tasks migrate; no-longer-eligible tasks are skipped with non-blocking feedback.
+  - After migration, the sheet stays open if eligible tasks remain and dismisses automatically when none remain.
+- Global overdue review UI: [SPRD-112]
+  - A yellow overdue toolbar button appears on all spreads in both conventional and traditional modes whenever at least one overdue task exists anywhere in the journal.
+  - The button shows an icon plus overdue count.
+  - Tapping it opens a global overdue review sheet.
+  - The overdue review sheet is read/review oriented in v1: rows open the task for inspection/editing, but there are no bulk overdue actions.
+  - Tasks are sectioned by current source assignment, ordered chronologically by source spread date; `Inbox` is treated as a source section when needed.
 - Collections are accessed from a top-level entry point (outside spread navigation). [SPRD-19, SPRD-40]
 - Settings accessible via gear icon in navigation header. [SPRD-20]
 - iPad multitasking: UI adapts gracefully to Split View and Slide Over. [SPRD-19]
@@ -213,12 +264,15 @@
   - Spreads must be created explicitly. [SPRD-12, SPRD-26]
   - Unassigned entries go to global Inbox. [SPRD-14, SPRD-31]
   - Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
+  - Migration prompt and review sheet exist only in conventional mode. [SPRD-110, SPRD-111]
 - Traditional: [SPRD-17, SPRD-35, SPRD-38]
   - Entries appear only on preferred assignment, no migration history visible. [SPRD-17, SPRD-35]
   - All spreads available for navigation regardless of created spread records. [SPRD-17, SPRD-38]
   - Must not mutate the "created spreads" data used by conventional mode. [SPRD-17, SPRD-53]
   - Migrating updates the preferred date/period; conventional assignments recomputed. [SPRD-17, SPRD-15]
   - If no conventional spread exists for migration target, assign to nearest parent or Inbox. [SPRD-17, SPRD-14]
+  - Traditional mode does not show migration prompts because all calendar spreads are navigable without waiting for created conventional spreads. [SPRD-110]
+  - The global overdue toolbar button remains available in traditional mode. [SPRD-112]
 
 ### Collections
 - Collections are plain text pages (title + content). [SPRD-39]
