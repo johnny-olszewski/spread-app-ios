@@ -21,6 +21,9 @@ extension AppRuntimeConfiguration {
                 AppLaunchConfiguration.current.today ?? .now
             },
             loadMockDataSet: { journalManager in
+                guard DataEnvironment.current == .localhost else {
+                    return
+                }
                 if let dataSet = AppLaunchConfiguration.current.mockDataSet {
                     try await journalManager.loadMockDataSet(dataSet)
                 }

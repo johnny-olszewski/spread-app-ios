@@ -273,7 +273,7 @@
   - Remove tests specific to Apple/Google auth entry points.
 - **Dependencies**: SPRD-104, SPRD-105
 
-### [SPRD-107] Feature: Debug-only localhost mode and mock data isolation
+### [SPRD-107] Feature: Debug-only localhost mode and mock data isolation - [x] Complete
 - **Context**: Engineering still needs a fast local workflow for debug scenarios, previews, and seeded data, but that mode should not leak into product behavior.
 - **Description**: Keep `localhost` only as a Debug engineering mode with mock auth and mock data loading.
 - **Implementation Details**:
