@@ -4,11 +4,16 @@
 - Events are deferred to v2; v1 ships without event creation or display. [SPRD-69]
 - Existing event scaffolding must be stubbed/hidden for v1 and kept ready for v2 integration. [SPRD-69]
 - Supabase offline-first sync replaces CloudKit for v1; CloudKit configuration tasks remain for history but are superseded by the Supabase migration. [SPRD-80]
+- Product usage in dev/prod now requires authentication; guest/local-only product usage is removed from v1. [SPRD-104, SPRD-106]
+- Backup entitlement is removed from v1; authenticated users can sync without a purchase gate. [SPRD-104]
+- Sign in with Apple and Google are removed from v1 scope; auth is email/password only, with sign-up and forgot-password flows retained. [SPRD-104, SPRD-108]
+- Runtime environment switching is removed from v1. Debug keeps a non-persistent `localhost` mode for engineering only; QA remains dev-backed and Release remains prod-backed. [SPRD-105, SPRD-107]
 
 ## Story Overview (v1)
 - Foundation and scaffolding (completed)
 - Core time and data models
 - Supabase offline-first sync + auth migration (priority)
+- Simplification pass: auth, environments, debug tooling, and test cleanup
 - Journal core: creation, assignment, inbox, migration
 - Conventional MVP UI: create spreads and tasks
 - Debug and dev tools
@@ -177,15 +182,158 @@
 ## Story: Supabase offline-first sync + auth migration (priority)
 
 ### User Story
-- As a user, I want my data to work offline first and sync across devices and platforms when signed in with a backup entitlement.
+- As an authenticated user, I want my data to work offline first and sync across devices and platforms without unnecessary account-state complexity.
 
 ### Definition of Done
 - Supabase dev/prod environments are configured with migrations, RLS, and merge RPCs.
 - App uses SwiftData locally with an outbox-based sync engine (push + incremental pull).
-- Auth supports email/password; local-only usage is supported when logged out or not entitled for backup. (Apple/Google deferred to SPRD-91.)
-- Debug/QA builds can switch DataEnvironment at runtime (prod guarded).
-- Release builds hide debug UI but can target dev/localhost via launch args/env vars with explicit URL/key overrides.
-- Sync status and error feedback are visible (including a distinct "no backup entitlement" state); CloudKit is no longer required.
+- Auth is email/password only in product environments, with sign-up and forgot-password flows available in-app.
+- Product usage is auth-gated in dev/prod; signed-in users retain offline access with cached local data until the app can definitively determine the session is invalid online.
+- Debug supports a non-persistent `localhost` mode for engineering; QA stays on dev and Release stays on prod.
+- Runtime environment switching, backup entitlement gating, sign-in merge/discard flows, and social auth are removed from the v1 target.
+- Sync status and error feedback are visible for the simplified state model; CloudKit is no longer required.
+
+### Planning Note
+- Completed tasks below capture the current implementation history, including flows that are now out of scope. The simplification story below supersedes those behaviors where they conflict with the updated v1 target. [SPRD-104, SPRD-105, SPRD-106, SPRD-107, SPRD-108, SPRD-109]
+
+## Story: Simplification pass: auth, environments, debug tooling, and tests
+
+### User Story
+- As the team, we want a simpler authenticated product model and a narrower debug/runtime matrix so the codebase is cleaner, the infrastructure is easier to trust, and obsolete tests do not keep dead complexity alive.
+
+### Definition of Done
+- Product usage in dev/prod requires authentication, using email/password only.
+- Backup entitlement, social auth, guest/local-only product usage, sign-in merge/discard, and runtime environment switching are removed from the v1 target and implementation.
+- Debug retains a non-persistent `localhost` mode with mock auth and mock data loading for engineering only.
+- QA remains dev-backed; Release remains prod-backed.
+- Local store isolation prevents mock `localhost` data from contaminating dev-backed local state.
+- Debug, unit, and QA documentation are updated to the simplified matrix.
+- Obsolete tests and code paths are removed rather than preserved behind dead abstractions.
+
+### [SPRD-104] Refactor: Simplify auth and sync eligibility model
+- **Context**: Backup entitlement, guest usage, and sign-in merge/discard create a large amount of product and infrastructure complexity for a small v1 benefit.
+- **Description**: Collapse the product model to authenticated usage in dev/prod with sync gated only by session validity.
+- **Implementation Details**:
+  - Remove backup-entitlement concepts from auth state, sync eligibility, sync status copy, and onboarding/documentation.
+  - Remove sign-in merge/discard prompts and related local-data migration state.
+  - Define the product runtime as:
+    - No valid session on launch in dev/prod -> auth gate.
+    - Valid cached session in dev/prod -> app loads local data and syncs when possible.
+    - Offline with cached session -> app remains usable until session invalidation is confirmed online.
+    - Sign-out -> wipe local store and return to auth gate.
+  - Keep `localOnly` sync status only for Debug `localhost`.
+- **Acceptance Criteria**:
+  - There is no backup-entitlement state, code path, or UI in the v1 implementation.
+  - There is no sign-in merge/discard prompt in the app.
+  - Dev/prod sync eligibility is based on authenticated session only.
+  - Sign-out wipes local data and exits to the auth gate.
+- **Tests**:
+  - Remove tests that exist only for backup entitlement or sign-in merge/discard flows.
+  - Add/update unit tests for auth-gated launch, cached-session offline access, and sign-out wipe behavior.
+- **Dependencies**: None
+
+### [SPRD-105] Refactor: Simplify DataEnvironment model and launch behavior
+- **Context**: Runtime environment switching, persisted environment selection, and restart flows add significant runtime and test complexity.
+- **Description**: Reduce `DataEnvironment` to a launch-time concern with Debug `localhost` support only.
+- **Implementation Details**:
+  - Remove persisted data-environment selection and any in-app switch flow/coordinator usage.
+  - Remove runtime soft-restart behavior that exists only for environment switching.
+  - Define launch-time environment rules:
+    - Debug default -> `development`
+    - Debug override -> `localhost` when explicitly launched that way
+    - QA -> `development`
+    - Release -> `production`
+  - Keep launch-time wipe protection only for transitions to/from `localhost`.
+- **Acceptance Criteria**:
+  - No in-app environment switcher exists.
+  - `localhost` is selected per Debug launch only and never persists across launches.
+  - Transitioning to or from `localhost` wipes the local store before app startup.
+  - QA cannot enter `localhost`; Release cannot enter `localhost`.
+- **Tests**:
+  - Remove tests that exist only for persisted environment selection or runtime switching.
+  - Add/update tests for launch-time resolution and `localhost` isolation wipe rules.
+- **Dependencies**: SPRD-104
+
+### [SPRD-106] Feature: Auth-gated launch, large auth sheet, and onboarding after auth
+- **Context**: The updated product model needs a clear, explicit entry flow instead of allowing the app to run meaningfully while signed out.
+- **Description**: Introduce a blocking auth gate in product environments and move onboarding to the first authenticated launch.
+- **Implementation Details**:
+  - Present auth as a large sheet on launch whenever dev/prod starts without a valid session.
+  - Reuse the same auth sheet from the toolbar when logged out.
+  - Keep email/password sign-in, sign-up, forgot-password, and inline validation/error handling.
+  - Remove social-auth buttons and flows.
+  - Show onboarding after the first successful authenticated launch, once per install.
+- **Acceptance Criteria**:
+  - Dev/prod users cannot access journal content while signed out.
+  - Auth sheet uses a large presentation style and supports sign-in, sign-up, and forgot password.
+  - First authenticated launch shows onboarding; later launches skip it.
+  - Offline launch with a cached valid session still opens the app.
+- **Tests**:
+  - Unit/UI tests for auth gate presentation, large-sheet flow, onboarding-after-auth, and offline cached-session behavior.
+  - Remove tests specific to Apple/Google auth entry points.
+- **Dependencies**: SPRD-104, SPRD-105
+
+### [SPRD-107] Feature: Debug-only localhost mode and mock data isolation
+- **Context**: Engineering still needs a fast local workflow for debug scenarios, previews, and seeded data, but that mode should not leak into product behavior.
+- **Description**: Keep `localhost` only as a Debug engineering mode with mock auth and mock data loading.
+- **Implementation Details**:
+  - In Debug `localhost`, bypass the auth gate automatically with mock auth.
+  - Restrict mock data loading to Debug `localhost`.
+  - Remove mock-data access from dev-backed Debug, QA, and Release runs.
+  - Ensure debug descriptions, labels, and QA docs clearly distinguish `localhost` from product environments.
+- **Acceptance Criteria**:
+  - Launching Debug in `localhost` opens directly into the app with mock auth.
+  - Mock data loading is available only in Debug `localhost`.
+  - Dev-backed Debug and QA builds cannot accidentally load mock data into a real backend account.
+- **Tests**:
+  - Unit tests for localhost auth bypass and mock-data availability rules.
+  - Remove tests that assume localhost persistence or runtime switching.
+- **Dependencies**: SPRD-105, SPRD-106
+
+### [SPRD-108] Refactor: Remove obsolete social-auth and runtime-switch surfaces
+- **Context**: The current implementation and completed tasks include features that are now explicitly out of scope and should not remain as dead or misleading code.
+- **Description**: Remove code, docs, and UI surfaces for Apple/Google auth, backup-entitlement flows, and runtime environment switching.
+- **Implementation Details**:
+  - Remove Apple/Google auth service methods, UI buttons, and related docs/tests.
+  - Remove debug environment switcher UI, switch coordinator usage, restart callbacks, and related warnings/confirmations.
+  - Remove obsolete sync status variants and user-facing copy tied only to the old model.
+  - Keep only the debug tooling that still serves the simplified matrix.
+- **Acceptance Criteria**:
+  - There are no reachable Apple/Google auth flows in the app.
+  - There is no reachable runtime environment-switch UI or restart flow.
+  - Obsolete status/UI states from the old model are removed, not hidden.
+- **Tests**:
+  - Delete obsolete test files/cases that only exercise removed surfaces.
+  - Update remaining tests to assert the new smaller state surface.
+- **Dependencies**: SPRD-104, SPRD-105, SPRD-106, SPRD-107
+
+### [SPRD-109] Quality: Rebuild the test and QA matrix for the simplified model
+- **Context**: The current tests and QA docs encode a wider runtime/auth matrix than the new product requires.
+- **Description**: Rebuild the automated and manual verification matrix around the simplified environments and auth behavior.
+- **Implementation Details**:
+  - Audit `SpreadTests`, UI tests, and manual QA docs for obsolete coverage.
+  - Remove test cases for:
+    - backup entitlement
+    - sign-in merge/discard
+    - Apple/Google auth
+    - persisted environment selection
+    - runtime environment switching
+    - localhost persistence
+  - Add focused coverage for:
+    - auth-gated launch
+    - cached-session offline usage
+    - sign-out wipe
+    - Debug `localhost` isolation
+    - mock-data availability rules
+  - Update `docs/sync-qa-checklist.md`, `docs/offline-first-qa-checklist.md`, and related setup docs to reflect the smaller matrix.
+- **Acceptance Criteria**:
+  - No test or QA doc asserts behavior that is no longer in scope.
+  - The remaining matrix is explicit and small enough to reason about quickly.
+  - Manual QA docs separate product-environment behavior from Debug `localhost` behavior.
+- **Tests**:
+  - Run the updated unit/UI suites relevant to auth, sync, and environment bootstrapping.
+  - Update QA checklists to match the simplified behavior exactly.
+- **Dependencies**: SPRD-104, SPRD-105, SPRD-106, SPRD-107, SPRD-108
 
 ### [SPRD-102] Refactor (Highest Priority): Runtime naming normalization, phases 1-4 - [x]
 - **Context**: Naming in app bootstrap/runtime code is overloaded (`session`, `environment`, `container`) and conflicts with auth session terminology.
@@ -2333,4 +2481,3 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit: coordinator transitions — empty outbox skips to `restartRequired`; non-empty outbox goes to `pendingConfirmation`.
   - Unit: verify launch-time wipe logic calls `StoreWiper.wipeAll()` when `requiresWipeOnLaunch` returns true (if extractable into a testable function).
 - **Dependencies**: SPRD-96
-
