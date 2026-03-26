@@ -402,7 +402,7 @@
   - Run the focused journal-manager, spread UI, and overdue-review suites added for SPRD-110 through SPRD-112.
 - **Dependencies**: SPRD-110, SPRD-111, SPRD-112
 
-### [SPRD-114] Quality: Localhost scenario UI test harness and fixtures
+### [SPRD-114] Quality: Localhost scenario UI test harness and fixtures - [x]
 - **Context**: The core migration, reassignment, Inbox, and overdue rules are now specified, but the current UI suite is still mostly navigation smoke tests and generic datasets.
 - **Description**: Build the localhost-backed scenario testing foundation needed for deterministic user-flow coverage.
 - **Implementation Details**:

@@ -24,6 +24,12 @@ extension JournalManager {
         try await clearAllDataFromRepositories()
         await reload()
 
+        if dataSet.isScenarioFixture {
+            // Scenario fixtures must be deterministic regardless of persisted settings.
+            bujoMode = .conventional
+            firstWeekday = .systemDefault
+        }
+
         // Generate the mock data
         let generatedData = dataSet.generateData(calendar: calendar, today: today)
 
@@ -32,37 +38,17 @@ extension JournalManager {
             try await addMockSpread(spread)
         }
 
-        // Create tasks and notes using shared JournalManager logic
+        // Persist entries verbatim so scenario fixtures can encode exact assignments.
         for task in generatedData.tasks {
-            try await addTask(
-                title: task.title,
-                date: task.date,
-                period: task.period,
-                status: task.status,
-                reloadAfter: false
-            )
+            try await taskRepository.save(task)
         }
 
         for event in generatedData.events {
-            try await addEvent(
-                title: event.title,
-                timing: event.timing,
-                startDate: event.startDate,
-                endDate: event.endDate,
-                startTime: event.startTime,
-                endTime: event.endTime,
-                reloadAfter: false
-            )
+            try await eventRepository.save(event)
         }
 
         for note in generatedData.notes {
-            try await addNote(
-                title: note.title,
-                content: note.content,
-                date: note.date,
-                period: note.period,
-                reloadAfter: false
-            )
+            try await noteRepository.save(note)
         }
 
         // Reload in-memory state from repositories to ensure UI sync

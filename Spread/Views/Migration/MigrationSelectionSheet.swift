@@ -34,6 +34,7 @@ struct MigrationSelectionSheet: View {
                         .padding(.horizontal)
                         .padding(.vertical, 10)
                         .background(Color(.systemYellow).opacity(0.12))
+                        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Migration.statusMessage)
                 }
 
                 List {
@@ -50,6 +51,9 @@ struct MigrationSelectionSheet: View {
                                 }
                             }
                         }
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.Migration.section(section.id)
+                        )
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -62,12 +66,14 @@ struct MigrationSelectionSheet: View {
                         dismiss()
                     }
                     .disabled(isSubmitting)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Migration.cancelButton)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Migrate Selected") {
                         submitMigration()
                     }
                     .disabled(selectedTaskIDs.isEmpty || isSubmitting)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Migration.submitButton)
                 }
             }
             .onAppear {
@@ -81,6 +87,7 @@ struct MigrationSelectionSheet: View {
                 }
             }
         }
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Migration.sheet)
     }
 
     private var headerView: some View {
@@ -98,17 +105,20 @@ struct MigrationSelectionSheet: View {
                 }
                 .font(.caption)
                 .disabled(isSubmitting || eligibleCandidates.isEmpty)
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Migration.selectAllButton)
 
                 Button("Deselect All") {
                     selectedTaskIDs = []
                 }
                 .font(.caption)
                 .disabled(isSubmitting || eligibleCandidates.isEmpty)
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Migration.deselectAllButton)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(Color(.systemGray6))
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Migration.header)
     }
 
     private var destinationDisplayName: String {
@@ -197,6 +207,9 @@ private struct TaskSelectionRow: View {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .accessibilityIdentifier(
+                        Definitions.AccessibilityIdentifiers.Migration.selection(task.title)
+                    )
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(task.title)
@@ -206,16 +219,24 @@ private struct TaskSelectionRow: View {
                     Text("Currently on: \(sourceDisplayName)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.Migration.sourceLabel(task.title)
+                        )
 
                     Text("Move to: \(destinationDisplayName)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.Migration.destinationLabel(task.title)
+                        )
                 }
 
                 Spacer()
             }
             .padding(.vertical, 4)
             .contentShape(Rectangle())
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Migration.row(task.title))
         }
         .buttonStyle(.plain)
     }

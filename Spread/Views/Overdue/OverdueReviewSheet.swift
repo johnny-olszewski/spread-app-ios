@@ -30,8 +30,14 @@ struct OverdueReviewSheet: View {
                                 )
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier(
+                                Definitions.AccessibilityIdentifiers.Overdue.row(item.task.title)
+                            )
                         }
                     }
+                    .accessibilityIdentifier(
+                        Definitions.AccessibilityIdentifiers.Overdue.section(section.id)
+                    )
                 }
             }
             .listStyle(.insetGrouped)
@@ -42,6 +48,7 @@ struct OverdueReviewSheet: View {
                     Button("Done") {
                         dismiss()
                     }
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Overdue.doneButton)
                 }
             }
             .sheet(item: $selectedTask) { task in
@@ -54,6 +61,7 @@ struct OverdueReviewSheet: View {
                 )
             }
         }
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Overdue.sheet)
     }
 }
 
@@ -72,6 +80,8 @@ private struct OverdueTaskRow: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Overdue.row(task.title))
     }
 
     private var detailText: String {

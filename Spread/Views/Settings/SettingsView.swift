@@ -158,6 +158,9 @@ private struct ModeSelectionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(
+            Definitions.AccessibilityIdentifiers.Settings.modeOption(mode.rawValue)
+        )
     }
 }
 

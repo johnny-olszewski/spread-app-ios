@@ -28,6 +28,7 @@ struct OverdueButton: View {
                 .foregroundStyle(.yellow)
             }
             .accessibilityLabel(configuration.accessibilityLabel)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Overdue.button)
         }
     }
 }
