@@ -26,9 +26,6 @@ struct RootNavigationView: View {
     /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
 
-    /// Callback when environment switch completes and restart is needed.
-    var onRestartRequired: (() -> Void)?
-
     /// Optional factory for constructing the debug menu view.
     let makeDebugMenuView: DebugMenuViewFactory?
 
@@ -42,7 +39,6 @@ struct RootNavigationView: View {
     ///   - authManager: The auth manager for authentication.
     ///   - dependencies: The app dependencies for app services.
     ///   - syncEngine: The sync engine (nil in previews/tests).
-    ///   - onRestartRequired: Callback for soft restart after environment switch.
     ///   - makeDebugMenuView: Optional factory for the debug menu view.
     ///   - layoutOverride: Optional layout override for tests/previews.
     init(
@@ -50,7 +46,6 @@ struct RootNavigationView: View {
         authManager: AuthManager,
         dependencies: AppDependencies,
         syncEngine: SyncEngine? = nil,
-        onRestartRequired: (() -> Void)? = nil,
         makeDebugMenuView: DebugMenuViewFactory? = nil,
         layoutOverride: NavigationLayoutType? = nil
     ) {
@@ -58,7 +53,6 @@ struct RootNavigationView: View {
         self.authManager = authManager
         self.dependencies = dependencies
         self.syncEngine = syncEngine
-        self.onRestartRequired = onRestartRequired
         self.makeDebugMenuView = makeDebugMenuView
         self.layoutOverride = layoutOverride
     }
@@ -79,7 +73,6 @@ struct RootNavigationView: View {
                     authManager: authManager,
                     dependencies: dependencies,
                     syncEngine: syncEngine,
-                    onRestartRequired: onRestartRequired,
                     makeDebugMenuView: makeDebugMenuView
                 )
             case .tabBar:
@@ -88,7 +81,6 @@ struct RootNavigationView: View {
                     authManager: authManager,
                     dependencies: dependencies,
                     syncEngine: syncEngine,
-                    onRestartRequired: onRestartRequired,
                     makeDebugMenuView: makeDebugMenuView
                 )
             }

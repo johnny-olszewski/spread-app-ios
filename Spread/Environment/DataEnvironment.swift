@@ -10,8 +10,7 @@ import Foundation
 /// Resolution order (via `resolve`):
 /// 1. Launch arguments (`-DataEnvironment <value>`)
 /// 2. Environment variables (`DATA_ENVIRONMENT`)
-/// 3. Persisted selection (Debug/QA builds only)
-/// 4. Build default (from `BuildInfo.defaultDataEnvironment`)
+/// 3. Build default (from `BuildInfo.defaultDataEnvironment`)
 enum DataEnvironment: String, CaseIterable, Sendable {
     case localhost
     case development
@@ -65,8 +64,6 @@ enum DataEnvironment: String, CaseIterable, Sendable {
         resolve(
             launchArguments: ProcessInfo.processInfo.arguments,
             environmentVariables: ProcessInfo.processInfo.environment,
-            persistedSelection: persistedSelection,
-            allowsDebugUI: BuildInfo.allowsDebugUI,
             buildDefault: BuildInfo.defaultDataEnvironment
         )
     }
@@ -76,15 +73,11 @@ enum DataEnvironment: String, CaseIterable, Sendable {
     /// - Parameters:
     ///   - launchArguments: Command-line arguments (e.g., from ProcessInfo).
     ///   - environmentVariables: Environment variables (e.g., from ProcessInfo).
-    ///   - persistedSelection: Previously persisted selection from UserDefaults.
-    ///   - allowsDebugUI: Whether the current build allows debug features.
     ///   - buildDefault: The default for the current build configuration.
     /// - Returns: The resolved data environment.
     static func resolve(
         launchArguments: [String],
         environmentVariables: [String: String],
-        persistedSelection: DataEnvironment?,
-        allowsDebugUI: Bool,
         buildDefault: DataEnvironment
     ) -> DataEnvironment {
         // 1. Launch arguments
@@ -100,46 +93,8 @@ enum DataEnvironment: String, CaseIterable, Sendable {
             return env
         }
 
-        // 3. Persisted selection (Debug/QA only)
-        if allowsDebugUI, let persisted = persistedSelection {
-            return persisted
-        }
-
-        // 4. Build default
+        // 3. Build default
         return buildDefault
-    }
-
-    // MARK: - Persistence
-
-    private static let persistenceKey = "DataEnvironment.selected"
-
-    /// The persisted data environment selection from UserDefaults.
-    /// Only used in Debug/QA builds.
-    static var persistedSelection: DataEnvironment? {
-        guard BuildInfo.allowsDebugUI else {
-            return nil
-        }
-        guard let value = UserDefaults.standard.string(forKey: persistenceKey) else {
-            return nil
-        }
-        return DataEnvironment(rawValue: value)
-    }
-
-    /// Persists the selected data environment to UserDefaults.
-    /// Should only be called in Debug/QA builds.
-    static func persistSelection(_ environment: DataEnvironment) {
-        guard BuildInfo.allowsDebugUI else {
-            return
-        }
-        UserDefaults.standard.set(environment.rawValue, forKey: persistenceKey)
-    }
-
-    /// Clears the persisted data environment selection.
-    static func clearPersistedSelection() {
-        guard BuildInfo.allowsDebugUI else {
-            return
-        }
-        UserDefaults.standard.removeObject(forKey: persistenceKey)
     }
 
     // MARK: - Last Used Tracking
