@@ -2,8 +2,8 @@ import SwiftData
 
 /// Protocol for wiping all local data.
 ///
-/// Used by environment switching and launch-time mismatch handling
-/// to ensure a clean slate before connecting to a different backend.
+/// Used by sign-out and localhost-isolation handling
+/// to ensure a clean slate before reconnecting product data.
 @MainActor
 protocol StoreWiper: Sendable {
     /// Deletes all local data including SwiftData entities and sync state.

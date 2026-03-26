@@ -15,62 +15,29 @@ The app uses two Supabase projects:
 
 Supabase configuration is managed via xcconfig files:
 
-- `Configuration/Debug.xcconfig` - Uses dev environment
+- `Configuration/Debug.xcconfig` - Uses dev environment by default
+- `Configuration/QA.xcconfig` - Uses dev environment
 - `Configuration/Release.xcconfig` - Uses prod environment
 
 These values are injected into `Info.plist` at build time and read by `SupabaseConfiguration.swift` at runtime.
 
-### Debug Environment Switching
+### Debug Localhost Mode
 
-In Debug builds, the Supabase environment can be switched at runtime via the Debug menu (see SPRD-86). This allows testing against production data without rebuilding.
+Runtime environment switching is not part of v1. Debug builds normally use the dev backend, and `localhost` is available only when explicitly selected before launch with `-DataEnvironment localhost`.
 
-**Warning:** Switching to production in Debug builds requires explicit confirmation due to the risk of affecting real user data.
+`localhost` is an engineering-only mode:
+- it bypasses product auth with a mock user
+- it keeps all persistence local for that run
+- it is the only mode where mock data loading is available
+- it is not persisted across launches
+- the app wipes the local store when switching to or from `localhost` so mock data cannot contaminate dev-backed local state
 
 ## Auth Providers
 
 ### Currently Enabled
 - **Email/Password** - Basic authentication
-- **Sign in with Apple** - Native `ASAuthorizationController` + Supabase `signInWithIdToken`
-- **Google Sign-in** - Web-based OAuth via Supabase `signInWithOAuth` using `ASWebAuthenticationSession`
 
-### Sign in with Apple Setup
-
-1. **Apple Developer Account**:
-   - Go to [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list)
-   - Create a Services ID for Supabase callback (e.g., `dev.johnnyo.spread.auth`)
-   - Configure the Web Authentication redirect URL: `https://<project-ref>.supabase.co/auth/v1/callback`
-   - Create a Sign in with Apple key and download the `.p8` file
-
-2. **Supabase Dashboard** (both dev and prod):
-   - Navigate to Authentication > Providers > Apple
-   - Enable the Apple provider
-   - Enter: Team ID, Key ID, and the private key (contents of `.p8` file)
-   - Enter: Services ID (e.g., `dev.johnnyo.spread.auth`)
-
-3. **Xcode Project**:
-   - Add "Sign in with Apple" capability to the app target (Signing & Capabilities)
-   - The app uses native `ASAuthorizationController` via SwiftUI's `SignInWithAppleButton`
-   - The resulting `ASAuthorizationAppleIDCredential.identityToken` is sent to Supabase via `signInWithIdToken`
-
-### Google Sign-in Setup
-
-1. **Google Cloud Console**:
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create or select a project
-   - Navigate to APIs & Services > OAuth consent screen
-   - Configure the consent screen (External, app name, support email)
-   - Navigate to APIs & Services > Credentials
-   - Create an OAuth 2.0 Client ID (Web application type)
-   - Add authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
-   - Note the Client ID and Client Secret
-
-2. **Supabase Dashboard** (both dev and prod):
-   - Navigate to Authentication > Providers > Google
-   - Enable the Google provider
-   - Enter: Client ID and Client Secret from Google Cloud Console
-
-3. **Xcode Project**:
-   - No additional SDK required — uses Supabase's `signInWithOAuth(provider: .google)` which opens `ASWebAuthenticationSession` automatically
+V1 does not use Sign in with Apple or Google Sign-in.
 
 ## Supabase CLI Setup
 
@@ -200,14 +167,11 @@ This requires Docker and provides a local PostgreSQL, Auth, and Storage instance
 
 ### Environment Variables
 
-For local testing, you can override the Supabase configuration via environment variables or launch arguments:
+For local testing against the app's in-memory/local-only stack, launch Debug with:
 
 ```bash
-# Via environment variable
-export SUPABASE_URL="http://localhost:54321"
-
-# Via Xcode launch argument
--SUPABASE_URL http://localhost:54321
+# Localhost engineering mode
+-DataEnvironment localhost
 ```
 
 ## Database Schema
@@ -398,10 +362,8 @@ SELECT cron.unschedule('cleanup-tombstones');
 
 ### Auth Issues
 
-1. Verify auth providers are enabled in Supabase Dashboard:
+1. Verify email/password auth is enabled in Supabase Dashboard:
    - Authentication > Providers
-
-2. Check redirect URLs are configured for OAuth providers
 
 ### Migration Failures
 
@@ -416,6 +378,4 @@ SELECT cron.unschedule('cleanup-tombstones');
 - SPRD-82: RLS policies
 - SPRD-83: DB triggers + merge RPCs
 - SPRD-84: Supabase client + auth integration
-- SPRD-86: Debug environment switcher
 - SPRD-89: Tombstone cleanup job (90-day cron)
-- SPRD-91: Apple + Google auth providers (deferred)

@@ -290,7 +290,7 @@
   - Remove tests that assume localhost persistence or runtime switching.
 - **Dependencies**: SPRD-105, SPRD-106
 
-### [SPRD-108] Refactor: Remove obsolete social-auth and runtime-switch surfaces
+### [SPRD-108] Refactor: Remove obsolete social-auth and runtime-switch surfaces - [x] Complete
 - **Context**: The current implementation and completed tasks include features that are now explicitly out of scope and should not remain as dead or misleading code.
 - **Description**: Remove code, docs, and UI surfaces for Apple/Google auth, backup-entitlement flows, and runtime environment switching.
 - **Implementation Details**:
