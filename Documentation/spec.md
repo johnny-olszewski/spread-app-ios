@@ -122,6 +122,15 @@
   - Example B: `2026` exists. A task desired for `January 2026` month is open on `2026`. When `January 2026` is created, the month spread prompts migration. If `January 10, 2026` is later created, that day spread does not prompt for this task because day is more granular than the task's desired assignment.
   - Example C: A task desired for `January 10, 2026` day is in `Inbox`. If `2026`, `January 2026`, and `January 10, 2026` all exist, only `January 10, 2026` prompts it because that is the most granular valid existing destination.
   - Example D: A task desired for `January 10, 2026` day is open on `2026`. If `January 2026` exists and `January 10, 2026` does not, the month spread prompts it. Once the day spread exists, the month prompt disappears and only the day spread prompts it.
+- Migration scenario table (absolute-date reference cases): [SPRD-113]
+
+| Scenario date context | Task desired assignment | Current source | Existing valid spreads | Prompted destination | Why |
+| --- | --- | --- | --- | --- | --- |
+| `January 12, 2026` | `January 2026` month | `2026` year | `2026`, `January 2026` | `January 2026` | Month is the most granular valid existing destination and does not exceed the desired month period. |
+| `January 12, 2026` | `January 2026` month | `2026` year | `2026`, `January 2026`, `January 10, 2026` | `January 2026` | `January 10, 2026` is more granular than the task's desired month assignment, so it is never eligible. |
+| `January 12, 2026` | `January 10, 2026` day | `2026` year | `2026`, `January 2026` | `January 2026` | The exact day spread does not exist yet, so the month spread is the most granular valid existing destination. |
+| `January 12, 2026` | `January 10, 2026` day | `2026` year | `2026`, `January 2026`, `January 10, 2026` | `January 10, 2026` | Once the day spread exists, the coarser month prompt disappears and only the day prompt remains. |
+| `January 12, 2026` | `January 10, 2026` day | `Inbox` | `2026`, `January 2026`, `January 10, 2026` | `January 10, 2026` | Inbox follows the same most-granular-valid-existing-destination rule as spread-assigned tasks. |
 
 ### BuJo Mode
 - Conventional: show migration history across spreads, tasks appear on multiple spreads. [SPRD-29]
@@ -194,6 +203,17 @@
   - Assume today is `February 1, 2026`. A task still in `Inbox` with desired assignment `January 2026` month is overdue.
   - Assume today is `January 11, 2026`. A task still in `Inbox` with desired assignment `January 10, 2026` day is overdue.
 - Overdue remains based on the current open assignment until the user actually migrates the task; the existence of a finer valid destination does not change overdue status by itself. [SPRD-112]
+- Overdue threshold table (absolute-date reference cases): [SPRD-113]
+
+| Today | Current open assignment or Inbox desired assignment | Overdue? | Reason |
+| --- | --- | --- | --- |
+| `January 12, 2026` | `January 10, 2026` day assignment | Yes | Day tasks become overdue once that assigned day has passed. |
+| `January 12, 2026` | `January 2026` month assignment | No | Month tasks are not overdue until the entire assigned month has passed. |
+| `February 1, 2026` | `January 2026` month assignment | Yes | The entire assigned month has passed. |
+| `June 1, 2026` | `2026` year assignment | No | Year tasks are not overdue until the assigned year has fully passed. |
+| `January 1, 2027` | `2026` year assignment | Yes | The entire assigned year has passed. |
+| `February 1, 2026` | `Inbox` task with desired assignment `January 2026` month | Yes | Inbox falls back to the desired assignment period/date when no open spread assignment exists. |
+| `January 11, 2026` | `Inbox` task with desired assignment `January 10, 2026` day | Yes | Inbox day tasks become overdue after the desired day passes. |
 
 ### Inbox
 - Unassigned entries (tasks/notes) are stored in a global Inbox. [SPRD-14]
@@ -220,6 +240,7 @@
 - Conventional-mode migration prompt UI: [SPRD-111]
   - Year, month, and day spreads may show a small migration banner when at least one task is eligible to move into that spread.
   - Multiday spreads never show the migration banner.
+  - Traditional mode never shows the migration banner because all calendar spreads are navigable without created conventional spread records.
   - The banner reappears on every visit as long as eligible tasks still exist; dismissal state is not persisted in v1.
   - Tapping the banner opens a migration review sheet; it never auto-migrates tasks.
   - The sheet lists only tasks, never notes.
@@ -235,6 +256,7 @@
   - Tapping it opens a global overdue review sheet.
   - The overdue review sheet is read/review oriented in v1: rows open the task for inspection/editing, but there are no bulk overdue actions.
   - Tasks are sectioned by current source assignment, ordered chronologically by source spread date; `Inbox` is treated as a source section when needed.
+  - A task may appear in both the overdue review sheet and a conventional migration review sheet at the same time when it is overdue globally and also eligible to move into the currently viewed spread.
 - Collections are accessed from a top-level entry point (outside spread navigation). [SPRD-19, SPRD-40]
 - Settings accessible via gear icon in navigation header. [SPRD-20]
 - iPad multitasking: UI adapts gracefully to Split View and Slide Over. [SPRD-19]
