@@ -2,6 +2,64 @@ import Foundation
 import OSLog
 import Observation
 
+struct TaskReviewSourceKey: Hashable, Identifiable {
+    enum Kind: Hashable {
+        case inbox
+        case spread(id: UUID, period: Period, date: Date)
+    }
+
+    let kind: Kind
+
+    var id: String {
+        switch kind {
+        case .inbox:
+            return "inbox"
+        case .spread(let id, _, _):
+            return "spread-\(id.uuidString)"
+        }
+    }
+
+    var period: Period? {
+        switch kind {
+        case .inbox:
+            return nil
+        case .spread(_, let period, _):
+            return period
+        }
+    }
+
+    var date: Date? {
+        switch kind {
+        case .inbox:
+            return nil
+        case .spread(_, _, let date):
+            return date
+        }
+    }
+
+    var sourceRank: Int {
+        period?.granularityRank ?? 0
+    }
+}
+
+struct MigrationCandidate: Identifiable {
+    let task: DataModel.Task
+    let sourceKey: TaskReviewSourceKey
+    let sourceSpread: DataModel.Spread?
+    let destination: DataModel.Spread
+
+    var id: String {
+        "\(task.id.uuidString)-\(sourceKey.id)-\(destination.id.uuidString)"
+    }
+}
+
+struct OverdueTaskItem: Identifiable {
+    let task: DataModel.Task
+    let sourceKey: TaskReviewSourceKey
+
+    var id: UUID { task.id }
+}
+
 /// Central coordinator for journal data and operations.
 ///
 /// JournalManager owns the in-memory data model, handles data loading from
@@ -115,6 +173,36 @@ final class JournalManager {
     /// Used for badge display. Returns 0 when no unassigned entries exist.
     var inboxCount: Int {
         inboxEntries.count
+    }
+
+    /// Tasks eligible to move into created spreads in conventional mode.
+    ///
+    /// The destination must be the most granular valid existing spread that:
+    /// - matches the task's desired date hierarchy
+    /// - is more granular than the current source
+    /// - does not exceed the task's desired assignment period
+    func migrationCandidates(
+        to destination: DataModel.Spread
+    ) -> [MigrationCandidate] {
+        guard bujoMode == .conventional, destination.period.canHaveTasksAssigned else {
+            return []
+        }
+
+        return tasks.compactMap { task in
+            migrationCandidate(for: task, to: destination)
+        }
+    }
+
+    /// Open tasks that are overdue anywhere in the journal.
+    var overdueTaskItems: [OverdueTaskItem] {
+        tasks.compactMap { task in
+            overdueTaskItem(for: task)
+        }
+    }
+
+    /// The global overdue count used by the toolbar review button.
+    var overdueTaskCount: Int {
+        overdueTaskItems.count
     }
 
     // MARK: - Initialization
@@ -630,6 +718,17 @@ final class JournalManager {
         from source: DataModel.Spread,
         to destination: DataModel.Spread
     ) async throws {
+        try await moveTask(task, from: sourceSpreadSource(source), to: destination)
+    }
+
+    /// Moves a task from either Inbox or a source spread into a destination spread.
+    ///
+    /// When the task comes from Inbox there is no source assignment to mark as migrated.
+    func moveTask(
+        _ task: DataModel.Task,
+        from sourceKey: TaskReviewSourceKey,
+        to destination: DataModel.Spread
+    ) async throws {
         // Cancelled tasks cannot be migrated
         guard task.status != .cancelled else {
             throw MigrationError.taskCancelled
@@ -640,15 +739,19 @@ final class JournalManager {
             throw MigrationError.destinationNotAssignable
         }
 
-        // Find source assignment
-        guard let sourceIndex = task.assignments.firstIndex(where: { assignment in
-            assignment.matches(period: source.period, date: source.date, calendar: calendar)
-        }) else {
-            throw MigrationError.noSourceAssignment
-        }
+        switch sourceKey.kind {
+        case .inbox:
+            break
+        case .spread(_, let sourcePeriod, let sourceDate):
+            guard let sourceIndex = task.assignments.firstIndex(where: { assignment in
+                assignment.matches(period: sourcePeriod, date: sourceDate, calendar: calendar)
+            }) else {
+                throw MigrationError.noSourceAssignment
+            }
 
-        // Mark source as migrated
-        task.assignments[sourceIndex].status = .migrated
+            // Mark source as migrated
+            task.assignments[sourceIndex].status = .migrated
+        }
 
         // Check if destination assignment already exists
         if let destIndex = task.assignments.firstIndex(where: { assignment in
@@ -670,9 +773,13 @@ final class JournalManager {
 
         // Persist changes
         try await taskRepository.save(task)
-        Self.logger.info(
-            "Migration performed: task \(task.id) from \(source.period.rawValue) to \(destination.period.rawValue)"
-        )
+        let sourceDescription: String = switch sourceKey.kind {
+        case .inbox:
+            "inbox"
+        case .spread(_, let period, _):
+            period.rawValue
+        }
+        Self.logger.info("Migration performed: task \(task.id) from \(sourceDescription) to \(destination.period.rawValue)")
 
         // Reload tasks to ensure state is synchronized
         tasks = await taskRepository.getTasks()
@@ -1007,31 +1114,155 @@ final class JournalManager {
     func allEligibleTasksForMigration(
         to destination: DataModel.Spread
     ) -> [(task: DataModel.Task, source: DataModel.Spread)] {
-        guard destination.period.canHaveTasksAssigned else { return [] }
-
-        var results: [(task: DataModel.Task, source: DataModel.Spread)] = []
-        var seenTaskIds: Set<UUID> = []
-
-        var currentPeriod: Period? = destination.period.parentPeriod
-
-        while let period = currentPeriod {
-            let normalizedDate = period.normalizeDate(destination.date, calendar: calendar)
-
-            if let parentSpread = spreads.first(where: { spread in
-                spread.period == period &&
-                spread.period.normalizeDate(spread.date, calendar: calendar) == normalizedDate
-            }) {
-                let eligible = eligibleTasksForMigration(from: parentSpread, to: destination)
-                for task in eligible where !seenTaskIds.contains(task.id) {
-                    results.append((task: task, source: parentSpread))
-                    seenTaskIds.insert(task.id)
-                }
+        migrationCandidates(to: destination).compactMap { candidate in
+            guard let sourceSpread = candidate.sourceSpread else {
+                return nil
             }
+            return (task: candidate.task, source: sourceSpread)
+        }
+    }
 
-            currentPeriod = period.parentPeriod
+    // MARK: - Migration + Overdue Helpers
+
+    private func migrationCandidate(
+        for task: DataModel.Task,
+        to destination: DataModel.Spread
+    ) -> MigrationCandidate? {
+        guard task.status == .open else {
+            return nil
         }
 
-        return results
+        guard destinationMatchesDesiredPath(destination, forDesiredDate: task.date) else {
+            return nil
+        }
+
+        guard destination.period.granularityRank <= task.period.granularityRank else {
+            return nil
+        }
+
+        let sourceKey: TaskReviewSourceKey
+        let sourceSpread: DataModel.Spread?
+        if let openSpread = currentOpenSpread(for: task) {
+            sourceKey = sourceSpreadSource(openSpread)
+            sourceSpread = openSpread
+        } else {
+            sourceKey = .init(kind: .inbox)
+            sourceSpread = nil
+        }
+
+        guard destination.period.granularityRank > sourceKey.sourceRank else {
+            return nil
+        }
+
+        guard let bestDestination = mostGranularValidDestination(
+            for: task,
+            sourceRank: sourceKey.sourceRank
+        ) else {
+            return nil
+        }
+
+        guard bestDestination.id == destination.id else {
+            return nil
+        }
+
+        return MigrationCandidate(
+            task: task,
+            sourceKey: sourceKey,
+            sourceSpread: sourceSpread,
+            destination: destination
+        )
+    }
+
+    private func overdueTaskItem(for task: DataModel.Task) -> OverdueTaskItem? {
+        guard task.status == .open else {
+            return nil
+        }
+
+        if let openSpread = currentOpenSpread(for: task) {
+            let sourceKey = sourceSpreadSource(openSpread)
+            guard isOverdue(
+                date: openSpread.date,
+                period: openSpread.period
+            ) else {
+                return nil
+            }
+            return OverdueTaskItem(task: task, sourceKey: sourceKey)
+        }
+
+        guard isOverdue(date: task.date, period: task.period) else {
+            return nil
+        }
+        return OverdueTaskItem(task: task, sourceKey: .init(kind: .inbox))
+    }
+
+    private func currentOpenSpread(for task: DataModel.Task) -> DataModel.Spread? {
+        guard let openAssignment = task.assignments.first(where: { $0.status == .open }) else {
+            return nil
+        }
+
+        return spreads.first(where: { spread in
+            spread.period == openAssignment.period &&
+            spread.period.normalizeDate(spread.date, calendar: calendar) ==
+            openAssignment.period.normalizeDate(openAssignment.date, calendar: calendar)
+        })
+    }
+
+    private func destinationMatchesDesiredPath(
+        _ destination: DataModel.Spread,
+        forDesiredDate desiredDate: Date
+    ) -> Bool {
+        destination.period.normalizeDate(destination.date, calendar: calendar) ==
+        destination.period.normalizeDate(desiredDate, calendar: calendar)
+    }
+
+    private func mostGranularValidDestination(
+        for task: DataModel.Task,
+        sourceRank: Int
+    ) -> DataModel.Spread? {
+        spreads
+            .filter { spread in
+                spread.period.canHaveTasksAssigned &&
+                destinationMatchesDesiredPath(spread, forDesiredDate: task.date) &&
+                spread.period.granularityRank <= task.period.granularityRank &&
+                spread.period.granularityRank > sourceRank
+            }
+            .max { lhs, rhs in
+                lhs.period.granularityRank < rhs.period.granularityRank
+            }
+    }
+
+    private func sourceSpreadSource(_ spread: DataModel.Spread) -> TaskReviewSourceKey {
+        TaskReviewSourceKey(
+            kind: .spread(
+                id: spread.id,
+                period: spread.period,
+                date: spread.period.normalizeDate(spread.date, calendar: calendar)
+            )
+        )
+    }
+
+    private func isOverdue(date: Date, period: Period) -> Bool {
+        let todayStart = today.startOfDay(calendar: calendar)
+
+        switch period {
+        case .day:
+            let dueDay = date.startOfDay(calendar: calendar)
+            return todayStart > dueDay
+        case .month:
+            let startOfMonth = period.normalizeDate(date, calendar: calendar)
+            guard let startOfNextMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth) else {
+                return false
+            }
+            return todayStart >= startOfNextMonth
+        case .year:
+            let startOfYear = period.normalizeDate(date, calendar: calendar)
+            guard let startOfNextYear = calendar.date(byAdding: .year, value: 1, to: startOfYear) else {
+                return false
+            }
+            return todayStart >= startOfNextYear
+        case .multiday:
+            return false
+        }
     }
 
     // MARK: - Spread Deletion

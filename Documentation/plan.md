@@ -335,7 +335,7 @@
   - Update QA checklists to match the simplified behavior exactly.
 - **Dependencies**: SPRD-104, SPRD-105, SPRD-106, SPRD-107, SPRD-108
 
-### [SPRD-110] Refactor: Formalize migration eligibility by desired assignment
+### [SPRD-110] Refactor: Formalize migration eligibility by desired assignment - [x]
 - **Context**: The current migration prompt behavior is parent-based but not yet fully specified around desired assignment limits, Inbox-source migration, or “most granular valid destination” resolution.
 - **Description**: Tighten JournalManager migration eligibility rules so prompts only appear for the correct spread and task combinations.
 - **Implementation Details**:
