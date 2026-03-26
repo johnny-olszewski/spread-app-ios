@@ -24,7 +24,8 @@
 - Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with in-view hierarchical navigation, manual migration, and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29]
 - Provide calendar-style navigation in traditional mode (year/month/day) without altering created-spread data. [SPRD-17, SPRD-35, SPRD-38]
 - Support offline-first usage with SwiftData local storage and Supabase sync. [SPRD-80, SPRD-85]
-- Allow local-only usage without sign-in; sync only when authenticated, backup entitlement is active, and online. Backup entitlement is set via In-App Purchase (StoreKit) and read from `user.appMetadata["backup_entitled"]`. [SPRD-84, SPRD-85]
+- Require authentication for all product usage in dev/prod environments, while preserving offline access for users with an existing cached session and local data. [SPRD-104, SPRD-106]
+- Preserve a debug-only `localhost` mode for engineering workflows; it uses mock auth, supports mock data loading, is selected per launch, and never persists across launches. [SPRD-105, SPRD-107]
 
 ## Non-Goals (v1)
 - Search, filters, or tagging. [SPRD-56]
@@ -232,53 +233,39 @@
 ### Persistence
 - Use SwiftData for local storage. [SPRD-4, SPRD-5]
 - Schema includes Spread, Task, Note, Collection (Event model reserved for v2). [SPRD-4, SPRD-8, SPRD-9, SPRD-39]
-- Supabase sync is the only cloud backend for v1 (CloudKit removed); availability is gated by auth + backup entitlement. [SPRD-80]
+- Supabase sync is the only cloud backend for v1 (CloudKit removed). [SPRD-80, SPRD-104]
 - Offline-first, then sync; auto-sync on launch/foreground + manual refresh. [SPRD-85]
 - Local changes enqueue outbox and attempt immediate push on explicit Save/Done actions (not on every keystroke). Manual sync remains available. [SPRD-85]
-- Sync eligibility requires (a) signed-in and (b) backup entitlement active; otherwise the app remains local-only and sync attempts are blocked. [SPRD-85]
-- Signed-in but not entitled remains local-only across launches; outbox mutations still enqueue locally for future upgrade. [SPRD-85]
-- Signed-in but not entitled shows a distinct sync status state using SF Symbol `exclamationmark.arrow.triangle.2.circlepath` in a grey tint. [SPRD-85]
+- Sync eligibility in product environments requires an authenticated user session. There is no backup entitlement gate in v1. [SPRD-104]
+- In product environments, users without a valid session are blocked by the auth gate instead of entering a local-only app state. [SPRD-106]
+- In debug `localhost`, sync is fully disabled and all persistence is local-only for that run. [SPRD-107]
 - Toolbar sync status is icon-only; any status copy is shown in main content (not in the toolbar). Use a minimal, visible banner or status line near the top of the main spreads content. [SPRD-85]
 
 ### Supabase Sync + Auth (v1)
-- Supabase environments: separate dev and prod projects; Debug and QA TestFlight builds can switch data environments (localhost/dev/prod) at runtime; Release builds are locked to prod. [SPRD-80, SPRD-86]
-- Auth: email/password for v1; Sign in with Apple and Google deferred to SPRD-91. Local-only usage is allowed; sign-in merges local data only when backup entitlement is active; sign-out wipes local store. [SPRD-84, SPRD-85, SPRD-91]
+- Supabase environments: separate dev and prod projects. Release builds are locked to prod. QA builds are locked to dev. Debug builds default to dev and may be launched in `localhost` for a single run via debug launch configuration or launch arguments. [SPRD-80, SPRD-105, SPRD-107]
+- Runtime data-environment switching is not part of v1. There is no in-app environment switcher, no persisted environment selection, and no soft-restart flow for environment changes. [SPRD-105]
+- `localhost` is Debug-only, non-persistent, and intended exclusively for engineering workflows such as UI development, debug overrides, and mock data loading. [SPRD-107]
+- Auth in product environments is email/password only for v1. Sign in with Apple and Google are out of scope. [SPRD-104, SPRD-108]
+- Product usage requires authentication. If no valid product-environment session exists on launch, the app presents an auth gate before journal content is accessible. [SPRD-106]
+- In Debug `localhost`, auth is bypassed automatically with a mock user and the app opens directly into journal content. [SPRD-107]
+- Sign-up and forgot-password flows remain in-app in product environments. [SPRD-106]
+- Sign-out wipes the local store and returns the user to the auth gate. [SPRD-106]
 - Sync: field-level last-write-wins (server-arrival time), per-field timestamps set by DB triggers, monotonic revision per table for incremental sync, soft-delete with 90-day cleanup, delete wins conflicts, and device_id recorded on writes. [SPRD-81, SPRD-83, SPRD-85, SPRD-89]
 - Data integrity: unique constraints for spreads/assignments, foreign keys enforced, and RLS policies restrict rows to `auth.uid()`. [SPRD-81, SPRD-82]
 - Sync status semantics:
-  - Logged out: no sync is possible; status remains local-only.
-  - Logged in without backup entitlement: no sync; status icon uses `exclamationmark.arrow.triangle.2.circlepath`.
-  - Logged in with backup entitlement: normal sync states (idle/syncing/synced/offline/error). [SPRD-85]
-- Data environment resolution (Debug/QA only): launch args (`-DataEnvironment`) -> env vars (`DATA_ENVIRONMENT`) -> persisted selection -> build default. Release ignores overrides and always uses prod.
-- Build defaults: Debug defaults to localhost; QA TestFlight defaults to dev.
-- Data environment changes are runtime switches in Debug/QA; Release has no switcher UI.
-- On environment switch: check outbox for unsynced changes, warn if non-empty and require explicit confirmation; then sign out, wipe local store/outbox, and restart the app. Debug/QA builds perform an in-app soft restart (tear down and rebuild the service graph); no manual relaunch required.
-- Localhost uses mock auth and no Supabase; dev/prod require real auth.
-- Single local SwiftData store is used; it is wiped on any data environment change and on launch if the resolved environment differs from the last used.
+  - Debug `localhost`: `localOnly`.
+  - Authenticated dev/prod: normal sync states (idle/syncing/synced/offline/error). [SPRD-85, SPRD-107]
+- Data environment resolution:
+  - Debug supports `-DataEnvironment localhost` for that launch only.
+  - Debug without an override defaults to `development`.
+  - QA defaults to `development`.
+  - Release defaults to `production`. [SPRD-105, SPRD-107]
+- `localhost` selection is never persisted across launches.
+- Launch-time wipe protection remains only for `localhost` isolation: if the resolved environment changes to or from `localhost`, the local store is wiped before app startup so mock/debug data cannot contaminate dev-backed local state. [SPRD-105, SPRD-107]
 - Architecture expectations:
   - Core services expose protocols and accept injected policies (Sync/Auth/Network) to keep debug logic out of production files.
   - Debug overrides live under `Spread/Debug` and are compiled only in Debug/QA builds.
   - Minimize `#if DEBUG` inside core services; prefer debug-only extensions/policy files.
-
-### Backup Entitlement
-- Backup entitlement gates sync availability for signed-in users. [SPRD-85]
-- Entitlement source: In-App Purchase via Apple StoreKit; a server-side webhook sets the `backup_entitled` flag on the user's Supabase `appMetadata`. Future versions may migrate to a third-party purchase provider (e.g., RevenueCat) to optimize revenue share.
-- Client reads entitlement from `user.appMetadata["backup_entitled"]` (boolean); the client never writes this flag.
-- Entitlement can be revoked server-side (e.g., subscription expiry); when revoked:
-  - Sync stops on the next session check or auth refresh.
-  - Local data is preserved (not wiped) but no longer pushes or pulls.
-  - Outbox mutations continue to enqueue locally for future re-entitlement.
-  - Sync status shows `backupUnavailable` state.
-- When entitlement becomes active (purchase or renewal), sync resumes automatically on the next auth refresh or app foreground.
-
-### Sign-In Data Merge Flow
-- On sign-in, the app checks for local data and backup entitlement. [SPRD-99]
-- Sign-in with entitlement and local data present:
-  - User is shown a merge/discard prompt: "Keep local data and merge with cloud?" or "Discard local data and use cloud only?"
-  - **Merge**: Local data is pushed to the server via the normal outbox sync flow. If the server already has data for the same entities, field-level LWW resolves conflicts using per-field timestamps. The user ends up with a union of local + server data.
-  - **Discard**: Local data is wiped; a full pull from the server populates the local store.
-- Sign-in with entitlement and no local data: Sync starts immediately (pull from server).
-- Sign-in without backup entitlement: No merge prompt is shown; local data is preserved untouched; sync status shows `backupUnavailable`. [SPRD-99]
 
 ### Sync Conflict Scenarios
 - **Duplicate spread creation**: Two devices create a spread with the same period + normalized date. The server's unique constraint (`user_id, period, date`) causes the second push to fail. The merge RPC detects the existing row and applies field-level LWW to update any differing fields; the client receives the canonical row and updates its local copy. No duplicate is created. [SPRD-81, SPRD-83]
@@ -292,18 +279,21 @@
 - Button appearance: [SPRD-84]
   - Logged out: person icon (`person.crop.circle`)
   - Logged in: filled person icon (`person.crop.circle.fill`)
-- Logged out state: tapping button opens login sheet. [SPRD-84]
+- On launch in product environments with no valid session, a large auth sheet is presented as a blocking gate before journal content is accessible. [SPRD-106]
+- Logged out state from the toolbar also opens the same auth sheet. [SPRD-106]
+  - Sheet presentation uses `.large`-style sizing appropriate for iPhone and iPad.
   - Email and password fields
   - Sign In button (disabled until fields populated)
-  - Error message display for failed login attempts
+  - Inline error message display for failed login attempts
+  - In-sheet navigation to Sign Up and Forgot Password
   - Sheet dismisses on successful login
-  - Sign up and forgot password flows deferred to SPRD-92
-  - Form validation deferred to SPRD-93
 - Logged in state: tapping button opens profile sheet. [SPRD-84]
   - Shows user email
   - Sign Out button in toolbar
   - Sign out requires confirmation alert (warns that local data will be wiped)
-- Apple and Google sign-in buttons added in SPRD-91. [SPRD-91]
+- Apple and Google sign-in are not part of v1. [SPRD-108]
+- If a previously authenticated user launches offline and the app has not definitively determined that the session is invalid, cached local data remains accessible and sync resumes when connectivity returns. [SPRD-106]
+- If the app later determines online that the session is invalid or expired, it returns to the auth gate. [SPRD-106]
 
 ### Development Tooling
 - Debug UI is available only in Debug and QA TestFlight builds; Release builds have no debug destinations or data-loading actions. [SPRD-45]
@@ -311,13 +301,14 @@
   - iPadOS (regular width): sidebar item titled "Debug" with SF Symbol `ant`. [SPRD-45]
   - iOS (compact width): tab bar item titled "Debug" with SF Symbol `ant`. [SPRD-45]
 - Debug menu provides grouped sections with labels and descriptions:
-  - Environment and DependencyContainer summary. [SPRD-2, SPRD-3, SPRD-45]
-  - Mock Data Sets loader with buttons that overwrite existing data and reload app state. [SPRD-46]
+  - Environment and dependency summary. [SPRD-2, SPRD-3, SPRD-45]
+  - Sync/network/auth override controls for engineering verification. [SPRD-85A, SPRD-85C]
 - Mock data sets are generated in code (no external fixtures) and cover varied spread scenarios and edge cases (empty, standard year/month/day, multiday ranges, boundary dates, large volume/perf). [SPRD-46]
 - Mock data set loading uses JournalManager APIs to mirror app behavior; loading or clearing data refreshes UI and resets selection to today's spread when available. [SPRD-67]
+- Mock data set loading is available only in Debug `localhost`. It is not available in Debug dev, QA, or Release. [SPRD-107]
 - Debug menu provides appearance overrides for paper tone, dot grid (size/spacing/opacity), heading font, and accent color (DEBUG builds only). [SPRD-63]
 - Debug tooling files live under `Spread/Debug` to keep debug-only views/data isolated. [SPRD-45]
-- Debug destination includes a Supabase environment switcher (Debug and QA TestFlight builds only) that signs out and wipes the local store on change; prod access requires explicit confirmation. [SPRD-86]
+- There is no in-app environment switcher in v1. Environment selection for `localhost` is done before launch in Debug only. [SPRD-105, SPRD-107]
 - Debug functionality should be visible only inside the Debug destination (no always-on overlay/badge).
 - Debug behavior should be isolated from production code via protocols + dependency injection:
   - Core services (Sync/Auth/Network) expose protocols and default policies in non-debug files.
@@ -341,24 +332,24 @@
   - `Configuration/Release.xcconfig` — prod Supabase URL + key, `production` environment, `dev.johnnyo.Spread` bundle ID.
 - `Info.plist` reads values via build variables: `$(SUPABASE_URL)`, `$(SUPABASE_PUBLISHABLE_KEY)`, `$(DATA_ENVIRONMENT)`.
 - `SupabaseConfiguration.swift` resolves configuration with this priority:
-  1. Launch arguments (`-SupabaseURL`, `-SupabaseKey`) — highest priority.
-  2. Environment variables (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`).
-  3. `DataEnvironment`-based hardcoded defaults (in code).
+  1. Debug-only launch selection of `-DataEnvironment localhost` for that run.
+  2. Build configuration defaults (`development` for Debug/QA, `production` for Release).
+  3. `DataEnvironment`-based hardcoded dev/prod fallbacks (in code).
   4. `Info.plist` build-time values (from xcconfig).
 - `DataEnvironment.swift` contains hardcoded URLs and keys for dev/prod as fallback defaults.
 - `.gitignore` blocks `.env` files but does not block `.xcconfig` files; publishable keys are committed to git (acceptable for client-side anon keys).
-- Service role keys, webhook secrets, and IAP shared secrets are never stored in the client codebase. They exist only in the Supabase dashboard and server-side infrastructure.
+- Service role keys and other server-side secrets are never stored in the client codebase. They exist only in the Supabase dashboard and server-side infrastructure.
 
 ### First Launch and Onboarding
-- On first launch, a brief onboarding walkthrough is shown (2-3 screens explaining BuJo concepts: spreads, tasks, migration). [SPRD-TBD]
-- Onboarding is shown only once; completion is tracked via a UserDefaults boolean flag (e.g., `hasCompletedOnboarding`).
+- On first authenticated product launch, a brief onboarding walkthrough is shown (2-3 screens explaining BuJo concepts: spreads, tasks, migration). [SPRD-106]
+- Onboarding is shown only once per app install; completion is tracked locally.
 - After onboarding dismissal, the user lands on the empty spread view with a clear call-to-action to create their first spread via the "+" button.
-- Subsequent launches skip onboarding and go directly to the spread view.
+- Subsequent authenticated launches skip onboarding and go directly to the spread view.
 - Onboarding content (v1):
   - Screen 1: Welcome — brief app description and BuJo philosophy.
   - Screen 2: Spreads — explain year/month/day/multiday pages and how to create them.
   - Screen 3: Tasks and Migration — explain rapid logging, task statuses, and manual migration.
-- Onboarding does not cover sign-in, sync, or collections (these are discoverable from the UI).
+- Onboarding occurs after authentication and does not teach account creation; sign-in remains part of the auth gate flow.
 
 ### Error Handling UX
 - **Sign-in errors**: Error messages are displayed inline on the login sheet below the password field. Error text is human-readable and maps from auth error types: [SPRD-84]
@@ -434,9 +425,9 @@
 - macOS deferred to post-v1. [SPRD-56]
 - Visual style uses dot grid backgrounds on spread content surfaces only, muted blue accents, and Debug-only appearance overrides for paper tone and typography. [SPRD-62, SPRD-63]
 - Entry period is independently editable; period changes trigger the same reassignment logic as date changes. [SPRD-24]
-- Backup entitlement is sourced from In-App Purchase via StoreKit; server webhook sets `appMetadata["backup_entitled"]`. [SPRD-85]
-- Sign-in merge pushes local outbox to server with field-level LWW; result is a union of local + server data. [SPRD-99]
-- Brief onboarding walkthrough shown once on first launch, tracked via UserDefaults. [SPRD-TBD]
+- Product usage requires authentication in dev/prod, while Debug `localhost` bypasses auth automatically for engineering workflows. [SPRD-106, SPRD-107]
+- `localhost` is non-persistent, selected per Debug launch, and isolated from dev-backed local state by launch-time wipes when switching to or from it. [SPRD-105, SPRD-107]
+- Brief onboarding walkthrough shown once on first authenticated product launch, tracked locally. [SPRD-106]
 - Minimum accessibility baseline for v1: VoiceOver labels, standard Dynamic Type, contrast ratios. [SPRD-TBD]
 
 ## Open Questions
