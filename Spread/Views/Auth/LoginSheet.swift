@@ -17,6 +17,9 @@ struct LoginSheet: View {
     /// The auth manager for handling sign-in.
     let authManager: AuthManager
 
+    /// Whether the cancel button should be shown.
+    let showsCancelButton: Bool
+
     // MARK: - State
 
     @State private var email = ""
@@ -56,9 +59,11 @@ struct LoginSheet: View {
             .navigationTitle("Sign In")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
+                if showsCancelButton {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            dismiss()
+                        }
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -157,5 +162,5 @@ struct LoginSheet: View {
 // MARK: - Previews
 
 #Preview("Empty") {
-    LoginSheet(authManager: .makeForPreview())
+    LoginSheet(authManager: .makeForPreview(), showsCancelButton: true)
 }

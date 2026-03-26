@@ -38,11 +38,7 @@ struct TabNavigationView: View {
             InboxSheetView(journalManager: journalManager)
         }
         .sheet(isPresented: $isAuthPresented) {
-            if authManager.state.isSignedIn {
-                ProfileSheet(authManager: authManager)
-            } else {
-                LoginSheet(authManager: authManager)
-            }
+            AuthEntrySheet(authManager: authManager, isBlocking: false)
         }
     }
 

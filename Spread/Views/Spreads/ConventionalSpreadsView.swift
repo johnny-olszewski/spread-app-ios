@@ -195,11 +195,7 @@ struct ConventionalSpreadsView: View {
         case .inbox:
             InboxSheetView(journalManager: journalManager)
         case .auth:
-            if authManager.state.isSignedIn {
-                ProfileSheet(authManager: authManager)
-            } else {
-                LoginSheet(authManager: authManager)
-            }
+            AuthEntrySheet(authManager: authManager, isBlocking: false)
         case .migrationSelection:
             if let spread = selectedSpread {
                 MigrationSelectionSheet(

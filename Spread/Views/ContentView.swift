@@ -8,13 +8,23 @@ import SwiftUI
 /// Auth lifecycle logic is delegated to `AuthLifecycleCoordinator`.
 struct ContentView: View {
     @State private var runtime: AppRuntime?
+    @State private var hasCompletedOnboarding: Bool
 
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "ContentView")
 
     private let dependenciesOverride: AppDependencies?
+    private let dataEnvironmentOverride: DataEnvironment?
+    private let onboardingStore: any OnboardingStateStoring
 
-    init(dependencies: AppDependencies? = nil) {
+    init(
+        dependencies: AppDependencies? = nil,
+        dataEnvironment: DataEnvironment? = nil,
+        onboardingStore: any OnboardingStateStoring = OnboardingStateStore()
+    ) {
         self.dependenciesOverride = dependencies
+        self.dataEnvironmentOverride = dataEnvironment
+        self.onboardingStore = onboardingStore
+        _hasCompletedOnboarding = State(initialValue: onboardingStore.hasCompletedOnboarding)
     }
 
     var body: some View {
@@ -34,6 +44,20 @@ struct ContentView: View {
         .task {
             await initializeApp()
         }
+        .sheet(isPresented: blockingAuthGateBinding) {
+            if let runtime {
+                AuthEntrySheet(
+                    authManager: runtime.authManager,
+                    isBlocking: true
+                )
+            }
+        }
+        .sheet(isPresented: onboardingBinding) {
+            OnboardingSheet {
+                hasCompletedOnboarding = true
+                onboardingStore.markCompleted()
+            }
+        }
     }
 
     // MARK: - Loading View
@@ -41,6 +65,33 @@ struct ContentView: View {
     private var loadingView: some View {
         ProgressView("Loading...")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var currentDataEnvironment: DataEnvironment {
+        dataEnvironmentOverride ?? DataEnvironment.current
+    }
+
+    private var activeOverlay: AppLaunchOverlay {
+        guard let runtime else { return .none }
+        return AppLaunchOverlayPolicy.overlay(
+            environment: currentDataEnvironment,
+            isSignedIn: runtime.authManager.state.isSignedIn,
+            hasCompletedOnboarding: hasCompletedOnboarding
+        )
+    }
+
+    private var blockingAuthGateBinding: Binding<Bool> {
+        Binding(
+            get: { activeOverlay == .authGate },
+            set: { _ in }
+        )
+    }
+
+    private var onboardingBinding: Binding<Bool> {
+        Binding(
+            get: { activeOverlay == .onboarding },
+            set: { _ in }
+        )
     }
 
     // MARK: - Initialization
@@ -60,5 +111,8 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(dependencies: try! .makeForPreview())
+    ContentView(
+        dependencies: try! .makeForPreview(),
+        dataEnvironment: .localhost
+    )
 }
