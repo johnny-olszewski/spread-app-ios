@@ -402,6 +402,85 @@
   - Run the focused journal-manager, spread UI, and overdue-review suites added for SPRD-110 through SPRD-112.
 - **Dependencies**: SPRD-110, SPRD-111, SPRD-112
 
+### [SPRD-114] Quality: Localhost scenario UI test harness and fixtures
+- **Context**: The core migration, reassignment, Inbox, and overdue rules are now specified, but the current UI suite is still mostly navigation smoke tests and generic datasets.
+- **Description**: Build the localhost-backed scenario testing foundation needed for deterministic user-flow coverage.
+- **Implementation Details**:
+  - Add a shared UI-test harness for localhost launch, fixed-today injection, spread navigation, migration review actions, overdue review actions, and common assertions.
+  - Expand the mock data catalog with deterministic scenario-specific fixtures for assignment, Inbox, migration, reassignment, overdue, and note-exclusion cases.
+  - Keep test-only datasets hidden from normal debug-menu browsing while still selectable by launch argument.
+  - Add dedicated accessibility identifiers for all scenario-test-critical migration and overdue UI elements.
+- **Acceptance Criteria**:
+  - UI scenario tests no longer duplicate launch and navigation setup ad hoc.
+  - Scenario fixtures can reproduce migration and overdue states deterministically from launch arguments alone.
+  - Migration and overdue UI surfaces expose stable identifiers suitable for non-brittle UI assertions.
+- **Tests**:
+  - Add/adjust UI-test smoke coverage proving the harness can launch localhost scenario datasets and find the keyed surfaces.
+- **Dependencies**: SPRD-107, SPRD-110, SPRD-111, SPRD-112
+
+### [SPRD-115] Quality: Assignment, Inbox, and reassignment scenario UI tests
+- **Context**: Assignment fallback and edit-time reassignment are logic-heavy user flows that are currently covered more strongly at the unit level than at the integrated UI level.
+- **Description**: Add localhost scenario UI tests for creation-time assignment, Inbox routing, Inbox-to-spread resolution, and edit-time reassignment.
+- **Implementation Details**:
+  - Cover direct assignment to an existing spread during creation.
+  - Cover Inbox fallback when no matching spread exists.
+  - Cover Inbox-origin tasks becoming movable when a valid year/month/day spread becomes available.
+  - Cover edit-time preferred date/period changes, including relocated active placement and migrated-history visibility on the source spread.
+- **Acceptance Criteria**:
+  - User-visible assignment and reassignment outcomes are validated through the UI, not inferred only from unit tests.
+  - Source-spread migrated history is asserted for reassignment flows in conventional mode.
+  - Scenario tests remain deterministic through localhost fixtures and fixed `today` values.
+- **Tests**:
+  - Add UI scenario suites for assignment fallback, Inbox routing, Inbox resolution, and edit-time reassignment.
+- **Dependencies**: SPRD-114
+
+### [SPRD-116] Quality: Conventional migration review scenario UI tests
+- **Context**: Migration prompting is one of the most nuanced user-facing behaviors in conventional mode and now depends on desired assignment and destination-resolution rules.
+- **Description**: Add localhost scenario UI tests that exercise the full migration review flow end-to-end.
+- **Implementation Details**:
+  - Cover month-bounded migration, day-destination superseding month prompts, and Inbox-source migration.
+  - Assert banner visibility and absence on invalid destinations.
+  - Assert full review-sheet behavior: sectioning by source, source/destination labels, preselected rows, confirm action, and post-submit sheet behavior.
+  - Keep stale-row revalidation primarily unit-tested; UI tests focus on the normal end-to-end flow.
+- **Acceptance Criteria**:
+  - The UI suite proves the “most granular valid existing destination” rule from user-visible behavior.
+  - Review-sheet interaction is covered end-to-end for conventional migration.
+  - Notes are explicitly absent from migration review scenarios.
+- **Tests**:
+  - Add migration-focused UI scenario suites for year→month, month→day, Inbox→spread, and disappearing coarser prompts.
+- **Dependencies**: SPRD-114, SPRD-115
+
+### [SPRD-117] Quality: Global overdue review scenario UI tests
+- **Context**: Overdue now has a global, mode-agnostic review surface whose thresholds depend on assignment granularity and Inbox fallback.
+- **Description**: Add localhost scenario UI tests for global overdue toolbar and review behavior.
+- **Implementation Details**:
+  - Cover day, month, and year overdue thresholds using fixed absolute dates.
+  - Cover Inbox overdue fallback using desired assignment.
+  - Assert yellow toolbar button visibility and count from any spread.
+  - Assert review-sheet grouping by current source assignment and row opening into task detail/edit UI.
+  - Include a traditional-mode scenario to confirm overdue remains available there while migration stays absent.
+- **Acceptance Criteria**:
+  - Overdue UI scenarios prove the assignment-granularity thresholds through visible outcomes.
+  - The overdue review sheet remains task-only and opens task detail/editing correctly.
+  - Traditional mode shows overdue review but never migration UI.
+- **Tests**:
+  - Add overdue-focused UI scenario suites for button count, grouping, Inbox fallback, and task-opening behavior.
+- **Dependencies**: SPRD-114
+
+### [SPRD-118] Quality: Scenario-matrix QA/docs alignment
+- **Context**: Once scenario UI coverage exists, the spec, plan, and QA material must reference the same required matrix so the suite does not drift.
+- **Description**: Align the required scenario matrix across docs and QA artifacts and prune any obsolete or overlapping guidance.
+- **Implementation Details**:
+  - Update QA docs to match the localhost scenario matrix exactly.
+  - Document the shared harness conventions and scenario fixture naming.
+  - Remove or rewrite older UI test guidance that assumes generic mock datasets are sufficient for logic-heavy flows.
+- **Acceptance Criteria**:
+  - Spec, plan, QA docs, and scenario fixtures describe the same set of required scenarios.
+  - Adding a new scenario follows a documented harness + fixture pattern instead of ad hoc test structure.
+- **Tests**:
+  - Run the full scenario UI suite plus the focused migration/overdue unit suites after the matrix lands.
+- **Dependencies**: SPRD-115, SPRD-116, SPRD-117
+
 ### [SPRD-102] Refactor (Highest Priority): Runtime naming normalization, phases 1-4 - [x]
 - **Context**: Naming in app bootstrap/runtime code is overloaded (`session`, `environment`, `container`) and conflicts with auth session terminology.
 - **Description**: Apply the naming normalization pass for phases 1-4 to make runtime assembly concepts explicit and reserve `session` for auth only.
