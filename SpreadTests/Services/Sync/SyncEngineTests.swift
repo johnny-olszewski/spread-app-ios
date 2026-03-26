@@ -34,7 +34,6 @@ struct SyncEngineTests {
         isSyncEnabled: Bool = true,
         isConnected: Bool = true,
         isSignedIn: Bool = true,
-        hasBackupEntitlement: Bool = true,
         policy: SyncPolicy = DefaultSyncPolicy()
     ) throws -> (engine: SyncEngine, container: ModelContainer, networkMonitor: MockNetworkMonitor, authManager: AuthManager) {
         let container = try ModelContainerFactory.makeInMemory()
@@ -43,10 +42,7 @@ struct SyncEngineTests {
         let authManager = AuthManager(service: MockAuthService())
 
         if isSignedIn {
-            authManager.setStateForTesting(
-                .signedIn(TestUserFactory.makeUser()),
-                hasBackupEntitlement: hasBackupEntitlement
-            )
+            authManager.setStateForTesting(.signedIn(TestUserFactory.makeUser()))
         }
 
         let engine = SyncEngine(
@@ -184,16 +180,6 @@ struct SyncEngineTests {
         #expect(engine.status == .idle)
     }
 
-    /// Conditions: User is signed in but lacks backup entitlement.
-    /// Expected: syncNow sets status to backupUnavailable.
-    @Test func syncNowSetsBackupUnavailableWithoutEntitlement() async throws {
-        let (engine, _, _, _) = try makeEngine(hasBackupEntitlement: false)
-
-        await engine.syncNow()
-
-        #expect(engine.status == .backupUnavailable)
-    }
-
     /// Conditions: Policy blocks sync.
     /// Expected: syncNow is a no-op, status remains idle.
     @Test func syncNowNoOpWhenPolicyBlocks() async throws {
@@ -268,18 +254,6 @@ struct SyncEngineTests {
 
     // MARK: - Network Monitor Integration
 
-    /// Conditions: Network monitor reports disconnected.
-    /// Expected: startAutoSync does not crash and status reflects offline when sync attempted.
-    @Test func startAutoSyncWithoutEntitlementSetsBackupUnavailable() throws {
-        let (engine, _, _, _) = try makeEngine(hasBackupEntitlement: false)
-
-        engine.startAutoSync()
-
-        #expect(engine.status == .backupUnavailable)
-
-        engine.stopAutoSync()
-    }
-
     /// Conditions: Sync is disabled.
     /// Expected: startAutoSync is a no-op.
     @Test func startAutoSyncNoOpWhenDisabled() throws {
@@ -305,7 +279,7 @@ private enum TestUserFactory {
         {
             "id": "\(id.uuidString)",
             "email": "\(email)",
-            "appMetadata": {"backup_entitled": true},
+            "appMetadata": {},
             "userMetadata": {},
             "aud": "authenticated",
             "createdAt": "2024-01-01T00:00:00Z",

@@ -16,7 +16,7 @@ struct SyncStatusView: View {
     }
 
     private var iconForegroundStyle: some ShapeStyle {
-        syncEngine.status.isBackupUnavailable ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary)
+        syncEngine.status.isError ? AnyShapeStyle(.red) : AnyShapeStyle(.primary)
     }
 
     private var accessibilityLabel: String {

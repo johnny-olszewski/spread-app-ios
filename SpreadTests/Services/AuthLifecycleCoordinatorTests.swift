@@ -8,51 +8,15 @@ struct AuthLifecycleCoordinatorTests {
 
     // MARK: - Test Helpers
 
-    /// Shared mutable state for the test migration store.
-    ///
-    /// @unchecked Sendable: Test-only helper with unprotected mutable state. Safe because
-    /// tests run serially on `@MainActor` and the closure capturing this is `@Sendable` only
-    /// to satisfy the protocol requirement.
-    private final class MigrationStoreState: @unchecked Sendable {
-        private var migratedUserIds: Set<UUID> = []
-
-        func insert(_ id: UUID) {
-            migratedUserIds.insert(id)
-        }
-
-        func contains(_ id: UUID) -> Bool {
-            migratedUserIds.contains(id)
-        }
-    }
-
-    private struct TestMigrationStore: MigrationStoreProtocol {
-        private let store: MigrationStoreState
-
-        init(store: MigrationStoreState = MigrationStoreState()) {
-            self.store = store
-        }
-
-        func hasMigrated(userId: UUID) -> Bool {
-            store.contains(userId)
-        }
-
-        func markMigrated(userId: UUID) {
-            store.insert(userId)
-        }
-    }
-
     private func makeCoordinator(
         authManager: AuthManager? = nil,
         syncEngine: SyncEngine? = nil,
-        journalManager: JournalManager? = nil,
-        migrationStore: MigrationStoreProtocol? = nil,
-        migrationStoreState: MigrationStoreState? = nil
+        journalManager: JournalManager? = nil
     ) async throws -> (
         coordinator: AuthLifecycleCoordinator,
         authManager: AuthManager,
         syncEngine: SyncEngine,
-        journalManager: JournalManager,
-        migrationStoreState: MigrationStoreState
+        journalManager: JournalManager
     ) {
         let auth = authManager ?? AuthManager(service: MockAuthService())
         let manager: JournalManager
@@ -70,180 +34,68 @@ struct AuthLifecycleCoordinatorTests {
             deviceId: UUID(),
             isSyncEnabled: false
         )
-        let storeState = migrationStoreState ?? MigrationStoreState()
-        let store = migrationStore ?? TestMigrationStore(store: storeState)
 
         let coordinator = AuthLifecycleCoordinator(
             authManager: auth,
             syncEngine: engine,
-            journalManager: manager,
-            migrationStore: store
-        )
-
-        return (coordinator, auth, engine, manager, storeState)
-    }
-
-    // MARK: - Sign-In Without Entitlement
-
-    /// Conditions: User is signed in but does not have backup entitlement.
-    /// Expected: Sync status should be set to backupUnavailable and local data untouched.
-    @Test func testSignedInWithoutEntitlementSetsBackupUnavailable() async throws {
-        let manager = try await JournalManager.make()
-        let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
-        try await manager.spreadRepository.save(spread)
-
-        let (coordinator, authManager, syncEngine, _, _) = try await makeCoordinator(
             journalManager: manager
         )
-        let userId = UUID()
-        authManager.configureForTesting(
-            state: .signedIn(makeTestUser(id: userId)),
-            hasBackupEntitlement: false
-        )
+
+        return (coordinator, auth, engine, manager)
+    }
+
+    // MARK: - Sign-In Starts Sync
+
+    /// Conditions: User signs in.
+    /// Expected: Auto-sync should be started.
+    @Test func signedInStartsAutoSync() async throws {
+        let (coordinator, authManager, syncEngine, _) = try await makeCoordinator()
+        authManager.configureForTesting(state: .signedIn(makeTestUser()))
 
         await coordinator.handleSignedIn()
 
-        #expect(syncEngine.status == .backupUnavailable)
-        #expect(!coordinator.isShowingMigrationPrompt)
-        #expect(await manager.hasLocalData())
+        // SyncEngine is disabled (isSyncEnabled: false), so status remains localOnly
+        // The key behavior is that startAutoSync was called without crashing.
+        #expect(syncEngine.status == .localOnly)
     }
 
-    // MARK: - Sign-In With Entitlement, No Local Data, Not Migrated
+    // MARK: - Initial Auth State Signed In
 
-    /// Conditions: User signs in with entitlement, no local data, not previously migrated.
-    /// Expected: Should mark as migrated and not show migration prompt.
-    @Test func testSignedInWithEntitlementNoLocalDataMarksMigrated() async throws {
-        let (coordinator, authManager, _, _, storeState) = try await makeCoordinator()
-        let userId = UUID()
-        authManager.configureForTesting(
-            state: .signedIn(makeTestUser(id: userId)),
-            hasBackupEntitlement: true
-        )
+    /// Conditions: App launches with an existing session.
+    /// Expected: handleInitialAuthState triggers handleSignedIn flow.
+    @Test func initialAuthStateSignedInTriggersSync() async throws {
+        let (coordinator, authManager, syncEngine, _) = try await makeCoordinator()
+        authManager.configureForTesting(state: .signedIn(makeTestUser()))
 
-        await coordinator.handleSignedIn()
+        await coordinator.handleInitialAuthState()
 
-        #expect(storeState.contains(userId))
-        #expect(!coordinator.isShowingMigrationPrompt)
+        #expect(syncEngine.status == .localOnly)
     }
 
-    // MARK: - Sign-In With Entitlement, Has Local Data, Not Migrated
+    // MARK: - Initial Auth State Signed Out
 
-    /// Conditions: User signs in with entitlement and local data exists, not previously migrated.
-    /// Expected: Should show migration prompt.
-    @Test func testSignedInWithEntitlementAndLocalDataShowsPrompt() async throws {
+    /// Conditions: App launches without a session.
+    /// Expected: handleInitialAuthState is a no-op.
+    @Test func initialAuthStateSignedOutIsNoOp() async throws {
+        let (coordinator, authManager, syncEngine, _) = try await makeCoordinator()
+        authManager.configureForTesting(state: .signedOut)
+
+        await coordinator.handleInitialAuthState()
+
+        // Status should remain at the default (localOnly since isSyncEnabled: false)
+        #expect(syncEngine.status == .localOnly)
+    }
+
+    // MARK: - Sign-Out Clears Data
+
+    /// Conditions: User signs out with local data.
+    /// Expected: Local data is wiped and sync state is reset.
+    @Test func signOutClearsDataAndResetsSyncState() async throws {
         let manager = try await JournalManager.make()
         let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
         try await manager.spreadRepository.save(spread)
 
-        let (coordinator, authManager, _, _, _) = try await makeCoordinator(
-            journalManager: manager
-        )
-        let userId = UUID()
-        authManager.configureForTesting(
-            state: .signedIn(makeTestUser(id: userId)),
-            hasBackupEntitlement: true
-        )
-
-        await coordinator.handleSignedIn()
-
-        #expect(coordinator.isShowingMigrationPrompt)
-        #expect(coordinator.pendingMigrationUser == userId)
-    }
-
-    // MARK: - Sign-In With Entitlement, Already Migrated
-
-    /// Conditions: User signs in with entitlement, previously migrated.
-    /// Expected: Should not show migration prompt, should proceed to sync.
-    @Test func testSignedInAlreadyMigratedSkipsPrompt() async throws {
-        let storeState = MigrationStoreState()
-        let userId = UUID()
-        storeState.insert(userId)
-        let store = TestMigrationStore(store: storeState)
-
-        let (coordinator, authManager, _, _, _) = try await makeCoordinator(
-            migrationStore: store
-        )
-        authManager.configureForTesting(
-            state: .signedIn(makeTestUser(id: userId)),
-            hasBackupEntitlement: true
-        )
-
-        await coordinator.handleSignedIn()
-
-        #expect(!coordinator.isShowingMigrationPrompt)
-    }
-
-    // MARK: - Migration Decision: Merge
-
-    /// Conditions: User chooses to merge local data.
-    /// Expected: Should mark as migrated and dismiss prompt.
-    @Test func testMergeDecisionMarksMigratedAndDismisses() async throws {
-        let storeState = MigrationStoreState()
-        let manager = try await JournalManager.make()
-        let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
-        try await manager.spreadRepository.save(spread)
-
-        let (coordinator, authManager, _, _, _) = try await makeCoordinator(
-            journalManager: manager,
-            migrationStoreState: storeState
-        )
-        let userId = UUID()
-        authManager.configureForTesting(
-            state: .signedIn(makeTestUser(id: userId)),
-            hasBackupEntitlement: true
-        )
-
-        await coordinator.handleSignedIn()
-        #expect(coordinator.isShowingMigrationPrompt)
-
-        await coordinator.handleMigrationDecision(.merge)
-
-        #expect(!coordinator.isShowingMigrationPrompt)
-        #expect(coordinator.pendingMigrationUser == nil)
-        #expect(storeState.contains(userId))
-    }
-
-    // MARK: - Migration Decision: Discard
-
-    /// Conditions: User chooses to discard local data.
-    /// Expected: Should clear local data, mark as migrated, and dismiss prompt.
-    @Test func testDiscardDecisionClearsDataAndMarksMigrated() async throws {
-        let storeState = MigrationStoreState()
-        let manager = try await JournalManager.make()
-        let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
-        try await manager.spreadRepository.save(spread)
-
-        let (coordinator, authManager, _, _, _) = try await makeCoordinator(
-            journalManager: manager,
-            migrationStoreState: storeState
-        )
-        let userId = UUID()
-        authManager.configureForTesting(
-            state: .signedIn(makeTestUser(id: userId)),
-            hasBackupEntitlement: true
-        )
-
-        await coordinator.handleSignedIn()
-        #expect(coordinator.isShowingMigrationPrompt)
-
-        await coordinator.handleMigrationDecision(.discard)
-
-        #expect(!coordinator.isShowingMigrationPrompt)
-        #expect(coordinator.pendingMigrationUser == nil)
-        #expect(storeState.contains(userId))
-        #expect(await manager.hasLocalData() == false)
-    }
-
-    // MARK: - Sign-Out
-
-    /// Conditions: User signs out.
-    /// Expected: Should clear local data and reset sync.
-    @Test func testSignOutClearsDataAndResetsSyncState() async throws {
-        let manager = try await JournalManager.make()
-        let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
-        try await manager.spreadRepository.save(spread)
-
-        let (coordinator, _, syncEngine, _, _) = try await makeCoordinator(
+        let (coordinator, _, syncEngine, _, ) = try await makeCoordinator(
             journalManager: manager
         )
         syncEngine.status = .synced(.now)
@@ -254,45 +106,30 @@ struct AuthLifecycleCoordinatorTests {
         #expect(await manager.hasLocalData() == false)
     }
 
-    // MARK: - Reentrancy Guard
+    // MARK: - Sign-In Without User Is No-Op
 
-    /// Conditions: handleSignedIn is called twice for the same user with a pending prompt.
-    /// Expected: Second call should be a no-op.
-    @Test func testDuplicateSignInCallIsNoOp() async throws {
-        let manager = try await JournalManager.make()
-        let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
-        try await manager.spreadRepository.save(spread)
-
-        let (coordinator, authManager, _, _, _) = try await makeCoordinator(
-            journalManager: manager
-        )
-        let userId = UUID()
-        authManager.configureForTesting(
-            state: .signedIn(makeTestUser(id: userId)),
-            hasBackupEntitlement: true
-        )
-
-        await coordinator.handleSignedIn()
-        #expect(coordinator.isShowingMigrationPrompt)
-
-        // Second call should not change state
-        await coordinator.handleSignedIn()
-        #expect(coordinator.isShowingMigrationPrompt)
-        #expect(coordinator.pendingMigrationUser == userId)
-    }
-
-    // MARK: - User ID guard
-
-    /// Conditions: handleSignedIn is called without a signed-in user.
-    /// Expected: Should be a no-op.
-    @Test func testHandleSignedInWithoutUserIsNoOp() async throws {
-        let (coordinator, authManager, syncEngine, _, _) = try await makeCoordinator()
+    /// Conditions: handleSignedIn is called without a signed-in user (shouldn't normally happen).
+    /// Expected: Auto-sync is still started (coordinator doesn't guard on auth state).
+    @Test func handleSignedInWithoutUserStartsAutoSync() async throws {
+        let (coordinator, authManager, syncEngine, _) = try await makeCoordinator()
         authManager.configureForTesting(state: .signedOut)
 
         await coordinator.handleSignedIn()
 
-        #expect(!coordinator.isShowingMigrationPrompt)
-        #expect(syncEngine.status != .backupUnavailable)
+        #expect(syncEngine.status == .localOnly)
+    }
+
+    // MARK: - Wire Auth Callbacks
+
+    /// Conditions: wireAuthCallbacks is called.
+    /// Expected: onSignIn and onSignOut callbacks are set on the auth manager.
+    @Test func wireAuthCallbacksSetsCallbacks() async throws {
+        let (coordinator, authManager, _, _) = try await makeCoordinator()
+
+        coordinator.wireAuthCallbacks()
+
+        #expect(authManager.onSignIn != nil)
+        #expect(authManager.onSignOut != nil)
     }
 
     // MARK: - Helpers
@@ -300,7 +137,7 @@ struct AuthLifecycleCoordinatorTests {
     /// Creates a minimal User for testing by decoding from JSON.
     ///
     /// Supabase `User` has no public initializer, so we create via JSON.
-    private func makeTestUser(id: UUID) -> User {
+    private func makeTestUser(id: UUID = UUID()) -> User {
         let json = """
         {
             "id": "\(id.uuidString)",

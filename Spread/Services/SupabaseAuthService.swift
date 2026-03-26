@@ -1,5 +1,3 @@
-import AuthenticationServices
-import CryptoKit
 import Supabase
 
 /// Production auth service that authenticates with Supabase.
@@ -33,10 +31,7 @@ struct SupabaseAuthService: AuthService {
     func checkSession() async -> AuthSuccess? {
         do {
             let session = try await client.auth.session
-            return AuthSuccess(
-                user: session.user,
-                hasBackupEntitlement: readBackupEntitlement(from: session.user)
-            )
+            return AuthSuccess(user: session.user)
         } catch {
             return nil
         }
@@ -47,10 +42,7 @@ struct SupabaseAuthService: AuthService {
             email: email,
             password: password
         )
-        return AuthSuccess(
-            user: session.user,
-            hasBackupEntitlement: readBackupEntitlement(from: session.user)
-        )
+        return AuthSuccess(user: session.user)
     }
 
     func signUp(email: String, password: String) async throws -> AuthSuccess {
@@ -58,52 +50,14 @@ struct SupabaseAuthService: AuthService {
             email: email,
             password: password
         )
-        return AuthSuccess(
-            user: response.user,
-            hasBackupEntitlement: readBackupEntitlement(from: response.user)
-        )
+        return AuthSuccess(user: response.user)
     }
 
     func resetPassword(email: String) async throws {
         try await client.auth.resetPasswordForEmail(email)
     }
 
-    func signInWithApple(_ credential: ASAuthorizationAppleIDCredential) async throws -> AuthSuccess {
-        guard let identityTokenData = credential.identityToken,
-              let idToken = String(data: identityTokenData, encoding: .utf8) else {
-            throw AppleSignInError.missingIdentityToken
-        }
-
-        let session = try await client.auth.signInWithIdToken(
-            credentials: .init(
-                provider: .apple,
-                idToken: idToken
-            )
-        )
-        return AuthSuccess(
-            user: session.user,
-            hasBackupEntitlement: readBackupEntitlement(from: session.user)
-        )
-    }
-
-    func signInWithGoogle() async throws -> AuthSuccess {
-        let session = try await client.auth.signInWithOAuth(
-            provider: .google
-        )
-        return AuthSuccess(
-            user: session.user,
-            hasBackupEntitlement: readBackupEntitlement(from: session.user)
-        )
-    }
-
     func signOut() async throws {
         try await client.auth.signOut()
-    }
-
-    // MARK: - Helpers
-
-    /// Reads the backup entitlement flag from the user's app metadata.
-    private func readBackupEntitlement(from user: User) -> Bool {
-        user.appMetadata["backup_entitled"]?.boolValue ?? false
     }
 }

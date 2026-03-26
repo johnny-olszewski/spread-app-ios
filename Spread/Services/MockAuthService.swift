@@ -1,4 +1,3 @@
-import AuthenticationServices
 import struct Auth.User
 import Foundation
 
@@ -12,9 +11,6 @@ final class MockAuthService: AuthService {
 
     // MARK: - Configuration
 
-    /// Whether the mock user has backup entitlement.
-    var mockHasBackupEntitlement = true
-
     /// The mock user email (updated on sign-in).
     private(set) var currentEmail: String?
 
@@ -27,35 +23,12 @@ final class MockAuthService: AuthService {
 
     func signIn(email: String, password: String) async throws -> AuthSuccess {
         currentEmail = email
-        return AuthSuccess(
-            user: makeLocalhostUser(email: email),
-            hasBackupEntitlement: mockHasBackupEntitlement
-        )
+        return AuthSuccess(user: makeLocalhostUser(email: email))
     }
 
     func signUp(email: String, password: String) async throws -> AuthSuccess {
         currentEmail = email
-        return AuthSuccess(
-            user: makeLocalhostUser(email: email),
-            hasBackupEntitlement: mockHasBackupEntitlement
-        )
-    }
-
-    func signInWithApple(_ credential: ASAuthorizationAppleIDCredential) async throws -> AuthSuccess {
-        let email = credential.email ?? "apple-user@example.com"
-        currentEmail = email
-        return AuthSuccess(
-            user: makeLocalhostUser(email: email),
-            hasBackupEntitlement: mockHasBackupEntitlement
-        )
-    }
-
-    func signInWithGoogle() async throws -> AuthSuccess {
-        currentEmail = "google-user@example.com"
-        return AuthSuccess(
-            user: makeLocalhostUser(email: "google-user@example.com"),
-            hasBackupEntitlement: mockHasBackupEntitlement
-        )
+        return AuthSuccess(user: makeLocalhostUser(email: email))
     }
 
     func resetPassword(email: String) async throws {
@@ -74,7 +47,7 @@ final class MockAuthService: AuthService {
         {
             "id": "\(UUID().uuidString)",
             "email": "\(email)",
-            "appMetadata": {"backup_entitled": \(mockHasBackupEntitlement)},
+            "appMetadata": {},
             "userMetadata": {},
             "aud": "authenticated",
             "createdAt": "2024-01-01T00:00:00Z",

@@ -337,8 +337,6 @@ struct DebugMenuView: View {
                     .font(.caption)
                     .monospaced()
             }
-            LabeledContent("Backup Entitled", value: authManager.hasBackupEntitlement ? "Yes" : "No")
-
             Picker("Forced Auth Error", selection: forcedAuthErrorBinding) {
                 Text("None").tag(nil as ForcedAuthError?)
                 ForEach(ForcedAuthError.allCases, id: \.self) { error in
