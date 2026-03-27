@@ -74,6 +74,9 @@ private struct OverdueTaskRow: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(task.title)
                 .foregroundStyle(.primary)
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.Overdue.rowTitle(task.title)
+                )
 
             Text(detailText)
                 .font(.caption)

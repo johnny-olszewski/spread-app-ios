@@ -137,4 +137,35 @@ struct NoteMigrationExclusionTests {
 
         #expect(config.canMigrate == false)
     }
+
+    /// Condition: A note is assigned to an overdue spread alongside an overdue task.
+    /// Expected: only the task appears in overdue review items.
+    @Test("Overdue review excludes notes entirely")
+    func testOverdueReviewExcludesNotes() async throws {
+        let calendar = Self.testCalendar
+        let today = calendar.date(from: DateComponents(year: 2026, month: 1, day: 12))!
+        let pastDay = calendar.date(from: DateComponents(year: 2026, month: 1, day: 10))!
+        let daySpread = DataModel.Spread(period: .day, date: pastDay, calendar: calendar)
+
+        let task = DataModel.Task(title: "Overdue task", date: pastDay, period: .day, status: .open)
+        task.assignments = [
+            TaskAssignment(period: .day, date: pastDay, status: .open)
+        ]
+
+        let note = DataModel.Note(title: "Overdue note", date: pastDay, period: .day, status: .active)
+        note.assignments = [
+            NoteAssignment(period: .day, date: pastDay, status: .active)
+        ]
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: today,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            spreadRepository: InMemorySpreadRepository(spreads: [daySpread]),
+            noteRepository: InMemoryNoteRepository(notes: [note])
+        )
+
+        #expect(manager.overdueTaskItems.count == 1)
+        #expect(manager.overdueTaskItems.first?.task.id == task.id)
+    }
 }
