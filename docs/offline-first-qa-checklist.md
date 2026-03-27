@@ -152,3 +152,43 @@ Use these absolute-date scenarios when validating migration and overdue behavior
 | `January 12, 2026` | Task assigned to `January 2026` month | Task is not overdue yet. |
 | `February 1, 2026` | Task assigned to `January 2026` month | Task is overdue. |
 | `February 1, 2026` | Inbox task desired for `January 2026` month | Task is overdue via Inbox fallback. |
+
+## 5. Localhost Scenario Suite Reference
+
+Use the deterministic localhost fixtures for repeatable UI verification before relying on ad hoc manual setup.
+
+### 5.1 Shared Harness
+
+- UI scenario tests launch Debug with `-DataEnvironment localhost`
+- Each scenario supplies `-MockDataSet <scenarioName>` and a fixed `-Today <yyyy-mm-dd>`
+- Shared launch/navigation helpers live in `SpreadUITests/ScenarioTestSupport.swift`
+
+### 5.2 Scenario Fixtures
+
+- `scenarioAssignmentExistingSpread`
+- `scenarioAssignmentInboxFallback`
+- `scenarioInboxResolution`
+- `scenarioMigrationMonthBound`
+- `scenarioMigrationDayUpgrade`
+- `scenarioMigrationDaySuperseded`
+- `scenarioReassignment`
+- `scenarioOverdueReview`
+- `scenarioOverdueInbox`
+- `scenarioTraditionalOverdue`
+- `scenarioNoteExclusions`
+
+### 5.3 Expected UI Suites
+
+- `SpreadUITests/AssignmentScenarioUITests.swift`
+- `SpreadUITests/ReassignmentScenarioUITests.swift`
+- `SpreadUITests/MigrationScenarioUITests.swift`
+- `SpreadUITests/OverdueScenarioUITests.swift`
+
+### 5.4 Focused Supporting Unit Coverage
+
+- `SpreadTests/JournalManager/InboxTests.swift`
+- `SpreadTests/JournalManager/JournalManagerTaskCRUDTests.swift`
+- `SpreadTests/JournalManager/LifecycleLoggingTests.swift`
+- `SpreadTests/JournalManager/NoteMigrationExclusionTests.swift`
+
+Use the unit-side note exclusion coverage for overdue/task-only enforcement where the overdue sheet rows are not distinct enough for stable XCTest targeting.
