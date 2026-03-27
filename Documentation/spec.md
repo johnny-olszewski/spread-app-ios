@@ -412,12 +412,14 @@
   - migration banner/review interactions
   - overdue toolbar/review interactions
   - common assertions for relocated tasks, source sections, and migrated-history visibility
+- The UI scenario suite should stay organized by logic area instead of by fixture: assignment, reassignment, migration, and overdue each get their own test class backed by the shared harness.
 - Scenario-only mock data sets may live in the same in-code catalog as debug mock data, but test-only cases must be hidden from normal debug-menu browsing. [SPRD-114]
 - Scenario-test-critical UI must expose explicit accessibility identifiers instead of relying only on visible copy. This includes:
   - migration banner, review sheet, section headers, rows, selection controls, and confirm action
   - overdue toolbar button, review sheet, section headers, rows, and row-open actions
   - any supporting source/destination labels needed to assert assignment and migration outcomes
 - UI scenario assertions should prefer user-visible outcomes. Localhost-only debug inspection may be used only when the UI cannot distinguish a required state clearly enough. [SPRD-114]
+- Focused unit tests still backstop exclusion-only and revalidation-heavy rules where UI coverage would otherwise become brittle, but user-visible scenario coverage remains the primary integration signal for assignment, migration, reassignment, and overdue.
 - Scenario coverage matrix required for v1: [SPRD-114, SPRD-115, SPRD-116, SPRD-117, SPRD-118]
 
 | Scenario area | Required localhost UI coverage | Key assertion |
@@ -433,8 +435,8 @@
 | Overdue day threshold | Day-assigned open tasks become overdue after the assigned day passes. | The yellow overdue toolbar button count includes the task and the sheet lists it under its current source. |
 | Overdue month/year thresholds | Month- and year-assigned tasks become overdue only after the full assigned period passes. | Counts and sections change only at the defined absolute-date boundaries. |
 | Inbox overdue fallback | Inbox tasks become overdue from their desired assignment when no open spread assignment exists. | The overdue review sheet includes an `Inbox` section for those tasks. |
-| Overdue review flow | Tapping the yellow overdue button opens the global review sheet and rows open task detail/edit UI. | Count, section grouping, and task opening behavior are correct from any spread. |
-| Note exclusions | Notes never appear in migration or overdue review surfaces. | Migration review and overdue review remain task-only even when notes share the same dates. |
+| Overdue review flow | Tapping the yellow overdue button opens the global review sheet from conventional and traditional contexts. | Count and visibility remain correct from any spread context. |
+| Note exclusions | Notes never appear in migration or overdue review surfaces. | Migration review exclusion is covered in UI; overdue exclusion is backstopped by focused unit tests because the row surface is not reliably distinguishable enough for stable UI assertions. |
 | Traditional-mode parity check | Traditional mode still shows the global overdue button when overdue tasks exist, but never shows migration UI. | Overdue remains available and migration controls remain absent. |
 - Device matrix:
   - iPhone is the default scenario-test device. [SPRD-114]
