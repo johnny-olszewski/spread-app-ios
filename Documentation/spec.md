@@ -334,8 +334,8 @@
   - status changes that affect assignment history semantics
   - entry deletion, including assignment tombstones
 - Assignment deletion/removal must use soft-delete tombstones with revision updates; hard deletes are not a valid product sync path. [SPRD-120]
-- For the same entry and the same `(period, date)` destination, status changes update the same logical assignment record instead of creating duplicate assignment-history rows. [SPRD-119]
-- Assignment records require durable IDs so updates and tombstones can target the same logical assignment across devices and reinstalls. [SPRD-119]
+- For the same entry and the same `(period, date)` destination, status changes update the same logical assignment record instead of creating duplicate assignment-history rows. [SPRD-120]
+- Assignment records require durable IDs so updates and tombstones can target the same logical assignment across devices and reinstalls. [SPRD-120]
 - Assignment outbox invariants: [SPRD-120]
   - assignment mutations must be enqueued on every assignment-changing save path
   - parent task/note mutations must push before child assignment mutations when both are pending
@@ -467,7 +467,7 @@
 | Overdue review flow | Tapping the yellow overdue button opens the global review sheet from conventional and traditional contexts. | Count and visibility remain correct from any spread context. |
 | Note exclusions | Notes never appear in migration or overdue review surfaces. | Migration review exclusion is covered in UI; overdue exclusion is backstopped by focused unit tests because the row surface is not reliably distinguishable enough for stable UI assertions. |
 | Traditional-mode parity check | Traditional mode still shows the global overdue button when overdue tasks exist, but never shows migration UI. | Overdue remains available and migration controls remain absent. |
-- Durability and rebuild matrix required for v1: [SPRD-119, SPRD-120, SPRD-121, SPRD-122]
+- Durability and rebuild matrix required for v1: [SPRD-119, SPRD-120, SPRD-121, SPRD-122, SPRD-123]
 
 | Scenario area | Required sync-enabled coverage | Key assertion |
 | --- | --- | --- |
@@ -483,7 +483,12 @@
 - Sync-enabled durability coverage is distinct from pure `localhost` UI scenarios:
   - `localhost` remains the required environment for deterministic logic/UI-only scenario tests.
   - Assignment durability, repair, and rebuild scenarios must run in a sync-enabled integration or UI test layer because pure `localhost` cannot validate server persistence.
-- Lower-level tests required alongside the user-facing rebuild scenarios: [SPRD-119, SPRD-120, SPRD-121]
+  - The preferred free-tier environment split is:
+    - `localhost` for UI logic scenarios
+    - local Supabase for destructive durability/rebuild/repair testing
+    - remote `spread-dev` for shared hosted QA
+    - remote `spread-prod` for production use
+- Lower-level tests required alongside the user-facing rebuild scenarios: [SPRD-120, SPRD-121]
   - durable assignment ID generation and persistence
   - assignment mutation enqueueing on every assignment-changing save path
   - assignment update vs create vs tombstone behavior

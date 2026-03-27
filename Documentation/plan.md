@@ -2628,7 +2628,31 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit: verify launch-time wipe logic calls `StoreWiper.wipeAll()` when `requiresWipeOnLaunch` returns true (if extractable into a testable function).
 - **Dependencies**: SPRD-96
 
-### [SPRD-119] Refactor: Durable assignment identity for sync rebuild fidelity
+### [SPRD-119] Infra: Local Supabase sync testing environment
+- **Context**: Pure `localhost` scenarios cannot validate server persistence. The durability bug requires isolated, repeatable, sync-enabled environments, but the chosen direction is to stay on the free tier, keep remote `spread-dev` / `spread-prod`, and add local Supabase for destructive durability testing.
+- **Description**: Establish the local-Supabase infrastructure, secrets/config, seed/reset tooling, test-account provisioning, and documentation required to run sync-enabled durability tests locally while preserving remote dev/prod for shared QA and production use.
+- **Implementation Details**:
+  - Keep `spread-dev` and `spread-prod` as the long-lived remote environments.
+  - Add local Supabase as the isolated sync-enabled environment for durability, rebuild, and repair testing.
+  - Define how the app and tests point to the local Supabase environment without affecting shared dev/prod credentials.
+  - Add automated local reset and seed tooling for deterministic test state.
+  - Add deterministic test-account provisioning for the local sync environment.
+  - Define secret/config handling for both local developer workflow and CI.
+  - Support automated sync-enabled tests against local Supabase, not just manual QA.
+  - Update all planning and operational documentation that describes environments, test setup, sync testing, and workflow boundaries between localhost, local Supabase, dev, and prod.
+- **Acceptance Criteria**:
+  - Engineers can start, reset, seed, and tear down a local Supabase environment for testing. (Spec: Persistence; Testing Strategy)
+  - App/test configuration can target local Supabase without changing shared dev/prod credentials. (Spec: Secrets and Configuration)
+  - Deterministic test users/accounts are provisioned for local sync testing. (Spec: Persistence)
+  - Automated sync-enabled tests can run against local Supabase locally and in CI. (Spec: Testing Strategy)
+  - Planning documentation is updated with concrete infrastructure details and workflow instructions. (Spec: Testing Strategy)
+- **Tests**:
+  - Script/integration verification for local Supabase start/reset/seed flows.
+  - Verification that app/test configs resolve the intended local credentials.
+  - Smoke validation that local Supabase can be seeded, signed into, and synced against from the app/test harness.
+- **Dependencies**: Existing remote `spread-dev` / `spread-prod` retained
+
+### [SPRD-120] Refactor: Durable assignment identity for sync rebuild fidelity
 - **Context**: Assignment history currently exists in local task/note models, but exact server-authoritative rebuilds require stable logical assignment identity across updates, tombstones, devices, and reinstalls.
 - **Description**: Introduce durable IDs for `TaskAssignment` and `NoteAssignment` and preserve that identity through local persistence, outbox serialization, pull/apply, and rebuild.
 - **Implementation Details**:
@@ -2644,9 +2668,9 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit tests for durable assignment ID creation and preservation through migration/reassignment/status changes.
   - Unit tests for serializer/deserializer round-trips preserving assignment IDs.
   - Unit tests confirming no duplicate logical assignment is created for repeated status updates to the same destination.
-- **Dependencies**: SPRD-110, SPRD-111
+- **Dependencies**: SPRD-110, SPRD-111, SPRD-119
 
-### [SPRD-120] Feature: Persist assignment mutations through outbox and sync
+### [SPRD-121] Feature: Persist assignment mutations through outbox and sync
 - **Context**: Full placement/history durability requires assignment rows to be pushed and tombstoned explicitly, not merely stored inside local task/note arrays.
 - **Description**: Enqueue and sync `task_assignments` and `note_assignments` on every assignment-changing save path, with correct parent-before-child ordering and soft-delete behavior.
 - **Implementation Details**:
@@ -2671,9 +2695,9 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit/integration tests for outbox enqueueing on each assignment-changing flow.
   - Sync-engine tests for assignment create/update/delete ordering and acknowledgement behavior.
   - Integration tests confirming server pull/apply reconstructs exact placement and history from synced assignment rows.
-- **Dependencies**: SPRD-119, SPRD-85
+- **Dependencies**: SPRD-120, SPRD-85, SPRD-119
 
-### [SPRD-121] Feature: Safe automatic backfill for missing server assignment rows
+### [SPRD-122] Feature: Safe automatic backfill for missing server assignment rows
 - **Context**: Existing signed-in users may already have valid local assignment history with zero corresponding server assignment rows due to the current bug.
 - **Description**: Add a once-per-entry, silent repair path that backfills full local assignment history to the server only when the server has zero assignment rows for that entry.
 - **Implementation Details**:
@@ -2695,9 +2719,9 @@ Supabase: SPRD-85A -> SPRD-85C
   - Tests confirming full local history is uploaded during repair.
   - Tests confirming repair does not run when the server already has any assignment row for the entry.
   - Tests confirming repair markers prevent repeated backfill for the same entry/account.
-- **Dependencies**: SPRD-119, SPRD-120
+- **Dependencies**: SPRD-120, SPRD-121, SPRD-119
 
-### [SPRD-122] Test/QA: Sync-enabled durability and rebuild coverage
+### [SPRD-123] Test/QA: Sync-enabled durability and rebuild coverage
 - **Context**: Pure `localhost` UI scenarios cannot validate server persistence. This bug class needs explicit sync-enabled rebuild coverage from the user’s perspective plus lower-level sync tests.
 - **Description**: Add a sync-enabled durability test layer and QA checklist coverage for exact placement/history rebuild after sync, local wipe, reinstall-equivalent rebuild, and cross-client parity.
 - **Implementation Details**:
@@ -2724,4 +2748,4 @@ Supabase: SPRD-85A -> SPRD-85C
   - Sync-enabled integration/UI scenario tests for the durability matrix.
   - Full-suite verification including the new durability coverage.
   - Updated manual QA checklists for rebuild/recovery scenarios.
-- **Dependencies**: SPRD-120, SPRD-121
+- **Dependencies**: SPRD-121, SPRD-122, SPRD-119
