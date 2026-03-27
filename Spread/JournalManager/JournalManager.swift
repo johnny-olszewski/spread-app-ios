@@ -1259,12 +1259,12 @@ final class JournalManager {
 
     /// Returns tasks that have an assignment on the given spread.
     private func tasksWithAssignment(on spread: DataModel.Spread) -> [DataModel.Task] {
-        tasks.filter { hasAssignment($0, for: spread) }
+        tasks.filter { hasSpreadAssociation($0, for: spread) }
     }
 
     /// Returns notes that have an assignment on the given spread.
     private func notesWithAssignment(on spread: DataModel.Spread) -> [DataModel.Note] {
-        notes.filter { hasAssignment($0, for: spread) }
+        notes.filter { hasSpreadAssociation($0, for: spread) }
     }
 
     /// Reassigns a task during spread deletion.
