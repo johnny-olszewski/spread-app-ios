@@ -460,9 +460,11 @@ struct DebugMenuView: View {
                 .scenarioInboxResolution,
                 .scenarioMigrationMonthBound,
                 .scenarioMigrationDayUpgrade,
+                .scenarioMigrationDaySuperseded,
                 .scenarioReassignment,
                 .scenarioOverdueReview,
                 .scenarioOverdueInbox,
+                .scenarioTraditionalOverdue,
                 .scenarioNoteExclusions:
             "testtube.2"
         }
