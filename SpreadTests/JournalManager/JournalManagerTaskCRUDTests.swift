@@ -252,6 +252,78 @@ struct JournalManagerTaskCRUDTests {
         #expect(existingTask.period == .year)
     }
 
+    /// Condition: An open task changes to a new date with a matching conventional spread.
+    /// Expected: The previous live assignment is marked migrated and the new spread becomes open.
+    @Test("Updating task date and period reassigns the live spread")
+    @MainActor
+    func testUpdateTaskDateAndPeriodReassignsLiveAssignment() async throws {
+        let calendar = Self.testCalendar
+        let sourceDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 12))!
+        let destinationDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 20))!
+        let sourceSpread = DataModel.Spread(period: .day, date: sourceDate, calendar: calendar)
+        let destinationSpread = DataModel.Spread(period: .day, date: destinationDate, calendar: calendar)
+        let existingTask = DataModel.Task(
+            title: "Reassign me",
+            createdDate: sourceDate,
+            date: sourceDate,
+            period: .day,
+            status: .open,
+            assignments: [TaskAssignment(period: .day, date: sourceDate, status: .open)]
+        )
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: sourceDate,
+            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
+            spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread, destinationSpread])
+        )
+
+        try await manager.updateTaskDateAndPeriod(existingTask, newDate: destinationDate, newPeriod: .day)
+
+        let updatedTask = try #require(manager.tasks.first { $0.id == existingTask.id })
+        #expect(updatedTask.date == destinationDate)
+        #expect(updatedTask.assignments.count == 2)
+        #expect(updatedTask.assignments.first(where: { $0.matches(period: .day, date: sourceDate, calendar: calendar) })?.status == .migrated)
+        #expect(updatedTask.assignments.first(where: { $0.matches(period: .day, date: destinationDate, calendar: calendar) })?.status == .open)
+
+        let sourceModel = try #require(manager.dataModel[.day]?[sourceDate])
+        let destinationModel = try #require(manager.dataModel[.day]?[destinationDate])
+        #expect(sourceModel.tasks.contains { $0.id == updatedTask.id })
+        #expect(destinationModel.tasks.contains { $0.id == updatedTask.id })
+    }
+
+    /// Condition: An open task changes to a date without a matching spread.
+    /// Expected: Existing live assignments become migrated and the task returns to Inbox.
+    @Test("Updating task date and period can move task back to Inbox")
+    @MainActor
+    func testUpdateTaskDateAndPeriodCanMoveTaskToInbox() async throws {
+        let calendar = Self.testCalendar
+        let sourceDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 12))!
+        let destinationDate = calendar.date(from: DateComponents(year: 2026, month: 2, day: 2))!
+        let sourceSpread = DataModel.Spread(period: .day, date: sourceDate, calendar: calendar)
+        let existingTask = DataModel.Task(
+            title: "Inbox me",
+            createdDate: sourceDate,
+            date: sourceDate,
+            period: .day,
+            status: .open,
+            assignments: [TaskAssignment(period: .day, date: sourceDate, status: .open)]
+        )
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: sourceDate,
+            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
+            spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread])
+        )
+
+        try await manager.updateTaskDateAndPeriod(existingTask, newDate: destinationDate, newPeriod: .day)
+
+        let updatedTask = try #require(manager.tasks.first { $0.id == existingTask.id })
+        #expect(updatedTask.date == destinationDate)
+        #expect(updatedTask.assignments.count == 1)
+        #expect(updatedTask.assignments.first?.status == .migrated)
+        #expect(manager.inboxEntries.contains { $0.id == existingTask.id })
+    }
+
     // MARK: - deleteTask Tests
 
     /// Condition: Delete an existing task.

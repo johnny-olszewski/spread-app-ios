@@ -35,9 +35,11 @@ struct InboxSheetView: View {
                         Button("Done") {
                             dismiss()
                         }
+                        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Inbox.doneButton)
                     }
                 }
         }
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Inbox.sheet)
     }
 
     // MARK: - Content

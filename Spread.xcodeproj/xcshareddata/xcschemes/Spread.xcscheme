@@ -39,7 +39,8 @@
             selected = "NO">
          </TestPlanReference>
          <TestPlanReference
-            reference = "container:AllUITests.xctestplan">
+            reference = "container:Spread.xcodeproj/xcshareddata/xctestplans/AllUITests.xctestplan"
+            selected = "NO">
          </TestPlanReference>
       </TestPlans>
       <Testables>

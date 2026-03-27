@@ -86,6 +86,7 @@ struct MigratedEntriesSection: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.migratedSectionHeader)
     }
 
     // MARK: - Rows
