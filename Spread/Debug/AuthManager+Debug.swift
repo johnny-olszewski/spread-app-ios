@@ -1,4 +1,3 @@
-#if DEBUG
 /// Debug-only helpers for previews and testing.
 extension AuthManager {
     /// Creates an AuthManager with a mock service for previews.
@@ -11,4 +10,3 @@ extension AuthManager {
         setStateForTesting(state)
     }
 }
-#endif
