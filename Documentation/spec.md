@@ -316,6 +316,35 @@
 - In product environments, users without a valid session are blocked by the auth gate instead of entering a local-only app state. [SPRD-106]
 - In debug `localhost`, sync is fully disabled and all persistence is local-only for that run. [SPRD-107]
 - Toolbar sync status is icon-only; any status copy is shown in main content (not in the toolbar). Use a minimal, visible banner or status line near the top of the main spreads content. [SPRD-85]
+- Assignment durability is a product requirement, not a local cache best-effort. [SPRD-119, SPRD-120, SPRD-121]
+  - `task_assignments` and `note_assignments` are first-class synced records.
+  - After successful sync, the server must be able to rebuild the exact same current placement and the exact same assignment history for the signed-in user.
+  - This includes current spread or Inbox placement plus historical migrated/completed/cancelled task assignments and active/migrated note assignments.
+  - This guarantee must hold after:
+    - deleting the app, reinstalling, and signing back into the same account
+    - signing out, then signing back into the same account
+    - rebuilding a clean second device from synced server state
+    - wiping the local store and pulling from server again
+- Every user action that changes assignment state/history must enqueue and sync the corresponding assignment mutations. [SPRD-120]
+  - creation with direct spread assignment
+  - Inbox fallback creation
+  - migration
+  - preferred date/period edits that cause reassignment
+  - spread deletion reassignment to parent or Inbox
+  - status changes that affect assignment history semantics
+  - entry deletion, including assignment tombstones
+- Assignment deletion/removal must use soft-delete tombstones with revision updates; hard deletes are not a valid product sync path. [SPRD-120]
+- For the same entry and the same `(period, date)` destination, status changes update the same logical assignment record instead of creating duplicate assignment-history rows. [SPRD-119]
+- Assignment records require durable IDs so updates and tombstones can target the same logical assignment across devices and reinstalls. [SPRD-119]
+- Assignment outbox invariants: [SPRD-120]
+  - assignment mutations must be enqueued on every assignment-changing save path
+  - parent task/note mutations must push before child assignment mutations when both are pending
+  - assignment create/update/delete mutations remain in the outbox until the server acknowledges them
+- Safe repair/backfill for already-broken assignment sync is required. [SPRD-121]
+  - In sync-enabled signed-in environments, the app may automatically and silently repair a task or note when the local model has assignment history but the server has zero assignment rows for that entry.
+  - Repair uploads the full local assignment history for that entry, not just the current open/active assignment.
+  - Repair runs at most once per entry per account and is logged internally, but it is silent in product UX.
+  - If the server already has any assignment rows for that entry, no automatic reconciliation occurs.
 
 ### Supabase Sync + Auth (v1)
 - Supabase environments: separate dev and prod projects. Release builds are locked to prod. QA builds are locked to dev. Debug builds default to dev and may be launched in `localhost` for a single run via debug launch configuration or launch arguments. [SPRD-80, SPRD-105, SPRD-107]
@@ -438,6 +467,28 @@
 | Overdue review flow | Tapping the yellow overdue button opens the global review sheet from conventional and traditional contexts. | Count and visibility remain correct from any spread context. |
 | Note exclusions | Notes never appear in migration or overdue review surfaces. | Migration review exclusion is covered in UI; overdue exclusion is backstopped by focused unit tests because the row surface is not reliably distinguishable enough for stable UI assertions. |
 | Traditional-mode parity check | Traditional mode still shows the global overdue button when overdue tasks exist, but never shows migration UI. | Overdue remains available and migration controls remain absent. |
+- Durability and rebuild matrix required for v1: [SPRD-119, SPRD-120, SPRD-121, SPRD-122]
+
+| Scenario area | Required sync-enabled coverage | Key assertion |
+| --- | --- | --- |
+| Direct assignment durability | Create a task/note on an existing spread, sync, wipe local state, rebuild from server. | The entry returns on the same spread with the same assignment status/history. |
+| Inbox fallback durability | Create a task/note with no matching spread so it lands in Inbox, sync, wipe local state, rebuild from server. | The entry returns in Inbox with the same desired assignment and no phantom spread assignment. |
+| Migration durability | Migrate a task/note, sync, wipe local state, rebuild from server. | The destination remains active and the source spread still shows migrated history after rebuild. |
+| Reassignment durability | Edit preferred date/period to trigger reassignment, sync, wipe local state, rebuild from server. | The entry appears on the same destination, disappears from the old active list, and the old source history remains visible after rebuild. |
+| Spread deletion durability | Delete a spread that causes reassignment to parent or Inbox, sync, wipe local state, rebuild from server. | Reassigned destinations and preserved histories match the pre-wipe state exactly. |
+| Cross-device parity | Apply assignment-changing actions on one signed-in client, then rebuild a second clean client from server data. | The second client reproduces the same visible placement and source-history UI. |
+| Assignment tombstone durability | Delete an entry or remove/supersede an assignment path, sync, wipe local state, rebuild from server. | Removed assignments do not reappear and surviving history remains intact. |
+| Safe backfill recovery | Start from an entry with local assignment history and zero server assignment rows, run repair, then rebuild from server. | Full assignment history is backfilled once and survives subsequent rebuilds. |
+| Note parity | Repeat durability/rebuild scenarios for notes where assignment behavior exists. | `note_assignments` round-trip with the same guarantees as `task_assignments`. |
+- Sync-enabled durability coverage is distinct from pure `localhost` UI scenarios:
+  - `localhost` remains the required environment for deterministic logic/UI-only scenario tests.
+  - Assignment durability, repair, and rebuild scenarios must run in a sync-enabled integration or UI test layer because pure `localhost` cannot validate server persistence.
+- Lower-level tests required alongside the user-facing rebuild scenarios: [SPRD-119, SPRD-120, SPRD-121]
+  - durable assignment ID generation and persistence
+  - assignment mutation enqueueing on every assignment-changing save path
+  - assignment update vs create vs tombstone behavior
+  - push ordering between parent entries and child assignments
+  - exact pull/apply reconstruction of placement and history from server rows
 - Device matrix:
   - iPhone is the default scenario-test device. [SPRD-114]
   - Add a targeted iPad subset only for scenarios where layout or navigation behavior differs materially from iPhone. [SPRD-114]

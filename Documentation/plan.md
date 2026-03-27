@@ -2627,3 +2627,101 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit: coordinator transitions — empty outbox skips to `restartRequired`; non-empty outbox goes to `pendingConfirmation`.
   - Unit: verify launch-time wipe logic calls `StoreWiper.wipeAll()` when `requiresWipeOnLaunch` returns true (if extractable into a testable function).
 - **Dependencies**: SPRD-96
+
+### [SPRD-119] Refactor: Durable assignment identity for sync rebuild fidelity
+- **Context**: Assignment history currently exists in local task/note models, but exact server-authoritative rebuilds require stable logical assignment identity across updates, tombstones, devices, and reinstalls.
+- **Description**: Introduce durable IDs for `TaskAssignment` and `NoteAssignment` and preserve that identity through local persistence, outbox serialization, pull/apply, and rebuild.
+- **Implementation Details**:
+  - Extend local assignment models with durable IDs that survive status changes and rebuilds.
+  - Ensure assignment status changes for the same `(entry, period, date)` update the same logical assignment record instead of creating duplicates.
+  - Update serializers/deserializers so assignment IDs round-trip instead of generating fresh IDs per push.
+  - Update spread deletion, migration, reassignment, Inbox resolution, and status-change paths to preserve or create the correct durable assignment IDs.
+- **Acceptance Criteria**:
+  - Assignment records have durable IDs across devices and reinstalls. (Spec: Persistence)
+  - Status changes update the same logical assignment record for the same destination. (Spec: Persistence)
+  - Local rebuild from server rows restores assignment IDs and visible history correctly. (Spec: Persistence)
+- **Tests**:
+  - Unit tests for durable assignment ID creation and preservation through migration/reassignment/status changes.
+  - Unit tests for serializer/deserializer round-trips preserving assignment IDs.
+  - Unit tests confirming no duplicate logical assignment is created for repeated status updates to the same destination.
+- **Dependencies**: SPRD-110, SPRD-111
+
+### [SPRD-120] Feature: Persist assignment mutations through outbox and sync
+- **Context**: Full placement/history durability requires assignment rows to be pushed and tombstoned explicitly, not merely stored inside local task/note arrays.
+- **Description**: Enqueue and sync `task_assignments` and `note_assignments` on every assignment-changing save path, with correct parent-before-child ordering and soft-delete behavior.
+- **Implementation Details**:
+  - Audit all assignment-changing flows:
+    - direct creation onto spreads
+    - Inbox fallback creation
+    - migration
+    - preferred date/period reassignment
+    - spread deletion reassignment to parent or Inbox
+    - task/note status changes with assignment-history impact
+    - entry deletion
+  - Ensure each flow emits the required assignment creates, updates, and tombstones in the outbox.
+  - Preserve parent-entry-before-child-assignment push ordering.
+  - Ensure assignment removals are represented as soft-delete tombstones with revisions, not hard deletes.
+  - Verify note assignment sync is corrected symmetrically with task assignment sync.
+- **Acceptance Criteria**:
+  - Every assignment-changing user action enqueues the corresponding assignment mutations. (Spec: Persistence)
+  - `task_assignments` and `note_assignments` are populated server-side after sync for affected entries. (Spec: Persistence)
+  - Assignment tombstones propagate correctly and removed assignments do not reappear after rebuild. (Spec: Persistence)
+  - Parent entries push before child assignment rows when both are pending. (Spec: Persistence)
+- **Tests**:
+  - Unit/integration tests for outbox enqueueing on each assignment-changing flow.
+  - Sync-engine tests for assignment create/update/delete ordering and acknowledgement behavior.
+  - Integration tests confirming server pull/apply reconstructs exact placement and history from synced assignment rows.
+- **Dependencies**: SPRD-119, SPRD-85
+
+### [SPRD-121] Feature: Safe automatic backfill for missing server assignment rows
+- **Context**: Existing signed-in users may already have valid local assignment history with zero corresponding server assignment rows due to the current bug.
+- **Description**: Add a once-per-entry, silent repair path that backfills full local assignment history to the server only when the server has zero assignment rows for that entry.
+- **Implementation Details**:
+  - Run repair only in sync-enabled signed-in environments.
+  - Repair applies to both tasks and notes.
+  - Safe condition:
+    - local entry has assignment history
+    - server has zero assignment rows for that entry
+  - Upload the full local assignment history for the entry, not just the current open/active assignment.
+  - Record that repair has run once for the entry/account to avoid repeated backfills.
+  - Keep the repair silent in product UX; log internally for diagnostics.
+  - If the server already has any assignment rows for the entry, do not auto-reconcile.
+- **Acceptance Criteria**:
+  - Previously affected local histories can be backfilled to the server without user-visible repair UI. (Spec: Persistence)
+  - Repair runs at most once per entry/account. (Spec: Persistence)
+  - Entries with partial or non-empty server assignment state are not auto-overwritten. (Spec: Persistence)
+- **Tests**:
+  - Integration tests for task and note backfill when server has zero assignment rows.
+  - Tests confirming full local history is uploaded during repair.
+  - Tests confirming repair does not run when the server already has any assignment row for the entry.
+  - Tests confirming repair markers prevent repeated backfill for the same entry/account.
+- **Dependencies**: SPRD-119, SPRD-120
+
+### [SPRD-122] Test/QA: Sync-enabled durability and rebuild coverage
+- **Context**: Pure `localhost` UI scenarios cannot validate server persistence. This bug class needs explicit sync-enabled rebuild coverage from the user’s perspective plus lower-level sync tests.
+- **Description**: Add a sync-enabled durability test layer and QA checklist coverage for exact placement/history rebuild after sync, local wipe, reinstall-equivalent rebuild, and cross-client parity.
+- **Implementation Details**:
+  - Add sync-enabled scenario tests for:
+    - direct assignment durability
+    - Inbox fallback durability
+    - migration durability
+    - preferred date/period reassignment durability
+    - spread deletion reassignment durability
+    - assignment tombstone durability
+    - safe backfill recovery
+    - note parity for assignment durability
+  - Each durability scenario must verify both:
+    - current visible placement after rebuild
+    - migrated/source-history UI after rebuild where applicable
+  - Add at least one cross-client or clean-second-client reconstruction scenario.
+  - Keep the existing localhost scenario suite for logic/UI-only behavior; do not replace it.
+  - Update QA docs with explicit recovery scenarios: delete app/reinstall, sign-out/sign-in, clean second client, and local-store wipe/rebuild.
+- **Acceptance Criteria**:
+  - Sync-enabled tests cover exact placement/history rebuild for the defined durability scenarios. (Spec: Persistence; Testing Strategy)
+  - Rebuild assertions verify both active destination and source migrated-history visibility where applicable. (Spec: Persistence)
+  - QA/docs include explicit recovery verification steps for real-world user scenarios. (Spec: Persistence)
+- **Tests**:
+  - Sync-enabled integration/UI scenario tests for the durability matrix.
+  - Full-suite verification including the new durability coverage.
+  - Updated manual QA checklists for rebuild/recovery scenarios.
+- **Dependencies**: SPRD-120, SPRD-121
