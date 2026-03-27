@@ -236,8 +236,8 @@ private struct TaskSelectionRow: View {
             .padding(.vertical, 4)
             .contentShape(Rectangle())
             .accessibilityElement(children: .contain)
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Migration.row(task.title))
         }
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Migration.row(task.title))
         .buttonStyle(.plain)
     }
 }

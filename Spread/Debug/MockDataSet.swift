@@ -45,6 +45,9 @@ enum MockDataSet: String, CaseIterable {
     /// Hidden scenario fixture: day migration supersedes month prompt once created.
     case scenarioMigrationDayUpgrade
 
+    /// Hidden scenario fixture: finer day spread already exists, so month prompt is suppressed.
+    case scenarioMigrationDaySuperseded
+
     /// Hidden scenario fixture: task reassignment and migrated history.
     case scenarioReassignment
 
@@ -53,6 +56,9 @@ enum MockDataSet: String, CaseIterable {
 
     /// Hidden scenario fixture: overdue fallback for Inbox tasks.
     case scenarioOverdueInbox
+
+    /// Hidden scenario fixture: overdue remains available in traditional mode while migration stays absent.
+    case scenarioTraditionalOverdue
 
     /// Hidden scenario fixture: notes excluded from migration/overdue review.
     case scenarioNoteExclusions
@@ -76,9 +82,11 @@ enum MockDataSet: String, CaseIterable {
                 .scenarioInboxResolution,
                 .scenarioMigrationMonthBound,
                 .scenarioMigrationDayUpgrade,
+                .scenarioMigrationDaySuperseded,
                 .scenarioReassignment,
                 .scenarioOverdueReview,
                 .scenarioOverdueInbox,
+                .scenarioTraditionalOverdue,
                 .scenarioNoteExclusions:
             return false
         }
@@ -109,12 +117,16 @@ enum MockDataSet: String, CaseIterable {
             return "Scenario: Migration Month Bound"
         case .scenarioMigrationDayUpgrade:
             return "Scenario: Migration Day Upgrade"
+        case .scenarioMigrationDaySuperseded:
+            return "Scenario: Migration Day Superseded"
         case .scenarioReassignment:
             return "Scenario: Reassignment"
         case .scenarioOverdueReview:
             return "Scenario: Overdue Review"
         case .scenarioOverdueInbox:
             return "Scenario: Overdue Inbox"
+        case .scenarioTraditionalOverdue:
+            return "Scenario: Traditional Overdue"
         case .scenarioNoteExclusions:
             return "Scenario: Note Exclusions"
         }
@@ -145,12 +157,16 @@ enum MockDataSet: String, CaseIterable {
             return "Hidden UI-test fixture for desired-assignment-bounded migration."
         case .scenarioMigrationDayUpgrade:
             return "Hidden UI-test fixture for most-granular valid destination migration behavior."
+        case .scenarioMigrationDaySuperseded:
+            return "Hidden UI-test fixture where an existing day spread suppresses the month migration prompt."
         case .scenarioReassignment:
             return "Hidden UI-test fixture for edit-time reassignment and migrated history."
         case .scenarioOverdueReview:
             return "Hidden UI-test fixture for overdue review by assignment granularity."
         case .scenarioOverdueInbox:
             return "Hidden UI-test fixture for Inbox overdue fallback."
+        case .scenarioTraditionalOverdue:
+            return "Hidden UI-test fixture for overdue access in traditional mode without migration UI."
         case .scenarioNoteExclusions:
             return "Hidden UI-test fixture for note exclusion assertions."
         }
@@ -200,12 +216,16 @@ enum MockDataSet: String, CaseIterable {
             return generateScenarioMigrationMonthBound(calendar: calendar, today: today)
         case .scenarioMigrationDayUpgrade:
             return generateScenarioMigrationDayUpgrade(calendar: calendar, today: today)
+        case .scenarioMigrationDaySuperseded:
+            return generateScenarioMigrationDaySuperseded(calendar: calendar, today: today)
         case .scenarioReassignment:
             return generateScenarioReassignment(calendar: calendar, today: today)
         case .scenarioOverdueReview:
             return generateScenarioOverdueReview(calendar: calendar, today: today)
         case .scenarioOverdueInbox:
             return generateScenarioOverdueInbox(calendar: calendar, today: today)
+        case .scenarioTraditionalOverdue:
+            return generateScenarioTraditionalOverdue(calendar: calendar, today: today)
         case .scenarioNoteExclusions:
             return generateScenarioNoteExclusions(calendar: calendar, today: today)
         }

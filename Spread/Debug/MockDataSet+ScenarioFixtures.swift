@@ -117,6 +117,35 @@ extension MockDataSet {
         )
     }
 
+    func generateScenarioMigrationDaySuperseded(
+        calendar: Calendar,
+        today: Date
+    ) -> GeneratedData {
+        let yearStart = today.firstDayOfYear(calendar: calendar) ?? today
+        let monthStart = today.firstDayOfMonth(calendar: calendar) ?? today
+        let targetDay = futureScenarioDay(from: today, calendar: calendar)
+
+        return GeneratedData(
+            spreads: [
+                spread(.year, yearStart, calendar: calendar),
+                spread(.month, monthStart, calendar: calendar),
+                spread(.day, targetDay, calendar: calendar)
+            ],
+            tasks: [
+                task(
+                    title: "Day upgrade migration task",
+                    date: targetDay,
+                    period: .day,
+                    assignmentPeriod: .year,
+                    assignmentDate: yearStart,
+                    calendar: calendar
+                )
+            ],
+            events: [],
+            notes: []
+        )
+    }
+
     func generateScenarioReassignment(
         calendar: Calendar,
         today: Date
@@ -231,6 +260,46 @@ extension MockDataSet {
                     title: "Inbox overdue day task",
                     date: pastDay,
                     period: .day,
+                    calendar: calendar
+                )
+            ],
+            events: [],
+            notes: []
+        )
+    }
+
+    func generateScenarioTraditionalOverdue(
+        calendar: Calendar,
+        today: Date
+    ) -> GeneratedData {
+        let currentYearStart = today.firstDayOfYear(calendar: calendar) ?? today
+        let currentMonthStart = today.firstDayOfMonth(calendar: calendar) ?? today
+        let pastDay = calendar.date(byAdding: .day, value: -2, to: today) ?? today
+        let futureDay = futureScenarioDay(from: today, calendar: calendar)
+
+        return GeneratedData(
+            spreads: [
+                spread(.year, currentYearStart, calendar: calendar),
+                spread(.month, currentMonthStart, calendar: calendar),
+                spread(.day, futureDay, calendar: calendar),
+                spread(.day, pastDay, calendar: calendar),
+                spread(.day, today, calendar: calendar)
+            ],
+            tasks: [
+                task(
+                    title: "Traditional overdue task",
+                    date: pastDay,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: pastDay,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Traditional migration candidate",
+                    date: futureDay,
+                    period: .day,
+                    assignmentPeriod: .year,
+                    assignmentDate: currentYearStart,
                     calendar: calendar
                 )
             ],
