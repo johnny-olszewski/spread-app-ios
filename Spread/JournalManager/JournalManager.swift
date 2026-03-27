@@ -486,7 +486,7 @@ final class JournalManager {
         if spread.period == .multiday {
             return tasks.filter { $0.status != .cancelled && entryDateFallsWithinMultidayRange($0.date, spread: spread) }
         }
-        return tasks.filter { $0.status != .cancelled && hasAssignment($0, for: spread) }
+        return tasks.filter { $0.status != .cancelled && hasSpreadAssociation($0, for: spread) }
     }
 
     /// Returns notes that should appear on the given spread.
@@ -494,7 +494,7 @@ final class JournalManager {
         if spread.period == .multiday {
             return notes.filter { entryDateFallsWithinMultidayRange($0.date, spread: spread) }
         }
-        return notes.filter { hasAssignment($0, for: spread) }
+        return notes.filter { hasSpreadAssociation($0, for: spread) }
     }
 
     /// Checks whether a preferred date falls within a multiday spread's range.
@@ -512,12 +512,28 @@ final class JournalManager {
     /// Checks if a task has an assignment matching the given spread.
     private func hasAssignment(_ task: DataModel.Task, for spread: DataModel.Spread) -> Bool {
         task.assignments.contains { assignment in
+            assignment.status != .migrated &&
             assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
         }
     }
 
     /// Checks if a note has an assignment matching the given spread.
     private func hasAssignment(_ note: DataModel.Note, for spread: DataModel.Spread) -> Bool {
+        note.assignments.contains { assignment in
+            assignment.status != .migrated &&
+            assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
+        }
+    }
+
+    /// Checks if a task has any assignment, including migrated history, on the given spread.
+    private func hasSpreadAssociation(_ task: DataModel.Task, for spread: DataModel.Spread) -> Bool {
+        task.assignments.contains { assignment in
+            assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
+        }
+    }
+
+    /// Checks if a note has any assignment, including migrated history, on the given spread.
+    private func hasSpreadAssociation(_ note: DataModel.Note, for spread: DataModel.Spread) -> Bool {
         note.assignments.contains { assignment in
             assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
         }
@@ -558,11 +574,10 @@ final class JournalManager {
 
     // MARK: - Spread Management
 
-    /// Creates a new spread and auto-resolves matching inbox entries.
+    /// Creates a new spread.
     ///
-    /// After creating the spread, queries inbox entries that match the new
-    /// spread's period and date, creates initial assignments for them, and
-    /// persists changes to repositories.
+    /// Inbox entries are not auto-assigned on spread creation. Tasks remain in Inbox
+    /// until the user explicitly migrates them, and notes remain explicit-only.
     ///
     /// - Parameters:
     ///   - period: The period for the new spread.
@@ -570,25 +585,11 @@ final class JournalManager {
     /// - Returns: The newly created spread.
     /// - Throws: Repository errors if persistence fails.
     func addSpread(period: Period, date: Date) async throws -> DataModel.Spread {
-        // Create the new spread
         let spread = DataModel.Spread(period: period, date: date, calendar: calendar)
 
-        // Capture inbox entries BEFORE adding spread to the list
-        // (matching assignments could appear once the spread exists)
-        let entriesToResolve = inboxEntriesToResolve(for: spread)
-
-        // Save spread and add to local list
         try await spreadRepository.save(spread)
         spreads.append(spread)
 
-        // Auto-resolve captured inbox entries
-        try await assignEntriesToSpread(entriesToResolve, spread: spread)
-
-        // Reload all data to ensure state is synchronized
-        tasks = await taskRepository.getTasks()
-        notes = await noteRepository.getNotes()
-
-        // Rebuild data model and trigger UI update
         buildDataModel()
         dataVersion += 1
 
@@ -622,82 +623,6 @@ final class JournalManager {
         dataVersion += 1
 
         return spread
-    }
-
-    /// Finds inbox entries that would be resolved by the given spread.
-    ///
-    /// Checks which inbox entries would have this spread as their best match
-    /// if it were added to the spread list.
-    ///
-    /// - Parameter spread: The spread to check against.
-    /// - Returns: Array of entries that would be resolved by this spread.
-    private func inboxEntriesToResolve(for spread: DataModel.Spread) -> [any Entry] {
-        // Temporarily add spread to check which entries it would resolve
-        let spreadsWithNew = spreads + [spread]
-
-        var entriesToResolve: [any Entry] = []
-
-        for entry in inboxEntries {
-            if let task = entry as? DataModel.Task {
-                if let bestSpread = spreadService.findBestSpread(for: task, in: spreadsWithNew),
-                   bestSpread.id == spread.id {
-                    entriesToResolve.append(task)
-                }
-            } else if let note = entry as? DataModel.Note {
-                if let bestSpread = spreadService.findBestSpread(for: note, in: spreadsWithNew),
-                   bestSpread.id == spread.id {
-                    entriesToResolve.append(note)
-                }
-            }
-        }
-
-        return entriesToResolve
-    }
-
-    /// Assigns entries to the given spread.
-    ///
-    /// Creates initial assignments for tasks and notes.
-    ///
-    /// - Parameters:
-    ///   - entries: The entries to assign.
-    ///   - spread: The spread to assign them to.
-    private func assignEntriesToSpread(_ entries: [any Entry], spread: DataModel.Spread) async throws {
-        for entry in entries {
-            if let task = entry as? DataModel.Task {
-                try await assignTaskToSpread(task, spread: spread)
-            } else if let note = entry as? DataModel.Note {
-                try await assignNoteToSpread(note, spread: spread)
-            }
-        }
-        if !entries.isEmpty {
-            Self.logger.info(
-                "Inbox resolved: \(entries.count) entry(ies) assigned to \(spread.period.rawValue) spread"
-            )
-        }
-    }
-
-    /// Creates an assignment for a task on the given spread.
-    private func assignTaskToSpread(_ task: DataModel.Task, spread: DataModel.Spread) async throws {
-        let assignment = TaskAssignment(
-            period: spread.period,
-            date: spread.date,
-            status: .open
-        )
-        task.assignments.append(assignment)
-        try await taskRepository.save(task)
-        Self.logger.info("Assignment created: task \(task.id) → \(spread.period.rawValue) spread")
-    }
-
-    /// Creates an assignment for a note on the given spread.
-    private func assignNoteToSpread(_ note: DataModel.Note, spread: DataModel.Spread) async throws {
-        let assignment = NoteAssignment(
-            period: spread.period,
-            date: spread.date,
-            status: .active
-        )
-        note.assignments.append(assignment)
-        try await noteRepository.save(note)
-        Self.logger.info("Assignment created: note \(note.id) → \(spread.period.rawValue) spread")
     }
 
     // MARK: - Task Migration
@@ -1545,6 +1470,7 @@ final class JournalManager {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
         task.date = normalizedDate
         task.period = newPeriod
+        reassignTaskAfterDateChange(task)
 
         try await taskRepository.save(task)
         tasks = await taskRepository.getTasks()
@@ -1678,6 +1604,7 @@ final class JournalManager {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
         note.date = normalizedDate
         note.period = newPeriod
+        reassignNoteAfterDateChange(note)
 
         try await noteRepository.save(note)
         notes = await noteRepository.getNotes()
@@ -1686,5 +1613,70 @@ final class JournalManager {
 
         buildDataModel()
         dataVersion += 1
+    }
+
+    private func reassignTaskAfterDateChange(_ task: DataModel.Task) {
+        let destination = spreadService.findBestSpread(for: task, in: spreads)
+        let destinationStatus = task.status == .complete ? DataModel.Task.Status.complete : task.status
+
+        if let destination {
+            if let destinationIndex = task.assignments.firstIndex(where: { assignment in
+                assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
+            }) {
+                for index in task.assignments.indices where index != destinationIndex && task.assignments[index].status != .migrated {
+                    task.assignments[index].status = .migrated
+                }
+                task.assignments[destinationIndex].status = destinationStatus
+            } else {
+                migrateActiveTaskAssignmentsToHistory(task)
+                task.assignments.append(
+                    TaskAssignment(
+                        period: destination.period,
+                        date: destination.date,
+                        status: destinationStatus
+                    )
+                )
+            }
+        } else {
+            migrateActiveTaskAssignmentsToHistory(task)
+        }
+    }
+
+    private func reassignNoteAfterDateChange(_ note: DataModel.Note) {
+        let destination = spreadService.findBestSpread(for: note, in: spreads)
+
+        if let destination {
+            if let destinationIndex = note.assignments.firstIndex(where: { assignment in
+                assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
+            }) {
+                for index in note.assignments.indices where index != destinationIndex && note.assignments[index].status != .migrated {
+                    note.assignments[index].status = .migrated
+                }
+                note.assignments[destinationIndex].status = .active
+            } else {
+                migrateActiveNoteAssignmentsToHistory(note)
+                note.assignments.append(
+                    NoteAssignment(
+                        period: destination.period,
+                        date: destination.date,
+                        status: .active
+                    )
+                )
+            }
+        } else {
+            migrateActiveNoteAssignmentsToHistory(note)
+        }
+    }
+
+    private func migrateActiveTaskAssignmentsToHistory(_ task: DataModel.Task) {
+        for index in task.assignments.indices where task.assignments[index].status != .migrated {
+            task.assignments[index].status = .migrated
+        }
+    }
+
+    private func migrateActiveNoteAssignmentsToHistory(_ note: DataModel.Note) {
+        for index in note.assignments.indices where note.assignments[index].status != .migrated {
+            note.assignments[index].status = .migrated
+        }
     }
 }

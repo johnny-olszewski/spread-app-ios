@@ -279,8 +279,8 @@ struct InboxTests {
     // MARK: - Auto-Resolve Tests
 
     /// Conditions: A task is in the inbox and a matching day spread is added.
-    /// Expected: Inbox no longer contains the task.
-    @Test @MainActor func testAddSpreadAutoResolvesInboxTask() async throws {
+    /// Expected: The task remains in Inbox until the user explicitly migrates it.
+    @Test @MainActor func testAddSpreadLeavesInboxTaskUnassigned() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
         let task = DataModel.Task(
@@ -303,13 +303,14 @@ struct InboxTests {
         // Add a spread matching the task's date
         try await manager.addSpread(period: .day, date: taskDate)
 
-        // Task should be auto-resolved (no longer in inbox)
-        #expect(manager.inboxEntries.isEmpty)
+        #expect(manager.inboxEntries.count == 1)
+        let updatedTask = manager.tasks.first { $0.id == task.id }
+        #expect(updatedTask?.assignments.isEmpty == true)
     }
 
     /// Conditions: A note is in the inbox and a matching day spread is added.
-    /// Expected: Inbox no longer contains the note.
-    @Test @MainActor func testAddSpreadAutoResolvesInboxNote() async throws {
+    /// Expected: The note remains in Inbox until explicitly reassigned.
+    @Test @MainActor func testAddSpreadLeavesInboxNoteUnassigned() async throws {
         let calendar = Self.testCalendar
         let noteDate = Self.testDate
         let note = DataModel.Note(
@@ -332,13 +333,14 @@ struct InboxTests {
         // Add a spread matching the note's date
         try await manager.addSpread(period: .day, date: noteDate)
 
-        // Note should be auto-resolved (no longer in inbox)
-        #expect(manager.inboxEntries.isEmpty)
+        #expect(manager.inboxEntries.count == 1)
+        let updatedNote = manager.notes.first { $0.id == note.id }
+        #expect(updatedNote?.assignments.isEmpty == true)
     }
 
     /// Conditions: Two tasks and one note are in the inbox and a matching day spread is added.
-    /// Expected: Inbox is empty.
-    @Test @MainActor func testAddSpreadAutoResolvesMultipleInboxEntries() async throws {
+    /// Expected: Inbox still contains the entries until explicit migration/reassignment.
+    @Test @MainActor func testAddSpreadDoesNotResolveMultipleInboxEntries() async throws {
         let calendar = Self.testCalendar
         let date = Self.testDate
         let task1 = DataModel.Task(title: "Task 1", date: date, period: .day, assignments: [])
@@ -358,12 +360,12 @@ struct InboxTests {
 
         try await manager.addSpread(period: .day, date: date)
 
-        #expect(manager.inboxEntries.isEmpty)
+        #expect(manager.inboxEntries.count == 3)
     }
 
     /// Conditions: A task is in the inbox and a matching day spread is added.
-    /// Expected: Task receives one open assignment for the day period.
-    @Test @MainActor func testAddSpreadCreatesAssignmentsForResolvedEntries() async throws {
+    /// Expected: The matching day spread exposes the task as a migration candidate from Inbox.
+    @Test @MainActor func testAddSpreadExposesInboxTaskAsMigrationCandidate() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
         let task = DataModel.Task(
@@ -380,18 +382,17 @@ struct InboxTests {
             taskRepository: taskRepo
         )
 
-        try await manager.addSpread(period: .day, date: taskDate)
+        let spread = try await manager.addSpread(period: .day, date: taskDate)
 
-        // Check the task has an assignment now
-        let updatedTask = manager.tasks.first { $0.id == task.id }
-        #expect(updatedTask?.assignments.count == 1)
-        #expect(updatedTask?.assignments.first?.period == .day)
-        #expect(updatedTask?.assignments.first?.status == .open)
+        let candidates = manager.migrationCandidates(to: spread)
+        #expect(candidates.count == 1)
+        #expect(candidates.first?.task.id == task.id)
+        #expect(candidates.first?.sourceKey.kind == .inbox)
     }
 
     /// Conditions: A day task is in the inbox and a parent month spread is added.
-    /// Expected: Inbox clears and the task is assigned to the month spread.
-    @Test @MainActor func testAddSpreadAutoResolvesFromParentPeriod() async throws {
+    /// Expected: The task remains in Inbox and becomes migratable from the month spread.
+    @Test @MainActor func testAddSpreadMakesInboxTaskMigratableFromParentPeriod() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
         let task = DataModel.Task(
@@ -411,15 +412,12 @@ struct InboxTests {
         // Task in inbox
         #expect(manager.inboxEntries.count == 1)
 
-        // Add a month spread (parent of day)
-        try await manager.addSpread(period: .month, date: taskDate)
+        let spread = try await manager.addSpread(period: .month, date: taskDate)
 
-        // Task should be auto-resolved to month spread
-        #expect(manager.inboxEntries.isEmpty)
-
-        let updatedTask = manager.tasks.first { $0.id == task.id }
-        #expect(updatedTask?.assignments.count == 1)
-        #expect(updatedTask?.assignments.first?.period == .month)
+        #expect(manager.inboxEntries.count == 1)
+        let candidates = manager.migrationCandidates(to: spread)
+        #expect(candidates.count == 1)
+        #expect(candidates.first?.sourceKey.kind == .inbox)
     }
 
     /// Conditions: Add a spread to the manager.

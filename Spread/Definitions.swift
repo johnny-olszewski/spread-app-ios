@@ -59,6 +59,7 @@ struct Definitions {
         struct SpreadContent {
             static let title = "spreads.content.title"
             static let entryCounts = "spreads.content.entryCounts"
+            static let migratedSectionHeader = "spreads.content.migrated.section"
         }
 
         struct SpreadCreationSheet {
@@ -185,6 +186,16 @@ struct Definitions {
             static func row(_ taskTitle: String) -> String {
                 "overdue.sheet.row.\(token(taskTitle))"
             }
+
+            static func rowTitle(_ taskTitle: String) -> String {
+                "overdue.sheet.row.\(token(taskTitle)).title"
+            }
+        }
+
+        struct Inbox {
+            static let button = "inbox.toolbar.button"
+            static let sheet = "inbox.sheet"
+            static let doneButton = "inbox.sheet.done"
         }
 
         struct Settings {

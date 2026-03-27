@@ -45,6 +45,7 @@ struct InboxButton: View {
                 .foregroundStyle(buttonColor)
         }
         .accessibilityLabel(configuration.accessibilityLabel)
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Inbox.button)
     }
 
     // MARK: - Styling
