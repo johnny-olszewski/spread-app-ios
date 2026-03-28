@@ -1,0 +1,61 @@
+name: Local Supabase Smoke
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_PASSWORD_DEV: ${{ secrets.SUPABASE_DB_PASSWORD_DEV }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_DB_PASSWORD_DEV}" ]; then
+            echo "Missing required secret: SUPABASE_DB_PASSWORD_DEV" >&2
+            exit 1
+          fi
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Prepare local secret file
+        run: |
+          set -euo pipefail
+          TEST_PASSWORD="${{ secrets.SPREAD_LOCAL_TEST_PASSWORD }}"
+          if [ -z "${TEST_PASSWORD}" ]; then
+            TEST_PASSWORD="spread-local-pass"
+          fi
+          cat > supabase/.env.local <<EOF
+          SUPABASE_DB_PASSWORD_DEV="${SUPABASE_DB_PASSWORD_DEV}"
+          SPREAD_LOCAL_TEST_PASSWORD="${TEST_PASSWORD}"
+          EOF
+
+      - name: Bootstrap local schema from spread-dev
+        run: ./scripts/local-supabase.sh bootstrap-schema-from-dev
+
+      - name: Start local Supabase
+        run: ./scripts/local-supabase.sh start
+
+      - name: Reset local schema and provision users
+        run: ./scripts/local-supabase.sh reset
+
+      - name: Show local launch args
+        run: ./scripts/local-supabase.sh launch-args
+
+      - name: Show local status
+        run: ./scripts/local-supabase.sh status

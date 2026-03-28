@@ -2628,7 +2628,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit: verify launch-time wipe logic calls `StoreWiper.wipeAll()` when `requiresWipeOnLaunch` returns true (if extractable into a testable function).
 - **Dependencies**: SPRD-96
 
-### [SPRD-119] Infra: Local Supabase sync testing environment
+### [SPRD-119] Infra: Local Supabase sync testing environment - [x] Complete
 - **Context**: Pure `localhost` scenarios cannot validate server persistence. The durability bug requires isolated, repeatable, sync-enabled environments, but the chosen direction is to stay on the free tier, keep remote `spread-dev` / `spread-prod`, and add local Supabase for destructive durability testing.
 - **Description**: Establish the local-Supabase infrastructure, secrets/config, seed/reset tooling, test-account provisioning, and documentation required to run sync-enabled durability tests locally while preserving remote dev/prod for shared QA and production use.
 - **Implementation Details**:
