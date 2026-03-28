@@ -1,143 +1,250 @@
 # Spread
 
-A SwiftUI bullet journal (BuJo) app for iOS 26+ using SwiftData for local persistence with Supabase sync.
+A SwiftUI bullet journal app for iPhone and iPad with SwiftData local persistence and Supabase sync.
 
-## Getting Started
+## Requirements
 
-### Requirements
+- macOS with Xcode `26.1.1`
+- iOS / iPadOS `26.1` simulator runtime
+- Homebrew
+- Docker Desktop
+- Python 3
+- `jq`
+- Supabase CLI
+- PostgreSQL client tools (`psql`, `pg_dump`)
 
-- Xcode 17+
-- iOS 26+ / iPadOS 26+
-
-### Building
+Recommended install commands:
 
 ```bash
-# Build the project
-xcodebuild -scheme Spread -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
-
-# Run tests
-xcodebuild -scheme Spread -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+brew install jq
+brew install supabase/tap/supabase
+brew install libpq
+echo 'export PATH="/opt/homebrew/opt/libpq/bin:$PATH"' >> ~/.zshrc
 ```
 
-## App Environments
+If you use the GitHub workflows or local Supabase durability flow, Docker Desktop must be running before you start.
 
-Spread supports multiple execution environments to facilitate development, testing, and production use. The environment affects storage behavior, mock data usage, and container isolation.
+## Clone And Bootstrap
 
-### Environment Types
+```bash
+git clone <repo-url>
+cd spread-app-ios
+```
 
-| Environment   | Storage         | Mock Data | Use Case                        |
-|---------------|-----------------|-----------|--------------------------------|
-| `production`  | Persistent      | No        | App Store / TestFlight releases |
-| `development` | Persistent      | No        | Local development with real data |
-| `preview`     | In-memory only  | Yes       | SwiftUI previews               |
-| `testing`     | In-memory only  | No        | Unit and integration tests     |
+Local app development against the hosted dev backend works immediately after clone if the checked-in xcconfig values are valid for your team.
 
-### How Environments Are Resolved
+To enable the full development workflow, also create the local Supabase secret file:
 
-The app determines the current environment in this order:
+```bash
+cp supabase/.env.local.example supabase/.env.local
+```
 
-1. **Launch Arguments**: Pass `-AppEnvironment <value>` (e.g., `-AppEnvironment development`)
-2. **Environment Variables**: Set `APP_ENVIRONMENT=<value>`
-3. **Build Configuration**: Defaults to `development` for DEBUG builds, `production` for Release
+Then edit `supabase/.env.local` and set:
 
-### Setting Environment in Xcode
+- `SUPABASE_DB_PASSWORD_DEV`
+  - the remote database password for `spread-dev`
+- `SPREAD_LOCAL_TEST_PASSWORD`
+  - optional override for deterministic local test users
 
-1. Edit your scheme (Product → Scheme → Edit Scheme)
-2. Select "Run" → "Arguments"
-3. Add launch argument: `-AppEnvironment development`
+## Development Environments
 
-Or add an environment variable:
-- Name: `APP_ENVIRONMENT`
-- Value: `development` (or `preview`, `testing`)
+Spread currently uses four practical environments:
 
-## Debug Menu & Mock Data Sets
+| Environment | Backend | Purpose |
+|---|---|---|
+| Debug default | remote `spread-dev` | day-to-day development with real sync |
+| Release | remote `spread-prod` | production behavior |
+| Debug `localhost` | none | local-only UI and mock-data scenarios, no auth/sync |
+| Local Supabase | local Docker stack | destructive durability, rebuild, and repair testing |
 
-In DEBUG builds, a **Debug** tab (iPhone) or sidebar item (iPad) provides development tools.
+Important rules:
 
-### Mock Data Sets
+- `localhost` is engineering-only and bypasses product auth.
+- Mock data loading is only available in `localhost`.
+- Local Supabase testing keeps `DataEnvironment` on `development` and overrides only the Supabase URL/key.
+- `spread-prod` should only be used for production validation and real-life use.
 
-The Debug menu includes predefined mock data sets for testing different scenarios. **Loading a data set overwrites all existing data.**
+## Build And Run
 
-| Data Set         | Description                                              |
-|------------------|----------------------------------------------------------|
-| **Empty**        | Clears all spreads, tasks, events, and notes             |
-| **Baseline**     | Year, month, and day spreads for today with sample entries |
-| **Multiday Ranges** | Multiday spreads using presets (This Week, Next Week) and custom ranges |
-| **Boundary Dates** | Spreads across month and year boundaries for edge case testing |
-| **High Volume**  | 50+ spreads and 100+ tasks for performance testing       |
+Build:
 
-### Using Mock Data Sets
+```bash
+xcodebuild -scheme Spread -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+```
 
-1. Navigate to the Debug tab/sidebar
-2. Scroll to the "Mock Data Sets" section
-3. Tap the desired data set
-4. Confirm the success alert
+Run from Xcode:
 
-**Note**: Loading a data set will:
-- Delete all existing spreads, tasks, events, and notes
-- Insert the generated test data
-- Trigger a data reload
+1. Open [Spread.xcodeproj](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/Spread.xcodeproj)
+2. Select the `Spread` scheme
+3. Choose a simulator or device
+4. Run
 
-### How Mock Data Sets Work with Environments
+Default build behavior:
 
-Mock data sets operate on the repositories configured for the current environment:
+- `Debug` uses `spread-dev`
+- `QA` uses `spread-dev`
+- `Release` uses `spread-prod`
 
-- **Production/Development**: Data is persisted to disk via SwiftData. Changes survive app restarts.
-- **Preview/Testing**: Data is stored in-memory only. Changes are lost when the app terminates.
+## Launch Arguments
 
-**Recommendation**: Use the `development` environment when testing mock data sets to ensure data persists between debugging sessions.
+### Debug Localhost
+
+Use this for mock-data and UI-only scenarios:
+
+```text
+-DataEnvironment localhost
+```
+
+### Local Supabase Sync Testing
+
+Use this for sync-enabled durability testing:
+
+```text
+-DataEnvironment development
+-SupabaseURL <local api url>
+-SupabaseKey <local anon key>
+```
+
+Get the exact values from:
+
+```bash
+./scripts/local-supabase.sh launch-args
+```
+
+## Local Supabase Workflow
+
+This is required for durability, rebuild, and repair work.
+
+One-time schema bootstrap from `spread-dev`:
+
+```bash
+./scripts/local-supabase.sh bootstrap-schema-from-dev
+```
+
+Daily workflow:
+
+```bash
+./scripts/local-supabase.sh start
+./scripts/local-supabase.sh reset
+./scripts/local-supabase.sh launch-args
+```
+
+Useful commands:
+
+```bash
+./scripts/local-supabase.sh status
+./scripts/local-supabase.sh env
+./scripts/local-supabase.sh provision-users
+./scripts/local-supabase.sh stop
+```
+
+Generated local files:
+
+- [supabase/local/public_schema_from_dev.sql](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/supabase/local/public_schema_from_dev.sql)
+  - committed schema snapshot used for local restore
+- [supabase/local/test.env](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/supabase/local/test.env)
+  - generated local credentials and deterministic test-user values
+
+Deterministic local users:
+
+- `local-sync-1@spread.test`
+- `local-sync-2@spread.test`
+
+Default password:
+
+- `spread-local-pass`
 
 ## Testing
 
-### Running Tests
+Run the full suite:
 
 ```bash
-# Run all tests
 xcodebuild -scheme Spread -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+```
 
-# Run a specific test
+Run a specific test plan:
+
+```bash
+xcodebuild -scheme Spread -testPlan CoreBusinessLogic -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+xcodebuild -scheme Spread -testPlan AllUITests -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+```
+
+Run a specific test:
+
+```bash
 xcodebuild -scheme Spread -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -only-testing:SpreadTests/MockDataSetTests test
+  -only-testing:SpreadTests/OverdueTaskTests test
 ```
 
-### Test Environment
+What each layer is for:
 
-Tests run in the `testing` environment by default:
-- **In-memory storage**: Tests start with a clean slate
-- **No mock data**: Tests explicitly set up their own fixtures
-- **Isolated containers**: Each test can use fresh repositories
+- unit and app tests
+  - normal local logic and sync behavior
+- UI scenario tests
+  - user-visible flows and scenario fixtures
+- local Supabase durability flow
+  - server-backed rebuild, repair, and destructive sync validation
 
-### Writing Tests
+Before destructive sync work, start and reset local Supabase first:
 
-Tests use Swift Testing framework. Example:
-
-```swift
-@Test("Loading empty data set clears all data")
-@MainActor
-func loadingEmptyClears() async throws {
-    let taskRepo = InMemoryTaskRepository(tasks: TestData.sampleTasks())
-    // ... test implementation
-}
+```bash
+./scripts/local-supabase.sh start
+./scripts/local-supabase.sh reset
 ```
 
-Test files should include comments describing:
-- The conditions/setup being tested
-- The expected results/behavior
+## Supabase Workflows
 
-### Test Data Helpers
+Install and authenticate the CLI:
 
-The `TestData` enum provides sample data for previews and tests:
-
-```swift
-let sampleTasks = TestData.sampleTasks()
-let sampleSpreads = TestData.sampleSpreads()
-let sampleEvents = TestData.sampleEvents()
-let sampleNotes = TestData.sampleNotes()
+```bash
+supabase login
+supabase link --project-ref apblzzondjcughtgqowd
 ```
 
-## Architecture
+Common commands:
 
-See [CLAUDE.md](CLAUDE.md) for detailed architecture documentation, code style guide, and development instructions.
+```bash
+supabase migration new <name>
+supabase db push
+supabase db pull
+supabase db diff
+```
+
+Remote projects in use:
+
+- `spread-dev`
+- `spread-prod`
+
+Do not run destructive durability tests against the remote projects. Use local Supabase for those flows.
+
+## CI And Secrets
+
+The repo now includes a local Supabase smoke workflow:
+
+- [.github/workflows/local-supabase-smoke.yml](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/.github/workflows/local-supabase-smoke.yml)
+
+Required GitHub Actions secret:
+
+- `SUPABASE_DB_PASSWORD_DEV`
+
+Optional GitHub Actions secret:
+
+- `SPREAD_LOCAL_TEST_PASSWORD`
+
+Other CI workflows use:
+
+- [.github/workflows/run-unit-tests.yml](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/.github/workflows/run-unit-tests.yml)
+- [.github/workflows/pr_validation.yml](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/.github/workflows/pr_validation.yml)
+- [.github/workflows/post-merge-validation.yml](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/.github/workflows/post-merge-validation.yml)
+
+## Key Docs
+
+- [Documentation/spec.md](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/Documentation/spec.md)
+- [Documentation/plan.md](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/Documentation/plan.md)
+- [docs/supabase-setup.md](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/docs/supabase-setup.md)
+- [docs/local-supabase-testing.md](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/docs/local-supabase-testing.md)
+- [docs/sync-qa-checklist.md](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/docs/sync-qa-checklist.md)
+- [CLAUDE.md](/Users/johnnyo/Documents/2.Development/github.com_johnny-olszewski/spread-app-ios/CLAUDE.md)
 
 ## License
 
