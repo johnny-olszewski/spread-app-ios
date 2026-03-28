@@ -6,6 +6,7 @@ Manual verification checklist for the simplified v1 sync model. This checklist s
 
 - Product environments: Debug default (`development`), QA (`development`), Release (`production`)
 - Debug-only engineering mode: `-DataEnvironment localhost`
+- Local sync test environment: local Supabase with explicit `-SupabaseURL` / `-SupabaseKey` overrides
 
 ## Prerequisites
 
@@ -13,6 +14,7 @@ Manual verification checklist for the simplified v1 sync model. This checklist s
 - Two test accounts, or one email registered in both environments
 - A device or simulator that can toggle Airplane Mode
 - A Debug build for Debug-menu scenarios
+- For destructive durability/rebuild checks, local Supabase started and reset via `./scripts/local-supabase.sh`
 
 ## 1. Product Environment Auth Gate
 
@@ -147,14 +149,39 @@ Manual verification checklist for the simplified v1 sync model. This checklist s
 3. Relaunch Debug without `localhost`.
 4. Verify the local store is wiped before the dev-backed run starts.
 
-## 6. Debug Menu Verification
+## 6. Local Supabase Durability Workflow
 
-### 6.1 Sync Section
+### 6.1 Local Supabase Bootstrap
+
+1. Run `./scripts/local-supabase.sh start`.
+2. Run `./scripts/local-supabase.sh reset`.
+3. Verify `supabase/local/test.env` is generated.
+4. Launch the app with local Supabase override arguments from `./scripts/local-supabase.sh launch-args`.
+
+### 6.2 Rebuild From Local Server State
+
+1. Launch the app against local Supabase and sign in with a deterministic local test account.
+2. Create or migrate an entry and wait for sync.
+3. Wipe the app locally or reinstall it.
+4. Relaunch against the same local Supabase backend and sign in again.
+5. Verify placement and history match exactly.
+
+### 6.3 Backfill Recovery
+
+1. Prepare a local test entry whose local model contains assignment history while local Supabase has zero assignment rows for that entry.
+2. Trigger sync.
+3. Verify the app silently repairs the assignment rows.
+4. Wipe local state and rebuild from local Supabase.
+5. Verify the repaired history is preserved.
+
+## 7. Debug Menu Verification
+
+### 7.1 Sync Section
 
 1. In a product environment, open Debug > Sync.
 2. Verify status, outbox count, and last-sync information are visible.
 
-### 6.2 Mock Data Section
+### 7.2 Mock Data Section
 
 1. Launch Debug in `localhost`.
 2. Verify Debug shows a Mock Data Sets section.

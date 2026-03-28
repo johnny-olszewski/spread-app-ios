@@ -1,6 +1,6 @@
 # Supabase Setup Guide
 
-This document covers the Supabase configuration for the Spread app, including environment setup, CLI usage, and migrations workflow.
+This document covers the Supabase configuration for the Spread app, including environment setup, CLI usage, migrations workflow, and the local Supabase durability-testing stack.
 
 ## Environments
 
@@ -10,6 +10,13 @@ The app uses two Supabase projects:
 |-------------|--------------|-------------|---------|
 | Development | spread-dev | `https://apblzzondjcughtgqowd.supabase.co` | Local development, testing |
 | Production | spread-prod | `https://nzsswqmxodkvgsnabnaj.supabase.co` | App Store releases |
+
+The testing workflow also uses two local-only environments:
+
+| Environment | Backend | Purpose |
+|-------------|---------|---------|
+| Debug `localhost` | None (local-only app state) | Mock-data/UI logic scenarios with no auth or sync |
+| Local Supabase | Local Docker stack | Destructive sync durability, rebuild, and repair testing |
 
 ## Build Configuration
 
@@ -151,27 +158,46 @@ Add to your Claude MCP configuration:
 
 ## Local Development
 
-### Running Supabase Locally (Optional)
+### Running Supabase Locally
 
-For fully offline development:
+Spread uses local Supabase for sync-enabled durability testing while staying on the hosted free tier.
+
+Use the repo helper script instead of raw CLI commands:
 
 ```bash
-# Start local Supabase
-supabase start
+# Start the local stack
+./scripts/local-supabase.sh start
 
-# Stop local Supabase
-supabase stop
+# Bootstrap the local public schema from spread-dev (one-time and whenever schema changes)
+./scripts/local-supabase.sh bootstrap-schema-from-dev
+
+# Reset local schema and provision deterministic local test users
+./scripts/local-supabase.sh reset
+
+# Print local app launch arguments
+./scripts/local-supabase.sh launch-args
+
+# Stop the local stack
+./scripts/local-supabase.sh stop
 ```
 
-This requires Docker and provides a local PostgreSQL, Auth, and Storage instance.
+See [docs/local-supabase-testing.md](./local-supabase-testing.md) for the full workflow.
+Use `supabase/.env.local.example` as the starting point for local secrets.
 
-### Environment Variables
+### Launch Modes
 
 For local testing against the app's in-memory/local-only stack, launch Debug with:
 
-```bash
-# Localhost engineering mode
+```text
 -DataEnvironment localhost
+```
+
+For local Supabase sync testing, keep the app in a sync-enabled mode and override the backend:
+
+```text
+-DataEnvironment development
+-SupabaseURL <local api url>
+-SupabaseKey <local anon key>
 ```
 
 ## Database Schema
