@@ -808,7 +808,7 @@ final class SyncEngine {
 
         let tasks = try context.fetch(FetchDescriptor<DataModel.Task>())
         for task in tasks where !task.assignments.isEmpty {
-            guard !hasRepairMarker(
+            guard !hasCompletedRepairMarker(
                 accountId: accountId,
                 entryType: SyncEntityType.task.rawValue,
                 entryId: task.id,
@@ -837,7 +837,7 @@ final class SyncEngine {
 
         let notes = try context.fetch(FetchDescriptor<DataModel.Note>())
         for note in notes where !note.assignments.isEmpty {
-            guard !hasRepairMarker(
+            guard !hasCompletedRepairMarker(
                 accountId: accountId,
                 entryType: SyncEntityType.note.rawValue,
                 entryId: note.id,
@@ -913,20 +913,24 @@ final class SyncEngine {
         guard !markers.isEmpty else { return }
 
         let context = modelContainer.mainContext
-        for marker in markers where !hasRepairMarker(
-            accountId: marker.accountId,
-            entryType: marker.entryType,
-            entryId: marker.entryId,
-            context: context
-        ) {
-            context.insert(
-                DataModel.SyncRepairMarker(
-                    accountId: marker.accountId,
-                    entryType: marker.entryType,
-                    entryId: marker.entryId,
-                    didBackfill: marker.didBackfill
+        for marker in markers {
+            if let existingMarker = fetchRepairMarker(
+                accountId: marker.accountId,
+                entryType: marker.entryType,
+                entryId: marker.entryId,
+                context: context
+            ) {
+                existingMarker.didBackfill = existingMarker.didBackfill || marker.didBackfill
+            } else {
+                context.insert(
+                    DataModel.SyncRepairMarker(
+                        accountId: marker.accountId,
+                        entryType: marker.entryType,
+                        entryId: marker.entryId,
+                        didBackfill: marker.didBackfill
+                    )
                 )
-            )
+            }
         }
 
         do {
@@ -936,12 +940,26 @@ final class SyncEngine {
         }
     }
 
-    private func hasRepairMarker(
+    private func hasCompletedRepairMarker(
         accountId: UUID,
         entryType: String,
         entryId: UUID,
         context: ModelContext
     ) -> Bool {
+        fetchRepairMarker(
+            accountId: accountId,
+            entryType: entryType,
+            entryId: entryId,
+            context: context
+        )?.didBackfill == true
+    }
+
+    private func fetchRepairMarker(
+        accountId: UUID,
+        entryType: String,
+        entryId: UUID,
+        context: ModelContext
+    ) -> DataModel.SyncRepairMarker? {
         let key = DataModel.SyncRepairMarker.makeKey(
             accountId: accountId,
             entryType: entryType,
@@ -951,7 +969,7 @@ final class SyncEngine {
             predicate: #Predicate { $0.key == key }
         )
         descriptor.fetchLimit = 1
-        return (try? context.fetchCount(descriptor)) ?? 0 > 0
+        return try? context.fetch(descriptor).first
     }
 
     // MARK: - Backoff & Retry
