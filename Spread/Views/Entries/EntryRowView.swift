@@ -34,6 +34,9 @@ struct EntryRowView: View {
     /// Callback when delete action is triggered.
     private let onDelete: (() -> Void)?
 
+    /// Whether tapping the row should invoke edit.
+    private let opensEditOnTap: Bool
+
     // MARK: - Initialization
 
     /// Creates an entry row view.
@@ -51,7 +54,8 @@ struct EntryRowView: View {
         onComplete: (() -> Void)? = nil,
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil
+        onDelete: (() -> Void)? = nil,
+        opensEditOnTap: Bool = false
     ) {
         self.configuration = configuration
         self.iconConfiguration = iconConfiguration
@@ -59,6 +63,7 @@ struct EntryRowView: View {
         self.onMigrate = onMigrate
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.opensEditOnTap = opensEditOnTap
     }
 
     /// Creates an entry row view for a task.
@@ -76,7 +81,8 @@ struct EntryRowView: View {
         onComplete: (() -> Void)? = nil,
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil
+        onDelete: (() -> Void)? = nil,
+        opensEditOnTap: Bool = false
     ) {
         self.configuration = EntryRowConfiguration(
             entryType: .task,
@@ -92,6 +98,7 @@ struct EntryRowView: View {
         self.onMigrate = onMigrate
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.opensEditOnTap = opensEditOnTap
     }
 
     /// Creates an entry row view for an event.
@@ -105,7 +112,8 @@ struct EntryRowView: View {
         event: DataModel.Event,
         isEventPast: Bool = false,
         onEdit: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil
+        onDelete: (() -> Void)? = nil,
+        opensEditOnTap: Bool = false
     ) {
         self.configuration = EntryRowConfiguration(
             entryType: .event,
@@ -120,6 +128,7 @@ struct EntryRowView: View {
         self.onMigrate = nil
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.opensEditOnTap = opensEditOnTap
     }
 
     /// Creates an entry row view for a note.
@@ -135,7 +144,8 @@ struct EntryRowView: View {
         migrationDestination: String? = nil,
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil
+        onDelete: (() -> Void)? = nil,
+        opensEditOnTap: Bool = false
     ) {
         self.configuration = EntryRowConfiguration(
             entryType: .note,
@@ -151,6 +161,7 @@ struct EntryRowView: View {
         self.onMigrate = onMigrate
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.opensEditOnTap = opensEditOnTap
     }
 
     // MARK: - Body
@@ -183,6 +194,10 @@ struct EntryRowView: View {
         }
         .foregroundStyle(rowColor)
         .contentShape(Rectangle())
+        .onTapGesture {
+            guard opensEditOnTap else { return }
+            onEdit?()
+        }
     }
 
     // MARK: - Styling

@@ -365,6 +365,41 @@ extension MockDataSet {
         )
     }
 
+    func generateScenarioMultidayLayout(
+        calendar: Calendar,
+        today: Date
+    ) -> GeneratedData {
+        let dayTwo = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        let dayThree = calendar.date(byAdding: .day, value: 2, to: today) ?? today
+
+        return GeneratedData(
+            spreads: [
+                DataModel.Spread(startDate: today, endDate: dayThree, calendar: calendar)
+            ],
+            tasks: [
+                task(
+                    title: "Middle day task",
+                    date: dayTwo,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: dayTwo,
+                    calendar: calendar
+                )
+            ],
+            events: [],
+            notes: [
+                note(
+                    title: "Hidden multiday note",
+                    date: dayTwo,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: dayTwo,
+                    calendar: calendar
+                )
+            ]
+        )
+    }
+
     private func spread(
         _ period: Period,
         _ date: Date,

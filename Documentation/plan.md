@@ -2750,7 +2750,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Updated manual QA checklists for rebuild/recovery scenarios.
 - **Dependencies**: SPRD-121, SPRD-122, SPRD-119
 
-### [SPRD-124] UI: Spread task-list presentation and multiday layout polish - [ ] Not Started
+### [SPRD-124] UI: Spread task-list presentation and multiday layout polish - [x] Completed
 - **Context**: Main spread content still uses opaque list-row treatment, task editing depends on swipe affordances, and multiday spreads collapse empty days instead of presenting a deterministic day-by-day structure.
 - **Description**: Update the main spread task-list presentation so the spread dot-grid remains visible, add direct tap-to-edit for task rows, and make multiday spreads render all covered days with adaptive layout by size class.
 - **Implementation Details**:

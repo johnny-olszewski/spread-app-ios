@@ -11,6 +11,8 @@ import SwiftUI
 /// Uses `EntryRowView` for consistent entry rendering across all spread types.
 struct EntryListView: View {
 
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
     // MARK: - Properties
 
     /// The spread data model containing entries.
@@ -38,6 +40,12 @@ struct EntryListView: View {
 
     /// Active (non-migrated) entries combined from the spread data model.
     private var activeEntries: [any Entry] {
+        if isMultidaySpread {
+            var entries: [any Entry] = []
+            entries.append(contentsOf: activeTasks)
+            return entries
+        }
+
         var entries: [any Entry] = []
         entries.append(contentsOf: activeTasks)
         entries.append(contentsOf: activeNotes)
@@ -53,7 +61,10 @@ struct EntryListView: View {
 
     /// Notes that are not migrated on this spread.
     private var activeNotes: [DataModel.Note] {
-        spreadDataModel.notes.filter { note in
+        if isMultidaySpread {
+            return []
+        }
+        return spreadDataModel.notes.filter { note in
             !isMigratedOnSpread(note)
         }
     }
@@ -67,7 +78,10 @@ struct EntryListView: View {
 
     /// Notes migrated from this spread (have a migrated assignment on this spread).
     private var migratedNotes: [DataModel.Note] {
-        spreadDataModel.notes.filter { note in
+        if isMultidaySpread {
+            return []
+        }
+        return spreadDataModel.notes.filter { note in
             isMigratedOnSpread(note)
         }
     }
@@ -82,9 +96,19 @@ struct EntryListView: View {
         let grouper = EntryListGrouper(
             period: spreadDataModel.spread.period,
             spreadDate: spreadDataModel.spread.date,
+            spreadStartDate: spreadDataModel.spread.startDate,
+            spreadEndDate: spreadDataModel.spread.endDate,
             calendar: calendar
         )
         return grouper.group(activeEntries)
+    }
+
+    private var isMultidaySpread: Bool {
+        spreadDataModel.spread.period == .multiday
+    }
+
+    private var multidayColumnCount: Int {
+        MultidaySectionLayout.columnCount(for: horizontalSizeClass)
     }
 
     /// Whether there are any entries (active or migrated) to display.
@@ -95,7 +119,9 @@ struct EntryListView: View {
     // MARK: - Body
 
     var body: some View {
-        if hasAnyEntries {
+        if isMultidaySpread {
+            multidayEntryGrid
+        } else if hasAnyEntries {
             entryList
         } else {
             emptyState
@@ -112,12 +138,14 @@ struct EntryListView: View {
                     // Flat list (day spread) - no section header
                     ForEach(section.entries, id: \.id) { entry in
                         entryRow(for: entry)
+                            .listRowBackground(Color.clear)
                     }
                 } else {
                     // Grouped list with section header
                     Section(section.title) {
                         ForEach(section.entries, id: \.id) { entry in
                             entryRow(for: entry)
+                                .listRowBackground(Color.clear)
                         }
                     }
                 }
@@ -131,8 +159,31 @@ struct EntryListView: View {
                 calendar: calendar,
                 onEdit: { entry in onEdit?(entry) }
             )
+            .listRowBackground(Color.clear)
         }
         .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
+    }
+
+    private var multidayEntryGrid: some View {
+        ScrollView {
+            LazyVGrid(
+                columns: Array(
+                    repeating: GridItem(.flexible(), spacing: 16, alignment: .top),
+                    count: multidayColumnCount
+                ),
+                alignment: .leading,
+                spacing: 16
+            ) {
+                ForEach(sections) { section in
+                    multidayDaySection(section)
+                }
+            }
+            .padding(16)
+        }
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
     }
 
     @ViewBuilder
@@ -158,8 +209,10 @@ struct EntryListView: View {
             onComplete: { onComplete?(task) },
             onMigrate: { onMigrate?(task) },
             onEdit: { onEdit?(task) },
-            onDelete: { onDelete?(task) }
+            onDelete: { onDelete?(task) },
+            opensEditOnTap: true
         )
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(task.title))
     }
 
     private func noteRow(_ note: DataModel.Note) -> some View {
@@ -170,6 +223,56 @@ struct EntryListView: View {
             onEdit: { onEdit?(note) },
             onDelete: { onDelete?(note) }
         )
+    }
+
+    @ViewBuilder
+    private func multidayDaySection(_ section: EntryListSection) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(section.title)
+                .font(SpreadTheme.Typography.title3)
+                .foregroundStyle(.primary)
+
+            if section.entries.isEmpty {
+                Text("No tasks for this day.")
+                    .font(SpreadTheme.Typography.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier(
+                        Definitions.AccessibilityIdentifiers.SpreadContent.multidayEmptyState(
+                            multidaySectionDateID(for: section.date)
+                        )
+                    )
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(section.entries, id: \.id) { entry in
+                        entryRow(for: entry)
+                            .padding(.vertical, 8)
+
+                        if entry.id != section.entries.last?.id {
+                            Divider()
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(SpreadTheme.Paper.primary.opacity(0.92))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.secondary.opacity(0.12))
+        )
+        .accessibilityIdentifier(
+            Definitions.AccessibilityIdentifiers.SpreadContent.multidaySection(
+                multidaySectionDateID(for: section.date)
+            )
+        )
+    }
+
+    private func multidaySectionDateID(for date: Date) -> String {
+        Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: date, calendar: calendar)
     }
 
     // MARK: - Helpers
@@ -204,6 +307,12 @@ struct EntryListView: View {
         } description: {
             Text("Add tasks or notes to this spread.")
         }
+    }
+}
+
+enum MultidaySectionLayout {
+    static func columnCount(for horizontalSizeClass: UserInterfaceSizeClass?) -> Int {
+        horizontalSizeClass == .regular ? 2 : 1
     }
 }
 

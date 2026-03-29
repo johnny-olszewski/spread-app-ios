@@ -63,6 +63,9 @@ enum MockDataSet: String, CaseIterable {
     /// Hidden scenario fixture: notes excluded from migration/overdue review.
     case scenarioNoteExclusions
 
+    /// Hidden scenario fixture: multiday spreads show empty days with adaptive section layout.
+    case scenarioMultidayLayout
+
     // MARK: - Display
 
     static var debugMenuCases: [MockDataSet] {
@@ -87,7 +90,8 @@ enum MockDataSet: String, CaseIterable {
                 .scenarioOverdueReview,
                 .scenarioOverdueInbox,
                 .scenarioTraditionalOverdue,
-                .scenarioNoteExclusions:
+                .scenarioNoteExclusions,
+                .scenarioMultidayLayout:
             return false
         }
     }
@@ -129,6 +133,8 @@ enum MockDataSet: String, CaseIterable {
             return "Scenario: Traditional Overdue"
         case .scenarioNoteExclusions:
             return "Scenario: Note Exclusions"
+        case .scenarioMultidayLayout:
+            return "Scenario: Multiday Layout"
         }
     }
 
@@ -169,6 +175,8 @@ enum MockDataSet: String, CaseIterable {
             return "Hidden UI-test fixture for overdue access in traditional mode without migration UI."
         case .scenarioNoteExclusions:
             return "Hidden UI-test fixture for note exclusion assertions."
+        case .scenarioMultidayLayout:
+            return "Hidden UI-test fixture for multiday empty-day layout and task-only sections."
         }
     }
 
@@ -228,6 +236,8 @@ enum MockDataSet: String, CaseIterable {
             return generateScenarioTraditionalOverdue(calendar: calendar, today: today)
         case .scenarioNoteExclusions:
             return generateScenarioNoteExclusions(calendar: calendar, today: today)
+        case .scenarioMultidayLayout:
+            return generateScenarioMultidayLayout(calendar: calendar, today: today)
         }
     }
 
