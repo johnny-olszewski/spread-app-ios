@@ -2774,3 +2774,60 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests covering multiday empty-day visibility and compact-vs-regular layout behavior.
   - Manual QA confirming auxiliary review sheets keep their existing styling and note tap behavior remains unchanged.
 - **Dependencies**: None
+
+### [SPRD-125] UI: header spread navigator surfaces - [ ] In Progress
+- **Context**: Header-based spread navigation currently has in-progress iPad popover work and no matching iPhone surface. The spec now requires one rooted navigator content model presented as a popover on iPad and as a large sheet on iPhone.
+- **Description**: Turn the spread title in the header into a tappable navigator trigger on both platforms. The presented surface must open as a popover on iPad and as a large sheet on iPhone, while sharing the same rooted spread navigator content. The navigator must reveal the current spread's hierarchy context by expanding the relevant sections, use collapsible year/month rows, use a mixed day/multiday grid for conventional month detail, and navigate the main app immediately on selection.
+- **Implementation Details**:
+  - Make the current spread title in `SpreadHeaderView` tappable on both platforms and add a subtle chevron indicator.
+  - Present a bounded-size popover rooted on the header title button on iPad.
+  - Present the same rooted navigator content in a large sheet on iPhone.
+  - Require a separable navigator support/model layer for:
+    - deriving available years/months/day-grid items by mode
+    - determining the correct initial expanded year/month state from the current spread
+    - representing derived conventional years/months versus explicit created spreads
+    - representing traditional-mode root-year bounds from earliest data/created-spread year through current year plus ten
+    - enforcing accordion expansion behavior for years and months
+  - Root content is always the same full hierarchy view.
+  - Root years are ordered newest first.
+  - Months appear only inside the expanded year and are ordered January through December using available rows only.
+  - Month detail is a single chronological grid.
+  - Conventional month grids mix explicit day spreads and explicit multiday spreads.
+  - Traditional month grids show every calendar day in the month and no multiday tiles.
+  - Multiday tiles are labeled by date range and use a subtle alternate tint or border from day tiles.
+  - Current selection uses a light shape background, not a checkmark.
+  - Conventional mode:
+    - include derived years and months when child spreads make them navigable
+    - use subtle styling for derived uncreated year/month rows
+    - do not derive day or multiday tiles beyond explicit created spreads
+  - Traditional mode:
+    - show the full calendar structure
+    - root year list spans from earliest year with entry data or created conventional spread through current year plus ten
+  - Use split interaction on year/month rows:
+    - row-body tap navigates immediately and dismisses when the row is an explicit spread destination
+    - trailing disclosure expands or collapses that section
+    - derived conventional year/month rows are disclosure-only
+  - Accordion behavior applies:
+    - only one year expanded at a time
+    - only one month expanded within the expanded year
+  - Selecting any destination row/tile updates the main app spread selection immediately and dismisses the active popover or sheet.
+- **Acceptance Criteria**:
+  - On iPad, tapping the current spread title opens a popover rooted on that header button and reveals the active spread inside the single rooted hierarchy view. (Spec: Navigation and UI; Header Spread Navigator)
+  - On iPhone, tapping the current spread title opens a large sheet showing the same rooted hierarchy and the same active spread context. (Spec: Navigation and UI; Header Spread Navigator)
+  - The navigator uses collapsible year/month rows and month grids, with split row-body/disclosure behavior and immediate navigation plus dismissal on destination selection. (Spec: Navigation and UI; Header Spread Navigator)
+  - Conventional and traditional modes derive navigator contents according to their respective availability rules, and the current spread is visibly highlighted without a checkmark. (Spec: Navigation and UI; Header Spread Navigator)
+- **Tests**:
+  - Unit tests for navigator model/support logic covering:
+    - initial expansion state for year/month/day/multiday current spreads
+    - conventional derived year/month rules
+    - traditional root-year range derivation
+    - chronological ordering for year/month/day-grid content
+    - accordion expansion behavior
+  - UI tests covering:
+    - tapping the header title opens the correct presentation surface for the current device class
+    - the presented navigator reveals the current spread context with the correct expanded sections
+    - disclosure controls expand and collapse years/months without navigating
+    - selecting a year/month/day/multiday destination navigates and dismisses
+    - current selection highlighting is visible
+  - Manual QA for visual polish, bounded iPad popover sizing, iPhone sheet presentation, and mode-specific content differences.
+- **Dependencies**: None
