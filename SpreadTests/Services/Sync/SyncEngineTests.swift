@@ -34,7 +34,10 @@ struct SyncEngineTests {
         isSyncEnabled: Bool = true,
         isConnected: Bool = true,
         isSignedIn: Bool = true,
-        policy: SyncPolicy = DefaultSyncPolicy()
+        policy: SyncPolicy = DefaultSyncPolicy(),
+        serverRowsFetcher: SyncEngine.ServerRowsFetcher? = nil,
+        mergeRPCCaller: SyncEngine.MergeRPCCaller? = nil,
+        assignmentPresenceChecker: SyncEngine.AssignmentPresenceChecker? = nil
     ) throws -> (engine: SyncEngine, container: ModelContainer, networkMonitor: MockNetworkMonitor, authManager: AuthManager) {
         let container = try ModelContainerFactory.makeInMemory()
         let networkMonitor = MockNetworkMonitor()
@@ -52,7 +55,10 @@ struct SyncEngineTests {
             networkMonitor: networkMonitor,
             deviceId: UUID(),
             isSyncEnabled: isSyncEnabled,
-            policy: policy
+            policy: policy,
+            serverRowsFetcher: serverRowsFetcher,
+            mergeRPCCaller: mergeRPCCaller,
+            assignmentPresenceChecker: assignmentPresenceChecker
         )
         return (engine, container, networkMonitor, authManager)
     }
@@ -250,6 +256,134 @@ struct SyncEngineTests {
 
         let entries = engine.syncLog.entries
         #expect(!entries.isEmpty)
+    }
+
+    // MARK: - Assignment Repair
+
+    /// Conditions: Signed-in task with local assignment history and zero server assignment rows.
+    /// Expected: Sync backfills all local task assignments once and records a repair marker.
+    @Test func syncBackfillsTaskAssignmentsWhenServerHasZeroRows() async throws {
+        var mergeCalls: [(String, Data)] = []
+        let (engine, container, _, _) = try makeEngine(
+            serverRowsFetcher: { _, afterRevision, _ in
+                #expect(afterRevision == 0)
+                return ([], 0)
+            },
+            mergeRPCCaller: { name, params in
+                let data = try JSONEncoder().encode(params)
+                mergeCalls.append((name, data))
+            },
+            assignmentPresenceChecker: { entityType, _ in
+                #expect(entityType == .taskAssignment)
+                return false
+            }
+        )
+
+        let task = DataModel.Task(
+            title: "Repair me",
+            assignments: [
+                TaskAssignment(period: .year, date: .now, status: .migrated),
+                TaskAssignment(period: .month, date: .now, status: .open)
+            ]
+        )
+        container.mainContext.insert(task)
+        try container.mainContext.save()
+
+        await engine.syncNow()
+
+        let taskAssignmentCalls = mergeCalls.filter { $0.0 == SyncEntityType.taskAssignment.mergeRPCName }
+        #expect(taskAssignmentCalls.count == 2)
+
+        let markers = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncRepairMarker>())
+        #expect(markers.count == 1)
+        #expect(markers.first?.entryType == SyncEntityType.task.rawValue)
+        #expect(markers.first?.entryId == task.id)
+        #expect(markers.first?.didBackfill == true)
+    }
+
+    /// Conditions: Signed-in note with local assignment history and server assignment rows already present.
+    /// Expected: Sync records a skip marker and does not enqueue note-assignment backfill.
+    @Test func syncSkipsBackfillWhenServerAlreadyHasAssignmentRows() async throws {
+        var mergeCalls: [(String, Data)] = []
+        let (engine, container, _, _) = try makeEngine(
+            serverRowsFetcher: { _, _, _ in ([], 0) },
+            mergeRPCCaller: { name, params in
+                let data = try JSONEncoder().encode(params)
+                mergeCalls.append((name, data))
+            },
+            assignmentPresenceChecker: { entityType, _ in
+                #expect(entityType == .noteAssignment)
+                return true
+            }
+        )
+
+        let note = DataModel.Note(
+            title: "Already synced",
+            assignments: [NoteAssignment(period: .day, date: .now, status: .active)]
+        )
+        container.mainContext.insert(note)
+        try container.mainContext.save()
+
+        await engine.syncNow()
+
+        #expect(!mergeCalls.contains(where: { $0.0 == SyncEntityType.noteAssignment.mergeRPCName }))
+
+        let markers = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncRepairMarker>())
+        #expect(markers.count == 1)
+        #expect(markers.first?.entryType == SyncEntityType.note.rawValue)
+        #expect(markers.first?.entryId == note.id)
+        #expect(markers.first?.didBackfill == false)
+    }
+
+    /// Conditions: Entry already has a repair marker from a prior sync.
+    /// Expected: Sync does not re-run backfill checks or enqueue duplicate assignment writes.
+    @Test func syncBackfillRunsAtMostOncePerEntryAccount() async throws {
+        var presenceChecks = 0
+        var mergeCalls: [(String, Data)] = []
+        let user = TestUserFactory.makeUser()
+        let authManager = AuthManager(service: MockAuthService())
+        authManager.setStateForTesting(.signedIn(user))
+
+        let container = try ModelContainerFactory.makeInMemory()
+        let task = DataModel.Task(
+            title: "Already repaired",
+            assignments: [TaskAssignment(period: .day, date: .now, status: .open)]
+        )
+        container.mainContext.insert(task)
+        container.mainContext.insert(
+            DataModel.SyncRepairMarker(
+                accountId: user.id,
+                entryType: SyncEntityType.task.rawValue,
+                entryId: task.id,
+                didBackfill: true
+            )
+        )
+        try container.mainContext.save()
+
+        let networkMonitor = MockNetworkMonitor()
+        let engine = SyncEngine(
+            client: nil,
+            modelContainer: container,
+            authManager: authManager,
+            networkMonitor: networkMonitor,
+            deviceId: UUID(),
+            isSyncEnabled: true,
+            policy: DefaultSyncPolicy(),
+            serverRowsFetcher: { _, _, _ in ([], 0) },
+            mergeRPCCaller: { name, params in
+                let data = try JSONEncoder().encode(params)
+                mergeCalls.append((name, data))
+            },
+            assignmentPresenceChecker: { _, _ in
+                presenceChecks += 1
+                return false
+            }
+        )
+
+        await engine.syncNow()
+
+        #expect(presenceChecks == 0)
+        #expect(!mergeCalls.contains(where: { $0.0 == SyncEntityType.taskAssignment.mergeRPCName }))
     }
 
     // MARK: - Network Monitor Integration

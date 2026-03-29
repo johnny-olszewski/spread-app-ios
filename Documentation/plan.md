@@ -2697,7 +2697,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Integration tests confirming server pull/apply reconstructs exact placement and history from synced assignment rows.
 - **Dependencies**: SPRD-120, SPRD-85, SPRD-119
 
-### [SPRD-122] Feature: Safe automatic backfill for missing server assignment rows
+### [SPRD-122] Feature: Safe automatic backfill for missing server assignment rows - [x] Complete
 - **Context**: Existing signed-in users may already have valid local assignment history with zero corresponding server assignment rows due to the current bug.
 - **Description**: Add a once-per-entry, silent repair path that backfills full local assignment history to the server only when the server has zero assignment rows for that entry.
 - **Implementation Details**:
