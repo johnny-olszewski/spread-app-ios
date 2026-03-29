@@ -249,6 +249,7 @@ struct MigrationTests {
 
         let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: calendar)
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
+        let destinationID = UUID()
 
         // Task already has assignment on destination but with migrated status
         let task = DataModel.Task(
@@ -258,7 +259,7 @@ struct MigrationTests {
             status: .open,
             assignments: [
                 TaskAssignment(period: .month, date: taskDate, status: .open),
-                TaskAssignment(period: .day, date: taskDate, status: .migrated)
+                TaskAssignment(id: destinationID, period: .day, date: taskDate, status: .migrated)
             ]
         )
 
@@ -281,6 +282,7 @@ struct MigrationTests {
 
         // Destination assignment should be open now
         let destinationAssignment = updatedTask?.assignments.first { $0.period == .day }
+        #expect(destinationAssignment?.id == destinationID)
         #expect(destinationAssignment?.status == .open)
     }
 

@@ -670,12 +670,13 @@ final class SyncEngine {
 
         if row.deletedAt != nil {
             task.assignments.removeAll {
-                $0.period == rowPeriod && $0.date == rowDate
+                $0.id == row.id || ($0.period == rowPeriod && $0.date == rowDate)
             }
         } else if let assignment = SyncSerializer.createTaskAssignment(from: row) {
-            if let index = task.assignments.firstIndex(where: {
-                $0.period == rowPeriod && $0.date == rowDate
-            }) {
+            if let index = task.assignments.firstIndex(where: { $0.id == row.id })
+                ?? task.assignments.firstIndex(where: {
+                    $0.period == rowPeriod && $0.date == rowDate
+                }) {
                 task.assignments[index] = assignment
             } else {
                 task.assignments.append(assignment)
@@ -703,12 +704,13 @@ final class SyncEngine {
 
         if row.deletedAt != nil {
             note.assignments.removeAll {
-                $0.period == rowPeriod && $0.date == rowDate
+                $0.id == row.id || ($0.period == rowPeriod && $0.date == rowDate)
             }
         } else if let assignment = SyncSerializer.createNoteAssignment(from: row) {
-            if let index = note.assignments.firstIndex(where: {
-                $0.period == rowPeriod && $0.date == rowDate
-            }) {
+            if let index = note.assignments.firstIndex(where: { $0.id == row.id })
+                ?? note.assignments.firstIndex(where: {
+                    $0.period == rowPeriod && $0.date == rowDate
+                }) {
                 note.assignments[index] = assignment
             } else {
                 note.assignments.append(assignment)

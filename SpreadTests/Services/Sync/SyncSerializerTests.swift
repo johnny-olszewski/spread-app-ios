@@ -307,8 +307,9 @@ struct SyncSerializerTests {
     /// Conditions: Valid server task assignment row.
     /// Expected: Should create a TaskAssignment with correct period, date, status.
     @Test func testCreateTaskAssignmentFromValidRow() {
+        let rowID = UUID()
         let row = ServerTaskAssignmentRow(
-            id: UUID(), taskId: UUID(), period: "day",
+            id: rowID, taskId: UUID(), period: "day",
             date: "2025-03-15", status: "open",
             createdAt: "2025-03-15T10:00:00.000Z", deletedAt: nil, revision: 1
         )
@@ -316,6 +317,7 @@ struct SyncSerializerTests {
         let assignment = SyncSerializer.createTaskAssignment(from: row)
 
         #expect(assignment != nil)
+        #expect(assignment?.id == rowID)
         #expect(assignment?.period == .day)
         #expect(assignment?.status == .open)
     }
@@ -338,8 +340,9 @@ struct SyncSerializerTests {
     /// Conditions: Valid server note assignment row.
     /// Expected: Should create a NoteAssignment with correct properties.
     @Test func testCreateNoteAssignmentFromValidRow() {
+        let rowID = UUID()
         let row = ServerNoteAssignmentRow(
-            id: UUID(), noteId: UUID(), period: "month",
+            id: rowID, noteId: UUID(), period: "month",
             date: "2025-06-01", status: "active",
             createdAt: "2025-06-01T08:00:00.000Z", deletedAt: nil, revision: 3
         )
@@ -347,6 +350,7 @@ struct SyncSerializerTests {
         let assignment = SyncSerializer.createNoteAssignment(from: row)
 
         #expect(assignment != nil)
+        #expect(assignment?.id == rowID)
         #expect(assignment?.period == .month)
     }
 
