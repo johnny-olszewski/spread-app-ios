@@ -2749,3 +2749,28 @@ Supabase: SPRD-85A -> SPRD-85C
   - Full-suite verification including the new durability coverage.
   - Updated manual QA checklists for rebuild/recovery scenarios.
 - **Dependencies**: SPRD-121, SPRD-122, SPRD-119
+
+### [SPRD-124] UI: Spread task-list presentation and multiday layout polish - [ ] Not Started
+- **Context**: Main spread content still uses opaque list-row treatment, task editing depends on swipe affordances, and multiday spreads collapse empty days instead of presenting a deterministic day-by-day structure.
+- **Description**: Update the main spread task-list presentation so the spread dot-grid remains visible, add direct tap-to-edit for task rows, and make multiday spreads render all covered days with adaptive layout by size class.
+- **Implementation Details**:
+  - Update the main spread task-list styling so the list container keeps a solid backing while each task row renders transparently over the spread-content surface.
+  - Keep auxiliary review lists such as migration and overdue on their current styling; do not broaden the transparent-row treatment beyond main spread task lists.
+  - Make tapping a task row in main spread content open the same full task edit sheet currently reachable through the explicit Edit action.
+  - Preserve existing swipe actions on task rows; tap-to-edit is additive.
+  - Leave note tap behavior unchanged in this task.
+  - For multiday spreads, render a visible section for every covered calendar day regardless of whether that day currently has tasks.
+  - Empty multiday day sections must show an explicit empty-state message.
+  - Multiday sections show tasks only in v1.
+  - Use a single-column layout on compact widths and a two-column reading-order layout on regular widths.
+  - Add or update accessibility identifiers needed to verify the new task-row interaction and multiday day-section behavior.
+- **Acceptance Criteria**:
+  - Main spread task lists visually show the spread dot-grid behind transparent task rows while retaining a readable list container. (Spec: Spread Content Presentation and Interaction)
+  - Tapping a task row in main spread content opens the existing full task edit sheet without removing swipe actions. (Spec: Spread Content Presentation and Interaction)
+  - Multiday spreads always render every day in range, including explicit empty-day sections, with one-column/two-column adaptation by size class. (Spec: Spread Content Presentation and Interaction)
+- **Tests**:
+  - UI or snapshot-style verification for transparent task-row treatment on main spread content.
+  - UI tests confirming task-row tap opens the existing task edit sheet from spread content.
+  - UI tests covering multiday empty-day visibility and compact-vs-regular layout behavior.
+  - Manual QA confirming auxiliary review sheets keep their existing styling and note tap behavior remains unchanged.
+- **Dependencies**: None

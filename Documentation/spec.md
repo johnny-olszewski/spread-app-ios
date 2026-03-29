@@ -467,6 +467,10 @@
 | Overdue review flow | Tapping the yellow overdue button opens the global review sheet from conventional and traditional contexts. | Count and visibility remain correct from any spread context. |
 | Note exclusions | Notes never appear in migration or overdue review surfaces. | Migration review exclusion is covered in UI; overdue exclusion is backstopped by focused unit tests because the row surface is not reliably distinguishable enough for stable UI assertions. |
 | Traditional-mode parity check | Traditional mode still shows the global overdue button when overdue tasks exist, but never shows migration UI. | Overdue remains available and migration controls remain absent. |
+| Spread task row visual treatment | Main spread task lists keep a solid list backing while task rows remain transparent. | The spread dot-grid background remains visible behind the task-list surface instead of each task row rendering as an opaque card. |
+| Task tap-to-edit | Tapping a task row in a main spread list opens the existing full task edit sheet. | The same task edit UI used by the explicit Edit action appears without requiring a swipe gesture. |
+| Multiday empty-day visibility | A multiday spread shows a section for every day in its covered range even when no tasks exist for that day. | Empty dates still render a day header and explicit empty-state message. |
+| Multiday adaptive layout | A multiday spread uses two columns on regular-width layouts and one column on compact layouts. | The same ordered set of day sections is visible in reading order on both size classes. |
 - Durability and rebuild matrix required for v1: [SPRD-119, SPRD-120, SPRD-121, SPRD-122, SPRD-123]
 
 | Scenario area | Required sync-enabled coverage | Key assertion |
@@ -524,6 +528,17 @@
   - Screen 2: Spreads — explain year/month/day/multiday pages and how to create them.
   - Screen 3: Tasks and Migration — explain rapid logging, task statuses, and manual migration.
 - Onboarding occurs after authentication and does not teach account creation; sign-in remains part of the auth gate flow.
+
+### Spread Content Presentation and Interaction
+- Main spread task lists use a solid list-container backing while each task row remains visually transparent, so the spread-content dot-grid background remains visible behind the task list. [SPRD-124]
+- This transparent-row treatment applies only to the main spread task lists. Auxiliary review sheets such as migration and overdue keep their existing list styling. [SPRD-124]
+- In the main spread task lists, tapping a task row opens the same full task edit sheet used by the existing explicit Edit action. [SPRD-124]
+- Swipe actions remain available on task rows; tap-to-edit is additive and does not remove current swipe affordances. [SPRD-124]
+- Note tap behavior is unchanged in v1; this interaction rule applies only to tasks. [SPRD-124]
+- For multiday spreads, every calendar day in the spread's covered date range renders a visible day section even when that day has no tasks. [SPRD-124]
+- Empty multiday day sections show the day header plus an explicit empty-state message rather than collapsing away. [SPRD-124]
+- Multiday day sections show tasks only in v1. Expanding those sections to include notes is deferred to a later version. [SPRD-124]
+- On regular-width layouts such as iPad, multiday day sections render in two columns using normal reading-order flow. On compact layouts, they render in a single column. [SPRD-124]
 
 ### Error Handling UX
 - **Sign-in errors**: Error messages are displayed inline on the login sheet below the password field. Error text is human-readable and maps from auth error types: [SPRD-84]
@@ -598,6 +613,8 @@
 - Multiplatform: iPadOS primary, iOS supported; adaptive layouts per size class. [SPRD-19]
 - macOS deferred to post-v1. [SPRD-56]
 - Visual style uses dot grid backgrounds on spread content surfaces only, muted blue accents, and Debug-only appearance overrides for paper tone and typography. [SPRD-62, SPRD-63]
+- Main spread task lists keep transparent task rows over a solid list backing so the spread dot-grid remains visible, and task rows open the full edit sheet on tap. [SPRD-124]
+- Multiday spreads always render every day in range, with explicit empty-state sections and adaptive one-column/two-column layout by size class. [SPRD-124]
 - Entry period is independently editable; period changes trigger the same reassignment logic as date changes. [SPRD-24]
 - Product usage requires authentication in dev/prod, while Debug `localhost` bypasses auth automatically for engineering workflows. [SPRD-106, SPRD-107]
 - `localhost` is non-persistent, selected per Debug launch, and isolated from dev-backed local state by launch-time wipes when switching to or from it. [SPRD-105, SPRD-107]
