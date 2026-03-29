@@ -533,7 +533,6 @@ enum SyncSerializer {
         timestamp: Date,
         deletedAt: Date? = nil
     ) -> Data? {
-        let ts = SyncDateFormatting.formatTimestamp(timestamp)
         let record: [String: Any?] = [
             "id": spread.id.uuidString,
             "device_id": deviceId.uuidString,
@@ -638,9 +637,8 @@ enum SyncSerializer {
         timestamp: Date
     ) -> Data? {
         let ts = SyncDateFormatting.formatTimestamp(timestamp)
-        let assignmentId = UUID()
         let record: [String: Any?] = [
-            "id": assignmentId.uuidString,
+            "id": assignment.id.uuidString,
             "device_id": deviceId.uuidString,
             "task_id": taskId.uuidString,
             "period": assignment.period.rawValue,
@@ -663,9 +661,8 @@ enum SyncSerializer {
         timestamp: Date
     ) -> Data? {
         let ts = SyncDateFormatting.formatTimestamp(timestamp)
-        let assignmentId = UUID()
         let record: [String: Any?] = [
-            "id": assignmentId.uuidString,
+            "id": assignment.id.uuidString,
             "device_id": deviceId.uuidString,
             "note_id": noteId.uuidString,
             "period": assignment.period.rawValue,
@@ -990,7 +987,7 @@ enum SyncSerializer {
               let status = DataModel.Task.Status(rawValue: row.status) else {
             return nil
         }
-        return TaskAssignment(period: period, date: date, status: status)
+        return TaskAssignment(id: row.id, period: period, date: date, status: status)
     }
 
     /// Converts a server note assignment row to a local NoteAssignment value.
@@ -1001,7 +998,7 @@ enum SyncSerializer {
               let status = DataModel.Note.Status(rawValue: row.status) else {
             return nil
         }
-        return NoteAssignment(period: period, date: date, status: status)
+        return NoteAssignment(id: row.id, period: period, date: date, status: status)
     }
 
     /// Applies a server settings row to a local settings model.

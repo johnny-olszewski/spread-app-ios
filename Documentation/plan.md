@@ -2652,7 +2652,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Smoke validation that local Supabase can be seeded, signed into, and synced against from the app/test harness.
 - **Dependencies**: Existing remote `spread-dev` / `spread-prod` retained
 
-### [SPRD-120] Refactor: Durable assignment identity for sync rebuild fidelity
+### [SPRD-120] Refactor: Durable assignment identity for sync rebuild fidelity - [x] Complete
 - **Context**: Assignment history currently exists in local task/note models, but exact server-authoritative rebuilds require stable logical assignment identity across updates, tombstones, devices, and reinstalls.
 - **Description**: Introduce durable IDs for `TaskAssignment` and `NoteAssignment` and preserve that identity through local persistence, outbox serialization, pull/apply, and rebuild.
 - **Implementation Details**:

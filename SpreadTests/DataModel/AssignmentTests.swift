@@ -367,6 +367,7 @@ struct AssignmentTests {
 
         #expect(decoded.period == assignment.period)
         #expect(decoded.status == assignment.status)
+        #expect(decoded.id == assignment.id)
     }
 
     /// Conditions: Encode NoteAssignment to JSON and decode.
@@ -383,6 +384,7 @@ struct AssignmentTests {
 
         #expect(decoded.period == assignment.period)
         #expect(decoded.status == assignment.status)
+        #expect(decoded.id == assignment.id)
     }
 
     // MARK: - Assignment Hashable Tests
@@ -391,8 +393,9 @@ struct AssignmentTests {
     /// Expected: Identical assignments should be equal and hash together; different should not.
     @Test func testTaskAssignmentIsHashable() {
         let date = makeDate(year: 2026, month: 6, day: 15)
-        let assignment1 = TaskAssignment(period: .day, date: date, status: .open)
-        let assignment2 = TaskAssignment(period: .day, date: date, status: .open)
+        let stableID = UUID()
+        let assignment1 = TaskAssignment(id: stableID, period: .day, date: date, status: .open)
+        let assignment2 = TaskAssignment(id: stableID, period: .day, date: date, status: .open)
         let assignment3 = TaskAssignment(period: .day, date: date, status: .complete)
 
         #expect(assignment1 == assignment2)
@@ -408,8 +411,9 @@ struct AssignmentTests {
     /// Expected: Identical assignments should be equal and hash together; different should not.
     @Test func testNoteAssignmentIsHashable() {
         let date = makeDate(year: 2026, month: 6, day: 15)
-        let assignment1 = NoteAssignment(period: .day, date: date, status: .active)
-        let assignment2 = NoteAssignment(period: .day, date: date, status: .active)
+        let stableID = UUID()
+        let assignment1 = NoteAssignment(id: stableID, period: .day, date: date, status: .active)
+        let assignment2 = NoteAssignment(id: stableID, period: .day, date: date, status: .active)
         let assignment3 = NoteAssignment(period: .day, date: date, status: .migrated)
 
         #expect(assignment1 == assignment2)
@@ -419,6 +423,36 @@ struct AssignmentTests {
         set.insert(assignment1)
         set.insert(assignment2)
         #expect(set.count == 1)
+    }
+
+    /// Conditions: Legacy task-assignment JSON missing `id`.
+    /// Expected: Decode succeeds and synthesizes a durable ID.
+    @Test func testTaskAssignmentDecodesLegacyPayloadWithoutID() throws {
+        let date = makeDate(year: 2026, month: 6, day: 15)
+        let json = """
+        {"period":"day","date":\(date.timeIntervalSinceReferenceDate),"status":"open"}
+        """
+
+        let decoded = try JSONDecoder().decode(TaskAssignment.self, from: Data(json.utf8))
+
+        #expect(decoded.id != UUID(uuidString: "00000000-0000-0000-0000-000000000000"))
+        #expect(decoded.period == .day)
+        #expect(decoded.status == .open)
+    }
+
+    /// Conditions: Legacy note-assignment JSON missing `id`.
+    /// Expected: Decode succeeds and synthesizes a durable ID.
+    @Test func testNoteAssignmentDecodesLegacyPayloadWithoutID() throws {
+        let date = makeDate(year: 2026, month: 6, day: 1)
+        let json = """
+        {"period":"month","date":\(date.timeIntervalSinceReferenceDate),"status":"active"}
+        """
+
+        let decoded = try JSONDecoder().decode(NoteAssignment.self, from: Data(json.utf8))
+
+        #expect(decoded.id != UUID(uuidString: "00000000-0000-0000-0000-000000000000"))
+        #expect(decoded.period == .month)
+        #expect(decoded.status == .active)
     }
 
     // MARK: - Edge Cases
