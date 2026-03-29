@@ -95,8 +95,10 @@ struct MigratedEntriesSection: View {
         EntryRowView(
             task: task,
             migrationDestination: formatter.destination(for: task, from: spread),
-            onEdit: { onEdit?(task) }
+            onEdit: { onEdit?(task) },
+            opensEditOnTap: true
         )
+        .listRowBackground(Color.clear)
     }
 
     private func migratedNoteRow(_ note: DataModel.Note) -> some View {
@@ -105,6 +107,7 @@ struct MigratedEntriesSection: View {
             migrationDestination: formatter.destination(for: note, from: spread),
             onEdit: { onEdit?(note) }
         )
+        .listRowBackground(Color.clear)
     }
 }
 

@@ -164,18 +164,52 @@ struct EntryListGroupingTests {
             DataModel.Note(title: "Day 6 Note", date: makeDate(year: 2026, month: 1, day: 6))
         ]
 
-        // Multiday spread for Jan 5-12, 2026 (a week)
-        let spreadDate = makeDate(year: 2026, month: 1, day: 5)
-        let grouper = EntryListGrouper(period: .multiday, spreadDate: spreadDate, calendar: calendar)
+        // Multiday spread for Jan 5-8, 2026.
+        let startDate = makeDate(year: 2026, month: 1, day: 5)
+        let endDate = makeDate(year: 2026, month: 1, day: 8)
+        let grouper = EntryListGrouper(
+            period: .multiday,
+            spreadDate: startDate,
+            spreadStartDate: startDate,
+            spreadEndDate: endDate,
+            calendar: calendar
+        )
+        let sections = grouper.group(entries)
+
+        #expect(sections.count == 4)
+        #expect(sections[0].title == "January 5")
+        #expect(sections[0].entries.isEmpty)
+        #expect(sections[1].title == "January 6")
+        #expect(sections[1].entries.count == 2)
+        #expect(sections[2].title == "January 7")
+        #expect(sections[2].entries.count == 1)
+        #expect(sections[3].title == "January 8")
+        #expect(sections[3].entries.count == 1)
+    }
+
+    /// When a multiday spread has no entries on some covered days,
+    /// the grouper should still return empty sections for those dates.
+    @Test("Multiday spread includes empty sections for uncovered days")
+    func multidaySpreadIncludesEmptyDays() {
+        let entries: [any Entry] = [
+            DataModel.Task(title: "Middle Task", date: makeDate(year: 2026, month: 1, day: 11))
+        ]
+
+        let startDate = makeDate(year: 2026, month: 1, day: 10)
+        let endDate = makeDate(year: 2026, month: 1, day: 12)
+        let grouper = EntryListGrouper(
+            period: .multiday,
+            spreadDate: startDate,
+            spreadStartDate: startDate,
+            spreadEndDate: endDate,
+            calendar: calendar
+        )
         let sections = grouper.group(entries)
 
         #expect(sections.count == 3)
-        #expect(sections[0].title == "January 6")
-        #expect(sections[0].entries.count == 2)
-        #expect(sections[1].title == "January 7")
+        #expect(sections[0].entries.isEmpty)
         #expect(sections[1].entries.count == 1)
-        #expect(sections[2].title == "January 8")
-        #expect(sections[2].entries.count == 1)
+        #expect(sections[2].entries.isEmpty)
     }
 
     // MARK: - Empty State Tests

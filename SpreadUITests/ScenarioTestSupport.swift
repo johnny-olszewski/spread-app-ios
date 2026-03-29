@@ -15,6 +15,7 @@ class LocalhostScenarioUITestCase: XCTestCase {
         case overdueInbox = "scenarioOverdueInbox"
         case traditionalOverdue = "scenarioTraditionalOverdue"
         case noteExclusions = "scenarioNoteExclusions"
+        case multidayLayout = "scenarioMultidayLayout"
     }
 
     override func setUpWithError() throws {
@@ -156,6 +157,23 @@ class LocalhostScenarioUITestCase: XCTestCase {
         let editButton = app.buttons["Edit"].firstMatch
         waitForElement(editButton)
         editButton.tap()
+
+        let saveButton = app.buttons[Definitions.AccessibilityIdentifiers.TaskDetailSheet.saveButton]
+        waitForElement(saveButton)
+    }
+
+    func tapTaskForEditing(title: String, in app: XCUIApplication) {
+        let taskRow = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(title)
+        )
+        if taskRow.waitForExistence(timeout: 2) {
+            taskRow.tap()
+        } else {
+            let taskLabel = app.staticTexts[title].firstMatch
+            waitForElement(taskLabel)
+            taskLabel.tap()
+        }
 
         let saveButton = app.buttons[Definitions.AccessibilityIdentifiers.TaskDetailSheet.saveButton]
         waitForElement(saveButton)

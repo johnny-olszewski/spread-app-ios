@@ -59,7 +59,21 @@ struct Definitions {
         struct SpreadContent {
             static let title = "spreads.content.title"
             static let entryCounts = "spreads.content.entryCounts"
+            static let list = "spreads.content.list"
+            static let multidayGrid = "spreads.content.multiday.grid"
             static let migratedSectionHeader = "spreads.content.migrated.section"
+
+            static func taskRow(_ title: String) -> String {
+                "spreads.content.task.\(token(title))"
+            }
+
+            static func multidaySection(_ dateID: String) -> String {
+                "spreads.content.multiday.section.\(dateID)"
+            }
+
+            static func multidayEmptyState(_ dateID: String) -> String {
+                "spreads.content.multiday.section.\(dateID).empty"
+            }
         }
 
         struct SpreadCreationSheet {

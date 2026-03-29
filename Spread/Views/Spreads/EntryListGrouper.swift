@@ -44,6 +44,12 @@ struct EntryListGrouper: Sendable {
     /// The spread's normalized date.
     let spreadDate: Date
 
+    /// The multiday spread start date, if applicable.
+    let spreadStartDate: Date?
+
+    /// The multiday spread end date, if applicable.
+    let spreadEndDate: Date?
+
     /// The calendar for date calculations.
     let calendar: Calendar
 
@@ -55,9 +61,17 @@ struct EntryListGrouper: Sendable {
     ///   - period: The spread period for grouping strategy.
     ///   - spreadDate: The spread's normalized date.
     ///   - calendar: The calendar for date calculations.
-    init(period: Period, spreadDate: Date, calendar: Calendar) {
+    init(
+        period: Period,
+        spreadDate: Date,
+        spreadStartDate: Date? = nil,
+        spreadEndDate: Date? = nil,
+        calendar: Calendar
+    ) {
         self.period = period
         self.spreadDate = spreadDate
+        self.spreadStartDate = spreadStartDate
+        self.spreadEndDate = spreadEndDate
         self.calendar = calendar
     }
 
@@ -68,17 +82,18 @@ struct EntryListGrouper: Sendable {
     /// - Parameter entries: The entries to group.
     /// - Returns: An array of sections with grouped entries.
     func group(_ entries: [any Entry]) -> [EntryListSection] {
-        guard !entries.isEmpty else { return [] }
-
         switch period {
         case .year:
+            guard !entries.isEmpty else { return [] }
             return groupByMonth(entries)
         case .month:
+            guard !entries.isEmpty else { return [] }
             return groupByDay(entries)
         case .day:
+            guard !entries.isEmpty else { return [] }
             return flatSection(entries)
         case .multiday:
-            return groupByDay(entries)
+            return groupByDayIncludingEmptyDates(entries)
         }
     }
 
@@ -124,6 +139,38 @@ struct EntryListGrouper: Sendable {
                 entries: sortedEntries
             )
         }
+    }
+
+    /// Groups multiday entries by day while ensuring every covered day renders a section.
+    private func groupByDayIncludingEmptyDates(_ entries: [any Entry]) -> [EntryListSection] {
+        let startDate = (spreadStartDate ?? spreadDate).startOfDay(calendar: calendar)
+        let endDate = (spreadEndDate ?? spreadDate).startOfDay(calendar: calendar)
+
+        var dayGroups: [Date: [any Entry]] = [:]
+        for entry in entries {
+            let entryDate = entryGroupingDate(for: entry).startOfDay(calendar: calendar)
+            dayGroups[entryDate, default: []].append(entry)
+        }
+
+        var sections: [EntryListSection] = []
+        var currentDate = startDate
+        while currentDate <= endDate {
+            let sortedEntries = sortEntriesChronologically(dayGroups[currentDate] ?? [])
+            sections.append(
+                EntryListSection(
+                    id: currentDate,
+                    title: formatDayTitle(currentDate),
+                    date: currentDate,
+                    entries: sortedEntries
+                )
+            )
+            guard let nextDate = calendar.date(byAdding: .day, value: 1, to: currentDate) else {
+                break
+            }
+            currentDate = nextDate.startOfDay(calendar: calendar)
+        }
+
+        return sections
     }
 
     /// Creates a single flat section for day spreads.
