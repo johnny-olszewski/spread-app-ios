@@ -151,3 +151,24 @@ Required CI secrets:
 - optional `SPREAD_LOCAL_TEST_PASSWORD`
 
 CI must not point automated destructive durability tests at remote `spread-dev` or `spread-prod`.
+
+## Running Sync-Enabled Durability Tests
+
+After `./scripts/local-supabase.sh start` and `./scripts/local-supabase.sh reset`, run:
+
+```bash
+xcodebuild -scheme Spread \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -only-testing:SpreadTests/SyncDurabilityIntegrationTests \
+  test
+```
+
+These tests read `supabase/local/test.env` directly, sign into the deterministic local users, and exercise:
+
+- direct assignment rebuild after local wipe
+- Inbox fallback rebuild
+- migration rebuild and source-history preservation
+- reassignment rebuild on a fresh second client
+- spread deletion reassignment durability for tasks and notes
+- assignment tombstone durability
+- safe backfill recovery for missing server assignment rows

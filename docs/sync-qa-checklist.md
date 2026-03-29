@@ -166,7 +166,22 @@ Manual verification checklist for the simplified v1 sync model. This checklist s
 4. Relaunch against the same local Supabase backend and sign in again.
 5. Verify placement and history match exactly.
 
-### 6.3 Backfill Recovery
+### 6.3 Sign Out / Sign In Recovery
+
+1. Launch the app against local Supabase and sign in with a deterministic local test account.
+2. Create, migrate, or reassign an entry and wait for sync.
+3. Sign out so the local store is wiped.
+4. Sign back into the same account.
+5. Verify the same active placement and migrated/source-history state are restored from the server.
+
+### 6.4 Clean Second-Client Reconstruction
+
+1. Launch one client against local Supabase and sign in with a deterministic local test account.
+2. Create, migrate, reassign, or delete a spread and wait for sync.
+3. Launch a second clean client against the same local Supabase backend and sign into the same account.
+4. Verify the second client reproduces the same placement and source-history UI.
+
+### 6.5 Backfill Recovery
 
 1. Prepare a local test entry whose local model contains assignment history while local Supabase has zero assignment rows for that entry.
 2. Trigger sync.

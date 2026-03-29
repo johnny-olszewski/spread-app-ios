@@ -2721,7 +2721,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Tests confirming repair markers prevent repeated backfill for the same entry/account.
 - **Dependencies**: SPRD-120, SPRD-121, SPRD-119
 
-### [SPRD-123] Test/QA: Sync-enabled durability and rebuild coverage
+### [SPRD-123] Test/QA: Sync-enabled durability and rebuild coverage - [x] Complete
 - **Context**: Pure `localhost` UI scenarios cannot validate server persistence. This bug class needs explicit sync-enabled rebuild coverage from the user’s perspective plus lower-level sync tests.
 - **Description**: Add a sync-enabled durability test layer and QA checklist coverage for exact placement/history rebuild after sync, local wipe, reinstall-equivalent rebuild, and cross-client parity.
 - **Implementation Details**:
