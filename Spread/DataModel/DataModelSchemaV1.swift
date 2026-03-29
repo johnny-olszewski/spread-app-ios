@@ -19,7 +19,8 @@ enum DataModelSchemaV1: VersionedSchema {
             Collection.self,
             Settings.self,
             SyncMutation.self,
-            SyncCursor.self
+            SyncCursor.self,
+            SyncRepairMarker.self
         ]
     }
 

@@ -13,7 +13,7 @@ protocol StoreWiper: Sendable {
 /// SwiftData implementation of StoreWiper.
 ///
 /// Deletes all entities from all model types in the schema:
-/// Spread, Task, Event, Note, Collection, SyncMutation, SyncCursor.
+/// Spread, Task, Event, Note, Collection, SyncMutation, SyncCursor, SyncRepairMarker.
 @MainActor
 struct SwiftDataStoreWiper: StoreWiper {
 
@@ -37,6 +37,7 @@ struct SwiftDataStoreWiper: StoreWiper {
         // Delete sync data
         try deleteAll(DataModel.SyncMutation.self, from: context)
         try deleteAll(DataModel.SyncCursor.self, from: context)
+        try deleteAll(DataModel.SyncRepairMarker.self, from: context)
 
         try context.save()
     }

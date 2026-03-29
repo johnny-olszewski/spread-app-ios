@@ -316,7 +316,7 @@
 - In product environments, users without a valid session are blocked by the auth gate instead of entering a local-only app state. [SPRD-106]
 - In debug `localhost`, sync is fully disabled and all persistence is local-only for that run. [SPRD-107]
 - Toolbar sync status is icon-only; any status copy is shown in main content (not in the toolbar). Use a minimal, visible banner or status line near the top of the main spreads content. [SPRD-85]
-- Assignment durability is a product requirement, not a local cache best-effort. [SPRD-119, SPRD-120, SPRD-121]
+- Assignment durability is a product requirement, not a local cache best-effort. [SPRD-119, SPRD-120, SPRD-121, SPRD-122]
   - `task_assignments` and `note_assignments` are first-class synced records.
   - After successful sync, the server must be able to rebuild the exact same current placement and the exact same assignment history for the signed-in user.
   - This includes current spread or Inbox placement plus historical migrated/completed/cancelled task assignments and active/migrated note assignments.
@@ -325,7 +325,7 @@
     - signing out, then signing back into the same account
     - rebuilding a clean second device from synced server state
     - wiping the local store and pulling from server again
-- Every user action that changes assignment state/history must enqueue and sync the corresponding assignment mutations. [SPRD-120]
+- Every user action that changes assignment state/history must enqueue and sync the corresponding assignment mutations. [SPRD-121]
   - creation with direct spread assignment
   - Inbox fallback creation
   - migration
@@ -333,14 +333,14 @@
   - spread deletion reassignment to parent or Inbox
   - status changes that affect assignment history semantics
   - entry deletion, including assignment tombstones
-- Assignment deletion/removal must use soft-delete tombstones with revision updates; hard deletes are not a valid product sync path. [SPRD-120]
+- Assignment deletion/removal must use soft-delete tombstones with revision updates; hard deletes are not a valid product sync path. [SPRD-121]
 - For the same entry and the same `(period, date)` destination, status changes update the same logical assignment record instead of creating duplicate assignment-history rows. [SPRD-120]
 - Assignment records require durable IDs so updates and tombstones can target the same logical assignment across devices and reinstalls. [SPRD-120]
-- Assignment outbox invariants: [SPRD-120]
+- Assignment outbox invariants: [SPRD-121]
   - assignment mutations must be enqueued on every assignment-changing save path
   - parent task/note mutations must push before child assignment mutations when both are pending
   - assignment create/update/delete mutations remain in the outbox until the server acknowledges them
-- Safe repair/backfill for already-broken assignment sync is required. [SPRD-121]
+- Safe repair/backfill for already-broken assignment sync is required. [SPRD-122]
   - In sync-enabled signed-in environments, the app may automatically and silently repair a task or note when the local model has assignment history but the server has zero assignment rows for that entry.
   - Repair uploads the full local assignment history for that entry, not just the current open/active assignment.
   - Repair runs at most once per entry per account and is logged internally, but it is silent in product UX.
@@ -488,7 +488,7 @@
     - local Supabase for destructive durability/rebuild/repair testing
     - remote `spread-dev` for shared hosted QA
     - remote `spread-prod` for production use
-- Lower-level tests required alongside the user-facing rebuild scenarios: [SPRD-120, SPRD-121]
+- Lower-level tests required alongside the user-facing rebuild scenarios: [SPRD-120, SPRD-121, SPRD-122]
   - durable assignment ID generation and persistence
   - assignment mutation enqueueing on every assignment-changing save path
   - assignment update vs create vs tombstone behavior
