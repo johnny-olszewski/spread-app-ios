@@ -2670,7 +2670,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit tests confirming no duplicate logical assignment is created for repeated status updates to the same destination.
 - **Dependencies**: SPRD-110, SPRD-111, SPRD-119
 
-### [SPRD-121] Feature: Persist assignment mutations through outbox and sync
+### [SPRD-121] Feature: Persist assignment mutations through outbox and sync - [x] Complete
 - **Context**: Full placement/history durability requires assignment rows to be pushed and tombstoned explicitly, not merely stored inside local task/note arrays.
 - **Description**: Enqueue and sync `task_assignments` and `note_assignments` on every assignment-changing save path, with correct parent-before-child ordering and soft-delete behavior.
 - **Implementation Details**:

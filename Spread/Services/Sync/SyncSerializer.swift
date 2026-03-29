@@ -634,7 +634,8 @@ enum SyncSerializer {
         _ assignment: TaskAssignment,
         taskId: UUID,
         deviceId: UUID,
-        timestamp: Date
+        timestamp: Date,
+        deletedAt: Date? = nil
     ) -> Data? {
         let ts = SyncDateFormatting.formatTimestamp(timestamp)
         let record: [String: Any?] = [
@@ -645,7 +646,7 @@ enum SyncSerializer {
             "date": SyncDateFormatting.formatDate(assignment.date),
             "status": assignment.status.rawValue,
             "created_at": ts,
-            "deleted_at": nil as String?,
+            "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
             "status_updated_at": SyncDateFormatting.formatTimestamp(assignment.statusUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(
@@ -658,7 +659,8 @@ enum SyncSerializer {
         _ assignment: NoteAssignment,
         noteId: UUID,
         deviceId: UUID,
-        timestamp: Date
+        timestamp: Date,
+        deletedAt: Date? = nil
     ) -> Data? {
         let ts = SyncDateFormatting.formatTimestamp(timestamp)
         let record: [String: Any?] = [
@@ -669,7 +671,7 @@ enum SyncSerializer {
             "date": SyncDateFormatting.formatDate(assignment.date),
             "status": assignment.status.rawValue,
             "created_at": ts,
-            "deleted_at": nil as String?,
+            "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
             "status_updated_at": SyncDateFormatting.formatTimestamp(assignment.statusUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(

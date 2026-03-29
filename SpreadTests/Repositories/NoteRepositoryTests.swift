@@ -239,6 +239,42 @@ struct NoteRepositoryTests {
         #expect(record?["device_id"] as? String == deviceId.uuidString)
     }
 
+    /// Conditions: Save a note with an initial spread assignment.
+    /// Expected: Parent note mutation is enqueued before a child note-assignment create mutation.
+    @Test @MainActor func testSwiftDataSaveEnqueuesAssignmentCreateMutation() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let deviceId = UUID()
+        let repo = SwiftDataNoteRepository(
+            modelContainer: container,
+            deviceId: deviceId,
+            nowProvider: { Date(timeIntervalSince1970: 110) }
+        )
+
+        let assignment = NoteAssignment(
+            period: .day,
+            date: Date(timeIntervalSince1970: 1_000),
+            status: .active
+        )
+        let note = DataModel.Note(title: "Sync Note", assignments: [assignment])
+
+        try await repo.save(note)
+
+        let mutations = try fetchMutations(from: container)
+        #expect(mutations.map(\.entityType) == [
+            SyncEntityType.note.rawValue,
+            SyncEntityType.noteAssignment.rawValue
+        ])
+
+        let assignmentMutation = mutations.last
+        #expect(assignmentMutation?.entityId == assignment.id)
+        #expect(assignmentMutation?.operation == SyncOperation.create.rawValue)
+
+        let record = try decodeRecord(assignmentMutation?.recordData)
+        #expect(record?["note_id"] as? String == note.id.uuidString)
+        #expect(record?["device_id"] as? String == deviceId.uuidString)
+        #expect(record?["deleted_at"] is NSNull)
+    }
+
     /// Conditions: Save a note, then save again after updating its title.
     /// Expected: An update mutation is enqueued in the outbox.
     @Test @MainActor func testSwiftDataUpdateEnqueuesUpdateMutation() async throws {
@@ -259,6 +295,42 @@ struct NoteRepositoryTests {
         let operations = try fetchMutations(from: container).map { $0.operation }
 
         #expect(operations.contains(SyncOperation.update.rawValue))
+    }
+
+    /// Conditions: Save a note, then change its assignment status and save again.
+    /// Expected: A note-assignment update mutation is enqueued for the same logical assignment.
+    @Test @MainActor func testSwiftDataUpdateEnqueuesAssignmentUpdateMutation() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let repo = SwiftDataNoteRepository(
+            modelContainer: container,
+            deviceId: UUID(),
+            nowProvider: { Date(timeIntervalSince1970: 210) }
+        )
+
+        let assignment = NoteAssignment(
+            period: .month,
+            date: Date(timeIntervalSince1970: 2_000),
+            status: .active
+        )
+        let note = DataModel.Note(title: "Status note", assignments: [assignment])
+
+        try await repo.save(note)
+
+        note.assignments[0].status = .migrated
+        try await repo.save(note)
+
+        let mutations = try fetchMutations(from: container)
+        let assignmentUpdate = mutations.last {
+            $0.entityType == SyncEntityType.noteAssignment.rawValue &&
+            $0.operation == SyncOperation.update.rawValue
+        }
+
+        #expect(assignmentUpdate != nil)
+        #expect(assignmentUpdate?.entityId == assignment.id)
+
+        let record = try decodeRecord(assignmentUpdate?.recordData)
+        #expect(record?["status"] as? String == DataModel.Note.Status.migrated.rawValue)
+        #expect(record?["deleted_at"] is NSNull)
     }
 
     /// Conditions: Save a note, then delete it.
@@ -288,6 +360,83 @@ struct NoteRepositoryTests {
         let record = try decodeRecord(deleteMutation?.recordData)
         let deletedAt = record?["deleted_at"] as? String
         #expect(deletedAt == SyncDateFormatting.formatTimestamp(Date(timeIntervalSince1970: 400)))
+    }
+
+    /// Conditions: Save a note with an assignment, then delete the note.
+    /// Expected: A note-assignment delete mutation is enqueued as a tombstone.
+    @Test @MainActor func testSwiftDataDeleteEnqueuesAssignmentDeleteMutation() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        var timestamps = [
+            Date(timeIntervalSince1970: 500),
+            Date(timeIntervalSince1970: 600)
+        ]
+        let repo = SwiftDataNoteRepository(
+            modelContainer: container,
+            deviceId: UUID(),
+            nowProvider: { timestamps.removeFirst() }
+        )
+
+        let assignment = NoteAssignment(
+            period: .day,
+            date: Date(timeIntervalSince1970: 3_000),
+            status: .active
+        )
+        let note = DataModel.Note(title: "Delete note", assignments: [assignment])
+
+        try await repo.save(note)
+        try await repo.delete(note)
+
+        let mutations = try fetchMutations(from: container)
+        let assignmentDelete = mutations.last {
+            $0.entityType == SyncEntityType.noteAssignment.rawValue &&
+            $0.operation == SyncOperation.delete.rawValue
+        }
+
+        #expect(assignmentDelete != nil)
+        #expect(assignmentDelete?.entityId == assignment.id)
+
+        let record = try decodeRecord(assignmentDelete?.recordData)
+        let deletedAt = record?["deleted_at"] as? String
+        #expect(deletedAt == SyncDateFormatting.formatTimestamp(Date(timeIntervalSince1970: 600)))
+    }
+
+    /// Conditions: Save a note with an assignment, clear assignments, and save again.
+    /// Expected: A note-assignment tombstone is enqueued even though the parent note remains.
+    @Test @MainActor func testSwiftDataUpdateEnqueuesAssignmentDeleteWhenAssignmentRemoved() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        var timestamps = [
+            Date(timeIntervalSince1970: 700),
+            Date(timeIntervalSince1970: 800)
+        ]
+        let repo = SwiftDataNoteRepository(
+            modelContainer: container,
+            deviceId: UUID(),
+            nowProvider: { timestamps.removeFirst() }
+        )
+
+        let assignment = NoteAssignment(
+            period: .month,
+            date: Date(timeIntervalSince1970: 4_000),
+            status: .active
+        )
+        let note = DataModel.Note(title: "Inbox note", assignments: [assignment])
+        try await repo.save(note)
+
+        note.assignments.removeAll()
+        try await repo.save(note)
+
+        let mutations = try fetchMutations(from: container)
+        let assignmentDelete = mutations.last {
+            $0.entityType == SyncEntityType.noteAssignment.rawValue &&
+            $0.operation == SyncOperation.delete.rawValue
+        }
+
+        #expect(assignmentDelete != nil)
+        #expect(assignmentDelete?.entityId == assignment.id)
+
+        let record = try decodeRecord(assignmentDelete?.recordData)
+        let deletedAt = record?["deleted_at"] as? String
+        #expect(deletedAt == SyncDateFormatting.formatTimestamp(Date(timeIntervalSince1970: 800)))
     }
 
     // MARK: - Mock Repository

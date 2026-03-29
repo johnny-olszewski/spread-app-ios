@@ -52,13 +52,30 @@ final class SwiftDataNoteRepository: NoteRepository {
 
     func save(_ note: DataModel.Note) async throws {
         let operation: SyncOperation = hasStoredNote(id: note.id) ? .update : .create
-        enqueueNoteMutation(note, operation: operation)
+        let timestamp = nowProvider()
+        let previousAssignments = storedNoteAssignments(id: note.id) ?? []
+
+        enqueueNoteMutation(note, operation: operation, timestamp: timestamp)
+        enqueueNoteAssignmentMutations(
+            noteId: note.id,
+            previousAssignments: previousAssignments,
+            currentAssignments: note.assignments,
+            timestamp: timestamp
+        )
         modelContext.insert(note)
         try modelContext.save()
     }
 
     func delete(_ note: DataModel.Note) async throws {
-        enqueueNoteMutation(note, operation: .delete)
+        let timestamp = nowProvider()
+        let previousAssignments = storedNoteAssignments(id: note.id) ?? note.assignments
+
+        enqueueNoteMutation(note, operation: .delete, timestamp: timestamp)
+        enqueueNoteAssignmentTombstones(
+            previousAssignments,
+            noteId: note.id,
+            timestamp: timestamp
+        )
         modelContext.delete(note)
         try modelContext.save()
     }
@@ -67,10 +84,14 @@ final class SwiftDataNoteRepository: NoteRepository {
 
     private enum Constants {
         static let changedFields = ["title", "content", "date", "period", "status"]
+        static let assignmentChangedFields = ["period", "date", "status"]
     }
 
-    private func enqueueNoteMutation(_ note: DataModel.Note, operation: SyncOperation) {
-        let timestamp = nowProvider()
+    private func enqueueNoteMutation(
+        _ note: DataModel.Note,
+        operation: SyncOperation,
+        timestamp: Date
+    ) {
         let deletedAt = operation == .delete ? timestamp : nil
         guard let recordData = SyncSerializer.serializeNote(
             note,
@@ -91,11 +112,95 @@ final class SwiftDataNoteRepository: NoteRepository {
         modelContext.insert(mutation)
     }
 
+    private func enqueueNoteAssignmentMutations(
+        noteId: UUID,
+        previousAssignments: [NoteAssignment],
+        currentAssignments: [NoteAssignment],
+        timestamp: Date
+    ) {
+        var previousByID = Dictionary(uniqueKeysWithValues: previousAssignments.map { ($0.id, $0) })
+
+        for assignment in currentAssignments {
+            let operation: SyncOperation
+
+            if let previous = previousByID.removeValue(forKey: assignment.id) {
+                guard previous != assignment else { continue }
+                operation = .update
+            } else {
+                operation = .create
+            }
+
+            enqueueNoteAssignmentMutation(
+                assignment,
+                noteId: noteId,
+                operation: operation,
+                timestamp: timestamp
+            )
+        }
+
+        enqueueNoteAssignmentTombstones(
+            Array(previousByID.values),
+            noteId: noteId,
+            timestamp: timestamp
+        )
+    }
+
+    private func enqueueNoteAssignmentTombstones(
+        _ assignments: [NoteAssignment],
+        noteId: UUID,
+        timestamp: Date
+    ) {
+        for assignment in assignments {
+            enqueueNoteAssignmentMutation(
+                assignment,
+                noteId: noteId,
+                operation: .delete,
+                timestamp: timestamp
+            )
+        }
+    }
+
+    private func enqueueNoteAssignmentMutation(
+        _ assignment: NoteAssignment,
+        noteId: UUID,
+        operation: SyncOperation,
+        timestamp: Date
+    ) {
+        let deletedAt = operation == .delete ? timestamp : nil
+        guard let recordData = SyncSerializer.serializeNoteAssignment(
+            assignment,
+            noteId: noteId,
+            deviceId: deviceId,
+            timestamp: timestamp,
+            deletedAt: deletedAt
+        ) else {
+            return
+        }
+
+        let mutation = DataModel.SyncMutation(
+            entityType: SyncEntityType.noteAssignment.rawValue,
+            entityId: assignment.id,
+            operation: operation.rawValue,
+            recordData: recordData,
+            changedFields: operation == .delete ? [] : Constants.assignmentChangedFields
+        )
+        modelContext.insert(mutation)
+    }
+
     private func hasStoredNote(id: UUID) -> Bool {
         var descriptor = FetchDescriptor<DataModel.Note>(
             predicate: #Predicate { $0.id == id }
         )
         descriptor.fetchLimit = 1
         return (try? modelContext.fetchCount(descriptor)) ?? 0 > 0
+    }
+
+    private func storedNoteAssignments(id: UUID) -> [NoteAssignment]? {
+        let context = ModelContext(modelContainer)
+        var descriptor = FetchDescriptor<DataModel.Note>(
+            predicate: #Predicate { $0.id == id }
+        )
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first?.assignments
     }
 }
