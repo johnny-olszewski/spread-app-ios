@@ -400,6 +400,49 @@ extension MockDataSet {
         )
     }
 
+    func generateScenarioSpreadNavigator(
+        calendar: Calendar,
+        today: Date
+    ) -> GeneratedData {
+        let marchYear = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1)) ?? today
+        let marchMonth = calendar.date(from: DateComponents(year: 2026, month: 3, day: 1)) ?? today
+        let marchTenth = calendar.date(from: DateComponents(year: 2026, month: 3, day: 10)) ?? today
+        let marchTwenty = calendar.date(from: DateComponents(year: 2026, month: 3, day: 20)) ?? today
+        let marchTwentyTwo = calendar.date(from: DateComponents(year: 2026, month: 3, day: 22)) ?? today
+        let marchTwentyNine = calendar.date(from: DateComponents(year: 2026, month: 3, day: 29)) ?? today
+        let legacyYear = calendar.date(from: DateComponents(year: 2024, month: 1, day: 1)) ?? today
+
+        return GeneratedData(
+            spreads: [
+                spread(.year, marchYear, calendar: calendar),
+                spread(.month, marchMonth, calendar: calendar),
+                spread(.day, marchTenth, calendar: calendar),
+                spread(.day, marchTwentyNine, calendar: calendar),
+                DataModel.Spread(startDate: marchTwenty, endDate: marchTwentyTwo, calendar: calendar)
+            ],
+            tasks: [
+                task(
+                    title: "Navigator day task",
+                    date: marchTwentyNine,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: marchTwentyNine,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Legacy traditional task",
+                    date: legacyYear,
+                    period: .year,
+                    assignmentPeriod: .year,
+                    assignmentDate: legacyYear,
+                    calendar: calendar
+                )
+            ],
+            events: [],
+            notes: []
+        )
+    }
+
     private func spread(
         _ period: Period,
         _ date: Date,

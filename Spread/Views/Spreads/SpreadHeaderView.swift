@@ -1,5 +1,10 @@
 import SwiftUI
 
+enum SpreadHeaderNavigatorPresentationStyle {
+    case popover
+    case sheet
+}
+
 /// Header view displaying spread title and entry counts.
 ///
 /// Shows the spread's period-appropriate title (e.g., "2026", "January 2026",
@@ -11,13 +16,48 @@ struct SpreadHeaderView: View {
     /// The configuration containing spread and count information.
     let configuration: SpreadHeaderConfiguration
 
+    /// Optional action when the title is tapped.
+    var onTitleTapped: (() -> Void)? = nil
+
+    /// Whether the header popover is presented.
+    var isShowingPopover: Binding<Bool>? = nil
+
+    /// Optional popover content anchored to the title button.
+    var popoverContent: (() -> AnyView)? = nil
+
+    /// Presentation style for the header navigator.
+    var navigatorPresentationStyle: SpreadHeaderNavigatorPresentationStyle? = nil
+
     // MARK: - Body
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(configuration.title)
-                .font(SpreadTheme.Typography.title2)
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
+            if let isShowingPopover, let popoverContent, let navigatorPresentationStyle {
+                navigatorTitleButton(isShowingNavigator: isShowingPopover)
+                    .modifier(
+                        SpreadHeaderNavigatorPresentationModifier(
+                            isPresented: isShowingPopover,
+                            style: navigatorPresentationStyle,
+                            navigatorContent: popoverContent
+                        )
+                    )
+            } else if let onTitleTapped {
+                Button(action: onTitleTapped) {
+                    HStack(spacing: 6) {
+                        Text(configuration.title)
+                            .font(SpreadTheme.Typography.title2)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton)
+            } else {
+                Text(configuration.title)
+                    .font(SpreadTheme.Typography.title2)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
+            }
 
             Text(configuration.countSummaryText)
                 .font(SpreadTheme.Typography.subheadline)
@@ -27,6 +67,45 @@ struct SpreadHeaderView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal)
         .padding(.vertical, 12)
+    }
+
+    private func navigatorTitleButton(isShowingNavigator: Binding<Bool>) -> some View {
+        Button {
+            isShowingNavigator.wrappedValue = true
+            onTitleTapped?()
+        } label: {
+            HStack(spacing: 6) {
+                Text(configuration.title)
+                    .font(SpreadTheme.Typography.title2)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton)
+    }
+}
+
+private struct SpreadHeaderNavigatorPresentationModifier: ViewModifier {
+    @Binding var isPresented: Bool
+    let style: SpreadHeaderNavigatorPresentationStyle
+    let navigatorContent: () -> AnyView
+
+    func body(content: Content) -> some View {
+        switch style {
+        case .popover:
+            content.popover(isPresented: $isPresented, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
+                navigatorContent()
+            }
+        case .sheet:
+            content.sheet(isPresented: $isPresented) {
+                navigatorContent()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+            }
+        }
     }
 }
 

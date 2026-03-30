@@ -28,9 +28,6 @@ struct ConventionalSpreadsView: View {
     /// The currently selected spread.
     @State private var selectedSpread: DataModel.Spread?
 
-    /// Whether the overdue review sheet is visible.
-    @State private var isShowingOverdueSheet = false
-
     // MARK: - Body
 
     var body: some View {
@@ -55,6 +52,7 @@ struct ConventionalSpreadsView: View {
 
             // Content area
             spreadContent
+
         }
         .toolbar {
             // Inbox and auth buttons for iPad (regular width)
@@ -67,7 +65,7 @@ struct ConventionalSpreadsView: View {
                 ToolbarItem(placement: .primaryAction) {
                     HStack(spacing: 16) {
                         OverdueButton(overdueCount: journalManager.overdueTaskCount) {
-                            isShowingOverdueSheet = true
+                            coordinator.showOverdueReview()
                         }
                         InboxButton(inboxCount: journalManager.inboxCount) {
                             coordinator.showInbox()
@@ -81,12 +79,6 @@ struct ConventionalSpreadsView: View {
         }
         .sheet(item: $coordinator.activeSheet) { destination in
             sheetContent(for: destination)
-        }
-        .sheet(isPresented: $isShowingOverdueSheet) {
-            OverdueReviewSheet(
-                journalManager: journalManager,
-                syncEngine: syncEngine
-            )
         }
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()
@@ -107,10 +99,13 @@ struct ConventionalSpreadsView: View {
             SpreadContentView(
                 spread: spread,
                 spreadDataModel: spreadDataModel(for: spread),
+                availableSpreads: journalManager.spreads,
                 calendar: journalManager.calendar,
                 today: journalManager.today,
+                onShowCompactNavigator: { coordinator.showHeaderNavigator(for: spread) },
                 onEditTask: { coordinator.showTaskDetail($0) },
                 onEditNote: { coordinator.showNoteDetail($0) },
+                onSelectSpread: { selectedSpread = $0 },
                 onDeleteTask: { task in
                     Task {
                         try? await journalManager.deleteTask(task)
@@ -211,6 +206,32 @@ struct ConventionalSpreadsView: View {
                     }
                 )
             }
+        case .overdueReview:
+            OverdueReviewSheet(
+                journalManager: journalManager,
+                syncEngine: syncEngine
+            )
+        case .headerNavigator(let spread):
+            SpreadHeaderNavigatorPopoverView(
+                model: SpreadHeaderNavigatorModel(
+                    mode: .conventional,
+                    calendar: journalManager.calendar,
+                    today: journalManager.today,
+                    spreads: journalManager.spreads,
+                    tasks: [],
+                    notes: [],
+                    events: []
+                ),
+                currentSpread: spread,
+                onSelect: { selection in
+                    guard case .conventional(let destination) = selection else { return }
+                    selectedSpread = destination
+                    coordinator.dismiss()
+                },
+                onDismiss: { coordinator.dismiss() }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -277,14 +298,20 @@ struct ConventionalSpreadsView: View {
 private struct SpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
+    let availableSpreads: [DataModel.Spread]
     let calendar: Calendar
     let today: Date
+    @State private var isShowingHeaderNavigator = false
+    var onShowCompactNavigator: (() -> Void)?
 
     /// Callback when a task is tapped for editing.
     var onEditTask: ((DataModel.Task) -> Void)?
 
     /// Callback when a note is tapped for editing.
     var onEditNote: ((DataModel.Note) -> Void)?
+
+    /// Callback when the selected spread changes from header navigator.
+    var onSelectSpread: ((DataModel.Spread) -> Void)?
 
     /// Callback when a task is deleted via swipe.
     var onDeleteTask: ((DataModel.Task) -> Void)?
@@ -301,14 +328,28 @@ private struct SpreadContentView: View {
     /// Callback to open migration review sheet.
     var onReviewMigration: (() -> Void)?
 
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
     var body: some View {
         VStack(spacing: 0) {
             // Header with title and counts
             SpreadHeaderView(
-                spread: spread,
-                calendar: calendar,
-                taskCount: spreadDataModel?.tasks.count ?? 0,
-                noteCount: spreadDataModel?.notes.count ?? 0
+                configuration: SpreadHeaderConfiguration(
+                    spread: spread,
+                    calendar: calendar,
+                    taskCount: spreadDataModel?.tasks.count ?? 0,
+                    noteCount: spreadDataModel?.notes.count ?? 0
+                ),
+                onTitleTapped: {
+                    if horizontalSizeClass == .regular {
+                        isShowingHeaderNavigator = true
+                    } else {
+                        onShowCompactNavigator?()
+                    }
+                },
+                isShowingPopover: horizontalSizeClass == .regular ? $isShowingHeaderNavigator : nil,
+                popoverContent: horizontalSizeClass == .regular ? { AnyView(headerNavigatorView) } : nil,
+                navigatorPresentationStyle: horizontalSizeClass == .regular ? .popover : nil
             )
 
             Divider()
@@ -359,6 +400,26 @@ private struct SpreadContentView: View {
                 Text("Unable to load spread data.")
             }
         }
+    }
+
+    private var headerNavigatorView: some View {
+        SpreadHeaderNavigatorPopoverView(
+            model: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: calendar,
+                today: today,
+                spreads: availableSpreads,
+                tasks: [],
+                notes: [],
+                events: []
+            ),
+            currentSpread: spread,
+            onSelect: { selection in
+                guard case .conventional(let destination) = selection else { return }
+                onSelectSpread?(destination)
+            },
+            onDismiss: { isShowingHeaderNavigator = false }
+        )
     }
 }
 

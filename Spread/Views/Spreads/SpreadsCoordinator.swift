@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 
 /// Coordinates sheet presentation for `ConventionalSpreadsView`.
@@ -21,6 +22,8 @@ final class SpreadsCoordinator {
         case inbox
         case auth
         case migrationSelection
+        case overdueReview
+        case headerNavigator(DataModel.Spread)
 
         var id: String {
             switch self {
@@ -32,6 +35,8 @@ final class SpreadsCoordinator {
             case .inbox: "inbox"
             case .auth: "auth"
             case .migrationSelection: "migrationSelection"
+            case .overdueReview: "overdueReview"
+            case .headerNavigator(let spread): "headerNavigator-\(spread.id.uuidString)"
             }
         }
     }
@@ -81,6 +86,16 @@ final class SpreadsCoordinator {
     /// Presents the migration selection sheet.
     func showMigrationSelection() {
         activeSheet = .migrationSelection
+    }
+
+    /// Presents the overdue review sheet.
+    func showOverdueReview() {
+        activeSheet = .overdueReview
+    }
+
+    /// Presents the compact header navigator sheet for the given spread.
+    func showHeaderNavigator(for spread: DataModel.Spread) {
+        activeSheet = .headerNavigator(spread)
     }
 
     /// Dismisses the currently active sheet.

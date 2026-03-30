@@ -18,6 +18,13 @@ struct TraditionalYearView: View {
     /// Callback when a month is selected for navigation.
     var onSelectMonth: ((Date) -> Void)?
 
+    let navigatorModel: SpreadHeaderNavigatorModel
+    var onShowCompactNavigator: (() -> Void)?
+    var onSelectNavigatorDestination: ((SpreadHeaderNavigatorModel.Selection) -> Void)?
+
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var isShowingHeaderNavigatorPopover = false
+
     // MARK: - Private
 
     private var calendar: Calendar { journalManager.calendar }
@@ -49,10 +56,27 @@ struct TraditionalYearView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 // Year title
-                Text(String(yearNumber))
-                    .font(SpreadTheme.Typography.largeTitle)
-                    .padding(.horizontal)
-                    .accessibilityIdentifier("traditionalYearTitle")
+                Group {
+                    SpreadHeaderView(
+                        configuration: SpreadHeaderConfiguration(
+                            spread: DataModel.Spread(period: .year, date: yearDate, calendar: calendar),
+                            calendar: calendar,
+                            taskCount: 0,
+                            noteCount: 0
+                        ),
+                        onTitleTapped: {
+                            if horizontalSizeClass == .regular {
+                                isShowingHeaderNavigatorPopover = true
+                            } else {
+                                onShowCompactNavigator?()
+                            }
+                        },
+                        isShowingPopover: horizontalSizeClass == .regular ? $isShowingHeaderNavigatorPopover : nil,
+                        popoverContent: horizontalSizeClass == .regular ? { AnyView(headerNavigatorView) } : nil,
+                        navigatorPresentationStyle: horizontalSizeClass == .regular ? .popover : nil
+                    )
+                }
+                .accessibilityIdentifier("traditionalYearTitle")
 
                 // Month grid
                 LazyVGrid(columns: columns, spacing: 12) {
@@ -97,6 +121,33 @@ struct TraditionalYearView: View {
         let monthYear = calendar.component(.year, from: monthDate)
         let monthMonth = calendar.component(.month, from: monthDate)
         return todayYear == monthYear && todayMonth == monthMonth
+    }
+}
+
+private extension TraditionalYearView {
+    var headerNavigatorView: some View {
+        SpreadHeaderNavigatorPopoverView(
+            model: navigatorModel,
+            currentSpread: DataModel.Spread(period: .year, date: yearDate, calendar: calendar),
+            onSelect: { selection in
+                onSelectNavigatorDestination?(selection)
+            },
+            onDismiss: { isShowingHeaderNavigatorPopover = false }
+        )
+    }
+}
+
+extension SpreadHeaderNavigatorModel {
+    static var traditionalPreview: SpreadHeaderNavigatorModel {
+        SpreadHeaderNavigatorModel(
+            mode: .traditional,
+            calendar: .current,
+            today: .now,
+            spreads: [],
+            tasks: [],
+            notes: [],
+            events: []
+        )
     }
 }
 
@@ -164,7 +215,10 @@ private struct MonthCell: View {
         yearDate: Calendar.current.date(from: DateComponents(year: 2026, month: 1, day: 1))!,
         onSelectMonth: { month in
             print("Selected month: \(month)")
-        }
+        },
+        navigatorModel: .traditionalPreview,
+        onShowCompactNavigator: nil,
+        onSelectNavigatorDestination: nil
     )
 }
 
@@ -175,6 +229,9 @@ private struct MonthCell: View {
     TraditionalYearView(
         journalManager: .previewInstance,
         yearDate: yearDate,
-        onSelectMonth: nil
+        onSelectMonth: nil,
+        navigatorModel: .traditionalPreview,
+        onShowCompactNavigator: nil,
+        onSelectNavigatorDestination: nil
     )
 }

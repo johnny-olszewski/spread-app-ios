@@ -66,6 +66,9 @@ enum MockDataSet: String, CaseIterable {
     /// Hidden scenario fixture: multiday spreads show empty days with adaptive section layout.
     case scenarioMultidayLayout
 
+    /// Hidden scenario fixture: iPad header spread navigator across conventional and traditional flows.
+    case scenarioSpreadNavigator
+
     // MARK: - Display
 
     static var debugMenuCases: [MockDataSet] {
@@ -91,7 +94,8 @@ enum MockDataSet: String, CaseIterable {
                 .scenarioOverdueInbox,
                 .scenarioTraditionalOverdue,
                 .scenarioNoteExclusions,
-                .scenarioMultidayLayout:
+                .scenarioMultidayLayout,
+                .scenarioSpreadNavigator:
             return false
         }
     }
@@ -135,6 +139,8 @@ enum MockDataSet: String, CaseIterable {
             return "Scenario: Note Exclusions"
         case .scenarioMultidayLayout:
             return "Scenario: Multiday Layout"
+        case .scenarioSpreadNavigator:
+            return "Scenario: Spread Navigator"
         }
     }
 
@@ -177,6 +183,8 @@ enum MockDataSet: String, CaseIterable {
             return "Hidden UI-test fixture for note exclusion assertions."
         case .scenarioMultidayLayout:
             return "Hidden UI-test fixture for multiday empty-day layout and task-only sections."
+        case .scenarioSpreadNavigator:
+            return "Hidden UI-test fixture for the iPad header spread navigator."
         }
     }
 
@@ -238,6 +246,8 @@ enum MockDataSet: String, CaseIterable {
             return generateScenarioNoteExclusions(calendar: calendar, today: today)
         case .scenarioMultidayLayout:
             return generateScenarioMultidayLayout(calendar: calendar, today: today)
+        case .scenarioSpreadNavigator:
+            return generateScenarioSpreadNavigator(calendar: calendar, today: today)
         }
     }
 

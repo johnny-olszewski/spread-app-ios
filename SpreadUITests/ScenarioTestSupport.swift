@@ -16,6 +16,7 @@ class LocalhostScenarioUITestCase: XCTestCase {
         case traditionalOverdue = "scenarioTraditionalOverdue"
         case noteExclusions = "scenarioNoteExclusions"
         case multidayLayout = "scenarioMultidayLayout"
+        case spreadNavigator = "scenarioSpreadNavigator"
     }
 
     override func setUpWithError() throws {
@@ -251,6 +252,13 @@ class LocalhostScenarioUITestCase: XCTestCase {
             Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearIdentifier(year),
             in: app
         )
+
+        let menuItem = app.buttons[
+            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearMenuItem(year)
+        ].firstMatch
+        if menuItem.waitForExistence(timeout: 2) {
+            tapElement(menuItem)
+        }
     }
 
     func openMonth(year: Int, month: Int, in app: XCUIApplication) {
@@ -258,6 +266,13 @@ class LocalhostScenarioUITestCase: XCTestCase {
             Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.monthIdentifier(year: year, month: month),
             in: app
         )
+
+        let menuItem = app.buttons[
+            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.monthMenuItem(year: year, month: month)
+        ].firstMatch
+        if menuItem.waitForExistence(timeout: 2) {
+            tapElement(menuItem)
+        }
     }
 
     func openDay(year: Int, month: Int, day: Int, in app: XCUIApplication) {
@@ -269,8 +284,26 @@ class LocalhostScenarioUITestCase: XCTestCase {
 
     func tapTab(_ title: String, in app: XCUIApplication) {
         let tabButton = app.tabBars.buttons[title].firstMatch
-        waitForElement(tabButton)
-        tabButton.tap()
+        if tabButton.waitForExistence(timeout: 2) {
+            tabButton.tap()
+            return
+        }
+
+        let sidebarButton = app.buttons[title].firstMatch
+        if sidebarButton.waitForExistence(timeout: 2) {
+            sidebarButton.tap()
+            return
+        }
+
+        let sidebarCell = app.cells.containing(.staticText, identifier: title).firstMatch
+        if sidebarCell.waitForExistence(timeout: 2) {
+            sidebarCell.tap()
+            return
+        }
+
+        let sidebarText = app.staticTexts[title].firstMatch
+        waitForElement(sidebarText)
+        sidebarText.tap()
     }
 
     func switchToTraditionalMode(in app: XCUIApplication) {
@@ -282,21 +315,25 @@ class LocalhostScenarioUITestCase: XCTestCase {
         waitForElement(option)
         option.tap()
         tapTab("Spreads", in: app)
-        _ = app.otherElements["traditionalYearView"].firstMatch.waitForExistence(timeout: 2)
     }
 
     func openTraditionalMonth(_ month: Int, in app: XCUIApplication) {
-        let monthCell = app.otherElements["monthCell_\(month)"].firstMatch
-        waitForElement(monthCell)
+        tapTab("Spreads", in: app)
+        let yearView = anyElement(in: app, identifier: "traditionalYearView")
+        waitForElement(yearView, timeout: 10)
+        let monthCell = anyElement(in: app, identifier: "monthCell_\(month)")
+        waitForElement(monthCell, timeout: 10)
         monthCell.tap()
-        XCTAssertTrue(app.otherElements["traditionalMonthView"].waitForExistence(timeout: 5))
+        XCTAssertTrue(anyElement(in: app, identifier: "traditionalMonthView").waitForExistence(timeout: 5))
     }
 
     func openTraditionalDay(_ day: Int, in app: XCUIApplication) {
-        let dayCell = app.otherElements["dayCell_\(day)"].firstMatch
+        let monthView = anyElement(in: app, identifier: "traditionalMonthView")
+        waitForElement(monthView)
+        let dayCell = anyElement(in: app, identifier: "dayCell_\(day)")
         waitForElement(dayCell)
         dayCell.tap()
-        XCTAssertTrue(app.otherElements["traditionalDayView"].waitForExistence(timeout: 5))
+        XCTAssertTrue(anyElement(in: app, identifier: "traditionalDayView").waitForExistence(timeout: 5))
     }
 
     func submitMigration(in app: XCUIApplication) {
@@ -309,10 +346,166 @@ class LocalhostScenarioUITestCase: XCTestCase {
         tapElement(button)
     }
 
+    func openHeaderNavigator(in app: XCUIApplication) {
+        let titleButton = app.buttons[Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton].firstMatch
+        if titleButton.waitForExistence(timeout: 5) {
+            tapElement(titleButton)
+            return
+        }
+
+        let fallbacks = [
+            anyElement(in: app, identifier: "traditionalDayTitle"),
+            anyElement(in: app, identifier: "traditionalMonthTitle"),
+            anyElement(in: app, identifier: "traditionalYearTitle"),
+        ]
+
+        for fallback in fallbacks where fallback.waitForExistence(timeout: 2) {
+            tapElement(fallback)
+            return
+        }
+
+        XCTFail("Header navigator trigger was not found")
+    }
+
+    func tapNavigatorYearDisclosure(_ year: Int, in app: XCUIApplication) {
+        let disclosure = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.yearDisclosure(year)
+        )
+        if disclosure.waitForExistence(timeout: 2) {
+            tapElement(disclosure)
+            return
+        }
+
+        let row = anyElement(
+            in: navigatorSurface(in: app),
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.yearRow(year)
+        )
+        if row.waitForExistence(timeout: 2) {
+            row.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+            return
+        }
+
+        let labeledRow = navigatorSurface(in: app)
+            .descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", String(year)))
+            .firstMatch
+        if labeledRow.waitForExistence(timeout: 2) {
+            labeledRow.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+            return
+        }
+
+        let disclosureButtons = navigatorSurface(in: app)
+            .buttons
+            .matching(NSPredicate(format: "label == %@ OR label == %@", "Go Down", "Go Right"))
+        let disclosureButton = disclosureButtons.element(boundBy: 0)
+        waitForElement(disclosureButton)
+        disclosureButton.tap()
+    }
+
+    func tapNavigatorMonthDisclosure(year: Int, month: Int, in app: XCUIApplication) {
+        let disclosure = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.monthDisclosure(year: year, month: month)
+        )
+        if disclosure.waitForExistence(timeout: 2) {
+            tapElement(disclosure)
+            return
+        }
+
+        let row = anyElement(
+            in: navigatorSurface(in: app),
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.monthRow(year: year, month: month)
+        )
+        if row.waitForExistence(timeout: 2) {
+            row.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+            return
+        }
+
+        let monthName = Calendar.current.monthSymbols[month - 1]
+        let labeledRow = navigatorSurface(in: app)
+            .descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", monthName))
+            .firstMatch
+        if labeledRow.waitForExistence(timeout: 2) {
+            labeledRow.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+            return
+        }
+
+        let disclosureButtons = navigatorSurface(in: app)
+            .buttons
+            .matching(NSPredicate(format: "label == %@ OR label == %@", "Go Down", "Go Right"))
+        let disclosureButton = disclosureButtons.element(boundBy: 1)
+        waitForElement(disclosureButton)
+        disclosureButton.tap()
+    }
+
+    func tapNavigatorYearRow(_ year: Int, in app: XCUIApplication) {
+        let row = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.yearRow(year)
+        )
+        if row.waitForExistence(timeout: 2) {
+            tapElement(row)
+            return
+        }
+
+        let fallback = app.buttons[String(year)].firstMatch
+        waitForElement(fallback)
+        tapElement(fallback)
+    }
+
+    func tapNavigatorMonthRow(year: Int, month: Int, in app: XCUIApplication) {
+        let row = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.monthRow(year: year, month: month)
+        )
+        if row.waitForExistence(timeout: 2) {
+            tapElement(row)
+            return
+        }
+
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = .init(identifier: "UTC")!
+        formatter.dateFormat = "MMMM"
+        let date = formatter.calendar.date(from: DateComponents(year: year, month: month, day: 1))!
+        let fallback = app.buttons[formatter.string(from: date)].firstMatch
+        waitForElement(fallback)
+        tapElement(fallback)
+    }
+
+    func tapNavigatorDayTile(
+        year: Int,
+        month: Int,
+        day: Int,
+        calendar: Calendar,
+        in app: XCUIApplication
+    ) {
+        let date = calendar.date(from: DateComponents(year: year, month: month, day: day))!
+        let tile = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.dayTile(date: date, calendar: calendar)
+        )
+        waitForElement(tile)
+        tapElement(tile)
+    }
+
     private func tapHierarchyControl(_ identifier: String, in app: XCUIApplication) {
         let control = anyElement(in: app, identifier: identifier)
         waitForElement(control)
         tapElement(control)
+    }
+
+    private func navigatorSurface(in app: XCUIApplication) -> XCUIElement {
+        app.collectionViews[Definitions.AccessibilityIdentifiers.SpreadNavigator.popover].firstMatch
+    }
+
+    private func anyElement(
+        in element: XCUIElement,
+        identifier: String
+    ) -> XCUIElement {
+        element.descendants(matching: .any)[identifier].firstMatch
     }
 
     private func tapElement(_ element: XCUIElement) {

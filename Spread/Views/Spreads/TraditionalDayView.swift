@@ -21,11 +21,18 @@ struct TraditionalDayView: View {
     /// Callback to navigate back to month view.
     var onBackToMonth: (() -> Void)?
 
+    let navigatorModel: SpreadHeaderNavigatorModel
+    var onShowCompactNavigator: (() -> Void)?
+    var onSelectNavigatorDestination: ((SpreadHeaderNavigatorModel.Selection) -> Void)?
+
     /// The note currently being edited via detail sheet.
     @State private var noteBeingEdited: DataModel.Note?
 
     /// The task currently being edited via detail sheet.
     @State private var taskBeingEdited: DataModel.Task?
+
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var isShowingHeaderNavigatorPopover = false
 
     // MARK: - Private
 
@@ -154,8 +161,26 @@ struct TraditionalDayView: View {
 
             // Day title
             HStack(spacing: 8) {
-                Text(dayTitle)
-                    .font(SpreadTheme.Typography.largeTitle)
+                Group {
+                    SpreadHeaderView(
+                        configuration: SpreadHeaderConfiguration(
+                            spread: DataModel.Spread(period: .day, date: dayDate, calendar: calendar),
+                            calendar: calendar,
+                            taskCount: 0,
+                            noteCount: 0
+                        ),
+                        onTitleTapped: {
+                            if horizontalSizeClass == .regular {
+                                isShowingHeaderNavigatorPopover = true
+                            } else {
+                                onShowCompactNavigator?()
+                            }
+                        },
+                        isShowingPopover: horizontalSizeClass == .regular ? $isShowingHeaderNavigatorPopover : nil,
+                        popoverContent: horizontalSizeClass == .regular ? { AnyView(headerNavigatorView) } : nil,
+                        navigatorPresentationStyle: horizontalSizeClass == .regular ? .popover : nil
+                    )
+                }
 
                 if isToday {
                     Text("Today")
@@ -184,6 +209,19 @@ struct TraditionalDayView: View {
     }
 }
 
+private extension TraditionalDayView {
+    var headerNavigatorView: some View {
+        SpreadHeaderNavigatorPopoverView(
+            model: navigatorModel,
+            currentSpread: DataModel.Spread(period: .day, date: dayDate, calendar: calendar),
+            onSelect: { selection in
+                onSelectNavigatorDestination?(selection)
+            },
+            onDismiss: { isShowingHeaderNavigatorPopover = false }
+        )
+    }
+}
+
 // MARK: - Preview
 
 #Preview("Day with entries") {
@@ -193,7 +231,10 @@ struct TraditionalDayView: View {
         dayDate: Date(),
         onBackToMonth: {
             print("Back to month")
-        }
+        },
+        navigatorModel: .traditionalPreview,
+        onShowCompactNavigator: nil,
+        onSelectNavigatorDestination: nil
     )
 }
 
@@ -202,6 +243,9 @@ struct TraditionalDayView: View {
         journalManager: .previewInstance,
         syncEngine: nil,
         dayDate: Calendar.current.date(from: DateComponents(year: 2030, month: 6, day: 15))!,
-        onBackToMonth: nil
+        onBackToMonth: nil,
+        navigatorModel: .traditionalPreview,
+        onShowCompactNavigator: nil,
+        onSelectNavigatorDestination: nil
     )
 }
