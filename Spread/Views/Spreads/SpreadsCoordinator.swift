@@ -23,7 +23,6 @@ final class SpreadsCoordinator {
         case auth
         case migrationSelection
         case overdueReview
-        case headerNavigator(DataModel.Spread)
 
         var id: String {
             switch self {
@@ -36,7 +35,6 @@ final class SpreadsCoordinator {
             case .auth: "auth"
             case .migrationSelection: "migrationSelection"
             case .overdueReview: "overdueReview"
-            case .headerNavigator(let spread): "headerNavigator-\(spread.id.uuidString)"
             }
         }
     }
@@ -91,11 +89,6 @@ final class SpreadsCoordinator {
     /// Presents the overdue review sheet.
     func showOverdueReview() {
         activeSheet = .overdueReview
-    }
-
-    /// Presents the compact header navigator sheet for the given spread.
-    func showHeaderNavigator(for spread: DataModel.Spread) {
-        activeSheet = .headerNavigator(spread)
     }
 
     /// Dismisses the currently active sheet.

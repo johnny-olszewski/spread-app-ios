@@ -28,20 +28,23 @@ struct SpreadHeaderView: View {
     /// Presentation style for the header navigator.
     var navigatorPresentationStyle: SpreadHeaderNavigatorPresentationStyle? = nil
 
+    /// Whether the title should be rendered.
+    var showsTitle: Bool = true
+
     // MARK: - Body
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let isShowingPopover, let popoverContent, let navigatorPresentationStyle {
+            if showsTitle, let isShowingPopover, let popoverContent, let navigatorPresentationStyle {
                 navigatorTitleButton(isShowingNavigator: isShowingPopover)
                     .modifier(
-                        SpreadHeaderNavigatorPresentationModifier(
+                        SpreadNavigatorPresentationModifier(
                             isPresented: isShowingPopover,
                             style: navigatorPresentationStyle,
                             navigatorContent: popoverContent
                         )
                     )
-            } else if let onTitleTapped {
+            } else if showsTitle, let onTitleTapped {
                 Button(action: onTitleTapped) {
                     HStack(spacing: 6) {
                         Text(configuration.title)
@@ -53,7 +56,7 @@ struct SpreadHeaderView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton)
-            } else {
+            } else if showsTitle {
                 Text(configuration.title)
                     .font(SpreadTheme.Typography.title2)
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
@@ -88,7 +91,7 @@ struct SpreadHeaderView: View {
     }
 }
 
-private struct SpreadHeaderNavigatorPresentationModifier: ViewModifier {
+struct SpreadNavigatorPresentationModifier: ViewModifier {
     @Binding var isPresented: Bool
     let style: SpreadHeaderNavigatorPresentationStyle
     let navigatorContent: () -> AnyView

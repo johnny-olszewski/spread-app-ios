@@ -19,11 +19,6 @@ struct TraditionalYearView: View {
     var onSelectMonth: ((Date) -> Void)?
 
     let navigatorModel: SpreadHeaderNavigatorModel
-    var onShowCompactNavigator: (() -> Void)?
-    var onSelectNavigatorDestination: ((SpreadHeaderNavigatorModel.Selection) -> Void)?
-
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var isShowingHeaderNavigatorPopover = false
 
     // MARK: - Private
 
@@ -64,16 +59,7 @@ struct TraditionalYearView: View {
                             taskCount: 0,
                             noteCount: 0
                         ),
-                        onTitleTapped: {
-                            if horizontalSizeClass == .regular {
-                                isShowingHeaderNavigatorPopover = true
-                            } else {
-                                onShowCompactNavigator?()
-                            }
-                        },
-                        isShowingPopover: horizontalSizeClass == .regular ? $isShowingHeaderNavigatorPopover : nil,
-                        popoverContent: horizontalSizeClass == .regular ? { AnyView(headerNavigatorView) } : nil,
-                        navigatorPresentationStyle: horizontalSizeClass == .regular ? .popover : nil
+                        showsTitle: false
                     )
                 }
                 .accessibilityIdentifier("traditionalYearTitle")
@@ -121,19 +107,6 @@ struct TraditionalYearView: View {
         let monthYear = calendar.component(.year, from: monthDate)
         let monthMonth = calendar.component(.month, from: monthDate)
         return todayYear == monthYear && todayMonth == monthMonth
-    }
-}
-
-private extension TraditionalYearView {
-    var headerNavigatorView: some View {
-        SpreadHeaderNavigatorPopoverView(
-            model: navigatorModel,
-            currentSpread: DataModel.Spread(period: .year, date: yearDate, calendar: calendar),
-            onSelect: { selection in
-                onSelectNavigatorDestination?(selection)
-            },
-            onDismiss: { isShowingHeaderNavigatorPopover = false }
-        )
     }
 }
 
@@ -216,9 +189,7 @@ private struct MonthCell: View {
         onSelectMonth: { month in
             print("Selected month: \(month)")
         },
-        navigatorModel: .traditionalPreview,
-        onShowCompactNavigator: nil,
-        onSelectNavigatorDestination: nil
+        navigatorModel: .traditionalPreview
     )
 }
 
@@ -230,8 +201,6 @@ private struct MonthCell: View {
         journalManager: .previewInstance,
         yearDate: yearDate,
         onSelectMonth: nil,
-        navigatorModel: .traditionalPreview,
-        onShowCompactNavigator: nil,
-        onSelectNavigatorDestination: nil
+        navigatorModel: .traditionalPreview
     )
 }

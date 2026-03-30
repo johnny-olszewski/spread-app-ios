@@ -15,7 +15,6 @@ private enum TraditionalSheetDestination: Identifiable {
     case inbox
     case auth
     case overdueReview
-    case headerNavigator(DataModel.Spread)
 
     var id: String {
         switch self {
@@ -25,8 +24,6 @@ private enum TraditionalSheetDestination: Identifiable {
             "auth"
         case .overdueReview:
             "overdueReview"
-        case .headerNavigator(let spread):
-            "headerNavigator-\(spread.id.uuidString)"
         }
     }
 }
@@ -86,13 +83,41 @@ struct TraditionalSpreadsView: View {
         )
     }
 
+    private var stripModel: SpreadTitleNavigatorModel {
+        SpreadTitleNavigatorModel(headerModel: navigatorModel)
+    }
+
+    private var currentSpread: DataModel.Spread {
+        if case .day(let dayDate) = navigationPath.last {
+            return DataModel.Spread(period: .day, date: dayDate, calendar: journalManager.calendar)
+        }
+        if case .month(let monthDate) = navigationPath.last {
+            return DataModel.Spread(period: .month, date: monthDate, calendar: journalManager.calendar)
+        }
+        return DataModel.Spread(period: .year, date: selectedRootYearDate, calendar: journalManager.calendar)
+    }
+
+    private var currentSelection: SpreadHeaderNavigatorModel.Selection {
+        if case .day(let dayDate) = navigationPath.last {
+            return .traditionalDay(dayDate)
+        }
+        if case .month(let monthDate) = navigationPath.last {
+            return .traditionalMonth(monthDate)
+        }
+        return .traditionalYear(selectedRootYearDate)
+    }
+
     // MARK: - Body
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            yearRoot
+            traditionalChrome {
+                yearRoot
+            }
                 .navigationDestination(for: TraditionalNavigationDestination.self) { destination in
-                    destinationView(for: destination)
+                    traditionalChrome {
+                        destinationView(for: destination)
+                    }
                 }
                 .navigationTitle("Spreads")
                 .toolbar {
@@ -110,15 +135,6 @@ struct TraditionalSpreadsView: View {
                     journalManager: journalManager,
                     syncEngine: syncEngine
                 )
-            case .headerNavigator(let spread):
-                SpreadHeaderNavigatorPopoverView(
-                    model: navigatorModel,
-                    currentSpread: spread,
-                    onSelect: { handleNavigatorSelection($0) },
-                    onDismiss: { activeSheet = nil }
-                )
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
             }
         }
         .onAppear {
@@ -143,13 +159,7 @@ struct TraditionalSpreadsView: View {
                 onBackToYear: {
                     navigationPath.removeLast()
                 },
-                navigatorModel: navigatorModel,
-                onShowCompactNavigator: {
-                    activeSheet = .headerNavigator(
-                        DataModel.Spread(period: .month, date: monthDate, calendar: journalManager.calendar)
-                    )
-                },
-                onSelectNavigatorDestination: { handleNavigatorSelection($0) }
+                navigatorModel: navigatorModel
             )
             .navigationBarBackButtonHidden(true)
             .navigationTitle("")
@@ -162,13 +172,7 @@ struct TraditionalSpreadsView: View {
                 onBackToMonth: {
                     navigationPath.removeLast()
                 },
-                navigatorModel: navigatorModel,
-                onShowCompactNavigator: {
-                    activeSheet = .headerNavigator(
-                        DataModel.Spread(period: .day, date: dayDate, calendar: journalManager.calendar)
-                    )
-                },
-                onSelectNavigatorDestination: { handleNavigatorSelection($0) }
+                navigatorModel: navigatorModel
             )
             .navigationBarBackButtonHidden(true)
             .navigationTitle("")
@@ -191,14 +195,30 @@ struct TraditionalSpreadsView: View {
                 onSelectMonth: { monthDate in
                     navigationPath.append(.month(monthDate))
                 },
-                navigatorModel: navigatorModel,
-                onShowCompactNavigator: {
-                    activeSheet = .headerNavigator(
-                        DataModel.Spread(period: .year, date: selectedRootYearDate, calendar: journalManager.calendar)
-                    )
-                },
-                onSelectNavigatorDestination: { handleNavigatorSelection($0) }
+                navigatorModel: navigatorModel
             )
+        }
+    }
+
+    @ViewBuilder
+    private func traditionalChrome<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(spacing: 0) {
+            SpreadTitleNavigatorView(
+                stripModel: stripModel,
+                headerNavigatorModel: navigatorModel,
+                currentSpread: currentSpread,
+                currentSelection: currentSelection,
+                onSelect: { handleNavigatorSelection($0) },
+                onCreateSpreadTapped: nil,
+                onCreateTaskTapped: nil,
+                onCreateNoteTapped: nil
+            )
+
+            Divider()
+
+            content()
         }
     }
 
