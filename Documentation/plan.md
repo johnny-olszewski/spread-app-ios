@@ -2831,3 +2831,53 @@ Supabase: SPRD-85A -> SPRD-85C
     - current selection highlighting is visible
   - Manual QA for visual polish, bounded iPad popover sizing, iPhone sheet presentation, and mode-specific content differences.
 - **Dependencies**: None
+
+### [SPRD-126] UI: horizontal spread-title navigator
+- **Context**: `SPRD-125` established the rooted spread navigator surface, but spread selection is still split between older top-bar controls and per-spread header title ownership. The next step is to make spread selection itself live in a centered horizontal title navigator that will also serve as the foundation for future horizontally scrollable spread presentation.
+- **Description**: Replace the current top spread selection bar with a centered horizontal spread-title navigator on both iPhone and iPad. The navigator must display spread titles in the app's actual navigable sequence, keep the current spread centered after scroll settle, allow direct tap selection of visible neighbors, and open the existing rooted spread navigator surface when the selected capsule is tapped.
+- **Implementation Details**:
+  - Remove the old top spread selection bar and replace it with a horizontal scroll view of spread titles in the top spread-navigation area.
+  - Use a separable support/model layer for:
+    - deriving the ordered navigable spread sequence for conventional and traditional modes
+    - mapping current spread selection into centered-strip state
+    - preserving a stable centered selected slot with invisible spacer slots near edges and in sparse datasets
+    - determining adaptive visible-neighbor behavior from available width instead of hardcoded counts
+    - reconciling drag, tap-selection, and external selection changes into one source of truth
+  - Render the selected spread as a prominent rounded capsule with a subtle chevron that is not a separate tap target.
+  - Render non-selected visible spreads as plain text titles with hierarchy-aware styling.
+  - Allow partially visible edge titles when width does not fit only full titles cleanly.
+  - Make the strip fully user-scrollable and snap so one spread title is centered at rest.
+  - Update current selection only after snap/settle.
+  - Tapping a visible non-selected spread selects it and animates it into the centered selected position.
+  - Tapping the selected capsule opens the rooted spread navigator surface from `SPRD-125`:
+    - popover on iPad
+    - large sheet on iPhone
+  - When spread selection changes from any source, including rooted navigator selection or other programmatic navigation, automatically recenter the horizontal strip.
+  - Remove the duplicate spread title from the per-spread header once the navigator owns current-spread display.
+- **Acceptance Criteria**:
+  - The old top spread selection bar is replaced by a horizontal spread-title navigator on both iPhone and iPad. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - The selected spread remains centered after scroll settle, including sparse and edge cases, using invisible spacer behavior rather than collapsing the layout around the selected item. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - Dragging the navigator snaps a single spread title into the centered selected position, and selection updates only after settling. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - Tapping a visible non-selected spread selects it, animates it into the centered position, and updates the main app spread content. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - Tapping the selected capsule opens the existing rooted spread navigator surface on the appropriate platform, and selections made there recenter the strip afterward. (Spec: Navigation and UI; Spread Navigator Surface)
+  - The per-spread header no longer renders a duplicate spread title once the horizontal navigator is active. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+- **Tests**:
+  - Unit tests for the horizontal navigator support/model layer covering:
+    - conventional and traditional ordered spread sequencing
+    - centered selected-slot behavior with sparse data and edge selections
+    - adaptive visible-neighbor window derivation without hardcoded per-device counts
+    - snap target resolution and selection-after-settle behavior
+    - recentering after external selection changes
+  - UI tests on iPhone and iPad covering:
+    - selected spread starts centered on launch
+    - dragging snaps to a new centered selection and updates spread content only after settle
+    - tapping a visible neighbor selects and recenters it
+    - tapping the selected capsule opens the existing navigator surface
+    - selecting from the sheet/popover recenters the strip on the new current spread
+    - the per-spread header no longer shows a duplicate spread title
+  - Manual QA for:
+    - partial edge visibility polish
+    - capsule/plain-text hierarchy styling
+    - animation smoothness and non-jittery content updates during drag
+    - behavior across compact and regular widths without hardcoded visible-count assumptions
+- **Dependencies**: SPRD-125

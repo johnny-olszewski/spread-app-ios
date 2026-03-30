@@ -6,7 +6,7 @@
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
-- Adaptive UI: top-level navigation adapts by device (sidebar on iPad, tab/sheet on iPhone). Spread navigation uses the in-view hierarchical tab bar on both platforms, and the header title presents a rooted spread navigator as a popover on iPad and a sheet on iPhone; traditional mode remains calendar-driven. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125]
+- Adaptive UI: top-level navigation adapts by device (sidebar on iPad, tab/sheet on iPhone). Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and the selected spread capsule presents a rooted spread navigator as a popover on iPad and a sheet on iPhone; traditional mode remains calendar-driven. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126]
 - Core entities (v1): [SPRD-8, SPRD-9, SPRD-10]
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
   - Entry: protocol for task and note with type-specific behaviors. [SPRD-9]
@@ -21,7 +21,7 @@
 - BuJo modes: "conventional" (migration history visible) and "traditional" (preferred assignment only). [SPRD-20, SPRD-17]
 
 ## Goals
-- Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with in-view hierarchical navigation, a header-based spread navigator presented as an iPad popover and iPhone sheet, manual migration, and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29, SPRD-125]
+- Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with an in-view horizontal spread navigator, a selected-spread navigator surface presented as an iPad popover and iPhone sheet, manual migration, and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29, SPRD-125, SPRD-126]
 - Provide calendar-style navigation in traditional mode (year/month/day) without altering created-spread data. [SPRD-17, SPRD-35, SPRD-38]
 - Support offline-first usage with SwiftData local storage and Supabase sync. [SPRD-80, SPRD-85]
 - Require authentication for all product usage in dev/prod environments, while preserving offline access for users with an existing cached session and local data. [SPRD-104, SPRD-106]
@@ -44,8 +44,8 @@
 
 ### Multiplatform Strategy
 - Adaptive layouts using size classes: [SPRD-19, SPRD-25]
-  - Regular width (iPad): NavigationSplitView for top-level destinations; spread navigation stays in the spread view via hierarchical tabs, with an additional spread-title popover navigator in the header
-  - Compact width (iPhone): Tab bar/sheets for top-level destinations; same in-view hierarchical spread tabs, plus the same header-triggered spread navigator content presented in a large sheet
+  - Regular width (iPad): NavigationSplitView for top-level destinations; spread navigation stays in the spread view via a centered horizontal spread-title navigator, whose selected capsule can open the rooted spread navigator popover
+  - Compact width (iPhone): Tab bar/sheets for top-level destinations; the same centered horizontal spread-title navigator appears in the spread view, and its selected capsule opens the same rooted spread navigator content in a large sheet
 - iPad multitasking support: [SPRD-19]
   - Split View (1/3, 1/2, 2/3 configurations)
   - Slide Over
@@ -225,22 +225,31 @@
 
 ### Navigation and UI
 - Spread navigation uses an in-view hierarchical tab bar on both iPad and iPhone; it handles navigation between spreads only. [SPRD-19, SPRD-25]
-- Hierarchical tab bar behavior: [SPRD-25]
-  - Periods shown: year → month → (day, multiday); no week period. [SPRD-8]
-  - Chronological ordering within each level. [SPRD-25]
-  - Selected year and month are sticky on the leading edge while children scroll horizontally. [SPRD-25]
-  - Re-tapping the selected year/month opens a picker listing available years/months (created spreads only); selection updates and expands children, with no "show all" toggle. [SPRD-66]
-  - Initial selection is the smallest period containing today (day > multiday); if multiple multiday spreads contain today, choose earliest start date, then earliest end date, then earliest creation date. [SPRD-25]
-  - Show "No spreads" placeholder when a selected year/month has no children. [SPRD-25]
-  - Tap-only navigation; keep the selected spread visible via horizontal scroll. [SPRD-25]
-  - A trailing "+" button is always visible and opens a creation menu (spread or task). [SPRD-23, SPRD-25, SPRD-26]
+- Horizontal spread-title navigator behavior: [SPRD-126]
+  - Periods shown remain year → month → (day, multiday); no week period. [SPRD-8, SPRD-126]
+  - The navigator replaces the old top spread selection bar and becomes the primary in-view spread-selection control on both iPhone and iPad. [SPRD-126]
+  - The navigator is a horizontal scroll view of spread titles ordered according to the app's actual navigable spread sequence for the current mode. [SPRD-126]
+  - Conventional mode uses the same chronological sequence of explicit navigable spreads that can actually be visited in the main app. [SPRD-126]
+  - Traditional mode uses the same chronological sequence of currently navigable calendar destinations as the main app. [SPRD-126]
+  - The currently selected spread is centered in the strip after scrolling settles. [SPRD-126]
+  - The selected spread is rendered as a prominent rounded capsule with a subtle chevron indicator; the chevron is not a separate tap target. [SPRD-126]
+  - Non-selected visible spreads are rendered as plain text titles with hierarchy-aware styling. [SPRD-126]
+  - The navigator preserves a centered selected slot even near list edges or when fewer than five spreads exist by using invisible spacer slots rather than collapsing the layout around the selected item. [SPRD-126]
+  - The number of neighboring visible titles is adaptive to available width; it is not hardcoded per device class. Partially visible edge titles are allowed to signal additional offscreen spreads. [SPRD-126]
+  - Horizontal drag is fully user-driven and snaps so one spread title is centered at rest. [SPRD-126]
+  - Selection updates after snap/settle, not continuously during drag. [SPRD-126]
+  - Tapping a visible non-selected spread selects it and animates it into the centered selected position. [SPRD-126]
+  - When selection changes from any source, including sheet/popover selection or other navigation actions, the strip recenters the new current spread automatically. [SPRD-126]
+  - Tapping the selected centered capsule opens the rooted spread navigator surface implemented in [SPRD-125]: as a popover on iPad and as a large sheet on iPhone. [SPRD-125, SPRD-126]
+  - The spread header no longer renders a duplicate spread title once this navigator is present. [SPRD-126]
+  - A trailing "+" button remains always visible and opens a creation menu (spread or task). [SPRD-23, SPRD-26, SPRD-126]
 - Traditional mode uses calendar-style navigation (year → month → day). [SPRD-35, SPRD-38]
 - Traditional navigation mirrors iOS Calendar-style drill-in. [SPRD-35, SPRD-38]
-- Header spread navigator: [SPRD-125]
-  - The current spread title in the spread header is tappable on both iPad and iPhone.
-  - On iPad, tapping the title opens a popover navigator rooted on that button.
-  - On iPhone, tapping the title opens a large sheet presenting the same rooted navigator content.
-  - The title uses a subtle chevron/disclosure indicator to communicate interactivity.
+- Spread navigator surface: [SPRD-125, SPRD-126]
+  - The navigator surface is opened from the selected spread capsule in the horizontal spread-title navigator on both iPad and iPhone.
+  - On iPad, tapping the selected capsule opens a popover navigator rooted on that capsule.
+  - On iPhone, tapping the selected capsule opens a large sheet presenting the same rooted navigator content.
+  - The selected capsule uses a subtle chevron/disclosure indicator to communicate interactivity.
   - The iPad popover uses a bounded designed size rather than fully content-driven sizing; exact dimensions are implementation-defined.
   - The navigator always presents a single rooted hierarchy view rather than drill-in navigation. Expanding and collapsing sections is sufficient to traverse the hierarchy in this task.
   - Root content:
@@ -267,7 +276,7 @@
   - Month detail renders a single mixed grid ordered strictly by spread start date.
   - In conventional mode, day and multiday tiles share the same grid, and multiday tiles use a subtle alternate tint or border plus a date-range label to distinguish them.
   - In traditional mode, month grids show every calendar day in the month and do not include multiday tiles in v1.
-  - Selecting a spread row/tile immediately navigates the main app to that spread and dismisses the current navigator surface.
+  - Selecting a spread row/tile immediately navigates the main app to that spread, dismisses the current navigator surface, and recenters the horizontal spread-title navigator on the new current spread.
   - The current spread is indicated with a light shape background; no checkmark badge is used.
   - Conventional-mode availability rules:
     - derived years and derived months use subtle styling to indicate they are not explicitly created at that level
@@ -581,7 +590,7 @@
 - On regular-width layouts such as iPad, multiday day sections render in two columns using normal reading-order flow. On compact layouts, they render in a single column. [SPRD-124]
 
 ### Header Spread Navigator
-- The tappable current spread title in the header presents the same rooted spread navigator on both platforms: as a popover on iPad and as a large sheet on iPhone. [SPRD-125]
+- The selected spread capsule in the horizontal spread-title navigator presents the same rooted spread navigator on both platforms: as a popover on iPad and as a large sheet on iPhone. [SPRD-125, SPRD-126]
 - The navigator always presents a single rooted hierarchy view with no push navigation in v1. Current context is revealed by expanded sections inside that rooted view rather than by drilling into another screen. [SPRD-125]
 - Years and months are presented as collapsible table rows; month contents are presented as grid tiles within the expanded month section. [SPRD-125]
 - Year and month rows use split interaction: row-body tap navigates when the row is a valid destination, while a trailing disclosure expands or collapses that section. Derived conventional rows use disclosure-only behavior. [SPRD-125]
@@ -591,8 +600,9 @@
 - Conventional mode derives root years and month rows when child spreads make them navigable, but day/multiday tiles remain explicit-created-spread only. [SPRD-125]
 - Traditional mode uses the full calendar structure, with the root year list spanning from the first year with entry data or created spreads through current year plus ten years, and month grids showing all calendar days with no multiday tiles in v1. [SPRD-125]
 - Keyboard/trackpad-specific navigation enhancements are deferred from the initial implementation. [SPRD-125]
-- The navigator should be implemented with a separable model/support layer so hierarchy derivation, expansion state, and current-context opening rules can be unit tested independently from the popover view. [SPRD-125]
-- Required coverage includes both iPad UI tests and lower-level unit tests for navigator state/data derivation. [SPRD-125]
+- The rooted navigator surface should be implemented with a separable model/support layer so hierarchy derivation, expansion state, and current-context opening rules can be unit tested independently from the popover/sheet view. [SPRD-125]
+- The horizontal spread-title navigator should also use a separable support/model layer so ordered spread sequencing, centering selection, adaptive visible-slot behavior, and snap/recenter rules can be unit tested independently from the scrolling view. [SPRD-126]
+- Required coverage includes iPhone and iPad UI tests plus lower-level unit tests for navigator state/data derivation and centered-strip behavior. [SPRD-125, SPRD-126]
 
 ### Error Handling UX
 - **Sign-in errors**: Error messages are displayed inline on the login sheet below the password field. Error text is human-readable and maps from auth error types: [SPRD-84]
@@ -669,7 +679,7 @@
 - Visual style uses dot grid backgrounds on spread content surfaces only, muted blue accents, and Debug-only appearance overrides for paper tone and typography. [SPRD-62, SPRD-63]
 - Main spread task lists keep transparent task rows over a solid list backing so the spread dot-grid remains visible, and task rows open the full edit sheet on tap. [SPRD-124]
 - Multiday spreads always render every day in range, with explicit empty-state sections and adaptive one-column/two-column layout by size class. [SPRD-124]
-- The header-title spread navigator uses a rooted collapsible year/month/grid browser on both platforms, presented as a popover on iPad and as a sheet on iPhone. [SPRD-125]
+- The selected-spread navigator surface uses a rooted collapsible year/month/grid browser on both platforms, presented as a popover on iPad and as a sheet on iPhone. [SPRD-125, SPRD-126]
 - Entry period is independently editable; period changes trigger the same reassignment logic as date changes. [SPRD-24]
 - Product usage requires authentication in dev/prod, while Debug `localhost` bypasses auth automatically for engineering workflows. [SPRD-106, SPRD-107]
 - `localhost` is non-persistent, selected per Debug launch, and isolated from dev-backed local state by launch-time wipes when switching to or from it. [SPRD-105, SPRD-107]
