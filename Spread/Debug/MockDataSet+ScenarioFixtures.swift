@@ -405,14 +405,17 @@ extension MockDataSet {
         today: Date
     ) -> GeneratedData {
         let marchYear = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1)) ?? today
+        let januaryMonth = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1)) ?? today
+        let februaryMonth = calendar.date(from: DateComponents(year: 2026, month: 2, day: 1)) ?? today
         let marchMonth = calendar.date(from: DateComponents(year: 2026, month: 3, day: 1)) ?? today
-        let marchFirst = calendar.date(from: DateComponents(year: 2026, month: 3, day: 1)) ?? today
-        let marchFifth = calendar.date(from: DateComponents(year: 2026, month: 3, day: 5)) ?? today
+        let januaryFirst = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1)) ?? today
+        let januarySecond = calendar.date(from: DateComponents(year: 2026, month: 1, day: 2)) ?? today
+        let januaryThird = calendar.date(from: DateComponents(year: 2026, month: 1, day: 3)) ?? today
+        let januaryFifth = calendar.date(from: DateComponents(year: 2026, month: 1, day: 5)) ?? today
+        let februaryTenth = calendar.date(from: DateComponents(year: 2026, month: 2, day: 10)) ?? today
         let marchTenth = calendar.date(from: DateComponents(year: 2026, month: 3, day: 10)) ?? today
-        let marchFourteenth = calendar.date(from: DateComponents(year: 2026, month: 3, day: 14)) ?? today
         let marchTwenty = calendar.date(from: DateComponents(year: 2026, month: 3, day: 20)) ?? today
         let marchTwentyTwo = calendar.date(from: DateComponents(year: 2026, month: 3, day: 22)) ?? today
-        let marchTwentyFour = calendar.date(from: DateComponents(year: 2026, month: 3, day: 24)) ?? today
         let marchTwentyNine = calendar.date(from: DateComponents(year: 2026, month: 3, day: 29)) ?? today
         let marchThirtyOne = calendar.date(from: DateComponents(year: 2026, month: 3, day: 31)) ?? today
         let legacyYear = calendar.date(from: DateComponents(year: 2024, month: 1, day: 1)) ?? today
@@ -420,14 +423,17 @@ extension MockDataSet {
         return GeneratedData(
             spreads: [
                 spread(.year, marchYear, calendar: calendar),
+                spread(.month, januaryMonth, calendar: calendar),
+                spread(.month, februaryMonth, calendar: calendar),
                 spread(.month, marchMonth, calendar: calendar),
-                spread(.day, marchFirst, calendar: calendar),
-                spread(.day, marchFifth, calendar: calendar),
+                spread(.day, januaryFirst, calendar: calendar),
+                spread(.day, januarySecond, calendar: calendar),
+                spread(.day, januaryThird, calendar: calendar),
+                spread(.day, februaryTenth, calendar: calendar),
                 spread(.day, marchTenth, calendar: calendar),
-                spread(.day, marchFourteenth, calendar: calendar),
-                spread(.day, marchTwentyFour, calendar: calendar),
                 spread(.day, marchTwentyNine, calendar: calendar),
                 spread(.day, marchThirtyOne, calendar: calendar),
+                DataModel.Spread(startDate: januarySecond, endDate: januaryFifth, calendar: calendar),
                 DataModel.Spread(startDate: marchTwenty, endDate: marchTwentyTwo, calendar: calendar)
             ],
             tasks: [

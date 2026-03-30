@@ -97,9 +97,10 @@ struct SpreadTitleNavigatorView: View {
                         .frame(width: leadingInset(for: visibleWidth), height: 1)
                         .accessibilityHidden(true)
 
-                    ForEach(items) { item in
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                         itemButton(for: item)
                             .id(item.id)
+                            .padding(.leading, extraLeadingSpacing(for: item, at: index))
                     }
 
                     Color.clear
@@ -330,6 +331,16 @@ struct SpreadTitleNavigatorView: View {
             return "spreads.strip.day.\(Definitions.AccessibilityIdentifiers.token(item.label))"
         case .multiday:
             return "spreads.strip.multiday.\(Definitions.AccessibilityIdentifiers.token(item.label))"
+        }
+    }
+
+    private func extraLeadingSpacing(for item: SpreadTitleNavigatorModel.Item, at index: Int) -> CGFloat {
+        guard index > 0 else { return 0 }
+        switch item.style {
+        case .month:
+            return 10
+        case .year, .day, .multiday:
+            return 0
         }
     }
 
