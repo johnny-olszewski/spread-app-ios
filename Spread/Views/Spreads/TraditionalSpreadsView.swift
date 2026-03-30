@@ -11,6 +11,26 @@ enum TraditionalNavigationDestination: Hashable {
     case day(Date)
 }
 
+private enum TraditionalSheetDestination: Identifiable {
+    case inbox
+    case auth
+    case overdueReview
+    case headerNavigator(DataModel.Spread)
+
+    var id: String {
+        switch self {
+        case .inbox:
+            "inbox"
+        case .auth:
+            "auth"
+        case .overdueReview:
+            "overdueReview"
+        case .headerNavigator(let spread):
+            "headerNavigator-\(spread.id.uuidString)"
+        }
+    }
+}
+
 /// Main spreads view for traditional mode with year → month → day navigation.
 ///
 /// Provides iOS Calendar-style drill-in navigation using `NavigationStack`
@@ -39,22 +59,31 @@ struct TraditionalSpreadsView: View {
     /// Navigation path for drill-in stack.
     @State private var navigationPath: [TraditionalNavigationDestination] = []
 
-    /// Whether the inbox sheet is presented.
-    @State private var isShowingInboxSheet = false
+    /// The currently selected root year for traditional navigation.
+    @State private var selectedRootYearDate: Date = Date()
 
-    /// Whether the auth sheet is presented.
-    @State private var isShowingAuthSheet = false
-
-    /// Whether the overdue review sheet is presented.
-    @State private var isShowingOverdueSheet = false
+    /// Active root-level sheet destination for compact spread navigation.
+    @State private var activeSheet: TraditionalSheetDestination?
 
     // MARK: - Private
 
-    /// The current year date (normalized to Jan 1) for the root view.
-    private var currentYearDate: Date {
+    /// The current year date (normalized to Jan 1) default for the root view.
+    private var defaultRootYearDate: Date {
         let calendar = journalManager.calendar
         let year = calendar.component(.year, from: journalManager.today)
         return calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
+    }
+
+    private var navigatorModel: SpreadHeaderNavigatorModel {
+        SpreadHeaderNavigatorModel(
+            mode: .traditional,
+            calendar: journalManager.calendar,
+            today: journalManager.today,
+            spreads: journalManager.spreads,
+            tasks: journalManager.tasks,
+            notes: journalManager.notes,
+            events: FeatureFlags.eventsEnabled ? journalManager.events : []
+        )
     }
 
     // MARK: - Body
@@ -70,17 +99,32 @@ struct TraditionalSpreadsView: View {
                     toolbarContent
                 }
         }
-        .sheet(isPresented: $isShowingInboxSheet) {
-            InboxSheetView(journalManager: journalManager)
+        .sheet(item: $activeSheet) { destination in
+            switch destination {
+            case .inbox:
+                InboxSheetView(journalManager: journalManager)
+            case .auth:
+                AuthEntrySheet(authManager: authManager, isBlocking: false)
+            case .overdueReview:
+                OverdueReviewSheet(
+                    journalManager: journalManager,
+                    syncEngine: syncEngine
+                )
+            case .headerNavigator(let spread):
+                SpreadHeaderNavigatorPopoverView(
+                    model: navigatorModel,
+                    currentSpread: spread,
+                    onSelect: { handleNavigatorSelection($0) },
+                    onDismiss: { activeSheet = nil }
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+            }
         }
-        .sheet(isPresented: $isShowingAuthSheet) {
-            AuthEntrySheet(authManager: authManager, isBlocking: false)
-        }
-        .sheet(isPresented: $isShowingOverdueSheet) {
-            OverdueReviewSheet(
-                journalManager: journalManager,
-                syncEngine: syncEngine
-            )
+        .onAppear {
+            if navigationPath.isEmpty {
+                selectedRootYearDate = defaultRootYearDate
+            }
         }
     }
 
@@ -98,7 +142,14 @@ struct TraditionalSpreadsView: View {
                 },
                 onBackToYear: {
                     navigationPath.removeLast()
-                }
+                },
+                navigatorModel: navigatorModel,
+                onShowCompactNavigator: {
+                    activeSheet = .headerNavigator(
+                        DataModel.Spread(period: .month, date: monthDate, calendar: journalManager.calendar)
+                    )
+                },
+                onSelectNavigatorDestination: { handleNavigatorSelection($0) }
             )
             .navigationBarBackButtonHidden(true)
             .navigationTitle("")
@@ -110,7 +161,14 @@ struct TraditionalSpreadsView: View {
                 dayDate: dayDate,
                 onBackToMonth: {
                     navigationPath.removeLast()
-                }
+                },
+                navigatorModel: navigatorModel,
+                onShowCompactNavigator: {
+                    activeSheet = .headerNavigator(
+                        DataModel.Spread(period: .day, date: dayDate, calendar: journalManager.calendar)
+                    )
+                },
+                onSelectNavigatorDestination: { handleNavigatorSelection($0) }
             )
             .navigationBarBackButtonHidden(true)
             .navigationTitle("")
@@ -129,11 +187,37 @@ struct TraditionalSpreadsView: View {
 
             TraditionalYearView(
                 journalManager: journalManager,
-                yearDate: currentYearDate,
+                yearDate: selectedRootYearDate,
                 onSelectMonth: { monthDate in
                     navigationPath.append(.month(monthDate))
-                }
+                },
+                navigatorModel: navigatorModel,
+                onShowCompactNavigator: {
+                    activeSheet = .headerNavigator(
+                        DataModel.Spread(period: .year, date: selectedRootYearDate, calendar: journalManager.calendar)
+                    )
+                },
+                onSelectNavigatorDestination: { handleNavigatorSelection($0) }
             )
+        }
+    }
+
+    private func handleNavigatorSelection(_ selection: SpreadHeaderNavigatorModel.Selection) {
+        switch selection {
+        case .traditionalYear(let yearDate):
+            selectedRootYearDate = Period.year.normalizeDate(yearDate, calendar: journalManager.calendar)
+            navigationPath = []
+        case .traditionalMonth(let monthDate):
+            let normalizedMonth = Period.month.normalizeDate(monthDate, calendar: journalManager.calendar)
+            selectedRootYearDate = Period.year.normalizeDate(monthDate, calendar: journalManager.calendar)
+            navigationPath = [.month(normalizedMonth)]
+        case .traditionalDay(let dayDate):
+            let normalizedDay = Period.day.normalizeDate(dayDate, calendar: journalManager.calendar)
+            let monthDate = Period.month.normalizeDate(dayDate, calendar: journalManager.calendar)
+            selectedRootYearDate = Period.year.normalizeDate(dayDate, calendar: journalManager.calendar)
+            navigationPath = [.month(monthDate), .day(normalizedDay)]
+        case .conventional:
+            break
         }
     }
 
@@ -149,13 +233,13 @@ struct TraditionalSpreadsView: View {
         ToolbarItem(placement: .primaryAction) {
             HStack(spacing: 16) {
                 OverdueButton(overdueCount: journalManager.overdueTaskCount) {
-                    isShowingOverdueSheet = true
+                    activeSheet = .overdueReview
                 }
                 InboxButton(inboxCount: journalManager.inboxCount) {
-                    isShowingInboxSheet = true
+                    activeSheet = .inbox
                 }
                 AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                    isShowingAuthSheet = true
+                    activeSheet = .auth
                 }
             }
         }

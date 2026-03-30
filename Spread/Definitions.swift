@@ -76,6 +76,39 @@ struct Definitions {
             }
         }
 
+        struct SpreadNavigator {
+            static let titleButton = "spreads.navigator.titleButton"
+            static let popover = "spreads.navigator.popover"
+
+            static func yearRow(_ year: Int) -> String {
+                "spreads.navigator.year.\(year)"
+            }
+
+            static func yearDisclosure(_ year: Int) -> String {
+                "spreads.navigator.year.\(year).disclosure"
+            }
+
+            static func monthRow(year: Int, month: Int) -> String {
+                String(format: "spreads.navigator.month.%04d-%02d", year, month)
+            }
+
+            static func monthDisclosure(year: Int, month: Int) -> String {
+                String(format: "spreads.navigator.month.%04d-%02d.disclosure", year, month)
+            }
+
+            static func grid(year: Int, month: Int) -> String {
+                String(format: "spreads.navigator.grid.%04d-%02d", year, month)
+            }
+
+            static func dayTile(date: Date, calendar: Calendar) -> String {
+                "spreads.navigator.day.\(SpreadHierarchyTabBar.ymd(from: date, calendar: calendar))"
+            }
+
+            static func multidayTile(startDate: Date, endDate: Date, calendar: Calendar) -> String {
+                "spreads.navigator.multiday.\(SpreadHierarchyTabBar.ymd(from: startDate, calendar: calendar))_to_\(SpreadHierarchyTabBar.ymd(from: endDate, calendar: calendar))"
+            }
+        }
+
         struct SpreadCreationSheet {
             static let periodPicker = "spreads.create.period"
             static let createButton = "spreads.create.create"

@@ -2775,7 +2775,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Manual QA confirming auxiliary review sheets keep their existing styling and note tap behavior remains unchanged.
 - **Dependencies**: None
 
-### [SPRD-125] UI: header spread navigator surfaces - [ ] In Progress
+### [SPRD-125] UI: header spread navigator surfaces - [x] Completed
 - **Context**: Header-based spread navigation currently has in-progress iPad popover work and no matching iPhone surface. The spec now requires one rooted navigator content model presented as a popover on iPad and as a large sheet on iPhone.
 - **Description**: Turn the spread title in the header into a tappable navigator trigger on both platforms. The presented surface must open as a popover on iPad and as a large sheet on iPhone, while sharing the same rooted spread navigator content. The navigator must reveal the current spread's hierarchy context by expanding the relevant sections, use collapsible year/month rows, use a mixed day/multiday grid for conventional month detail, and navigate the main app immediately on selection.
 - **Implementation Details**:

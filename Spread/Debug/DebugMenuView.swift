@@ -466,7 +466,8 @@ struct DebugMenuView: View {
                 .scenarioOverdueInbox,
                 .scenarioTraditionalOverdue,
                 .scenarioNoteExclusions,
-                .scenarioMultidayLayout:
+                .scenarioMultidayLayout,
+                .scenarioSpreadNavigator:
             "testtube.2"
         }
     }
