@@ -2884,11 +2884,17 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ### [SPRD-127] UI: browse-only horizontal spread-title navigator refinement
 - **Context**: `SPRD-126` established the horizontal spread-title navigator and integrated it with the rooted spread navigator surface, but real-world validation showed that strip scrolling should support browsing without mutating the current spread. The selected state, centered capsule, and eventual horizontally scrollable spread surfaces need a clearer separation between browse position and committed selection.
-- **Description**: Refine the horizontal spread-title navigator so horizontal dragging browses titles without changing the selected spread or main spread content. Selection should happen only on direct tap of a visible non-selected spread or from other non-strip navigation actions. The selected spread should always retain its capsule styling while browsing, and when the selected spread is fully offscreen a directional liquid-glass overlay button should appear to return the strip to the selected spread.
+- **Description**: Refine the horizontal spread-title navigator so horizontal dragging browses titles without changing the selected spread or main spread content. Selection should happen only on direct tap of a visible non-selected spread or from other non-strip navigation actions. The strip should be scoped to the selected year rather than the selected period, showing all spreads available in that year for the current mode. The selected spread should always retain its capsule styling while browsing, and when the selected spread is fully offscreen a directional liquid-glass overlay button should appear to return the strip to the selected spread.
 - **Implementation Details**:
   - Keep the existing horizontal spread-title navigator as the primary in-view spread-selection control on both iPhone and iPad.
   - Separate strip browse position from committed spread selection in the navigator model/view state.
   - Preserve native horizontal scrolling and snap/settle behavior for the strip, but do not change selection or main spread content from scrolling alone.
+  - Scope the strip to the selected spread's year:
+    - within a year, changing between year/month/day/multiday selections does not change which strip items are shown
+    - when selection changes to a different year, rebuild the strip to that year's sequence
+  - In conventional mode, show all explicit spreads that exist in the selected year, ordered chronologically, including explicit year, month, day, and multiday spreads.
+  - In traditional mode, show the full calendar year inline as a single chronological sequence of the year item, months, and all day destinations for that year; do not include multiday items.
+  - Keep inline month boundaries readable with subtle spacing/separator treatment in the strip.
   - Keep visible non-selected spreads tappable; tapping one must:
     - commit that spread as the new selection
     - update the main app spread content
@@ -2906,11 +2912,17 @@ Supabase: SPRD-85A -> SPRD-85C
   - Scrolling the horizontal strip browses titles but does not change the selected spread or main spread content. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
   - Tapping a visible non-selected spread selects it, updates content, and recenters it. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
   - The selected spread starts centered on launch and recenters after non-strip selection changes. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - The strip contents remain stable for all selections within the same year and rebuild only when selection moves to a different year. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - Conventional mode includes all explicit spreads in the selected year; traditional mode includes the full selected calendar year sequence. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
   - The selected spread retains its capsule styling while browsing, regardless of whether it is currently centered. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
   - When the selected spread is fully offscreen, a directional liquid-glass return button appears on the nearer edge and recenters the strip when tapped. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
   - The selected centered capsule still opens the rooted navigator surface on iPad and iPhone. (Spec: Navigation and UI; Spread Navigator Surface)
 - **Tests**:
   - Unit tests for navigator support/model behavior covering:
+    - year-wide strip sequencing for conventional mode using explicit spreads only
+    - year-wide strip sequencing for traditional mode across all months/days in the selected year
+    - stable strip contents when selection changes within the same year
+    - strip rebuild when selection changes to a different year
     - browse-state separate from committed selection
     - adaptive offscreen-selected detection
     - nearer-edge return-button placement

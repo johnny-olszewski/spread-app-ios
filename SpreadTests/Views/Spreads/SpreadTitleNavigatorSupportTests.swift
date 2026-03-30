@@ -15,7 +15,18 @@ struct SpreadTitleNavigatorSupportTests {
         calendar.date(from: DateComponents(year: year, month: month, day: day))!
     }
 
-    @Test func conventionalDaySelectionUsesChronologicalDayAndMultidayPeers() {
+    @Test func conventionalSelectionUsesExplicitSpreadsAcrossEntireYear() {
+        let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let january = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let february = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 2), calendar: Self.calendar)
+        let march = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 3), calendar: Self.calendar)
+        let januaryOne = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 1, day: 1), calendar: Self.calendar)
+        let januaryTwo = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 1, day: 2), calendar: Self.calendar)
+        let januaryMulti = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 1, day: 2),
+            endDate: Self.makeDate(year: 2026, month: 1, day: 5),
+            calendar: Self.calendar
+        )
         let dayTen = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 10), calendar: Self.calendar)
         let multiday = DataModel.Spread(
             startDate: Self.makeDate(year: 2026, month: 3, day: 20),
@@ -27,41 +38,54 @@ struct SpreadTitleNavigatorSupportTests {
             mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
-            spreads: [dayTwentyNine, multiday, dayTen],
+            spreads: [dayTwentyNine, multiday, march, dayTen, januaryTwo, januaryMulti, year, january, januaryOne, february],
             tasks: [],
             notes: [],
             events: []
         )
 
         let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
-        let items = stripModel.items(for: .conventional(dayTwentyNine))
+        let items = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(dayTwentyNine))
 
-        #expect(items.map(\.label) == ["10", "20-22", "29"])
-        #expect(items.map(\.style) == [.day, .multiday, .day])
+        #expect(items.map { $0.label } == ["2026", "Jan", "1", "2", "2-5", "Feb", "Mar", "10", "20-22", "29"])
+        #expect(items.map { $0.style } == [
+            SpreadTitleNavigatorModel.Item.Style.year,
+            .month,
+            .day,
+            .day,
+            .multiday,
+            .month,
+            .month,
+            .day,
+            .multiday,
+            .day,
+        ])
     }
 
-    @Test func conventionalMonthSelectionUsesExplicitMonthsWithinYear() {
+    @Test func conventionalStripContentsStayStableWithinSameYear() {
+        let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
         let january = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let januaryOne = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 1, day: 1), calendar: Self.calendar)
         let march = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 3), calendar: Self.calendar)
-        let april = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 4), calendar: Self.calendar)
+        let marchTwentyNine = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 29), calendar: Self.calendar)
         let headerModel = SpreadHeaderNavigatorModel(
             mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
-            spreads: [april, march, january],
+            spreads: [year, january, januaryOne, march, marchTwentyNine],
             tasks: [],
             notes: [],
             events: []
         )
 
         let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
-        let items = stripModel.items(for: .conventional(march))
+        let monthItems = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(march))
+        let dayItems = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(marchTwentyNine))
 
-        #expect(items.map(\.label) == ["Jan", "Mar", "Apr"])
-        #expect(items.allSatisfy { $0.style == .month })
+        #expect(monthItems.map { $0.label } == dayItems.map { $0.label })
     }
 
-    @Test func traditionalDaySelectionUsesAllDaysInMonth() {
+    @Test func traditionalSelectionUsesFullYearSequence() {
         let headerModel = SpreadHeaderNavigatorModel(
             mode: .traditional,
             calendar: Self.calendar,
@@ -75,29 +99,36 @@ struct SpreadTitleNavigatorSupportTests {
         let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
         let items = stripModel.items(for: .traditionalDay(Self.makeDate(year: 2026, month: 3, day: 29)))
 
-        #expect(items.count == 31)
-        #expect(items.first?.label == "1")
+        #expect(items.first?.label == "2026")
+        #expect(items.first?.style == SpreadTitleNavigatorModel.Item.Style.year)
+        #expect(items[1].label == "Jan")
+        #expect(items[1].style == SpreadTitleNavigatorModel.Item.Style.month)
+        #expect(items[2].label == "1")
+        #expect(items[2].style == SpreadTitleNavigatorModel.Item.Style.day)
+        #expect(items.contains(where: { $0.label == "Feb" && $0.style == SpreadTitleNavigatorModel.Item.Style.month }))
+        #expect(items.contains(where: { $0.label == "Mar" && $0.style == SpreadTitleNavigatorModel.Item.Style.month }))
         #expect(items.last?.label == "31")
-        #expect(items.allSatisfy { $0.style == .day })
+        #expect(items.last?.style == SpreadTitleNavigatorModel.Item.Style.day)
     }
 
-    @Test func metricsKeepCenteredSlotWithInvisibleInsets() {
+    @Test func stripRebuildsWhenSelectionMovesToDifferentYear() {
+        let day2026 = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 29), calendar: Self.calendar)
+        let day2027 = DataModel.Spread(period: .day, date: Self.makeDate(year: 2027, month: 4, day: 1), calendar: Self.calendar)
         let headerModel = SpreadHeaderNavigatorModel(
             mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
-            spreads: [],
+            spreads: [day2026, day2027],
             tasks: [],
             notes: [],
             events: []
         )
         let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
 
-        let compact = stripModel.metrics(for: 320)
-        let regular = stripModel.metrics(for: 900)
+        let items2026 = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(day2026))
+        let items2027 = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(day2027))
 
-        #expect(compact.horizontalInset == (320 - compact.slotWidth) / 2)
-        #expect(regular.horizontalInset == (900 - regular.slotWidth) / 2)
-        #expect(compact.slotWidth < regular.slotWidth)
+        #expect(items2026.map { $0.label } == ["29"])
+        #expect(items2027.map { $0.label } == ["1"])
     }
 }

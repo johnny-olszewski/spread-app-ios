@@ -1,13 +1,6 @@
-import CoreGraphics
 import Foundation
 
 struct SpreadTitleNavigatorModel {
-    struct LayoutMetrics: Equatable {
-        let slotWidth: CGFloat
-        let horizontalInset: CGFloat
-        let itemSpacing: CGFloat
-    }
-
     struct Item: Identifiable {
         enum Style: Equatable {
             case year
@@ -29,112 +22,111 @@ struct SpreadTitleNavigatorModel {
     func items(for currentSelection: SpreadHeaderNavigatorModel.Selection) -> [Item] {
         switch currentSelection {
         case .conventional(let spread):
-            return conventionalItems(for: spread)
+            return conventionalYearItems(in: calendar.component(.year, from: spread.startDate ?? spread.date))
         case .traditionalYear(let yearDate):
-            return traditionalYearItems(for: yearDate)
+            return traditionalYearItems(in: calendar.component(.year, from: yearDate))
         case .traditionalMonth(let monthDate):
-            return traditionalMonthItems(for: monthDate)
+            return traditionalYearItems(in: calendar.component(.year, from: monthDate))
         case .traditionalDay(let dayDate):
-            return traditionalDayItems(for: dayDate)
+            return traditionalYearItems(in: calendar.component(.year, from: dayDate))
         }
     }
 
-    func metrics(for availableWidth: CGFloat) -> LayoutMetrics {
-        let slotWidth = min(max(availableWidth * 0.28, 92), 180)
-        return LayoutMetrics(
-            slotWidth: slotWidth,
-            horizontalInset: max((availableWidth - slotWidth) / 2, 0),
-            itemSpacing: 12
+    private func conventionalYearItems(in year: Int) -> [Item] {
+        let explicitSpreadsInYear = headerModel.spreads
+            .filter { spreadYear(for: $0) == year }
+
+        return explicitSpreadsInYear
+            .map(item(for:))
+            .sorted(by: isEarlier)
+    }
+
+    private func traditionalYearItems(in year: Int) -> [Item] {
+        var items: [Item] = [
+            Item(
+                id: SpreadHeaderNavigatorModel.Selection.traditionalYear(yearStart(year)).stableID(calendar: calendar),
+                label: String(year),
+                selection: .traditionalYear(yearStart(year)),
+                style: .year
+            )
+        ]
+
+        for month in 1...12 {
+            let monthDate = self.monthDate(year: year, month: month)
+            let monthSelection = SpreadHeaderNavigatorModel.Selection.traditionalMonth(monthDate)
+            items.append(
+                Item(
+                    id: monthSelection.stableID(calendar: calendar),
+                    label: DataModel.Spread(period: .month, date: monthDate, calendar: calendar).displayLabel(calendar: calendar),
+                    selection: monthSelection,
+                    style: .month
+                )
+            )
+
+            let range = calendar.range(of: .day, in: .month, for: monthDate) ?? 1..<1
+            for day in range {
+                let dayDate = self.dayDate(year: year, month: month, day: day)
+                let daySelection = SpreadHeaderNavigatorModel.Selection.traditionalDay(dayDate)
+                items.append(
+                    Item(
+                        id: daySelection.stableID(calendar: calendar),
+                        label: String(day),
+                        selection: daySelection,
+                        style: .day
+                    )
+                )
+            }
+        }
+
+        return items.sorted(by: isEarlier)
+    }
+
+    private func item(for spread: DataModel.Spread) -> Item {
+        let selection = SpreadHeaderNavigatorModel.Selection.conventional(spread)
+        return Item(
+            id: selection.stableID(calendar: calendar),
+            label: label(for: spread),
+            selection: selection,
+            style: style(for: spread)
         )
     }
 
-    private func conventionalItems(for currentSpread: DataModel.Spread) -> [Item] {
-        switch currentSpread.period {
+    private func label(for spread: DataModel.Spread) -> String {
+        switch spread.period {
         case .year:
-            return headerModel.rootYears()
-                .compactMap { row in
-                    guard let selection = headerModel.selection(for: row) else { return nil }
-                    return Item(
-                        id: selection.stableID(calendar: calendar),
-                        label: String(row.year),
-                        selection: selection,
-                        style: .year
-                    )
-                }
-                .sorted(by: isEarlier)
-        case .month:
-            let year = calendar.component(.year, from: currentSpread.date)
-            return headerModel.months(in: year)
-                .compactMap { row in
-                    guard let selection = headerModel.selection(for: row) else { return nil }
-                    return Item(
-                        id: selection.stableID(calendar: calendar),
-                        label: DataModel.Spread(period: .month, date: row.date, calendar: calendar)
-                            .displayLabel(calendar: calendar),
-                        selection: selection,
-                        style: .month
-                    )
-                }
-                .sorted(by: isEarlier)
-        case .day, .multiday:
-            let year = calendar.component(.year, from: currentSpread.date)
-            let month = calendar.component(.month, from: currentSpread.date)
-            return headerModel.monthGridItems(year: year, month: month)
-                .compactMap { gridItem in
-                    guard let selection = headerModel.selection(for: gridItem) else { return nil }
-                    return Item(
-                        id: selection.stableID(calendar: calendar),
-                        label: gridItem.label,
-                        selection: selection,
-                        style: gridItem.isMultiday ? .multiday : .day
-                    )
-                }
+            return String(calendar.component(.year, from: spread.date))
+        case .month, .day, .multiday:
+            return spread.displayLabel(calendar: calendar)
         }
     }
 
-    private func traditionalYearItems(for currentYearDate: Date) -> [Item] {
-        headerModel.rootYears()
-            .compactMap { row in
-                guard let selection = headerModel.selection(for: row) else { return nil }
-                return Item(
-                    id: selection.stableID(calendar: calendar),
-                    label: String(row.year),
-                    selection: selection,
-                    style: .year
-                )
-            }
-            .sorted(by: isEarlier)
+    private func style(for spread: DataModel.Spread) -> Item.Style {
+        switch spread.period {
+        case .year:
+            return .year
+        case .month:
+            return .month
+        case .day:
+            return .day
+        case .multiday:
+            return .multiday
+        }
     }
 
-    private func traditionalMonthItems(for currentMonthDate: Date) -> [Item] {
-        let year = calendar.component(.year, from: currentMonthDate)
-        return headerModel.months(in: year)
-            .compactMap { row in
-                guard let selection = headerModel.selection(for: row) else { return nil }
-                return Item(
-                    id: selection.stableID(calendar: calendar),
-                    label: DataModel.Spread(period: .month, date: row.date, calendar: calendar)
-                        .displayLabel(calendar: calendar),
-                    selection: selection,
-                    style: .month
-                )
-            }
-            .sorted(by: isEarlier)
+    private func spreadYear(for spread: DataModel.Spread) -> Int {
+        calendar.component(.year, from: spread.startDate ?? spread.date)
     }
 
-    private func traditionalDayItems(for currentDayDate: Date) -> [Item] {
-        let year = calendar.component(.year, from: currentDayDate)
-        let month = calendar.component(.month, from: currentDayDate)
-        return headerModel.monthGridItems(year: year, month: month)
-            .compactMap { item in
-                guard let selection = headerModel.selection(for: item) else { return nil }
-                return Item(
-                    id: selection.stableID(calendar: calendar),
-                    label: item.label,
-                    selection: selection,
-                    style: .day
-                )
-            }
+    private func monthDate(year: Int, month: Int) -> Date {
+        calendar.date(from: DateComponents(year: year, month: month, day: 1))!
+    }
+
+    private func dayDate(year: Int, month: Int, day: Int) -> Date {
+        calendar.date(from: DateComponents(year: year, month: month, day: day))!
+    }
+
+    private func yearStart(_ year: Int) -> Date {
+        calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
     }
 
     private func isEarlier(_ lhs: Item, _ rhs: Item) -> Bool {
