@@ -3,6 +3,16 @@ import UIKit
 
 struct SpreadTitleNavigatorView: View {
     private static let selectionAnimation = Animation.easeInOut(duration: 0.38)
+    private static let itemSpacing: CGFloat = 12
+
+    private struct CenterRequest: Equatable {
+        let id: String
+        let token: Int
+    }
+
+    #if DEBUG
+    private static let debugHideCreateButton = true
+    #endif
 
     let stripModel: SpreadTitleNavigatorModel
     let headerNavigatorModel: SpreadHeaderNavigatorModel
@@ -14,10 +24,13 @@ struct SpreadTitleNavigatorView: View {
     let onCreateNoteTapped: (() -> Void)?
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var scrollTargetItemID: String?
     @State private var isShowingNavigatorSurface = false
-    @State private var scrollOffsetX: CGFloat = 0
-    @State private var isScrollInteractionActive = false
+    @State private var itemFrames: [String: CGRect] = [:]
+    @State private var centerRequest: CenterRequest?
+    @State private var centerRequestToken = 0
+    @State private var pendingTapSelectionItemID: String?
+    @State private var scrollViewportWidth: CGFloat = 0
+    @State private var scrollContainerFrame: CGRect = .zero
 
     private var items: [SpreadTitleNavigatorModel.Item] {
         stripModel.items(for: currentSelection)
@@ -28,96 +41,139 @@ struct SpreadTitleNavigatorView: View {
         return items.first(where: { $0.id == currentID })
     }
 
+    private var selectedItemID: String {
+        currentSelection.stableID(calendar: stripModel.calendar)
+    }
+
     var body: some View {
         GeometryReader { geometry in
             let scrollAreaWidth = max(geometry.size.width, 0)
-            let metrics = stripModel.metrics(for: scrollAreaWidth)
 
             ZStack(alignment: .trailing) {
-                scrollStripContainer(metrics: metrics, visibleWidth: scrollAreaWidth)
+                scrollStripContainer(visibleWidth: scrollAreaWidth)
+                if let returnButtonEdge = returnButtonEdge(for: scrollAreaWidth) {
+                    returnToSelectedButton(edge: returnButtonEdge)
+                }
                 if showsCreateButton {
                     createButton
                         .padding(.trailing, 12)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onAppear {
+                scrollViewportWidth = scrollAreaWidth
+            }
+            .onChange(of: scrollAreaWidth) { _, newValue in
+                scrollViewportWidth = newValue
+            }
         }
         .frame(height: 56)
         .secondaryPaperBackground()
-        .onAppear {
-            scrollTargetItemID = currentSelection.stableID(calendar: stripModel.calendar)
-        }
-        .onChange(of: currentSelection.stableID(calendar: stripModel.calendar)) { _, newValue in
-            withAnimation(Self.selectionAnimation) {
-                scrollTargetItemID = newValue
-            }
-        }
-    }
-
-    private func scrollStrip(
-        metrics: SpreadTitleNavigatorModel.LayoutMetrics,
-        visibleWidth: CGFloat
-    ) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: metrics.itemSpacing) {
-                Color.clear
-                    .frame(width: metrics.horizontalInset, height: 1)
-                    .accessibilityHidden(true)
-
-                ForEach(items) { item in
-                    itemButton(for: item, slotWidth: metrics.slotWidth)
-                        .id(item.id)
+        .modifier(
+            SpreadNavigatorPresentationModifier(
+                isPresented: $isShowingNavigatorSurface,
+                style: horizontalSizeClass == .regular ? .popover : .sheet,
+                navigatorContent: {
+                    AnyView(
+                        SpreadHeaderNavigatorPopoverView(
+                            model: headerNavigatorModel,
+                            currentSpread: currentSpread,
+                            onSelect: { selection in
+                                onSelect(selection)
+                            },
+                            onDismiss: { isShowingNavigatorSurface = false }
+                        )
+                    )
                 }
-
-                Color.clear
-                    .frame(width: metrics.horizontalInset, height: 1)
-                    .accessibilityHidden(true)
-            }
-            .scrollTargetLayout()
-        }
-        .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $scrollTargetItemID, anchor: .center)
-        .onScrollGeometryChange(for: CGFloat.self) { geometry in
-            geometry.contentOffset.x
-        } action: { _, newValue in
-            scrollOffsetX = newValue
-        }
-        .onScrollPhaseChange { _, newPhase in
-            switch newPhase {
-            case .tracking, .interacting, .decelerating, .animating:
-                isScrollInteractionActive = true
-            case .idle:
-                guard isScrollInteractionActive else { return }
-                isScrollInteractionActive = false
-                settleSelection(metrics: metrics, visibleWidth: visibleWidth)
-            }
-        }
-    }
-
-    private func scrollStripContainer(
-        metrics: SpreadTitleNavigatorModel.LayoutMetrics,
-        visibleWidth: CGFloat
-    ) -> some View {
-        ZStack {
-            scrollStrip(metrics: metrics, visibleWidth: visibleWidth)
-            selectedCapsuleOverlay
-        }
-        .contentShape(Rectangle())
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 20).onEnded { value in
-                handleAdjacentDragEnded(value)
-            }
+            )
         )
-        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.container)
     }
 
-    private func itemButton(for item: SpreadTitleNavigatorModel.Item, slotWidth: CGFloat) -> some View {
+    private func scrollStrip(visibleWidth: CGFloat) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Self.itemSpacing) {
+                    Color.clear
+                        .frame(width: leadingInset(for: visibleWidth), height: 1)
+                        .accessibilityHidden(true)
+
+                    ForEach(items) { item in
+                        itemButton(for: item)
+                            .id(item.id)
+                    }
+
+                    Color.clear
+                        .frame(width: trailingInset(for: visibleWidth), height: 1)
+                        .accessibilityHidden(true)
+                }
+                .scrollTargetLayout()
+                .backgroundPreferenceValue(SpreadTitleNavigatorItemFramePreferenceKey.self) { frames in
+                    Color.clear
+                        .onAppear {
+                            itemFrames = frames
+                        }
+                        .onChange(of: frames) { _, newValue in
+                            itemFrames = newValue
+                        }
+                }
+            }
+            .coordinateSpace(name: "SpreadTitleNavigatorScroll")
+            .scrollTargetBehavior(.viewAligned)
+            .task(id: items.map(\.id)) {
+                recenterStrip(proxy: proxy, animated: false)
+                #if DEBUG
+                print("[SpreadTitleNavigatorView] task recenter target=\(currentSelection.stableID(calendar: stripModel.calendar)) items=\(items.map(\.label))")
+                #endif
+            }
+            .onChange(of: currentSelection.stableID(calendar: stripModel.calendar)) { _, _ in
+                if pendingTapSelectionItemID == selectedItemID {
+                    pendingTapSelectionItemID = nil
+                    return
+                }
+                recenterStrip(proxy: proxy, animated: true)
+                #if DEBUG
+                print("[SpreadTitleNavigatorView] selectionChanged target=\(currentSelection.stableID(calendar: stripModel.calendar))")
+                #endif
+            }
+            .onChange(of: centerRequest) { _, newValue in
+                guard let newValue else { return }
+                centerItem(id: newValue.id, with: proxy, animated: true)
+            }
+        }
+    }
+
+    private func scrollStripContainer(visibleWidth: CGFloat) -> some View {
+        scrollStrip(visibleWidth: visibleWidth)
+            .contentShape(Rectangle())
+            .background(
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear {
+                            scrollContainerFrame = geometry.frame(in: .global)
+                        }
+                        .onChange(of: geometry.frame(in: .global)) { _, newValue in
+                            scrollContainerFrame = newValue
+                        }
+                }
+            )
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.container)
+    }
+
+    private func itemButton(for item: SpreadTitleNavigatorModel.Item) -> some View {
         let isSelected = item.id == currentSelection.stableID(calendar: stripModel.calendar)
+        let showsSelectedCapsule = isSelected
 
         return Button {
-            guard !isSelected else { return }
-            withAnimation(Self.selectionAnimation) {
-                scrollTargetItemID = item.id
+            if isSelected {
+                if showsSelectedCapsule {
+                    isShowingNavigatorSurface = true
+                } else {
+                    requestCenter(on: item.id)
+                }
+            } else {
+                pendingTapSelectionItemID = item.id
+                requestCenter(on: item.id)
+                onSelect(item.selection)
             }
         } label: {
             HStack(spacing: 0) {
@@ -126,53 +182,58 @@ struct SpreadTitleNavigatorView: View {
                     .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                     .lineLimit(1)
             }
-            .frame(width: slotWidth)
+            .frame(width: itemWidth(for: item), height: 36)
+            .background {
+                if showsSelectedCapsule {
+                    Capsule()
+                        .fill(Color.accentColor.opacity(0.16))
+                }
+            }
             .frame(minHeight: 36)
             .contentShape(Rectangle())
+            .background(
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: SpreadTitleNavigatorItemFramePreferenceKey.self,
+                        value: [item.id: geometry.frame(in: .global)]
+                    )
+                }
+            )
         }
         .buttonStyle(.plain)
-        .allowsHitTesting(!isSelected)
         .accessibilityIdentifier(isSelected ? Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule : identifier(for: item))
     }
 
+    private enum ReturnButtonEdge {
+        case leading
+        case trailing
+    }
+
     @ViewBuilder
-    private var selectedCapsuleOverlay: some View {
-        if let selectedItem {
-            Capsule()
-                .fill(Color.accentColor.opacity(0.16))
-                .frame(width: selectedCapsuleWidth(for: selectedItem), height: 36)
-                .animation(Self.selectionAnimation, value: selectedItem.id)
-                .overlay {
-                    Button {
-                        isShowingNavigatorSurface = true
-                    } label: {
-                        Color.clear
-                            .frame(width: selectedCapsuleWidth(for: selectedItem), height: 36)
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .modifier(
-                        SpreadNavigatorPresentationModifier(
-                            isPresented: $isShowingNavigatorSurface,
-                            style: horizontalSizeClass == .regular ? .popover : .sheet,
-                            navigatorContent: {
-                                AnyView(
-                                    SpreadHeaderNavigatorPopoverView(
-                                        model: headerNavigatorModel,
-                                        currentSpread: currentSpread,
-                                        onSelect: { selection in
-                                            onSelect(selection)
-                                        },
-                                        onDismiss: { isShowingNavigatorSurface = false }
-                                    )
-                                )
-                            }
-                        )
-                    )
-                }
-                .allowsHitTesting(true)
-                .accessibilityHidden(true)
+    private func returnToSelectedButton(edge: ReturnButtonEdge) -> some View {
+        HStack {
+            if edge == .leading {
+                returnButton(edge: edge)
+                Spacer(minLength: 0)
+            } else {
+                Spacer(minLength: 0)
+                returnButton(edge: edge)
+            }
         }
+        .padding(.horizontal, 8)
+    }
+
+    private func returnButton(edge: ReturnButtonEdge) -> some View {
+        Button {
+            requestCenter(on: selectedItemID)
+        } label: {
+            Image(systemName: edge == .leading ? "arrow.left" : "arrow.right")
+                .font(.system(size: 14, weight: .semibold))
+                .frame(width: 36, height: 36)
+                .glassEffect(in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("spreads.strip.returnToSelected")
     }
 
     @ViewBuilder
@@ -212,7 +273,12 @@ struct SpreadTitleNavigatorView: View {
     }
 
     private var showsCreateButton: Bool {
-        onCreateSpreadTapped != nil || onCreateTaskTapped != nil || onCreateNoteTapped != nil
+        #if DEBUG
+        if Self.debugHideCreateButton {
+            return false
+        }
+        #endif
+        return onCreateSpreadTapped != nil || onCreateTaskTapped != nil || onCreateNoteTapped != nil
     }
 
     private func font(for style: SpreadTitleNavigatorModel.Item.Style, selected: Bool) -> Font {
@@ -226,13 +292,6 @@ struct SpreadTitleNavigatorView: View {
         }
     }
 
-    private func selectedCapsuleWidth(for item: SpreadTitleNavigatorModel.Item) -> CGFloat {
-        let labelWidth = item.label.size(withAttributes: [
-            .font: uiFont(for: item.style, selected: true)
-        ]).width
-        return ceil(labelWidth + 32)
-    }
-
     private func uiFont(for style: SpreadTitleNavigatorModel.Item.Style, selected: Bool) -> UIFont {
         switch style {
         case .year:
@@ -242,6 +301,23 @@ struct SpreadTitleNavigatorView: View {
         case .day, .multiday:
             return .preferredFont(forTextStyle: .body)
         }
+    }
+
+    private func itemWidth(for item: SpreadTitleNavigatorModel.Item) -> CGFloat {
+        let labelWidth = item.label.size(withAttributes: [
+            .font: uiFont(for: item.style, selected: true)
+        ]).width
+        return ceil(labelWidth + 32)
+    }
+
+    private func leadingInset(for visibleWidth: CGFloat) -> CGFloat {
+        guard let firstItem = items.first else { return max(visibleWidth / 2, 0) }
+        return max((visibleWidth - itemWidth(for: firstItem)) / 2, 0)
+    }
+
+    private func trailingInset(for visibleWidth: CGFloat) -> CGFloat {
+        guard let lastItem = items.last else { return max(visibleWidth / 2, 0) }
+        return max((visibleWidth - itemWidth(for: lastItem)) / 2, 0)
     }
 
     private func identifier(for item: SpreadTitleNavigatorModel.Item) -> String {
@@ -257,44 +333,56 @@ struct SpreadTitleNavigatorView: View {
         }
     }
 
-    private func settleSelection(
-        metrics: SpreadTitleNavigatorModel.LayoutMetrics,
-        visibleWidth: CGFloat
-    ) {
-        guard !items.isEmpty else { return }
-
-        let viewportCenterX = scrollOffsetX + (visibleWidth / 2)
-        let stride = metrics.slotWidth + metrics.itemSpacing
-        let nearestItem = items.enumerated().min { lhs, rhs in
-            let lhsCenter = metrics.horizontalInset + (metrics.slotWidth / 2) + (CGFloat(lhs.offset) * stride)
-            let rhsCenter = metrics.horizontalInset + (metrics.slotWidth / 2) + (CGFloat(rhs.offset) * stride)
-            return abs(lhsCenter - viewportCenterX) < abs(rhsCenter - viewportCenterX)
-        }?.element
-
-        guard let nearestItem else { return }
-        withAnimation(Self.selectionAnimation) {
-            scrollTargetItemID = nearestItem.id
+    private func returnButtonEdge(for visibleWidth: CGFloat) -> ReturnButtonEdge? {
+        guard !isItemCentered(selectedItemID, visibleWidth: visibleWidth),
+              let selectedFrame = itemFrames[selectedItemID] else {
+            return nil
         }
-        if nearestItem.id != currentSelection.stableID(calendar: stripModel.calendar) {
-            onSelect(nearestItem.selection)
+
+        if selectedFrame.maxX < scrollContainerFrame.minX {
+            return .leading
+        }
+        if selectedFrame.minX > scrollContainerFrame.maxX {
+            return .trailing
+        }
+        return nil
+    }
+
+    private func recenterStrip(proxy: ScrollViewProxy, animated: Bool) {
+        centerItem(id: selectedItemID, with: proxy, animated: animated)
+    }
+
+    private func requestCenter(on id: String) {
+        centerRequestToken += 1
+        centerRequest = CenterRequest(id: id, token: centerRequestToken)
+    }
+
+    private func centerItem(id: String, with proxy: ScrollViewProxy, animated: Bool) {
+        DispatchQueue.main.async {
+            if animated {
+                withAnimation(Self.selectionAnimation) {
+                    proxy.scrollTo(id, anchor: .center)
+                }
+            } else {
+                proxy.scrollTo(id, anchor: .center)
+            }
         }
     }
 
-    private func handleAdjacentDragEnded(_ value: DragGesture.Value) {
-        let threshold: CGFloat = 40
-        guard abs(value.translation.width) > threshold,
-              let currentIndex = items.firstIndex(where: {
-                  $0.id == currentSelection.stableID(calendar: stripModel.calendar)
-              }) else {
-            return
-        }
+    private func isItemCentered(_ id: String, visibleWidth: CGFloat) -> Bool {
+        guard visibleWidth > 0,
+              scrollContainerFrame.width > 0,
+              let frame = itemFrames[id] else { return false }
+        let viewportCenterX = scrollContainerFrame.midX
+        let tolerance = max(frame.width / 2, 24)
+        return abs(frame.midX - viewportCenterX) <= tolerance
+    }
+}
 
-        let delta = value.translation.width < 0 ? 1 : -1
-        let candidateIndex = currentIndex + delta
-        guard items.indices.contains(candidateIndex) else { return }
+private struct SpreadTitleNavigatorItemFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
 
-        withAnimation(Self.selectionAnimation) {
-            scrollTargetItemID = items[candidateIndex].id
-        }
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }

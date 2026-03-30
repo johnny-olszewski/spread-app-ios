@@ -2881,3 +2881,48 @@ Supabase: SPRD-85A -> SPRD-85C
     - animation smoothness and non-jittery content updates during drag
     - behavior across compact and regular widths without hardcoded visible-count assumptions
 - **Dependencies**: SPRD-125
+
+### [SPRD-127] UI: browse-only horizontal spread-title navigator refinement
+- **Context**: `SPRD-126` established the horizontal spread-title navigator and integrated it with the rooted spread navigator surface, but real-world validation showed that strip scrolling should support browsing without mutating the current spread. The selected state, centered capsule, and eventual horizontally scrollable spread surfaces need a clearer separation between browse position and committed selection.
+- **Description**: Refine the horizontal spread-title navigator so horizontal dragging browses titles without changing the selected spread or main spread content. Selection should happen only on direct tap of a visible non-selected spread or from other non-strip navigation actions. The selected spread should always retain its capsule styling while browsing, and when the selected spread is fully offscreen a directional liquid-glass overlay button should appear to return the strip to the selected spread.
+- **Implementation Details**:
+  - Keep the existing horizontal spread-title navigator as the primary in-view spread-selection control on both iPhone and iPad.
+  - Separate strip browse position from committed spread selection in the navigator model/view state.
+  - Preserve native horizontal scrolling and snap/settle behavior for the strip, but do not change selection or main spread content from scrolling alone.
+  - Keep visible non-selected spreads tappable; tapping one must:
+    - commit that spread as the new selection
+    - update the main app spread content
+    - animate the newly selected spread into the centered selected position
+  - Keep the selected spread centered on launch and whenever selection changes from a non-strip source.
+  - Keep the selected spread visibly styled with its capsule while browsing away from center; selected styling follows the selected spread rather than a fixed centered overlay.
+  - Detect when the selected spread has been browsed fully out of the visible strip.
+  - Show a liquid-glass overlay button on the nearer edge when the selected spread is fully offscreen:
+    - selected spread off to the left: button appears on the left edge
+    - selected spread off to the right: button appears on the right edge
+  - Tapping the overlay button must animate the strip back so the selected spread is centered again.
+  - Keep the selected centered capsule as the trigger for the rooted navigator surface from `SPRD-125` when the selected spread is actually centered/present.
+  - Preserve adaptive visible-neighbor behavior and invisible spacer behavior near edges and in sparse datasets.
+- **Acceptance Criteria**:
+  - Scrolling the horizontal strip browses titles but does not change the selected spread or main spread content. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - Tapping a visible non-selected spread selects it, updates content, and recenters it. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - The selected spread starts centered on launch and recenters after non-strip selection changes. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - The selected spread retains its capsule styling while browsing, regardless of whether it is currently centered. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - When the selected spread is fully offscreen, a directional liquid-glass return button appears on the nearer edge and recenters the strip when tapped. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - The selected centered capsule still opens the rooted navigator surface on iPad and iPhone. (Spec: Navigation and UI; Spread Navigator Surface)
+- **Tests**:
+  - Unit tests for navigator support/model behavior covering:
+    - browse-state separate from committed selection
+    - adaptive offscreen-selected detection
+    - nearer-edge return-button placement
+    - recenter-to-selected behavior from the overlay button
+  - UI tests on iPhone and iPad covering:
+    - strip scroll browsing does not change main spread content
+    - tapping a visible non-selected spread commits selection and recenters it
+    - selected spread retains its capsule styling while browsing away
+    - return-to-selected button appears only when the selected spread is fully offscreen
+    - return-to-selected button recenters the strip on the selected spread
+  - Manual QA for:
+    - browse-vs-select clarity
+    - overlay button visual polish and edge placement
+    - snap behavior while browsing without accidental selection changes
+- **Dependencies**: SPRD-125, SPRD-126
