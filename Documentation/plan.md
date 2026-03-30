@@ -2832,7 +2832,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Manual QA for visual polish, bounded iPad popover sizing, iPhone sheet presentation, and mode-specific content differences.
 - **Dependencies**: None
 
-### [SPRD-126] UI: horizontal spread-title navigator
+### [SPRD-126] UI: horizontal spread-title navigator - [x] Complete
 - **Context**: `SPRD-125` established the rooted spread navigator surface, but spread selection is still split between older top-bar controls and per-spread header title ownership. The next step is to make spread selection itself live in a centered horizontal title navigator that will also serve as the foundation for future horizontally scrollable spread presentation.
 - **Description**: Replace the current top spread selection bar with a centered horizontal spread-title navigator on both iPhone and iPad. The navigator must display spread titles in the app's actual navigable sequence, keep the current spread centered after scroll settle, allow direct tap selection of visible neighbors, and open the existing rooted spread navigator surface when the selected capsule is tapped.
 - **Implementation Details**:

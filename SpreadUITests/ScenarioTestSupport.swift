@@ -248,38 +248,39 @@ class LocalhostScenarioUITestCase: XCTestCase {
     }
 
     func openYear(_ year: Int, in app: XCUIApplication) {
-        tapHierarchyControl(
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearIdentifier(year),
-            in: app
+        openHeaderNavigator(in: app)
+        let row = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.yearRow(year)
         )
-
-        let menuItem = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearMenuItem(year)
-        ].firstMatch
-        if menuItem.waitForExistence(timeout: 2) {
-            tapElement(menuItem)
-        }
+        waitForElement(row)
+        tapElement(row)
+        waitForNavigatorDismissal(in: app)
     }
 
     func openMonth(year: Int, month: Int, in app: XCUIApplication) {
-        tapHierarchyControl(
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.monthIdentifier(year: year, month: month),
-            in: app
+        openHeaderNavigator(in: app)
+        let row = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.monthRow(year: year, month: month)
         )
-
-        let menuItem = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.monthMenuItem(year: year, month: month)
-        ].firstMatch
-        if menuItem.waitForExistence(timeout: 2) {
-            tapElement(menuItem)
-        }
+        waitForElement(row)
+        tapElement(row)
+        waitForNavigatorDismissal(in: app)
     }
 
     func openDay(year: Int, month: Int, day: Int, in app: XCUIApplication) {
-        tapHierarchyControl(
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.dayIdentifier(year: year, month: month, day: day),
-            in: app
+        openHeaderNavigator(in: app)
+        let dayTile = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.dayTile(
+                date: Calendar(identifier: .gregorian).date(from: DateComponents(year: year, month: month, day: day))!,
+                calendar: Calendar(identifier: .gregorian)
+            )
         )
+        waitForElement(dayTile)
+        tapElement(dayTile)
+        waitForNavigatorDismissal(in: app)
     }
 
     func tapTab(_ title: String, in app: XCUIApplication) {
@@ -347,24 +348,22 @@ class LocalhostScenarioUITestCase: XCTestCase {
     }
 
     func openHeaderNavigator(in app: XCUIApplication) {
-        let titleButton = app.buttons[Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton].firstMatch
-        if titleButton.waitForExistence(timeout: 5) {
-            tapElement(titleButton)
+        let selectedCapsule = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
+        )
+        if selectedCapsule.waitForExistence(timeout: 5) {
+            tapElement(selectedCapsule)
             return
         }
+        XCTFail("Selected spread capsule was not found")
+    }
 
-        let fallbacks = [
-            anyElement(in: app, identifier: "traditionalDayTitle"),
-            anyElement(in: app, identifier: "traditionalMonthTitle"),
-            anyElement(in: app, identifier: "traditionalYearTitle"),
-        ]
-
-        for fallback in fallbacks where fallback.waitForExistence(timeout: 2) {
-            tapElement(fallback)
-            return
-        }
-
-        XCTFail("Header navigator trigger was not found")
+    func waitForNavigatorDismissal(in app: XCUIApplication, timeout: TimeInterval = 5) {
+        let surface = navigatorSurface(in: app)
+        let predicate = NSPredicate(format: "exists == false")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: surface)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: timeout), .completed)
     }
 
     func tapNavigatorYearDisclosure(_ year: Int, in app: XCUIApplication) {
@@ -508,7 +507,7 @@ class LocalhostScenarioUITestCase: XCTestCase {
         element.descendants(matching: .any)[identifier].firstMatch
     }
 
-    private func tapElement(_ element: XCUIElement) {
+    func tapElement(_ element: XCUIElement) {
         if element.isHittable {
             element.tap()
         } else {
