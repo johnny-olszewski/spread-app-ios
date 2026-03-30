@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Main spreads view for conventional mode.
 ///
-/// Combines the spread hierarchy tab bar with the spread content area.
-/// The tab bar provides navigation between spreads, and the content area
+/// Combines the spread title navigator with the spread content area.
+/// The navigator provides navigation between spreads, and the content area
 /// shows the selected spread's entries.
 ///
 /// On iPad (regular width), the inbox button appears in this view's toolbar.
@@ -32,12 +32,15 @@ struct ConventionalSpreadsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Hierarchy tab bar
-            SpreadHierarchyTabBar(
-                spreads: journalManager.spreads,
-                selectedSpread: $selectedSpread,
-                calendar: journalManager.calendar,
-                today: journalManager.today,
+            SpreadTitleNavigatorView(
+                stripModel: conventionalStripModel,
+                headerNavigatorModel: conventionalHeaderNavigatorModel,
+                currentSpread: currentSelectedSpread,
+                currentSelection: .conventional(currentSelectedSpread),
+                onSelect: { selection in
+                    guard case .conventional(let spread) = selection else { return }
+                    selectedSpread = spread
+                },
                 onCreateSpreadTapped: { coordinator.showSpreadCreation() },
                 onCreateTaskTapped: { coordinator.showTaskCreation() },
                 onCreateNoteTapped: { coordinator.showNoteCreation() }
@@ -83,6 +86,9 @@ struct ConventionalSpreadsView: View {
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()
         }
+        .onAppear {
+            resetSelectionIfNeeded()
+        }
     }
 
     // MARK: - Content
@@ -99,13 +105,10 @@ struct ConventionalSpreadsView: View {
             SpreadContentView(
                 spread: spread,
                 spreadDataModel: spreadDataModel(for: spread),
-                availableSpreads: journalManager.spreads,
                 calendar: journalManager.calendar,
                 today: journalManager.today,
-                onShowCompactNavigator: { coordinator.showHeaderNavigator(for: spread) },
                 onEditTask: { coordinator.showTaskDetail($0) },
                 onEditNote: { coordinator.showNoteDetail($0) },
-                onSelectSpread: { selectedSpread = $0 },
                 onDeleteTask: { task in
                     Task {
                         try? await journalManager.deleteTask(task)
@@ -141,6 +144,35 @@ struct ConventionalSpreadsView: View {
     private func spreadDataModel(for spread: DataModel.Spread) -> SpreadDataModel? {
         let normalizedDate = spread.period.normalizeDate(spread.date, calendar: journalManager.calendar)
         return journalManager.dataModel[spread.period]?[normalizedDate]
+    }
+
+    private var conventionalHeaderNavigatorModel: SpreadHeaderNavigatorModel {
+        SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: journalManager.calendar,
+            today: journalManager.today,
+            spreads: journalManager.spreads,
+            tasks: [],
+            notes: [],
+            events: []
+        )
+    }
+
+    private var conventionalStripModel: SpreadTitleNavigatorModel {
+        SpreadTitleNavigatorModel(headerModel: conventionalHeaderNavigatorModel)
+    }
+
+    private var currentSelectedSpread: DataModel.Spread {
+        selectedSpread ?? fallbackSelectedSpread()
+    }
+
+    private func fallbackSelectedSpread() -> DataModel.Spread {
+        SpreadHierarchyOrganizer(
+            spreads: journalManager.spreads,
+            calendar: journalManager.calendar
+        ).initialSelection(for: journalManager.today)
+        ?? journalManager.spreads.first
+        ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
     }
 
     // MARK: - Sheet Content
@@ -211,27 +243,6 @@ struct ConventionalSpreadsView: View {
                 journalManager: journalManager,
                 syncEngine: syncEngine
             )
-        case .headerNavigator(let spread):
-            SpreadHeaderNavigatorPopoverView(
-                model: SpreadHeaderNavigatorModel(
-                    mode: .conventional,
-                    calendar: journalManager.calendar,
-                    today: journalManager.today,
-                    spreads: journalManager.spreads,
-                    tasks: [],
-                    notes: [],
-                    events: []
-                ),
-                currentSpread: spread,
-                onSelect: { selection in
-                    guard case .conventional(let destination) = selection else { return }
-                    selectedSpread = destination
-                    coordinator.dismiss()
-                },
-                onDismiss: { coordinator.dismiss() }
-            )
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
         }
     }
 
@@ -298,20 +309,14 @@ struct ConventionalSpreadsView: View {
 private struct SpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
-    let availableSpreads: [DataModel.Spread]
     let calendar: Calendar
     let today: Date
-    @State private var isShowingHeaderNavigator = false
-    var onShowCompactNavigator: (() -> Void)?
 
     /// Callback when a task is tapped for editing.
     var onEditTask: ((DataModel.Task) -> Void)?
 
     /// Callback when a note is tapped for editing.
     var onEditNote: ((DataModel.Note) -> Void)?
-
-    /// Callback when the selected spread changes from header navigator.
-    var onSelectSpread: ((DataModel.Spread) -> Void)?
 
     /// Callback when a task is deleted via swipe.
     var onDeleteTask: ((DataModel.Task) -> Void)?
@@ -328,11 +333,8 @@ private struct SpreadContentView: View {
     /// Callback to open migration review sheet.
     var onReviewMigration: (() -> Void)?
 
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
     var body: some View {
         VStack(spacing: 0) {
-            // Header with title and counts
             SpreadHeaderView(
                 configuration: SpreadHeaderConfiguration(
                     spread: spread,
@@ -340,16 +342,7 @@ private struct SpreadContentView: View {
                     taskCount: spreadDataModel?.tasks.count ?? 0,
                     noteCount: spreadDataModel?.notes.count ?? 0
                 ),
-                onTitleTapped: {
-                    if horizontalSizeClass == .regular {
-                        isShowingHeaderNavigator = true
-                    } else {
-                        onShowCompactNavigator?()
-                    }
-                },
-                isShowingPopover: horizontalSizeClass == .regular ? $isShowingHeaderNavigator : nil,
-                popoverContent: horizontalSizeClass == .regular ? { AnyView(headerNavigatorView) } : nil,
-                navigatorPresentationStyle: horizontalSizeClass == .regular ? .popover : nil
+                showsTitle: false
             )
 
             Divider()
@@ -402,25 +395,6 @@ private struct SpreadContentView: View {
         }
     }
 
-    private var headerNavigatorView: some View {
-        SpreadHeaderNavigatorPopoverView(
-            model: SpreadHeaderNavigatorModel(
-                mode: .conventional,
-                calendar: calendar,
-                today: today,
-                spreads: availableSpreads,
-                tasks: [],
-                notes: [],
-                events: []
-            ),
-            currentSpread: spread,
-            onSelect: { selection in
-                guard case .conventional(let destination) = selection else { return }
-                onSelectSpread?(destination)
-            },
-            onDismiss: { isShowingHeaderNavigator = false }
-        )
-    }
 }
 
 // MARK: - Preview
