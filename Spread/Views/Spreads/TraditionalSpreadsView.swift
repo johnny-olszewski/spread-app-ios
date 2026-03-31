@@ -26,6 +26,7 @@ struct TraditionalSpreadsView: View {
 
     @State private var selectedSelection: SpreadHeaderNavigatorModel.Selection?
     @State private var activeSheet: TraditionalSheetDestination?
+    @State private var recenterToken = 0
 
     private var defaultRootYearDate: Date {
         let calendar = journalManager.calendar
@@ -73,6 +74,7 @@ struct TraditionalSpreadsView: View {
                 headerNavigatorModel: navigatorModel,
                 currentSpread: currentSpread,
                 currentSelection: currentSelection,
+                recenterToken: recenterToken,
                 onSelect: { selectedSelection = $0 },
                 onCreateSpreadTapped: nil,
                 onCreateTaskTapped: nil,
@@ -115,6 +117,7 @@ struct TraditionalSpreadsView: View {
                 model: stripModel,
                 items: items,
                 selectedID: currentSelection.stableID(calendar: journalManager.calendar),
+                recenterToken: recenterToken,
                 onSettledSelect: { selection in
                     selectedSelection = selection
                 }
@@ -178,6 +181,7 @@ struct TraditionalSpreadsView: View {
         }
         ToolbarItem(placement: .primaryAction) {
             HStack(spacing: 16) {
+                todayButton
                 OverdueButton(overdueCount: journalManager.overdueTaskCount) {
                     activeSheet = .overdueReview
                 }
@@ -189,5 +193,19 @@ struct TraditionalSpreadsView: View {
                 }
             }
         }
+    }
+
+    private var todayButton: some View {
+        Button("Today") {
+            let target = SpreadHeaderNavigatorModel.Selection.traditionalDay(
+                Period.day.normalizeDate(journalManager.today, calendar: journalManager.calendar)
+            )
+            if target.stableID(calendar: journalManager.calendar) == currentSelection.stableID(calendar: journalManager.calendar) {
+                recenterToken += 1
+            } else {
+                selectedSelection = target
+            }
+        }
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
     }
 }

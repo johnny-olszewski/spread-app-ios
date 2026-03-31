@@ -23,6 +23,7 @@ struct SpreadTitleNavigatorView: View {
     let headerNavigatorModel: SpreadHeaderNavigatorModel
     let currentSpread: DataModel.Spread
     let currentSelection: SpreadHeaderNavigatorModel.Selection
+    let recenterToken: Int
     let onSelect: (SpreadHeaderNavigatorModel.Selection) -> Void
     let onCreateSpreadTapped: (() -> Void)?
     let onCreateTaskTapped: (() -> Void)?
@@ -143,6 +144,9 @@ struct SpreadTitleNavigatorView: View {
                 #if DEBUG
                 print("[SpreadTitleNavigatorView] selectionChanged target=\(currentSelection.stableID(calendar: stripModel.calendar))")
                 #endif
+            }
+            .onChange(of: recenterToken) { _, _ in
+                recenterStrip(proxy: proxy, animated: true)
             }
             .onChange(of: centerRequest) { _, newValue in
                 guard let newValue else { return }

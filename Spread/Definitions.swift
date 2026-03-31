@@ -115,6 +115,10 @@ struct Definitions {
             static let selectedCapsule = "spreads.strip.selected"
         }
 
+        struct SpreadToolbar {
+            static let todayButton = "spreads.toolbar.today"
+        }
+
         struct SpreadCreationSheet {
             static let periodPicker = "spreads.create.period"
             static let createButton = "spreads.create.create"

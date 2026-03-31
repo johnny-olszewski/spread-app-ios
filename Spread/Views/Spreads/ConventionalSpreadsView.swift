@@ -11,8 +11,6 @@ struct ConventionalSpreadsView: View {
 
     // MARK: - Properties
 
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
     /// The journal manager providing spread data.
     @Bindable var journalManager: JournalManager
 
@@ -27,6 +25,7 @@ struct ConventionalSpreadsView: View {
 
     /// The currently selected spread.
     @State private var selectedSpread: DataModel.Spread?
+    @State private var recenterToken = 0
 
     // MARK: - Body
 
@@ -37,6 +36,7 @@ struct ConventionalSpreadsView: View {
                 headerNavigatorModel: conventionalHeaderNavigatorModel,
                 currentSpread: currentSelectedSpread,
                 currentSelection: .conventional(currentSelectedSpread),
+                recenterToken: recenterToken,
                 onSelect: { selection in
                     guard case .conventional(let spread) = selection else { return }
                     selectedSpread = spread
@@ -58,24 +58,22 @@ struct ConventionalSpreadsView: View {
 
         }
         .toolbar {
-            // Inbox and auth buttons for iPad (regular width)
-            if horizontalSizeClass == .regular {
-                if let syncEngine {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        SyncStatusView(syncEngine: syncEngine)
-                    }
+            if let syncEngine {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    SyncStatusView(syncEngine: syncEngine)
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    HStack(spacing: 16) {
-                        OverdueButton(overdueCount: journalManager.overdueTaskCount) {
-                            coordinator.showOverdueReview()
-                        }
-                        InboxButton(inboxCount: journalManager.inboxCount) {
-                            coordinator.showInbox()
-                        }
-                        AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                            coordinator.showAuth()
-                        }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                HStack(spacing: 16) {
+                    todayButton
+                    OverdueButton(overdueCount: journalManager.overdueTaskCount) {
+                        coordinator.showOverdueReview()
+                    }
+                    InboxButton(inboxCount: journalManager.inboxCount) {
+                        coordinator.showInbox()
+                    }
+                    AuthButton(isSignedIn: authManager.state.isSignedIn) {
+                        coordinator.showAuth()
                     }
                 }
             }
@@ -107,6 +105,7 @@ struct ConventionalSpreadsView: View {
                 model: conventionalStripModel,
                 items: items,
                 selectedID: currentSelectionID,
+                recenterToken: recenterToken,
                 onSettledSelect: { selection in
                     guard case .conventional(let spread) = selection else { return }
                     selectedSpread = spread
@@ -154,6 +153,13 @@ struct ConventionalSpreadsView: View {
         selectedSpread ?? fallbackSelectedSpread()
     }
 
+    private var todayButton: some View {
+        Button("Today") {
+            navigateToToday()
+        }
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
+    }
+
     private func fallbackSelectedSpread() -> DataModel.Spread {
         SpreadHierarchyOrganizer(
             spreads: journalManager.spreads,
@@ -161,6 +167,21 @@ struct ConventionalSpreadsView: View {
         ).initialSelection(for: journalManager.today)
         ?? journalManager.spreads.first
         ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
+    }
+
+    private func navigateToToday() {
+        guard let targetSpread = SpreadHierarchyOrganizer(
+            spreads: journalManager.spreads,
+            calendar: journalManager.calendar
+        ).initialSelection(for: journalManager.today) else {
+            return
+        }
+
+        if currentSelectedSpread.id == targetSpread.id {
+            recenterToken += 1
+        } else {
+            selectedSpread = targetSpread
+        }
     }
 
     @ViewBuilder
