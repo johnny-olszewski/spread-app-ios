@@ -222,6 +222,17 @@
 - Tapping the button opens Inbox view as sheet. [SPRD-31]
 - Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
 - Cancelled tasks are excluded from Inbox. [SPRD-16]
+- A standalone `Today` text button appears in the spread-view navigation bar on both iPhone and iPad, placed on the top trailing side ahead of the overdue and inbox buttons. [SPRD-130]
+- Pressing `Today` navigates to the smallest-granularity spread containing the current absolute today date and synchronizes all spread navigation surfaces, including the selected spread, horizontal title strip, and horizontal content pager. [SPRD-130]
+- Conventional mode `Today` target resolution: [SPRD-130]
+  - Prefer an explicit day spread for today when it exists.
+  - Otherwise prefer the narrowest explicit multiday spread whose range contains today.
+  - Otherwise fall back to an explicit month spread for today's month.
+  - Otherwise fall back to an explicit year spread for today's year.
+  - If multiple multiday spreads contain today, choose the narrowest containing range; break ties by the existing chronological spread ordering.
+  - If no explicit spread contains today, the button currently does nothing.
+- Traditional mode `Today` always navigates to the traditional day destination for today. [SPRD-130]
+- If `Today` is pressed while today is already the selected spread, it still recenters the title strip and content pager on today's selection if needed. [SPRD-130]
 
 ### Navigation and UI
 - Spread navigation uses an in-view hierarchical tab bar on both iPad and iPhone; it handles navigation between spreads only. [SPRD-19, SPRD-25]
@@ -252,10 +263,10 @@
     - The spread content surface removes the duplicate `Spreads` title, while higher-level container navigation titles may remain when needed. [SPRD-129]
     - Year items use a stacked treatment with the leading century digits rendered smaller above the larger trailing two digits, while accessibility continues to expose the plain spoken year value such as `2026`. [SPRD-129]
     - Month items remain single-line labels but use a more expressive typographic treatment than plain body text. [SPRD-129]
-    - Day items render as a two-line label with a smallcaps month abbreviation above the day number. [SPRD-129]
-    - Multiday items render as a two-line label:
-      - same-month ranges show a smallcaps month abbreviation above a compact day range
-      - cross-month ranges show a smallcaps month span above the compact endpoint day range [SPRD-129]
+    - Day items render as a three-line label with a smallcaps month abbreviation above the day number and a short weekday label beneath it. [SPRD-129]
+    - Multiday items render as a three-line label:
+      - same-month ranges show a smallcaps month abbreviation above a compact day range and a short weekday span beneath it
+      - cross-month ranges show a smallcaps month span above the compact endpoint day range and a short weekday span beneath it [SPRD-129]
     - The selected capsule sizes to the full rendered label block for all item types, including multi-line day and multiday labels. [SPRD-129]
 - Horizontal spread-content paging behavior: [SPRD-128]
   - Spread content pages are presented in a separate horizontal pager beneath the title strip; the title strip remains the navigation chrome and stays synchronized with the selected page. [SPRD-128]
