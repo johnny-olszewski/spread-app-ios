@@ -3050,5 +3050,6 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**:
   - Unit tests for conventional target-resolution priority, including multiday tie-breaking.
   - Unit tests for traditional mode target resolution.
-  - UI tests on iPhone and iPad verifying toolbar placement, today navigation, and synchronized strip/pager recentering.
+  - UI tests on iPhone verifying toolbar placement, today navigation, and synchronized strip/pager recentering.
+  - iPad UI tests deferred: no iPad-specific UI test infrastructure exists yet. The toolbar code is size-class-independent, so iPad behavior is covered by the shared code path. Add iPad Today button tests when the project establishes an iPad test plan configuration.
 - **Dependencies**: SPRD-128

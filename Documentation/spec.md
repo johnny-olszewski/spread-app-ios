@@ -588,6 +588,7 @@
 - Device matrix:
   - iPhone is the default scenario-test device. [SPRD-114]
   - Add a targeted iPad subset only for scenarios where layout or navigation behavior differs materially from iPhone. [SPRD-114]
+  - iPad UI test infrastructure (separate test plan configuration or device-specific test classes) does not yet exist. iPad-specific tests for features like the Today button [SPRD-130] are deferred until this infrastructure is established.
 
 ### Secrets and Configuration
 - Supabase publishable (anon) keys and project URLs are stored in build-time xcconfig files. These are client-side keys protected by RLS policies; they are not service role keys.
