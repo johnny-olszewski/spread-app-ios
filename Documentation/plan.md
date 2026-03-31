@@ -2992,20 +2992,21 @@ Supabase: SPRD-85A -> SPRD-85C
     - larger trailing two digits below
     - keep the underlying accessibility/spoken label as the plain year value such as `2026`
   - Keep month items as single-line labels, but give them a more expressive typographic treatment than the current plain text styling.
-  - Update day items to a two-line label:
+  - Update day items to a three-line label:
     - smallcaps month abbreviation on the top line
-    - day number on the lower line
-  - Update multiday items to a two-line label:
-    - same-month ranges use a smallcaps month abbreviation on the top line and a compact day range below
-    - cross-month ranges use a smallcaps month span on the top line and a compact endpoint day range below
+    - day number on the middle line
+    - short weekday label on the bottom line
+  - Update multiday items to a three-line label:
+    - same-month ranges use a smallcaps month abbreviation on the top line, a compact day range on the middle line, and a short weekday span on the bottom line
+    - cross-month ranges use a smallcaps month span on the top line, a compact endpoint day range on the middle line, and a short weekday span on the bottom line
   - Ensure the selected capsule sizes to the full rendered label block for all item types, including the richer multi-line day and multiday labels.
   - Preserve current accessibility identifiers and plain spoken values for UI testing and accessibility, rather than exposing the visual fragments of the label styling.
 - **Acceptance Criteria**:
   - The spread content surface no longer shows the duplicate `Spreads` title, while necessary higher-level container titles remain intact. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
   - Year items render with the new stacked year treatment and still expose plain year accessibility labels. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
   - Month items remain single-line but are visually distinguished from day and multiday items. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
-  - Day items render with a smallcaps month abbreviation above the day number. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
-  - Multiday items render with the agreed two-line month/day-range treatment for both same-month and cross-month spans. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - Day items render with the agreed three-line month/day/weekday treatment. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - Multiday items render with the agreed three-line month/day-range/weekday-span treatment for both same-month and cross-month spans. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
   - The selected capsule sizes correctly to the full label block for all item types. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
 - **Tests**:
   - Unit tests for navigator label formatting behavior covering:
@@ -3021,4 +3022,33 @@ Supabase: SPRD-85A -> SPRD-85C
     - readability and hierarchy clarity across mixed year/month/day/multiday sequences
     - visual balance of the selected capsule with the new multi-line label blocks
     - correct removal of the duplicate `Spreads` title from the spread content surface
+- **Dependencies**: SPRD-128
+
+### [SPRD-130] UI: spread navigation bar Today button
+- **Context**: The horizontal spread-title navigator and content pager now keep spread selection synchronized, but there is still no direct "jump to today" control in the navigation bar. Users need a fast way to navigate back to the spread that best represents the current date without manually browsing the strip or rooted navigator.
+- **Description**: Add a standalone plain-text `Today` button to the spread-view navigation bar on both iPhone and iPad. The button should appear on the top trailing side ahead of the overdue and inbox buttons and navigate to the smallest-granularity spread that contains today, then synchronize the selected spread, title strip, and content pager.
+- **Implementation Details**:
+  - Add a plain text `Today` toolbar button to the spread-view navigation bar on both iPhone and iPad.
+  - Place `Today` before the overdue and inbox toolbar items in the trailing toolbar group.
+  - Conventional mode target resolution:
+    - prefer an explicit day spread for today
+    - otherwise prefer the narrowest explicit multiday spread containing today
+    - otherwise fall back to an explicit month spread for today's month
+    - otherwise fall back to an explicit year spread for today's year
+    - if multiple multiday spreads contain today, choose the narrowest containing range and break ties by the existing chronological spread ordering
+    - if no explicit conventional spread contains today, do nothing for now
+  - Traditional mode target resolution:
+    - always navigate to the traditional day destination for today
+  - If today is already the current spread, still recenter the title strip and content pager on today.
+  - Use the same spread-selection pipeline as other navigation actions so the selected spread, title strip, and content pager stay synchronized.
+- **Acceptance Criteria**:
+  - A plain text `Today` button appears in the spread-view navigation bar on both iPhone and iPad, before the overdue and inbox controls. (Spec: Inbox; Navigation and UI)
+  - In conventional mode, `Today` chooses the smallest explicit spread containing today using day, then multiday, then month, then year fallback. (Spec: Inbox)
+  - In traditional mode, `Today` always selects the day destination for today. (Spec: Inbox)
+  - Pressing `Today` updates the selected spread and recenters the title strip and content pager. (Spec: Inbox; Horizontal Spread-Title Navigator; Horizontal Spread-Content Paging)
+  - If no explicit conventional spread contains today, pressing `Today` currently has no visible effect. (Spec: Inbox)
+- **Tests**:
+  - Unit tests for conventional target-resolution priority, including multiday tie-breaking.
+  - Unit tests for traditional mode target resolution.
+  - UI tests on iPhone and iPad verifying toolbar placement, today navigation, and synchronized strip/pager recentering.
 - **Dependencies**: SPRD-128
