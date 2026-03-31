@@ -1,13 +1,7 @@
 import SwiftUI
 
-/// Navigation destination for traditional mode drill-in.
-///
-/// Represents each level of the year → month → day hierarchy.
-/// Conforms to `Hashable` for use with `NavigationPath`.
 enum TraditionalNavigationDestination: Hashable {
-    /// Month view for a given month date.
     case month(Date)
-    /// Day view for a given day date.
     case day(Date)
 }
 
@@ -18,53 +12,21 @@ private enum TraditionalSheetDestination: Identifiable {
 
     var id: String {
         switch self {
-        case .inbox:
-            "inbox"
-        case .auth:
-            "auth"
-        case .overdueReview:
-            "overdueReview"
+        case .inbox: "inbox"
+        case .auth: "auth"
+        case .overdueReview: "overdueReview"
         }
     }
 }
 
-/// Main spreads view for traditional mode with year → month → day navigation.
-///
-/// Provides iOS Calendar-style drill-in navigation using `NavigationStack`
-/// with a programmatic path. The year view is the root, tapping a month
-/// pushes the month view, and tapping a day pushes the day view.
-///
-/// This view manages its own `NavigationStack` — callers should NOT wrap
-/// it in an additional stack.
-///
-/// On iPad (regular width), toolbar items for inbox and auth appear in this view.
 struct TraditionalSpreadsView: View {
-
-    // MARK: - Properties
-
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
-    /// The journal manager providing spread data.
     @Bindable var journalManager: JournalManager
-
-    /// The auth manager for handling authentication.
     let authManager: AuthManager
-
-    /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
 
-    /// Navigation path for drill-in stack.
-    @State private var navigationPath: [TraditionalNavigationDestination] = []
-
-    /// The currently selected root year for traditional navigation.
-    @State private var selectedRootYearDate: Date = Date()
-
-    /// Active root-level sheet destination for compact spread navigation.
+    @State private var selectedSelection: SpreadHeaderNavigatorModel.Selection?
     @State private var activeSheet: TraditionalSheetDestination?
 
-    // MARK: - Private
-
-    /// The current year date (normalized to Jan 1) default for the root view.
     private var defaultRootYearDate: Date {
         let calendar = journalManager.calendar
         let year = calendar.component(.year, from: journalManager.today)
@@ -87,42 +49,47 @@ struct TraditionalSpreadsView: View {
         SpreadTitleNavigatorModel(headerModel: navigatorModel)
     }
 
-    private var currentSpread: DataModel.Spread {
-        if case .day(let dayDate) = navigationPath.last {
-            return DataModel.Spread(period: .day, date: dayDate, calendar: journalManager.calendar)
-        }
-        if case .month(let monthDate) = navigationPath.last {
-            return DataModel.Spread(period: .month, date: monthDate, calendar: journalManager.calendar)
-        }
-        return DataModel.Spread(period: .year, date: selectedRootYearDate, calendar: journalManager.calendar)
-    }
-
     private var currentSelection: SpreadHeaderNavigatorModel.Selection {
-        if case .day(let dayDate) = navigationPath.last {
-            return .traditionalDay(dayDate)
-        }
-        if case .month(let monthDate) = navigationPath.last {
-            return .traditionalMonth(monthDate)
-        }
-        return .traditionalYear(selectedRootYearDate)
+        selectedSelection ?? .traditionalYear(defaultRootYearDate)
     }
 
-    // MARK: - Body
+    private var currentSpread: DataModel.Spread {
+        switch currentSelection {
+        case .traditionalYear(let yearDate):
+            return DataModel.Spread(period: .year, date: yearDate, calendar: journalManager.calendar)
+        case .traditionalMonth(let monthDate):
+            return DataModel.Spread(period: .month, date: monthDate, calendar: journalManager.calendar)
+        case .traditionalDay(let dayDate):
+            return DataModel.Spread(period: .day, date: dayDate, calendar: journalManager.calendar)
+        case .conventional:
+            return DataModel.Spread(period: .year, date: defaultRootYearDate, calendar: journalManager.calendar)
+        }
+    }
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
-            traditionalChrome {
-                yearRoot
+        VStack(spacing: 0) {
+            SpreadTitleNavigatorView(
+                stripModel: stripModel,
+                headerNavigatorModel: navigatorModel,
+                currentSpread: currentSpread,
+                currentSelection: currentSelection,
+                onSelect: { selectedSelection = $0 },
+                onCreateSpreadTapped: nil,
+                onCreateTaskTapped: nil,
+                onCreateNoteTapped: nil
+            )
+
+            Divider()
+
+            if let syncEngine {
+                SyncStatusBanner(syncEngine: syncEngine)
             }
-                .navigationDestination(for: TraditionalNavigationDestination.self) { destination in
-                    traditionalChrome {
-                        destinationView(for: destination)
-                    }
-                }
-                .navigationTitle("Spreads")
-                .toolbar {
-                    toolbarContent
-                }
+
+            pagerContent
+        }
+        .navigationTitle("Spreads")
+        .toolbar {
+            toolbarContent
         }
         .sheet(item: $activeSheet) { destination in
             switch destination {
@@ -131,117 +98,77 @@ struct TraditionalSpreadsView: View {
             case .auth:
                 AuthEntrySheet(authManager: authManager, isBlocking: false)
             case .overdueReview:
-                OverdueReviewSheet(
-                    journalManager: journalManager,
-                    syncEngine: syncEngine
-                )
+                OverdueReviewSheet(journalManager: journalManager, syncEngine: syncEngine)
             }
         }
         .onAppear {
-            if navigationPath.isEmpty {
-                selectedRootYearDate = defaultRootYearDate
+            if selectedSelection == nil {
+                selectedSelection = .traditionalYear(defaultRootYearDate)
             }
         }
     }
 
-    // MARK: - Navigation Destinations
+    @ViewBuilder
+    private var pagerContent: some View {
+        let items = stripModel.items(for: currentSelection)
+        if !items.isEmpty {
+            SpreadContentPagerView(
+                model: stripModel,
+                items: items,
+                selectedID: currentSelection.stableID(calendar: journalManager.calendar),
+                onSettledSelect: { selection in
+                    selectedSelection = selection
+                }
+            ) { item in
+                traditionalPage(for: item)
+            }
+        } else {
+            ContentUnavailableView {
+                Label("No Spread Selected", systemImage: "book")
+            } description: {
+                Text("Select a spread from the bar above.")
+            }
+        }
+    }
 
     @ViewBuilder
-    private func destinationView(for destination: TraditionalNavigationDestination) -> some View {
-        switch destination {
-        case .month(let monthDate):
+    private func traditionalPage(for item: SpreadTitleNavigatorModel.Item) -> some View {
+        switch item.selection {
+        case .traditionalYear(let yearDate):
+            TraditionalYearView(
+                journalManager: journalManager,
+                yearDate: yearDate,
+                onSelectMonth: { selectedSelection = .traditionalMonth($0) },
+                navigatorModel: navigatorModel
+            )
+        case .traditionalMonth(let monthDate):
             TraditionalMonthView(
                 journalManager: journalManager,
                 monthDate: monthDate,
-                onSelectDay: { dayDate in
-                    navigationPath.append(.day(dayDate))
-                },
+                onSelectDay: { selectedSelection = .traditionalDay($0) },
                 onBackToYear: {
-                    navigationPath.removeLast()
+                    selectedSelection = .traditionalYear(
+                        Period.year.normalizeDate(monthDate, calendar: journalManager.calendar)
+                    )
                 },
                 navigatorModel: navigatorModel
             )
-            .navigationBarBackButtonHidden(true)
-            .navigationTitle("")
-            .toolbar(.hidden, for: .tabBar)
-        case .day(let dayDate):
+        case .traditionalDay(let dayDate):
             TraditionalDayView(
                 journalManager: journalManager,
                 syncEngine: syncEngine,
                 dayDate: dayDate,
                 onBackToMonth: {
-                    navigationPath.removeLast()
+                    selectedSelection = .traditionalMonth(
+                        Period.month.normalizeDate(dayDate, calendar: journalManager.calendar)
+                    )
                 },
                 navigatorModel: navigatorModel
             )
-            .navigationBarBackButtonHidden(true)
-            .navigationTitle("")
-            .toolbar(.hidden, for: .tabBar)
-        }
-    }
-
-    // MARK: - Root Year View
-
-    private var yearRoot: some View {
-        VStack(spacing: 0) {
-            // Sync status banner
-            if let syncEngine {
-                SyncStatusBanner(syncEngine: syncEngine)
-            }
-
-            TraditionalYearView(
-                journalManager: journalManager,
-                yearDate: selectedRootYearDate,
-                onSelectMonth: { monthDate in
-                    navigationPath.append(.month(monthDate))
-                },
-                navigatorModel: navigatorModel
-            )
-        }
-    }
-
-    @ViewBuilder
-    private func traditionalChrome<Content: View>(
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(spacing: 0) {
-            SpreadTitleNavigatorView(
-                stripModel: stripModel,
-                headerNavigatorModel: navigatorModel,
-                currentSpread: currentSpread,
-                currentSelection: currentSelection,
-                onSelect: { handleNavigatorSelection($0) },
-                onCreateSpreadTapped: nil,
-                onCreateTaskTapped: nil,
-                onCreateNoteTapped: nil
-            )
-
-            Divider()
-
-            content()
-        }
-    }
-
-    private func handleNavigatorSelection(_ selection: SpreadHeaderNavigatorModel.Selection) {
-        switch selection {
-        case .traditionalYear(let yearDate):
-            selectedRootYearDate = Period.year.normalizeDate(yearDate, calendar: journalManager.calendar)
-            navigationPath = []
-        case .traditionalMonth(let monthDate):
-            let normalizedMonth = Period.month.normalizeDate(monthDate, calendar: journalManager.calendar)
-            selectedRootYearDate = Period.year.normalizeDate(monthDate, calendar: journalManager.calendar)
-            navigationPath = [.month(normalizedMonth)]
-        case .traditionalDay(let dayDate):
-            let normalizedDay = Period.day.normalizeDate(dayDate, calendar: journalManager.calendar)
-            let monthDate = Period.month.normalizeDate(dayDate, calendar: journalManager.calendar)
-            selectedRootYearDate = Period.year.normalizeDate(dayDate, calendar: journalManager.calendar)
-            navigationPath = [.month(monthDate), .day(normalizedDay)]
         case .conventional:
-            break
+            Color.clear
         }
     }
-
-    // MARK: - Toolbar
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
@@ -264,14 +191,4 @@ struct TraditionalSpreadsView: View {
             }
         }
     }
-}
-
-// MARK: - Preview
-
-#Preview {
-    TraditionalSpreadsView(
-        journalManager: .previewInstance,
-        authManager: .makeForPreview(),
-        syncEngine: nil
-    )
 }

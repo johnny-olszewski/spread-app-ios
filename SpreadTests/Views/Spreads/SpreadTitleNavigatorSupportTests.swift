@@ -131,4 +131,46 @@ struct SpreadTitleNavigatorSupportTests {
         #expect(items2026.map { $0.label } == ["29"])
         #expect(items2027.map { $0.label } == ["1"])
     }
+
+    @Test func liveWindowKeepsCurrentPlusTwoNeighborsPerSide() {
+        let headerModel = SpreadHeaderNavigatorModel(
+            mode: .traditional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 29),
+            spreads: [],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+        let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
+        let items = stripModel.items(for: .traditionalDay(Self.makeDate(year: 2026, month: 1, day: 3)))
+
+        let window = stripModel.liveWindowIDs(
+            items: items,
+            anchorID: items[3].id,
+            radius: 2
+        )
+
+        #expect(window == Set(items[1...5].map(\.id)))
+    }
+
+    @Test func liveWindowClampsAtSequenceEdges() {
+        let headerModel = SpreadHeaderNavigatorModel(
+            mode: .traditional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 29),
+            spreads: [],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+        let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
+        let items = stripModel.items(for: .traditionalYear(Self.makeDate(year: 2026, month: 1)))
+
+        let leadingWindow = stripModel.liveWindowIDs(items: items, anchorID: items[0].id, radius: 2)
+        let trailingWindow = stripModel.liveWindowIDs(items: items, anchorID: items.last!.id, radius: 2)
+
+        #expect(leadingWindow == Set(items.prefix(3).map(\.id)))
+        #expect(trailingWindow == Set(items.suffix(3).map(\.id)))
+    }
 }

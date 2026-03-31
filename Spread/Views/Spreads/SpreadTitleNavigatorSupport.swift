@@ -158,6 +158,22 @@ struct SpreadTitleNavigatorModel {
     }
 }
 
+extension SpreadTitleNavigatorModel {
+    func liveWindowIDs(
+        items: [Item],
+        anchorID: String,
+        radius: Int = 2
+    ) -> Set<String> {
+        guard let anchorIndex = items.firstIndex(where: { $0.id == anchorID }) else {
+            return Set(items.prefix(radius * 2 + 1).map(\.id))
+        }
+
+        let lowerBound = max(0, anchorIndex - radius)
+        let upperBound = min(items.count - 1, anchorIndex + radius)
+        return Set(items[lowerBound...upperBound].map(\.id))
+    }
+}
+
 extension SpreadHeaderNavigatorModel.Selection {
     func stableID(calendar: Calendar) -> String {
         switch self {

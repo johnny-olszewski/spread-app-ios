@@ -101,36 +101,19 @@ struct ConventionalSpreadsView: View {
 
     @ViewBuilder
     private var spreadContent: some View {
-        if let spread = selectedSpread {
-            SpreadContentView(
-                spread: spread,
-                spreadDataModel: spreadDataModel(for: spread),
-                calendar: journalManager.calendar,
-                today: journalManager.today,
-                onEditTask: { coordinator.showTaskDetail($0) },
-                onEditNote: { coordinator.showNoteDetail($0) },
-                onDeleteTask: { task in
-                    Task {
-                        try? await journalManager.deleteTask(task)
-                        await syncEngine?.syncNow()
-                    }
-                },
-                onDeleteNote: { note in
-                    Task {
-                        try? await journalManager.deleteNote(note)
-                        await syncEngine?.syncNow()
-                    }
-                },
-                onCompleteTask: { task in
-                    Task {
-                        let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
-                        try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
-                        await syncEngine?.syncNow()
-                    }
-                },
-                eligibleTaskCount: eligibleMigrationCandidates.count,
-                onReviewMigration: { coordinator.showMigrationSelection() }
-            )
+        let items = conventionalStripModel.items(for: .conventional(currentSelectedSpread))
+        if !items.isEmpty {
+            SpreadContentPagerView(
+                model: conventionalStripModel,
+                items: items,
+                selectedID: currentSelectionID,
+                onSettledSelect: { selection in
+                    guard case .conventional(let spread) = selection else { return }
+                    selectedSpread = spread
+                }
+            ) { item in
+                conventionalPage(for: item)
+            }
         } else {
             ContentUnavailableView {
                 Label("No Spread Selected", systemImage: "book")
@@ -162,6 +145,11 @@ struct ConventionalSpreadsView: View {
         SpreadTitleNavigatorModel(headerModel: conventionalHeaderNavigatorModel)
     }
 
+    private var currentSelectionID: String {
+        SpreadHeaderNavigatorModel.Selection.conventional(currentSelectedSpread)
+            .stableID(calendar: journalManager.calendar)
+    }
+
     private var currentSelectedSpread: DataModel.Spread {
         selectedSpread ?? fallbackSelectedSpread()
     }
@@ -173,6 +161,50 @@ struct ConventionalSpreadsView: View {
         ).initialSelection(for: journalManager.today)
         ?? journalManager.spreads.first
         ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
+    }
+
+    @ViewBuilder
+    private func conventionalPage(for item: SpreadTitleNavigatorModel.Item) -> some View {
+        if case .conventional(let spread) = item.selection {
+            SpreadContentView(
+                spread: spread,
+                spreadDataModel: spreadDataModel(for: spread),
+                calendar: journalManager.calendar,
+                today: journalManager.today,
+                onEditTask: { coordinator.showTaskDetail($0) },
+                onEditNote: { coordinator.showNoteDetail($0) },
+                onDeleteTask: { task in
+                    Task {
+                        try? await journalManager.deleteTask(task)
+                        await syncEngine?.syncNow()
+                    }
+                },
+                onDeleteNote: { note in
+                    Task {
+                        try? await journalManager.deleteNote(note)
+                        await syncEngine?.syncNow()
+                    }
+                },
+                onCompleteTask: { task in
+                    Task {
+                        let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
+                        try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
+                        await syncEngine?.syncNow()
+                    }
+                },
+                eligibleTaskCount: spread.id == currentSelectedSpread.id ? eligibleMigrationCandidates.count : migrationCandidateCount(for: spread),
+                onReviewMigration: {
+                    selectedSpread = spread
+                    coordinator.showMigrationSelection()
+                }
+            )
+        } else {
+            Color.clear
+        }
+    }
+
+    private func migrationCandidateCount(for spread: DataModel.Spread) -> Int {
+        journalManager.migrationCandidates(to: spread).count
     }
 
     // MARK: - Sheet Content

@@ -25,10 +25,41 @@ final class SpreadTitleNavigatorUITests: LocalhostScenarioUITestCase {
 
         openHeaderNavigator(in: app)
 
-        let navigatorSurface = anyElement(
+        let currentYearRow = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.popover
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.yearRow(2026)
         )
-        waitForElement(navigatorSurface)
+        waitForElement(currentYearRow)
+    }
+
+    func testConventionalContentSwipeUpdatesSelectedStripAfterSettle() throws {
+        let app = launchScenario(.spreadNavigator, today: "2026-03-29")
+
+        let pager = anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.SpreadContent.pager)
+        waitForElement(pager)
+        pager.swipeLeft()
+
+        let selectedCapsule = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
+        )
+        waitForElement(selectedCapsule)
+        XCTAssertEqual(selectedCapsule.label, "31")
+    }
+
+    func testTraditionalContentSwipeUpdatesSelectedStripAfterSettle() throws {
+        let app = launchScenario(.spreadNavigator, today: "2026-03-29")
+        switchToTraditionalMode(in: app)
+
+        let pager = anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.SpreadContent.pager)
+        waitForElement(pager)
+        pager.swipeLeft()
+
+        let selectedCapsule = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
+        )
+        waitForElement(selectedCapsule)
+        XCTAssertEqual(selectedCapsule.label, "Jan")
     }
 }

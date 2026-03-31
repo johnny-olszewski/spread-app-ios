@@ -2939,7 +2939,7 @@ Supabase: SPRD-85A -> SPRD-85C
     - snap behavior while browsing without accidental selection changes
 - **Dependencies**: SPRD-125, SPRD-126
 
-### [SPRD-128] UI: horizontal spread-content paging
+### [SPRD-128] UI: horizontal spread-content paging - [x] Complete
 - **Context**: `SPRD-127` established the selected-year horizontal spread-title navigator and clarified the distinction between browsing the strip and committing a spread selection. The next step is to make the spread content itself horizontally pageable and keep it synchronized with the title strip without eagerly loading an entire year's worth of spread views.
 - **Description**: Add a horizontal spread-content pager beneath the title strip on both iPhone and iPad. The pager must use the same selected-year sequence as the title strip, update selection only after page-settle, animate for same-year selection changes, jump for cross-year dataset rebuilds, and lazily keep only a small live window of spread content views in memory at once.
 - **Implementation Details**:

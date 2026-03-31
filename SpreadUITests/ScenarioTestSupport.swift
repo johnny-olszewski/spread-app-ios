@@ -290,6 +290,15 @@ class LocalhostScenarioUITestCase: XCTestCase {
             return
         }
 
+        ensureSidebarIsVisibleIfNeeded(in: app)
+
+        let sidebarIdentifier = Definitions.AccessibilityIdentifiers.Navigation.sidebarItem(title.lowercased())
+        let identifiedSidebarItem = anyElement(in: app, identifier: sidebarIdentifier)
+        if identifiedSidebarItem.waitForExistence(timeout: 2) {
+            tapElement(identifiedSidebarItem)
+            return
+        }
+
         let sidebarButton = app.buttons[title].firstMatch
         if sidebarButton.waitForExistence(timeout: 2) {
             sidebarButton.tap()
@@ -305,6 +314,40 @@ class LocalhostScenarioUITestCase: XCTestCase {
         let sidebarText = app.staticTexts[title].firstMatch
         waitForElement(sidebarText)
         sidebarText.tap()
+    }
+
+    func ensureSidebarIsVisibleIfNeeded(in app: XCUIApplication) {
+        guard !app.tabBars.firstMatch.exists else { return }
+
+        let spreadsSidebarItem = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.Navigation.sidebarItem("spreads")
+        )
+        if spreadsSidebarItem.waitForExistence(timeout: 1) {
+            return
+        }
+
+        let sidebarButtons = [
+            "Sidebar",
+            "Show Sidebar",
+            "Toggle Sidebar"
+        ]
+
+        for label in sidebarButtons {
+            let button = app.buttons[label].firstMatch
+            if button.waitForExistence(timeout: 1) {
+                button.tap()
+                if spreadsSidebarItem.waitForExistence(timeout: 2) {
+                    return
+                }
+            }
+        }
+
+        let sidebarPredicate = NSPredicate(format: "label CONTAINS[c] 'sidebar' OR identifier CONTAINS[c] 'sidebar'")
+        let genericSidebarButton = app.buttons.matching(sidebarPredicate).firstMatch
+        if genericSidebarButton.waitForExistence(timeout: 1) {
+            genericSidebarButton.tap()
+        }
     }
 
     func switchToTraditionalMode(in app: XCUIApplication) {
