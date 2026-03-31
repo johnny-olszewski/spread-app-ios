@@ -2938,3 +2938,46 @@ Supabase: SPRD-85A -> SPRD-85C
     - overlay button visual polish and edge placement
     - snap behavior while browsing without accidental selection changes
 - **Dependencies**: SPRD-125, SPRD-126
+
+### [SPRD-128] UI: horizontal spread-content paging
+- **Context**: `SPRD-127` established the selected-year horizontal spread-title navigator and clarified the distinction between browsing the strip and committing a spread selection. The next step is to make the spread content itself horizontally pageable and keep it synchronized with the title strip without eagerly loading an entire year's worth of spread views.
+- **Description**: Add a horizontal spread-content pager beneath the title strip on both iPhone and iPad. The pager must use the same selected-year sequence as the title strip, update selection only after page-settle, animate for same-year selection changes, jump for cross-year dataset rebuilds, and lazily keep only a small live window of spread content views in memory at once.
+- **Implementation Details**:
+  - Add a separate horizontal pager surface for spread content beneath `SpreadTitleNavigatorView`; the title strip remains the primary spread-navigation chrome.
+  - Use the same ordered selected-year sequence as `SpreadTitleNavigatorModel` for both conventional and traditional modes:
+    - conventional mode includes explicit year, month, day, and multiday spreads for the selected year
+    - traditional mode includes the full year sequence of the year item, months, and all day destinations for that year
+  - The pager uses full-width pages with paging settle; adjacent pages do not remain peeked into view at rest.
+  - Update the selected spread only after the pager settles on a new page.
+  - When a visible strip item is tapped, or when rooted navigator selection changes within the same selected-year sequence, animate the pager to that page and keep the title strip synchronized.
+  - When selection changes to a spread in a different year, rebuild the pager dataset for the new year and jump directly to the selected page rather than animating across datasets.
+  - Keep a small live page window around the selected spread instead of instantiating the full selected-year content set:
+    - prefer native lazy containers such as `LazyHStack` where feasible
+    - keep the current page plus two neighboring pages on each side live
+    - pages outside the live window may be torn down and rebuilt, losing transient local view state
+  - Preserve the full existing spread views for each page rather than introducing preview-only page variants.
+  - Keep swipe navigation and external programmatic selection as the only page navigation mechanisms in this task; do not add previous/next arrow controls.
+- **Acceptance Criteria**:
+  - Both conventional and traditional spread content can be navigated horizontally by swiping full-width pages. (Spec: Navigation and UI; Horizontal Spread-Content Paging)
+  - Swiping the content pager changes the selected spread only after paging settles on a new page. (Spec: Navigation and UI; Horizontal Spread-Content Paging)
+  - The title strip and content pager remain synchronized: pager settle updates the strip selection, and same-year strip/rooted-navigator selection animates the pager to the chosen page. (Spec: Navigation and UI; Horizontal Spread-Content Paging)
+  - Selecting a spread in a different year rebuilds the pager dataset and jumps to the new year's selected page rather than animating across year datasets. (Spec: Navigation and UI; Horizontal Spread-Content Paging)
+  - The pager does not eagerly instantiate the full selected-year content set; it uses a small live lazy window around the selected page. (Spec: Navigation and UI; Horizontal Spread-Content Paging)
+  - The pager renders the existing full spread view for each selected page type rather than preview-only stand-ins. (Spec: Navigation and UI; Horizontal Spread-Content Paging)
+- **Tests**:
+  - Unit tests for pager support/model behavior covering:
+    - selected-year sequence alignment with the title strip in conventional and traditional modes
+    - live-window derivation for current page plus two neighbors on each side
+    - same-year animated navigation targets versus cross-year dataset rebuild targets
+    - selection-after-settle semantics for pager-driven updates
+  - UI tests on iPhone and iPad covering:
+    - swiping content settles on a new page and then updates the selected strip item
+    - tapping a visible strip item animates the pager to the matching page
+    - rooted navigator selection within the same year animates to the chosen page
+    - rooted navigator selection in a different year jumps to the new year dataset/page
+    - full-width pages show no resting neighbor peek
+  - Manual QA for:
+    - paging smoothness across year/month/day/multiday transitions
+    - strip and pager staying visually synchronized
+    - memory/performance sanity while traversing a dense year sequence
+- **Dependencies**: SPRD-127
