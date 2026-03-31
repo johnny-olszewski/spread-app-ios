@@ -77,7 +77,7 @@ struct TabNavigationView: View {
                         debugMenuView
                     }
                 }
-                .navigationTitle(tab.title)
+                .modifier(SpreadsNavigationTitleModifier(tab: tab))
                 .toolbar {
                     if let syncEngine {
                         ToolbarItem(placement: .navigationBarLeading) {
@@ -133,6 +133,19 @@ struct TabNavigationView: View {
                 authManager: authManager,
                 syncEngine: syncEngine
             )
+        }
+    }
+}
+
+private struct SpreadsNavigationTitleModifier: ViewModifier {
+    let tab: NavigationTab
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if tab == .spreads {
+            content
+        } else {
+            content.navigationTitle(tab.title)
         }
     }
 }
