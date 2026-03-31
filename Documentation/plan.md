@@ -2981,3 +2981,44 @@ Supabase: SPRD-85A -> SPRD-85C
     - strip and pager staying visually synchronized
     - memory/performance sanity while traversing a dense year sequence
 - **Dependencies**: SPRD-127
+
+### [SPRD-129] UI: spread navigator label refinements
+- **Context**: `SPRD-126` through `SPRD-128` established the horizontal title navigator and synchronized content paging. The next refinement is to improve title-strip readability and hierarchy with richer label treatments while removing redundant spread titling from the spread content surface itself.
+- **Description**: Refine the visual treatment of horizontal spread navigator labels by removing the duplicate `Spreads` title from the spread content surface, giving year/month/day/multiday items more expressive hierarchy-aware labels, and keeping accessibility/simple spoken labels stable.
+- **Implementation Details**:
+  - Remove the duplicate `Spreads` title from the spread content surface while preserving higher-level container navigation titles where they are still needed for broader app navigation context.
+  - Update year items to use a stacked typographic treatment:
+    - small leading century digits above
+    - larger trailing two digits below
+    - keep the underlying accessibility/spoken label as the plain year value such as `2026`
+  - Keep month items as single-line labels, but give them a more expressive typographic treatment than the current plain text styling.
+  - Update day items to a two-line label:
+    - smallcaps month abbreviation on the top line
+    - day number on the lower line
+  - Update multiday items to a two-line label:
+    - same-month ranges use a smallcaps month abbreviation on the top line and a compact day range below
+    - cross-month ranges use a smallcaps month span on the top line and a compact endpoint day range below
+  - Ensure the selected capsule sizes to the full rendered label block for all item types, including the richer multi-line day and multiday labels.
+  - Preserve current accessibility identifiers and plain spoken values for UI testing and accessibility, rather than exposing the visual fragments of the label styling.
+- **Acceptance Criteria**:
+  - The spread content surface no longer shows the duplicate `Spreads` title, while necessary higher-level container titles remain intact. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - Year items render with the new stacked year treatment and still expose plain year accessibility labels. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - Month items remain single-line but are visually distinguished from day and multiday items. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - Day items render with a smallcaps month abbreviation above the day number. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - Multiday items render with the agreed two-line month/day-range treatment for both same-month and cross-month spans. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+  - The selected capsule sizes correctly to the full label block for all item types. (Spec: Navigation and UI; Horizontal Spread-Title Navigator)
+- **Tests**:
+  - Unit tests for navigator label formatting behavior covering:
+    - year label model output
+    - month label model output
+    - day label model output
+    - multiday label model output for same-month and cross-month ranges
+  - UI tests on iPhone and iPad covering:
+    - selected item capsule sizing with multi-line labels
+    - title-strip content still remaining tappable and centered after label refinements
+    - navigator surface still opening from the selected spread item after the visual update
+  - Manual QA for:
+    - readability and hierarchy clarity across mixed year/month/day/multiday sequences
+    - visual balance of the selected capsule with the new multi-line label blocks
+    - correct removal of the duplicate `Spreads` title from the spread content surface
+- **Dependencies**: SPRD-128

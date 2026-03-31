@@ -248,6 +248,15 @@
   - Tapping the selected centered capsule opens the rooted spread navigator surface implemented in [SPRD-125]: as a popover on iPad and as a large sheet on iPhone. [SPRD-125, SPRD-126]
   - The spread header no longer renders a duplicate spread title once this navigator is present. [SPRD-126]
   - A trailing "+" button remains always visible and opens a creation menu (spread or task). [SPRD-23, SPRD-26, SPRD-126]
+  - Navigator label refinements: [SPRD-129]
+    - The spread content surface removes the duplicate `Spreads` title, while higher-level container navigation titles may remain when needed. [SPRD-129]
+    - Year items use a stacked treatment with the leading century digits rendered smaller above the larger trailing two digits, while accessibility continues to expose the plain spoken year value such as `2026`. [SPRD-129]
+    - Month items remain single-line labels but use a more expressive typographic treatment than plain body text. [SPRD-129]
+    - Day items render as a two-line label with a smallcaps month abbreviation above the day number. [SPRD-129]
+    - Multiday items render as a two-line label:
+      - same-month ranges show a smallcaps month abbreviation above a compact day range
+      - cross-month ranges show a smallcaps month span above the compact endpoint day range [SPRD-129]
+    - The selected capsule sizes to the full rendered label block for all item types, including multi-line day and multiday labels. [SPRD-129]
 - Horizontal spread-content paging behavior: [SPRD-128]
   - Spread content pages are presented in a separate horizontal pager beneath the title strip; the title strip remains the navigation chrome and stays synchronized with the selected page. [SPRD-128]
   - The pager uses the same ordered selected-year sequence as the title strip for the current mode. [SPRD-128]
