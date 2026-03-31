@@ -227,7 +227,7 @@ struct SpreadTitleNavigatorView: View {
             VStack(spacing: -2) {
                 if let top = item.display.top {
                     Text(top)
-                        .font(.caption2.weight(.semibold))
+                        .font(.title3.weight(selected ? .bold : .semibold))
                         .foregroundStyle(selected ? Color.primary : Color.secondary)
                 }
                 Text(item.display.bottom)
@@ -237,7 +237,7 @@ struct SpreadTitleNavigatorView: View {
         case .month:
             Text(item.display.bottom)
                 .font(.subheadline.weight(selected ? .semibold : .medium))
-                .italic()
+                .textCase(.uppercase)
                 .foregroundStyle(selected ? Color.primary : Color.secondary)
                 .lineLimit(1)
         case .day, .multiday:
@@ -253,6 +253,13 @@ struct SpreadTitleNavigatorView: View {
                     .font(.body.weight(selected ? .semibold : .regular))
                     .foregroundStyle(selected ? Color.primary : Color.secondary)
                     .lineLimit(1)
+                if let footer = item.display.footer {
+                    Text(footer)
+                        .font(.caption2.smallCaps())
+                        .fontWeight(.medium)
+                        .foregroundStyle(selected ? Color.primary : Color.secondary.opacity(0.85))
+                        .lineLimit(1)
+                }
             }
         }
     }
@@ -369,7 +376,10 @@ struct SpreadTitleNavigatorView: View {
         let topWidth = (item.display.top ?? "").size(withAttributes: [
             .font: topUIFont(for: item.style)
         ]).width
-        return ceil(max(bottomWidth, topWidth) + 32)
+        let footerWidth = (item.display.footer ?? "").size(withAttributes: [
+            .font: footerUIFont(for: item.style)
+        ]).width
+        return ceil(max(bottomWidth, topWidth, footerWidth) + 32)
     }
 
     private func topUIFont(for style: SpreadTitleNavigatorModel.Item.Style) -> UIFont {
@@ -380,6 +390,15 @@ struct SpreadTitleNavigatorView: View {
             return .preferredFont(forTextStyle: .subheadline)
         case .day, .multiday:
             return .preferredFont(forTextStyle: .caption2)
+        }
+    }
+
+    private func footerUIFont(for style: SpreadTitleNavigatorModel.Item.Style) -> UIFont {
+        switch style {
+        case .day:
+            return .preferredFont(forTextStyle: .caption2)
+        case .year, .month, .multiday:
+            return .preferredFont(forTextStyle: .body)
         }
     }
 

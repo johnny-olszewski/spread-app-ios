@@ -208,6 +208,7 @@ struct SpreadTitleNavigatorSupportTests {
         #expect(item?.label == "29")
         #expect(item?.display.top == "MAR")
         #expect(item?.display.bottom == "29")
+        #expect(item?.display.footer == "SUN")
     }
 
     @Test func multidayDisplayUsesSameMonthCompactRange() {
@@ -229,6 +230,7 @@ struct SpreadTitleNavigatorSupportTests {
 
         #expect(item?.display.top == "MAR")
         #expect(item?.display.bottom == "20-22")
+        #expect(item?.display.footer == "FRI-SUN")
     }
 
     @Test func multidayDisplayUsesCrossMonthSpanWhenNeeded() {
@@ -250,5 +252,6 @@ struct SpreadTitleNavigatorSupportTests {
 
         #expect(item?.display.top == "MAR-APR")
         #expect(item?.display.bottom == "30-5")
+        #expect(item?.display.footer == "MON-SUN")
     }
 }

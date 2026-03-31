@@ -12,6 +12,7 @@ struct SpreadTitleNavigatorModel {
         struct Display: Equatable {
             let top: String?
             let bottom: String
+            let footer: String?
         }
 
         let id: String
@@ -140,17 +141,18 @@ struct SpreadTitleNavigatorModel {
         let yearString = String(year)
         let prefix = String(yearString.prefix(max(yearString.count - 2, 0)))
         let suffix = String(yearString.suffix(2))
-        return .init(top: prefix.isEmpty ? nil : prefix, bottom: suffix)
+        return .init(top: prefix.isEmpty ? nil : prefix, bottom: suffix, footer: nil)
     }
 
     private func monthDisplay(for date: Date) -> Item.Display {
-        .init(top: nil, bottom: monthAbbreviation(for: date))
+        .init(top: nil, bottom: monthAbbreviation(for: date), footer: nil)
     }
 
     private func dayDisplay(for date: Date) -> Item.Display {
         .init(
             top: monthAbbreviation(for: date).uppercased(),
-            bottom: String(calendar.component(.day, from: date))
+            bottom: String(calendar.component(.day, from: date)),
+            footer: weekdayAbbreviation(for: date).uppercased()
         )
     }
 
@@ -161,13 +163,24 @@ struct SpreadTitleNavigatorModel {
         let endMonth = monthAbbreviation(for: endDate).uppercased()
         let topLine = startMonth == endMonth ? startMonth : "\(startMonth)-\(endMonth)"
         let bottomLine = "\(calendar.component(.day, from: startDate))-\(calendar.component(.day, from: endDate))"
-        return .init(top: topLine, bottom: bottomLine)
+        let startWeekday = weekdayAbbreviation(for: startDate).uppercased()
+        let endWeekday = weekdayAbbreviation(for: endDate).uppercased()
+        let footerLine = startWeekday == endWeekday ? startWeekday : "\(startWeekday)-\(endWeekday)"
+        return .init(top: topLine, bottom: bottomLine, footer: footerLine)
     }
 
     private func monthAbbreviation(for date: Date) -> String {
         date.formatted(
             .dateTime
                 .month(.abbreviated)
+                .locale(Locale(identifier: "en_US_POSIX"))
+        )
+    }
+
+    private func weekdayAbbreviation(for date: Date) -> String {
+        date.formatted(
+            .dateTime
+                .weekday(.abbreviated)
                 .locale(Locale(identifier: "en_US_POSIX"))
         )
     }
