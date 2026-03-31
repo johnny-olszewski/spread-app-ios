@@ -5,6 +5,11 @@ struct SpreadTitleNavigatorView: View {
     private static let selectionAnimation = Animation.easeInOut(duration: 0.38)
     private static let itemSpacing: CGFloat = 12
 
+    private struct EdgeFadeConfiguration {
+        let width: CGFloat = 64
+        let maxOpacity: Double = 1
+    }
+
     private struct CenterRequest: Equatable {
         let id: String
         let token: Int
@@ -32,6 +37,8 @@ struct SpreadTitleNavigatorView: View {
     @State private var scrollViewportWidth: CGFloat = 0
     @State private var scrollContainerFrame: CGRect = .zero
 
+    private let edgeFade = EdgeFadeConfiguration()
+
     private var items: [SpreadTitleNavigatorModel.Item] {
         stripModel.items(for: currentSelection)
     }
@@ -51,6 +58,7 @@ struct SpreadTitleNavigatorView: View {
 
             ZStack(alignment: .trailing) {
                 scrollStripContainer(visibleWidth: scrollAreaWidth)
+                edgeFadeOverlays
                 if let returnButtonEdge = returnButtonEdge(for: scrollAreaWidth) {
                     returnToSelectedButton(edge: returnButtonEdge)
                 }
@@ -160,6 +168,17 @@ struct SpreadTitleNavigatorView: View {
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.container)
     }
 
+    @ViewBuilder
+    private var edgeFadeOverlays: some View {
+        HStack(spacing: 0) {
+            edgeFadeView(edge: .leading)
+            Spacer(minLength: 0)
+            edgeFadeView(edge: .trailing)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
     private func itemButton(for item: SpreadTitleNavigatorModel.Item) -> some View {
         let isSelected = item.id == currentSelection.stableID(calendar: stripModel.calendar)
         let showsSelectedCapsule = isSelected
@@ -178,6 +197,7 @@ struct SpreadTitleNavigatorView: View {
             }
         } label: {
             itemLabel(for: item, selected: isSelected)
+                .padding(.vertical, 6)
                 .frame(width: itemWidth(for: item))
             .background {
                 if showsSelectedCapsule {
@@ -242,6 +262,11 @@ struct SpreadTitleNavigatorView: View {
         case trailing
     }
 
+    private enum FadeEdge {
+        case leading
+        case trailing
+    }
+
     @ViewBuilder
     private func returnToSelectedButton(edge: ReturnButtonEdge) -> some View {
         HStack {
@@ -299,6 +324,18 @@ struct SpreadTitleNavigatorView: View {
             }
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.button)
         }
+    }
+
+    @ViewBuilder
+    private func edgeFadeView(edge: FadeEdge) -> some View {
+        let isVisible = showsFade(edge: edge)
+        LinearGradient(
+            colors: gradientColors(for: edge),
+            startPoint: edge == .leading ? .leading : .trailing,
+            endPoint: edge == .leading ? .trailing : .leading
+        )
+        .frame(width: edgeFade.width)
+        .opacity(isVisible ? edgeFade.maxOpacity : 0)
     }
 
     private var trailingAccessoryWidth: CGFloat {
@@ -392,6 +429,38 @@ struct SpreadTitleNavigatorView: View {
             return .trailing
         }
         return nil
+    }
+
+    private func showsFade(edge: FadeEdge) -> Bool {
+        guard scrollContainerFrame.width > 0 else { return false }
+
+        let fadeRegion: CGRect
+        switch edge {
+        case .leading:
+            fadeRegion = CGRect(
+                x: scrollContainerFrame.minX,
+                y: scrollContainerFrame.minY,
+                width: edgeFade.width,
+                height: scrollContainerFrame.height
+            )
+        case .trailing:
+            fadeRegion = CGRect(
+                x: scrollContainerFrame.maxX - edgeFade.width,
+                y: scrollContainerFrame.minY,
+                width: edgeFade.width,
+                height: scrollContainerFrame.height
+            )
+        }
+
+        return itemFrames.values.contains { $0.intersects(fadeRegion) }
+    }
+
+    private func gradientColors(for edge: FadeEdge) -> [Color] {
+        let base = SpreadTheme.Paper.secondary
+        return [
+            base.opacity(edgeFade.maxOpacity),
+            base.opacity(0)
+        ]
     }
 
     private func recenterStrip(proxy: ScrollViewProxy, animated: Bool) {
