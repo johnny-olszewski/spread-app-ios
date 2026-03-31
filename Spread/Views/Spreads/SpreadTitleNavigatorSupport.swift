@@ -9,10 +9,16 @@ struct SpreadTitleNavigatorModel {
             case multiday
         }
 
+        struct Display: Equatable {
+            let top: String?
+            let bottom: String
+        }
+
         let id: String
         let label: String
         let selection: SpreadHeaderNavigatorModel.Selection
         let style: Style
+        let display: Display
     }
 
     let headerModel: SpreadHeaderNavigatorModel
@@ -47,7 +53,8 @@ struct SpreadTitleNavigatorModel {
                 id: SpreadHeaderNavigatorModel.Selection.traditionalYear(yearStart(year)).stableID(calendar: calendar),
                 label: String(year),
                 selection: .traditionalYear(yearStart(year)),
-                style: .year
+                style: .year,
+                display: yearDisplay(for: year)
             )
         ]
 
@@ -59,7 +66,8 @@ struct SpreadTitleNavigatorModel {
                     id: monthSelection.stableID(calendar: calendar),
                     label: DataModel.Spread(period: .month, date: monthDate, calendar: calendar).displayLabel(calendar: calendar),
                     selection: monthSelection,
-                    style: .month
+                    style: .month,
+                    display: monthDisplay(for: monthDate)
                 )
             )
 
@@ -72,7 +80,8 @@ struct SpreadTitleNavigatorModel {
                         id: daySelection.stableID(calendar: calendar),
                         label: String(day),
                         selection: daySelection,
-                        style: .day
+                        style: .day,
+                        display: dayDisplay(for: dayDate)
                     )
                 )
             }
@@ -87,7 +96,8 @@ struct SpreadTitleNavigatorModel {
             id: selection.stableID(calendar: calendar),
             label: label(for: spread),
             selection: selection,
-            style: style(for: spread)
+            style: style(for: spread),
+            display: display(for: spread)
         )
     }
 
@@ -111,6 +121,55 @@ struct SpreadTitleNavigatorModel {
         case .multiday:
             return .multiday
         }
+    }
+
+    private func display(for spread: DataModel.Spread) -> Item.Display {
+        switch spread.period {
+        case .year:
+            return yearDisplay(for: calendar.component(.year, from: spread.date))
+        case .month:
+            return monthDisplay(for: spread.date)
+        case .day:
+            return dayDisplay(for: spread.date)
+        case .multiday:
+            return multidayDisplay(for: spread)
+        }
+    }
+
+    private func yearDisplay(for year: Int) -> Item.Display {
+        let yearString = String(year)
+        let prefix = String(yearString.prefix(max(yearString.count - 2, 0)))
+        let suffix = String(yearString.suffix(2))
+        return .init(top: prefix.isEmpty ? nil : prefix, bottom: suffix)
+    }
+
+    private func monthDisplay(for date: Date) -> Item.Display {
+        .init(top: nil, bottom: monthAbbreviation(for: date))
+    }
+
+    private func dayDisplay(for date: Date) -> Item.Display {
+        .init(
+            top: monthAbbreviation(for: date).uppercased(),
+            bottom: String(calendar.component(.day, from: date))
+        )
+    }
+
+    private func multidayDisplay(for spread: DataModel.Spread) -> Item.Display {
+        let startDate = spread.startDate ?? spread.date
+        let endDate = spread.endDate ?? spread.date
+        let startMonth = monthAbbreviation(for: startDate).uppercased()
+        let endMonth = monthAbbreviation(for: endDate).uppercased()
+        let topLine = startMonth == endMonth ? startMonth : "\(startMonth)-\(endMonth)"
+        let bottomLine = "\(calendar.component(.day, from: startDate))-\(calendar.component(.day, from: endDate))"
+        return .init(top: topLine, bottom: bottomLine)
+    }
+
+    private func monthAbbreviation(for date: Date) -> String {
+        date.formatted(
+            .dateTime
+                .month(.abbreviated)
+                .locale(Locale(identifier: "en_US_POSIX"))
+        )
     }
 
     private func spreadYear(for spread: DataModel.Spread) -> Int {

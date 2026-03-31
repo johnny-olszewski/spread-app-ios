@@ -67,7 +67,7 @@ struct SpreadTitleNavigatorView: View {
                 scrollViewportWidth = newValue
             }
         }
-        .frame(height: 56)
+        .frame(height: 68)
         .secondaryPaperBackground()
         .modifier(
             SpreadNavigatorPresentationModifier(
@@ -177,20 +177,15 @@ struct SpreadTitleNavigatorView: View {
                 onSelect(item.selection)
             }
         } label: {
-            HStack(spacing: 0) {
-                Text(item.label)
-                    .font(font(for: item.style, selected: isSelected))
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                    .lineLimit(1)
-            }
-            .frame(width: itemWidth(for: item), height: 36)
+            itemLabel(for: item, selected: isSelected)
+                .frame(width: itemWidth(for: item))
             .background {
                 if showsSelectedCapsule {
                     Capsule()
                         .fill(Color.accentColor.opacity(0.16))
                 }
             }
-            .frame(minHeight: 36)
+            .frame(minHeight: 48)
             .contentShape(Rectangle())
             .background(
                 GeometryReader { geometry in
@@ -203,6 +198,43 @@ struct SpreadTitleNavigatorView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(isSelected ? Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule : identifier(for: item))
+    }
+
+    @ViewBuilder
+    private func itemLabel(for item: SpreadTitleNavigatorModel.Item, selected: Bool) -> some View {
+        switch item.style {
+        case .year:
+            VStack(spacing: -2) {
+                if let top = item.display.top {
+                    Text(top)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(selected ? Color.primary : Color.secondary)
+                }
+                Text(item.display.bottom)
+                    .font(.title3.weight(selected ? .bold : .semibold))
+                    .foregroundStyle(selected ? Color.primary : Color.secondary)
+            }
+        case .month:
+            Text(item.display.bottom)
+                .font(.subheadline.weight(selected ? .semibold : .medium))
+                .italic()
+                .foregroundStyle(selected ? Color.primary : Color.secondary)
+                .lineLimit(1)
+        case .day, .multiday:
+            VStack(spacing: 0) {
+                if let top = item.display.top {
+                    Text(top)
+                        .font(.caption2.smallCaps())
+                        .fontWeight(.semibold)
+                        .foregroundStyle(selected ? Color.primary : Color.secondary)
+                        .lineLimit(1)
+                }
+                Text(item.display.bottom)
+                    .font(.body.weight(selected ? .semibold : .regular))
+                    .foregroundStyle(selected ? Color.primary : Color.secondary)
+                    .lineLimit(1)
+            }
+        }
     }
 
     private enum ReturnButtonEdge {
@@ -282,21 +314,10 @@ struct SpreadTitleNavigatorView: View {
         return onCreateSpreadTapped != nil || onCreateTaskTapped != nil || onCreateNoteTapped != nil
     }
 
-    private func font(for style: SpreadTitleNavigatorModel.Item.Style, selected: Bool) -> Font {
-        switch style {
-        case .year:
-            return .headline.weight(selected ? .semibold : .regular)
-        case .month:
-            return .subheadline.weight(selected ? .semibold : .regular)
-        case .day, .multiday:
-            return .body.weight(selected ? .semibold : .regular)
-        }
-    }
-
     private func uiFont(for style: SpreadTitleNavigatorModel.Item.Style, selected: Bool) -> UIFont {
         switch style {
         case .year:
-            return .preferredFont(forTextStyle: .headline)
+            return .preferredFont(forTextStyle: .title3)
         case .month:
             return .preferredFont(forTextStyle: .subheadline)
         case .day, .multiday:
@@ -305,10 +326,24 @@ struct SpreadTitleNavigatorView: View {
     }
 
     private func itemWidth(for item: SpreadTitleNavigatorModel.Item) -> CGFloat {
-        let labelWidth = item.label.size(withAttributes: [
+        let bottomWidth = item.display.bottom.size(withAttributes: [
             .font: uiFont(for: item.style, selected: true)
         ]).width
-        return ceil(labelWidth + 32)
+        let topWidth = (item.display.top ?? "").size(withAttributes: [
+            .font: topUIFont(for: item.style)
+        ]).width
+        return ceil(max(bottomWidth, topWidth) + 32)
+    }
+
+    private func topUIFont(for style: SpreadTitleNavigatorModel.Item.Style) -> UIFont {
+        switch style {
+        case .year:
+            return .preferredFont(forTextStyle: .caption2)
+        case .month:
+            return .preferredFont(forTextStyle: .subheadline)
+        case .day, .multiday:
+            return .preferredFont(forTextStyle: .caption2)
+        }
     }
 
     private func leadingInset(for visibleWidth: CGFloat) -> CGFloat {

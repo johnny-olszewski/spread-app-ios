@@ -87,7 +87,6 @@ struct TraditionalSpreadsView: View {
 
             pagerContent
         }
-        .navigationTitle("Spreads")
         .toolbar {
             toolbarContent
         }
