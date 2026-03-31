@@ -41,6 +41,9 @@ struct SidebarNavigationView: View {
                 NavigationLink(value: item) {
                     Label(item.title, systemImage: item.systemImage)
                 }
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.Navigation.sidebarItem(item.rawValue)
+                )
             }
         }
     }

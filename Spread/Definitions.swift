@@ -60,6 +60,7 @@ struct Definitions {
             static let title = "spreads.content.title"
             static let entryCounts = "spreads.content.entryCounts"
             static let list = "spreads.content.list"
+            static let pager = "spreads.content.pager"
             static let multidayGrid = "spreads.content.multiday.grid"
             static let migratedSectionHeader = "spreads.content.migrated.section"
 
@@ -253,6 +254,12 @@ struct Definitions {
         struct Settings {
             static func modeOption(_ rawValue: String) -> String {
                 "settings.mode.\(rawValue)"
+            }
+        }
+
+        struct Navigation {
+            static func sidebarItem(_ rawValue: String) -> String {
+                "navigation.sidebar.\(rawValue)"
             }
         }
 
