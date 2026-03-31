@@ -173,4 +173,82 @@ struct SpreadTitleNavigatorSupportTests {
         #expect(leadingWindow == Set(items.prefix(3).map(\.id)))
         #expect(trailingWindow == Set(items.suffix(3).map(\.id)))
     }
+
+    @Test func yearDisplayUsesStackedCenturyAndSuffix() {
+        let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let headerModel = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 1, day: 1),
+            spreads: [year],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: .conventional(year)).first
+
+        #expect(item?.label == "2026")
+        #expect(item?.display.top == "20")
+        #expect(item?.display.bottom == "26")
+    }
+
+    @Test func dayDisplayUsesMonthSmallcapsSourceAndDayNumber() {
+        let day = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 29), calendar: Self.calendar)
+        let headerModel = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 29),
+            spreads: [day],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: .conventional(day)).first
+
+        #expect(item?.label == "29")
+        #expect(item?.display.top == "MAR")
+        #expect(item?.display.bottom == "29")
+    }
+
+    @Test func multidayDisplayUsesSameMonthCompactRange() {
+        let multiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 3, day: 20),
+            endDate: Self.makeDate(year: 2026, month: 3, day: 22),
+            calendar: Self.calendar
+        )
+        let headerModel = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 20),
+            spreads: [multiday],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: .conventional(multiday)).first
+
+        #expect(item?.display.top == "MAR")
+        #expect(item?.display.bottom == "20-22")
+    }
+
+    @Test func multidayDisplayUsesCrossMonthSpanWhenNeeded() {
+        let multiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 3, day: 30),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 5),
+            calendar: Self.calendar
+        )
+        let headerModel = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 30),
+            spreads: [multiday],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: .conventional(multiday)).first
+
+        #expect(item?.display.top == "MAR-APR")
+        #expect(item?.display.bottom == "30-5")
+    }
 }

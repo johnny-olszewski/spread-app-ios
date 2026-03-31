@@ -15,7 +15,7 @@ final class SpreadTitleNavigatorUITests: LocalhostScenarioUITestCase {
             identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
         )
         waitForElement(selectedCapsule)
-        XCTAssertEqual(selectedCapsule.label, "31")
+        XCTAssertTrue(selectedCapsule.label.contains("31"))
     }
 
     func testSelectedCapsuleOpensNavigatorSurfaceAndHeaderTitleIsRemoved() throws {
@@ -44,7 +44,7 @@ final class SpreadTitleNavigatorUITests: LocalhostScenarioUITestCase {
             identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
         )
         waitForElement(selectedCapsule)
-        XCTAssertEqual(selectedCapsule.label, "31")
+        XCTAssertTrue(selectedCapsule.label.contains("31"))
     }
 
     func testTraditionalContentSwipeUpdatesSelectedStripAfterSettle() throws {

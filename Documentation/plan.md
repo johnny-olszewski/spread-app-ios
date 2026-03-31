@@ -2982,7 +2982,7 @@ Supabase: SPRD-85A -> SPRD-85C
     - memory/performance sanity while traversing a dense year sequence
 - **Dependencies**: SPRD-127
 
-### [SPRD-129] UI: spread navigator label refinements
+### [SPRD-129] UI: spread navigator label refinements - [x] Complete
 - **Context**: `SPRD-126` through `SPRD-128` established the horizontal title navigator and synchronized content paging. The next refinement is to improve title-strip readability and hierarchy with richer label treatments while removing redundant spread titling from the spread content surface itself.
 - **Description**: Refine the visual treatment of horizontal spread navigator labels by removing the duplicate `Spreads` title from the spread content surface, giving year/month/day/multiday items more expressive hierarchy-aware labels, and keeping accessibility/simple spoken labels stable.
 - **Implementation Details**:
