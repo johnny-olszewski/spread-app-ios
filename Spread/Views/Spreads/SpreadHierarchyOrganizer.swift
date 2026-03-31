@@ -191,8 +191,14 @@ struct SpreadHierarchyOrganizer {
 
         guard !candidates.isEmpty else { return nil }
 
-        // Apply tiebreakers: earliest start, earliest end, earliest creation
+        // Apply tiebreakers: narrowest range, earliest start, earliest end, earliest creation
         return candidates.sorted { lhs, rhs in
+            let lhsRangeLength = rangeLength(for: lhs)
+            let rhsRangeLength = rangeLength(for: rhs)
+            if lhsRangeLength != rhsRangeLength {
+                return lhsRangeLength < rhsRangeLength
+            }
+
             // Compare start dates
             guard let lhsStart = lhs.startDate, let rhsStart = rhs.startDate else {
                 return lhs.startDate != nil
@@ -212,5 +218,12 @@ struct SpreadHierarchyOrganizer {
             // Compare creation dates
             return lhs.createdDate < rhs.createdDate
         }.first
+    }
+
+    private func rangeLength(for spread: DataModel.Spread) -> Int {
+        guard let startDate = spread.startDate, let endDate = spread.endDate else {
+            return .max
+        }
+        return calendar.dateComponents([.day], from: startDate, to: endDate).day ?? .max
     }
 }

@@ -8,7 +8,6 @@ struct TabNavigationView: View {
     @State private var selectedTab: NavigationTab = .spreads
     @State private var isInboxPresented = false
     @State private var isAuthPresented = false
-    @State private var isOverduePresented = false
 
     /// The journal manager for accessing spreads and inbox.
     let journalManager: JournalManager
@@ -41,44 +40,35 @@ struct TabNavigationView: View {
         .sheet(isPresented: $isAuthPresented) {
             AuthEntrySheet(authManager: authManager, isBlocking: false)
         }
-        .sheet(isPresented: $isOverduePresented) {
-            OverdueReviewSheet(
-                journalManager: journalManager,
-                syncEngine: syncEngine
-            )
-        }
     }
 
     // MARK: - Tab Content
 
     @ViewBuilder
     private func tabContent(for tab: NavigationTab) -> some View {
-        if tab == .spreads && journalManager.bujoMode == .traditional {
-            // Traditional mode provides its own NavigationStack for drill-in.
-            spreadsView
-        } else {
-            NavigationStack {
-                Group {
-                    switch tab {
-                    case .spreads:
-                        spreadsView
-                    case .collections:
-                        CollectionsListView(
-                            collectionRepository: dependencies.collectionRepository,
-                            syncEngine: syncEngine
-                        )
-                    case .settings:
-                        SettingsView(
-                            journalManager: journalManager,
-                            settingsRepository: dependencies.settingsRepository,
-                            syncEngine: syncEngine
-                        )
-                    case .debug:
-                        debugMenuView
-                    }
+        NavigationStack {
+            Group {
+                switch tab {
+                case .spreads:
+                    spreadsView
+                case .collections:
+                    CollectionsListView(
+                        collectionRepository: dependencies.collectionRepository,
+                        syncEngine: syncEngine
+                    )
+                case .settings:
+                    SettingsView(
+                        journalManager: journalManager,
+                        settingsRepository: dependencies.settingsRepository,
+                        syncEngine: syncEngine
+                    )
+                case .debug:
+                    debugMenuView
                 }
-                .modifier(SpreadsNavigationTitleModifier(tab: tab))
-                .toolbar {
+            }
+            .modifier(SpreadsNavigationTitleModifier(tab: tab))
+            .toolbar {
+                if tab != .spreads {
                     if let syncEngine {
                         ToolbarItem(placement: .navigationBarLeading) {
                             SyncStatusView(syncEngine: syncEngine)
@@ -86,11 +76,6 @@ struct TabNavigationView: View {
                     }
                     ToolbarItem(placement: .primaryAction) {
                         HStack(spacing: 16) {
-                            if tab == .spreads {
-                                OverdueButton(overdueCount: journalManager.overdueTaskCount) {
-                                    isOverduePresented = true
-                                }
-                            }
                             InboxButton(inboxCount: journalManager.inboxCount) {
                                 isInboxPresented = true
                             }

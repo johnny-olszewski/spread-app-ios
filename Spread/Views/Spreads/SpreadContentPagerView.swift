@@ -6,6 +6,7 @@ struct SpreadContentPagerView<Page: View>: View {
     let model: SpreadTitleNavigatorModel
     let items: [SpreadTitleNavigatorModel.Item]
     let selectedID: String
+    let recenterToken: Int
     let onSettledSelect: (SpreadHeaderNavigatorModel.Selection) -> Void
     @ViewBuilder let page: (SpreadTitleNavigatorModel.Item) -> Page
 
@@ -67,6 +68,9 @@ struct SpreadContentPagerView<Page: View>: View {
                     guard newValue != visiblePageID else { return }
                     let shouldAnimate = lastSequenceSignature == sequenceSignature
                     center(on: newValue, with: proxy, animated: shouldAnimate)
+                }
+                .onChange(of: recenterToken) { _, _ in
+                    center(on: selectedID, with: proxy, animated: true)
                 }
                 .onChange(of: visiblePageID) { _, newValue in
                     guard scrollPhase == .idle, let newValue, newValue != selectedID else { return }
