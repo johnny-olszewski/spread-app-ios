@@ -62,4 +62,54 @@ final class SpreadTitleNavigatorUITests: LocalhostScenarioUITestCase {
         waitForElement(selectedCapsule)
         XCTAssertEqual(selectedCapsule.label, "Jan")
     }
+
+    func testConventionalTodayButtonReturnsSelectionToToday() throws {
+        let app = launchScenario(.spreadNavigator, today: "2026-03-29")
+
+        let neighbor = anyElement(in: app, identifier: "spreads.strip.day.31")
+        waitForElement(neighbor)
+        tapElement(neighbor)
+
+        let todayButton = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton
+        )
+        waitForElement(todayButton)
+        todayButton.tap()
+
+        let selectedCapsule = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
+        )
+        waitForElement(selectedCapsule)
+        let todayTask = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Navigator day task")
+        )
+        waitForElement(todayTask)
+    }
+
+    func testTraditionalTodayButtonReturnsSelectionToToday() throws {
+        let app = launchScenario(.spreadNavigator, today: "2026-03-29")
+        switchToTraditionalMode(in: app)
+
+        let pager = anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.SpreadContent.pager)
+        waitForElement(pager)
+        pager.swipeLeft()
+
+        let todayButton = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton
+        )
+        waitForElement(todayButton)
+        todayButton.tap()
+
+        let selectedCapsule = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
+        )
+        waitForElement(selectedCapsule)
+        let todayBadge = app.staticTexts["Today"].firstMatch
+        waitForElement(todayBadge)
+    }
 }
