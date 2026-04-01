@@ -37,6 +37,7 @@ struct SpreadTitleNavigatorView: View {
     @State private var pendingTapSelectionItemID: String?
     @State private var scrollViewportWidth: CGFloat = 0
     @State private var scrollContainerFrame: CGRect = .zero
+    @State private var widthChangedToken = 0
 
     private let edgeFade = EdgeFadeConfiguration()
 
@@ -74,6 +75,7 @@ struct SpreadTitleNavigatorView: View {
             }
             .onChange(of: scrollAreaWidth) { _, newValue in
                 scrollViewportWidth = newValue
+                widthChangedToken += 1
             }
         }
         .frame(height: 68)
@@ -151,6 +153,9 @@ struct SpreadTitleNavigatorView: View {
             .onChange(of: centerRequest) { _, newValue in
                 guard let newValue else { return }
                 centerItem(id: newValue.id, with: proxy, animated: true)
+            }
+            .onChange(of: widthChangedToken) { _, _ in
+                recenterStrip(proxy: proxy, animated: false)
             }
         }
     }
