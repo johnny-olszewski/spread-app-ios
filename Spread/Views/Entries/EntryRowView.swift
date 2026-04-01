@@ -171,11 +171,8 @@ struct EntryRowView: View {
             editingRowContent
         } else {
             rowContent
-                .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                    leadingSwipeActions
-                }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    trailingSwipeActions
+                .contextMenu {
+                    contextMenuActions
                 }
         }
     }
@@ -237,10 +234,8 @@ struct EntryRowView: View {
             )
         }
         .foregroundStyle(rowColor)
-        .onChange(of: isEditingTitle) { _, newValue in
-            if newValue {
-                isTitleFocused = true
-            }
+        .onAppear {
+            isTitleFocused = true
         }
         .onChange(of: isTitleFocused) { _, focused in
             if !focused && isEditingTitle {
@@ -294,37 +289,16 @@ struct EntryRowView: View {
         .foregroundStyle(.secondary)
     }
 
-    // MARK: - Swipe Actions
+    // MARK: - Context Menu
 
     @ViewBuilder
-    private var leadingSwipeActions: some View {
-        if configuration.canMigrate, let onMigrate {
-            Button {
-                onMigrate()
-            } label: {
-                Label("Migrate", systemImage: "arrow.right.circle")
-            }
-            .tint(.orange)
-        }
-    }
-
-    @ViewBuilder
-    private var trailingSwipeActions: some View {
-        if configuration.canDelete, let onDelete {
-            Button(role: .destructive) {
-                onDelete()
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
-
+    private var contextMenuActions: some View {
         if configuration.canEdit, let onEdit {
             Button {
                 onEdit()
             } label: {
                 Label("Edit", systemImage: "pencil")
             }
-            .tint(.blue)
         }
 
         if configuration.canComplete, let onComplete {
@@ -333,7 +307,22 @@ struct EntryRowView: View {
             } label: {
                 Label("Complete", systemImage: "checkmark.circle")
             }
-            .tint(.green)
+        }
+
+        if configuration.canMigrate, let onMigrate {
+            Button {
+                onMigrate()
+            } label: {
+                Label("Migrate", systemImage: "arrow.right.circle")
+            }
+        }
+
+        if configuration.canDelete, let onDelete {
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
         }
     }
 }
