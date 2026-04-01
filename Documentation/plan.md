@@ -3071,3 +3071,22 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests on iPhone verifying toolbar placement, today navigation, and synchronized strip/pager recentering.
   - iPad UI tests deferred: no iPad-specific UI test infrastructure exists yet. The toolbar code is size-class-independent, so iPad behavior is covered by the shared code path. Add iPad Today button tests when the project establishes an iPad test plan configuration.
 - **Dependencies**: SPRD-128
+
+### [SPRD-132] UI: inline task title editing on spread page
+- **Context**: Currently tapping a task row on the spread page opens the full task edit sheet. For the common case of renaming a task, this is heavier than necessary. This task replaces row tap-to-open-sheet with tap-on-title inline editing, keeping the full sheet accessible via the existing Edit swipe action.
+- **Spec**: Spread Content Presentation and Interaction
+- **Acceptance Criteria**:
+  - Tapping the title text of a task row in the main spread entry list activates an inline `TextField` in place of the title label. The keyboard appears immediately.
+  - While the inline editor is active, a "×" button is visible in the row. Tapping "×" discards the edit and restores the original title without saving.
+  - Tapping outside the active row (losing focus), pressing Return, or the field otherwise resigning first responder commits the edited title to the task.
+  - If the committed title is empty, the change is silently discarded and the original title is restored; no error state is shown.
+  - Swipe actions (Complete, Migrate, Edit, Delete) are suppressed on a row while its inline editor is active.
+  - Tapping anywhere on the task row that is not the title text does not open the full edit sheet. The full edit sheet is only reachable via the swipe-action Edit button.
+  - Inline title editing applies identically in both the standard entry list (day/month/year spreads) and the multiday grid view.
+  - Note rows are unaffected; their tap behavior remains unchanged.
+  - Inline edits are persisted via the existing `JournalManager` task update path (same as the full edit sheet).
+- **Tests**:
+  - Unit tests for inline edit commit: verifies title is updated when focus is lost with non-empty text.
+  - Unit tests for inline edit discard: verifies original title is restored when "×" is tapped or empty text is committed.
+  - UI tests verifying the inline editor activates on title tap, commits on Return, and discards on "×".
+- **Dependencies**: SPRD-124
