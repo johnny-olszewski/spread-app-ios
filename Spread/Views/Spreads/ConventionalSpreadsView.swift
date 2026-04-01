@@ -219,6 +219,10 @@ struct ConventionalSpreadsView: View {
                         await syncEngine?.syncNow()
                     }
                 },
+                onAddTask: { title, date, period in
+                    try await journalManager.addTask(title: title, date: date, period: period)
+                    await syncEngine?.syncNow()
+                },
                 eligibleTaskCount: spread.id == currentSelectedSpread.id ? eligibleMigrationCandidates.count : migrationCandidateCount(for: spread),
                 onReviewMigration: {
                     selectedSpread = spread
@@ -389,6 +393,9 @@ private struct SpreadContentView: View {
     /// Callback when a task title is committed via inline edit.
     var onUpdateTaskTitle: ((DataModel.Task, String) -> Void)?
 
+    /// Callback when a new task should be created inline.
+    var onAddTask: ((String, Date, Period) async throws -> Void)?
+
     /// Number of tasks eligible for migration (0 hides the banner).
     var eligibleTaskCount: Int = 0
 
@@ -449,7 +456,8 @@ private struct SpreadContentView: View {
                 },
                 onTitleCommit: { task, newTitle in
                     onUpdateTaskTitle?(task, newTitle)
-                }
+                },
+                onAddTask: onAddTask
             )
         } else {
             ContentUnavailableView {

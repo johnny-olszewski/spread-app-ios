@@ -117,6 +117,10 @@ struct TraditionalDayView: View {
                         try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
                         await syncEngine?.syncNow()
                     }
+                },
+                onAddTask: { title, date, period in
+                    try await journalManager.addTask(title: title, date: date, period: period)
+                    await syncEngine?.syncNow()
                 }
             )
         }
