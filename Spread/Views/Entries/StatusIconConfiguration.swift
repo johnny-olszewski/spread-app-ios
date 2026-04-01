@@ -39,13 +39,13 @@ struct StatusIconConfiguration: Sendable {
     ///   - taskStatus: The task status (only used for tasks).
     ///   - noteStatus: The note status (only used for notes).
     ///   - isEventPast: Whether the event is past (only used for events).
-    ///   - size: The text style size (defaults to `.body`).
+    ///   - size: The text style size (defaults to `.caption`).
     init(
         entryType: EntryType,
         taskStatus: DataModel.Task.Status? = nil,
         noteStatus: DataModel.Note.Status? = nil,
         isEventPast: Bool = false,
-        size: Font.TextStyle = .body
+        size: Font.TextStyle = .caption
     ) {
         self.entryType = entryType
         self.taskStatus = taskStatus
@@ -111,8 +111,9 @@ struct StatusIconConfiguration: Sendable {
 
     /// The scale factor for the overlay symbol relative to the base symbol.
     ///
-    /// The overlay is rendered at half the size of the base symbol.
+    /// The overlay is rendered larger than the base circle so status marks
+    /// (xmark, arrow, slash) remain clearly visible at small icon sizes.
     var overlayScale: CGFloat {
-        0.5
+        0.65
     }
 }

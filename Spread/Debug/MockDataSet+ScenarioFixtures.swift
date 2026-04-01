@@ -437,6 +437,92 @@ extension MockDataSet {
                 DataModel.Spread(startDate: marchTwenty, endDate: marchTwentyTwo, calendar: calendar)
             ],
             tasks: [
+                // January 1 day spread tasks
+                task(
+                    title: "Set up 2026 journal",
+                    date: januaryFirst,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: januaryFirst,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Review last year's goals",
+                    date: januaryFirst,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: januaryFirst,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Write new year intentions",
+                    date: januaryFirst,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: januaryFirst,
+                    calendar: calendar
+                ),
+                // January 2 day spread tasks
+                task(
+                    title: "Plan January milestones",
+                    date: januarySecond,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: januarySecond,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Schedule quarterly reviews",
+                    date: januarySecond,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: januarySecond,
+                    calendar: calendar
+                ),
+                // January 3 day spread task
+                task(
+                    title: "Send team kickoff email",
+                    date: januaryThird,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: januaryThird,
+                    calendar: calendar
+                ),
+                // February 10 day spread tasks
+                task(
+                    title: "Prep February retrospective",
+                    date: februaryTenth,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: februaryTenth,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Update project roadmap",
+                    date: februaryTenth,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: februaryTenth,
+                    calendar: calendar
+                ),
+                // March 10 day spread tasks
+                task(
+                    title: "File Q1 expense report",
+                    date: marchTenth,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: marchTenth,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Review sprint backlog",
+                    date: marchTenth,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: marchTenth,
+                    calendar: calendar
+                ),
+                // March 29 day spread tasks
                 task(
                     title: "Navigator day task",
                     date: marchTwentyNine,
@@ -445,6 +531,40 @@ extension MockDataSet {
                     assignmentDate: marchTwentyNine,
                     calendar: calendar
                 ),
+                task(
+                    title: "Prep end-of-month summary",
+                    date: marchTwentyNine,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: marchTwentyNine,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Archive completed tasks",
+                    date: marchTwentyNine,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: marchTwentyNine,
+                    calendar: calendar
+                ),
+                // March 31 day spread tasks
+                task(
+                    title: "Close out Q1",
+                    date: marchThirtyOne,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: marchThirtyOne,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Write March reflection",
+                    date: marchThirtyOne,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: marchThirtyOne,
+                    calendar: calendar
+                ),
+                // Legacy year task
                 task(
                     title: "Legacy traditional task",
                     date: legacyYear,

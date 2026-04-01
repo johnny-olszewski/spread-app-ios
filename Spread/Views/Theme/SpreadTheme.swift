@@ -138,6 +138,12 @@ enum SpreadTheme {
         static let standard: CGFloat = 12
         static let large: CGFloat = 16
         static let extraLarge: CGFloat = 24
+
+        /// Vertical padding for entry rows in spread lists.
+        static let entryRowVertical: CGFloat = 8
+
+        /// Horizontal gap between the status icon and entry title.
+        static let entryIconSpacing: CGFloat = 8
     }
 }
 

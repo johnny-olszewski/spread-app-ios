@@ -48,14 +48,14 @@ struct StatusIcon: View {
     ///   - taskStatus: The task status (only used for tasks).
     ///   - noteStatus: The note status (only used for notes).
     ///   - isEventPast: Whether the event is past (only used for events).
-    ///   - size: The text style size (defaults to `.body`).
+    ///   - size: The text style size (defaults to `.caption`).
     ///   - color: The icon color (defaults to primary).
     init(
         entryType: EntryType,
         taskStatus: DataModel.Task.Status? = nil,
         noteStatus: DataModel.Note.Status? = nil,
         isEventPast: Bool = false,
-        size: Font.TextStyle = .body,
+        size: Font.TextStyle = .caption,
         color: Color = .primary
     ) {
         self.configuration = StatusIconConfiguration(

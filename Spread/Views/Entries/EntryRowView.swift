@@ -179,7 +179,7 @@ struct EntryRowView: View {
     // MARK: - Row Content
 
     private var rowContent: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
             StatusIcon(configuration: iconConfiguration, color: rowColor)
 
             Text(configuration.title)
