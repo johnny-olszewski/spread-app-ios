@@ -33,79 +33,66 @@ struct SpreadContentPagerView<Page: View>: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 0) {
-                        ForEach(items) { item in
-                            Group {
-                                if liveWindowIDs.contains(item.id) {
-                                    page(item)
-                                } else {
-                                    Color.clear
-                                        .accessibilityHidden(true)
-                                }
-                            }
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                            .id(item.id)
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: 0) {
+                ForEach(items) { item in
+                    Group {
+                        if liveWindowIDs.contains(item.id) {
+                            page(item)
+                        } else {
+                            Color.clear
+                                .accessibilityHidden(true)
                         }
                     }
-                    .scrollTargetLayout()
+                    .containerRelativeFrame([.horizontal, .vertical])
+                    .id(item.id)
                 }
-                .scrollClipDisabled()
-                .scrollTargetBehavior(.paging)
-                .scrollPosition(id: $visiblePageID)
-                .onAppear {
-                    visiblePageID = selectedID
-                    lastSequenceSignature = sequenceSignature
-                }
-                .task(id: sequenceSignature) {
-                    let isSameSequence = lastSequenceSignature == sequenceSignature
-                    lastSequenceSignature = sequenceSignature
-                    center(on: selectedID, with: proxy, animated: isSameSequence)
-                }
-                .onChange(of: selectedID) { _, newValue in
-                    guard newValue != visiblePageID else { return }
-                    let shouldAnimate = lastSequenceSignature == sequenceSignature
-                    center(on: newValue, with: proxy, animated: shouldAnimate)
-                }
-                .onChange(of: recenterToken) { _, _ in
-                    center(on: selectedID, with: proxy, animated: true)
-                }
-                .onChange(of: visiblePageID) { _, newValue in
-                    guard scrollPhase == .idle, let newValue, newValue != selectedID else { return }
-                    guard let item = items.first(where: { $0.id == newValue }) else { return }
-                    onSettledSelect(item.selection)
-                }
-                .onScrollPhaseChange { _, newPhase in
-                    scrollPhase = newPhase
-                    guard newPhase == .idle, let currentVisibleID = visiblePageID, currentVisibleID != selectedID else {
-                        return
-                    }
-                    guard let item = items.first(where: { $0.id == currentVisibleID }) else { return }
-                    onSettledSelect(item.selection)
-                }
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.pager)
             }
+            .scrollTargetLayout()
         }
+        .scrollClipDisabled()
+        .scrollTargetBehavior(.paging)
+        .scrollPosition(id: $visiblePageID)
+        .onAppear {
+            visiblePageID = selectedID
+            lastSequenceSignature = sequenceSignature
+        }
+        .task(id: sequenceSignature) {
+            let isSameSequence = lastSequenceSignature == sequenceSignature
+            lastSequenceSignature = sequenceSignature
+            center(on: selectedID, animated: isSameSequence)
+        }
+        .onChange(of: selectedID) { _, newValue in
+            guard newValue != visiblePageID else { return }
+            let shouldAnimate = lastSequenceSignature == sequenceSignature
+            center(on: newValue, animated: shouldAnimate)
+        }
+        .onChange(of: recenterToken) { _, _ in
+            center(on: selectedID, animated: true)
+        }
+        .onChange(of: visiblePageID) { _, newValue in
+            guard scrollPhase == .idle, let newValue, newValue != selectedID else { return }
+            guard let item = items.first(where: { $0.id == newValue }) else { return }
+            onSettledSelect(item.selection)
+        }
+        .onScrollPhaseChange { _, newPhase in
+            scrollPhase = newPhase
+            guard newPhase == .idle, let currentVisibleID = visiblePageID, currentVisibleID != selectedID else {
+                return
+            }
+            guard let item = items.first(where: { $0.id == currentVisibleID }) else { return }
+            onSettledSelect(item.selection)
+        }
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.pager)
     }
 
-    private func center(
-        on id: String,
-        with proxy: ScrollViewProxy,
-        animated: Bool
-    ) {
-        let request = {
-            proxy.scrollTo(id, anchor: .center)
-            visiblePageID = id
-        }
-
+    private func center(on id: String, animated: Bool) {
         if animated {
             withAnimation(.easeInOut(duration: 0.38)) {
-                request()
+                visiblePageID = id
             }
         } else {
-            request()
+            visiblePageID = id
         }
     }
 }
