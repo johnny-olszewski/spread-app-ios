@@ -3024,7 +3024,7 @@ Supabase: SPRD-85A -> SPRD-85C
     - correct removal of the duplicate `Spreads` title from the spread content surface
 - **Dependencies**: SPRD-128
 
-### [SPRD-131] Infra: adopt Supabase `emitLocalSessionAsInitialSession` auth behavior
+### [SPRD-131] Infra: adopt Supabase `emitLocalSessionAsInitialSession` auth behavior - [x] Complete
 - **Context**: The Supabase Swift SDK (v2.40.0) emits a deprecation warning at launch: the current default behavior only emits the initial session after attempting a server refresh. The SDK plans to change this in the next major release. The recommended migration is to set `emitLocalSessionAsInitialSession: true` so the locally stored session is emitted immediately, and then check `session.isExpired` on the consuming side. See [supabase-swift#822](https://github.com/supabase/supabase-swift/pull/822).
 - **Description**: Configure `SupabaseClientOptions.auth` with `emitLocalSessionAsInitialSession: true` in both production `SupabaseClient` creation sites (`SupabaseAuthService.init` and `AppRuntimeFactory.makeRuntime`). Update `SupabaseAuthService.checkSession()` to handle the immediately-emitted session by checking `session.isExpired` and treating expired sessions as signed-out. Verify the deprecation warning no longer appears at launch.
 - **Implementation Details**:

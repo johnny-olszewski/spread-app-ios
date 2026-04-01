@@ -17,7 +17,8 @@ struct SupabaseAuthService: AuthService {
     init() {
         self.client = SupabaseClient(
             supabaseURL: SupabaseConfiguration.url,
-            supabaseKey: SupabaseConfiguration.publishableKey
+            supabaseKey: SupabaseConfiguration.publishableKey,
+            options: .init(auth: .init(emitLocalSessionAsInitialSession: true))
         )
     }
 
@@ -31,6 +32,7 @@ struct SupabaseAuthService: AuthService {
     func checkSession() async -> AuthSuccess? {
         do {
             let session = try await client.auth.session
+            guard !session.isExpired else { return nil }
             return AuthSuccess(user: session.user)
         } catch {
             return nil

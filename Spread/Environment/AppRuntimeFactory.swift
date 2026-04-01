@@ -122,7 +122,8 @@ enum AppRuntimeFactory {
         let client: SupabaseClient? = environment.syncEnabled
             ? SupabaseClient(
                 supabaseURL: SupabaseConfiguration.url,
-                supabaseKey: SupabaseConfiguration.publishableKey
+                supabaseKey: SupabaseConfiguration.publishableKey,
+                options: .init(auth: .init(emitLocalSessionAsInitialSession: true))
             )
             : nil
 
