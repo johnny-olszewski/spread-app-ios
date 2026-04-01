@@ -555,7 +555,8 @@
 | Note exclusions | Notes never appear in migration or overdue review surfaces. | Migration review exclusion is covered in UI; overdue exclusion is backstopped by focused unit tests because the row surface is not reliably distinguishable enough for stable UI assertions. |
 | Traditional-mode parity check | Traditional mode still shows the global overdue button when overdue tasks exist, but never shows migration UI. | Overdue remains available and migration controls remain absent. |
 | Spread task row visual treatment | Main spread task lists keep a solid list backing while task rows remain transparent. | The spread dot-grid background remains visible behind the task-list surface instead of each task row rendering as an opaque card. |
-| Task tap-to-edit | Tapping a task row in a main spread list opens the existing full task edit sheet. | The same task edit UI used by the explicit Edit action appears without requiring a swipe gesture. |
+| Task inline title editing | Tapping the title of a task row in a main spread list activates an inline text field for editing the title in place. | The row expands to show an editable text field in place of the title. A "×" cancel button appears. Tapping outside, pressing Return, or losing focus commits the change. Tapping "×" discards it. |
+| Task full-sheet access | The full task edit sheet (title, date, period, status) is accessible via the swipe-action Edit button. | The edit sheet opens and pre-populates with the current task values. |
 | Multiday empty-day visibility | A multiday spread shows a section for every day in its covered range even when no tasks exist for that day. | Empty dates still render a day header and explicit empty-state message. |
 | Multiday adaptive layout | A multiday spread uses two columns on regular-width layouts and one column on compact layouts. | The same ordered set of day sections is visible in reading order on both size classes. |
 - Durability and rebuild matrix required for v1: [SPRD-119, SPRD-120, SPRD-121, SPRD-122, SPRD-123]
@@ -620,9 +621,14 @@
 ### Spread Content Presentation and Interaction
 - Main spread task lists use a solid list-container backing while each task row remains visually transparent, so the spread-content dot-grid background remains visible behind the task list. [SPRD-124]
 - This transparent-row treatment applies only to the main spread task lists. Auxiliary review sheets such as migration and overdue keep their existing list styling. [SPRD-124]
-- In the main spread task lists, tapping a task row opens the same full task edit sheet used by the existing explicit Edit action. [SPRD-124]
-- Swipe actions remain available on task rows; tap-to-edit is additive and does not remove current swipe affordances. [SPRD-124]
-- Note tap behavior is unchanged in v1; this interaction rule applies only to tasks. [SPRD-124]
+- In the main spread task lists, tapping the title of a task row activates inline title editing in place. [SPRD-124, SPRD-132]
+- While inline editing is active, a "×" cancel button appears in the row. Tapping "×" discards changes and restores the original title. [SPRD-132]
+- Tapping outside the row, pressing Return, or the row losing focus commits the edited title. [SPRD-132]
+- If the edited title is empty on commit, the change is silently discarded and the original title is restored. [SPRD-132]
+- Swipe actions are disabled on a task row while its inline editor is active. [SPRD-132]
+- The full task edit sheet (for editing date, period, status, and other fields) remains accessible via the swipe-action Edit button. Tapping the task row no longer opens the full sheet. [SPRD-132]
+- Inline title editing applies to tasks in both the standard entry list and the multiday grid. [SPRD-132]
+- Note tap behavior is unchanged; inline title editing applies to tasks only in v1. [SPRD-124]
 - For multiday spreads, every calendar day in the spread's covered date range renders a visible day section even when that day has no tasks. [SPRD-124]
 - Empty multiday day sections show the day header plus an explicit empty-state message rather than collapsing away. [SPRD-124]
 - Multiday day sections show tasks only in v1. Expanding those sections to include notes is deferred to a later version. [SPRD-124]
@@ -716,7 +722,7 @@
 - Multiplatform: iPadOS primary, iOS supported; adaptive layouts per size class. [SPRD-19]
 - macOS deferred to post-v1. [SPRD-56]
 - Visual style uses dot grid backgrounds on spread content surfaces only, muted blue accents, and Debug-only appearance overrides for paper tone and typography. [SPRD-62, SPRD-63]
-- Main spread task lists keep transparent task rows over a solid list backing so the spread dot-grid remains visible, and task rows open the full edit sheet on tap. [SPRD-124]
+- Main spread task lists keep transparent task rows over a solid list backing so the spread dot-grid remains visible. Tapping a task title activates inline editing; the full edit sheet is reachable via swipe action. [SPRD-124, SPRD-132]
 - Multiday spreads always render every day in range, with explicit empty-state sections and adaptive one-column/two-column layout by size class. [SPRD-124]
 - The selected-spread navigator surface uses a rooted collapsible year/month/grid browser on both platforms, presented as a popover on iPad and as a sheet on iPhone. [SPRD-125, SPRD-126]
 - Entry period is independently editable; period changes trigger the same reassignment logic as date changes. [SPRD-24]
