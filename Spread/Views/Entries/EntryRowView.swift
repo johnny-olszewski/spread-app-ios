@@ -1,48 +1,28 @@
 import SwiftUI
 
-/// A row component for displaying an entry with type symbol, title, and swipe actions.
+/// A row component for displaying an entry with type symbol, title, and actions.
 ///
-/// Renders the entry with:
-/// - StatusIcon (leading) showing entry type and status
-/// - Title
-/// - Migration badge (if migrated, shows destination)
-/// - Swipe actions based on entry type
+/// Interaction model:
+/// - Tapping the title of an open task activates inline title editing.
+/// - Tapping anywhere else on the row opens the full edit sheet via `onEdit`.
+/// - Long-pressing the row shows a context menu with Edit, Complete, Migrate, Delete.
 ///
-/// For tasks, tapping the title activates inline editing. The full edit sheet is
-/// accessible via the Edit swipe action. Swipe actions are suppressed while editing.
-///
-/// Swipe actions by type:
-/// - Task: Complete (trailing), Migrate (leading)
-/// - Note: Migrate (leading) - explicit only
-/// - Event: No migrate action
+/// The outer HStack is always present so the row height never shifts when entering
+/// or leaving inline editing mode.
 struct EntryRowView: View {
 
     // MARK: - Properties
 
-    /// The configuration for this entry row.
     private let configuration: EntryRowConfiguration
-
-    /// The status icon configuration.
     private let iconConfiguration: StatusIconConfiguration
 
-    /// Callback when complete action is triggered.
     private let onComplete: (() -> Void)?
-
-    /// Callback when migrate action is triggered.
     private let onMigrate: (() -> Void)?
-
-    /// Callback when edit action is triggered.
     private let onEdit: (() -> Void)?
-
-    /// Callback when delete action is triggered.
     private let onDelete: (() -> Void)?
 
-    /// Callback when the user commits an inline title edit (tasks only).
-    /// Receives the trimmed, non-empty new title.
+    /// Callback when the user commits an inline title edit (open tasks only).
     private let onTitleCommit: ((String) -> Void)?
-
-    /// Whether tapping the row should invoke edit (for non-task entries).
-    private let opensEditOnTap: Bool
 
     // MARK: - Inline edit state
 
@@ -52,17 +32,6 @@ struct EntryRowView: View {
 
     // MARK: - Initialization
 
-    /// Creates an entry row view.
-    ///
-    /// - Parameters:
-    ///   - configuration: The row configuration.
-    ///   - iconConfiguration: The status icon configuration.
-    ///   - onComplete: Callback for complete action.
-    ///   - onMigrate: Callback for migrate action.
-    ///   - onEdit: Callback for edit action.
-    ///   - onDelete: Callback for delete action.
-    ///   - onTitleCommit: Callback for inline title commit (tasks only).
-    ///   - opensEditOnTap: Whether tapping the row invokes edit.
     init(
         configuration: EntryRowConfiguration,
         iconConfiguration: StatusIconConfiguration,
@@ -70,8 +39,7 @@ struct EntryRowView: View {
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
-        onTitleCommit: ((String) -> Void)? = nil,
-        opensEditOnTap: Bool = false
+        onTitleCommit: ((String) -> Void)? = nil
     ) {
         self.configuration = configuration
         self.iconConfiguration = iconConfiguration
@@ -80,7 +48,6 @@ struct EntryRowView: View {
         self.onEdit = onEdit
         self.onDelete = onDelete
         self.onTitleCommit = onTitleCommit
-        self.opensEditOnTap = opensEditOnTap
     }
 
     /// Creates an entry row view for a task.
@@ -91,8 +58,7 @@ struct EntryRowView: View {
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
-        onTitleCommit: ((String) -> Void)? = nil,
-        opensEditOnTap: Bool = false
+        onTitleCommit: ((String) -> Void)? = nil
     ) {
         self.configuration = EntryRowConfiguration(
             entryType: .task,
@@ -109,7 +75,6 @@ struct EntryRowView: View {
         self.onEdit = onEdit
         self.onDelete = onDelete
         self.onTitleCommit = onTitleCommit
-        self.opensEditOnTap = opensEditOnTap
     }
 
     /// Creates an entry row view for an event.
@@ -117,8 +82,7 @@ struct EntryRowView: View {
         event: DataModel.Event,
         isEventPast: Bool = false,
         onEdit: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil,
-        opensEditOnTap: Bool = false
+        onDelete: (() -> Void)? = nil
     ) {
         self.configuration = EntryRowConfiguration(
             entryType: .event,
@@ -134,7 +98,6 @@ struct EntryRowView: View {
         self.onEdit = onEdit
         self.onDelete = onDelete
         self.onTitleCommit = nil
-        self.opensEditOnTap = opensEditOnTap
     }
 
     /// Creates an entry row view for a note.
@@ -143,8 +106,7 @@ struct EntryRowView: View {
         migrationDestination: String? = nil,
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil,
-        opensEditOnTap: Bool = false
+        onDelete: (() -> Void)? = nil
     ) {
         self.configuration = EntryRowConfiguration(
             entryType: .note,
@@ -161,28 +123,51 @@ struct EntryRowView: View {
         self.onEdit = onEdit
         self.onDelete = onDelete
         self.onTitleCommit = nil
-        self.opensEditOnTap = opensEditOnTap
     }
 
     // MARK: - Body
 
     var body: some View {
-        if isEditingTitle {
-            editingRowContent
-        } else {
-            rowContent
-                .contextMenu {
-                    contextMenuActions
-                }
-        }
-    }
-
-    // MARK: - Row Content
-
-    private var rowContent: some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
             StatusIcon(configuration: iconConfiguration, color: rowColor)
 
+            titleArea
+
+            Spacer()
+
+            trailingAccessory
+        }
+        .foregroundStyle(rowColor)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard !isEditingTitle else { return }
+            onEdit?()
+        }
+        .contextMenu {
+            contextMenuActions
+        }
+        .onChange(of: isEditingTitle) { _, editing in
+            if editing { isTitleFocused = true }
+        }
+        .onChange(of: isTitleFocused) { _, focused in
+            if !focused && isEditingTitle { commitEdit() }
+        }
+    }
+
+    // MARK: - Subviews
+
+    @ViewBuilder
+    private var titleArea: some View {
+        if isEditingTitle {
+            TextField("Task title", text: $editingText)
+                .textFieldStyle(.plain)
+                .focused($isTitleFocused)
+                .submitLabel(.done)
+                .onSubmit { commitEdit() }
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(configuration.title)
+                )
+        } else {
             Text(configuration.title)
                 .strikethrough(configuration.hasStrikethrough)
                 .lineLimit(2)
@@ -192,36 +177,12 @@ struct EntryRowView: View {
                           configuration.taskStatus == .open else { return }
                     beginEditing()
                 }
-
-            Spacer()
-
-            if configuration.showsMigrationBadge, let destination = configuration.migrationDestination {
-                migrationBadge(destination: destination)
-            }
-        }
-        .foregroundStyle(rowColor)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            guard configuration.entryType != .task else { return }
-            guard opensEditOnTap else { return }
-            onEdit?()
         }
     }
 
-    private var editingRowContent: some View {
-        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            StatusIcon(configuration: iconConfiguration, color: rowColor)
-
-            TextField("Task title", text: $editingText)
-                .focused($isTitleFocused)
-                .submitLabel(.done)
-                .onSubmit { commitEdit() }
-                .accessibilityIdentifier(
-                    Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(configuration.title)
-                )
-
-            Spacer()
-
+    @ViewBuilder
+    private var trailingAccessory: some View {
+        if isEditingTitle {
             Button {
                 discardEdit()
             } label: {
@@ -232,15 +193,8 @@ struct EntryRowView: View {
             .accessibilityIdentifier(
                 Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleDiscardButton(configuration.title)
             )
-        }
-        .foregroundStyle(rowColor)
-        .onAppear {
-            isTitleFocused = true
-        }
-        .onChange(of: isTitleFocused) { _, focused in
-            if !focused && isEditingTitle {
-                commitEdit()
-            }
+        } else if configuration.showsMigrationBadge, let destination = configuration.migrationDestination {
+            migrationBadge(destination: destination)
         }
     }
 

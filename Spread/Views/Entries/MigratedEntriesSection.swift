@@ -95,8 +95,7 @@ struct MigratedEntriesSection: View {
         EntryRowView(
             task: task,
             migrationDestination: formatter.destination(for: task, from: spread),
-            onEdit: { onEdit?(task) },
-            opensEditOnTap: true
+            onEdit: { onEdit?(task) }
         )
         .listRowBackground(Color.clear)
     }
