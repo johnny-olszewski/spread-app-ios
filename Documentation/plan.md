@@ -3072,7 +3072,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - iPad UI tests deferred: no iPad-specific UI test infrastructure exists yet. The toolbar code is size-class-independent, so iPad behavior is covered by the shared code path. Add iPad Today button tests when the project establishes an iPad test plan configuration.
 - **Dependencies**: SPRD-128
 
-### [SPRD-132] UI: inline task title editing on spread page
+### [SPRD-132] UI: inline task title editing on spread page - [x] Complete
 - **Context**: Currently tapping a task row on the spread page opens the full task edit sheet. For the common case of renaming a task, this is heavier than necessary. This task replaces row tap-to-open-sheet with tap-on-title inline editing, keeping the full sheet accessible via the existing Edit swipe action.
 - **Spec**: Spread Content Presentation and Interaction
 - **Acceptance Criteria**:
