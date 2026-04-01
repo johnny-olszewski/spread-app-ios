@@ -111,6 +111,12 @@ struct TraditionalDayView: View {
                         try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
                         await syncEngine?.syncNow()
                     }
+                },
+                onTitleCommit: { task, newTitle in
+                    Task {
+                        try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
+                        await syncEngine?.syncNow()
+                    }
                 }
             )
         }
