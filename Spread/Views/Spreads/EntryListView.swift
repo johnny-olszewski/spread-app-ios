@@ -116,6 +116,14 @@ struct EntryListView: View {
         !activeEntries.isEmpty || !migratedTasks.isEmpty || !migratedNotes.isEmpty
     }
 
+    /// Row insets for the standard entry list, using theme-defined vertical spacing.
+    private static let rowInsets = EdgeInsets(
+        top: SpreadTheme.Spacing.entryRowVertical,
+        leading: 16,
+        bottom: SpreadTheme.Spacing.entryRowVertical,
+        trailing: 16
+    )
+
     // MARK: - Body
 
     var body: some View {
@@ -138,14 +146,18 @@ struct EntryListView: View {
                     // Flat list (day spread) - no section header
                     ForEach(section.entries, id: \.id) { entry in
                         entryRow(for: entry)
+                            .listRowInsets(Self.rowInsets)
                             .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     }
                 } else {
                     // Grouped list with section header
                     Section(section.title) {
                         ForEach(section.entries, id: \.id) { entry in
                             entryRow(for: entry)
+                                .listRowInsets(Self.rowInsets)
                                 .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
                         }
                     }
                 }
@@ -164,6 +176,7 @@ struct EntryListView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(Color.clear)
+        .environment(\.defaultMinListRowHeight, 0)
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
     }
 
@@ -245,11 +258,7 @@ struct EntryListView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(section.entries, id: \.id) { entry in
                         entryRow(for: entry)
-                            .padding(.vertical, 8)
-
-                        if entry.id != section.entries.last?.id {
-                            Divider()
-                        }
+                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                     }
                 }
             }

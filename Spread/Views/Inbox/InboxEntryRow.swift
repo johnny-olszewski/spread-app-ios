@@ -53,7 +53,7 @@ struct InboxEntryRow: View {
     // MARK: - Body
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
             StatusIcon(entryType: entryType)
 
             VStack(alignment: .leading, spacing: 2) {
