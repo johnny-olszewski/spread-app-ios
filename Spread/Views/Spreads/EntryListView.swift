@@ -39,6 +39,17 @@ struct EntryListView: View {
     /// Callback when a task title is committed via inline edit.
     var onTitleCommit: ((DataModel.Task, String) -> Void)?
 
+    /// Callback when a new task should be created inline.
+    var onAddTask: ((String, Date, Period) async throws -> Void)?
+
+    // MARK: - Inline creation state
+
+    @State private var activeInlineCreationDate: Date?
+    @State private var inlineTitle: String = ""
+    @State private var isContinuingEntry: Bool = false
+    @State private var inlineCreationID: UUID = UUID()
+    @FocusState private var isInlineFocused: Bool
+
     // MARK: - Computed Properties
 
     /// Active (non-migrated) entries combined from the spread data model.
@@ -130,9 +141,45 @@ struct EntryListView: View {
     // MARK: - Body
 
     var body: some View {
+        contentView
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    if isInlineFocused {
+                        Button("Cancel") {
+                            dismissInlineCreation()
+                        }
+                        .glassEffect(in: Capsule())
+
+                        Spacer()
+
+                        Button("Save") {
+                            if let date = activeInlineCreationDate {
+                                commitInlineTask(date: date)
+                            }
+                        }
+                        .glassEffect(in: Capsule())
+                        .disabled(inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+            }
+            .onChange(of: isInlineFocused) { _, focused in
+                guard !focused, !isContinuingEntry, activeInlineCreationDate != nil else { return }
+                let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty {
+                    dismissInlineCreation()
+                } else if let date = activeInlineCreationDate {
+                    commitInlineTask(date: date)
+                }
+            }
+    }
+
+    // MARK: - Content
+
+    @ViewBuilder
+    private var contentView: some View {
         if isMultidaySpread {
             multidayEntryGrid
-        } else if hasAnyEntries {
+        } else if hasAnyEntries || onAddTask != nil {
             entryList
         } else {
             emptyState
@@ -175,6 +222,19 @@ struct EntryListView: View {
                 onEdit: { entry in onEdit?(entry) }
             )
             .listRowBackground(Color.clear)
+
+            // Inline creation row or add task button
+            if let date = activeInlineCreationDate {
+                inlineCreationRow(for: date)
+                    .listRowInsets(Self.rowInsets)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } else if onAddTask != nil {
+                addTaskButton(for: spreadDataModel.spread.date)
+                    .listRowInsets(Self.rowInsets)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -243,26 +303,36 @@ struct EntryListView: View {
 
     @ViewBuilder
     private func multidayDaySection(_ section: EntryListSection) -> some View {
+        let dateID = multidaySectionDateID(for: section.date)
+        let isDayActive = activeInlineCreationDate.map { calendar.isDate($0, inSameDayAs: section.date) } ?? false
+
         VStack(alignment: .leading, spacing: 12) {
             Text(section.title)
                 .font(SpreadTheme.Typography.title3)
                 .foregroundStyle(.primary)
 
-            if section.entries.isEmpty {
-                Text("No tasks for this day.")
-                    .font(SpreadTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier(
-                        Definitions.AccessibilityIdentifiers.SpreadContent.multidayEmptyState(
-                            multidaySectionDateID(for: section.date)
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(section.entries, id: \.id) { entry in
+                    entryRow(for: entry)
+                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                }
+
+                if isDayActive {
+                    inlineCreationRow(for: section.date)
+                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                } else if onAddTask != nil {
+                    addTaskButton(for: section.date)
+                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID)
                         )
-                    )
-            } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(section.entries, id: \.id) { entry in
-                        entryRow(for: entry)
-                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                    }
+                } else if section.entries.isEmpty {
+                    Text("No tasks for this day.")
+                        .font(SpreadTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.SpreadContent.multidayEmptyState(dateID)
+                        )
                 }
             }
         }
@@ -277,14 +347,99 @@ struct EntryListView: View {
                 .strokeBorder(Color.secondary.opacity(0.12))
         )
         .accessibilityIdentifier(
-            Definitions.AccessibilityIdentifiers.SpreadContent.multidaySection(
-                multidaySectionDateID(for: section.date)
-            )
+            Definitions.AccessibilityIdentifiers.SpreadContent.multidaySection(dateID)
         )
     }
 
     private func multidaySectionDateID(for date: Date) -> String {
         Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: date, calendar: calendar)
+    }
+
+    // MARK: - Inline Creation
+
+    private func inlineCreationRow(for date: Date) -> some View {
+        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+            StatusIcon(entryType: .task, taskStatus: .open, color: .primary)
+
+            TextField("New task", text: $inlineTitle)
+                .id(inlineCreationID)
+                .textFieldStyle(.plain)
+                .focused($isInlineFocused)
+                .submitLabel(.return)
+                .onSubmit { commitAndContinue(date: date) }
+                .onAppear { isInlineFocused = true }
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadContent.inlineTaskCreationField
+                )
+
+            Spacer()
+        }
+    }
+
+    private func addTaskButton(for date: Date) -> some View {
+        Button {
+            activateInlineCreation(for: date)
+        } label: {
+            HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+                Image(systemName: "plus")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 12)
+                Text("Add Task")
+                    .font(SpreadTheme.Typography.body)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton)
+    }
+
+    // MARK: - Inline Creation Helpers
+
+    private func activateInlineCreation(for date: Date) {
+        inlineTitle = ""
+        activeInlineCreationDate = date
+    }
+
+    private func commitAndContinue(date: Date) {
+        let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            dismissInlineCreation()
+            return
+        }
+        isContinuingEntry = true
+        let period = inlineCreationPeriod(for: date)
+        Task {
+            try? await onAddTask?(trimmed, date, period)
+            inlineTitle = ""
+            isContinuingEntry = false
+            inlineCreationID = UUID()
+        }
+    }
+
+    private func commitInlineTask(date: Date) {
+        let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            dismissInlineCreation()
+            return
+        }
+        let period = inlineCreationPeriod(for: date)
+        Task {
+            try? await onAddTask?(trimmed, date, period)
+            dismissInlineCreation()
+        }
+    }
+
+    private func dismissInlineCreation() {
+        guard !isContinuingEntry else { return }
+        activeInlineCreationDate = nil
+        inlineTitle = ""
+        isInlineFocused = false
+    }
+
+    private func inlineCreationPeriod(for date: Date) -> Period {
+        isMultidaySpread ? .day : spreadDataModel.spread.period
     }
 
     // MARK: - Helpers
@@ -389,6 +544,24 @@ enum MultidaySectionLayout {
     let spread = DataModel.Spread(period: .day, date: today, calendar: calendar)
     let dataModel = SpreadDataModel(spread: spread)
     EntryListView(spreadDataModel: dataModel, calendar: calendar, today: today)
+}
+
+#Preview("Day Spread - With Add Task") {
+    let calendar = Calendar.current
+    let today = Date()
+    let spread = DataModel.Spread(period: .day, date: today, calendar: calendar)
+    let dataModel = SpreadDataModel(
+        spread: spread,
+        tasks: [DataModel.Task(title: "Existing task", date: today)],
+        notes: [],
+        events: []
+    )
+    EntryListView(
+        spreadDataModel: dataModel,
+        calendar: calendar,
+        today: today,
+        onAddTask: { _, _, _ in }
+    )
 }
 
 #Preview("Multiday Spread - Grouped by Day") {

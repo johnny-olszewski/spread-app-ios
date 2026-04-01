@@ -63,6 +63,8 @@ struct Definitions {
             static let pager = "spreads.content.pager"
             static let multidayGrid = "spreads.content.multiday.grid"
             static let migratedSectionHeader = "spreads.content.migrated.section"
+            static let addTaskButton = "spreads.content.addtask.button"
+            static let inlineTaskCreationField = "spreads.content.addtask.field"
 
             static func taskRow(_ title: String) -> String {
                 "spreads.content.task.\(token(title))"
@@ -82,6 +84,10 @@ struct Definitions {
 
             static func multidayEmptyState(_ dateID: String) -> String {
                 "spreads.content.multiday.section.\(dateID).empty"
+            }
+
+            static func multidayAddTaskButton(_ dateID: String) -> String {
+                "spreads.content.multiday.section.\(dateID).addtask"
             }
         }
 
