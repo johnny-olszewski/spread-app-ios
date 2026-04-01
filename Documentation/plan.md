@@ -3090,3 +3090,24 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit tests for inline edit discard: verifies original title is restored when "×" is tapped or empty text is committed.
   - UI tests verifying the inline editor activates on title tap, commits on Return, and discards on "×".
 - **Dependencies**: SPRD-124
+
+### [SPRD-133] UI: inline task creation on spread page
+- **Context**: Adding a task currently requires opening a full creation sheet from the toolbar. This task introduces an inline "+ Add Task" button at the bottom of each spread's task list so users can create tasks without leaving the spread surface. Multiday spreads get a per-day button so tasks land on the correct day. The feature uses a glass-effect keyboard toolbar for Save/Cancel and supports rapid multi-task entry via Return.
+- **Spec**: Spread Content Presentation and Interaction
+- **Acceptance Criteria**:
+  - An "+ Add Task" button is always visible at the bottom of the task list on every spread (day, month, year, multiday). It replaces the "No Entries" empty state — the spread never shows the empty state content view.
+  - On multiday spreads, each day section has its own "+ Add Task" button at the bottom of that day's task list.
+  - Tapping the button appends an inline text field row with immediate keyboard focus.
+  - While the input row is active, a glass-effect toolbar (`.glassEffect`) appears above the keyboard containing Save and Cancel buttons.
+  - Tapping Save commits the title (if non-empty) and dismisses the input row.
+  - Tapping Cancel discards the input and dismisses the row.
+  - Pressing Return on the keyboard commits the title (if non-empty) and immediately opens a new blank input row for the next task.
+  - When the input row loses focus (e.g., user taps elsewhere), non-empty input is saved; an empty field is silently discarded and the row dismissed.
+  - Tasks created via inline creation are assigned to the spread's own period and date (same defaults as `TaskCreationSheet` when that spread is pre-selected). For multiday day sections, tasks are assigned to that specific day with `.day` period.
+  - Inline task creation applies to tasks only; no equivalent for notes in v1.
+  - Created tasks are persisted via the existing `JournalManager.addTask` path and trigger a sync.
+- **Tests**:
+  - Unit tests verifying task assignment uses the spread's period and date for day/month/year spreads.
+  - Unit tests verifying multiday day-section tasks are assigned to the day's date with `.day` period.
+  - UI tests verifying the button appears, tapping it opens the input row, Return creates a task and opens a new row, Save closes the row, Cancel discards.
+- **Dependencies**: SPRD-124, SPRD-132

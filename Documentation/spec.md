@@ -557,6 +557,7 @@
 | Spread task row visual treatment | Main spread task lists keep a solid list backing while task rows remain transparent. | The spread dot-grid background remains visible behind the task-list surface instead of each task row rendering as an opaque card. |
 | Task inline title editing | Tapping the title of a task row in a main spread list activates an inline text field for editing the title in place. | The row expands to show an editable text field in place of the title. A "×" cancel button appears. Tapping outside, pressing Return, or losing focus commits the change. Tapping "×" discards it. |
 | Task full-sheet access | The full task edit sheet (title, date, period, status) is accessible via the swipe-action Edit button. | The edit sheet opens and pre-populates with the current task values. |
+| Inline task creation | An "+ Add Task" button appears at the bottom of every spread's task list. Tapping it opens an inline input row with immediate keyboard focus. | The input row appears, a glass-effect toolbar above the keyboard shows Save and Cancel. Return saves the title and opens a new blank row. Save closes the input. Cancel or empty-field focus loss discards. The task is assigned to the spread's period and date. |
 | Multiday empty-day visibility | A multiday spread shows a section for every day in its covered range even when no tasks exist for that day. | Empty dates still render a day header and explicit empty-state message. |
 | Multiday adaptive layout | A multiday spread uses two columns on regular-width layouts and one column on compact layouts. | The same ordered set of day sections is visible in reading order on both size classes. |
 - Durability and rebuild matrix required for v1: [SPRD-119, SPRD-120, SPRD-121, SPRD-122, SPRD-123]
@@ -629,6 +630,16 @@
 - The full task edit sheet (for editing date, period, status, and other fields) remains accessible via the swipe-action Edit button. Tapping the task row no longer opens the full sheet. [SPRD-132]
 - Inline title editing applies to tasks in both the standard entry list and the multiday grid. [SPRD-132]
 - Note tap behavior is unchanged; inline title editing applies to tasks only in v1. [SPRD-124]
+- An "+ Add Task" button appears at the bottom of the task list on every spread. It replaces the "No Entries" empty state — the button is always visible regardless of entry count. [SPRD-133]
+- On multiday spreads, each day section has its own "+ Add Task" button at the bottom of that day's task list. [SPRD-133]
+- Tapping "+ Add Task" appends an inline text field row with immediate keyboard focus. [SPRD-133]
+- While the inline creation row is active, a glass-effect toolbar (`.glassEffect`) appears above the keyboard with Save and Cancel buttons. [SPRD-133]
+- Tapping Save commits the current title if non-empty and dismisses the input row. [SPRD-133]
+- Tapping Cancel discards the input and dismisses the row. [SPRD-133]
+- Pressing Return commits the current title if non-empty and immediately opens a new blank input row, allowing rapid sequential task creation without tapping the button again. [SPRD-133]
+- When the input row loses focus, non-empty input is saved as a new task; an empty field is silently discarded and the row dismissed. [SPRD-133]
+- Tasks created via inline creation are assigned to the spread's own period and date — identical to the defaults the full `TaskCreationSheet` applies when that spread is pre-selected. [SPRD-133]
+- Inline task creation applies to tasks only in v1. [SPRD-133]
 - For multiday spreads, every calendar day in the spread's covered date range renders a visible day section even when that day has no tasks. [SPRD-124]
 - Empty multiday day sections show the day header plus an explicit empty-state message rather than collapsing away. [SPRD-124]
 - Multiday day sections show tasks only in v1. Expanding those sections to include notes is deferred to a later version. [SPRD-124]
@@ -723,6 +734,7 @@
 - macOS deferred to post-v1. [SPRD-56]
 - Visual style uses dot grid backgrounds on spread content surfaces only, muted blue accents, and Debug-only appearance overrides for paper tone and typography. [SPRD-62, SPRD-63]
 - Main spread task lists keep transparent task rows over a solid list backing so the spread dot-grid remains visible. Tapping a task title activates inline editing; the full edit sheet is reachable via swipe action. [SPRD-124, SPRD-132]
+- An "+ Add Task" button at the bottom of every spread's task list (and per-day in multiday) enables inline task creation with a glass-effect Save/Cancel keyboard toolbar and rapid Return-to-add flow. [SPRD-133]
 - Multiday spreads always render every day in range, with explicit empty-state sections and adaptive one-column/two-column layout by size class. [SPRD-124]
 - The selected-spread navigator surface uses a rooted collapsible year/month/grid browser on both platforms, presented as a popover on iPad and as a sheet on iPhone. [SPRD-125, SPRD-126]
 - Entry period is independently editable; period changes trigger the same reassignment logic as date changes. [SPRD-24]
