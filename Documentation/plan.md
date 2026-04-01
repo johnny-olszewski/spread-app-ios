@@ -3024,6 +3024,24 @@ Supabase: SPRD-85A -> SPRD-85C
     - correct removal of the duplicate `Spreads` title from the spread content surface
 - **Dependencies**: SPRD-128
 
+### [SPRD-131] Infra: adopt Supabase `emitLocalSessionAsInitialSession` auth behavior
+- **Context**: The Supabase Swift SDK (v2.40.0) emits a deprecation warning at launch: the current default behavior only emits the initial session after attempting a server refresh. The SDK plans to change this in the next major release. The recommended migration is to set `emitLocalSessionAsInitialSession: true` so the locally stored session is emitted immediately, and then check `session.isExpired` on the consuming side. See [supabase-swift#822](https://github.com/supabase/supabase-swift/pull/822).
+- **Description**: Configure `SupabaseClientOptions.auth` with `emitLocalSessionAsInitialSession: true` in both production `SupabaseClient` creation sites (`SupabaseAuthService.init` and `AppRuntimeFactory.makeRuntime`). Update `SupabaseAuthService.checkSession()` to handle the immediately-emitted session by checking `session.isExpired` and treating expired sessions as signed-out. Verify the deprecation warning no longer appears at launch.
+- **Implementation Details**:
+  - In `SupabaseAuthService.init`, pass `SupabaseClientOptions(auth: .init(emitLocalSessionAsInitialSession: true))` to the `SupabaseClient` initializer.
+  - In `AppRuntimeFactory.makeRuntime`, pass the same options to the sync `SupabaseClient`.
+  - In `SupabaseAuthService.checkSession()`, after retrieving the session, check `session.isExpired`. If expired, return `nil` (treat as signed-out) instead of returning the stale session.
+  - Verify `AuthManager` and `AuthLifecycleCoordinator` downstream behavior is unaffected since they already treat a `nil` check-session result as signed-out.
+- **Acceptance Criteria**:
+  - Both production `SupabaseClient` instances are configured with `emitLocalSessionAsInitialSession: true`.
+  - `SupabaseAuthService.checkSession()` returns `nil` for expired sessions.
+  - The Supabase deprecation warning no longer appears in the console at launch.
+  - Existing sign-in, sign-out, and session-restore flows continue to work correctly.
+- **Tests**:
+  - Unit test verifying `checkSession()` returns `nil` when the session is expired (requires mock or protocol-based auth service testing).
+  - Manual verification that the deprecation warning is suppressed.
+- **Dependencies**: None
+
 ### [SPRD-130] UI: spread navigation bar Today button
 - **Context**: The horizontal spread-title navigator and content pager now keep spread selection synchronized, but there is still no direct "jump to today" control in the navigation bar. Users need a fast way to navigate back to the spread that best represents the current date without manually browsing the strip or rooted navigator.
 - **Description**: Add a standalone plain-text `Today` button to the spread-view navigation bar on both iPhone and iPad. The button should appear on the top trailing side ahead of the overdue and inbox buttons and navigate to the smallest-granularity spread that contains today, then synchronize the selected spread, title strip, and content pager.
