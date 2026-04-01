@@ -68,6 +68,14 @@ struct Definitions {
                 "spreads.content.task.\(token(title))"
             }
 
+            static func taskTitleField(_ title: String) -> String {
+                "spreads.content.task.\(token(title)).titleField"
+            }
+
+            static func taskTitleDiscardButton(_ title: String) -> String {
+                "spreads.content.task.\(token(title)).titleField.discard"
+            }
+
             static func multidaySection(_ dateID: String) -> String {
                 "spreads.content.multiday.section.\(dateID)"
             }

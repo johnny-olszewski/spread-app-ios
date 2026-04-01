@@ -8,6 +8,9 @@ import SwiftUI
 /// - Migration badge (if migrated, shows destination)
 /// - Swipe actions based on entry type
 ///
+/// For tasks, tapping the title activates inline editing. The full edit sheet is
+/// accessible via the Edit swipe action. Swipe actions are suppressed while editing.
+///
 /// Swipe actions by type:
 /// - Task: Complete (trailing), Migrate (leading)
 /// - Note: Migrate (leading) - explicit only
@@ -34,8 +37,18 @@ struct EntryRowView: View {
     /// Callback when delete action is triggered.
     private let onDelete: (() -> Void)?
 
-    /// Whether tapping the row should invoke edit.
+    /// Callback when the user commits an inline title edit (tasks only).
+    /// Receives the trimmed, non-empty new title.
+    private let onTitleCommit: ((String) -> Void)?
+
+    /// Whether tapping the row should invoke edit (for non-task entries).
     private let opensEditOnTap: Bool
+
+    // MARK: - Inline edit state
+
+    @State private var isEditingTitle: Bool = false
+    @State private var editingText: String = ""
+    @FocusState private var isTitleFocused: Bool
 
     // MARK: - Initialization
 
@@ -48,6 +61,8 @@ struct EntryRowView: View {
     ///   - onMigrate: Callback for migrate action.
     ///   - onEdit: Callback for edit action.
     ///   - onDelete: Callback for delete action.
+    ///   - onTitleCommit: Callback for inline title commit (tasks only).
+    ///   - opensEditOnTap: Whether tapping the row invokes edit.
     init(
         configuration: EntryRowConfiguration,
         iconConfiguration: StatusIconConfiguration,
@@ -55,6 +70,7 @@ struct EntryRowView: View {
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
+        onTitleCommit: ((String) -> Void)? = nil,
         opensEditOnTap: Bool = false
     ) {
         self.configuration = configuration
@@ -63,18 +79,11 @@ struct EntryRowView: View {
         self.onMigrate = onMigrate
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.onTitleCommit = onTitleCommit
         self.opensEditOnTap = opensEditOnTap
     }
 
     /// Creates an entry row view for a task.
-    ///
-    /// - Parameters:
-    ///   - task: The task to display.
-    ///   - migrationDestination: Optional migration destination label.
-    ///   - onComplete: Callback for complete action.
-    ///   - onMigrate: Callback for migrate action.
-    ///   - onEdit: Callback for edit action.
-    ///   - onDelete: Callback for delete action.
     init(
         task: DataModel.Task,
         migrationDestination: String? = nil,
@@ -82,6 +91,7 @@ struct EntryRowView: View {
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
+        onTitleCommit: ((String) -> Void)? = nil,
         opensEditOnTap: Bool = false
     ) {
         self.configuration = EntryRowConfiguration(
@@ -98,16 +108,11 @@ struct EntryRowView: View {
         self.onMigrate = onMigrate
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.onTitleCommit = onTitleCommit
         self.opensEditOnTap = opensEditOnTap
     }
 
     /// Creates an entry row view for an event.
-    ///
-    /// - Parameters:
-    ///   - event: The event to display.
-    ///   - isEventPast: Whether the event is past (computed by caller based on spread context).
-    ///   - onEdit: Callback for edit action.
-    ///   - onDelete: Callback for delete action.
     init(
         event: DataModel.Event,
         isEventPast: Bool = false,
@@ -128,17 +133,11 @@ struct EntryRowView: View {
         self.onMigrate = nil
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.onTitleCommit = nil
         self.opensEditOnTap = opensEditOnTap
     }
 
     /// Creates an entry row view for a note.
-    ///
-    /// - Parameters:
-    ///   - note: The note to display.
-    ///   - migrationDestination: Optional migration destination label.
-    ///   - onMigrate: Callback for migrate action.
-    ///   - onEdit: Callback for edit action.
-    ///   - onDelete: Callback for delete action.
     init(
         note: DataModel.Note,
         migrationDestination: String? = nil,
@@ -161,19 +160,24 @@ struct EntryRowView: View {
         self.onMigrate = onMigrate
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.onTitleCommit = nil
         self.opensEditOnTap = opensEditOnTap
     }
 
     // MARK: - Body
 
     var body: some View {
-        rowContent
-            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                leadingSwipeActions
-            }
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                trailingSwipeActions
-            }
+        if isEditingTitle {
+            editingRowContent
+        } else {
+            rowContent
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    leadingSwipeActions
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    trailingSwipeActions
+                }
+        }
     }
 
     // MARK: - Row Content
@@ -185,6 +189,12 @@ struct EntryRowView: View {
             Text(configuration.title)
                 .strikethrough(configuration.hasStrikethrough)
                 .lineLimit(2)
+                .onTapGesture {
+                    guard configuration.entryType == .task,
+                          onTitleCommit != nil,
+                          configuration.taskStatus == .open else { return }
+                    beginEditing()
+                }
 
             Spacer()
 
@@ -195,9 +205,70 @@ struct EntryRowView: View {
         .foregroundStyle(rowColor)
         .contentShape(Rectangle())
         .onTapGesture {
+            guard configuration.entryType != .task else { return }
             guard opensEditOnTap else { return }
             onEdit?()
         }
+    }
+
+    private var editingRowContent: some View {
+        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+            StatusIcon(configuration: iconConfiguration, color: rowColor)
+
+            TextField("Task title", text: $editingText)
+                .focused($isTitleFocused)
+                .submitLabel(.done)
+                .onSubmit { commitEdit() }
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(configuration.title)
+                )
+
+            Spacer()
+
+            Button {
+                discardEdit()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(
+                Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleDiscardButton(configuration.title)
+            )
+        }
+        .foregroundStyle(rowColor)
+        .onChange(of: isEditingTitle) { _, newValue in
+            if newValue {
+                isTitleFocused = true
+            }
+        }
+        .onChange(of: isTitleFocused) { _, focused in
+            if !focused && isEditingTitle {
+                commitEdit()
+            }
+        }
+    }
+
+    // MARK: - Inline Edit Helpers
+
+    private func beginEditing() {
+        guard !isEditingTitle else { return }
+        editingText = configuration.title
+        isEditingTitle = true
+    }
+
+    private func commitEdit() {
+        let trimmed = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        isEditingTitle = false
+        isTitleFocused = false
+        guard !trimmed.isEmpty, trimmed != configuration.title else { return }
+        onTitleCommit?(trimmed)
+    }
+
+    private func discardEdit() {
+        isEditingTitle = false
+        isTitleFocused = false
+        editingText = configuration.title
     }
 
     // MARK: - Styling
@@ -276,7 +347,8 @@ struct EntryRowView: View {
             onComplete: {},
             onMigrate: {},
             onEdit: {},
-            onDelete: {}
+            onDelete: {},
+            onTitleCommit: { print("Committed: \($0)") }
         )
     }
 }
@@ -362,7 +434,8 @@ struct EntryRowView: View {
             EntryRowView(
                 task: DataModel.Task(title: "Open task", status: .open),
                 onComplete: {},
-                onMigrate: {}
+                onMigrate: {},
+                onTitleCommit: { print("Committed: \($0)") }
             )
             EntryRowView(
                 task: DataModel.Task(title: "Complete task (greyed)", status: .complete)

@@ -36,6 +36,9 @@ struct EntryListView: View {
     /// Callback when an entry should be migrated.
     var onMigrate: ((any Entry) -> Void)?
 
+    /// Callback when a task title is committed via inline edit.
+    var onTitleCommit: ((DataModel.Task, String) -> Void)?
+
     // MARK: - Computed Properties
 
     /// Active (non-migrated) entries combined from the spread data model.
@@ -223,7 +226,7 @@ struct EntryListView: View {
             onMigrate: { onMigrate?(task) },
             onEdit: { onEdit?(task) },
             onDelete: { onDelete?(task) },
-            opensEditOnTap: true
+            onTitleCommit: { newTitle in onTitleCommit?(task, newTitle) }
         )
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(task.title))
     }
