@@ -85,6 +85,11 @@ struct TraditionalSpreadsView: View {
 
             pagerContent
         }
+        .overlay(alignment: .bottomLeading) {
+            todayButton
+                .padding(.leading, 16)
+                .padding(.bottom, 20)
+        }
         .toolbar {
             toolbarContent
         }
@@ -172,7 +177,6 @@ struct TraditionalSpreadsView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
             HStack(spacing: 16) {
-                todayButton
                 OverdueButton(overdueCount: journalManager.overdueTaskCount) {
                     activeSheet = .overdueReview
                 }
@@ -197,6 +201,9 @@ struct TraditionalSpreadsView: View {
                 selectedSelection = target
             }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .glassEffect(in: Capsule())
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
     }
 }

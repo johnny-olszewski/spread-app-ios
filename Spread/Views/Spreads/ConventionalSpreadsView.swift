@@ -52,10 +52,14 @@ struct ConventionalSpreadsView: View {
             spreadContent
 
         }
+        .overlay(alignment: .bottomLeading) {
+            todayButton
+                .padding(.leading, 16)
+                .padding(.bottom, 20)
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 HStack(spacing: 16) {
-                    todayButton
                     OverdueButton(overdueCount: journalManager.overdueTaskCount) {
                         coordinator.showOverdueReview()
                     }
@@ -147,6 +151,9 @@ struct ConventionalSpreadsView: View {
         Button("Today") {
             navigateToToday()
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .glassEffect(in: Capsule())
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
     }
 
