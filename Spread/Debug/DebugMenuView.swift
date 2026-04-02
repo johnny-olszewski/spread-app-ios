@@ -249,6 +249,19 @@ struct DebugMenuView: View {
                     }
                 }
 
+                Button("Force Status: Idle") {
+                    syncEngine.status = .idle
+                }
+                Button("Force Status: Synced") {
+                    syncEngine.status = .synced(.now)
+                }
+                Button("Force Status: Error") {
+                    syncEngine.status = .error("Debug: forced sync failure")
+                }
+                Button("Force Status: Offline") {
+                    syncEngine.status = .offline
+                }
+
                 Button("Seed Outbox (5 mutations)") {
                     seedOutbox(count: 5, syncEngine: syncEngine)
                 }
