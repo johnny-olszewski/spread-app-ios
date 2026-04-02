@@ -175,17 +175,17 @@ struct TraditionalSpreadsView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        ToolbarItemGroup(placement: .primaryAction) {
+            OverdueButton(overdueCount: journalManager.overdueTaskCount) {
+                activeSheet = .overdueReview
+            }
+            InboxButton(inboxCount: journalManager.inboxCount) {
+                activeSheet = .inbox
+            }
+        }
         ToolbarItem(placement: .primaryAction) {
-            HStack(spacing: 16) {
-                OverdueButton(overdueCount: journalManager.overdueTaskCount) {
-                    activeSheet = .overdueReview
-                }
-                InboxButton(inboxCount: journalManager.inboxCount) {
-                    activeSheet = .inbox
-                }
-                AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                    activeSheet = .auth
-                }
+            AuthButton(isSignedIn: authManager.state.isSignedIn) {
+                activeSheet = .auth
             }
         }
     }
