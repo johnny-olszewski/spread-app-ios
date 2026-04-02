@@ -3111,3 +3111,29 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit tests verifying multiday day-section tasks are assigned to the day's date with `.day` period.
   - UI tests verifying the button appears, tapping it opens the input row, Return creates a task and opens a new row, Save closes the row, Cancel discards.
 - **Dependencies**: SPRD-124, SPRD-132
+
+### [SPRD-134] UI: toolbar and spread view button layout changes
+- **Context**: Several button/indicator changes are grouped here: remove the sync status toolbar icon and content-area banner entirely (sync feedback deferred to pull-to-refresh in SPRD-135); move the `Today` button from the navigation bar to a `.glassEffect` overlay in the bottom-leading corner of the spread content view; and split the trailing toolbar buttons into two distinct groups — overdue + inbox in one group, auth (profile) button in a separate group with a gap between them.
+- **Spec**: Inbox (Today button), Auth UI (toolbar grouping), Sync & Data (sync status)
+- **Acceptance Criteria**:
+  - The `Today` button is removed from the navigation bar toolbar.
+  - The `Today` button is rendered as a `.glassEffect` button overlaid at the bottom-leading corner of the spread content view, always visible.
+  - The `Today` button behavior (navigation, recentering) is unchanged from SPRD-130.
+  - The overdue toolbar button and inbox toolbar button are in one `ToolbarItemGroup` in the trailing position.
+  - The auth (profile) button is in a separate `ToolbarItemGroup` in the trailing position, appearing after the overdue/inbox group with a natural gap between them.
+  - `SyncStatusBanner` is removed from `ConventionalSpreadsView` and `TraditionalSpreadsView`.
+  - The `SyncStatusBanner` view file is deleted.
+  - The sync status toolbar icon (`SyncStatusView`) is removed from all toolbar placements.
+  - `SyncStatusView` is deleted.
+- **Tests**:
+  - UI tests verifying the `Today` button accessibility identifier is present in the spread overlay and absent from the navigation bar.
+  - UI tests verifying `SyncStatusBanner` accessibility identifier is absent from the view hierarchy.
+  - UI tests verifying `SyncStatusView` (sync icon) accessibility identifier is absent from the toolbar.
+- **Dependencies**: SPRD-85, SPRD-130
+
+### [SPRD-135] UI: pull-to-refresh sync on spread entry list
+- **Context**: Details to be populated.
+- **Spec**: TBD
+- **Acceptance Criteria**: TBD
+- **Tests**: TBD
+- **Dependencies**: SPRD-134
