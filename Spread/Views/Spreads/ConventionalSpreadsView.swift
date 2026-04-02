@@ -53,11 +53,6 @@ struct ConventionalSpreadsView: View {
 
         }
         .toolbar {
-            if let syncEngine {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    SyncStatusView(syncEngine: syncEngine)
-                }
-            }
             ToolbarItem(placement: .primaryAction) {
                 HStack(spacing: 16) {
                     todayButton

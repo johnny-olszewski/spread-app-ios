@@ -69,11 +69,6 @@ struct TabNavigationView: View {
             .modifier(SpreadsNavigationTitleModifier(tab: tab))
             .toolbar {
                 if tab != .spreads {
-                    if let syncEngine {
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            SyncStatusView(syncEngine: syncEngine)
-                        }
-                    }
                     ToolbarItem(placement: .primaryAction) {
                         HStack(spacing: 16) {
                             InboxButton(inboxCount: journalManager.inboxCount) {

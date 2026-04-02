@@ -170,11 +170,6 @@ struct TraditionalSpreadsView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        if let syncEngine {
-            ToolbarItem(placement: .navigationBarLeading) {
-                SyncStatusView(syncEngine: syncEngine)
-            }
-        }
         ToolbarItem(placement: .primaryAction) {
             HStack(spacing: 16) {
                 todayButton
