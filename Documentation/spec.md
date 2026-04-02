@@ -222,7 +222,7 @@
 - Tapping the button opens Inbox view as sheet. [SPRD-31]
 - Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
 - Cancelled tasks are excluded from Inbox. [SPRD-16]
-- A standalone `Today` text button appears in the spread-view navigation bar on both iPhone and iPad, placed on the top trailing side ahead of the overdue and inbox buttons. [SPRD-130]
+- A standalone `Today` text button appears as a `.glassEffect` overlay button anchored to the bottom-leading corner of the spread content view on both iPhone and iPad. It is always visible regardless of the currently selected spread. [SPRD-130]
 - Pressing `Today` navigates to the smallest-granularity spread containing the current absolute today date and synchronizes all spread navigation surfaces, including the selected spread, horizontal title strip, and horizontal content pager. [SPRD-130]
 - Conventional mode `Today` target resolution: [SPRD-130]
   - Prefer an explicit day spread for today when it exists.
@@ -402,7 +402,7 @@
 - Sync eligibility in product environments requires an authenticated user session. There is no backup entitlement gate in v1. [SPRD-104]
 - In product environments, users without a valid session are blocked by the auth gate instead of entering a local-only app state. [SPRD-106]
 - In debug `localhost`, sync is fully disabled and all persistence is local-only for that run. [SPRD-107]
-- Toolbar sync status is icon-only; any status copy is shown in main content (not in the toolbar). Use a minimal, visible banner or status line near the top of the main spreads content. [SPRD-85]
+- There is no persistent sync status icon or content-area banner. The sync status banner has been removed. Sync status feedback is delivered via pull-to-refresh (see SPRD-135). Error state visibility is TBD. [SPRD-85, SPRD-134, SPRD-135]
 - Assignment durability is a product requirement, not a local cache best-effort. [SPRD-119, SPRD-120, SPRD-121, SPRD-122]
   - `task_assignments` and `note_assignments` are first-class synced records.
   - After successful sync, the server must be able to rebuild the exact same current placement and the exact same assignment history for the signed-in user.
@@ -467,7 +467,8 @@
 - **Merge RPC response**: All merge RPCs return the canonical row after applying LWW, so the client can update its local copy to match the server's resolved state. [SPRD-83]
 
 ### Auth UI (v1)
-- Auth button in toolbar, trailing the Inbox button. [SPRD-84]
+- The overdue and inbox toolbar buttons form one trailing button group. The auth button is in a separate trailing group, visually separated by a gap. [SPRD-84, SPRD-134]
+- Auth button in toolbar, trailing the overdue/inbox group. [SPRD-84]
 - Button appearance: [SPRD-84]
   - Logged out: person icon (`person.crop.circle`)
   - Logged in: filled person icon (`person.crop.circle.fill`)
@@ -667,8 +668,8 @@
   - User not found: "No account found with that email."
   - Rate limited: "Too many attempts. Please try again later."
   - Network timeout: "Unable to connect. Check your internet connection."
-- **Sync errors**: Sync failures are non-blocking. The sync status banner shows an error icon with a brief message. Automatic retry occurs with exponential backoff (2s base, 300s max). Manual retry is available via pull-to-refresh or the sync status view. [SPRD-85]
-- **Network errors**: When offline, the app continues to function normally with local data. Sync status shows "offline" state. When connectivity returns, sync resumes automatically. [SPRD-85]
+- **Sync errors**: Sync failures are non-blocking. Automatic retry occurs with exponential backoff (2s base, 300s max). Error state visibility in the UI is TBD pending SPRD-135. [SPRD-85, SPRD-134, SPRD-135]
+- **Network errors**: When offline, the app continues to function normally with local data. When connectivity returns, sync resumes automatically. Offline state visibility in the UI is TBD pending SPRD-135. [SPRD-85, SPRD-134, SPRD-135]
 - **App initialization errors**: If the SwiftData container fails to create on launch, the app shows a fatal error screen with a message to restart the app. No recovery is attempted. [SPRD-TBD]
 - **Entry deletion**: Requires confirmation via a standard destructive alert ("Delete this task? This cannot be undone."). [SPRD-24]
 - **Spread deletion**: Requires confirmation with a message explaining that entries will be reassigned, not deleted. [SPRD-15]
