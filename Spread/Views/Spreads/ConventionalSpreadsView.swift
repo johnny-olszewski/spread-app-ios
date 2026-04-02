@@ -211,6 +211,11 @@ struct ConventionalSpreadsView: View {
                     try await journalManager.addTask(title: title, date: date, period: period)
                     await syncEngine?.syncNow()
                 },
+                onRefresh: {
+                    guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
+                    await engine.syncNow()
+                },
+                syncStatus: syncEngine?.status,
                 eligibleTaskCount: spread.id == currentSelectedSpread.id ? eligibleMigrationCandidates.count : migrationCandidateCount(for: spread),
                 onReviewMigration: {
                     selectedSpread = spread
@@ -384,6 +389,12 @@ private struct SpreadContentView: View {
     /// Callback when a new task should be created inline.
     var onAddTask: ((String, Date, Period) async throws -> Void)?
 
+    /// Callback invoked when the user pulls to refresh.
+    var onRefresh: (() async -> Void)?
+
+    /// The current sync status, used to populate the pull-to-refresh indicator title.
+    var syncStatus: SyncStatus?
+
     /// Number of tasks eligible for migration (0 hides the banner).
     var eligibleTaskCount: Int = 0
 
@@ -445,7 +456,9 @@ private struct SpreadContentView: View {
                 onTitleCommit: { task, newTitle in
                     onUpdateTaskTitle?(task, newTitle)
                 },
-                onAddTask: onAddTask
+                onAddTask: onAddTask,
+                onRefresh: onRefresh,
+                syncStatus: syncStatus
             )
         } else {
             ContentUnavailableView {

@@ -42,6 +42,12 @@ struct EntryListView: View {
     /// Callback when a new task should be created inline.
     var onAddTask: ((String, Date, Period) async throws -> Void)?
 
+    /// Callback invoked when the user pulls to refresh. `nil` disables pull-to-refresh.
+    var onRefresh: (() async -> Void)?
+
+    /// The current sync status, used to populate the pull-to-refresh indicator title.
+    var syncStatus: SyncStatus?
+
     // MARK: - Inline creation state
 
     @State private var activeInlineCreationDate: Date?
@@ -240,6 +246,8 @@ struct EntryListView: View {
         .scrollContentBackground(.hidden)
         .background(Color.clear)
         .environment(\.defaultMinListRowHeight, 0)
+        .modifier(RefreshableModifier(onRefresh: onRefresh))
+        .background(RefreshControlTitle(title: syncStatus?.pullIndicatorTitle ?? ""))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
     }
 
@@ -259,6 +267,8 @@ struct EntryListView: View {
             }
             .padding(16)
         }
+        .modifier(RefreshableModifier(onRefresh: onRefresh))
+        .background(RefreshControlTitle(title: syncStatus?.pullIndicatorTitle ?? ""))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
     }
 
@@ -473,6 +483,57 @@ struct EntryListView: View {
             Label("No Entries", systemImage: "tray")
         } description: {
             Text("Add tasks or notes to this spread.")
+        }
+    }
+}
+
+// MARK: - Refresh Helpers
+
+/// Conditionally applies `.refreshable` only when an action is provided.
+private struct RefreshableModifier: ViewModifier {
+    let onRefresh: (() async -> Void)?
+
+    func body(content: Content) -> some View {
+        if let onRefresh {
+            content.refreshable { await onRefresh() }
+        } else {
+            content
+        }
+    }
+}
+
+/// Sets `UIRefreshControl.attributedTitle` to display sync status while pulling.
+///
+/// Uses a hidden background UIView to walk the superview chain and locate the
+/// `UIScrollView` created by SwiftUI's `.refreshable` modifier.
+private struct RefreshControlTitle: UIViewRepresentable {
+    let title: String
+
+    func makeUIView(context: Context) -> _TitleFinderView {
+        _TitleFinderView()
+    }
+
+    func updateUIView(_ uiView: _TitleFinderView, context: Context) {
+        uiView.apply(title: title)
+    }
+}
+
+final class _TitleFinderView: UIView {
+    func apply(title: String) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            var current: UIView = self
+            while let parent = current.superview {
+                if let scrollView = parent as? UIScrollView,
+                   let refreshControl = scrollView.refreshControl {
+                    refreshControl.attributedTitle = NSAttributedString(
+                        string: title,
+                        attributes: [.foregroundColor: UIColor.secondaryLabel]
+                    )
+                    return
+                }
+                current = parent
+            }
         }
     }
 }

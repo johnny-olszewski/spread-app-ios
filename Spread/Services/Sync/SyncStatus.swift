@@ -60,6 +60,26 @@ enum SyncStatus: Equatable, Sendable {
         return false
     }
 
+    // MARK: - Pull-to-refresh
+
+    /// Short message shown in the pull-to-refresh indicator while the user is pulling.
+    var pullIndicatorTitle: String {
+        switch self {
+        case .idle:
+            "Not yet synced"
+        case .syncing:
+            "Syncing\u{2026}"
+        case .synced(let date):
+            "Last synced \(date.formatted(.relative(presentation: .named)))"
+        case .error:
+            "Last sync failed"
+        case .offline:
+            "Offline"
+        case .localOnly:
+            "Local only"
+        }
+    }
+
     // MARK: - Tooltip
 
     /// Short message shown in the tooltip when the icon is tapped.
