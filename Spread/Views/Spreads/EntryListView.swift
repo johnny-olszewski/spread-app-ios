@@ -194,9 +194,27 @@ struct EntryListView: View {
 
     // MARK: - Subviews
 
+    /// Subtle status row shown at the top of the list indicating last sync state.
+    ///
+    /// Scrolls out of view with content; becomes visible when the user pulls to the top.
+    @ViewBuilder
+    private var syncStatusRow: some View {
+        if let status = syncStatus, status != .localOnly {
+            Text(status.pullIndicatorTitle)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+        }
+    }
+
     @ViewBuilder
     private var entryList: some View {
         List {
+            syncStatusRow
+
             ForEach(sections) { section in
                 if section.title.isEmpty {
                     // Flat list (day spread) - no section header
@@ -247,12 +265,20 @@ struct EntryListView: View {
         .background(Color.clear)
         .environment(\.defaultMinListRowHeight, 0)
         .modifier(RefreshableModifier(onRefresh: onRefresh))
-        .background(RefreshControlTitle(title: syncStatus?.pullIndicatorTitle ?? ""))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
     }
 
     private var multidayEntryGrid: some View {
         ScrollView {
+            if let status = syncStatus, status != .localOnly {
+                Text(status.pullIndicatorTitle)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+            }
+
             LazyVGrid(
                 columns: Array(
                     repeating: GridItem(.flexible(), spacing: 16, alignment: .top),
@@ -268,7 +294,6 @@ struct EntryListView: View {
             .padding(16)
         }
         .modifier(RefreshableModifier(onRefresh: onRefresh))
-        .background(RefreshControlTitle(title: syncStatus?.pullIndicatorTitle ?? ""))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
     }
 
@@ -502,41 +527,6 @@ private struct RefreshableModifier: ViewModifier {
     }
 }
 
-/// Sets `UIRefreshControl.attributedTitle` to display sync status while pulling.
-///
-/// Uses a hidden background UIView to walk the superview chain and locate the
-/// `UIScrollView` created by SwiftUI's `.refreshable` modifier.
-private struct RefreshControlTitle: UIViewRepresentable {
-    let title: String
-
-    func makeUIView(context: Context) -> _TitleFinderView {
-        _TitleFinderView()
-    }
-
-    func updateUIView(_ uiView: _TitleFinderView, context: Context) {
-        uiView.apply(title: title)
-    }
-}
-
-final class _TitleFinderView: UIView {
-    func apply(title: String) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            var current: UIView = self
-            while let parent = current.superview {
-                if let scrollView = parent as? UIScrollView,
-                   let refreshControl = scrollView.refreshControl {
-                    refreshControl.attributedTitle = NSAttributedString(
-                        string: title,
-                        attributes: [.foregroundColor: UIColor.secondaryLabel]
-                    )
-                    return
-                }
-                current = parent
-            }
-        }
-    }
-}
 
 enum MultidaySectionLayout {
     static func columnCount(for horizontalSizeClass: UserInterfaceSizeClass?) -> Int {
