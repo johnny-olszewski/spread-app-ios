@@ -83,10 +83,6 @@ struct TraditionalSpreadsView: View {
 
             Divider()
 
-            if let syncEngine {
-                SyncStatusBanner(syncEngine: syncEngine)
-            }
-
             pagerContent
         }
         .toolbar {
