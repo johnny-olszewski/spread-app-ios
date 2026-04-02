@@ -58,17 +58,17 @@ struct ConventionalSpreadsView: View {
                 .padding(.bottom, 20)
         }
         .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                OverdueButton(overdueCount: journalManager.overdueTaskCount) {
+                    coordinator.showOverdueReview()
+                }
+                InboxButton(inboxCount: journalManager.inboxCount) {
+                    coordinator.showInbox()
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
-                HStack(spacing: 16) {
-                    OverdueButton(overdueCount: journalManager.overdueTaskCount) {
-                        coordinator.showOverdueReview()
-                    }
-                    InboxButton(inboxCount: journalManager.inboxCount) {
-                        coordinator.showInbox()
-                    }
-                    AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                        coordinator.showAuth()
-                    }
+                AuthButton(isSignedIn: authManager.state.isSignedIn) {
+                    coordinator.showAuth()
                 }
             }
         }

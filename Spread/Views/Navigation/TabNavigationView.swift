@@ -70,13 +70,13 @@ struct TabNavigationView: View {
             .toolbar {
                 if tab != .spreads {
                     ToolbarItem(placement: .primaryAction) {
-                        HStack(spacing: 16) {
-                            InboxButton(inboxCount: journalManager.inboxCount) {
-                                isInboxPresented = true
-                            }
-                            AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                                isAuthPresented = true
-                            }
+                        InboxButton(inboxCount: journalManager.inboxCount) {
+                            isInboxPresented = true
+                        }
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        AuthButton(isSignedIn: authManager.state.isSignedIn) {
+                            isAuthPresented = true
                         }
                     }
                 }
