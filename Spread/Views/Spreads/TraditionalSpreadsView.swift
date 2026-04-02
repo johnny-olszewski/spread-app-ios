@@ -85,10 +85,15 @@ struct TraditionalSpreadsView: View {
 
             pagerContent
         }
-        .overlay(alignment: .bottomLeading) {
-            todayButton
-                .padding(.leading, 16)
-                .padding(.bottom, 20)
+        .todayButton {
+            let target = SpreadHeaderNavigatorModel.Selection.traditionalDay(
+                Period.day.normalizeDate(journalManager.today, calendar: journalManager.calendar)
+            )
+            if target.stableID(calendar: journalManager.calendar) == currentSelection.stableID(calendar: journalManager.calendar) {
+                recenterToken += 1
+            } else {
+                selectedSelection = target
+            }
         }
         .toolbar {
             toolbarContent
@@ -183,27 +188,11 @@ struct TraditionalSpreadsView: View {
                 activeSheet = .inbox
             }
         }
+        ToolbarSpacer(.fixed, placement: .primaryAction)
         ToolbarItem(placement: .primaryAction) {
             AuthButton(isSignedIn: authManager.state.isSignedIn) {
                 activeSheet = .auth
             }
         }
-    }
-
-    private var todayButton: some View {
-        Button("Today") {
-            let target = SpreadHeaderNavigatorModel.Selection.traditionalDay(
-                Period.day.normalizeDate(journalManager.today, calendar: journalManager.calendar)
-            )
-            if target.stableID(calendar: journalManager.calendar) == currentSelection.stableID(calendar: journalManager.calendar) {
-                recenterToken += 1
-            } else {
-                selectedSelection = target
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .glassEffect(in: Capsule())
-        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
     }
 }
