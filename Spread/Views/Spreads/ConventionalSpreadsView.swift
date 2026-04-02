@@ -52,11 +52,6 @@ struct ConventionalSpreadsView: View {
             spreadContent
 
         }
-        .overlay(alignment: .bottomLeading) {
-            todayButton
-                .padding(.leading, 16)
-                .padding(.bottom, 20)
-        }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 OverdueButton(overdueCount: journalManager.overdueTaskCount) {
@@ -66,6 +61,7 @@ struct ConventionalSpreadsView: View {
                     coordinator.showInbox()
                 }
             }
+            ToolbarSpacer(.fixed, placement: .primaryAction)
             ToolbarItem(placement: .primaryAction) {
                 AuthButton(isSignedIn: authManager.state.isSignedIn) {
                     coordinator.showAuth()
@@ -107,6 +103,7 @@ struct ConventionalSpreadsView: View {
             ) { item in
                 conventionalPage(for: item)
             }
+            .todayButton { navigateToToday() }
         } else {
             ContentUnavailableView {
                 Label("No Spread Selected", systemImage: "book")
@@ -145,16 +142,6 @@ struct ConventionalSpreadsView: View {
 
     private var currentSelectedSpread: DataModel.Spread {
         selectedSpread ?? fallbackSelectedSpread()
-    }
-
-    private var todayButton: some View {
-        Button("Today") {
-            navigateToToday()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .glassEffect(in: Capsule())
-        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
     }
 
     private func fallbackSelectedSpread() -> DataModel.Spread {
