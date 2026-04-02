@@ -213,6 +213,10 @@ struct Definitions {
             }
         }
 
+        struct SyncError {
+            static let banner = "syncError.banner"
+        }
+
         struct Migration {
             static let banner = "migration.banner"
             static let reviewButton = "migration.banner.review"

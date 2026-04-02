@@ -48,6 +48,10 @@ struct ConventionalSpreadsView: View {
 
             Divider()
 
+            if case .error = syncEngine?.status {
+                SyncErrorBanner()
+            }
+
             // Content area
             spreadContent
 

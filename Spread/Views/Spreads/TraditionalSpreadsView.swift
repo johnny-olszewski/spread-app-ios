@@ -83,6 +83,10 @@ struct TraditionalSpreadsView: View {
 
             Divider()
 
+            if case .error = syncEngine?.status {
+                SyncErrorBanner()
+            }
+
             pagerContent
         }
         .todayButton {
