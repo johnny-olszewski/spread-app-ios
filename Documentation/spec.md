@@ -402,7 +402,23 @@
 - Sync eligibility in product environments requires an authenticated user session. There is no backup entitlement gate in v1. [SPRD-104]
 - In product environments, users without a valid session are blocked by the auth gate instead of entering a local-only app state. [SPRD-106]
 - In debug `localhost`, sync is fully disabled and all persistence is local-only for that run. [SPRD-107]
-- There is no persistent sync status icon or content-area banner. The sync status banner has been removed. Sync status feedback is delivered via pull-to-refresh (see SPRD-135). Error state visibility is TBD. [SPRD-85, SPRD-134, SPRD-135]
+- There is no persistent sync status icon or content-area banner. Sync status is surfaced via pull-to-refresh on the entry list and a persistent error banner when sync has failed. [SPRD-85, SPRD-134, SPRD-135]
+- Pull-to-refresh sync behavior: [SPRD-135]
+  - Pulling down on the entry list in both conventional and traditional modes triggers a manual sync on release past the standard system threshold.
+  - While the user is actively pulling (before releasing), the pull indicator displays the current sync status:
+    - `.idle` → "Not yet synced"
+    - `.synced(Date)` → "Last synced [relative time]"
+    - `.syncing` → standard system spinner; no additional sync triggered on release
+    - `.offline` → "Offline"
+    - `.localOnly` → "Local only"
+    - `.error` → "Last sync failed"
+  - Releasing before the threshold dismisses the indicator without triggering sync, allowing the user to read the last sync time without syncing.
+  - Pulling while in `.offline` or `.localOnly` state shows the status but does not attempt sync.
+- Sync error banner: [SPRD-135]
+  - When `SyncStatus` is `.error`, a non-tappable single-line text banner appears below the spread title navigator strip.
+  - Banner text: "Last sync failed · Pull down to retry"
+  - The banner is dismissed automatically when sync succeeds.
+  - The banner does not appear for `.offline` or `.localOnly` states; those states are communicated via the pull indicator only.
 - Assignment durability is a product requirement, not a local cache best-effort. [SPRD-119, SPRD-120, SPRD-121, SPRD-122]
   - `task_assignments` and `note_assignments` are first-class synced records.
   - After successful sync, the server must be able to rebuild the exact same current placement and the exact same assignment history for the signed-in user.
@@ -668,8 +684,8 @@
   - User not found: "No account found with that email."
   - Rate limited: "Too many attempts. Please try again later."
   - Network timeout: "Unable to connect. Check your internet connection."
-- **Sync errors**: Sync failures are non-blocking. Automatic retry occurs with exponential backoff (2s base, 300s max). Error state visibility in the UI is TBD pending SPRD-135. [SPRD-85, SPRD-134, SPRD-135]
-- **Network errors**: When offline, the app continues to function normally with local data. When connectivity returns, sync resumes automatically. Offline state visibility in the UI is TBD pending SPRD-135. [SPRD-85, SPRD-134, SPRD-135]
+- **Sync errors**: Sync failures are non-blocking. Automatic retry occurs with exponential backoff (2s base, 300s max). A non-tappable error banner appears below the navigator strip with text "Last sync failed · Pull down to retry"; it clears on next successful sync. [SPRD-85, SPRD-134, SPRD-135]
+- **Network errors**: When offline, the app continues to function normally with local data. When connectivity returns, sync resumes automatically. Offline state is surfaced in the pull-to-refresh indicator only ("Offline"); no persistent banner is shown. [SPRD-85, SPRD-134, SPRD-135]
 - **App initialization errors**: If the SwiftData container fails to create on launch, the app shows a fatal error screen with a message to restart the app. No recovery is attempted. [SPRD-TBD]
 - **Entry deletion**: Requires confirmation via a standard destructive alert ("Delete this task? This cannot be undone."). [SPRD-24]
 - **Spread deletion**: Requires confirmation with a message explaining that entries will be reassigned, not deleted. [SPRD-15]
