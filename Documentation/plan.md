@@ -3132,6 +3132,31 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Dependencies**: SPRD-85, SPRD-130
 
 ### [SPRD-135] UI: pull-to-refresh sync on spread entry list
+- **Context**: The sync status toolbar icon has been removed (SPRD-134). This task replaces it with pull-to-refresh as the manual sync trigger on the entry list, adds last-sync-time display in the pull indicator, and introduces a persistent non-tappable error banner below the navigator strip for failed sync states.
+- **Spec**: Sync & Data (Pull-to-refresh sync behavior, Sync error banner)
+- **Acceptance Criteria**:
+  - `.refreshable` is applied to the entry list `List`/`ScrollView` in both conventional and traditional modes.
+  - Releasing past the system pull threshold triggers `syncEngine.syncNow()`.
+  - The pull indicator header displays the current sync status while pulling:
+    - `.idle` → "Not yet synced"
+    - `.synced(Date)` → "Last synced [relative time]"
+    - `.syncing` → standard system spinner; no additional sync triggered on release
+    - `.offline` → "Offline"
+    - `.localOnly` → "Local only"
+    - `.error` → "Last sync failed"
+  - Releasing before the threshold dismisses the indicator without triggering sync.
+  - Pulling in `.offline` or `.localOnly` state shows the indicator status but does not call `syncNow()`.
+  - When `SyncStatus` is `.error`, a non-tappable single-line banner appears below the spread title navigator strip with the text "Last sync failed · Pull down to retry".
+  - The error banner is dismissed automatically when `SyncStatus` transitions out of `.error`.
+  - The error banner does not appear for `.offline` or `.localOnly` states.
+- **Tests**:
+  - Unit tests verifying pull indicator text per `SyncStatus` case.
+  - Unit tests verifying `syncNow()` is called (or not) on release per state.
+  - UI tests verifying the error banner appears and disappears with `.error` state transitions.
+  - UI tests verifying the error banner is absent for `.offline` and `.localOnly` states.
+- **Dependencies**: SPRD-134
+
+### [SPRD-136] Bug: SpreadTitleNavigatorView encroachment and selected capsule coverage
 - **Context**: Details to be populated.
 - **Spec**: TBD
 - **Acceptance Criteria**: TBD
