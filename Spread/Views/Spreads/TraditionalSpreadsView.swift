@@ -54,6 +54,13 @@ struct TraditionalSpreadsView: View {
         selectedSelection ?? .traditionalYear(defaultRootYearDate)
     }
 
+    private var selectionBinding: Binding<SpreadHeaderNavigatorModel.Selection> {
+        Binding(
+            get: { currentSelection },
+            set: { selectedSelection = $0 }
+        )
+    }
+
     private var currentSpread: DataModel.Spread {
         switch currentSelection {
         case .traditionalYear(let yearDate):
@@ -71,14 +78,11 @@ struct TraditionalSpreadsView: View {
         VStack(spacing: 0) {
             SpreadTitleNavigatorView(
                 stripModel: stripModel,
-                headerNavigatorModel: navigatorModel,
-                currentSpread: currentSpread,
-                currentSelection: currentSelection,
                 recenterToken: recenterToken,
-                onSelect: { selectedSelection = $0 },
                 onCreateSpreadTapped: nil,
                 onCreateTaskTapped: nil,
-                onCreateNoteTapped: nil
+                onCreateNoteTapped: nil,
+                selection: selectionBinding
             )
 
             Divider()
@@ -126,11 +130,8 @@ struct TraditionalSpreadsView: View {
             SpreadContentPagerView(
                 model: stripModel,
                 items: items,
-                selectedID: currentSelection.stableID(calendar: journalManager.calendar),
                 recenterToken: recenterToken,
-                onSettledSelect: { selection in
-                    selectedSelection = selection
-                }
+                selection: selectionBinding
             ) { item in
                 traditionalPage(for: item)
             }
@@ -151,6 +152,7 @@ struct TraditionalSpreadsView: View {
                 journalManager: journalManager,
                 yearDate: yearDate,
                 onSelectMonth: { selectedSelection = .traditionalMonth($0) },
+                onSelectSelection: { selectedSelection = $0 },
                 navigatorModel: navigatorModel
             )
         case .traditionalMonth(let monthDate):
@@ -163,7 +165,8 @@ struct TraditionalSpreadsView: View {
                         Period.year.normalizeDate(monthDate, calendar: journalManager.calendar)
                     )
                 },
-                navigatorModel: navigatorModel
+                navigatorModel: navigatorModel,
+                onSelectSelection: { selectedSelection = $0 }
             )
         case .traditionalDay(let dayDate):
             TraditionalDayView(
@@ -175,7 +178,8 @@ struct TraditionalSpreadsView: View {
                         Period.month.normalizeDate(dayDate, calendar: journalManager.calendar)
                     )
                 },
-                navigatorModel: navigatorModel
+                navigatorModel: navigatorModel,
+                onSelectSelection: { selectedSelection = $0 }
             )
         case .conventional:
             Color.clear

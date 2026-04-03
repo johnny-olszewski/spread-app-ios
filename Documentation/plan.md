@@ -3157,12 +3157,11 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Dependencies**: SPRD-134
 
 ### [SPRD-136] Bug: SpreadTitleNavigatorView strip height and scroll isolation
-- **Context**: `SpreadTitleNavigatorView` accumulated multiple layers of selection, centering, and overlay behavior over time. Two concrete bugs remain: (1) the strip height is hardcoded and can clip multi-line day/multiday capsules against the divider and content below, and (2) strip-driven programmatic scrolling can leak into the content pager because the two surfaces share scroll-target mechanics too closely. The task should fix those bugs and refactor the strip to a simpler model while preserving the current visual system, with one explicit change: all strip items should use a shared dynamic width for the active sequence.
+- **Context**: `SpreadTitleNavigatorView` accumulated multiple layers of selection, centering, and overlay behavior over time. Two concrete bugs remain: (1) the strip height is hardcoded and can clip multi-line day/multiday capsules against the divider and content below, and (2) strip-driven programmatic scrolling can leak into the content pager because the two surfaces share scroll-target mechanics too closely. The task should fix those bugs and refactor the strip to a simpler model while preserving the current visual system.
 - **Spec**: Strip height is content-driven with a minimum floor. Strip and pager scrolling are isolated. Strip browsing is preserved independently from pager browsing, except for intentional strip-originated and non-pager jump actions.
 - **Acceptance Criteria**:
   - [x] The strip `frame(height: 68)` is removed. The strip sizes to fit its tallest item plus vertical padding and a minimum visual floor so the capsule has breathing room above the divider.
   - [x] The selected capsule is fully visible and not clipped or overlapped by sibling views in both conventional and traditional modes, on iPhone and iPad.
-  - [x] All strip items use one shared dynamic width derived from the widest item in the current strip sequence; the selected capsule uses that same width.
   - [x] Tapping a visible non-selected strip item still changes the selected spread and navigates the pager.
   - [x] Tapping the selected strip item never opens the navigator surface; it only recenters the strip when needed and is otherwise a no-op.
   - [x] A leading `.glassEffect` `Select Spread` overlay button with a down chevron is always visible and opens the rooted spread navigator surface.

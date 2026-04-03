@@ -22,6 +22,7 @@ struct TraditionalDayView: View {
     var onBackToMonth: (() -> Void)?
 
     let navigatorModel: SpreadHeaderNavigatorModel
+    var onSelectSelection: ((SpreadHeaderNavigatorModel.Selection) -> Void)?
 
     /// The note currently being edited via detail sheet.
     @State private var noteBeingEdited: DataModel.Note?
@@ -70,6 +71,8 @@ struct TraditionalDayView: View {
     private var isToday: Bool {
         calendar.isDate(dayDate, inSameDayAs: journalManager.today)
     }
+
+    @State private var isShowingNavigator = false
 
     // MARK: - Body
 
@@ -179,7 +182,12 @@ struct TraditionalDayView: View {
                             taskCount: 0,
                             noteCount: 0
                         ),
-                        showsTitle: false
+                        isShowingNavigator: $isShowingNavigator,
+                        navigatorModel: navigatorModel,
+                        currentSpread: DataModel.Spread(period: .day, date: dayDate, calendar: calendar),
+                        onNavigatorSelect: { selection in
+                            onSelectSelection?(selection)
+                        }
                     )
                 }
 

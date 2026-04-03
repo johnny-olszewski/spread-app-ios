@@ -268,7 +268,6 @@
       - same-month ranges show a smallcaps month abbreviation above a compact day range and a short weekday span beneath it
       - cross-month ranges show a smallcaps month span above the compact endpoint day range and a short weekday span beneath it [SPRD-129]
   - The selected capsule sizes to the full rendered label block for all item types, including multi-line day and multiday labels. [SPRD-129]
-  - All strip items use a single shared dynamic width derived from the widest item in the current strip sequence; the selected capsule occupies that same shared width. Height remains content-driven. [SPRD-136]
   - The strip height is content-driven with a minimum visual floor; it must not be hardcoded. The strip expands to fit its tallest item label (including multi-line day and multiday items) plus adequate vertical padding so the selected capsule is never clipped or overlapped by sibling views. [SPRD-136]
   - Scrolling the title strip (including via the return-to-selected button) is isolated from the content pager. Strip scroll events must not propagate to the pager or change the selected spread. [SPRD-136]
 - Horizontal spread-content paging behavior: [SPRD-128]
