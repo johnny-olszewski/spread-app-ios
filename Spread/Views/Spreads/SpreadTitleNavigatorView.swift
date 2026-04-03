@@ -35,7 +35,6 @@ struct SpreadTitleNavigatorView: View {
     @State private var centerRequest: CenterRequest?
     @State private var centerRequestToken = 0
     @State private var pendingTapSelectionItemID: String?
-    @State private var scrollViewportWidth: CGFloat = 0
     @State private var scrollContainerFrame: CGRect = .zero
     @State private var widthChangedToken = 0
 
@@ -56,29 +55,18 @@ struct SpreadTitleNavigatorView: View {
 
     var body: some View {
         ZStack(alignment: .trailing) {
-            scrollStripContainer(visibleWidth: scrollViewportWidth)
+            scrollStripContainer(visibleWidth: scrollContainerFrame.width)
             edgeFadeOverlays
-            if let returnButtonEdge = returnButtonEdge(for: scrollViewportWidth) {
-                returnToSelectedButton(edge: returnButtonEdge)
+            if let edge = returnButtonEdge() {
+                returnToSelectedButton(edge: edge)
             }
             if showsCreateButton {
                 createButton
                     .padding(.trailing, 12)
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity)
-        .background(
-            GeometryReader { geometry in
-                Color.clear
-                    .onAppear {
-                        scrollViewportWidth = max(geometry.size.width, 0)
-                    }
-                    .onChange(of: geometry.size.width) { _, newValue in
-                        scrollViewportWidth = max(newValue, 0)
-                        widthChangedToken += 1
-                    }
-            }
-        )
         .secondaryPaperBackground()
         .modifier(
             SpreadNavigatorPresentationModifier(
@@ -171,7 +159,11 @@ struct SpreadTitleNavigatorView: View {
                             scrollContainerFrame = geometry.frame(in: .global)
                         }
                         .onChange(of: geometry.frame(in: .global)) { _, newValue in
+                            let widthChanged = scrollContainerFrame.width != newValue.width
                             scrollContainerFrame = newValue
+                            if widthChanged {
+                                widthChangedToken += 1
+                            }
                         }
                 }
             )
@@ -445,8 +437,8 @@ struct SpreadTitleNavigatorView: View {
         }
     }
 
-    private func returnButtonEdge(for visibleWidth: CGFloat) -> ReturnButtonEdge? {
-        guard !isItemCentered(selectedItemID, visibleWidth: visibleWidth),
+    private func returnButtonEdge() -> ReturnButtonEdge? {
+        guard !isItemCentered(selectedItemID),
               let selectedFrame = itemFrames[selectedItemID] else {
             return nil
         }
@@ -523,9 +515,8 @@ struct SpreadTitleNavigatorView: View {
         }
     }
 
-    private func isItemCentered(_ id: String, visibleWidth: CGFloat) -> Bool {
-        guard visibleWidth > 0,
-              scrollContainerFrame.width > 0,
+    private func isItemCentered(_ id: String) -> Bool {
+        guard scrollContainerFrame.width > 0,
               let frame = itemFrames[id] else { return false }
         let viewportCenterX = scrollContainerFrame.midX
         let tolerance = max(frame.width / 2, 24)
