@@ -9,6 +9,8 @@ struct SpreadTitleNavigatorItemView: View {
     let isSelected: Bool
     let accessibilityIdentifier: String
     let selectionIndicatorNamespace: Namespace.ID
+    let showsSelectionIndicator: Bool
+    let borderColor: Color?
     let action: () -> Void
 
     var body: some View {
@@ -18,25 +20,31 @@ struct SpreadTitleNavigatorItemView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 6)
 
-                ZStack {
-                    Circle()
-                        .fill(Color.clear)
-                        .frame(width: 6, height: 6)
-
-                    if isSelected {
+                if showsSelectionIndicator {
+                    ZStack {
                         Circle()
-                            .fill(Color.accentColor)
+                            .fill(Color.clear)
                             .frame(width: 6, height: 6)
-                            .matchedGeometryEffect(
-                                id: Self.selectionIndicatorID,
-                                in: selectionIndicatorNamespace
-                            )
+
+                        if isSelected {
+                            Circle()
+                                .fill(Color.accentColor)
+                                .frame(width: 6, height: 6)
+                                .matchedGeometryEffect(
+                                    id: Self.selectionIndicatorID,
+                                    in: selectionIndicatorNamespace
+                                )
+                        }
                     }
+                    .frame(height: 8)
+                } else {
+                    Spacer(minLength: 0)
+                        .frame(height: 8)
                 }
-                .frame(height: 8)
             }
             .frame(minHeight: 48)
             .contentShape(Rectangle())
+            .background(backgroundShape)
             .background(
                 GeometryReader { geometry in
                     Color.clear.preference(
@@ -46,10 +54,18 @@ struct SpreadTitleNavigatorItemView: View {
                 }
             )
         }
-        .padding(.bottom, 2)
+        .padding(.vertical, 2)
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.28), value: isSelected)
         .accessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    @ViewBuilder
+    private var backgroundShape: some View {
+        if let borderColor {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(borderColor, lineWidth: 1.5)
+        }
     }
 
     @ViewBuilder

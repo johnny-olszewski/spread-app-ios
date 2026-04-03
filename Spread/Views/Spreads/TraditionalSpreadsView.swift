@@ -23,6 +23,7 @@ struct TraditionalSpreadsView: View {
     @Bindable var journalManager: JournalManager
     let authManager: AuthManager
     let syncEngine: SyncEngine?
+    private let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding = TodayMissingSpreadRecommendationProvider()
 
     @State private var selectedSelection: SpreadHeaderNavigatorModel.Selection?
     @State private var activeSheet: TraditionalSheetDestination?
@@ -82,8 +83,10 @@ struct TraditionalSpreadsView: View {
                 stripModel: stripModel,
                 recenterToken: recenterToken,
                 onCreateSpreadTapped: nil,
+                onRecommendedSpreadTapped: nil,
                 onCreateTaskTapped: nil,
                 onCreateNoteTapped: nil,
+                recommendationProvider: recommendationProvider,
                 selection: selectionBinding
             )
 

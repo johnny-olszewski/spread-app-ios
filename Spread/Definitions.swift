@@ -129,6 +129,10 @@ struct Definitions {
             static let selectedIndicator = "spreads.strip.selected"
             static let selectSpreadButton = "spreads.strip.selectSpread"
             static let recenterButton = "spreads.strip.recenter"
+
+            static func recommendation(_ periodRawValue: String) -> String {
+                "spreads.strip.recommendation.\(periodRawValue)"
+            }
         }
 
         struct SpreadToolbar {

@@ -39,6 +39,15 @@ struct SpreadTitleNavigatorModel {
         }
     }
 
+    func item(for recommendation: SpreadTitleNavigatorRecommendation) -> Item {
+        let spread = DataModel.Spread(
+            period: recommendation.period,
+            date: recommendation.date,
+            calendar: recommendation.calendar
+        )
+        return item(for: spread)
+    }
+
     private func conventionalYearItems(in year: Int) -> [Item] {
         let explicitSpreadsInYear = headerModel.spreads
             .filter { spreadYear(for: $0) == year }
