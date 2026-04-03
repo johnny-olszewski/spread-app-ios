@@ -3194,7 +3194,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Focused UI tests covering recommendation visibility, ordering, and opening prefilled creation flow from the trailing inset.
 - **Dependencies**: SPRD-136
 
-### [SPRD-138] Bug: Year/month task sectioning should reflect the current spread
+### [SPRD-138] Bug: Year/month task sectioning should reflect the current spread - [x] Complete
 - **Context**: Conventional spread task grouping is currently too generic. Year and month spreads should present tasks relative to the current spread rather than sectioning everything by source spread. Tasks assigned directly to the current year or month belong to that spread and should not be shown under a redundant titled section, while more granular tasks should remain visible with enough date context to scan them.
 - **Spec**: Spread Content Presentation and Interaction
 - **Acceptance Criteria**:

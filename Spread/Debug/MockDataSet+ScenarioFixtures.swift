@@ -564,6 +564,31 @@ extension MockDataSet {
                     assignmentDate: marchThirtyOne,
                     calendar: calendar
                 ),
+                // Year and month tasks used to exercise year/month sectioning behavior
+                task(
+                    title: "Navigator year task",
+                    date: marchYear,
+                    period: .year,
+                    assignmentPeriod: .year,
+                    assignmentDate: marchYear,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Navigator January month task",
+                    date: januaryMonth,
+                    period: .month,
+                    assignmentPeriod: .month,
+                    assignmentDate: januaryMonth,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Navigator March month task",
+                    date: marchMonth,
+                    period: .month,
+                    assignmentPeriod: .month,
+                    assignmentDate: marchMonth,
+                    calendar: calendar
+                ),
                 // Legacy year task
                 task(
                     title: "Legacy traditional task",

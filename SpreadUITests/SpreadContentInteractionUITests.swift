@@ -35,4 +35,44 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
             2
         )
     }
+
+    func testYearSpreadShowsUntitledYearTasksAndMonthSections() throws {
+        let app = launchScenario(.spreadNavigator, today: "2026-03-29")
+
+        openYear(2026, in: app)
+
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Navigator year task")
+            ).waitForExistence(timeout: 5)
+        )
+        XCTAssertTrue(app.staticTexts["January 2026"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Navigator January month task")
+            ).waitForExistence(timeout: 5)
+        )
+    }
+
+    func testMonthSpreadShowsDayTaskContextLabels() throws {
+        let app = launchScenario(.spreadNavigator, today: "2026-03-29")
+
+        openMonth(year: 2026, month: 3, in: app)
+
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Navigator March month task")
+            ).waitForExistence(timeout: 5)
+        )
+
+        let dayContext = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskContextLabel("Navigator day task")
+        )
+        XCTAssertTrue(dayContext.waitForExistence(timeout: 5))
+        XCTAssertEqual(dayContext.label, "29")
+    }
 }

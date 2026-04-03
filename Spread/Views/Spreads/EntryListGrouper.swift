@@ -25,13 +25,20 @@ struct EntryListSection: Identifiable, Sendable {
 
     /// The entries in this section.
     let entries: [any Entry]
+
+    /// Small contextual labels shown next to specific row titles in this section.
+    let contextualLabels: [UUID: String]
+
+    func contextualLabel(for entry: any Entry) -> String? {
+        contextualLabels[entry.id]
+    }
 }
 
 /// Groups entries based on spread period for display in entry lists.
 ///
 /// Provides period-specific grouping logic:
-/// - Year: Groups entries by month
-/// - Month: Groups entries by day
+/// - Year: Untitled current-year tasks, then month sections containing month/day tasks
+/// - Month: Untitled current-month list containing month/day tasks
 /// - Day: Flat list (no grouping)
 /// - Multiday: Groups entries by day within the range
 struct EntryListGrouper: Sendable {
@@ -101,44 +108,79 @@ struct EntryListGrouper: Sendable {
 
     /// Groups entries by month for year spreads.
     private func groupByMonth(_ entries: [any Entry]) -> [EntryListSection] {
+        var yearEntries: [any Entry] = []
         var monthGroups: [Date: [any Entry]] = [:]
+        var contextualLabels: [Date: [UUID: String]] = [:]
 
         for entry in entries {
-            let entryDate = entryGroupingDate(for: entry)
-            let monthStart = entryDate.firstDayOfMonth(calendar: calendar) ?? entryDate
-            monthGroups[monthStart, default: []].append(entry)
+            let grouping = assignableGrouping(for: entry)
+
+            switch grouping.period {
+            case .year:
+                yearEntries.append(entry)
+            case .month:
+                let monthStart = grouping.date.firstDayOfMonth(calendar: calendar) ?? grouping.date
+                monthGroups[monthStart, default: []].append(entry)
+            case .day:
+                let monthStart = grouping.date.firstDayOfMonth(calendar: calendar) ?? grouping.date
+                monthGroups[monthStart, default: []].append(entry)
+                contextualLabels[monthStart, default: [:]][entry.id] = formatDayNumber(grouping.date)
+            case .multiday:
+                let monthStart = grouping.date.firstDayOfMonth(calendar: calendar) ?? grouping.date
+                monthGroups[monthStart, default: []].append(entry)
+            }
         }
 
-        return monthGroups.keys.sorted().map { monthDate in
-            let sortedEntries = sortEntriesChronologically(monthGroups[monthDate] ?? [])
-            return EntryListSection(
-                id: monthDate,
-                title: formatMonthTitle(monthDate),
-                date: monthDate,
-                entries: sortedEntries
+        var sections: [EntryListSection] = []
+        let sortedYearEntries = sortEntriesChronologically(yearEntries)
+        if !sortedYearEntries.isEmpty {
+            sections.append(
+                EntryListSection(
+                    id: spreadDate,
+                    title: "",
+                    date: spreadDate,
+                    entries: sortedYearEntries,
+                    contextualLabels: [:]
+                )
             )
         }
+
+        sections.append(
+            contentsOf: monthGroups.keys.sorted().map { monthDate in
+                let sortedEntries = sortEntriesChronologically(monthGroups[monthDate] ?? [])
+                return EntryListSection(
+                    id: monthDate,
+                    title: formatMonthTitle(monthDate),
+                    date: monthDate,
+                    entries: sortedEntries,
+                    contextualLabels: contextualLabels[monthDate] ?? [:]
+                )
+            }
+        )
+
+        return sections
     }
 
     /// Groups entries by day for month and multiday spreads.
     private func groupByDay(_ entries: [any Entry]) -> [EntryListSection] {
-        var dayGroups: [Date: [any Entry]] = [:]
+        var contextualLabels: [UUID: String] = [:]
 
         for entry in entries {
-            let entryDate = entryGroupingDate(for: entry)
-            let dayStart = entryDate.startOfDay(calendar: calendar)
-            dayGroups[dayStart, default: []].append(entry)
+            let grouping = assignableGrouping(for: entry)
+            if grouping.period == .day {
+                contextualLabels[entry.id] = formatDayNumber(grouping.date)
+            }
         }
 
-        return dayGroups.keys.sorted().map { dayDate in
-            let sortedEntries = sortEntriesChronologically(dayGroups[dayDate] ?? [])
-            return EntryListSection(
-                id: dayDate,
-                title: formatDayTitle(dayDate),
-                date: dayDate,
-                entries: sortedEntries
+        return [
+            EntryListSection(
+                id: spreadDate,
+                title: "",
+                date: spreadDate,
+                entries: sortEntriesChronologically(entries),
+                contextualLabels: contextualLabels
             )
-        }
+        ]
     }
 
     /// Groups multiday entries by day while ensuring every covered day renders a section.
@@ -161,7 +203,8 @@ struct EntryListGrouper: Sendable {
                     id: currentDate,
                     title: formatDayTitle(currentDate),
                     date: currentDate,
-                    entries: sortedEntries
+                    entries: sortedEntries,
+                    contextualLabels: [:]
                 )
             )
             guard let nextDate = calendar.date(byAdding: .day, value: 1, to: currentDate) else {
@@ -181,7 +224,8 @@ struct EntryListGrouper: Sendable {
                 id: spreadDate,
                 title: "",
                 date: spreadDate,
-                entries: sortedEntries
+                entries: sortedEntries,
+                contextualLabels: [:]
             )
         ]
     }
@@ -201,6 +245,23 @@ struct EntryListGrouper: Sendable {
         case .note:
             return (entry as? DataModel.Note)?.date ?? .now
         }
+    }
+
+    private func assignableGrouping(for entry: any Entry) -> (period: Period, date: Date) {
+        switch entry.entryType {
+        case .task:
+            if let task = entry as? DataModel.Task {
+                return (task.period, task.date)
+            }
+        case .note:
+            if let note = entry as? DataModel.Note {
+                return (note.period, note.date)
+            }
+        case .event:
+            break
+        }
+
+        return (.day, entryGroupingDate(for: entry))
     }
 
     /// Sorts entries chronologically by their grouping date.
@@ -223,6 +284,14 @@ struct EntryListGrouper: Sendable {
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         formatter.dateFormat = "MMMM d"
+        return formatter.string(from: date)
+    }
+
+    private func formatDayNumber(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "d"
         return formatter.string(from: date)
     }
 }

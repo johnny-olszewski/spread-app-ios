@@ -5,8 +5,8 @@ import Testing
 /// Tests for entry list grouping logic across spread periods.
 ///
 /// Verifies that entries are grouped correctly based on the spread period:
-/// - Year: Groups by month
-/// - Month: Groups by day
+/// - Year: Untitled current-year tasks, then month sections with month/day tasks
+/// - Month: Untitled current-month list with day-number context for day tasks
 /// - Day: Flat list (single group)
 /// - Multiday: Groups by day within range
 @Suite("Entry List Grouping Tests")
@@ -26,15 +26,15 @@ struct EntryListGroupingTests {
 
     // MARK: - Year Spread Grouping Tests
 
-    /// When a year spread contains entries from different months,
-    /// the grouper should create separate sections for each month in chronological order.
-    @Test("Year spread groups entries by month")
-    func yearSpreadGroupsByMonth() {
+    /// When a year spread contains year-, month-, and day-assigned tasks,
+    /// the grouper should keep year tasks untitled and place month/day tasks in month sections.
+    @Test("Year spread keeps current-year tasks untitled and groups month/day tasks by month")
+    func yearSpreadUsesUntitledYearSectionAndMonthSections() {
         let entries: [any Entry] = [
-            DataModel.Task(title: "January Task", date: makeDate(year: 2026, month: 1, day: 15)),
-            DataModel.Task(title: "March Task", date: makeDate(year: 2026, month: 3, day: 10)),
-            DataModel.Task(title: "January Task 2", date: makeDate(year: 2026, month: 1, day: 20)),
-            DataModel.Event(title: "February Event", startDate: makeDate(year: 2026, month: 2, day: 5))
+            DataModel.Task(title: "Year Task", date: makeDate(year: 2026, month: 1, day: 1), period: .year),
+            DataModel.Task(title: "January Month Task", date: makeDate(year: 2026, month: 1, day: 1), period: .month),
+            DataModel.Task(title: "January Day Task", date: makeDate(year: 2026, month: 1, day: 20), period: .day),
+            DataModel.Task(title: "March Day Task", date: makeDate(year: 2026, month: 3, day: 10), period: .day)
         ]
 
         let spreadDate = makeDate(year: 2026, month: 1, day: 1)
@@ -42,22 +42,25 @@ struct EntryListGroupingTests {
         let sections = grouper.group(entries)
 
         #expect(sections.count == 3)
-        #expect(sections[0].title == "January 2026")
-        #expect(sections[0].entries.count == 2)
-        #expect(sections[1].title == "February 2026")
-        #expect(sections[1].entries.count == 1)
+        #expect(sections[0].title.isEmpty)
+        #expect(sections[0].entries.map(\.title) == ["Year Task"])
+        #expect(sections[1].title == "January 2026")
+        #expect(sections[1].entries.map(\.title) == ["January Month Task", "January Day Task"])
+        #expect(sections[1].contextualLabels.count == 1)
+        #expect(sections[1].contextualLabels[sections[1].entries[1].id] == "20")
         #expect(sections[2].title == "March 2026")
         #expect(sections[2].entries.count == 1)
+        #expect(sections[2].contextualLabels[sections[2].entries[0].id] == "10")
     }
 
-    /// When a year spread has entries all in the same month,
-    /// only one section should be created.
-    @Test("Year spread with single month creates one section")
-    func yearSpreadSingleMonthOneSection() {
+    /// When a year spread has no year-assigned tasks,
+    /// it should not create an empty untitled section before the month sections.
+    @Test("Year spread omits untitled section when no year tasks exist")
+    func yearSpreadOmitsUntitledSectionWhenUnused() {
         let entries: [any Entry] = [
-            DataModel.Task(title: "Task 1", date: makeDate(year: 2026, month: 5, day: 1)),
-            DataModel.Task(title: "Task 2", date: makeDate(year: 2026, month: 5, day: 15)),
-            DataModel.Note(title: "Note 1", date: makeDate(year: 2026, month: 5, day: 20))
+            DataModel.Task(title: "Task 1", date: makeDate(year: 2026, month: 5, day: 1), period: .month),
+            DataModel.Task(title: "Task 2", date: makeDate(year: 2026, month: 5, day: 15), period: .day),
+            DataModel.Note(title: "Note 1", date: makeDate(year: 2026, month: 5, day: 20), period: .day)
         ]
 
         let spreadDate = makeDate(year: 2026, month: 1, day: 1)
@@ -67,41 +70,46 @@ struct EntryListGroupingTests {
         #expect(sections.count == 1)
         #expect(sections[0].title == "May 2026")
         #expect(sections[0].entries.count == 3)
+        #expect(sections[0].contextualLabels.count == 2)
     }
 
     // MARK: - Month Spread Grouping Tests
 
-    /// When a month spread contains entries from different days,
-    /// the grouper should create separate sections for each day in chronological order.
-    @Test("Month spread groups entries by day")
-    func monthSpreadGroupsByDay() {
+    /// When a month spread contains month-, year-, and day-assigned entries,
+    /// the grouper should keep them in one untitled section and label only day entries.
+    @Test("Month spread keeps tasks in one untitled list and labels day tasks")
+    func monthSpreadUsesSingleUntitledSectionWithDayLabels() {
         let entries: [any Entry] = [
-            DataModel.Task(title: "Day 5 Task", date: makeDate(year: 2026, month: 3, day: 5)),
-            DataModel.Task(title: "Day 10 Task", date: makeDate(year: 2026, month: 3, day: 10)),
-            DataModel.Task(title: "Day 5 Task 2", date: makeDate(year: 2026, month: 3, day: 5)),
-            DataModel.Event(title: "Day 15 Event", startDate: makeDate(year: 2026, month: 3, day: 15))
+            DataModel.Task(title: "Inherited Year Task", date: makeDate(year: 2026, month: 1, day: 1), period: .year),
+            DataModel.Task(title: "Month Task", date: makeDate(year: 2026, month: 3, day: 1), period: .month),
+            DataModel.Task(title: "Day 5 Task", date: makeDate(year: 2026, month: 3, day: 5), period: .day),
+            DataModel.Note(title: "Day 10 Note", date: makeDate(year: 2026, month: 3, day: 10), period: .day)
         ]
 
         let spreadDate = makeDate(year: 2026, month: 3, day: 1)
         let grouper = EntryListGrouper(period: .month, spreadDate: spreadDate, calendar: calendar)
         let sections = grouper.group(entries)
 
-        #expect(sections.count == 3)
-        #expect(sections[0].title == "March 5")
-        #expect(sections[0].entries.count == 2)
-        #expect(sections[1].title == "March 10")
-        #expect(sections[1].entries.count == 1)
-        #expect(sections[2].title == "March 15")
-        #expect(sections[2].entries.count == 1)
+        #expect(sections.count == 1)
+        #expect(sections[0].title.isEmpty)
+        #expect(sections[0].entries.map(\.title) == [
+            "Inherited Year Task",
+            "Month Task",
+            "Day 5 Task",
+            "Day 10 Note",
+        ])
+        #expect(sections[0].contextualLabels.count == 2)
+        #expect(sections[0].contextualLabels[sections[0].entries[2].id] == "5")
+        #expect(sections[0].contextualLabels[sections[0].entries[3].id] == "10")
     }
 
-    /// When a month spread has entries all on the same day,
-    /// only one section should be created.
-    @Test("Month spread with single day creates one section")
-    func monthSpreadSingleDayOneSection() {
+    /// When a month spread has only month-assigned entries,
+    /// it should still render a single untitled section with no day labels.
+    @Test("Month spread with only month entries has no contextual day labels")
+    func monthSpreadWithOnlyMonthEntriesHasNoDayLabels() {
         let entries: [any Entry] = [
-            DataModel.Task(title: "Task 1", date: makeDate(year: 2026, month: 7, day: 20)),
-            DataModel.Event(title: "Event 1", startDate: makeDate(year: 2026, month: 7, day: 20))
+            DataModel.Task(title: "Task 1", date: makeDate(year: 2026, month: 7, day: 1), period: .month),
+            DataModel.Note(title: "Note 1", date: makeDate(year: 2026, month: 7, day: 1), period: .month)
         ]
 
         let spreadDate = makeDate(year: 2026, month: 7, day: 1)
@@ -109,8 +117,9 @@ struct EntryListGroupingTests {
         let sections = grouper.group(entries)
 
         #expect(sections.count == 1)
-        #expect(sections[0].title == "July 20")
+        #expect(sections[0].title.isEmpty)
         #expect(sections[0].entries.count == 2)
+        #expect(sections[0].contextualLabels.isEmpty)
     }
 
     // MARK: - Day Spread Grouping Tests
@@ -294,12 +303,12 @@ struct EntryListGroupingTests {
         #expect(calendar.isDate(sections[0].date, inSameDayAs: expectedDate))
     }
 
-    /// When grouping by day for a month spread,
-    /// the section should include the exact date.
-    @Test("Month spread sections include exact date")
-    func monthSpreadSectionsIncludeExactDate() {
+    /// When grouping a month spread,
+    /// the section date should remain the month spread date because the list is unsectioned.
+    @Test("Month spread section keeps month spread date")
+    func monthSpreadSectionsKeepMonthSpreadDate() {
         let entries: [any Entry] = [
-            DataModel.Task(title: "Task", date: makeDate(year: 2026, month: 5, day: 20))
+            DataModel.Task(title: "Task", date: makeDate(year: 2026, month: 5, day: 20), period: .day)
         ]
 
         let spreadDate = makeDate(year: 2026, month: 5, day: 1)
@@ -307,7 +316,7 @@ struct EntryListGroupingTests {
         let sections = grouper.group(entries)
 
         #expect(sections.count == 1)
-        let expectedDate = makeDate(year: 2026, month: 5, day: 20)
+        let expectedDate = makeDate(year: 2026, month: 5, day: 1)
         #expect(calendar.isDate(sections[0].date, inSameDayAs: expectedDate))
     }
 }

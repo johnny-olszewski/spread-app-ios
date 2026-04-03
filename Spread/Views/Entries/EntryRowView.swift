@@ -54,6 +54,7 @@ struct EntryRowView: View {
     init(
         task: DataModel.Task,
         migrationDestination: String? = nil,
+        contextualLabel: String? = nil,
         onComplete: (() -> Void)? = nil,
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
@@ -64,7 +65,8 @@ struct EntryRowView: View {
             entryType: .task,
             taskStatus: task.status,
             title: task.title,
-            migrationDestination: migrationDestination
+            migrationDestination: migrationDestination,
+            contextualLabel: contextualLabel
         )
         self.iconConfiguration = StatusIconConfiguration(
             entryType: .task,
@@ -104,6 +106,7 @@ struct EntryRowView: View {
     init(
         note: DataModel.Note,
         migrationDestination: String? = nil,
+        contextualLabel: String? = nil,
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil
@@ -112,7 +115,8 @@ struct EntryRowView: View {
             entryType: .note,
             noteStatus: note.status,
             title: note.title,
-            migrationDestination: migrationDestination
+            migrationDestination: migrationDestination,
+            contextualLabel: contextualLabel
         )
         self.iconConfiguration = StatusIconConfiguration(
             entryType: .note,
@@ -168,15 +172,21 @@ struct EntryRowView: View {
                     Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(configuration.title)
                 )
         } else {
-            Text(configuration.title)
-                .strikethrough(configuration.hasStrikethrough)
-                .lineLimit(2)
-                .onTapGesture {
-                    guard configuration.entryType == .task,
-                          onTitleCommit != nil,
-                          configuration.taskStatus == .open else { return }
-                    beginEditing()
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(configuration.title)
+                    .strikethrough(configuration.hasStrikethrough)
+                    .lineLimit(2)
+                    .onTapGesture {
+                        guard configuration.entryType == .task,
+                              onTitleCommit != nil,
+                              configuration.taskStatus == .open else { return }
+                        beginEditing()
+                    }
+
+                if let contextualLabel = configuration.contextualLabel {
+                    contextualLabelView(contextualLabel)
                 }
+            }
         }
     }
 
@@ -241,6 +251,22 @@ struct EntryRowView: View {
                 .font(.caption)
         }
         .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private func contextualLabelView(_ contextualLabel: String) -> some View {
+        let label = Text(contextualLabel)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize()
+
+        if configuration.entryType == .task {
+            label.accessibilityIdentifier(
+                Definitions.AccessibilityIdentifiers.SpreadContent.taskContextLabel(configuration.title)
+            )
+        } else {
+            label
+        }
     }
 
     // MARK: - Context Menu

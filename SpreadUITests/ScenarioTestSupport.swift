@@ -391,6 +391,15 @@ class LocalhostScenarioUITestCase: XCTestCase {
     }
 
     func openHeaderNavigator(in app: XCUIApplication) {
+        let titleButton = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton
+        )
+        if titleButton.waitForExistence(timeout: 5) {
+            tapElement(titleButton)
+            return
+        }
+
         let selectSpreadButton = anyElement(
             in: app,
             identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectSpreadButton
