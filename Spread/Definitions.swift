@@ -127,6 +127,8 @@ struct Definitions {
         struct SpreadStrip {
             static let container = "spreads.strip.container"
             static let selectedCapsule = "spreads.strip.selected"
+            static let selectSpreadButton = "spreads.strip.selectSpread"
+            static let recenterButton = "spreads.strip.recenter"
         }
 
         struct SpreadToolbar {

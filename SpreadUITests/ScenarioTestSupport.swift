@@ -391,15 +391,15 @@ class LocalhostScenarioUITestCase: XCTestCase {
     }
 
     func openHeaderNavigator(in app: XCUIApplication) {
-        let selectedCapsule = anyElement(
+        let selectSpreadButton = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectSpreadButton
         )
-        if selectedCapsule.waitForExistence(timeout: 5) {
-            tapElement(selectedCapsule)
+        if selectSpreadButton.waitForExistence(timeout: 5) {
+            tapElement(selectSpreadButton)
             return
         }
-        XCTFail("Selected spread capsule was not found")
+        XCTFail("Select Spread button was not found")
     }
 
     func waitForNavigatorDismissal(in app: XCUIApplication, timeout: TimeInterval = 5) {

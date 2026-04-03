@@ -18,14 +18,24 @@ struct SpreadContentPagerView<Page: View>: View {
         items.map(\.id)
     }
 
+    private func pagerID(for semanticID: String) -> String {
+        "pager.\(semanticID)"
+    }
+
+    private func semanticID(from pagerID: String?) -> String? {
+        guard let pagerID else { return nil }
+        return pagerID.replacingOccurrences(of: "pager.", with: "")
+    }
+
     private var liveAnchorID: String {
-        guard let visiblePageID, items.contains(where: { $0.id == visiblePageID }) else {
+        guard let visibleSemanticID = semanticID(from: visiblePageID),
+              items.contains(where: { $0.id == visibleSemanticID }) else {
             return selectedID
         }
-        if visiblePageID != selectedID && scrollPhase == .idle {
+        if visibleSemanticID != selectedID && scrollPhase == .idle {
             return selectedID
         }
-        return visiblePageID
+        return visibleSemanticID
     }
 
     private var liveWindowIDs: Set<String> {
@@ -45,7 +55,7 @@ struct SpreadContentPagerView<Page: View>: View {
                         }
                     }
                     .containerRelativeFrame([.horizontal, .vertical])
-                    .id(item.id)
+                    .id(pagerID(for: item.id))
                 }
             }
             .scrollTargetLayout()
@@ -54,7 +64,7 @@ struct SpreadContentPagerView<Page: View>: View {
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $visiblePageID)
         .onAppear {
-            visiblePageID = selectedID
+            visiblePageID = pagerID(for: selectedID)
             lastSequenceSignature = sequenceSignature
         }
         .task(id: sequenceSignature) {
@@ -63,7 +73,7 @@ struct SpreadContentPagerView<Page: View>: View {
             center(on: selectedID, animated: isSameSequence)
         }
         .onChange(of: selectedID) { _, newValue in
-            guard newValue != visiblePageID else { return }
+            guard pagerID(for: newValue) != visiblePageID else { return }
             let shouldAnimate = lastSequenceSignature == sequenceSignature
             center(on: newValue, animated: shouldAnimate)
         }
@@ -71,13 +81,17 @@ struct SpreadContentPagerView<Page: View>: View {
             center(on: selectedID, animated: true)
         }
         .onChange(of: visiblePageID) { _, newValue in
-            guard scrollPhase == .idle, let newValue, newValue != selectedID else { return }
-            guard let item = items.first(where: { $0.id == newValue }) else { return }
+            guard scrollPhase == .idle,
+                  let semanticID = semanticID(from: newValue),
+                  semanticID != selectedID else { return }
+            guard let item = items.first(where: { $0.id == semanticID }) else { return }
             onSettledSelect(item.selection)
         }
         .onScrollPhaseChange { _, newPhase in
             scrollPhase = newPhase
-            guard newPhase == .idle, let currentVisibleID = visiblePageID, currentVisibleID != selectedID else {
+            guard newPhase == .idle,
+                  let currentVisibleID = semanticID(from: visiblePageID),
+                  currentVisibleID != selectedID else {
                 return
             }
             guard let item = items.first(where: { $0.id == currentVisibleID }) else { return }
@@ -89,10 +103,10 @@ struct SpreadContentPagerView<Page: View>: View {
     private func center(on id: String, animated: Bool) {
         if animated {
             withAnimation(.easeInOut(duration: 0.38)) {
-                visiblePageID = id
+                visiblePageID = pagerID(for: id)
             }
         } else {
-            visiblePageID = id
+            visiblePageID = pagerID(for: id)
         }
     }
 }
