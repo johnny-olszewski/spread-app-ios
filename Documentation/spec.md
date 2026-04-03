@@ -339,6 +339,15 @@
     - the root year list starts at the earliest year that has either entry data or an explicitly created conventional spread
     - month grids show every calendar day in the month and do not show multiday tiles in v1
 - Spread content view shows active entries and migrated entries section (conventional). [SPRD-27, SPRD-29]
+  - Year and month spreads use spread-specific task sectioning rather than generic source-based sectioning. [SPRD-138]
+  - On a year spread:
+    - tasks assigned directly to that year appear in an untitled top section because they belong to the current spread
+    - tasks assigned to months appear under titled month sections
+    - tasks assigned to days also appear inside their containing month sections and show the day number next to the task
+  - On a month spread:
+    - tasks assigned directly to that month appear in an untitled top section because they belong to the current spread
+    - tasks assigned to days in that month appear in the same list and show the day number next to the task
+  - Day and multiday spreads do not use this year/month sectioning rule; they continue to show their normal flat task presentation for the current spread. [SPRD-138]
 - Conventional-mode migration prompt UI: [SPRD-111]
   - Year, month, and day spreads may show a small migration banner when at least one task is eligible to move into that spread.
   - Multiday spreads never show the migration banner.
