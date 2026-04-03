@@ -49,8 +49,7 @@ struct SpreadHeaderView: View {
                         onSelect: onNavigatorSelect
                     )
             } else {
-                Text(configuration.title)
-                    .font(SpreadTheme.Typography.title2)
+                titleLabel
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
             }
         }
@@ -63,17 +62,33 @@ struct SpreadHeaderView: View {
         Button {
             isShowingNavigator.wrappedValue = true
         } label: {
-            HStack(spacing: 6) {
-                Text(configuration.title)
-                    .font(SpreadTheme.Typography.title2)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 12, weight: .semibold))
+            VStack(spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(configuration.title)
+                        .font(SpreadTheme.Typography.title2)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+
+                Text(configuration.spread.period.displayName)
+                    .font(.caption.smallCaps())
                     .foregroundStyle(.secondary)
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton)
+    }
+
+    private var titleLabel: some View {
+        VStack(spacing: 2) {
+            Text(configuration.title)
+                .font(SpreadTheme.Typography.title2)
+            Text(configuration.spread.period.displayName)
+                .font(.caption.smallCaps())
+                .foregroundStyle(.secondary)
+        }
     }
 }
 

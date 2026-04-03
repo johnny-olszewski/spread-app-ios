@@ -21,7 +21,7 @@ struct TodayButtonModifier: ViewModifier {
                 Button("Today", action: action)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .glassEffect(in: Capsule())
+                    .glassEffect(.clear, in: Capsule())
                     .padding(.horizontal, 16)
                     .padding(.bottom, 20)
                     .padding(.top, 8)
