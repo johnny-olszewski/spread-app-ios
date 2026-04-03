@@ -20,6 +20,7 @@ struct SpreadTitleNavigatorView: View {
     @State private var scrollViewportWidth: CGFloat = 0
     @State private var stripCenteredTargetID: String?
     @State private var widthChangeCenterToken = 0
+    @Namespace private var selectionIndicatorNamespace
 
     private var items: [SpreadTitleNavigatorModel.Item] {
         stripModel.items(for: selection)
@@ -41,33 +42,7 @@ struct SpreadTitleNavigatorView: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Self.itemSpacing) {
-
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    SpreadTitleNavigatorItemView(
-                        semanticID: item.id,
-                        style: item.style,
-                        display: item.display,
-                        isSelected: item.id == selectedSemanticID,
-                        accessibilityIdentifier: item.id == selectedSemanticID
-                            ? Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
-                            : identifier(for: item),
-                        action: {
-                            handleItemTap(item)
-                        }
-                    )
-                        .id(stripID(for: item.id))
-                        .padding(.leading, extraLeadingSpacing(for: item, at: index))
-                }
-            }
-            .scrollTargetLayout()
-            .backgroundPreferenceValue(SpreadTitleNavigatorItemFramePreferenceKey.self) { frames in
-                Color.clear
-                    .onAppear { itemFrames = frames }
-                    .onChange(of: frames) { _, newValue in
-                        itemFrames = newValue
-                    }
-            }
+            itemRow
         }
         .coordinateSpace(name: "SpreadTitleNavigatorScroll")
         .scrollTargetBehavior(.viewAligned)
@@ -106,6 +81,40 @@ struct SpreadTitleNavigatorView: View {
         }
         .secondaryPaperBackground()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.container)
+    }
+
+    private var itemRow: some View {
+        HStack(spacing: Self.itemSpacing) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                itemView(for: item, index: index)
+            }
+        }
+        .scrollTargetLayout()
+        .backgroundPreferenceValue(SpreadTitleNavigatorItemFramePreferenceKey.self) { frames in
+            Color.clear
+                .onAppear { itemFrames = frames }
+                .onChange(of: frames) { _, newValue in
+                    itemFrames = newValue
+                }
+        }
+    }
+
+    private func itemView(for item: SpreadTitleNavigatorModel.Item, index: Int) -> some View {
+        SpreadTitleNavigatorItemView(
+            semanticID: item.id,
+            style: item.style,
+            display: item.display,
+            isSelected: item.id == selectedSemanticID,
+            accessibilityIdentifier: item.id == selectedSemanticID
+                ? Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
+                : identifier(for: item),
+            selectionIndicatorNamespace: selectionIndicatorNamespace,
+            action: {
+                handleItemTap(item)
+            }
+        )
+        .id(stripID(for: item.id))
+        .padding(.leading, extraLeadingSpacing(for: item, at: index))
     }
 
     private func handleItemTap(_ item: SpreadTitleNavigatorModel.Item) {
