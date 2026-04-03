@@ -35,6 +35,7 @@ struct SpreadTitleNavigatorView: View {
     @State private var isShowingNavigatorSurface = false
     @State private var scrollPosition = ScrollPosition()
     @State private var visibleItemIDs: Set<String> = []
+    @State private var stripWidth: CGFloat = 0
 
     // MARK: - Derived
 
@@ -126,7 +127,8 @@ struct SpreadTitleNavigatorView: View {
         .scrollTargetBehavior(.viewAligned)
         .contentShape(Rectangle())
         .onScrollTargetVisibilityChange(idType: String.self) { visibleItemIDs = Set($0) }
-        .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { _, _ in
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { _, newWidth in
+            stripWidth = newWidth
             centerOnSelected(animated: false)
         }
         .task(id: items.map(\.id)) {
@@ -144,23 +146,24 @@ struct SpreadTitleNavigatorView: View {
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.container)
     }
 
-    /// A spacer occupying half the scroll view's visible width so the first and
-    /// last items can be scrolled to the center of the strip.
+    /// A spacer occupying half the strip's visible width so the first and last
+    /// items can be scrolled to the horizontal center.
     private var centeringspacer: some View {
         Color.clear
-            .containerRelativeFrame(.horizontal) { w, _ in w / 2 }
-            .frame(height: 1)
+            .frame(width: max(stripWidth / 2, 0), height: 1)
             .accessibilityHidden(true)
     }
 
     private func centerOnSelected(animated: Bool) {
         let id = stripScrollID(selectedItemID)
-        if animated {
-            withAnimation(Self.selectionAnimation) {
+        DispatchQueue.main.async {
+            if animated {
+                withAnimation(Self.selectionAnimation) {
+                    scrollPosition.scrollTo(id: id, anchor: .center)
+                }
+            } else {
                 scrollPosition.scrollTo(id: id, anchor: .center)
             }
-        } else {
-            scrollPosition.scrollTo(id: id, anchor: .center)
         }
     }
 
