@@ -11,6 +11,12 @@ import SwiftUI
 /// Uses `EntryRowView` for consistent entry rendering across all spread types.
 struct EntryListView: View {
 
+    private struct InlineCreationTarget: Equatable {
+        let sectionID: Date
+        let date: Date
+        let period: Period
+    }
+
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     // MARK: - Properties
@@ -50,7 +56,7 @@ struct EntryListView: View {
 
     // MARK: - Inline creation state
 
-    @State private var activeInlineCreationDate: Date?
+    @State private var activeInlineCreationTarget: InlineCreationTarget?
     @State private var inlineTitle: String = ""
     @State private var isContinuingEntry: Bool = false
     @State private var inlineCreationID: UUID = UUID()
@@ -159,8 +165,8 @@ struct EntryListView: View {
                         Spacer()
 
                         Button("Save") {
-                            if let date = activeInlineCreationDate {
-                                commitInlineTask(date: date)
+                            if let target = activeInlineCreationTarget {
+                                commitInlineTask(target: target)
                             }
                         }
                         .glassEffect(in: Capsule())
@@ -169,12 +175,12 @@ struct EntryListView: View {
                 }
             }
             .onChange(of: isInlineFocused) { _, focused in
-                guard !focused, !isContinuingEntry, activeInlineCreationDate != nil else { return }
+                guard !focused, !isContinuingEntry, activeInlineCreationTarget != nil else { return }
                 let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty {
                     dismissInlineCreation()
-                } else if let date = activeInlineCreationDate {
-                    commitInlineTask(date: date)
+                } else if let target = activeInlineCreationTarget {
+                    commitInlineTask(target: target)
                 }
             }
     }
@@ -217,22 +223,10 @@ struct EntryListView: View {
 
             ForEach(sections) { section in
                 if section.title.isEmpty {
-                    // Flat list (day spread) - no section header
-                    ForEach(section.entries, id: \.id) { entry in
-                        entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
-                            .listRowInsets(Self.rowInsets)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                    }
+                    sectionRows(section)
                 } else {
-                    // Grouped list with section header
                     Section(section.title) {
-                        ForEach(section.entries, id: \.id) { entry in
-                            entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
-                                .listRowInsets(Self.rowInsets)
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
-                        }
+                        sectionRows(section)
                     }
                 }
             }
@@ -247,18 +241,6 @@ struct EntryListView: View {
             )
             .listRowBackground(Color.clear)
 
-            // Inline creation row or add task button
-            if let date = activeInlineCreationDate {
-                inlineCreationRow(for: date)
-                    .listRowInsets(Self.rowInsets)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-            } else if onAddTask != nil {
-                addTaskButton(for: spreadDataModel.spread.date)
-                    .listRowInsets(Self.rowInsets)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-            }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -341,7 +323,7 @@ struct EntryListView: View {
     @ViewBuilder
     private func multidayDaySection(_ section: EntryListSection) -> some View {
         let dateID = multidaySectionDateID(for: section.date)
-        let isDayActive = activeInlineCreationDate.map { calendar.isDate($0, inSameDayAs: section.date) } ?? false
+        let isDayActive = activeInlineCreationTarget?.sectionID == section.id
 
         VStack(alignment: .leading, spacing: 12) {
             Text(section.title)
@@ -355,10 +337,10 @@ struct EntryListView: View {
                 }
 
                 if isDayActive {
-                    inlineCreationRow(for: section.date)
+                    inlineCreationRow(for: creationTarget(for: section))
                         .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                 } else if onAddTask != nil {
-                    addTaskButton(for: section.date)
+                    addTaskButton(for: creationTarget(for: section))
                         .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                         .accessibilityIdentifier(
                             Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID)
@@ -388,13 +370,37 @@ struct EntryListView: View {
         )
     }
 
+    @ViewBuilder
+    private func sectionRows(_ section: EntryListSection) -> some View {
+        ForEach(section.entries, id: \.id) { entry in
+            entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
+                .listRowInsets(Self.rowInsets)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+
+        if let onAddTask {
+            if activeInlineCreationTarget?.sectionID == section.id {
+                inlineCreationRow(for: creationTarget(for: section))
+                    .listRowInsets(Self.rowInsets)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } else {
+                addTaskButton(for: creationTarget(for: section))
+                    .listRowInsets(Self.rowInsets)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+        }
+    }
+
     private func multidaySectionDateID(for date: Date) -> String {
         Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: date, calendar: calendar)
     }
 
     // MARK: - Inline Creation
 
-    private func inlineCreationRow(for date: Date) -> some View {
+    private func inlineCreationRow(for target: InlineCreationTarget) -> some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
             StatusIcon(entryType: .task, taskStatus: .open, color: .primary)
 
@@ -403,7 +409,7 @@ struct EntryListView: View {
                 .textFieldStyle(.plain)
                 .focused($isInlineFocused)
                 .submitLabel(.return)
-                .onSubmit { commitAndContinue(date: date) }
+                .onSubmit { commitAndContinue(target: target) }
                 .onAppear { isInlineFocused = true }
                 .accessibilityIdentifier(
                     Definitions.AccessibilityIdentifiers.SpreadContent.inlineTaskCreationField
@@ -413,9 +419,9 @@ struct EntryListView: View {
         }
     }
 
-    private func addTaskButton(for date: Date) -> some View {
+    private func addTaskButton(for target: InlineCreationTarget) -> some View {
         Button {
-            activateInlineCreation(for: date)
+            activateInlineCreation(for: target)
         } label: {
             HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
                 Image(systemName: "plus")
@@ -434,49 +440,51 @@ struct EntryListView: View {
 
     // MARK: - Inline Creation Helpers
 
-    private func activateInlineCreation(for date: Date) {
+    private func activateInlineCreation(for target: InlineCreationTarget) {
         inlineTitle = ""
-        activeInlineCreationDate = date
+        activeInlineCreationTarget = target
     }
 
-    private func commitAndContinue(date: Date) {
+    private func commitAndContinue(target: InlineCreationTarget) {
         let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             dismissInlineCreation()
             return
         }
         isContinuingEntry = true
-        let period = inlineCreationPeriod(for: date)
         Task {
-            try? await onAddTask?(trimmed, date, period)
+            try? await onAddTask?(trimmed, target.date, target.period)
             inlineTitle = ""
             isContinuingEntry = false
             inlineCreationID = UUID()
         }
     }
 
-    private func commitInlineTask(date: Date) {
+    private func commitInlineTask(target: InlineCreationTarget) {
         let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             dismissInlineCreation()
             return
         }
-        let period = inlineCreationPeriod(for: date)
         Task {
-            try? await onAddTask?(trimmed, date, period)
+            try? await onAddTask?(trimmed, target.date, target.period)
             dismissInlineCreation()
         }
     }
 
     private func dismissInlineCreation() {
         guard !isContinuingEntry else { return }
-        activeInlineCreationDate = nil
+        activeInlineCreationTarget = nil
         inlineTitle = ""
         isInlineFocused = false
     }
 
-    private func inlineCreationPeriod(for date: Date) -> Period {
-        isMultidaySpread ? .day : spreadDataModel.spread.period
+    private func creationTarget(for section: EntryListSection) -> InlineCreationTarget {
+        InlineCreationTarget(
+            sectionID: section.id,
+            date: section.creationDate,
+            period: section.creationPeriod
+        )
     }
 
     // MARK: - Helpers
