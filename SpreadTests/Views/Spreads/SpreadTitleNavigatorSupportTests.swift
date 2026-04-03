@@ -15,6 +15,92 @@ struct SpreadTitleNavigatorSupportTests {
         calendar.date(from: DateComponents(year: year, month: month, day: day))!
     }
 
+    // Verifies that a conventional model with no explicit year/month/day spreads for today
+    // recommends each missing period in hierarchical order.
+    @Test func recommendationProviderReturnsMissingYearMonthAndDayForToday() {
+        let provider = TodayMissingSpreadRecommendationProvider()
+        let model = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 29),
+            spreads: [],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+
+        let recommendations = provider.recommendations(for: model)
+
+        #expect(recommendations.map(\.period) == [.year, .month, .day])
+        #expect(recommendations.map(\.date) == [
+            Self.makeDate(year: 2026, month: 1, day: 1),
+            Self.makeDate(year: 2026, month: 3, day: 1),
+            Self.makeDate(year: 2026, month: 3, day: 29),
+        ])
+    }
+
+    // Verifies that existing explicit year/month/day spreads suppress their matching recommendations.
+    @Test func recommendationProviderOmitsExistingExplicitPeriods() {
+        let provider = TodayMissingSpreadRecommendationProvider()
+        let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let day = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 29), calendar: Self.calendar)
+        let model = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 29),
+            spreads: [year, day],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+
+        let recommendations = provider.recommendations(for: model)
+
+        #expect(recommendations.map(\.period) == [.month])
+        #expect(recommendations.first?.date == Self.makeDate(year: 2026, month: 3, day: 1))
+    }
+
+    // Verifies that a multiday spread containing today does not satisfy the explicit day recommendation.
+    @Test func recommendationProviderDoesNotTreatMultidayAsDayCoverage() {
+        let provider = TodayMissingSpreadRecommendationProvider()
+        let multiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 3, day: 27),
+            endDate: Self.makeDate(year: 2026, month: 3, day: 31),
+            calendar: Self.calendar
+        )
+        let model = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 29),
+            spreads: [multiday],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+
+        let recommendations = provider.recommendations(for: model)
+
+        #expect(recommendations.map(\.period) == [.year, .month, .day])
+    }
+
+    // Verifies that traditional mode never surfaces conventional spread-creation recommendations.
+    @Test func recommendationProviderReturnsNoRecommendationsInTraditionalMode() {
+        let provider = TodayMissingSpreadRecommendationProvider()
+        let model = SpreadHeaderNavigatorModel(
+            mode: .traditional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 29),
+            spreads: [],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+
+        let recommendations = provider.recommendations(for: model)
+
+        #expect(recommendations.isEmpty)
+    }
+
     @Test func conventionalSelectionUsesExplicitSpreadsAcrossEntireYear() {
         let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
         let january = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)

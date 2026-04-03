@@ -10,12 +10,12 @@ final class SpreadTitleNavigatorUITests: LocalhostScenarioUITestCase {
         waitForElement(neighbor)
         tapElement(neighbor)
 
-        let selectedCapsule = anyElement(
+        let selectedIndicator = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
         )
-        waitForElement(selectedCapsule)
-        XCTAssertTrue(selectedCapsule.label.contains("31"))
+        waitForElement(selectedIndicator)
+        XCTAssertTrue(selectedIndicator.label.contains("31"))
     }
 
     func testSelectedCapsuleOpensNavigatorSurfaceAndHeaderTitleIsRemoved() throws {
@@ -39,12 +39,12 @@ final class SpreadTitleNavigatorUITests: LocalhostScenarioUITestCase {
         waitForElement(pager)
         pager.swipeLeft()
 
-        let selectedCapsule = anyElement(
+        let selectedIndicator = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
         )
-        waitForElement(selectedCapsule)
-        XCTAssertTrue(selectedCapsule.label.contains("31"))
+        waitForElement(selectedIndicator)
+        XCTAssertTrue(selectedIndicator.label.contains("31"))
     }
 
     func testTraditionalContentSwipeUpdatesSelectedStripAfterSettle() throws {
@@ -55,12 +55,12 @@ final class SpreadTitleNavigatorUITests: LocalhostScenarioUITestCase {
         waitForElement(pager)
         pager.swipeLeft()
 
-        let selectedCapsule = anyElement(
+        let selectedIndicator = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
         )
-        waitForElement(selectedCapsule)
-        XCTAssertEqual(selectedCapsule.label, "Jan")
+        waitForElement(selectedIndicator)
+        XCTAssertEqual(selectedIndicator.label, "Jan")
     }
 
     func testConventionalTodayButtonReturnsSelectionToToday() throws {
@@ -77,11 +77,11 @@ final class SpreadTitleNavigatorUITests: LocalhostScenarioUITestCase {
         waitForElement(todayButton)
         todayButton.tap()
 
-        let selectedCapsule = anyElement(
+        let selectedIndicator = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
         )
-        waitForElement(selectedCapsule)
+        waitForElement(selectedIndicator)
         let todayTask = anyElement(
             in: app,
             identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Navigator day task")
@@ -104,11 +104,11 @@ final class SpreadTitleNavigatorUITests: LocalhostScenarioUITestCase {
         waitForElement(todayButton)
         todayButton.tap()
 
-        let selectedCapsule = anyElement(
+        let selectedIndicator = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
         )
-        waitForElement(selectedCapsule)
+        waitForElement(selectedIndicator)
         let todayBadge = app.staticTexts["Today"].firstMatch
         waitForElement(todayBadge)
     }

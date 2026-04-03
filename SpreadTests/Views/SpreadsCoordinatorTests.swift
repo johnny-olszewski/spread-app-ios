@@ -25,7 +25,7 @@ struct SpreadsCoordinatorTests {
     func testShowSpreadCreation() {
         let coordinator = SpreadsCoordinator()
         coordinator.showSpreadCreation()
-        guard case .spreadCreation = coordinator.activeSheet else {
+        guard case .spreadCreation(_) = coordinator.activeSheet else {
             Issue.record("Expected .spreadCreation, got \(String(describing: coordinator.activeSheet))")
             return
         }
@@ -185,7 +185,7 @@ struct SpreadsCoordinatorTests {
         let note = DataModel.Note(title: "Note", date: .now, period: .day)
 
         let destinations: [SpreadsCoordinator.SheetDestination] = [
-            .spreadCreation,
+            .spreadCreation(nil),
             .taskCreation,
             .noteCreation,
             .taskDetail(task),

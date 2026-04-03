@@ -3177,18 +3177,18 @@ Supabase: SPRD-85A -> SPRD-85C
 ### [SPRD-137] UI: Recommended spread creation inset
 - **Context**: The horizontal spread title navigator should help users discover missing explicit spreads for the current day context without forcing them into the create-spread flow manually. Recommendations should be testable independently of the view and visually distinct from existing spreads.
 - **Acceptance Criteria**:
-  - [ ] Add a recommendation-provider protocol that derives recommended spreads for the navigator and can be unit tested independently of SwiftUI rendering.
-  - [ ] Inject a conforming recommendation provider into `SpreadTitleNavigatorView`.
-  - [ ] In conventional mode only, show recommended spreads in a fixed trailing inset area separate from the scrollable strip content.
-  - [ ] Base recommendations on `today`, not on the currently selected spread.
-  - [ ] Recommend each missing explicit `year`, `month`, and `day` spread for today's current period context.
-  - [ ] Do not let containing multiday spreads satisfy the missing day recommendation.
-  - [ ] Show recommendations in `year`, `month`, `day` order.
-  - [ ] Reuse the existing navigator label presentation for recommended items.
-  - [ ] Render each recommendation with a yellow stroked rounded-rectangle border so it is visually distinct from existing spreads.
-  - [ ] Hide the trailing recommendation inset entirely when there are no recommendations.
-  - [ ] Tapping a recommendation opens the existing create-spread flow prefilled for that recommendation.
-  - [ ] Recommendations remain visible while the create-spread flow is open and disappear only after successful creation.
+  - [x] Add a recommendation-provider protocol that derives recommended spreads for the navigator and can be unit tested independently of SwiftUI rendering.
+  - [x] Inject a conforming recommendation provider into `SpreadTitleNavigatorView`.
+  - [x] In conventional mode only, show recommended spreads in a fixed trailing inset area separate from the scrollable strip content.
+  - [x] Base recommendations on `today`, not on the currently selected spread.
+  - [x] Recommend each missing explicit `year`, `month`, and `day` spread for today's current period context.
+  - [x] Do not let containing multiday spreads satisfy the missing day recommendation.
+  - [x] Show recommendations in `year`, `month`, `day` order.
+  - [x] Reuse the existing navigator label presentation for recommended items.
+  - [x] Render each recommendation with a yellow stroked rounded-rectangle border so it is visually distinct from existing spreads.
+  - [x] Hide the trailing recommendation inset entirely when there are no recommendations.
+  - [x] Tapping a recommendation opens the existing create-spread flow prefilled for that recommendation.
+  - [x] Recommendations remain visible while the create-spread flow is open and disappear only after successful creation.
 - **Tests**:
   - Support tests for recommendation derivation across missing and existing year/month/day spread combinations.
   - Focused UI tests covering recommendation visibility, ordering, and opening prefilled creation flow from the trailing inset.

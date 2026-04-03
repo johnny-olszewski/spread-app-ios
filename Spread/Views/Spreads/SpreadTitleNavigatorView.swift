@@ -3,6 +3,7 @@ import UIKit
 
 struct SpreadTitleNavigatorView: View {
     private static let itemSpacing: CGFloat = 12
+    private static let recommendationFadeWidth: CGFloat = 50
 
     #if DEBUG
     private static let debugHideCreateButton = true
@@ -11,11 +12,15 @@ struct SpreadTitleNavigatorView: View {
     let stripModel: SpreadTitleNavigatorModel
     let recenterToken: Int
     let onCreateSpreadTapped: (() -> Void)?
+    let onRecommendedSpreadTapped: ((SpreadTitleNavigatorRecommendation) -> Void)?
     let onCreateTaskTapped: (() -> Void)?
     let onCreateNoteTapped: (() -> Void)?
+    let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding
     @Binding var selection: SpreadHeaderNavigatorModel.Selection
 
     @State private var itemFrames: [String: CGRect] = [:]
+    @State private var recommendationHeights: [String: CGFloat] = [:]
+    @State private var recommendationWidths: [String: CGFloat] = [:]
     @State private var scrollContainerFrame: CGRect = .zero
     @State private var scrollViewportWidth: CGFloat = 0
     @State private var stripCenteredTargetID: String?
@@ -30,8 +35,22 @@ struct SpreadTitleNavigatorView: View {
         selection.stableID(calendar: stripModel.calendar)
     }
 
+    private var recommendations: [SpreadTitleNavigatorRecommendation] {
+        recommendationProvider.recommendations(for: stripModel.headerModel)
+    }
+
     private var selectedFrame: CGRect? {
         itemFrames[selectedSemanticID]
+    }
+
+    private var recommendationHeight: CGFloat? {
+        let tallestHeight = recommendationHeights.values.max() ?? 0
+        return tallestHeight > 0 ? tallestHeight : nil
+    }
+
+    private var recommendationWidth: CGFloat? {
+        let widestWidth = recommendationWidths.values.max() ?? 0
+        return widestWidth > 0 ? widestWidth : nil
     }
 
     private var isSelectedCentered: Bool {
@@ -41,8 +60,16 @@ struct SpreadTitleNavigatorView: View {
     }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            itemRow
+        HStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                itemRow
+            }
+            .mask(mainStripMask)
+            .frame(maxWidth: .infinity)
+            if !recommendations.isEmpty {
+                recommendationInset
+                    .padding(.leading, 12)
+            }
         }
         .coordinateSpace(name: "SpreadTitleNavigatorScroll")
         .scrollTargetBehavior(.viewAligned)
@@ -109,12 +136,92 @@ struct SpreadTitleNavigatorView: View {
                 ? Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
                 : identifier(for: item),
             selectionIndicatorNamespace: selectionIndicatorNamespace,
+            showsSelectionIndicator: true,
+            borderColor: nil,
             action: {
                 handleItemTap(item)
             }
         )
         .id(stripID(for: item.id))
         .padding(.leading, extraLeadingSpacing(for: item, at: index))
+    }
+
+    private var recommendationInset: some View {
+        HStack(spacing: Self.itemSpacing) {
+            ForEach(recommendations) { recommendation in
+                recommendationView(for: recommendation)
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .layoutPriority(1)
+        .padding(.trailing, 12)
+        .onPreferenceChange(SpreadTitleNavigatorRecommendationHeightPreferenceKey.self) { newValue in
+            recommendationHeights = newValue
+        }
+        .onPreferenceChange(SpreadTitleNavigatorRecommendationWidthPreferenceKey.self) { newValue in
+            recommendationWidths = newValue
+        }
+    }
+
+    @ViewBuilder
+    private var mainStripMask: some View {
+        if recommendations.isEmpty {
+            Rectangle()
+        } else {
+            HStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.black)
+                LinearGradient(
+                    colors: [
+                        .black,
+                        .clear
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: Self.recommendationFadeWidth)
+            }
+        }
+    }
+
+    private func recommendationView(for recommendation: SpreadTitleNavigatorRecommendation) -> some View {
+        let item = stripModel.item(for: recommendation)
+        return SpreadTitleNavigatorItemView(
+            semanticID: item.id,
+            style: item.style,
+            display: item.display,
+            isSelected: false,
+            accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadStrip.recommendation(
+                recommendation.period.rawValue
+            ),
+            selectionIndicatorNamespace: selectionIndicatorNamespace,
+            showsSelectionIndicator: false,
+            borderColor: nil,
+            action: {
+                onRecommendedSpreadTapped?(recommendation)
+            }
+        )
+        .frame(width: recommendationWidth)
+        .frame(height: recommendationHeight)
+        .background(
+            GeometryReader { geometry in
+                Color.clear
+                    .preference(
+                        key: SpreadTitleNavigatorRecommendationHeightPreferenceKey.self,
+                        value: [recommendation.id: geometry.size.height]
+                    )
+                    .preference(
+                        key: SpreadTitleNavigatorRecommendationWidthPreferenceKey.self,
+                        value: [recommendation.id: geometry.size.width]
+                    )
+            }
+        )
+        .glowingShimmer(
+            cornerRadius: 10,
+            speed: 2.4,
+            borderWidth: 2.2,
+            blurRadius: 3.5
+        )
     }
 
     private func handleItemTap(_ item: SpreadTitleNavigatorModel.Item) {
@@ -271,5 +378,21 @@ struct SpreadTitleNavigatorView: View {
         } else {
             stripCenteredTargetID = targetID
         }
+    }
+}
+
+struct SpreadTitleNavigatorRecommendationHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+struct SpreadTitleNavigatorRecommendationWidthPreferenceKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }

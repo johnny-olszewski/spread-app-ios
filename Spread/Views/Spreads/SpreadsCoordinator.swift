@@ -9,12 +9,16 @@ import Observation
 @Observable
 @MainActor
 final class SpreadsCoordinator {
+    struct SpreadCreationPrefill: Equatable {
+        let period: Period
+        let date: Date
+    }
 
     // MARK: - Sheet Destinations
 
     /// All possible sheet presentations in the spreads view.
     enum SheetDestination: Identifiable {
-        case spreadCreation
+        case spreadCreation(SpreadCreationPrefill?)
         case taskCreation
         case noteCreation
         case taskDetail(DataModel.Task)
@@ -26,15 +30,27 @@ final class SpreadsCoordinator {
 
         var id: String {
             switch self {
-            case .spreadCreation: "spreadCreation"
-            case .taskCreation: "taskCreation"
-            case .noteCreation: "noteCreation"
-            case .taskDetail(let task): "taskDetail-\(task.id)"
-            case .noteDetail(let note): "noteDetail-\(note.id)"
-            case .inbox: "inbox"
-            case .auth: "auth"
-            case .migrationSelection: "migrationSelection"
-            case .overdueReview: "overdueReview"
+            case .spreadCreation(let prefill):
+                if let prefill {
+                    return "spreadCreation-\(prefill.period.rawValue)-\(prefill.date.timeIntervalSince1970)"
+                }
+                return "spreadCreation"
+            case .taskCreation:
+                return "taskCreation"
+            case .noteCreation:
+                return "noteCreation"
+            case .taskDetail(let task):
+                return "taskDetail-\(task.id)"
+            case .noteDetail(let note):
+                return "noteDetail-\(note.id)"
+            case .inbox:
+                return "inbox"
+            case .auth:
+                return "auth"
+            case .migrationSelection:
+                return "migrationSelection"
+            case .overdueReview:
+                return "overdueReview"
             }
         }
     }
@@ -47,8 +63,8 @@ final class SpreadsCoordinator {
     // MARK: - Actions
 
     /// Presents the spread creation sheet.
-    func showSpreadCreation() {
-        activeSheet = .spreadCreation
+    func showSpreadCreation(prefill: SpreadCreationPrefill? = nil) {
+        activeSheet = .spreadCreation(prefill)
     }
 
     /// Presents the task creation sheet.

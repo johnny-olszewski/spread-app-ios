@@ -21,6 +21,10 @@ struct SpreadCreationSheet: View {
     /// The user's first day of week preference.
     let firstWeekday: FirstWeekday
 
+    /// Optional prefill for year/month/day recommendations.
+    let initialPeriod: Period?
+    let initialDate: Date?
+
     /// Callback when a spread is created.
     let onSpreadCreated: (DataModel.Spread) -> Void
 
@@ -33,6 +37,22 @@ struct SpreadCreationSheet: View {
     @State private var isCreating = false
     @State private var showingError = false
     @State private var errorMessage = ""
+
+    // MARK: - Initialization
+
+    init(
+        journalManager: JournalManager,
+        firstWeekday: FirstWeekday,
+        initialPeriod: Period? = nil,
+        initialDate: Date? = nil,
+        onSpreadCreated: @escaping (DataModel.Spread) -> Void
+    ) {
+        self.journalManager = journalManager
+        self.firstWeekday = firstWeekday
+        self.initialPeriod = initialPeriod
+        self.initialDate = initialDate
+        self.onSpreadCreated = onSpreadCreated
+    }
 
     // MARK: - Computed Properties
 
@@ -252,7 +272,11 @@ struct SpreadCreationSheet: View {
 
     private func initializeDates() {
         let today = journalManager.today
-        selectedDate = today
+        let prefilledPeriod = initialPeriod ?? .day
+        let prefilledDate = initialDate ?? today
+
+        selectedPeriod = prefilledPeriod
+        selectedDate = prefilledPeriod.normalizeDate(prefilledDate, calendar: journalManager.calendar)
         multidayStartDate = today
         multidayEndDate = journalManager.calendar.date(byAdding: .day, value: 6, to: today) ?? today
     }

@@ -72,12 +72,12 @@ final class SpreadHeaderNavigatorUITests: LocalhostScenarioUITestCase {
         openHeaderNavigator(in: app)
         tapNavigatorDayTile(year: 2026, month: 3, day: 29, calendar: calendar, in: app)
 
-        let selectedCapsule = anyElement(
+        let selectedIndicator = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedCapsule
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
         )
-        waitForElement(selectedCapsule)
-        XCTAssertEqual(selectedCapsule.label, "29")
+        waitForElement(selectedIndicator)
+        XCTAssertEqual(selectedIndicator.label, "29")
 
         let marchRow = anyElement(
             in: app,

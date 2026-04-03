@@ -26,6 +26,7 @@ struct ConventionalSpreadsView: View {
     /// The currently selected spread.
     @State private var selectedSpread: DataModel.Spread?
     @State private var recenterToken = 0
+    private let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding = TodayMissingSpreadRecommendationProvider()
 
     // MARK: - Body
 
@@ -35,8 +36,10 @@ struct ConventionalSpreadsView: View {
                 stripModel: conventionalStripModel,
                 recenterToken: recenterToken,
                 onCreateSpreadTapped: { coordinator.showSpreadCreation() },
+                onRecommendedSpreadTapped: { openRecommendedSpreadCreation($0) },
                 onCreateTaskTapped: { coordinator.showTaskCreation() },
                 onCreateNoteTapped: { coordinator.showNoteCreation() },
+                recommendationProvider: recommendationProvider,
                 selection: conventionalSelectionBinding
             )
 
@@ -237,6 +240,12 @@ struct ConventionalSpreadsView: View {
         journalManager.migrationCandidates(to: spread).count
     }
 
+    private func openRecommendedSpreadCreation(_ recommendation: SpreadTitleNavigatorRecommendation) {
+        coordinator.showSpreadCreation(
+            prefill: .init(period: recommendation.period, date: recommendation.date)
+        )
+    }
+
     // MARK: - Sheet Content
 
     @ViewBuilder
@@ -244,10 +253,12 @@ struct ConventionalSpreadsView: View {
         for destination: SpreadsCoordinator.SheetDestination
     ) -> some View {
         switch destination {
-        case .spreadCreation:
+        case .spreadCreation(let prefill):
             SpreadCreationSheet(
                 journalManager: journalManager,
                 firstWeekday: journalManager.firstWeekday,
+                initialPeriod: prefill?.period,
+                initialDate: prefill?.date,
                 onSpreadCreated: { spread in
                     selectedSpread = spread
                     Task { await syncEngine?.syncNow() }
