@@ -3209,3 +3209,28 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit tests for month spread grouping covering month- and day-assigned tasks.
   - UI tests verifying untitled current-spread tasks, titled month sections on year spreads, and day-number rendering on year/month spreads.
 - **Dependencies**: SPRD-28
+
+### [SPRD-139] UI: Paged rooted spread header navigator
+- **Context**: The rooted spread navigator opened from the spread header should scale across years and support browsing/selecting month and day destinations more directly than the current flat list presentation. The navigator should become a horizontally paging year browser with expandable month rows and calendar-based day picking.
+- **Spec**: Navigation and UI
+- **Acceptance Criteria**:
+  - The rooted spread navigator is a horizontal paging scroll view of year pages ordered chronologically left to right.
+  - Each year page is a separate injected view configured with the spreads for one specific year.
+  - The navigator opens on the page for the currently selected spread's year.
+  - The navigation title shows the current year and updates after paging settles.
+  - Each year page shows months in standard calendar order.
+  - Each year page allows only one expanded month at a time.
+  - Expanded month state is preserved per year page while the navigator remains open.
+  - In conventional mode, only months with an explicit month spread or any day/multiday sub-spread are shown.
+  - In traditional mode, all months are shown.
+  - Expanding a month reveals a calendar grid for that month.
+  - Calendar dates with no available target are disabled.
+  - If a selected date has exactly one available target, selecting it immediately selects that spread and dismisses the navigator.
+  - If a selected date has multiple available targets, a native confirmation dialog lets the user choose between the day spread and covering multiday spread targets.
+  - If an expanded month has an explicit month spread, the row shows a `View Month` button that selects the month spread.
+  - Tapping the month row itself only toggles expand/collapse and never directly selects the month spread.
+- **Tests**:
+  - Support tests for year-page month visibility in conventional and traditional modes.
+  - Support tests for calendar target derivation, including single-target and multi-target day selection.
+  - UI tests covering horizontal year paging, persisted expanded month state while open, `View Month`, disabled dates, and confirmation-dialog selection for overlapping day/multiday targets.
+- **Dependencies**: SPRD-125

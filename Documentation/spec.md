@@ -245,7 +245,7 @@
   - Traditional mode shows the full selected calendar year inline as a single chronological sequence: the year item, each month item, and every day in that year; traditional mode does not include multiday items in the strip. [SPRD-127]
   - When selection moves to a spread in a different year, the strip rebuilds to that new year's sequence. [SPRD-127]
   - The currently selected spread is centered in the strip on launch. Strip-originated spread selections animate the strip to the selected spread; intentional non-strip jump actions such as `Today` and rooted spread-surface selection also recenter the strip. Pager-driven selection changes do not automatically recenter the strip; they preserve the current strip browse offset while updating selection state. [SPRD-126, SPRD-127, SPRD-136]
-  - The selected spread is rendered as a prominent rounded capsule. The selected strip item itself never opens the rooted navigator surface; tapping it recenters the strip when needed and is otherwise a no-op. [SPRD-126, SPRD-127, SPRD-136]
+  - The selected spread is rendered with a small indicator dot beneath the selected title. [SPRD-126, SPRD-127, SPRD-136]
   - Non-selected visible spreads are rendered as plain text titles with hierarchy-aware styling. [SPRD-126]
   - Inline month items in the strip should have subtle spacing/separator treatment so month boundaries remain readable within the year-wide sequence. [SPRD-127]
   - The navigator preserves a centered selected slot even near list edges or when fewer than five spreads exist by using invisible spacer slots rather than collapsing the layout around the selected item. [SPRD-126]
@@ -253,9 +253,8 @@
   - Horizontal drag is browse-only in this task: the user may scroll and snap the strip without changing the currently selected spread or the main spread content. [SPRD-127]
   - Selection does not update continuously during drag or on drag settle. [SPRD-127]
   - Tapping a visible non-selected spread selects it, updates the main app spread content, and animates that spread into the centered selected position. [SPRD-126, SPRD-127]
-  - The selected spread always retains its prominent rounded capsule styling while browsing; browsing the strip does not hide selected-state styling. [SPRD-127]
-  - A standalone leading `.glassEffect` overlay button labeled `Select Spread` with a down chevron is always visible and opens the rooted spread navigator surface implemented in [SPRD-125]: as a popover on iPad and as a large sheet on iPhone. [SPRD-125, SPRD-136]
-  - A standalone trailing `.glassEffect` overlay button labeled `Recenter` appears whenever the selected spread is not centered in the strip. Tapping it only re-centers the strip on the selected spread; it does not change the selected spread and does not affect the content pager. [SPRD-136]
+  - The selected spread always retains its selected-state indicator styling while browsing; browsing the strip does not hide selected-state styling. [SPRD-127]
+  - The horizontal title strip itself does not provide rooted spread-surface selection controls. The rooted spread navigator is launched from the spread header title control instead. [SPRD-136]
   - The strip uses browse-only snapping while preserving the user's browse offset across layout-width changes when the strip is already browsed away from the selected spread. If the strip is currently centered on the selected spread, width changes keep it centered. This preserves browsing position, but may leave the selected spread visually off-center after some width changes and should be monitored as a potential UX bug. [SPRD-136]
   - The spread header no longer renders a duplicate spread title once this navigator is present. [SPRD-126]
   - A trailing "+" button remains always visible and opens a creation menu (spread or task). [SPRD-23, SPRD-26, SPRD-126]
@@ -267,9 +266,8 @@
     - Multiday items render as a three-line label:
       - same-month ranges show a smallcaps month abbreviation above a compact day range and a short weekday span beneath it
       - cross-month ranges show a smallcaps month span above the compact endpoint day range and a short weekday span beneath it [SPRD-129]
-  - The selected capsule sizes to the full rendered label block for all item types, including multi-line day and multiday labels. [SPRD-129]
-  - The strip height is content-driven with a minimum visual floor; it must not be hardcoded. The strip expands to fit its tallest item label (including multi-line day and multiday items) plus adequate vertical padding so the selected capsule is never clipped or overlapped by sibling views. [SPRD-136]
-  - Scrolling the title strip (including via the return-to-selected button) is isolated from the content pager. Strip scroll events must not propagate to the pager or change the selected spread. [SPRD-136]
+  - The strip height is content-driven with a minimum visual floor; it must not be hardcoded. The strip expands to fit its tallest item label (including multi-line day and multiday items) plus adequate vertical padding so the selected indicator and labels are never clipped or overlapped by sibling views. [SPRD-136]
+  - Scrolling the title strip is isolated from the content pager. Strip scroll events must not propagate to the pager or change the selected spread unless the user explicitly taps a strip item. [SPRD-136]
   - Recommended spread inset behavior: [SPRD-137]
     - In conventional mode only, the title navigator shows a separate fixed trailing inset area for recommended spreads to create.
     - Recommendations are based on `today`, not on the currently selected spread.
@@ -283,6 +281,24 @@
     - Recommended spreads use the same compact label language as ordinary strip items, but are visually distinguished with a yellow stroked rounded-rectangle border.
     - Tapping a recommendation opens the existing create-spread flow prefilled for that recommendation rather than creating the spread immediately.
     - A recommendation remains visible while the create-spread flow is open and disappears only after successful spread creation.
+  - Rooted spread header navigator behavior: [SPRD-125, SPRD-139]
+    - The spread header title control opens a rooted spread navigator: as a popover on iPad and as a large sheet on iPhone.
+    - The rooted navigator is a horizontal paging scroll view of year pages ordered chronologically from left to right.
+    - Each page is a separate injected year view configured with the spreads for one specific year.
+    - The initially visible page is the year of the currently selected spread.
+    - The navigation title displays the current year page and updates only after horizontal paging settles.
+    - Each year page renders its months in calendar order.
+    - Each year page preserves at most one expanded month at a time, and that expanded month state is preserved while the rooted navigator remains open.
+    - Tapping a month row toggles that month's expanded state; tapping an already expanded month row collapses it.
+    - In conventional mode, a year page shows only months that have an explicit month spread or at least one day or multiday sub-spread in that month.
+    - In traditional mode, a year page shows all months.
+    - Expanding a month shows that month's calendar grid.
+    - Calendar days with no selectable target are disabled and not tappable.
+    - A day with exactly one target selects that spread immediately and dismisses the rooted navigator.
+    - A day with multiple targets presents a native confirmation dialog so the user can choose among the day spread and any covering multiday spread targets.
+    - In conventional mode, multiday spreads count as sub-spreads for determining whether a month is shown.
+    - If an expanded month has an explicit month spread, that row also shows a `View Month` button.
+    - `View Month` is the only control that selects the month spread from an expanded month row.
 - Horizontal spread-content paging behavior: [SPRD-128]
   - Spread content pages are presented in a separate horizontal pager beneath the title strip; the title strip remains the navigation chrome and stays synchronized with the selected page. [SPRD-128]
   - The pager uses the same ordered selected-year sequence as the title strip for the current mode. [SPRD-128]
