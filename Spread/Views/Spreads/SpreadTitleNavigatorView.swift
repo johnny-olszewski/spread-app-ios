@@ -55,30 +55,30 @@ struct SpreadTitleNavigatorView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let scrollAreaWidth = max(geometry.size.width, 0)
-
-            ZStack(alignment: .trailing) {
-                scrollStripContainer(visibleWidth: scrollAreaWidth)
-                edgeFadeOverlays
-                if let returnButtonEdge = returnButtonEdge(for: scrollAreaWidth) {
-                    returnToSelectedButton(edge: returnButtonEdge)
-                }
-                if showsCreateButton {
-                    createButton
-                        .padding(.trailing, 12)
-                }
+        ZStack(alignment: .trailing) {
+            scrollStripContainer(visibleWidth: scrollViewportWidth)
+            edgeFadeOverlays
+            if let returnButtonEdge = returnButtonEdge(for: scrollViewportWidth) {
+                returnToSelectedButton(edge: returnButtonEdge)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onAppear {
-                scrollViewportWidth = scrollAreaWidth
-            }
-            .onChange(of: scrollAreaWidth) { _, newValue in
-                scrollViewportWidth = newValue
-                widthChangedToken += 1
+            if showsCreateButton {
+                createButton
+                    .padding(.trailing, 12)
             }
         }
-        .frame(height: 68)
+        .frame(maxWidth: .infinity)
+        .background(
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear {
+                        scrollViewportWidth = max(geometry.size.width, 0)
+                    }
+                    .onChange(of: geometry.size.width) { _, newValue in
+                        scrollViewportWidth = max(newValue, 0)
+                        widthChangedToken += 1
+                    }
+            }
+        )
         .secondaryPaperBackground()
         .modifier(
             SpreadNavigatorPresentationModifier(
@@ -110,7 +110,7 @@ struct SpreadTitleNavigatorView: View {
 
                     ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                         itemButton(for: item)
-                            .id(item.id)
+                            .id(stripScrollID(item.id))
                             .padding(.leading, extraLeadingSpacing(for: item, at: index))
                     }
 
@@ -118,6 +118,7 @@ struct SpreadTitleNavigatorView: View {
                         .frame(width: trailingInset(for: visibleWidth), height: 1)
                         .accessibilityHidden(true)
                 }
+                .padding(.vertical, 10)
                 .scrollTargetLayout()
                 .backgroundPreferenceValue(SpreadTitleNavigatorItemFramePreferenceKey.self) { frames in
                     Color.clear
@@ -500,14 +501,24 @@ struct SpreadTitleNavigatorView: View {
         centerRequest = CenterRequest(id: id, token: centerRequestToken)
     }
 
+    /// Namespaces a strip item's scroll ID to prevent leaking into the pager's `scrollPosition(id:)`.
+    ///
+    /// Both the strip and the pager use the same logical item IDs. Without a prefix,
+    /// `proxy.scrollTo` calls on the strip can propagate to the pager via SwiftUI's
+    /// shared `scrollTargetLayout` / `scrollPosition` infrastructure.
+    private func stripScrollID(_ id: String) -> String {
+        "strip.\(id)"
+    }
+
     private func centerItem(id: String, with proxy: ScrollViewProxy, animated: Bool) {
         DispatchQueue.main.async {
+            let scrollID = stripScrollID(id)
             if animated {
                 withAnimation(Self.selectionAnimation) {
-                    proxy.scrollTo(id, anchor: .center)
+                    proxy.scrollTo(scrollID, anchor: .center)
                 }
             } else {
-                proxy.scrollTo(id, anchor: .center)
+                proxy.scrollTo(scrollID, anchor: .center)
             }
         }
     }

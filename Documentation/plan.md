@@ -3160,11 +3160,11 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Context**: Two bugs in `SpreadTitleNavigatorView`. (1) The strip's height is hardcoded at 68pt. Multi-line item labels (day, multiday) can cause the selected capsule to be clipped at the bottom edge, which is then covered by the `Divider` and content rendered below in the parent `VStack`. (2) The return-to-selected button incorrectly navigates the content pager 2 spreads in the button's direction. Root cause: the strip's `ScrollViewReader` and the pager's `scrollPosition(id:)` share the same item IDs via `scrollTargetLayout()`, causing programmatic strip scroll events to leak into the pager.
 - **Spec**: Strip height is content-driven (not hardcoded). Scrolling the strip is isolated from the pager.
 - **Acceptance Criteria**:
-  - [ ] The strip `frame(height: 68)` is removed. The strip sizes to fit its tallest item plus vertical padding so the capsule has breathing room above the divider.
-  - [ ] The selected capsule is fully visible and not clipped or overlapped by sibling views in both conventional and traditional modes, on iPhone and iPad.
-  - [ ] Tapping the return-to-selected button re-centers the strip on the selected item without changing the selected spread or moving the content pager.
-  - [ ] Scrolling the strip programmatically (return button, `onChange` recentering) does not trigger `onSettledSelect` or any pager navigation.
-  - [ ] Swiping the content pager still updates the selected spread and recenters the strip.
-  - [ ] Tapping a strip item still changes the selected spread and navigates the pager.
+  - [x] The strip `frame(height: 68)` is removed. The strip sizes to fit its tallest item plus vertical padding so the capsule has breathing room above the divider.
+  - [x] The selected capsule is fully visible and not clipped or overlapped by sibling views in both conventional and traditional modes, on iPhone and iPad.
+  - [x] Tapping the return-to-selected button re-centers the strip on the selected item without changing the selected spread or moving the content pager.
+  - [x] Scrolling the strip programmatically (return button, `onChange` recentering) does not trigger `onSettledSelect` or any pager navigation.
+  - [x] Swiping the content pager still updates the selected spread and recenters the strip.
+  - [x] Tapping a strip item still changes the selected spread and navigates the pager.
 - **Tests**: Manual verification on iPhone and iPad across conventional and traditional modes.
 - **Dependencies**: SPRD-134
