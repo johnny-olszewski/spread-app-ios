@@ -39,6 +39,9 @@ struct EntryRowConfiguration: Sendable {
     /// The migration destination label, if the entry was migrated.
     let migrationDestination: String?
 
+    /// Optional small contextual label shown next to the title.
+    let contextualLabel: String?
+
     /// Whether the event is past (only used for events).
     ///
     /// Computed by the caller based on spread context.
@@ -61,6 +64,7 @@ struct EntryRowConfiguration: Sendable {
         noteStatus: DataModel.Note.Status? = nil,
         title: String = "",
         migrationDestination: String? = nil,
+        contextualLabel: String? = nil,
         isEventPast: Bool = false
     ) {
         self.entryType = entryType
@@ -68,6 +72,7 @@ struct EntryRowConfiguration: Sendable {
         self.noteStatus = noteStatus
         self.title = title
         self.migrationDestination = migrationDestination
+        self.contextualLabel = contextualLabel
         self.isEventPast = isEventPast
     }
 

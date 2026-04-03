@@ -219,7 +219,7 @@ struct EntryListView: View {
                 if section.title.isEmpty {
                     // Flat list (day spread) - no section header
                     ForEach(section.entries, id: \.id) { entry in
-                        entryRow(for: entry)
+                        entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
                             .listRowInsets(Self.rowInsets)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
@@ -228,7 +228,7 @@ struct EntryListView: View {
                     // Grouped list with section header
                     Section(section.title) {
                         ForEach(section.entries, id: \.id) { entry in
-                            entryRow(for: entry)
+                            entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
                                 .listRowInsets(Self.rowInsets)
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
@@ -298,25 +298,26 @@ struct EntryListView: View {
     }
 
     @ViewBuilder
-    private func entryRow(for entry: any Entry) -> some View {
+    private func entryRow(for entry: any Entry, contextualLabel: String?) -> some View {
         switch entry.entryType {
         case .task:
             if let task = entry as? DataModel.Task {
-                taskRow(task)
+                taskRow(task, contextualLabel: contextualLabel)
             }
         case .event:
             EmptyView()
         case .note:
             if let note = entry as? DataModel.Note {
-                noteRow(note)
+                noteRow(note, contextualLabel: contextualLabel)
             }
         }
     }
 
-    private func taskRow(_ task: DataModel.Task) -> some View {
+    private func taskRow(_ task: DataModel.Task, contextualLabel: String?) -> some View {
         EntryRowView(
             task: task,
             migrationDestination: destinationFormatter.destination(for: task, from: spreadDataModel.spread),
+            contextualLabel: contextualLabel,
             onComplete: { onComplete?(task) },
             onMigrate: { onMigrate?(task) },
             onEdit: { onEdit?(task) },
@@ -326,10 +327,11 @@ struct EntryListView: View {
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(task.title))
     }
 
-    private func noteRow(_ note: DataModel.Note) -> some View {
+    private func noteRow(_ note: DataModel.Note, contextualLabel: String?) -> some View {
         EntryRowView(
             note: note,
             migrationDestination: destinationFormatter.destination(for: note, from: spreadDataModel.spread),
+            contextualLabel: contextualLabel,
             onMigrate: { onMigrate?(note) },
             onEdit: { onEdit?(note) },
             onDelete: { onDelete?(note) }
@@ -348,7 +350,7 @@ struct EntryListView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(section.entries, id: \.id) { entry in
-                    entryRow(for: entry)
+                    entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
                         .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                 }
 
