@@ -224,7 +224,9 @@ struct ConventionalSpreadsView: View {
                     selectedSpread = spread
                     coordinator.showMigrationSelection()
                 },
-                onSelectSpread: { selectedSpread = $0 }
+                onSelectSpread: {
+                    selectedSpread = $0
+                }
             )
         } else {
             Color.clear

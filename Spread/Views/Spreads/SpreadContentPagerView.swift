@@ -57,7 +57,7 @@ struct SpreadContentPagerView<Page: View>: View {
                                 .accessibilityHidden(true)
                         }
                     }
-                    .containerRelativeFrame([.horizontal, .vertical])
+                    .containerRelativeFrame(.horizontal)
                     .id(pagerID(for: item.id))
                 }
             }
@@ -77,11 +77,10 @@ struct SpreadContentPagerView<Page: View>: View {
         }
         .onChange(of: selectedSemanticID) { _, newValue in
             guard pagerID(for: newValue) != pagerSettledTargetID else { return }
-            let shouldAnimate = lastSequenceSignature == sequenceSignature
-            center(on: newValue, animated: shouldAnimate)
+            center(on: newValue, animated: false)
         }
         .onChange(of: recenterToken) { _, _ in
-            center(on: selectedSemanticID, animated: true)
+            center(on: selectedSemanticID, animated: false)
         }
         .onChange(of: pagerSettledTargetID) { _, newValue in
             guard scrollPhase == .idle,

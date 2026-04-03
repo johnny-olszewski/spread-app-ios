@@ -1,36 +1,54 @@
 import SwiftUI
 
 struct SpreadTitleNavigatorItemView: View {
+    private static let selectionIndicatorID = "spread-title-selection-indicator"
+
     let semanticID: String
     let style: SpreadTitleNavigatorModel.Item.Style
     let display: SpreadTitleNavigatorModel.Item.Display
     let isSelected: Bool
     let accessibilityIdentifier: String
+    let selectionIndicatorNamespace: Namespace.ID
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            itemLabel
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
-                .background {
+            VStack(spacing: 4) {
+                itemLabel
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+
+                ZStack {
+                    Circle()
+                        .fill(Color.clear)
+                        .frame(width: 6, height: 6)
+
                     if isSelected {
-                        Capsule()
-                            .fill(Color.accentColor.opacity(0.16))
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 6, height: 6)
+                            .matchedGeometryEffect(
+                                id: Self.selectionIndicatorID,
+                                in: selectionIndicatorNamespace
+                            )
                     }
                 }
-                .frame(minHeight: 48)
-                .contentShape(Rectangle())
-                .background(
-                    GeometryReader { geometry in
-                        Color.clear.preference(
-                            key: SpreadTitleNavigatorItemFramePreferenceKey.self,
-                            value: [semanticID: geometry.frame(in: .global)]
-                        )
-                    }
-                )
+                .frame(height: 8)
+            }
+            .frame(minHeight: 48)
+            .contentShape(Rectangle())
+            .background(
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: SpreadTitleNavigatorItemFramePreferenceKey.self,
+                        value: [semanticID: geometry.frame(in: .global)]
+                    )
+                }
+            )
         }
+        .padding(.bottom, 2)
         .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.28), value: isSelected)
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 

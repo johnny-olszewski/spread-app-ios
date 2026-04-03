@@ -57,7 +57,9 @@ struct TraditionalSpreadsView: View {
     private var selectionBinding: Binding<SpreadHeaderNavigatorModel.Selection> {
         Binding(
             get: { currentSelection },
-            set: { selectedSelection = $0 }
+            set: {
+                selectedSelection = $0
+            }
         )
     }
 
