@@ -254,7 +254,7 @@
   - Selection does not update continuously during drag or on drag settle. [SPRD-127]
   - Tapping a visible non-selected spread selects it, updates the main app spread content, and animates that spread into the centered selected position. [SPRD-126, SPRD-127]
   - The selected spread always retains its prominent rounded capsule styling while browsing; browsing the strip does not hide selected-state styling. [SPRD-127]
-  - When the selected spread is scrolled fully out of the visible strip, a liquid-glass overlay button appears on the nearer edge and returns the strip to the selected spread when tapped. [SPRD-127]
+  - When the selected spread is scrolled fully out of the visible strip, a liquid-glass overlay button appears on the nearer edge and returns the strip to the selected spread when tapped. Tapping this button only re-centers the strip; it does not change the selected spread and does not affect the content pager. [SPRD-127, SPRD-136]
   - When selection changes from any non-strip source, including sheet/popover selection or other navigation actions, the strip recenters the new current spread automatically. [SPRD-126, SPRD-127]
   - Tapping the selected centered capsule opens the rooted spread navigator surface implemented in [SPRD-125]: as a popover on iPad and as a large sheet on iPhone. [SPRD-125, SPRD-126]
   - The spread header no longer renders a duplicate spread title once this navigator is present. [SPRD-126]
@@ -268,6 +268,8 @@
       - same-month ranges show a smallcaps month abbreviation above a compact day range and a short weekday span beneath it
       - cross-month ranges show a smallcaps month span above the compact endpoint day range and a short weekday span beneath it [SPRD-129]
     - The selected capsule sizes to the full rendered label block for all item types, including multi-line day and multiday labels. [SPRD-129]
+  - The strip height is content-driven; it must not be hardcoded. The strip expands to fit its tallest item label (including multi-line day and multiday items) plus adequate vertical padding so the selected capsule is never clipped or overlapped by sibling views. [SPRD-136]
+  - Scrolling the title strip (including via the return-to-selected button) is isolated from the content pager. Strip scroll events must not propagate to the pager or change the selected spread. [SPRD-136]
 - Horizontal spread-content paging behavior: [SPRD-128]
   - Spread content pages are presented in a separate horizontal pager beneath the title strip; the title strip remains the navigation chrome and stays synchronized with the selected page. [SPRD-128]
   - The pager uses the same ordered selected-year sequence as the title strip for the current mode. [SPRD-128]
