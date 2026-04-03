@@ -34,6 +34,20 @@ struct TaskDetailSheet: View {
     @State private var isSaving = false
     @State private var isShowingDeleteConfirmation = false
 
+    init(
+        task: DataModel.Task,
+        journalManager: JournalManager,
+        onDelete: @escaping () -> Void
+    ) {
+        self.task = task
+        self.journalManager = journalManager
+        self.onDelete = onDelete
+        _title = State(initialValue: task.title)
+        _selectedStatus = State(initialValue: task.status)
+        _selectedPeriod = State(initialValue: task.period)
+        _selectedDate = State(initialValue: task.date)
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -83,12 +97,6 @@ struct TaskDetailSheet: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Are you sure you want to delete this task? This action cannot be undone.")
-            }
-            .onAppear {
-                title = task.title
-                selectedStatus = task.status
-                selectedPeriod = task.period
-                selectedDate = task.date
             }
         }
     }
