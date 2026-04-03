@@ -3193,3 +3193,19 @@ Supabase: SPRD-85A -> SPRD-85C
   - Support tests for recommendation derivation across missing and existing year/month/day spread combinations.
   - Focused UI tests covering recommendation visibility, ordering, and opening prefilled creation flow from the trailing inset.
 - **Dependencies**: SPRD-136
+
+### [SPRD-138] Bug: Year/month task sectioning should reflect the current spread
+- **Context**: Conventional spread task grouping is currently too generic. Year and month spreads should present tasks relative to the current spread rather than sectioning everything by source spread. Tasks assigned directly to the current year or month belong to that spread and should not be shown under a redundant titled section, while more granular tasks should remain visible with enough date context to scan them.
+- **Spec**: Spread Content Presentation and Interaction
+- **Acceptance Criteria**:
+  - On a year spread, tasks assigned directly to that year appear in an untitled top section.
+  - On a year spread, tasks assigned to months appear under month-titled sections ordered chronologically.
+  - On a year spread, tasks assigned to days also appear within their containing month sections and display the day number next to the task title.
+  - On a month spread, tasks assigned directly to that month appear in an untitled top section.
+  - On a month spread, tasks assigned to days in that month appear in the same list and display the day number next to the task title.
+  - Day and multiday spreads do not adopt this year/month-specific sectioning behavior.
+- **Tests**:
+  - Unit tests for year spread grouping covering year-, month-, and day-assigned tasks.
+  - Unit tests for month spread grouping covering month- and day-assigned tasks.
+  - UI tests verifying untitled current-spread tasks, titled month sections on year spreads, and day-number rendering on year/month spreads.
+- **Dependencies**: SPRD-28
