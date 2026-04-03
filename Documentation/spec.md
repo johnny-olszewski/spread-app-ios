@@ -270,6 +270,19 @@
   - The selected capsule sizes to the full rendered label block for all item types, including multi-line day and multiday labels. [SPRD-129]
   - The strip height is content-driven with a minimum visual floor; it must not be hardcoded. The strip expands to fit its tallest item label (including multi-line day and multiday items) plus adequate vertical padding so the selected capsule is never clipped or overlapped by sibling views. [SPRD-136]
   - Scrolling the title strip (including via the return-to-selected button) is isolated from the content pager. Strip scroll events must not propagate to the pager or change the selected spread. [SPRD-136]
+  - Recommended spread inset behavior: [SPRD-137]
+    - In conventional mode only, the title navigator shows a separate fixed trailing inset area for recommended spreads to create.
+    - Recommendations are based on `today`, not on the currently selected spread.
+    - The recommendation engine is defined by an injected protocol so recommendation derivation can be unit tested independently of the view.
+    - The protocol returns semantic recommendations only; the navigator view continues to derive label presentation using the existing spread-title formatting system.
+    - Recommendations cover missing explicit `year`, `month`, and `day` spreads for today's current year, month, and day.
+    - A multiday spread containing today does not satisfy the `day` recommendation; only an explicit day spread does.
+    - When multiple recommendations are present, they are shown in `year`, `month`, `day` order.
+    - The recommendation inset is not part of the scrollable strip content; it stays fixed on the trailing side while the existing spread strip continues to scroll independently.
+    - If no recommendations are available, the trailing inset disappears entirely and does not reserve empty space.
+    - Recommended spreads use the same compact label language as ordinary strip items, but are visually distinguished with a yellow stroked rounded-rectangle border.
+    - Tapping a recommendation opens the existing create-spread flow prefilled for that recommendation rather than creating the spread immediately.
+    - A recommendation remains visible while the create-spread flow is open and disappears only after successful spread creation.
 - Horizontal spread-content paging behavior: [SPRD-128]
   - Spread content pages are presented in a separate horizontal pager beneath the title strip; the title strip remains the navigation chrome and stays synchronized with the selected page. [SPRD-128]
   - The pager uses the same ordered selected-year sequence as the title strip for the current mode. [SPRD-128]
