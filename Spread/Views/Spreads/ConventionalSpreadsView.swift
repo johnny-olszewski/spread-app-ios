@@ -33,17 +33,11 @@ struct ConventionalSpreadsView: View {
         VStack(spacing: 0) {
             SpreadTitleNavigatorView(
                 stripModel: conventionalStripModel,
-                headerNavigatorModel: conventionalHeaderNavigatorModel,
-                currentSpread: currentSelectedSpread,
-                currentSelection: .conventional(currentSelectedSpread),
                 recenterToken: recenterToken,
-                onSelect: { selection in
-                    guard case .conventional(let spread) = selection else { return }
-                    selectedSpread = spread
-                },
                 onCreateSpreadTapped: { coordinator.showSpreadCreation() },
                 onCreateTaskTapped: { coordinator.showTaskCreation() },
-                onCreateNoteTapped: { coordinator.showNoteCreation() }
+                onCreateNoteTapped: { coordinator.showNoteCreation() },
+                selection: conventionalSelectionBinding
             )
 
             Divider()
@@ -98,12 +92,8 @@ struct ConventionalSpreadsView: View {
             SpreadContentPagerView(
                 model: conventionalStripModel,
                 items: items,
-                selectedID: currentSelectionID,
                 recenterToken: recenterToken,
-                onSettledSelect: { selection in
-                    guard case .conventional(let spread) = selection else { return }
-                    selectedSpread = spread
-                }
+                selection: conventionalSelectionBinding
             ) { item in
                 conventionalPage(for: item)
             }
@@ -142,6 +132,18 @@ struct ConventionalSpreadsView: View {
     private var currentSelectionID: String {
         SpreadHeaderNavigatorModel.Selection.conventional(currentSelectedSpread)
             .stableID(calendar: journalManager.calendar)
+    }
+
+    private var conventionalSelectionBinding: Binding<SpreadHeaderNavigatorModel.Selection> {
+        Binding(
+            get: {
+                .conventional(currentSelectedSpread)
+            },
+            set: { newValue in
+                guard case .conventional(let spread) = newValue else { return }
+                selectedSpread = spread
+            }
+        )
     }
 
     private var currentSelectedSpread: DataModel.Spread {
@@ -216,11 +218,13 @@ struct ConventionalSpreadsView: View {
                     await engine.syncNow()
                 },
                 syncStatus: syncEngine?.status,
+                headerNavigatorModel: conventionalHeaderNavigatorModel,
                 eligibleTaskCount: spread.id == currentSelectedSpread.id ? eligibleMigrationCandidates.count : migrationCandidateCount(for: spread),
                 onReviewMigration: {
                     selectedSpread = spread
                     coordinator.showMigrationSelection()
-                }
+                },
+                onSelectSpread: { selectedSpread = $0 }
             )
         } else {
             Color.clear
@@ -395,11 +399,16 @@ private struct SpreadContentView: View {
     /// The current sync status, used to populate the pull-to-refresh indicator title.
     var syncStatus: SyncStatus?
 
+    let headerNavigatorModel: SpreadHeaderNavigatorModel
+
     /// Number of tasks eligible for migration (0 hides the banner).
     var eligibleTaskCount: Int = 0
 
     /// Callback to open migration review sheet.
     var onReviewMigration: (() -> Void)?
+    var onSelectSpread: ((DataModel.Spread) -> Void)?
+
+    @State private var isShowingNavigator = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -410,10 +419,14 @@ private struct SpreadContentView: View {
                     taskCount: spreadDataModel?.tasks.count ?? 0,
                     noteCount: spreadDataModel?.notes.count ?? 0
                 ),
-                showsTitle: false
+                isShowingNavigator: $isShowingNavigator,
+                navigatorModel: headerNavigatorModel,
+                currentSpread: spread,
+                onNavigatorSelect: { selection in
+                    guard case .conventional(let selectedSpread) = selection else { return }
+                    onSelectSpread?(selectedSpread)
+                }
             )
-
-            Divider()
 
             // Migration banner (only shows when eligible tasks exist)
             if eligibleTaskCount > 0 {

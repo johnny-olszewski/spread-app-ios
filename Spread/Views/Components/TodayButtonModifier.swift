@@ -24,7 +24,7 @@ struct TodayButtonModifier: ViewModifier {
                     .glassEffect(in: Capsule())
                     .padding(.horizontal, 16)
                     .padding(.bottom, 20)
-                    .padding(.top, 8)
+                    .padding(.top, 0)
                     .accessibilityIdentifier(
                         Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton
                     )

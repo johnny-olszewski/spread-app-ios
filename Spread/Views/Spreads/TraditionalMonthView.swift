@@ -22,6 +22,9 @@ struct TraditionalMonthView: View {
     var onBackToYear: (() -> Void)?
 
     let navigatorModel: SpreadHeaderNavigatorModel
+    var onSelectSelection: ((SpreadHeaderNavigatorModel.Selection) -> Void)?
+
+    @State private var isShowingNavigator = false
 
     // MARK: - Private
 
@@ -89,7 +92,12 @@ struct TraditionalMonthView: View {
                             taskCount: 0,
                             noteCount: 0
                         ),
-                        showsTitle: false
+                        isShowingNavigator: $isShowingNavigator,
+                        navigatorModel: navigatorModel,
+                        currentSpread: DataModel.Spread(period: .month, date: monthDate, calendar: journalManager.calendar),
+                        onNavigatorSelect: { selection in
+                            onSelectSelection?(selection)
+                        }
                     )
                 }
                 .accessibilityIdentifier("traditionalMonthTitle")

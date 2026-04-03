@@ -1,10 +1,5 @@
 import SwiftUI
 
-enum SpreadHeaderNavigatorPresentationStyle {
-    case popover
-    case sheet
-}
-
 /// Header view displaying spread title and entry counts.
 ///
 /// Shows the spread's period-appropriate title (e.g., "2026", "January 2026",
@@ -16,56 +11,48 @@ struct SpreadHeaderView: View {
     /// The configuration containing spread and count information.
     let configuration: SpreadHeaderConfiguration
 
-    /// Optional action when the title is tapped.
-    var onTitleTapped: (() -> Void)? = nil
-
     /// Whether the header popover is presented.
-    var isShowingPopover: Binding<Bool>? = nil
+    var isShowingNavigator: Binding<Bool>? = nil
 
-    /// Optional popover content anchored to the title button.
-    var popoverContent: (() -> AnyView)? = nil
+    /// The navigator model used to build the rooted selector surface.
+    var navigatorModel: SpreadHeaderNavigatorModel? = nil
 
-    /// Presentation style for the header navigator.
-    var navigatorPresentationStyle: SpreadHeaderNavigatorPresentationStyle? = nil
+    /// The current spread represented by this header.
+    var currentSpread: DataModel.Spread? = nil
 
-    /// Whether the title should be rendered.
-    var showsTitle: Bool = true
+    /// Callback when a navigator selection is made.
+    var onNavigatorSelect: ((SpreadHeaderNavigatorModel.Selection) -> Void)? = nil
+
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     // MARK: - Body
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if showsTitle, let isShowingPopover, let popoverContent, let navigatorPresentationStyle {
-                navigatorTitleButton(isShowingNavigator: isShowingPopover)
-                    .modifier(
-                        SpreadNavigatorPresentationModifier(
-                            isPresented: isShowingPopover,
-                            style: navigatorPresentationStyle,
-                            navigatorContent: popoverContent
-                        )
+        ZStack {
+            HStack {
+                Text(configuration.countSummaryText)
+                    .font(SpreadTheme.Typography.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.entryCounts)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let isShowingNavigator, let navigatorModel, let currentSpread, let onNavigatorSelect {
+                navigatorTitleButton(isShowingNavigator: isShowingNavigator)
+                    .spreadNavigatorPresentation(
+                        isPresented: isShowingNavigator,
+                        presentsAsPopover: horizontalSizeClass == .regular,
+                        model: navigatorModel,
+                        currentSpread: currentSpread,
+                        onSelect: onNavigatorSelect
                     )
-            } else if showsTitle, let onTitleTapped {
-                Button(action: onTitleTapped) {
-                    HStack(spacing: 6) {
-                        Text(configuration.title)
-                            .font(SpreadTheme.Typography.title2)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton)
-            } else if showsTitle {
+            } else {
                 Text(configuration.title)
                     .font(SpreadTheme.Typography.title2)
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
             }
-
-            Text(configuration.countSummaryText)
-                .font(SpreadTheme.Typography.subheadline)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.entryCounts)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal)
@@ -75,7 +62,6 @@ struct SpreadHeaderView: View {
     private func navigatorTitleButton(isShowingNavigator: Binding<Bool>) -> some View {
         Button {
             isShowingNavigator.wrappedValue = true
-            onTitleTapped?()
         } label: {
             HStack(spacing: 6) {
                 Text(configuration.title)
@@ -93,22 +79,48 @@ struct SpreadHeaderView: View {
 
 struct SpreadNavigatorPresentationModifier: ViewModifier {
     @Binding var isPresented: Bool
-    let style: SpreadHeaderNavigatorPresentationStyle
+    let presentsAsPopover: Bool
     let navigatorContent: () -> AnyView
 
     func body(content: Content) -> some View {
-        switch style {
-        case .popover:
+        if presentsAsPopover {
             content.popover(isPresented: $isPresented, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
                 navigatorContent()
             }
-        case .sheet:
+        } else {
             content.sheet(isPresented: $isPresented) {
                 navigatorContent()
                     .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
             }
         }
+    }
+}
+
+extension View {
+    func spreadNavigatorPresentation(
+        isPresented: Binding<Bool>,
+        presentsAsPopover: Bool,
+        model: SpreadHeaderNavigatorModel,
+        currentSpread: DataModel.Spread,
+        onSelect: @escaping (SpreadHeaderNavigatorModel.Selection) -> Void
+    ) -> some View {
+        modifier(
+            SpreadNavigatorPresentationModifier(
+                isPresented: isPresented,
+                presentsAsPopover: presentsAsPopover,
+                navigatorContent: {
+                    AnyView(
+                        SpreadHeaderNavigatorPopoverView(
+                            model: model,
+                            currentSpread: currentSpread,
+                            onSelect: onSelect,
+                            onDismiss: { isPresented.wrappedValue = false }
+                        )
+                    )
+                }
+            )
+        )
     }
 }
 

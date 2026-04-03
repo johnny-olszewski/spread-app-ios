@@ -17,8 +17,11 @@ struct TraditionalYearView: View {
 
     /// Callback when a month is selected for navigation.
     var onSelectMonth: ((Date) -> Void)?
+    var onSelectSelection: ((SpreadHeaderNavigatorModel.Selection) -> Void)?
 
     let navigatorModel: SpreadHeaderNavigatorModel
+
+    @State private var isShowingNavigator = false
 
     // MARK: - Private
 
@@ -59,7 +62,12 @@ struct TraditionalYearView: View {
                             taskCount: 0,
                             noteCount: 0
                         ),
-                        showsTitle: false
+                        isShowingNavigator: $isShowingNavigator,
+                        navigatorModel: navigatorModel,
+                        currentSpread: DataModel.Spread(period: .year, date: yearDate, calendar: calendar),
+                        onNavigatorSelect: { selection in
+                            onSelectSelection?(selection)
+                        }
                     )
                 }
                 .accessibilityIdentifier("traditionalYearTitle")

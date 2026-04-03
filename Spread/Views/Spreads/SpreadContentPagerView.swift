@@ -5,17 +5,20 @@ struct SpreadContentPagerView<Page: View>: View {
 
     let model: SpreadTitleNavigatorModel
     let items: [SpreadTitleNavigatorModel.Item]
-    let selectedID: String
     let recenterToken: Int
-    let onSettledSelect: (SpreadHeaderNavigatorModel.Selection) -> Void
+    @Binding var selection: SpreadHeaderNavigatorModel.Selection
     @ViewBuilder let page: (SpreadTitleNavigatorModel.Item) -> Page
 
-    @State private var visiblePageID: String?
+    @State private var pagerSettledTargetID: String?
     @State private var scrollPhase: ScrollPhase = .idle
     @State private var lastSequenceSignature: [String] = []
 
     private var sequenceSignature: [String] {
         items.map(\.id)
+    }
+
+    private var selectedSemanticID: String {
+        selection.stableID(calendar: model.calendar)
     }
 
     private func pagerID(for semanticID: String) -> String {
@@ -28,12 +31,12 @@ struct SpreadContentPagerView<Page: View>: View {
     }
 
     private var liveAnchorID: String {
-        guard let visibleSemanticID = semanticID(from: visiblePageID),
+        guard let visibleSemanticID = semanticID(from: pagerSettledTargetID),
               items.contains(where: { $0.id == visibleSemanticID }) else {
-            return selectedID
+            return selectedSemanticID
         }
-        if visibleSemanticID != selectedID && scrollPhase == .idle {
-            return selectedID
+        if visibleSemanticID != selectedSemanticID && scrollPhase == .idle {
+            return selectedSemanticID
         }
         return visibleSemanticID
     }
@@ -62,40 +65,40 @@ struct SpreadContentPagerView<Page: View>: View {
         }
         .scrollClipDisabled()
         .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $visiblePageID)
+        .scrollPosition(id: $pagerSettledTargetID)
         .onAppear {
-            visiblePageID = pagerID(for: selectedID)
+            pagerSettledTargetID = pagerID(for: selectedSemanticID)
             lastSequenceSignature = sequenceSignature
         }
         .task(id: sequenceSignature) {
             let isSameSequence = lastSequenceSignature == sequenceSignature
             lastSequenceSignature = sequenceSignature
-            center(on: selectedID, animated: isSameSequence)
+            center(on: selectedSemanticID, animated: isSameSequence)
         }
-        .onChange(of: selectedID) { _, newValue in
-            guard pagerID(for: newValue) != visiblePageID else { return }
+        .onChange(of: selectedSemanticID) { _, newValue in
+            guard pagerID(for: newValue) != pagerSettledTargetID else { return }
             let shouldAnimate = lastSequenceSignature == sequenceSignature
             center(on: newValue, animated: shouldAnimate)
         }
         .onChange(of: recenterToken) { _, _ in
-            center(on: selectedID, animated: true)
+            center(on: selectedSemanticID, animated: true)
         }
-        .onChange(of: visiblePageID) { _, newValue in
+        .onChange(of: pagerSettledTargetID) { _, newValue in
             guard scrollPhase == .idle,
                   let semanticID = semanticID(from: newValue),
-                  semanticID != selectedID else { return }
+                  semanticID != selectedSemanticID else { return }
             guard let item = items.first(where: { $0.id == semanticID }) else { return }
-            onSettledSelect(item.selection)
+            selection = item.selection
         }
         .onScrollPhaseChange { _, newPhase in
             scrollPhase = newPhase
             guard newPhase == .idle,
-                  let currentVisibleID = semanticID(from: visiblePageID),
-                  currentVisibleID != selectedID else {
+                  let currentVisibleID = semanticID(from: pagerSettledTargetID),
+                  currentVisibleID != selectedSemanticID else {
                 return
             }
             guard let item = items.first(where: { $0.id == currentVisibleID }) else { return }
-            onSettledSelect(item.selection)
+            selection = item.selection
         }
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.pager)
     }
@@ -103,10 +106,10 @@ struct SpreadContentPagerView<Page: View>: View {
     private func center(on id: String, animated: Bool) {
         if animated {
             withAnimation(.easeInOut(duration: 0.38)) {
-                visiblePageID = pagerID(for: id)
+                pagerSettledTargetID = pagerID(for: id)
             }
         } else {
-            visiblePageID = pagerID(for: id)
+            pagerSettledTargetID = pagerID(for: id)
         }
     }
 }
