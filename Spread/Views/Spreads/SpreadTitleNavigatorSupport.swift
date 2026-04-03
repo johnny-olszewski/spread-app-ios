@@ -170,19 +170,19 @@ struct SpreadTitleNavigatorModel {
     }
 
     private func monthAbbreviation(for date: Date) -> String {
-        date.formatted(
-            .dateTime
-                .month(.abbreviated)
-                .locale(Locale(identifier: "en_US_POSIX"))
-        )
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.setLocalizedDateFormatFromTemplate("MMM")
+        return formatter.string(from: date)
     }
 
     private func weekdayAbbreviation(for date: Date) -> String {
-        date.formatted(
-            .dateTime
-                .weekday(.abbreviated)
-                .locale(Locale(identifier: "en_US_POSIX"))
-        )
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.setLocalizedDateFormatFromTemplate("EEE")
+        return formatter.string(from: date)
     }
 
     private func spreadYear(for spread: DataModel.Spread) -> Int {
