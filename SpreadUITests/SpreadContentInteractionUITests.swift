@@ -54,6 +54,21 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
                 identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Navigator January month task")
             ).waitForExistence(timeout: 5)
         )
+        XCTAssertTrue(app.staticTexts["April 2026"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Navigator month task without month spread")
+            ).waitForExistence(timeout: 5)
+        )
+        let orphanDayContext = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskContextLabel(
+                "Navigator day task without day or month spread"
+            )
+        )
+        XCTAssertTrue(orphanDayContext.waitForExistence(timeout: 5))
+        XCTAssertEqual(orphanDayContext.label, "15")
     }
 
     func testMonthSpreadShowsDayTaskContextLabels() throws {

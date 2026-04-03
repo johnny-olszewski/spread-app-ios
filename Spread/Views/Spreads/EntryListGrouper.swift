@@ -29,6 +29,10 @@ struct EntryListSection: Identifiable, Sendable {
     /// Small contextual labels shown next to specific row titles in this section.
     let contextualLabels: [UUID: String]
 
+    /// The period/date context used when creating a new task from this section.
+    let creationPeriod: Period
+    let creationDate: Date
+
     func contextualLabel(for entry: any Entry) -> String? {
         contextualLabels[entry.id]
     }
@@ -140,7 +144,9 @@ struct EntryListGrouper: Sendable {
                     title: "",
                     date: spreadDate,
                     entries: sortedYearEntries,
-                    contextualLabels: [:]
+                    contextualLabels: [:],
+                    creationPeriod: .year,
+                    creationDate: spreadDate
                 )
             )
         }
@@ -153,7 +159,9 @@ struct EntryListGrouper: Sendable {
                     title: formatMonthTitle(monthDate),
                     date: monthDate,
                     entries: sortedEntries,
-                    contextualLabels: contextualLabels[monthDate] ?? [:]
+                    contextualLabels: contextualLabels[monthDate] ?? [:],
+                    creationPeriod: .month,
+                    creationDate: monthDate
                 )
             }
         )
@@ -178,7 +186,9 @@ struct EntryListGrouper: Sendable {
                 title: "",
                 date: spreadDate,
                 entries: sortEntriesChronologically(entries),
-                contextualLabels: contextualLabels
+                contextualLabels: contextualLabels,
+                creationPeriod: .month,
+                creationDate: spreadDate
             )
         ]
     }
@@ -204,7 +214,9 @@ struct EntryListGrouper: Sendable {
                     title: formatDayTitle(currentDate),
                     date: currentDate,
                     entries: sortedEntries,
-                    contextualLabels: [:]
+                    contextualLabels: [:],
+                    creationPeriod: .day,
+                    creationDate: currentDate
                 )
             )
             guard let nextDate = calendar.date(byAdding: .day, value: 1, to: currentDate) else {
@@ -225,7 +237,9 @@ struct EntryListGrouper: Sendable {
                 title: "",
                 date: spreadDate,
                 entries: sortedEntries,
-                contextualLabels: [:]
+                contextualLabels: [:],
+                creationPeriod: .day,
+                creationDate: spreadDate
             )
         ]
     }

@@ -418,6 +418,8 @@ extension MockDataSet {
         let marchTwentyTwo = calendar.date(from: DateComponents(year: 2026, month: 3, day: 22)) ?? today
         let marchTwentyNine = calendar.date(from: DateComponents(year: 2026, month: 3, day: 29)) ?? today
         let marchThirtyOne = calendar.date(from: DateComponents(year: 2026, month: 3, day: 31)) ?? today
+        let aprilMonth = calendar.date(from: DateComponents(year: 2026, month: 4, day: 1)) ?? today
+        let aprilFifteenth = calendar.date(from: DateComponents(year: 2026, month: 4, day: 15)) ?? today
         let legacyYear = calendar.date(from: DateComponents(year: 2024, month: 1, day: 1)) ?? today
 
         return GeneratedData(
@@ -587,6 +589,22 @@ extension MockDataSet {
                     period: .month,
                     assignmentPeriod: .month,
                     assignmentDate: marchMonth,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Navigator month task without month spread",
+                    date: aprilMonth,
+                    period: .month,
+                    assignmentPeriod: .month,
+                    assignmentDate: aprilMonth,
+                    calendar: calendar
+                ),
+                task(
+                    title: "Navigator day task without day or month spread",
+                    date: aprilFifteenth,
+                    period: .day,
+                    assignmentPeriod: .day,
+                    assignmentDate: aprilFifteenth,
                     calendar: calendar
                 ),
                 // Legacy year task
