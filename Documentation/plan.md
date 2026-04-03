@@ -3165,6 +3165,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - [x] Tapping the return-to-selected button re-centers the strip on the selected item without changing the selected spread or moving the content pager.
   - [x] Scrolling the strip programmatically (return button, `onChange` recentering) does not trigger `onSettledSelect` or any pager navigation.
   - [x] Swiping the content pager still updates the selected spread and recenters the strip.
-  - [x] Tapping a strip item still changes the selected spread and navigates the pager.
+  - [x] Tapping a strip item changes the selected spread and snaps the pager instantly without animation.
+  - [x] Programmatic `selectedID` changes (strip tap, header navigator) never animate the pager; only Today button (recenterToken) animates it.
 - **Tests**: Manual verification on iPhone and iPad across conventional and traditional modes.
 - **Dependencies**: SPRD-134

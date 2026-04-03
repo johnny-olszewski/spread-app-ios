@@ -276,7 +276,7 @@
   - The pager includes the full current sequence inline, including year, month, day, and multiday spreads in conventional mode and year, month, and day destinations in traditional mode. [SPRD-128]
   - Horizontal page swiping changes the selected spread only after the paging gesture settles on a new page. [SPRD-128]
   - The pager rests on a single full-width selected page; adjacent pages do not remain peeked into view at rest. [SPRD-128]
-  - When selection changes from the title strip or rooted navigator surface within the same selected-year sequence, the pager animates to the selected page. [SPRD-128]
+  - When selection changes from the title strip or rooted navigator surface, the pager snaps instantly to the selected page without animation. Only the Today button (via recenter token) animates the pager. [SPRD-128, SPRD-136]
   - When selection changes to a spread in a different year, the pager rebuilds to the new selected-year sequence and jumps to the selected page without cross-year scrolling animation. [SPRD-128]
   - When the pager settles on a new page, the horizontal spread-title navigator updates selection and recenters to that page automatically. [SPRD-128]
   - The pager preserves the full existing spread view for each page rather than rendering preview-only variants. [SPRD-128]

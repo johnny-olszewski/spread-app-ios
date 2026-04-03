@@ -193,6 +193,9 @@ struct SpreadTitleNavigatorView: View {
                     requestCenter(on: item.id)
                 }
             } else {
+                #if DEBUG
+                print("[Strip] item tapped → onSelect: \(item.id)")
+                #endif
                 pendingTapSelectionItemID = item.id
                 requestCenter(on: item.id)
                 onSelect(item.selection)
@@ -292,6 +295,9 @@ struct SpreadTitleNavigatorView: View {
 
     private func returnButton(edge: ReturnButtonEdge) -> some View {
         Button {
+            #if DEBUG
+            print("[Strip] return button tapped (edge=\(edge)) selectedItemID=\(selectedItemID)")
+            #endif
             requestCenter(on: selectedItemID)
         } label: {
             Image(systemName: edge == .leading ? "arrow.left" : "arrow.right")

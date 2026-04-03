@@ -62,15 +62,20 @@ struct SpreadContentPagerView<Page: View>: View {
             lastSequenceSignature = sequenceSignature
             center(on: selectedID, animated: isSameSequence)
         }
-        .onChange(of: selectedID) { _, newValue in
+        .onChange(of: selectedID) { oldValue, newValue in
+            #if DEBUG
+            print("[Pager] selectedID changed: \(oldValue) → \(newValue)")
+            #endif
             guard newValue != visiblePageID else { return }
-            let shouldAnimate = lastSequenceSignature == sequenceSignature
-            center(on: newValue, animated: shouldAnimate)
+            center(on: newValue, animated: false)
         }
         .onChange(of: recenterToken) { _, _ in
             center(on: selectedID, animated: true)
         }
-        .onChange(of: visiblePageID) { _, newValue in
+        .onChange(of: visiblePageID) { oldValue, newValue in
+            #if DEBUG
+            print("[Pager] visiblePageID changed: \(String(describing: oldValue)) → \(String(describing: newValue)) phase=\(scrollPhase)")
+            #endif
             guard scrollPhase == .idle, let newValue, newValue != selectedID else { return }
             guard let item = items.first(where: { $0.id == newValue }) else { return }
             onSettledSelect(item.selection)
