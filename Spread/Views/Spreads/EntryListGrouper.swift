@@ -200,7 +200,9 @@ struct EntryListGrouper: Sendable {
 
         var dayGroups: [Date: [any Entry]] = [:]
         for entry in entries {
-            let entryDate = entryGroupingDate(for: entry).startOfDay(calendar: calendar)
+            let grouping = assignableGrouping(for: entry)
+            guard grouping.period == .day else { continue }
+            let entryDate = grouping.date.startOfDay(calendar: calendar)
             dayGroups[entryDate, default: []].append(entry)
         }
 
@@ -211,7 +213,7 @@ struct EntryListGrouper: Sendable {
             sections.append(
                 EntryListSection(
                     id: currentDate,
-                    title: formatDayTitle(currentDate),
+                    title: "",
                     date: currentDate,
                     entries: sortedEntries,
                     contextualLabels: [:],
@@ -289,15 +291,6 @@ struct EntryListGrouper: Sendable {
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: date)
-    }
-
-    /// Formats a day title like "January 5".
-    private func formatDayTitle(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "MMMM d"
         return formatter.string(from: date)
     }
 
