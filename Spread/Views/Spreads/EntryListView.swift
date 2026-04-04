@@ -326,9 +326,7 @@ struct EntryListView: View {
         let isDayActive = activeInlineCreationTarget?.sectionID == section.id
 
         VStack(alignment: .leading, spacing: 12) {
-            Text(section.title)
-                .font(SpreadTheme.Typography.title3)
-                .foregroundStyle(.primary)
+            multidayHeader(for: section.date)
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(section.entries, id: \.id) { entry in
@@ -370,6 +368,28 @@ struct EntryListView: View {
         )
     }
 
+    private func multidayHeader(for date: Date) -> some View {
+        HStack(alignment: .lastTextBaseline) {
+            Text(multidayWeekdayText(for: date))
+                .font(SpreadTheme.Typography.title3)
+                .foregroundStyle(.primary)
+
+            Spacer(minLength: 16)
+
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(multidayShortMonthText(for: date))
+                    .font(SpreadTheme.Typography.caption.smallCaps())
+                    .foregroundStyle(.secondary)
+                Text(multidayDayNumberText(for: date))
+                    .font(SpreadTheme.Typography.title3)
+                    .foregroundStyle(.primary)
+            }
+            .alignmentGuide(.lastTextBaseline) { dimensions in
+                dimensions[.lastTextBaseline]
+            }
+        }
+    }
+
     @ViewBuilder
     private func sectionRows(_ section: EntryListSection) -> some View {
         ForEach(section.entries, id: \.id) { entry in
@@ -396,6 +416,30 @@ struct EntryListView: View {
 
     private func multidaySectionDateID(for date: Date) -> String {
         Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: date, calendar: calendar)
+    }
+
+    private func multidayWeekdayText(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "EEEE"
+        return formatter.string(from: date)
+    }
+
+    private func multidayShortMonthText(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "MMM"
+        return formatter.string(from: date)
+    }
+
+    private func multidayDayNumberText(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "d"
+        return formatter.string(from: date)
     }
 
     // MARK: - Inline Creation

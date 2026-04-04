@@ -186,13 +186,13 @@ struct EntryListGroupingTests {
         let sections = grouper.group(entries)
 
         #expect(sections.count == 4)
-        #expect(sections[0].title == "January 5")
+        #expect(sections[0].title.isEmpty)
         #expect(sections[0].entries.isEmpty)
-        #expect(sections[1].title == "January 6")
+        #expect(sections[1].title.isEmpty)
         #expect(sections[1].entries.count == 2)
-        #expect(sections[2].title == "January 7")
+        #expect(sections[2].title.isEmpty)
         #expect(sections[2].entries.count == 1)
-        #expect(sections[3].title == "January 8")
+        #expect(sections[3].title.isEmpty)
         #expect(sections[3].entries.count == 1)
     }
 
@@ -219,6 +219,33 @@ struct EntryListGroupingTests {
         #expect(sections[0].entries.isEmpty)
         #expect(sections[1].entries.count == 1)
         #expect(sections[2].entries.isEmpty)
+    }
+
+    /// When a multiday spread contains a month-assigned task dated within the range,
+    /// the task should not appear in that day's section.
+    @Test("Multiday spread excludes month-assigned tasks from day sections")
+    func multidaySpreadExcludesMonthAssignedTasks() {
+        let entries: [any Entry] = [
+            DataModel.Task(title: "April Month Task", date: makeDate(year: 2026, month: 4, day: 1), period: .month),
+            DataModel.Task(title: "April 1 Day Task", date: makeDate(year: 2026, month: 4, day: 1), period: .day)
+        ]
+
+        let startDate = makeDate(year: 2026, month: 3, day: 30)
+        let endDate = makeDate(year: 2026, month: 4, day: 5)
+        let grouper = EntryListGrouper(
+            period: .multiday,
+            spreadDate: startDate,
+            spreadStartDate: startDate,
+            spreadEndDate: endDate,
+            calendar: calendar
+        )
+        let sections = grouper.group(entries)
+
+        let aprilFirst = makeDate(year: 2026, month: 4, day: 1)
+        let aprilFirstSection = sections.first { calendar.isDate($0.date, inSameDayAs: aprilFirst) }
+
+        #expect(aprilFirstSection != nil)
+        #expect(aprilFirstSection?.entries.map(\.title) == ["April 1 Day Task"])
     }
 
     // MARK: - Empty State Tests
