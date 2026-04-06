@@ -47,9 +47,7 @@ struct ConventionalSpreadsView: View {
                 SyncErrorBanner()
             }
 
-            // Content area
-            spreadContent
-
+            contentArea
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
@@ -76,12 +74,17 @@ struct ConventionalSpreadsView: View {
         .onAppear {
             resetSelectionIfNeeded()
         }
-        .overlay(alignment: overlayAlignment) {
-            spreadOverlayButtons
-        }
     }
 
     // MARK: - Content
+
+    @ViewBuilder
+    private var contentArea: some View {
+        ZStack(alignment: overlayAlignment) {
+            spreadContent
+            spreadOverlayButtons
+        }
+    }
 
     /// Eligible tasks for migration to the selected spread.
     private var eligibleMigrationCandidates: [MigrationCandidate] {
