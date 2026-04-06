@@ -278,7 +278,14 @@
     - When multiple recommendations are present, they are shown in `year`, `month`, `day` order.
     - The recommendation inset is not part of the scrollable strip content; it stays fixed on the trailing side while the existing spread strip continues to scroll independently.
     - If no recommendations are available, the trailing inset disappears entirely and does not reserve empty space.
-    - Recommended spreads use the same compact label language as ordinary strip items, but are visually distinguished with a yellow stroked rounded-rectangle border.
+    - Recommended spreads use the same compact label language as ordinary strip items and are visually distinguished with the shimmering recommendation treatment.
+    - Recommendation cards remove the ordinary inner horizontal padding and use a shared fixed `3:5` aspect ratio.
+    - All visible recommendation cards share the same size.
+    - On iPad, all recommendations continue to appear directly in the trailing inset; they do not collapse into a menu.
+    - On iPhone, a single recommendation still appears as a direct tappable recommendation card.
+    - On iPhone, when more than one recommendation exists, the trailing inset collapses to a single shimmering down-chevron card instead of showing multiple direct cards.
+    - The iPhone multi-recommendation chevron card uses the same shared size as the direct recommendation cards.
+    - Tapping the iPhone chevron card opens a `Menu` whose items use full spread date/title labels.
     - Tapping a recommendation opens the existing create-spread flow prefilled for that recommendation rather than creating the spread immediately.
     - A recommendation remains visible while the create-spread flow is open and disappears only after successful spread creation.
   - Rooted spread header navigator behavior: [SPRD-125, SPRD-139]
