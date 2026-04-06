@@ -121,18 +121,6 @@ struct SpreadsCoordinatorTests {
         }
     }
 
-    /// Condition: Call showMigrationSelection().
-    /// Expected: Active sheet is .migrationSelection.
-    @Test("showMigrationSelection sets migrationSelection destination")
-    func testShowMigrationSelection() {
-        let coordinator = SpreadsCoordinator()
-        coordinator.showMigrationSelection()
-        guard case .migrationSelection = coordinator.activeSheet else {
-            Issue.record("Expected .migrationSelection, got \(String(describing: coordinator.activeSheet))")
-            return
-        }
-    }
-
     // MARK: - Dismiss
 
     /// Condition: A sheet is active, then dismiss() is called.
@@ -191,8 +179,7 @@ struct SpreadsCoordinatorTests {
             .taskDetail(task),
             .noteDetail(note),
             .inbox,
-            .auth,
-            .migrationSelection
+            .auth
         ]
 
         let ids = destinations.map(\.id)

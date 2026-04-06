@@ -193,6 +193,52 @@ final class JournalManager {
         }
     }
 
+    /// Returns the smallest valid existing destination spread for a task on a specific source spread.
+    ///
+    /// Used by the source-side row affordance to determine whether an inline migration action
+    /// should be shown on the current spread.
+    func migrationDestination(
+        for task: DataModel.Task,
+        on source: DataModel.Spread
+    ) -> DataModel.Spread? {
+        guard bujoMode == .conventional,
+              source.period.canHaveTasksAssigned,
+              task.status == .open else {
+            return nil
+        }
+
+        guard task.assignments.contains(where: { assignment in
+            assignment.status == .open &&
+            assignment.matches(period: source.period, date: source.date, calendar: calendar)
+        }) else {
+            return nil
+        }
+
+        return mostGranularValidDestination(
+            for: task,
+            sourceRank: source.period.granularityRank
+        )
+    }
+
+    /// Returns migration candidates that come only from the destination's parent hierarchy.
+    ///
+    /// This powers the destination-side inline migration section. Inbox-origin tasks are
+    /// intentionally excluded from this UI.
+    func parentHierarchyMigrationCandidates(
+        to destination: DataModel.Spread
+    ) -> [MigrationCandidate] {
+        let parentSpreadIDs = Set(parentHierarchySpreads(for: destination).map(\.id))
+
+        return migrationCandidates(to: destination)
+            .filter { candidate in
+                guard let sourceSpread = candidate.sourceSpread else { return false }
+                return parentSpreadIDs.contains(sourceSpread.id)
+            }
+            .sorted { lhs, rhs in
+                lhs.task.title.localizedCaseInsensitiveCompare(rhs.task.title) == .orderedAscending
+            }
+    }
+
     /// Open tasks that are overdue anywhere in the journal.
     var overdueTaskItems: [OverdueTaskItem] {
         tasks.compactMap { task in
@@ -1164,6 +1210,26 @@ final class JournalManager {
                 date: spread.period.normalizeDate(spread.date, calendar: calendar)
             )
         )
+    }
+
+    private func parentHierarchySpreads(
+        for destination: DataModel.Spread
+    ) -> [DataModel.Spread] {
+        var parentSpreads: [DataModel.Spread] = []
+        var currentPeriod = destination.period.parentPeriod
+
+        while let period = currentPeriod {
+            let normalizedDate = period.normalizeDate(destination.date, calendar: calendar)
+            if let spread = spreads.first(where: { existingSpread in
+                existingSpread.period == period &&
+                existingSpread.period.normalizeDate(existingSpread.date, calendar: calendar) == normalizedDate
+            }) {
+                parentSpreads.append(spread)
+            }
+            currentPeriod = period.parentPeriod
+        }
+
+        return parentSpreads
     }
 
     private func isOverdue(date: Date, period: Period) -> Bool {

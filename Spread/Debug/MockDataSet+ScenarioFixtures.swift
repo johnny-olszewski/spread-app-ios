@@ -136,8 +136,8 @@ extension MockDataSet {
                     title: "Day upgrade migration task",
                     date: targetDay,
                     period: .day,
-                    assignmentPeriod: .year,
-                    assignmentDate: yearStart,
+                    assignmentPeriod: .month,
+                    assignmentDate: monthStart,
                     calendar: calendar
                 )
             ],
@@ -699,7 +699,8 @@ extension MockDataSet {
     }
 
     private func futureScenarioDay(from today: Date, calendar: Calendar) -> Date {
-        calendar.date(byAdding: .day, value: 8, to: today) ?? today
+        let year = calendar.component(.year, from: today)
+        return calendar.date(from: DateComponents(year: year, month: 1, day: 20)) ?? today
     }
 }
 #endif

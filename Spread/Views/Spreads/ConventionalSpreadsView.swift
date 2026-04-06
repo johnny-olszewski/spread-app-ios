@@ -86,12 +86,6 @@ struct ConventionalSpreadsView: View {
         }
     }
 
-    /// Eligible tasks for migration to the selected spread.
-    private var eligibleMigrationCandidates: [MigrationCandidate] {
-        guard let spread = selectedSpread else { return [] }
-        return journalManager.migrationCandidates(to: spread)
-    }
-
     @ViewBuilder
     private var spreadContent: some View {
         let items = conventionalStripModel.items(for: .conventional(currentSelectedSpread))
@@ -269,11 +263,7 @@ struct ConventionalSpreadsView: View {
                 },
                 syncStatus: syncEngine?.status,
                 headerNavigatorModel: conventionalHeaderNavigatorModel,
-                eligibleTaskCount: spread.id == currentSelectedSpread.id ? eligibleMigrationCandidates.count : migrationCandidateCount(for: spread),
-                onReviewMigration: {
-                    selectedSpread = spread
-                    coordinator.showMigrationSelection()
-                },
+                migrationConfiguration: migrationConfiguration(for: spread),
                 onSelectSpread: {
                     selectedSpread = $0
                 }
@@ -281,10 +271,6 @@ struct ConventionalSpreadsView: View {
         } else {
             Color.clear
         }
-    }
-
-    private func migrationCandidateCount(for spread: DataModel.Spread) -> Int {
-        journalManager.migrationCandidates(to: spread).count
     }
 
     private func openRecommendedSpreadCreation(_ recommendation: SpreadTitleNavigatorRecommendation) {
@@ -347,17 +333,6 @@ struct ConventionalSpreadsView: View {
             InboxSheetView(journalManager: journalManager)
         case .auth:
             AuthEntrySheet(authManager: authManager, isBlocking: false)
-        case .migrationSelection:
-            if let spread = selectedSpread {
-                MigrationSelectionSheet(
-                    destinationSpread: spread,
-                    eligibleCandidates: eligibleMigrationCandidates,
-                    calendar: journalManager.calendar,
-                    onMigrate: { candidates in
-                        await migrateSelectedCandidates(candidates)
-                    }
-                )
-            }
         case .overdueReview:
             OverdueReviewSheet(
                 journalManager: journalManager,
@@ -368,44 +343,67 @@ struct ConventionalSpreadsView: View {
 
     // MARK: - Migration
 
-    private func migrateSelectedCandidates(
-        _ selectedCandidates: [MigrationCandidate]
-    ) async -> MigrationSelectionOutcome {
-        guard let destination = selectedSpread else {
-            return MigrationSelectionOutcome(
-                migratedCount: 0,
-                skippedCount: selectedCandidates.count,
-                remainingCount: 0
+    private func migrationConfiguration(
+        for spread: DataModel.Spread
+    ) -> EntryListMigrationConfiguration? {
+        guard spread.period != .multiday else { return nil }
+
+        let sourceDestinations: [UUID: DataModel.Spread] = Dictionary(
+            uniqueKeysWithValues: (spreadDataModel(for: spread)?.tasks ?? []).compactMap { task in
+                guard let destination = journalManager.migrationDestination(for: task, on: spread) else {
+                    return nil
+                }
+                return (task.id, destination)
+            }
+        )
+
+        let destinationItems = journalManager.parentHierarchyMigrationCandidates(to: spread).map { candidate in
+            EntryListMigrationConfiguration.DestinationItem(
+                task: candidate.task,
+                source: candidate.sourceSpread ?? spread
             )
         }
-        let latestCandidates = journalManager.migrationCandidates(to: destination)
-        let revalidation = MigrationSelectionRevalidator()
-        let result = revalidation.revalidate(selected: selectedCandidates, against: latestCandidates)
 
-        var migratedCount = 0
-        for candidate in result.valid {
-            do {
-                try await journalManager.moveTask(
-                    candidate.task,
-                    from: candidate.sourceKey,
-                    to: destination
-                )
-                migratedCount += 1
-            } catch {
-                continue
-            }
+        guard !sourceDestinations.isEmpty || !destinationItems.isEmpty else {
+            return nil
         }
 
-        if migratedCount > 0 {
+        return EntryListMigrationConfiguration(
+            sourceDestinations: sourceDestinations,
+            destinationItems: destinationItems,
+            onSourceMigrationConfirmed: { task, destination in
+                migrateTask(task, from: spread, to: destination)
+            },
+            onDestinationMigration: { item in
+                migrateTask(item.task, from: item.source, to: spread)
+            },
+            onDestinationMigrationAll: {
+                migrateTasks(destinationItems, to: spread)
+            }
+        )
+    }
+
+    private func migrateTask(
+        _ task: DataModel.Task,
+        from source: DataModel.Spread,
+        to destination: DataModel.Spread
+    ) {
+        Task {
+            try? await journalManager.migrateTask(task, from: source, to: destination)
             await syncEngine?.syncNow()
         }
+    }
 
-        let remainingCount = journalManager.migrationCandidates(to: destination).count
-        return MigrationSelectionOutcome(
-            migratedCount: migratedCount,
-            skippedCount: result.skippedCount,
-            remainingCount: remainingCount
-        )
+    private func migrateTasks(
+        _ items: [EntryListMigrationConfiguration.DestinationItem],
+        to destination: DataModel.Spread
+    ) {
+        Task {
+            for item in items {
+                try? await journalManager.migrateTask(item.task, from: item.source, to: destination)
+            }
+            await syncEngine?.syncNow()
+        }
     }
 
     private func resetSelectionIfNeeded() {
@@ -460,12 +458,7 @@ private struct SpreadContentView: View {
     var syncStatus: SyncStatus?
 
     let headerNavigatorModel: SpreadHeaderNavigatorModel
-
-    /// Number of tasks eligible for migration (0 hides the banner).
-    var eligibleTaskCount: Int = 0
-
-    /// Callback to open migration review sheet.
-    var onReviewMigration: (() -> Void)?
+    var migrationConfiguration: EntryListMigrationConfiguration?
     var onSelectSpread: ((DataModel.Spread) -> Void)?
 
     @State private var isShowingNavigator = false
@@ -487,14 +480,6 @@ private struct SpreadContentView: View {
                     onSelectSpread?(selectedSpread)
                 }
             )
-
-            // Migration banner (only shows when eligible tasks exist)
-            if eligibleTaskCount > 0 {
-                MigrationBannerView(
-                    eligibleTaskCount: eligibleTaskCount,
-                    onReview: { onReviewMigration?() }
-                )
-            }
 
             // Entry list grouped by period
             entryList
@@ -526,6 +511,7 @@ private struct SpreadContentView: View {
                 onComplete: { task in
                     onCompleteTask?(task)
                 },
+                migrationConfiguration: migrationConfiguration,
                 onTitleCommit: { task, newTitle in
                     onUpdateTaskTitle?(task, newTitle)
                 },

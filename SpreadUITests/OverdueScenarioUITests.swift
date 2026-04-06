@@ -42,7 +42,7 @@ final class OverdueScenarioUITests: LocalhostScenarioUITestCase {
         )
         waitForElement(overdueButton)
         XCTAssertFalse(
-            anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.Migration.banner)
+            anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.Migration.destinationSectionHeader)
                 .waitForExistence(timeout: 2)
         )
 

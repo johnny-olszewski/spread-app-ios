@@ -1,5 +1,11 @@
 import SwiftUI
 
+struct EntryRowTrailingAction {
+    let systemImage: String
+    let accessibilityIdentifier: String
+    let action: () -> Void
+}
+
 /// A row component for displaying an entry with type symbol, title, and actions.
 ///
 /// Interaction model:
@@ -20,6 +26,7 @@ struct EntryRowView: View {
     private let onMigrate: (() -> Void)?
     private let onEdit: (() -> Void)?
     private let onDelete: (() -> Void)?
+    private let trailingAction: EntryRowTrailingAction?
 
     /// Callback when the user commits an inline title edit (open tasks only).
     private let onTitleCommit: ((String) -> Void)?
@@ -39,7 +46,8 @@ struct EntryRowView: View {
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
-        onTitleCommit: ((String) -> Void)? = nil
+        onTitleCommit: ((String) -> Void)? = nil,
+        trailingAction: EntryRowTrailingAction? = nil
     ) {
         self.configuration = configuration
         self.iconConfiguration = iconConfiguration
@@ -48,6 +56,7 @@ struct EntryRowView: View {
         self.onEdit = onEdit
         self.onDelete = onDelete
         self.onTitleCommit = onTitleCommit
+        self.trailingAction = trailingAction
     }
 
     /// Creates an entry row view for a task.
@@ -59,7 +68,8 @@ struct EntryRowView: View {
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
-        onTitleCommit: ((String) -> Void)? = nil
+        onTitleCommit: ((String) -> Void)? = nil,
+        trailingAction: EntryRowTrailingAction? = nil
     ) {
         self.configuration = EntryRowConfiguration(
             entryType: .task,
@@ -77,6 +87,7 @@ struct EntryRowView: View {
         self.onEdit = onEdit
         self.onDelete = onDelete
         self.onTitleCommit = onTitleCommit
+        self.trailingAction = trailingAction
     }
 
     /// Creates an entry row view for an event.
@@ -100,6 +111,7 @@ struct EntryRowView: View {
         self.onEdit = onEdit
         self.onDelete = onDelete
         self.onTitleCommit = nil
+        self.trailingAction = nil
     }
 
     /// Creates an entry row view for a note.
@@ -127,6 +139,7 @@ struct EntryRowView: View {
         self.onEdit = onEdit
         self.onDelete = onDelete
         self.onTitleCommit = nil
+        self.trailingAction = nil
     }
 
     // MARK: - Body
@@ -203,6 +216,13 @@ struct EntryRowView: View {
             .accessibilityIdentifier(
                 Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleDiscardButton(configuration.title)
             )
+        } else if let trailingAction {
+            Button(action: trailingAction.action) {
+                Image(systemName: trailingAction.systemImage)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(trailingAction.accessibilityIdentifier)
         } else if configuration.showsMigrationBadge, let destination = configuration.migrationDestination {
             migrationBadge(destination: destination)
         }
