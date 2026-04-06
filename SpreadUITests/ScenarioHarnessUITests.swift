@@ -3,17 +3,25 @@ import XCTest
 @MainActor
 final class ScenarioHarnessUITests: LocalhostScenarioUITestCase {
 
-    /// Conditions: Launch the month-bound migration scenario in localhost.
-    /// Expected: The migration banner and sheet expose stable scenario-test identifiers.
+    /// Conditions: Launch the day-upgrade migration scenario in localhost.
+    /// Expected: The inline source and destination migration surfaces expose stable identifiers.
     func testMigrationScenarioExposesStableIdentifiers() throws {
-        let app = launchScenario(.migrationMonthBound)
+        let app = launchScenario(.migrationDaySuperseded)
 
-        openMigrationReview(in: app)
+        waitForElement(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.Migration.sourceButton("Day upgrade migration task")
+            )
+        )
 
-        let submit = anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.Migration.submitButton)
-        if submit.waitForExistence(timeout: 2) == false {
-            waitForElement(app.buttons["Migrate Selected"])
-        }
+        let dayApp = launchScenario(.migrationDaySuperseded, today: "2026-01-20")
+        waitForElement(
+            anyElement(
+                in: dayApp,
+                identifier: Definitions.AccessibilityIdentifiers.Migration.destinationSectionHeader
+            )
+        )
     }
 
     /// Conditions: Launch the overdue review scenario in localhost.

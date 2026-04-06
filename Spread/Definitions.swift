@@ -236,34 +236,15 @@ struct Definitions {
         }
 
         struct Migration {
-            static let banner = "migration.banner"
-            static let reviewButton = "migration.banner.review"
-            static let sheet = "migration.sheet"
-            static let header = "migration.sheet.header"
-            static let selectAllButton = "migration.sheet.selectAll"
-            static let deselectAllButton = "migration.sheet.deselectAll"
-            static let submitButton = "migration.sheet.submit"
-            static let cancelButton = "migration.sheet.cancel"
-            static let statusMessage = "migration.sheet.status"
+            static let destinationSectionHeader = "migration.destination.header"
+            static let destinationMigrateAllButton = "migration.destination.migrateAll"
 
-            static func section(_ sourceID: String) -> String {
-                "migration.sheet.section.\(token(sourceID))"
+            static func sourceButton(_ taskTitle: String) -> String {
+                "migration.source.\(token(taskTitle)).button"
             }
 
-            static func row(_ taskTitle: String) -> String {
-                "migration.sheet.row.\(token(taskTitle))"
-            }
-
-            static func selection(_ taskTitle: String) -> String {
-                "migration.sheet.row.\(token(taskTitle)).selection"
-            }
-
-            static func sourceLabel(_ taskTitle: String) -> String {
-                "migration.sheet.row.\(token(taskTitle)).source"
-            }
-
-            static func destinationLabel(_ taskTitle: String) -> String {
-                "migration.sheet.row.\(token(taskTitle)).destination"
+            static func destinationRow(_ taskTitle: String) -> String {
+                "migration.destination.\(token(taskTitle)).row"
             }
         }
 

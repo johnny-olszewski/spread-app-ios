@@ -28,8 +28,8 @@ final class AssignmentScenarioUITests: LocalhostScenarioUITestCase {
     }
 
     /// Conditions: An Inbox task exists and its matching day spread is created later.
-    /// Expected: The new spread exposes migration review with the Inbox-origin task as a movable source.
-    func testInboxTaskBecomesMigratableWhenMatchingSpreadIsCreated() throws {
+    /// Expected: The new destination-side migration section does not include Inbox-origin tasks.
+    func testInboxTaskDoesNotAppearInDestinationMigrationSection() throws {
         let app = launchScenario(.inboxResolution)
 
         openInbox(in: app)
@@ -37,10 +37,12 @@ final class AssignmentScenarioUITests: LocalhostScenarioUITestCase {
         dismissInbox(in: app)
 
         createDaySpread(day: 20, in: app)
-        openDay(year: 2026, month: 1, day: 20, in: app)
-        openMigrationReview(in: app)
-
-        XCTAssertTrue(app.staticTexts["Inbox resolution task"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Currently on: Inbox"].waitForExistence(timeout: 5))
+        XCTAssertFalse(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.Migration.destinationSectionHeader
+            )
+            .waitForExistence(timeout: 2)
+        )
     }
 }

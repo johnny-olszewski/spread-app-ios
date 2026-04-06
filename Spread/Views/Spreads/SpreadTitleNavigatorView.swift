@@ -197,14 +197,19 @@ struct SpreadTitleNavigatorView: View {
     }
 
     private func recommendationCard(for recommendation: SpreadTitleNavigatorRecommendation) -> some View {
-        recommendationBaseCard(for: recommendation)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                onRecommendedSpreadTapped?(recommendation)
-            }
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.recommendation(
-                recommendation.period.rawValue
-            ))
+        Button {
+            onRecommendedSpreadTapped?(recommendation)
+        } label: {
+            recommendationBaseCard(for: recommendation)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .simultaneousGesture(TapGesture().onEnded {
+            // Keep the recommendation tap from being swallowed by the surrounding scroll gesture arena.
+        })
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.recommendation(
+            recommendation.period.rawValue
+        ))
     }
 
     private func recommendationMeasurementCard(for recommendation: SpreadTitleNavigatorRecommendation) -> some View {

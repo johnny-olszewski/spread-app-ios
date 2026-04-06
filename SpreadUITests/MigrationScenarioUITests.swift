@@ -3,64 +3,69 @@ import XCTest
 @MainActor
 final class MigrationScenarioUITests: LocalhostScenarioUITestCase {
 
-    func testMonthBoundTaskPromptsOnMonthButNotDay() throws {
+    func testMonthBoundTaskAppearsOnMonthDestinationButNotDayDestination() throws {
         let app = launchScenario(.migrationMonthBound)
 
-        openMonth(year: 2026, month: 1, in: app)
-        let monthReview = anyElement(
+        let monthSection = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.Migration.reviewButton
+            identifier: Definitions.AccessibilityIdentifiers.Migration.destinationSectionHeader
         )
-        waitForElement(monthReview)
+        waitForElement(monthSection)
 
-        let dayApp = launchScenario(.migrationMonthBound)
-        openDay(year: 2026, month: 1, day: 20, in: dayApp)
-        let dayReview = anyElement(
+        let dayApp = launchScenario(.migrationMonthBound, today: "2026-01-20")
+        let daySection = anyElement(
             in: dayApp,
-            identifier: Definitions.AccessibilityIdentifiers.Migration.reviewButton
+            identifier: Definitions.AccessibilityIdentifiers.Migration.destinationSectionHeader
         )
-        XCTAssertFalse(dayReview.waitForExistence(timeout: 2))
+        XCTAssertFalse(daySection.waitForExistence(timeout: 2))
     }
 
-    func testDayDestinationSupersedesMonthPromptOnceDayExists() throws {
-        let monthApp = launchScenario(.migrationDaySuperseded)
-
-        openMonth(year: 2026, month: 1, in: monthApp)
-        let monthReview = anyElement(
-            in: monthApp,
-            identifier: Definitions.AccessibilityIdentifiers.Migration.reviewButton
-        )
-        XCTAssertFalse(monthReview.waitForExistence(timeout: 2))
-
+    func testSourceMigrationMovesTaskToMigratedSectionAndDestination() throws {
         let app = launchScenario(.migrationDaySuperseded)
-        openDay(year: 2026, month: 1, day: 20, in: app)
-        let dayReview = anyElement(
+
+        tapSourceMigrationButton(taskTitle: "Day upgrade migration task", in: app)
+
+        let alert = app.alerts.firstMatch
+        waitForElement(alert)
+        XCTAssertTrue(alert.staticTexts["Move \"Day upgrade migration task\" to January 20, 2026?"].waitForExistence(timeout: 2))
+        alert.buttons["Migrate"].tap()
+
+        let taskRow = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.Migration.reviewButton
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Day upgrade migration task")
         )
-        waitForElement(dayReview)
-        openMigrationReview(in: app)
+        XCTAssertFalse(taskRow.waitForExistence(timeout: 2))
 
+        let migratedHeader = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.migratedSectionHeader
+        )
+        waitForElement(migratedHeader)
+        tapElement(migratedHeader)
         XCTAssertTrue(app.staticTexts["Day upgrade migration task"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Currently on: 2026"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Move to: January 20, 2026"].waitForExistence(timeout: 5))
 
-        submitMigration(in: app)
+        openDayInStrip(20, in: app)
         XCTAssertTrue(app.staticTexts["Day upgrade migration task"].waitForExistence(timeout: 5))
+        let sectionHeader = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.Migration.destinationSectionHeader
+        )
+        XCTAssertFalse(sectionHeader.waitForExistence(timeout: 2))
     }
 
-    func testMigrationReviewExcludesNotes() throws {
-        let app = launchScenario(.noteExclusions)
+    func testDestinationMigrationSectionExcludesNotes() throws {
+        let app = launchScenario(.noteExclusions, today: "2026-01-20")
+        expandDestinationMigrationSection(in: app)
 
-        openDay(year: 2026, month: 1, day: 20, in: app)
-        let reviewButton = anyElement(
+        let taskRow = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.Migration.reviewButton
+            identifier: Definitions.AccessibilityIdentifiers.Migration.destinationRow("Scenario migration task")
         )
-        waitForElement(reviewButton)
-        openMigrationReview(in: app)
-
-        XCTAssertTrue(app.staticTexts["Scenario migration task"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Scenario migration note"].waitForExistence(timeout: 2))
+        let noteRow = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.Migration.destinationRow("Scenario migration note")
+        )
+        waitForElement(taskRow)
+        XCTAssertFalse(noteRow.waitForExistence(timeout: 2))
     }
 }

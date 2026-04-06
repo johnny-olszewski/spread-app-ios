@@ -17,6 +17,15 @@ struct EntryListView: View {
         let period: Period
     }
 
+    private struct PendingSourceMigration: Identifiable {
+        let task: DataModel.Task
+        let destination: DataModel.Spread
+
+        var id: String {
+            "\(task.id.uuidString)-\(destination.id.uuidString)"
+        }
+    }
+
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     // MARK: - Properties
@@ -42,6 +51,9 @@ struct EntryListView: View {
     /// Callback when an entry should be migrated.
     var onMigrate: ((any Entry) -> Void)?
 
+    /// Optional migration affordances for conventional spread lists.
+    var migrationConfiguration: EntryListMigrationConfiguration?
+
     /// Callback when a task title is committed via inline edit.
     var onTitleCommit: ((DataModel.Task, String) -> Void)?
 
@@ -60,6 +72,7 @@ struct EntryListView: View {
     @State private var inlineTitle: String = ""
     @State private var isContinuingEntry: Bool = false
     @State private var inlineCreationID: UUID = UUID()
+    @State private var pendingSourceMigration: PendingSourceMigration?
     @FocusState private var isInlineFocused: Bool
 
     // MARK: - Computed Properties
@@ -139,7 +152,10 @@ struct EntryListView: View {
 
     /// Whether there are any entries (active or migrated) to display.
     private var hasAnyEntries: Bool {
-        !activeEntries.isEmpty || !migratedTasks.isEmpty || !migratedNotes.isEmpty
+        !activeEntries.isEmpty ||
+        !migratedTasks.isEmpty ||
+        !migratedNotes.isEmpty ||
+        !(migrationConfiguration?.destinationItems.isEmpty ?? true)
     }
 
     /// Row insets for the standard entry list, using theme-defined vertical spacing.
@@ -182,6 +198,22 @@ struct EntryListView: View {
                 } else if let target = activeInlineCreationTarget {
                     commitInlineTask(target: target)
                 }
+            }
+            .alert(item: $pendingSourceMigration) { migration in
+                Alert(
+                    title: Text("Migrate task?"),
+                    message: Text("Move \"\(migration.task.title)\" to \(spreadTitle(for: migration.destination))?"),
+                    primaryButton: .default(
+                        Text("Migrate"),
+                        action: {
+                            migrationConfiguration?.onSourceMigrationConfirmed(
+                                migration.task,
+                                migration.destination
+                            )
+                        }
+                    ),
+                    secondaryButton: .cancel()
+                )
             }
     }
 
@@ -229,6 +261,18 @@ struct EntryListView: View {
                         sectionRows(section)
                     }
                 }
+            }
+
+            if let migrationConfiguration {
+                InlineTaskMigrationSection(
+                    items: migrationConfiguration.destinationItems,
+                    calendar: calendar,
+                    onMigrate: { item in
+                        migrationConfiguration.onDestinationMigration(item)
+                    },
+                    onMigrateAll: migrationConfiguration.onDestinationMigrationAll
+                )
+                .listRowBackground(Color.clear)
             }
 
             // Collapsible migrated entries section
@@ -301,10 +345,10 @@ struct EntryListView: View {
             migrationDestination: destinationFormatter.destination(for: task, from: spreadDataModel.spread),
             contextualLabel: contextualLabel,
             onComplete: { onComplete?(task) },
-            onMigrate: { onMigrate?(task) },
             onEdit: { onEdit?(task) },
             onDelete: { onDelete?(task) },
-            onTitleCommit: { newTitle in onTitleCommit?(task, newTitle) }
+            onTitleCommit: { newTitle in onTitleCommit?(task, newTitle) },
+            trailingAction: sourceMigrationAction(for: task)
         )
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(task.title))
     }
@@ -314,7 +358,6 @@ struct EntryListView: View {
             note: note,
             migrationDestination: destinationFormatter.destination(for: note, from: spreadDataModel.spread),
             contextualLabel: contextualLabel,
-            onMigrate: { onMigrate?(note) },
             onEdit: { onEdit?(note) },
             onDelete: { onDelete?(note) }
         )
@@ -563,6 +606,32 @@ struct EntryListView: View {
         } description: {
             Text("Add tasks or notes to this spread.")
         }
+    }
+
+    private func sourceMigrationAction(
+        for task: DataModel.Task
+    ) -> EntryRowTrailingAction? {
+        guard let destination = migrationConfiguration?.sourceDestinations[task.id] else {
+            return nil
+        }
+
+        return EntryRowTrailingAction(
+            systemImage: "arrow.right",
+            accessibilityIdentifier: Definitions.AccessibilityIdentifiers.Migration.sourceButton(task.title),
+            action: {
+                pendingSourceMigration = PendingSourceMigration(
+                    task: task,
+                    destination: destination
+                )
+            }
+        )
+    }
+
+    private func spreadTitle(for spread: DataModel.Spread) -> String {
+        SpreadHeaderConfiguration(
+            spread: spread,
+            calendar: calendar
+        ).title
     }
 }
 

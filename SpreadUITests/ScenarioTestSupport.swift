@@ -211,22 +211,40 @@ class LocalhostScenarioUITestCase: XCTestCase {
         XCTFail("Unable to select day \(dayString) in picker \(pickerIdentifier)")
     }
 
-    func openMigrationReview(in app: XCUIApplication) {
-        let identifiedButton = anyElement(
+    func tapSourceMigrationButton(taskTitle: String, in app: XCUIApplication) {
+        let button = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.Migration.reviewButton
+            identifier: Definitions.AccessibilityIdentifiers.Migration.sourceButton(taskTitle)
         )
-        let button = identifiedButton.waitForExistence(timeout: 2) ? identifiedButton : app.buttons["Review"]
         waitForElement(button)
         tapElement(button)
-        let identifiedSubmit = anyElement(
+    }
+
+    func expandDestinationMigrationSection(in app: XCUIApplication) {
+        let header = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.Migration.submitButton
+            identifier: Definitions.AccessibilityIdentifiers.Migration.destinationSectionHeader
         )
-        if identifiedSubmit.waitForExistence(timeout: 2) {
-            return
-        }
-        waitForElement(app.buttons["Migrate Selected"])
+        waitForElement(header)
+        tapElement(header)
+    }
+
+    func tapDestinationMigrationRow(taskTitle: String, in app: XCUIApplication) {
+        let row = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.Migration.destinationRow(taskTitle)
+        )
+        waitForElement(row)
+        tapElement(row)
+    }
+
+    func tapDestinationMigrateAll(in app: XCUIApplication) {
+        let button = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.Migration.destinationMigrateAllButton
+        )
+        waitForElement(button)
+        tapElement(button)
     }
 
     func openOverdueReview(in app: XCUIApplication) {
@@ -283,6 +301,24 @@ class LocalhostScenarioUITestCase: XCTestCase {
         waitForElement(dayTile)
         tapElement(dayTile)
         waitForNavigatorDismissal(in: app)
+    }
+
+    func openDayInStrip(_ day: Int, in app: XCUIApplication) {
+        let item = anyElement(
+            in: app,
+            identifier: "spreads.strip.day.\(Definitions.AccessibilityIdentifiers.token(String(day)))"
+        )
+        waitForElement(item)
+        tapElement(item)
+    }
+
+    func openYearInStrip(_ year: Int, in app: XCUIApplication) {
+        let item = anyElement(
+            in: app,
+            identifier: "spreads.strip.year.\(Definitions.AccessibilityIdentifiers.token(String(year)))"
+        )
+        waitForElement(item)
+        tapElement(item)
     }
 
     func tapViewMonth(year: Int, month: Int, in app: XCUIApplication) {
@@ -407,16 +443,6 @@ class LocalhostScenarioUITestCase: XCTestCase {
         waitForElement(dayCell)
         dayCell.tap()
         XCTAssertTrue(anyElement(in: app, identifier: "traditionalDayView").waitForExistence(timeout: 5))
-    }
-
-    func submitMigration(in app: XCUIApplication) {
-        let submit = anyElement(
-            in: app,
-            identifier: Definitions.AccessibilityIdentifiers.Migration.submitButton
-        )
-        let button = submit.waitForExistence(timeout: 2) ? submit : app.buttons["Migrate Selected"]
-        waitForElement(button)
-        tapElement(button)
     }
 
     func openHeaderNavigator(in app: XCUIApplication) {
