@@ -28,67 +28,81 @@ struct SpreadHeaderView: View {
     // MARK: - Body
 
     var body: some View {
-        ZStack {
-            HStack {
-                Text(configuration.countSummaryText)
-                    .font(SpreadTheme.Typography.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.entryCounts)
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+        if let isShowingNavigator, let navigatorModel, let currentSpread, let onNavigatorSelect {
+            navigatorTitleButton(isShowingNavigator: isShowingNavigator)
+                .spreadNavigatorPresentation(
+                    isPresented: isShowingNavigator,
+                    presentsAsPopover: horizontalSizeClass == .regular,
+                    model: navigatorModel,
+                    currentSpread: currentSpread,
+                    onSelect: onNavigatorSelect
+                )
+        } else {
+            ZStack {
+                HStack {
+                    entryCountLabel
+                    Spacer(minLength: 0)
+                }
 
-            if let isShowingNavigator, let navigatorModel, let currentSpread, let onNavigatorSelect {
-                navigatorTitleButton(isShowingNavigator: isShowingNavigator)
-                    .spreadNavigatorPresentation(
-                        isPresented: isShowingNavigator,
-                        presentsAsPopover: horizontalSizeClass == .regular,
-                        model: navigatorModel,
-                        currentSpread: currentSpread,
-                        onSelect: onNavigatorSelect
-                    )
-            } else {
                 titleLabel
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
             }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal)
+            .padding(.vertical, 12)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal)
-        .padding(.vertical, 12)
     }
 
     private func navigatorTitleButton(isShowingNavigator: Binding<Bool>) -> some View {
         Button {
             isShowingNavigator.wrappedValue = true
         } label: {
-            VStack(spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(configuration.title)
-                        .font(SpreadTheme.Typography.title2)
+            ZStack {
+                HStack {
+                    entryCountLabel
+                    Spacer(minLength: 0)
+                }
+
+                titleLabel(withChevron: true)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal)
+            .padding(.vertical, 12)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var titleLabel: some View {
+        titleLabel(withChevron: false)
+    }
+
+    private var entryCountLabel: some View {
+        Text(configuration.countSummaryText)
+            .font(SpreadTheme.Typography.subheadline)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.entryCounts)
+    }
+
+    private func titleLabel(withChevron: Bool) -> some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 6) {
+                Text(configuration.title)
+                    .font(SpreadTheme.Typography.title2)
+                if withChevron {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
-
-                Text(configuration.spread.period.displayName)
-                    .font(.caption.smallCaps())
-                    .foregroundStyle(.secondary)
             }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton)
-    }
-
-    private var titleLabel: some View {
-        VStack(spacing: 2) {
-            Text(configuration.title)
-                .font(SpreadTheme.Typography.title2)
             Text(configuration.spread.period.displayName)
                 .font(.caption.smallCaps())
                 .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity)
     }
 }
 

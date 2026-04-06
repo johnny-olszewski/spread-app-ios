@@ -416,25 +416,32 @@ extension MockDataSet {
         let marchTenth = calendar.date(from: DateComponents(year: 2026, month: 3, day: 10)) ?? today
         let marchTwenty = calendar.date(from: DateComponents(year: 2026, month: 3, day: 20)) ?? today
         let marchTwentyTwo = calendar.date(from: DateComponents(year: 2026, month: 3, day: 22)) ?? today
+        let marchTwentyOne = calendar.date(from: DateComponents(year: 2026, month: 3, day: 21)) ?? today
         let marchTwentyNine = calendar.date(from: DateComponents(year: 2026, month: 3, day: 29)) ?? today
         let marchThirtyOne = calendar.date(from: DateComponents(year: 2026, month: 3, day: 31)) ?? today
         let aprilMonth = calendar.date(from: DateComponents(year: 2026, month: 4, day: 1)) ?? today
         let aprilFifteenth = calendar.date(from: DateComponents(year: 2026, month: 4, day: 15)) ?? today
+        let january2027 = calendar.date(from: DateComponents(year: 2027, month: 1, day: 1)) ?? today
+        let januarySecond2027 = calendar.date(from: DateComponents(year: 2027, month: 1, day: 2)) ?? today
         let legacyYear = calendar.date(from: DateComponents(year: 2024, month: 1, day: 1)) ?? today
 
         return GeneratedData(
             spreads: [
                 spread(.year, marchYear, calendar: calendar),
+                spread(.year, january2027, calendar: calendar),
                 spread(.month, januaryMonth, calendar: calendar),
                 spread(.month, februaryMonth, calendar: calendar),
                 spread(.month, marchMonth, calendar: calendar),
+                spread(.month, january2027, calendar: calendar),
                 spread(.day, januaryFirst, calendar: calendar),
                 spread(.day, januarySecond, calendar: calendar),
                 spread(.day, januaryThird, calendar: calendar),
                 spread(.day, februaryTenth, calendar: calendar),
                 spread(.day, marchTenth, calendar: calendar),
+                spread(.day, marchTwentyOne, calendar: calendar),
                 spread(.day, marchTwentyNine, calendar: calendar),
                 spread(.day, marchThirtyOne, calendar: calendar),
+                spread(.day, januarySecond2027, calendar: calendar),
                 DataModel.Spread(startDate: januarySecond, endDate: januaryFifth, calendar: calendar),
                 DataModel.Spread(startDate: marchTwenty, endDate: marchTwentyTwo, calendar: calendar)
             ],

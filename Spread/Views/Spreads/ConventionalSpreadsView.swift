@@ -8,6 +8,7 @@ import SwiftUI
 ///
 /// On iPad (regular width), the inbox button appears in this view's toolbar.
 struct ConventionalSpreadsView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     // MARK: - Properties
 
@@ -35,10 +36,7 @@ struct ConventionalSpreadsView: View {
             SpreadTitleNavigatorView(
                 stripModel: conventionalStripModel,
                 recenterToken: recenterToken,
-                onCreateSpreadTapped: { coordinator.showSpreadCreation() },
                 onRecommendedSpreadTapped: { openRecommendedSpreadCreation($0) },
-                onCreateTaskTapped: { coordinator.showTaskCreation() },
-                onCreateNoteTapped: { coordinator.showNoteCreation() },
                 recommendationProvider: recommendationProvider,
                 selection: conventionalSelectionBinding
             )
@@ -78,6 +76,9 @@ struct ConventionalSpreadsView: View {
         .onAppear {
             resetSelectionIfNeeded()
         }
+        .overlay(alignment: overlayAlignment) {
+            spreadOverlayButtons
+        }
     }
 
     // MARK: - Content
@@ -100,7 +101,6 @@ struct ConventionalSpreadsView: View {
             ) { item in
                 conventionalPage(for: item)
             }
-            .todayButton { navigateToToday() }
         } else {
             ContentUnavailableView {
                 Label("No Spread Selected", systemImage: "book")
@@ -175,6 +175,50 @@ struct ConventionalSpreadsView: View {
         } else {
             selectedSpread = targetSpread
         }
+    }
+
+    private var overlayAlignment: Alignment {
+        horizontalSizeClass == .regular ? .topTrailing : .bottomLeading
+    }
+
+    @ViewBuilder
+    private var spreadOverlayButtons: some View {
+        HStack(spacing: 12) {
+            Button("Today", action: navigateToToday)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .glassEffect(.clear, in: Capsule())
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton
+                )
+
+            Menu {
+                Button(action: { coordinator.showSpreadCreation() }) {
+                    Label("Create Spread", systemImage: "book")
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createSpread)
+
+                Button(action: { coordinator.showTaskCreation() }) {
+                    Label("Create Task", systemImage: "circle.fill")
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createTask)
+
+                Button(action: { coordinator.showNoteCreation() }) {
+                    Label("Create Note", systemImage: "minus")
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createNote)
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(width: 32, height: 32)
+                    .foregroundStyle(Color.accentColor)
+                    .glassEffect(.clear, in: Capsule())
+            }
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.button)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 20)
     }
 
     @ViewBuilder

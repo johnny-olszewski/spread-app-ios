@@ -5,16 +5,9 @@ struct SpreadTitleNavigatorView: View {
     private static let itemSpacing: CGFloat = 12
     private static let recommendationFadeWidth: CGFloat = 50
 
-    #if DEBUG
-    private static let debugHideCreateButton = true
-    #endif
-
     let stripModel: SpreadTitleNavigatorModel
     let recenterToken: Int
-    let onCreateSpreadTapped: (() -> Void)?
     let onRecommendedSpreadTapped: ((SpreadTitleNavigatorRecommendation) -> Void)?
-    let onCreateTaskTapped: (() -> Void)?
-    let onCreateNoteTapped: (() -> Void)?
     let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding
     @Binding var selection: SpreadHeaderNavigatorModel.Selection
 
@@ -91,12 +84,6 @@ struct SpreadTitleNavigatorView: View {
             }
         )
         .frame(maxWidth: .infinity)
-        .overlay(alignment: .trailing) {
-            if showsCreateButton {
-                createButton
-                    .padding(.trailing, 12)
-            }
-        }
         .task(id: items.map(\.id)) {
             requestCenter(on: selectedSemanticID, animated: false)
         }
@@ -230,47 +217,6 @@ struct SpreadTitleNavigatorView: View {
             requestCenter(on: item.id, animated: true)
             selection = item.selection
         }
-    }
-
-    @ViewBuilder
-    private var createButton: some View {
-        if onCreateSpreadTapped != nil || onCreateTaskTapped != nil || onCreateNoteTapped != nil {
-            Menu {
-                if let onCreateSpreadTapped {
-                    Button(action: onCreateSpreadTapped) {
-                        Label("Create Spread", systemImage: "book")
-                    }
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createSpread)
-                }
-                if let onCreateTaskTapped {
-                    Button(action: onCreateTaskTapped) {
-                        Label("Create Task", systemImage: "circle.fill")
-                    }
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createTask)
-                }
-                if let onCreateNoteTapped {
-                    Button(action: onCreateNoteTapped) {
-                        Label("Create Note", systemImage: "minus")
-                    }
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createNote)
-                }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(width: 32, height: 32)
-                    .foregroundStyle(Color.accentColor)
-            }
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.button)
-        }
-    }
-
-    private var showsCreateButton: Bool {
-        #if DEBUG
-        if Self.debugHideCreateButton {
-            return false
-        }
-        #endif
-        return onCreateSpreadTapped != nil || onCreateTaskTapped != nil || onCreateNoteTapped != nil
     }
 
     private func uiFont(for style: SpreadTitleNavigatorModel.Item.Style) -> UIFont {

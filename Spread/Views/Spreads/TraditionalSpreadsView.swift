@@ -20,6 +20,7 @@ private enum TraditionalSheetDestination: Identifiable {
 }
 
 struct TraditionalSpreadsView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Bindable var journalManager: JournalManager
     let authManager: AuthManager
     let syncEngine: SyncEngine?
@@ -82,10 +83,7 @@ struct TraditionalSpreadsView: View {
             SpreadTitleNavigatorView(
                 stripModel: stripModel,
                 recenterToken: recenterToken,
-                onCreateSpreadTapped: nil,
                 onRecommendedSpreadTapped: nil,
-                onCreateTaskTapped: nil,
-                onCreateNoteTapped: nil,
                 recommendationProvider: recommendationProvider,
                 selection: selectionBinding
             )
@@ -97,16 +95,6 @@ struct TraditionalSpreadsView: View {
             }
 
             pagerContent
-        }
-        .todayButton {
-            let target = SpreadHeaderNavigatorModel.Selection.traditionalDay(
-                Period.day.normalizeDate(journalManager.today, calendar: journalManager.calendar)
-            )
-            if target.stableID(calendar: journalManager.calendar) == currentSelection.stableID(calendar: journalManager.calendar) {
-                recenterToken += 1
-            } else {
-                selectedSelection = target
-            }
         }
         .toolbar {
             toolbarContent
@@ -126,6 +114,37 @@ struct TraditionalSpreadsView: View {
                 selectedSelection = .traditionalYear(defaultRootYearDate)
             }
         }
+        .overlay(alignment: overlayAlignment) {
+            spreadOverlayButtons
+        }
+    }
+
+    private func navigateToToday() {
+        let target = SpreadHeaderNavigatorModel.Selection.traditionalDay(
+            Period.day.normalizeDate(journalManager.today, calendar: journalManager.calendar)
+        )
+        if target.stableID(calendar: journalManager.calendar) == currentSelection.stableID(calendar: journalManager.calendar) {
+            recenterToken += 1
+        } else {
+            selectedSelection = target
+        }
+    }
+
+    private var overlayAlignment: Alignment {
+        horizontalSizeClass == .regular ? .topTrailing : .bottomLeading
+    }
+
+    private var spreadOverlayButtons: some View {
+        Button("Today", action: navigateToToday)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .glassEffect(.clear, in: Capsule())
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 20)
+            .accessibilityIdentifier(
+                Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton
+            )
     }
 
     @ViewBuilder
