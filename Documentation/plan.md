@@ -3185,13 +3185,21 @@ Supabase: SPRD-85A -> SPRD-85C
   - [x] Do not let containing multiday spreads satisfy the missing day recommendation.
   - [x] Show recommendations in `year`, `month`, `day` order.
   - [x] Reuse the existing navigator label presentation for recommended items.
-  - [x] Render each recommendation with a yellow stroked rounded-rectangle border so it is visually distinct from existing spreads.
+  - [x] Render recommendations with the implemented shimmering visual treatment so they remain visually distinct from existing spreads.
   - [x] Hide the trailing recommendation inset entirely when there are no recommendations.
   - [x] Tapping a recommendation opens the existing create-spread flow prefilled for that recommendation.
   - [x] Recommendations remain visible while the create-spread flow is open and disappear only after successful creation.
+  - [ ] Remove the inner horizontal padding from recommendation cards.
+  - [ ] Constrain recommendation cards to a shared fixed `3:5` aspect ratio and ensure all visible recommendation cards are the same size.
+  - [ ] Keep iPad behavior showing all recommendations directly in the trailing inset.
+  - [ ] On iPhone, keep a single recommendation as a direct tappable card.
+  - [ ] On iPhone, when multiple recommendations exist, replace the direct cards with one shimmering down-chevron card that opens a `Menu`.
+  - [ ] Use the same shared card size for the iPhone chevron card and the direct recommendation cards.
+  - [ ] Use full spread date/title labels for recommendation menu items on iPhone.
 - **Tests**:
   - Support tests for recommendation derivation across missing and existing year/month/day spread combinations.
   - Focused UI tests covering recommendation visibility, ordering, and opening prefilled creation flow from the trailing inset.
+  - Focused iPhone UI tests covering the multi-recommendation chevron card, menu contents, and shared recommendation sizing.
 - **Dependencies**: SPRD-136
 
 ### [SPRD-138] Bug: Year/month task sectioning should reflect the current spread - [x] Complete
