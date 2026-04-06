@@ -191,6 +191,7 @@
 ### Entry Date/Period Changes (Reassignment)
 - Changing preferred date or period triggers reassignment logic in conventional mode. [SPRD-24]
 - Period is independently editable (e.g., changing from month to day without changing the date month). [SPRD-24]
+- Task creation and task editing must use the same period/date normalization and adjustment rules so the saved preferred assignment is consistent regardless of entry point. A period change in the editor must not silently preserve a stale date from the previous period when that would change reassignment outcome. [SPRD-141]
 - Old assignments (on old date/period's spreads) are marked as migrated to preserve history. [SPRD-24]
 - New assignment is created on the best matching spread for the new date/period: [SPRD-24, SPRD-13]
   - Search from finest to coarsest: day → month → year.
@@ -198,6 +199,7 @@
   - If no matching spread exists, entry goes to Inbox.
 - If destination spread already has an assignment, update its status (don't duplicate). [SPRD-52]
 - Traditional mode date/period changes also trigger conventional reassignment logic. [SPRD-17, SPRD-24]
+- Reassignment example for seeded conventional data: if a task created on the `2026` year spread is edited to preferred assignment `April 6, 2026` day while no `April 2026` month spread and no `April 6, 2026` day spread exist, the task remains open on the `2026` year spread and is shown in the April section with a `6` context label. After an explicit `April 2026` month spread is created, that month spread becomes the migration destination surfaced by inline migration affordances; the edit itself must not jump the task to an unrelated existing day spread such as `January 1, 2026`. [SPRD-141]
 
 ### Task Status
 - Statuses: open, complete, migrated, cancelled. [SPRD-10, SPRD-24]
