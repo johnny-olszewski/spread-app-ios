@@ -189,7 +189,7 @@ struct SpreadTitleNavigatorSupportTests {
 
         #expect(items.map { $0.label } == ["2026", "Jan", "1", "2", "2-5", "Feb", "Mar", "10", "20-22", "29"])
         #expect(items.map { $0.style } == [
-            SpreadTitleNavigatorModel.Item.Style.year,
+            SpreadTitleNavigatorItemStyle.year,
             .month,
             .day,
             .day,
@@ -240,15 +240,15 @@ struct SpreadTitleNavigatorSupportTests {
         let items = stripModel.items(for: .traditionalDay(Self.makeDate(year: 2026, month: 3, day: 29)))
 
         #expect(items.first?.label == "2026")
-        #expect(items.first?.style == SpreadTitleNavigatorModel.Item.Style.year)
+        #expect(items.first?.style == SpreadTitleNavigatorItemStyle.year)
         #expect(items[1].label == "Jan")
-        #expect(items[1].style == SpreadTitleNavigatorModel.Item.Style.month)
+        #expect(items[1].style == SpreadTitleNavigatorItemStyle.month)
         #expect(items[2].label == "1")
-        #expect(items[2].style == SpreadTitleNavigatorModel.Item.Style.day)
-        #expect(items.contains(where: { $0.label == "Feb" && $0.style == SpreadTitleNavigatorModel.Item.Style.month }))
-        #expect(items.contains(where: { $0.label == "Mar" && $0.style == SpreadTitleNavigatorModel.Item.Style.month }))
+        #expect(items[2].style == SpreadTitleNavigatorItemStyle.day)
+        #expect(items.contains(where: { $0.label == "Feb" && $0.style == SpreadTitleNavigatorItemStyle.month }))
+        #expect(items.contains(where: { $0.label == "Mar" && $0.style == SpreadTitleNavigatorItemStyle.month }))
         #expect(items.last?.label == "31")
-        #expect(items.last?.style == SpreadTitleNavigatorModel.Item.Style.day)
+        #expect(items.last?.style == SpreadTitleNavigatorItemStyle.day)
     }
 
     @Test func stripRebuildsWhenSelectionMovesToDifferentYear() {
