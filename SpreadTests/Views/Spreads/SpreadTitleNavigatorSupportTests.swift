@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import Spread
 
@@ -99,6 +100,59 @@ struct SpreadTitleNavigatorSupportTests {
         let recommendations = provider.recommendations(for: model)
 
         #expect(recommendations.isEmpty)
+    }
+
+    @Test func recommendationFullTitlesUseExpandedDateFormatting() {
+        let yearRecommendation = SpreadTitleNavigatorRecommendation(
+            period: .year,
+            date: Self.makeDate(year: 2026, month: 1, day: 1),
+            calendar: Self.calendar
+        )
+        let monthRecommendation = SpreadTitleNavigatorRecommendation(
+            period: .month,
+            date: Self.makeDate(year: 2026, month: 4, day: 1),
+            calendar: Self.calendar
+        )
+        let dayRecommendation = SpreadTitleNavigatorRecommendation(
+            period: .day,
+            date: Self.makeDate(year: 2026, month: 4, day: 5),
+            calendar: Self.calendar
+        )
+
+        #expect(yearRecommendation.fullTitle == "2026")
+        #expect(monthRecommendation.fullTitle == "April 2026")
+        #expect(dayRecommendation.fullTitle == "April 5, 2026")
+    }
+
+    @Test func recommendationCardLayoutUsesSharedThreeToFiveAspectRatio() {
+        let size = SpreadTitleNavigatorRecommendationLayout.cardSize(
+            widths: [42, 60, 38],
+            heights: [70, 64, 68]
+        )
+
+        #expect(size?.width == 60)
+        #expect(size?.height == 100)
+    }
+
+    @Test func recommendationCardsCollapseToMenuOnlyOnCompactWhenMultiple() {
+        #expect(
+            SpreadTitleNavigatorRecommendationLayout.collapsesToMenu(
+                horizontalSizeClass: .compact,
+                recommendationCount: 2
+            )
+        )
+        #expect(
+            !SpreadTitleNavigatorRecommendationLayout.collapsesToMenu(
+                horizontalSizeClass: .compact,
+                recommendationCount: 1
+            )
+        )
+        #expect(
+            !SpreadTitleNavigatorRecommendationLayout.collapsesToMenu(
+                horizontalSizeClass: .regular,
+                recommendationCount: 3
+            )
+        )
     }
 
     @Test func conventionalSelectionUsesExplicitSpreadsAcrossEntireYear() {

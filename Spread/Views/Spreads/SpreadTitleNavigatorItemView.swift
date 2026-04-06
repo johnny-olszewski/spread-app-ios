@@ -11,13 +11,14 @@ struct SpreadTitleNavigatorItemView: View {
     let selectionIndicatorNamespace: Namespace.ID
     let showsSelectionIndicator: Bool
     let borderColor: Color?
+    let horizontalPadding: CGFloat
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             VStack(spacing: 4) {
                 itemLabel
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, horizontalPadding)
                     .padding(.top, 6)
 
                 if showsSelectionIndicator {

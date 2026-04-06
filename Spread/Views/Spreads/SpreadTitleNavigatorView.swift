@@ -4,6 +4,7 @@ import UIKit
 struct SpreadTitleNavigatorView: View {
     private static let itemSpacing: CGFloat = 12
     private static let recommendationFadeWidth: CGFloat = 50
+    private static let recommendationCornerRadius: CGFloat = 10
 
     let stripModel: SpreadTitleNavigatorModel
     let recenterToken: Int
@@ -11,6 +12,7 @@ struct SpreadTitleNavigatorView: View {
     let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding
     @Binding var selection: SpreadHeaderNavigatorModel.Selection
 
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var itemFrames: [String: CGRect] = [:]
     @State private var recommendationHeights: [String: CGFloat] = [:]
     @State private var recommendationWidths: [String: CGFloat] = [:]
@@ -36,14 +38,18 @@ struct SpreadTitleNavigatorView: View {
         itemFrames[selectedSemanticID]
     }
 
-    private var recommendationHeight: CGFloat? {
-        let tallestHeight = recommendationHeights.values.max() ?? 0
-        return tallestHeight > 0 ? tallestHeight : nil
+    private var recommendationCardSize: CGSize? {
+        SpreadTitleNavigatorRecommendationLayout.cardSize(
+            widths: Array(recommendationWidths.values),
+            heights: Array(recommendationHeights.values)
+        )
     }
 
-    private var recommendationWidth: CGFloat? {
-        let widestWidth = recommendationWidths.values.max() ?? 0
-        return widestWidth > 0 ? widestWidth : nil
+    private var collapsesRecommendationsToMenu: Bool {
+        SpreadTitleNavigatorRecommendationLayout.collapsesToMenu(
+            horizontalSizeClass: horizontalSizeClass,
+            recommendationCount: recommendations.count
+        )
     }
 
     private var isSelectedCentered: Bool {
@@ -68,6 +74,9 @@ struct SpreadTitleNavigatorView: View {
         .scrollTargetBehavior(.viewAligned)
         .scrollPosition(id: $stripCenteredTargetID, anchor: .center)
         .contentShape(Rectangle())
+        .overlay {
+            recommendationMeasurementRow
+        }
         .background(
             GeometryReader { geometry in
                 Color.clear
@@ -125,6 +134,7 @@ struct SpreadTitleNavigatorView: View {
             selectionIndicatorNamespace: selectionIndicatorNamespace,
             showsSelectionIndicator: true,
             borderColor: nil,
+            horizontalPadding: 16,
             action: {
                 handleItemTap(item)
             }
@@ -135,19 +145,17 @@ struct SpreadTitleNavigatorView: View {
 
     private var recommendationInset: some View {
         HStack(spacing: Self.itemSpacing) {
-            ForEach(recommendations) { recommendation in
-                recommendationView(for: recommendation)
+            if collapsesRecommendationsToMenu {
+                recommendationMenuTrigger
+            } else {
+                ForEach(recommendations) { recommendation in
+                    recommendationCard(for: recommendation)
+                }
             }
         }
         .fixedSize(horizontal: true, vertical: false)
         .layoutPriority(1)
         .padding(.trailing, 12)
-        .onPreferenceChange(SpreadTitleNavigatorRecommendationHeightPreferenceKey.self) { newValue in
-            recommendationHeights = newValue
-        }
-        .onPreferenceChange(SpreadTitleNavigatorRecommendationWidthPreferenceKey.self) { newValue in
-            recommendationWidths = newValue
-        }
     }
 
     @ViewBuilder
@@ -171,9 +179,54 @@ struct SpreadTitleNavigatorView: View {
         }
     }
 
-    private func recommendationView(for recommendation: SpreadTitleNavigatorRecommendation) -> some View {
+    @ViewBuilder
+    private var recommendationMeasurementRow: some View {
+        HStack(spacing: Self.itemSpacing) {
+            ForEach(recommendations) { recommendation in
+                recommendationMeasurementCard(for: recommendation)
+            }
+        }
+        .hidden()
+        .allowsHitTesting(false)
+        .onPreferenceChange(SpreadTitleNavigatorRecommendationHeightPreferenceKey.self) { newValue in
+            recommendationHeights = newValue
+        }
+        .onPreferenceChange(SpreadTitleNavigatorRecommendationWidthPreferenceKey.self) { newValue in
+            recommendationWidths = newValue
+        }
+    }
+
+    private func recommendationCard(for recommendation: SpreadTitleNavigatorRecommendation) -> some View {
+        recommendationBaseCard(for: recommendation)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                onRecommendedSpreadTapped?(recommendation)
+            }
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.recommendation(
+                recommendation.period.rawValue
+            ))
+    }
+
+    private func recommendationMeasurementCard(for recommendation: SpreadTitleNavigatorRecommendation) -> some View {
+        recommendationBaseCard(for: recommendation)
+            .background(
+                GeometryReader { geometry in
+                    Color.clear
+                        .preference(
+                            key: SpreadTitleNavigatorRecommendationHeightPreferenceKey.self,
+                            value: [recommendation.id: geometry.size.height]
+                        )
+                        .preference(
+                            key: SpreadTitleNavigatorRecommendationWidthPreferenceKey.self,
+                            value: [recommendation.id: geometry.size.width]
+                        )
+                }
+            )
+    }
+
+    private func recommendationBaseCard(for recommendation: SpreadTitleNavigatorRecommendation) -> some View {
         let item = stripModel.item(for: recommendation)
-        return SpreadTitleNavigatorItemView(
+        let content = SpreadTitleNavigatorItemView(
             semanticID: item.id,
             style: item.style,
             display: item.display,
@@ -184,27 +237,60 @@ struct SpreadTitleNavigatorView: View {
             selectionIndicatorNamespace: selectionIndicatorNamespace,
             showsSelectionIndicator: false,
             borderColor: nil,
-            action: {
-                onRecommendedSpreadTapped?(recommendation)
-            }
+            horizontalPadding: 0,
+            action: {}
         )
-        .frame(width: recommendationWidth)
-        .frame(height: recommendationHeight)
-        .background(
-            GeometryReader { geometry in
-                Color.clear
-                    .preference(
-                        key: SpreadTitleNavigatorRecommendationHeightPreferenceKey.self,
-                        value: [recommendation.id: geometry.size.height]
-                    )
-                    .preference(
-                        key: SpreadTitleNavigatorRecommendationWidthPreferenceKey.self,
-                        value: [recommendation.id: geometry.size.width]
-                    )
+
+        return Group {
+            if let recommendationCardSize {
+                content
+                    .frame(width: recommendationCardSize.width, height: recommendationCardSize.height)
+            } else {
+                content
             }
-        )
+        }
         .glowingShimmer(
-            cornerRadius: 10,
+            cornerRadius: Self.recommendationCornerRadius,
+            speed: 2.4,
+            borderWidth: 2.2,
+            blurRadius: 3.5
+        )
+    }
+
+    private var recommendationMenuTrigger: some View {
+        Menu {
+            ForEach(recommendations) { recommendation in
+                Button(recommendation.fullTitle) {
+                    onRecommendedSpreadTapped?(recommendation)
+                }
+            }
+        } label: {
+            Group {
+                if let recommendationCardSize {
+                    recommendationMenuLabel
+                        .frame(width: recommendationCardSize.width, height: recommendationCardSize.height)
+                } else {
+                    recommendationMenuLabel
+                }
+            }
+        }
+        .accessibilityIdentifier(
+            Definitions.AccessibilityIdentifiers.SpreadStrip.recommendation("menu")
+        )
+    }
+
+    private var recommendationMenuLabel: some View {
+        VStack {
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.down")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Color.secondary)
+            Spacer(minLength: 0)
+        }
+        .frame(minWidth: 28, minHeight: 48)
+        .contentShape(Rectangle())
+        .glowingShimmer(
+            cornerRadius: Self.recommendationCornerRadius,
             speed: 2.4,
             borderWidth: 2.2,
             blurRadius: 3.5
