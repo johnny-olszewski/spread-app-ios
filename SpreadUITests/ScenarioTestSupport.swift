@@ -260,17 +260,19 @@ class LocalhostScenarioUITestCase: XCTestCase {
 
     func openMonth(year: Int, month: Int, in app: XCUIApplication) {
         openHeaderNavigator(in: app)
-        let row = anyElement(
+        expandNavigatorMonthIfNeeded(year: year, month: month, in: app)
+        let viewMonthButton = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.monthRow(year: year, month: month)
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.viewMonthButton(year: year, month: month)
         )
-        waitForElement(row)
-        tapElement(row)
+        waitForElement(viewMonthButton)
+        tapElement(viewMonthButton)
         waitForNavigatorDismissal(in: app)
     }
 
     func openDay(year: Int, month: Int, day: Int, in app: XCUIApplication) {
         openHeaderNavigator(in: app)
+        expandNavigatorMonthIfNeeded(year: year, month: month, in: app)
         let dayTile = anyElement(
             in: app,
             identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.dayTile(
@@ -281,6 +283,33 @@ class LocalhostScenarioUITestCase: XCTestCase {
         waitForElement(dayTile)
         tapElement(dayTile)
         waitForNavigatorDismissal(in: app)
+    }
+
+    func tapViewMonth(year: Int, month: Int, in app: XCUIApplication) {
+        let button = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.viewMonthButton(year: year, month: month)
+        )
+        waitForElement(button)
+        tapElement(button)
+    }
+
+    func expandNavigatorMonthIfNeeded(year: Int, month: Int, in app: XCUIApplication) {
+        let grid = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.grid(year: year, month: month)
+        )
+        if grid.waitForExistence(timeout: 1) {
+            return
+        }
+
+        let row = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.monthRow(year: year, month: month)
+        )
+        waitForElement(row)
+        tapElement(row)
+        waitForElement(grid)
     }
 
     func tapTab(_ title: String, in app: XCUIApplication) {
@@ -399,16 +428,7 @@ class LocalhostScenarioUITestCase: XCTestCase {
             tapElement(titleButton)
             return
         }
-
-        let selectSpreadButton = anyElement(
-            in: app,
-            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectSpreadButton
-        )
-        if selectSpreadButton.waitForExistence(timeout: 5) {
-            tapElement(selectSpreadButton)
-            return
-        }
-        XCTFail("Select Spread button was not found")
+        XCTFail("Spread header navigator title button was not found")
     }
 
     func waitForNavigatorDismissal(in app: XCUIApplication, timeout: TimeInterval = 5) {
@@ -452,6 +472,20 @@ class LocalhostScenarioUITestCase: XCTestCase {
         let disclosureButton = disclosureButtons.element(boundBy: 0)
         waitForElement(disclosureButton)
         disclosureButton.tap()
+    }
+
+    func waitForNavigatorYearPage(_ year: Int, in app: XCUIApplication) {
+        let page = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.yearPage(year)
+        )
+        waitForElement(page)
+    }
+
+    func swipeNavigatorToNextYear(in app: XCUIApplication) {
+        let surface = navigatorSurface(in: app)
+        waitForElement(surface)
+        surface.swipeLeft()
     }
 
     func tapNavigatorMonthDisclosure(year: Int, month: Int, in app: XCUIApplication) {
@@ -549,7 +583,7 @@ class LocalhostScenarioUITestCase: XCTestCase {
     }
 
     private func navigatorSurface(in app: XCUIApplication) -> XCUIElement {
-        app.collectionViews[Definitions.AccessibilityIdentifiers.SpreadNavigator.popover].firstMatch
+        anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.popover)
     }
 
     private func anyElement(
@@ -560,10 +594,12 @@ class LocalhostScenarioUITestCase: XCTestCase {
     }
 
     func tapElement(_ element: XCUIElement) {
-        if element.isHittable {
-            element.tap()
-        } else {
+        let frame = element.frame
+        if !frame.isEmpty {
             element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            return
         }
+
+        element.tap()
     }
 }

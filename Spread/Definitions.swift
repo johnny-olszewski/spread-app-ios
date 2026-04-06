@@ -99,6 +99,10 @@ struct Definitions {
             static let titleButton = "spreads.navigator.titleButton"
             static let popover = "spreads.navigator.popover"
 
+            static func yearPage(_ year: Int) -> String {
+                "spreads.navigator.yearPage.\(year)"
+            }
+
             static func yearRow(_ year: Int) -> String {
                 "spreads.navigator.year.\(year)"
             }
@@ -109,6 +113,10 @@ struct Definitions {
 
             static func monthRow(year: Int, month: Int) -> String {
                 String(format: "spreads.navigator.month.%04d-%02d", year, month)
+            }
+
+            static func viewMonthButton(year: Int, month: Int) -> String {
+                String(format: "spreads.navigator.month.%04d-%02d.viewMonth", year, month)
             }
 
             static func monthDisclosure(year: Int, month: Int) -> String {

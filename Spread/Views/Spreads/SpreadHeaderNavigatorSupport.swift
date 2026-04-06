@@ -13,77 +13,34 @@ struct SpreadHeaderNavigatorModel {
         case traditionalDay(Date)
     }
 
-    struct ExpansionState: Equatable {
-        let expandedYear: Int?
-        let expandedMonth: Date?
-    }
-
-    struct YearRow: Identifiable {
+    struct YearPage: Identifiable {
         let year: Int
-        let explicitSpread: DataModel.Spread?
-        let isDerived: Bool
+        let spreads: [DataModel.Spread]
+        let months: [MonthRow]
 
         var id: Int { year }
-        var canDirectSelect: Bool { explicitSpread != nil || explicitTraditionalSelection != nil }
-        fileprivate let explicitTraditionalSelection: Date?
     }
 
     struct MonthRow: Identifiable {
         let date: Date
         let explicitSpread: DataModel.Spread?
         let isDerived: Bool
+        let monthSelection: Selection?
+        let dayTargetsByDate: [Date: [SelectionTarget]]
 
         var id: Date { date }
-        var canDirectSelect: Bool { explicitSpread != nil || explicitTraditionalSelection != nil }
-        fileprivate let explicitTraditionalSelection: Date?
+        var canViewMonth: Bool { monthSelection != nil }
+
+        func targets(for date: Date, calendar: Calendar) -> [SelectionTarget] {
+            dayTargetsByDate[Period.day.normalizeDate(date, calendar: calendar), default: []]
+        }
     }
 
-    struct MonthGridItem: Identifiable {
-        enum Kind {
-            case day(Date)
-            case multiday(DataModel.Spread)
-        }
-
-        let kind: Kind
-        fileprivate let calendar: Calendar
-
-        var id: String {
-            switch kind {
-            case .day(let date):
-                let components = calendar.dateComponents([.year, .month, .day], from: date)
-                return String(
-                    format: "day-%04d-%02d-%02d",
-                    components.year ?? 0,
-                    components.month ?? 0,
-                    components.day ?? 0
-                )
-            case .multiday(let spread):
-                return "multiday-\(spread.id.uuidString.lowercased())"
-            }
-        }
-
-        var startDate: Date {
-            switch kind {
-            case .day(let date):
-                return date
-            case .multiday(let spread):
-                return spread.startDate ?? spread.date
-            }
-        }
-
-        var label: String {
-            switch kind {
-            case .day(let date):
-                return String(calendar.component(.day, from: date))
-            case .multiday(let spread):
-                return spread.displayLabel(calendar: calendar)
-            }
-        }
-
-        var isMultiday: Bool {
-            if case .multiday = kind { return true }
-            return false
-        }
+    struct SelectionTarget: Identifiable {
+        let id: String
+        let selection: Selection
+        let title: String
+        let isMultiday: Bool
     }
 
     let mode: Mode
@@ -94,41 +51,27 @@ struct SpreadHeaderNavigatorModel {
     let notes: [DataModel.Note]
     let events: [DataModel.Event]
 
-    func initialExpansion(for currentSpread: DataModel.Spread) -> ExpansionState {
-        let year = calendar.component(.year, from: currentSpread.date)
-        let monthDate = Period.month.normalizeDate(currentSpread.date, calendar: calendar)
+    func initialYear(for currentSpread: DataModel.Spread) -> Int {
+        calendar.component(.year, from: currentSpread.date)
+    }
 
+    func initialExpandedMonth(for currentSpread: DataModel.Spread) -> Date? {
         switch currentSpread.period {
-        case .year:
-            return ExpansionState(expandedYear: year, expandedMonth: nil)
         case .month, .day, .multiday:
-            return ExpansionState(expandedYear: year, expandedMonth: monthDate)
+            return Period.month.normalizeDate(currentSpread.date, calendar: calendar)
+        case .year:
+            return nil
         }
     }
 
-    func toggledYear(_ year: Int, from state: ExpansionState) -> ExpansionState {
-        if state.expandedYear == year {
-            return ExpansionState(expandedYear: nil, expandedMonth: nil)
-        }
-        return ExpansionState(expandedYear: year, expandedMonth: nil)
-    }
-
-    func toggledMonth(_ monthDate: Date, in year: Int, from state: ExpansionState) -> ExpansionState {
-        guard state.expandedYear == year else {
-            return ExpansionState(expandedYear: year, expandedMonth: monthDate)
-        }
-        if state.expandedMonth == monthDate {
-            return ExpansionState(expandedYear: year, expandedMonth: nil)
-        }
-        return ExpansionState(expandedYear: year, expandedMonth: monthDate)
-    }
-
-    func rootYears() -> [YearRow] {
-        switch mode {
-        case .conventional:
-            return conventionalYearRows()
-        case .traditional:
-            return traditionalYearRows()
+    func yearPages() -> [YearPage] {
+        yearsInNavigationOrder().map { year in
+            let yearSpreads = spreads.filter { spreadTouchesYear($0, year: year) }
+            return YearPage(
+                year: year,
+                spreads: yearSpreads,
+                months: months(in: year)
+            )
         }
     }
 
@@ -141,60 +84,8 @@ struct SpreadHeaderNavigatorModel {
         }
     }
 
-    func monthGridItems(year: Int, month: Int) -> [MonthGridItem] {
-        switch mode {
-        case .conventional:
-            return conventionalMonthGridItems(year: year, month: month)
-        case .traditional:
-            return traditionalMonthGridItems(year: year, month: month)
-        }
-    }
-
-    func selection(for yearRow: YearRow) -> Selection? {
-        switch mode {
-        case .conventional:
-            guard let spread = yearRow.explicitSpread else { return nil }
-            return .conventional(spread)
-        case .traditional:
-            guard let date = yearRow.explicitTraditionalSelection else { return nil }
-            return .traditionalYear(date)
-        }
-    }
-
-    func selection(for monthRow: MonthRow) -> Selection? {
-        switch mode {
-        case .conventional:
-            guard let spread = monthRow.explicitSpread else { return nil }
-            return .conventional(spread)
-        case .traditional:
-            guard let date = monthRow.explicitTraditionalSelection else { return nil }
-            return .traditionalMonth(date)
-        }
-    }
-
-    func selection(for item: MonthGridItem) -> Selection? {
-        switch mode {
-        case .conventional:
-            switch item.kind {
-            case .day(let date):
-                return spreads.first(where: {
-                    $0.period == .day && calendar.isDate($0.date, inSameDayAs: date)
-                }).map(Selection.conventional)
-            case .multiday(let spread):
-                return .conventional(spread)
-            }
-        case .traditional:
-            switch item.kind {
-            case .day(let date):
-                return .traditionalDay(date)
-            case .multiday:
-                return nil
-            }
-        }
-    }
-
-    func isCurrent(yearRow: YearRow, currentSpread: DataModel.Spread) -> Bool {
-        calendar.component(.year, from: currentSpread.date) == yearRow.year && currentSpread.period == .year
+    func selectionTarget(for monthRow: MonthRow) -> Selection? {
+        monthRow.monthSelection
     }
 
     func isCurrent(monthRow: MonthRow, currentSpread: DataModel.Spread) -> Bool {
@@ -202,49 +93,42 @@ struct SpreadHeaderNavigatorModel {
         calendar.isDate(currentSpread.date, equalTo: monthRow.date, toGranularity: .month)
     }
 
-    func isCurrent(item: MonthGridItem, currentSpread: DataModel.Spread) -> Bool {
-        switch item.kind {
-        case .day(let date):
-            return currentSpread.period == .day && calendar.isDate(currentSpread.date, inSameDayAs: date)
-        case .multiday(let spread):
-            return currentSpread.period == .multiday && currentSpread.id == spread.id
+    func isCurrent(date: Date, currentSpread: DataModel.Spread) -> Bool {
+        switch currentSpread.period {
+        case .day:
+            return calendar.isDate(currentSpread.date, inSameDayAs: date)
+        case .multiday:
+            let startDate = Period.day.normalizeDate(currentSpread.startDate ?? currentSpread.date, calendar: calendar)
+            let endDate = Period.day.normalizeDate(currentSpread.endDate ?? currentSpread.date, calendar: calendar)
+            let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
+            return normalizedDate >= startDate && normalizedDate <= endDate
+        default:
+            return false
         }
     }
 
-    private func conventionalYearRows() -> [YearRow] {
-        let explicitYears = Dictionary(uniqueKeysWithValues: spreads.filter { $0.period == .year }.map {
-            (calendar.component(.year, from: $0.date), $0)
-        })
+    func yearsInNavigationOrder() -> [Int] {
+        switch mode {
+        case .conventional:
+            return conventionalYears()
+        case .traditional:
+            return traditionalYears()
+        }
+    }
 
-        var allYears = Set(explicitYears.keys)
+    private func conventionalYears() -> [Int] {
+        var allYears = Set<Int>()
         for spread in spreads {
-            let sourceDate = spread.startDate ?? spread.date
-            allYears.insert(calendar.component(.year, from: sourceDate))
+            allYears.formUnion(yearsTouched(by: spread))
         }
-
-        return allYears.sorted(by: >).map { year in
-            YearRow(
-                year: year,
-                explicitSpread: explicitYears[year],
-                isDerived: explicitYears[year] == nil,
-                explicitTraditionalSelection: nil
-            )
-        }
+        return allYears.sorted()
     }
 
-    private func traditionalYearRows() -> [YearRow] {
+    private func traditionalYears() -> [Int] {
         let currentYear = calendar.component(.year, from: today)
         let maxYear = currentYear + 10
         let earliestYear = earliestTraditionalYear() ?? currentYear
-
-        return Array(earliestYear...maxYear).sorted(by: >).map { year in
-            YearRow(
-                year: year,
-                explicitSpread: nil,
-                isDerived: false,
-                explicitTraditionalSelection: yearStart(year)
-            )
-        }
+        return Array(earliestYear...maxYear)
     }
 
     private func conventionalMonthRows(in year: Int) -> [MonthRow] {
@@ -254,22 +138,22 @@ struct SpreadHeaderNavigatorModel {
             (calendar.component(.month, from: $0.date), $0)
         })
 
-        var allMonths = Set(explicitMonths.keys)
+        var visibleMonths = Set(explicitMonths.keys)
         for spread in spreads where spread.period == .day || spread.period == .multiday {
-            let sourceDate = spread.startDate ?? spread.date
-            guard calendar.component(.year, from: sourceDate) == year else { continue }
-            allMonths.insert(calendar.component(.month, from: sourceDate))
+            visibleMonths.formUnion(monthsTouched(by: spread, in: year))
         }
 
-        return allMonths.sorted().compactMap { month in
+        return visibleMonths.sorted().compactMap { month in
             guard let date = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else {
                 return nil
             }
+
             return MonthRow(
                 date: date,
                 explicitSpread: explicitMonths[month],
                 isDerived: explicitMonths[month] == nil,
-                explicitTraditionalSelection: nil
+                monthSelection: explicitMonths[month].map(Selection.conventional),
+                dayTargetsByDate: conventionalDayTargetsByDate(year: year, month: month)
             )
         }
     }
@@ -279,74 +163,157 @@ struct SpreadHeaderNavigatorModel {
             guard let date = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else {
                 return nil
             }
+
             return MonthRow(
                 date: date,
                 explicitSpread: nil,
                 isDerived: false,
-                explicitTraditionalSelection: date
+                monthSelection: .traditionalMonth(date),
+                dayTargetsByDate: traditionalDayTargetsByDate(year: year, month: month)
             )
         }
     }
 
-    private func conventionalMonthGridItems(year: Int, month: Int) -> [MonthGridItem] {
-        spreads
-            .compactMap { spread -> MonthGridItem? in
-                switch spread.period {
-                case .day:
-                    guard calendar.component(.year, from: spread.date) == year,
-                          calendar.component(.month, from: spread.date) == month else { return nil }
-                    return MonthGridItem(kind: .day(spread.date), calendar: calendar)
-                case .multiday:
-                    let startDate = spread.startDate ?? spread.date
-                    guard calendar.component(.year, from: startDate) == year,
-                          calendar.component(.month, from: startDate) == month else { return nil }
-                    return MonthGridItem(kind: .multiday(spread), calendar: calendar)
-                default:
-                    return nil
-                }
-            }
-            .sorted { lhs, rhs in
-                if lhs.startDate == rhs.startDate {
-                    return lhs.label < rhs.label
-                }
-                return lhs.startDate < rhs.startDate
-            }
-    }
-
-    private func traditionalMonthGridItems(year: Int, month: Int) -> [MonthGridItem] {
+    private func conventionalDayTargetsByDate(year: Int, month: Int) -> [Date: [SelectionTarget]] {
         guard let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
               let dayRange = calendar.range(of: .day, in: .month, for: monthStart) else {
-            return []
+            return [:]
         }
 
-        return dayRange.compactMap { day -> MonthGridItem? in
+        var result: [Date: [SelectionTarget]] = [:]
+
+        for day in dayRange {
             guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day)) else {
-                return nil
+                continue
             }
-            return MonthGridItem(kind: .day(date), calendar: calendar)
+            let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
+            var targets: [SelectionTarget] = []
+
+            if let daySpread = spreads.first(where: {
+                $0.period == .day && calendar.isDate($0.date, inSameDayAs: normalizedDate)
+            }) {
+                targets.append(
+                    SelectionTarget(
+                        id: "day-\(normalizedDate.timeIntervalSinceReferenceDate)",
+                        selection: .conventional(daySpread),
+                        title: "View Day",
+                        isMultiday: false
+                    )
+                )
+            }
+
+            let multidayTargets = spreads
+                .filter { $0.period == .multiday && spread($0, overlapsDay: normalizedDate) }
+                .sorted { lhs, rhs in
+                    let lhsStart = lhs.startDate ?? lhs.date
+                    let rhsStart = rhs.startDate ?? rhs.date
+                    if lhsStart == rhsStart {
+                        return lhs.displayLabel(calendar: calendar) < rhs.displayLabel(calendar: calendar)
+                    }
+                    return lhsStart < rhsStart
+                }
+                .map { spread in
+                    SelectionTarget(
+                        id: "multiday-\(spread.id.uuidString.lowercased())-\(normalizedDate.timeIntervalSinceReferenceDate)",
+                        selection: .conventional(spread),
+                        title: spread.displayLabel(calendar: calendar),
+                        isMultiday: true
+                    )
+                }
+
+            targets.append(contentsOf: multidayTargets)
+            if !targets.isEmpty {
+                result[normalizedDate] = targets
+            }
         }
+
+        return result
+    }
+
+    private func traditionalDayTargetsByDate(year: Int, month: Int) -> [Date: [SelectionTarget]] {
+        guard let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
+              let dayRange = calendar.range(of: .day, in: .month, for: monthStart) else {
+            return [:]
+        }
+
+        var result: [Date: [SelectionTarget]] = [:]
+        for day in dayRange {
+            guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day)) else {
+                continue
+            }
+            let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
+            result[normalizedDate] = [
+                SelectionTarget(
+                    id: "traditional-day-\(normalizedDate.timeIntervalSinceReferenceDate)",
+                    selection: .traditionalDay(normalizedDate),
+                    title: "View Day",
+                    isMultiday: false
+                )
+            ]
+        }
+        return result
+    }
+
+    private func yearsTouched(by spread: DataModel.Spread) -> Set<Int> {
+        let startDate = Period.day.normalizeDate(spread.startDate ?? spread.date, calendar: calendar)
+        let endDate = Period.day.normalizeDate(spread.endDate ?? spread.date, calendar: calendar)
+        let startYear = calendar.component(.year, from: startDate)
+        let endYear = calendar.component(.year, from: endDate)
+
+        guard startYear <= endYear else { return [startYear] }
+        return Set(startYear...endYear)
+    }
+
+    private func monthsTouched(by spread: DataModel.Spread, in year: Int) -> Set<Int> {
+        let startDate = Period.day.normalizeDate(spread.startDate ?? spread.date, calendar: calendar)
+        let endDate = Period.day.normalizeDate(spread.endDate ?? spread.date, calendar: calendar)
+        let startOfYear = calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
+        let endOfYear = calendar.date(from: DateComponents(year: year, month: 12, day: 31))!
+
+        guard endDate >= startOfYear, startDate <= endOfYear else { return [] }
+
+        var months = Set<Int>()
+        var cursor = calendar.date(from: DateComponents(
+            year: max(year, calendar.component(.year, from: startDate)),
+            month: max(1, calendar.component(.month, from: startDate)),
+            day: 1
+        ))!
+
+        let boundedEndDate = min(endDate, endOfYear)
+        while cursor <= boundedEndDate {
+            if calendar.component(.year, from: cursor) == year {
+                months.insert(calendar.component(.month, from: cursor))
+            }
+            guard let next = calendar.date(byAdding: .month, value: 1, to: cursor) else {
+                break
+            }
+            cursor = next
+        }
+
+        return months
+    }
+
+    private func spreadTouchesYear(_ spread: DataModel.Spread, year: Int) -> Bool {
+        yearsTouched(by: spread).contains(year)
+    }
+
+    private func spread(_ spread: DataModel.Spread, overlapsDay date: Date) -> Bool {
+        let startDate = Period.day.normalizeDate(spread.startDate ?? spread.date, calendar: calendar)
+        let endDate = Period.day.normalizeDate(spread.endDate ?? spread.date, calendar: calendar)
+        let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
+        return normalizedDate >= startDate && normalizedDate <= endDate
     }
 
     private func earliestTraditionalYear() -> Int? {
         var years: [Int] = []
 
-        years.append(contentsOf: spreads.map {
-            calendar.component(.year, from: $0.startDate ?? $0.date)
-        })
-        years.append(contentsOf: tasks.map {
-            calendar.component(.year, from: $0.date)
-        })
-        years.append(contentsOf: notes.map {
-            calendar.component(.year, from: $0.date)
-        })
+        years.append(contentsOf: spreads.flatMap { Array(yearsTouched(by: $0)) })
+        years.append(contentsOf: tasks.map { calendar.component(.year, from: $0.date) })
+        years.append(contentsOf: notes.map { calendar.component(.year, from: $0.date) })
         years.append(contentsOf: events.flatMap { event in
             [event.startDate, event.endDate].map { calendar.component(.year, from: $0) }
         })
 
         return years.min()
-    }
-
-    private func yearStart(_ year: Int) -> Date {
-        calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
     }
 }
