@@ -4,7 +4,7 @@ struct SpreadTitleNavigatorItemView: View {
     private static let selectionIndicatorID = "spread-title-selection-indicator"
 
     let semanticID: String
-    let style: SpreadTitleNavigatorModel.Item.Style
+    let style: SpreadTitleNavigatorItemStyle
     let display: SpreadTitleNavigatorModel.Item.Display
     let isSelected: Bool
     let accessibilityIdentifier: String

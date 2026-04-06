@@ -1,14 +1,14 @@
 import Foundation
 
+enum SpreadTitleNavigatorItemStyle: Equatable {
+    case year
+    case month
+    case day
+    case multiday
+}
+
 struct SpreadTitleNavigatorModel {
     struct Item: Identifiable {
-        enum Style: Equatable {
-            case year
-            case month
-            case day
-            case multiday
-        }
-
         struct Display: Equatable {
             let top: String?
             let bottom: String
@@ -18,7 +18,7 @@ struct SpreadTitleNavigatorModel {
         let id: String
         let label: String
         let selection: SpreadHeaderNavigatorModel.Selection
-        let style: Style
+        let style: SpreadTitleNavigatorItemStyle
         let display: Display
     }
 
@@ -120,7 +120,7 @@ struct SpreadTitleNavigatorModel {
         }
     }
 
-    private func style(for spread: DataModel.Spread) -> Item.Style {
+    private func style(for spread: DataModel.Spread) -> SpreadTitleNavigatorItemStyle {
         switch spread.period {
         case .year:
             return .year
