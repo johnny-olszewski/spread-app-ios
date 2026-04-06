@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 struct SpreadTitleNavigatorRecommendation: Identifiable, Equatable {
     let period: Period
@@ -8,6 +9,48 @@ struct SpreadTitleNavigatorRecommendation: Identifiable, Equatable {
     var id: String {
         let normalizedDate = period.normalizeDate(date, calendar: calendar)
         return "recommendation.\(period.rawValue).\(Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: normalizedDate, calendar: calendar))"
+    }
+
+    var fullTitle: String {
+        switch period {
+        case .year:
+            return String(calendar.component(.year, from: date))
+        case .month:
+            let formatter = DateFormatter()
+            formatter.calendar = calendar
+            formatter.timeZone = calendar.timeZone
+            formatter.dateFormat = "MMMM yyyy"
+            return formatter.string(from: date)
+        case .day:
+            let formatter = DateFormatter()
+            formatter.calendar = calendar
+            formatter.timeZone = calendar.timeZone
+            formatter.dateStyle = .long
+            return formatter.string(from: date)
+        case .multiday:
+            return DataModel.Spread(period: period, date: date, calendar: calendar).displayLabel(calendar: calendar)
+        }
+    }
+}
+
+enum SpreadTitleNavigatorRecommendationLayout {
+    static let aspectRatio: CGFloat = 3.0 / 5.0
+
+    static func cardSize(widths: [CGFloat], heights: [CGFloat]) -> CGSize? {
+        let widestWidth = widths.max() ?? 0
+        let tallestHeight = heights.max() ?? 0
+        guard widestWidth > 0, tallestHeight > 0 else { return nil }
+
+        let width = max(widestWidth, tallestHeight * aspectRatio)
+        let height = width / aspectRatio
+        return CGSize(width: ceil(width), height: ceil(height))
+    }
+
+    static func collapsesToMenu(
+        horizontalSizeClass: UserInterfaceSizeClass?,
+        recommendationCount: Int
+    ) -> Bool {
+        horizontalSizeClass == .compact && recommendationCount > 1
     }
 }
 
