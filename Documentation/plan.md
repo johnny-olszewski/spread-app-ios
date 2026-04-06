@@ -733,7 +733,7 @@
 
 ### Definition of Done
 - Task edit view supports status updates and migration.
-- Migrated tasks section and migration banner are wired to JournalManager.
+- Migrated tasks section and inline migration affordances are wired to JournalManager.
 
 ### [SPRD-24] Feature: Entry detail/edit view (Task) - [x] Complete
 - **Context**: Task editing must support status and migration.
@@ -790,6 +790,48 @@
   - Unit tests for eligibility detection and selection behavior.
   - UI tests: banner appears only with eligible tasks, review sheet selection, and migrate-all action.
 - **Dependencies**: SPRD-29
+
+### [SPRD-140] Refactor: Replace migration banner/sheet with inline source and destination migration UI - [ ]
+- **Context**: The current migration flow appears to be leaving source assignments active after migration, and the banner/sheet review flow should be replaced with inline migration controls on the spreads themselves.
+- **Description**: Fix migration assignment-state correctness and replace the old conventional migration banner/sheet flow with source-row and destination-section inline affordances.
+- **Implementation Details**:
+  - Fix `JournalManager` migration so migrating a task:
+    - preserves the source assignment as history with migrated status
+    - creates or updates the destination assignment as the active open assignment
+    - removes the task from the source spread's active task list
+    - leaves the task visible in the source spread's disabled `Migrated tasks` subsection
+  - Source-side UI:
+    - add a trailing right-arrow on active task rows only when the task has a smaller valid existing destination spread
+    - tapping the arrow presents a confirmation alert that explicitly names the destination spread
+    - confirming migrates that one task to its smallest valid existing destination spread
+  - Destination-side UI:
+    - add a bottom `Migrate tasks` section on conventional destination spreads only when at least one task from the immediate parent hierarchy can migrate into that spread
+    - make the section collapsible
+    - add a trailing `Migrate All` button in the section header scoped to that destination spread
+    - list one row per migratable task; tapping a row migrates it into that destination with no additional confirmation
+  - Remove the old migration banner, migration review sheet, and any coordinator/view code only used by that flow.
+  - Reuse existing entry-row and section-header components wherever practical instead of introducing migration-only chrome when shared list affordances already exist.
+- **Acceptance Criteria**:
+  - Migrating a task updates assignment state correctly: destination becomes active, source becomes migrated history, and the source active list no longer shows the task. (Spec: Migration)
+  - Source-row migration arrows appear only for tasks that have a smaller valid existing destination spread. (Spec: Migration)
+  - Source-row confirmation alerts explicitly name the destination spread the task will move to. (Spec: Migration)
+  - Destination spreads show a collapsible `Migrate tasks` section only when tasks from the immediate parent hierarchy can migrate into that spread. (Spec: Migration)
+  - Tapping a destination task row migrates that one task into the current spread with no confirmation alert. (Spec: Migration)
+  - Header `Migrate All` migrates all tasks listed in that destination spread's section. (Spec: Migration)
+  - The old migration banner and migration review sheet no longer exist in conventional mode. (Spec: Navigation and UI)
+- **Tests**:
+  - Unit tests:
+    - migration changes the source assignment status to migrated and the destination assignment to active
+    - migrated tasks no longer appear in the source spread's active list
+    - migrated tasks do appear in the source spread's migrated subsection
+    - source-row arrow visibility follows smallest-valid-destination rules
+  - UI tests:
+    - source-row arrow presents a confirmation alert naming the destination spread and migrates on confirm
+    - destination `Migrate tasks` section appears only on valid destination spreads and lists only eligible tasks
+    - tapping a destination task row migrates it and removes it from the source spread's active list
+    - destination header `Migrate All` migrates every listed task for that destination
+    - no migration banner or migration review sheet entry points remain
+- **Dependencies**: SPRD-29, SPRD-30, SPRD-110, SPRD-111, SPRD-114, SPRD-116
 
 ## Story: Scope trim for v1 (event deferment)
 

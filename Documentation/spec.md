@@ -16,7 +16,7 @@
 - Events are a v2 integration (calendar-backed date-range entries), not part of v1 UI/flows. [SPRD-57]
 - JournalManager owns in-memory data model, assignment logic, migration, spread creation, and deletion. [SPRD-11, SPRD-13, SPRD-15]
 - Two UI paths: [SPRD-25, SPRD-35, SPRD-38]
-  - Conventional UI (`MainTabView`) with hierarchical spread tab bar (year/month/day/multiday), entry list, migration banner, and settings. [SPRD-25, SPRD-27, SPRD-30]
+  - Conventional UI (`MainTabView`) with hierarchical spread tab bar (year/month/day/multiday), entry list, inline migration controls/history, and settings. [SPRD-25, SPRD-27, SPRD-30, SPRD-140]
   - Calendar-style UI for traditional mode with year/month/day drill-in. [SPRD-35, SPRD-38]
 - BuJo modes: "conventional" (migration history visible) and "traditional" (preferred assignment only). [SPRD-20, SPRD-17]
 
@@ -105,7 +105,7 @@
 - Source assignment status becomes migrated; destination assignment becomes open/active. [SPRD-15]
 - Manual only - user must trigger migration. [SPRD-15]
 - Notes migrate only via explicit action (not in batch suggestions). [SPRD-15, SPRD-34]
-- Migration prompt logic in v1 applies to tasks only and only in conventional mode. [SPRD-110, SPRD-111]
+- Migration prompt logic in v1 applies to tasks only and only in conventional mode. [SPRD-110, SPRD-140]
 - A task is eligible to migrate into a spread only when all of the following are true: [SPRD-110]
   - The task has a current open assignment on a coarser source (`Inbox`, year, or month/day parent) aligned to the destination's date hierarchy.
   - The destination spread is more granular than the current open assignment.
@@ -117,6 +117,21 @@
   - A month spread may pull from `Inbox` and year spreads.
   - A day spread may pull from `Inbox`, month spreads, and year spreads.
   - Multiday spreads never show migration prompts and never receive direct assignment migrations.
+- Source-spread migration affordance: [SPRD-140]
+  - In conventional mode, an active task row shows a trailing right-arrow button only when that task has a smaller valid existing destination spread.
+  - Tapping the arrow presents a confirmation alert that explicitly names the destination spread the task will be moved to.
+  - Confirming the alert migrates that single task to its smallest valid existing destination spread.
+- Destination-spread migration affordance: [SPRD-140]
+  - In conventional mode, a destination spread may show a bottom section titled `Migrate tasks` when at least one task from the immediate parent hierarchy can migrate into that specific spread.
+  - The section is collapsible.
+  - The section header includes a trailing `Migrate All` action scoped to that destination spread.
+  - The section lists one row per migratable task; tapping a row migrates that task into the current destination spread without additional confirmation.
+  - The old migration banner and migration review sheet are removed from this flow.
+- Post-migration source behavior: [SPRD-140]
+  - A migrated task leaves the source spread's active task list.
+  - The source assignment remains in history with migrated status.
+  - The source spread shows migrated tasks in a disabled `Migrated tasks` subsection.
+  - This migrated subsection behavior applies on all spread types that can host tasks.
 - Migration prompting examples: [SPRD-110]
   - Example A: `2026` and `January 2026` exist. A task desired for `January 1, 2026` day is currently open on `January 2026`. When `January 1, 2026` day is created, that day spread prompts migration.
   - Example B: `2026` exists. A task desired for `January 2026` month is open on `2026`. When `January 2026` is created, the month spread prompts migration. If `January 10, 2026` is later created, that day spread does not prompt for this task because day is more granular than the task's desired assignment.
@@ -371,19 +386,14 @@
     - tasks assigned directly to that month appear in an untitled top section because they belong to the current spread
     - tasks assigned to days in that month appear in the same list and show the day number next to the task
   - Day and multiday spreads do not use this year/month sectioning rule; they continue to show their normal flat task presentation for the current spread. [SPRD-138]
-- Conventional-mode migration prompt UI: [SPRD-111]
-  - Year, month, and day spreads may show a small migration banner when at least one task is eligible to move into that spread.
-  - Multiday spreads never show the migration banner.
-  - Traditional mode never shows the migration banner because all calendar spreads are navigable without created conventional spread records.
-  - The banner reappears on every visit as long as eligible tasks still exist; dismissal state is not persisted in v1.
-  - Tapping the banner opens a migration review sheet; it never auto-migrates tasks.
-  - The sheet lists only tasks, never notes.
-  - Eligible tasks are preselected by default.
-  - Tasks are sectioned by source (`Inbox`, year, or month/day parent spread).
-  - Each row shows both source and destination.
-  - Confirming migration applies one batch action to all selected tasks.
-  - On submit, eligibility is revalidated. Still-eligible tasks migrate; no-longer-eligible tasks are skipped with non-blocking feedback.
-  - After migration, the sheet stays open if eligible tasks remain and dismisses automatically when none remain.
+- Conventional-mode inline migration UI: [SPRD-140]
+  - Year, month, and day spreads may show the bottom `Migrate tasks` section when at least one task is eligible to move into that spread.
+  - Multiday spreads never show migration UI.
+  - Traditional mode never shows migration UI because all calendar spreads are navigable without created conventional spread records.
+  - Source spreads expose per-task trailing-arrow migration actions with destination-naming confirmation alerts.
+  - Destination spreads expose per-task tap-to-migrate rows plus a header-level `Migrate All` action scoped to that destination spread.
+  - The inline migration UI lists only tasks, never notes.
+  - A task may appear in both the overdue review sheet and a conventional inline migration surface at the same time when it is overdue globally and also eligible to move into the currently viewed spread.
 - Global overdue review UI: [SPRD-112]
   - A yellow overdue toolbar button appears on all spreads in both conventional and traditional modes whenever at least one overdue task exists anywhere in the journal.
   - The button shows an icon plus overdue count.
@@ -420,7 +430,7 @@
   - Spreads must be created explicitly. [SPRD-12, SPRD-26]
   - Unassigned entries go to global Inbox. [SPRD-14, SPRD-31]
   - Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
-  - Migration prompt and review sheet exist only in conventional mode. [SPRD-110, SPRD-111]
+  - Inline migration affordances exist only in conventional mode. [SPRD-110, SPRD-140]
 - Traditional: [SPRD-17, SPRD-35, SPRD-38]
   - Entries appear only on preferred assignment, no migration history visible. [SPRD-17, SPRD-35]
   - All spreads available for navigation regardless of created spread records. [SPRD-17, SPRD-38]
