@@ -94,7 +94,7 @@ struct TraditionalSpreadsView: View {
                 SyncErrorBanner()
             }
 
-            pagerContent
+            contentArea
         }
         .toolbar {
             toolbarContent
@@ -114,7 +114,12 @@ struct TraditionalSpreadsView: View {
                 selectedSelection = .traditionalYear(defaultRootYearDate)
             }
         }
-        .overlay(alignment: overlayAlignment) {
+    }
+
+    @ViewBuilder
+    private var contentArea: some View {
+        ZStack(alignment: overlayAlignment) {
+            pagerContent
             spreadOverlayButtons
         }
     }
