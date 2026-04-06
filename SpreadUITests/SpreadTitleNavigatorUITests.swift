@@ -112,4 +112,18 @@ final class SpreadTitleNavigatorUITests: LocalhostScenarioUITestCase {
         let todayBadge = app.staticTexts["Today"].firstMatch
         waitForElement(todayBadge)
     }
+
+    func testSingleRecommendationOpensSpreadCreationSheet() throws {
+        let app = launchScenario(.spreadNavigator, today: "2026-03-30")
+
+        let dayRecommendation = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.recommendation("day")
+        )
+        waitForElement(dayRecommendation)
+        tapElement(dayRecommendation)
+
+        let createButton = app.buttons[Definitions.AccessibilityIdentifiers.SpreadCreationSheet.createButton]
+        waitForElement(createButton)
+    }
 }
