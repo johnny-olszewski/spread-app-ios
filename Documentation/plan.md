@@ -833,6 +833,37 @@
     - no migration banner or migration review sheet entry points remain
 - **Dependencies**: SPRD-29, SPRD-30, SPRD-110, SPRD-111, SPRD-114, SPRD-116
 
+### [SPRD-141] Refactor: Consolidate task create/edit form logic and reassignment behavior - [ ]
+- **Context**: Task creation and task editing currently duplicate period/date form behavior. This drift has already produced a reassignment bug in the seeded navigator data: a task created from the `2026` year spread and later edited to `April 6, 2026` day can incorrectly resolve to the existing `January 1, 2026` day spread instead of remaining on the year spread until an April spread exists. The desired behavior is that the task stays on `2026`, appears in the April section with a `6` context label, then becomes migration-eligible for `April 2026` once that recommended month spread is created.
+- **Description**: Extract a shared task editor form/state flow for create and edit, and centralize task reassignment decisions so create/edit save paths cannot diverge.
+- **Implementation Details**:
+  - Introduce a shared task editor form or view-model used by both `TaskCreationSheet` and `TaskDetailSheet`.
+  - Consolidate ownership of:
+    - title editing
+    - period selection
+    - date selection
+    - period/date normalization and period-change date adjustment
+    - validation and inline error presentation rules
+  - Keep mode-specific shell behavior thin:
+    - create mode handles creation-specific toolbar copy and callbacks
+    - edit mode handles status, assignment history, and delete affordances
+  - Centralize task preferred-date/period reassignment behavior in one `JournalManager` helper or dedicated service, and have both create/edit paths use it consistently.
+- **Acceptance Criteria**:
+  - Task creation and task editing use one shared period/date normalization path. (Spec: Entries; Reassignment)
+  - Editing a task from `2026` to preferred assignment `April 6, 2026` day with no April month/day spread leaves it open on the `2026` year spread. (Spec: Reassignment)
+  - In that state, the task appears in the April section of the year spread with a `6` contextual label. (Spec: Entry Lists)
+  - Creating the recommended `April 2026` month spread makes that task appear in the destination spread's `Migrate tasks` section and surfaces the source-row migration arrow on the year spread. (Spec: Migration)
+  - Reassignment no longer jumps edited tasks to unrelated existing spreads outside the desired date hierarchy. (Spec: Reassignment)
+- **Tests**:
+  - Unit tests:
+    - shared editor state normalizes and adjusts date consistently for create and edit modes
+    - edit-time reassignment for `2026` → `April 6, 2026` day falls back to the year spread when no April month/day spread exists
+    - creating `April 2026` after that edit surfaces the expected migration candidate
+  - UI tests:
+    - edit seeded year task to `April 6, 2026` day and verify it remains on the year spread under April with `6` context
+    - create the recommended April spread and verify `Migrate tasks` appears on the April spread and the year-spread row gains a migration arrow
+- **Dependencies**: SPRD-23, SPRD-24, SPRD-137, SPRD-138, SPRD-140
+
 ## Story: Scope trim for v1 (event deferment)
 
 ### User Story
