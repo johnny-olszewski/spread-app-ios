@@ -1,6 +1,13 @@
 import SwiftUI
 
 struct SpreadHeaderNavigatorYearPageView: View {
+    private struct WeekdayHeader: Identifiable {
+        let weekday: Int
+        let symbol: String
+
+        var id: Int { weekday }
+    }
+
     let page: SpreadHeaderNavigatorModel.YearPage
     let model: SpreadHeaderNavigatorModel
     let currentSpread: DataModel.Spread
@@ -11,10 +18,13 @@ struct SpreadHeaderNavigatorYearPageView: View {
     @State private var dialogTargets: [SpreadHeaderNavigatorModel.SelectionTarget] = []
     @State private var isShowingSelectionDialog = false
 
-    private var weekdayHeaders: [String] {
+    private var weekdayHeaders: [WeekdayHeader] {
         let symbols = model.calendar.veryShortWeekdaySymbols
         let firstWeekday = model.calendar.firstWeekday - 1
-        return Array(symbols[firstWeekday...]) + Array(symbols[..<firstWeekday])
+        let orderedOffsets = Array(firstWeekday..<symbols.count) + Array(0..<firstWeekday)
+        return orderedOffsets.map { offset in
+            WeekdayHeader(weekday: offset + 1, symbol: symbols[offset])
+        }
     }
 
     var body: some View {
@@ -98,8 +108,8 @@ struct SpreadHeaderNavigatorYearPageView: View {
         let cells = CalendarGridHelper.cells(for: monthRow.date, calendar: model.calendar)
         return VStack(alignment: .leading, spacing: 8) {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
-                ForEach(Array(weekdayHeaders.enumerated()), id: \.offset) { _, header in
-                    Text(header)
+                ForEach(weekdayHeaders) { header in
+                    Text(header.symbol)
                         .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
