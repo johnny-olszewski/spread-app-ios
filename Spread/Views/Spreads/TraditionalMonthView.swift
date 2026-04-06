@@ -6,6 +6,12 @@ import SwiftUI
 /// and 5-6 rows. Day cells show entry count indicators. Tapping a day
 /// triggers navigation to the day view.
 struct TraditionalMonthView: View {
+    private struct WeekdayHeader: Identifiable {
+        let weekday: Int
+        let symbol: String
+
+        var id: Int { weekday }
+    }
 
     // MARK: - Properties
 
@@ -46,10 +52,13 @@ struct TraditionalMonthView: View {
     }
 
     /// Weekday headers (e.g., "S", "M", "T", ...) ordered by firstWeekday.
-    private var weekdayHeaders: [String] {
+    private var weekdayHeaders: [WeekdayHeader] {
         let symbols = calendar.veryShortWeekdaySymbols
         let firstWeekday = calendar.firstWeekday - 1
-        return Array(symbols[firstWeekday...]) + Array(symbols[..<firstWeekday])
+        let orderedOffsets = Array(firstWeekday..<symbols.count) + Array(0..<firstWeekday)
+        return orderedOffsets.map { offset in
+            WeekdayHeader(weekday: offset + 1, symbol: symbols[offset])
+        }
     }
 
     /// All calendar cells for the month grid (includes leading/trailing nil for alignment).
@@ -107,8 +116,8 @@ struct TraditionalMonthView: View {
 
                 // Weekday headers
                 LazyVGrid(columns: columns, spacing: 4) {
-                    ForEach(weekdayHeaders, id: \.self) { header in
-                        Text(header)
+                    ForEach(weekdayHeaders) { header in
+                        Text(header.symbol)
                             .font(SpreadTheme.Typography.caption)
                             .fontWeight(.medium)
                             .foregroundStyle(.secondary)
