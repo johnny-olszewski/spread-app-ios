@@ -243,7 +243,8 @@ struct SpreadTitleNavigatorView: View {
             showsSelectionIndicator: false,
             borderColor: nil,
             horizontalPadding: 0,
-            action: {}
+            action: {},
+            isInteractive: false
         )
 
         return Group {

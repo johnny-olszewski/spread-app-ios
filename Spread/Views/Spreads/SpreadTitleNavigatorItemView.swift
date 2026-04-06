@@ -13,52 +13,63 @@ struct SpreadTitleNavigatorItemView: View {
     let borderColor: Color?
     let horizontalPadding: CGFloat
     let action: () -> Void
+    var isInteractive: Bool = true
 
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                itemLabel
-                    .padding(.horizontal, horizontalPadding)
-                    .padding(.top, 6)
-
-                if showsSelectionIndicator {
-                    ZStack {
-                        Circle()
-                            .fill(Color.clear)
-                            .frame(width: 6, height: 6)
-
-                        if isSelected {
-                            Circle()
-                                .fill(Color.accentColor)
-                                .frame(width: 6, height: 6)
-                                .matchedGeometryEffect(
-                                    id: Self.selectionIndicatorID,
-                                    in: selectionIndicatorNamespace
-                                )
-                        }
-                    }
-                    .frame(height: 8)
-                } else {
-                    Spacer(minLength: 0)
-                        .frame(height: 8)
+        Group {
+            if isInteractive {
+                Button(action: action) {
+                    content
                 }
+                .buttonStyle(.plain)
+            } else {
+                content
             }
-            .frame(minHeight: 48)
-            .contentShape(Rectangle())
-            .background(backgroundShape)
-            .background(
-                GeometryReader { geometry in
-                    Color.clear.preference(
-                        key: SpreadTitleNavigatorItemFramePreferenceKey.self,
-                        value: [semanticID: geometry.frame(in: .global)]
-                    )
-                }
-            )
         }
         .padding(.vertical, 2)
-        .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.28), value: isSelected)
         .accessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    private var content: some View {
+        VStack(spacing: 4) {
+            itemLabel
+                .padding(.horizontal, horizontalPadding)
+                .padding(.top, 6)
+
+            if showsSelectionIndicator {
+                ZStack {
+                    Circle()
+                        .fill(Color.clear)
+                        .frame(width: 6, height: 6)
+
+                    if isSelected {
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 6, height: 6)
+                            .matchedGeometryEffect(
+                                id: Self.selectionIndicatorID,
+                                in: selectionIndicatorNamespace
+                            )
+                    }
+                }
+                .frame(height: 8)
+            } else {
+                Spacer(minLength: 0)
+                    .frame(height: 8)
+            }
+        }
+        .frame(minHeight: 48)
+        .contentShape(Rectangle())
+        .background(backgroundShape)
+        .background(
+            GeometryReader { geometry in
+                Color.clear.preference(
+                    key: SpreadTitleNavigatorItemFramePreferenceKey.self,
+                    value: [semanticID: geometry.frame(in: .global)]
+                )
+            }
+        )
     }
 
     @ViewBuilder
