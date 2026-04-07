@@ -1452,17 +1452,7 @@ final class JournalManager {
             assignments: []
         )
 
-        // Find the best spread for assignment
-        if let bestSpread = spreadService.findBestSpread(for: task, in: spreads) {
-            // Create initial assignment
-            let assignment = TaskAssignment(
-                period: bestSpread.period,
-                date: bestSpread.date,
-                status: .open
-            )
-            task.assignments.append(assignment)
-        }
-        // If no spread found, task goes to Inbox (no assignment)
+        reconcileTaskAssignmentsForPreferredAssignment(task)
 
         // Save task
         try await taskRepository.save(task)
@@ -1682,6 +1672,10 @@ final class JournalManager {
     }
 
     private func reassignTaskAfterDateChange(_ task: DataModel.Task) {
+        reconcileTaskAssignmentsForPreferredAssignment(task)
+    }
+
+    private func reconcileTaskAssignmentsForPreferredAssignment(_ task: DataModel.Task) {
         let destination = spreadService.findBestSpread(for: task, in: spreads)
         let destinationStatus = task.status == .complete ? DataModel.Task.Status.complete : task.status
 

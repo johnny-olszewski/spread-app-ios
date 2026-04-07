@@ -27,12 +27,31 @@ struct TaskDetailSheet: View {
 
     // MARK: - State
 
-    @State private var title: String = ""
     @State private var selectedStatus: DataModel.Task.Status = .open
-    @State private var selectedPeriod: Period = .day
-    @State private var selectedDate: Date = Date()
+    @State private var formModel: TaskEditorFormModel
     @State private var isSaving = false
     @State private var isShowingDeleteConfirmation = false
+
+    private var titleBinding: Binding<String> {
+        Binding(
+            get: { formModel.title },
+            set: { formModel.title = $0 }
+        )
+    }
+
+    private var periodBinding: Binding<Period> {
+        Binding(
+            get: { formModel.selectedPeriod },
+            set: { formModel.setPeriod($0) }
+        )
+    }
+
+    private var dateBinding: Binding<Date> {
+        Binding(
+            get: { formModel.selectedDate },
+            set: { formModel.selectedDate = $0 }
+        )
+    }
 
     init(
         task: DataModel.Task,
@@ -42,10 +61,17 @@ struct TaskDetailSheet: View {
         self.task = task
         self.journalManager = journalManager
         self.onDelete = onDelete
-        _title = State(initialValue: task.title)
         _selectedStatus = State(initialValue: task.status)
-        _selectedPeriod = State(initialValue: task.period)
-        _selectedDate = State(initialValue: task.date)
+        let configuration = TaskCreationConfiguration(
+            calendar: journalManager.calendar,
+            today: journalManager.today
+        )
+        _formModel = State(
+            initialValue: TaskEditorFormModel(
+                configuration: configuration,
+                task: task
+            )
+        )
     }
 
     // MARK: - Body
@@ -86,7 +112,7 @@ struct TaskDetailSheet: View {
                     Button("Save") {
                         save()
                     }
-                    .disabled(isSaving || title.isEmpty || title.allSatisfy(\.isWhitespace))
+                    .disabled(isSaving || formModel.title.isEmpty || formModel.title.allSatisfy(\.isWhitespace))
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.saveButton)
                 }
             }
@@ -106,7 +132,7 @@ struct TaskDetailSheet: View {
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Title")
-            TextField("Task title", text: $title)
+            TextField("Task title", text: titleBinding)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.titleField)
         }
     }
@@ -128,14 +154,13 @@ struct TaskDetailSheet: View {
     private var periodSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Period")
-            Picker("Period", selection: $selectedPeriod) {
-                ForEach(TaskCreationConfiguration.assignablePeriods, id: \.self) { period in
-                    Text(period.displayName)
-                        .tag(period)
+            TaskPeriodControl(
+                selection: periodBinding,
+                pickerIdentifier: Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodPicker,
+                segmentIdentifier: {
+                    Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodSegment($0.rawValue)
                 }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodPicker)
+            )
         }
     }
 
@@ -147,8 +172,8 @@ struct TaskDetailSheet: View {
                 today: journalManager.today
             )
             PeriodDatePicker(
-                period: selectedPeriod,
-                selectedDate: $selectedDate,
+                period: formModel.selectedPeriod,
+                selectedDate: dateBinding,
                 calendar: journalManager.calendar,
                 today: journalManager.today,
                 minimumDate: configuration.minimumDate(for: .day),
@@ -274,19 +299,20 @@ struct TaskDetailSheet: View {
 
         Task {
             do {
-                if title != task.title {
-                    try await journalManager.updateTaskTitle(task, newTitle: title)
+                if formModel.title != task.title {
+                    try await journalManager.updateTaskTitle(task, newTitle: formModel.title)
                 }
 
                 if selectedStatus != task.status {
                     try await journalManager.updateTaskStatus(task, newStatus: selectedStatus)
                 }
 
-                if selectedDate != task.date || selectedPeriod != task.period {
+                let effectiveDate = formModel.effectiveSelectedDate
+                if effectiveDate != task.date || formModel.selectedPeriod != task.period {
                     try await journalManager.updateTaskDateAndPeriod(
                         task,
-                        newDate: selectedDate,
-                        newPeriod: selectedPeriod
+                        newDate: effectiveDate,
+                        newPeriod: formModel.selectedPeriod
                     )
                 }
 

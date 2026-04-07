@@ -229,6 +229,10 @@ struct Definitions {
             static func assignmentHistoryRow(_ index: Int) -> String {
                 "tasks.detail.assignmentHistory.\(index)"
             }
+
+            static func periodSegment(_ periodRawValue: String) -> String {
+                "tasks.detail.period.\(periodRawValue)"
+            }
         }
 
         struct SyncError {
