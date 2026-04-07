@@ -324,6 +324,47 @@ struct JournalManagerTaskCRUDTests {
         #expect(manager.inboxEntries.contains { $0.id == existingTask.id })
     }
 
+    /// Conditions: A year-assigned task is edited to April 6, 2026 day while only the 2026 year spread and an unrelated January 1 day spread exist.
+    /// Expected: The task remains open on the 2026 year spread and does not jump to the unrelated January 1 day spread.
+    @Test("Updating a year task to April day falls back to year when no April spread exists")
+    @MainActor
+    func testUpdateTaskDateAndPeriodFallsBackToYearForMissingAprilSpreads() async throws {
+        let calendar = Self.testCalendar
+        let yearDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1))!
+        let aprilSixth = calendar.date(from: DateComponents(year: 2026, month: 4, day: 6))!
+        let januaryFirstDaySpread = DataModel.Spread(period: .day, date: yearDate, calendar: calendar)
+        let yearSpread = DataModel.Spread(period: .year, date: yearDate, calendar: calendar)
+        let existingTask = DataModel.Task(
+            title: "Navigator year task",
+            createdDate: yearDate,
+            date: yearDate,
+            period: .year,
+            status: .open,
+            assignments: [TaskAssignment(period: .year, date: yearDate, status: .open)]
+        )
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: calendar.date(from: DateComponents(year: 2026, month: 3, day: 29))!,
+            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
+            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, januaryFirstDaySpread])
+        )
+
+        try await manager.updateTaskDateAndPeriod(existingTask, newDate: aprilSixth, newPeriod: .day)
+
+        let updatedTask = try #require(manager.tasks.first { $0.id == existingTask.id })
+        #expect(updatedTask.date == aprilSixth)
+        #expect(updatedTask.period == .day)
+        #expect(updatedTask.assignments.count == 1)
+        #expect(updatedTask.assignments.first?.matches(period: .year, date: yearDate, calendar: calendar) == true)
+
+        let yearModel = try #require(manager.dataModel[.year]?[yearDate])
+        #expect(yearModel.tasks.contains { $0.id == updatedTask.id })
+
+        let januaryDayModel = try #require(manager.dataModel[.day]?[yearDate])
+        #expect(januaryDayModel.tasks.contains { $0.id == updatedTask.id } == false)
+    }
+
     // MARK: - deleteTask Tests
 
     /// Condition: Delete an existing task.

@@ -174,4 +174,35 @@ struct MigrationEligibilityTests {
         #expect(updatedTask?.assignments.first?.status == .open)
         #expect(updatedTask?.assignments.first?.period == .day)
     }
+
+    /// Conditions: A task prefers April 6, 2026 day, is currently open on the 2026 year spread, and the April 2026 month spread is later created.
+    /// Expected: The April month spread becomes the migration destination and the year spread exposes the source-side migration affordance.
+    @Test @MainActor func aprilMonthBecomesMigrationDestinationForYearHostedAprilDayTask() async throws {
+        let yearDate = makeDate(year: 2026, month: 1, day: 1)
+        let aprilMonthDate = makeDate(year: 2026, month: 4, day: 1)
+        let aprilSixth = makeDate(year: 2026, month: 4, day: 6)
+        let yearSpread = DataModel.Spread(period: .year, date: yearDate, calendar: Self.calendar)
+        let aprilMonthSpread = DataModel.Spread(period: .month, date: aprilMonthDate, calendar: Self.calendar)
+
+        let task = DataModel.Task(
+            title: "Navigator year task",
+            date: aprilSixth,
+            period: .day,
+            status: .open,
+            assignments: [TaskAssignment(period: .year, date: yearDate, status: .open)]
+        )
+
+        let manager = try await JournalManager.make(
+            calendar: Self.calendar,
+            today: makeDate(year: 2026, month: 3, day: 29),
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, aprilMonthSpread])
+        )
+
+        let monthCandidates = manager.migrationCandidates(to: aprilMonthSpread)
+        let sourceDestination = manager.migrationDestination(for: task, on: yearSpread)
+
+        #expect(monthCandidates.map(\.task.id) == [task.id])
+        #expect(sourceDestination?.id == aprilMonthSpread.id)
+    }
 }

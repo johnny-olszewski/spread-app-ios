@@ -135,6 +135,34 @@ class LocalhostScenarioUITestCase: XCTestCase {
         createButton.tap()
     }
 
+    func createMonthSpread(monthName: String, year: String? = nil, in app: XCUIApplication) {
+        openCreateSpread(in: app)
+
+        let monthSegment = app.buttons[
+            Definitions.AccessibilityIdentifiers.SpreadCreationSheet.periodSegment("month")
+        ]
+        waitForElement(monthSegment)
+        monthSegment.tap()
+
+        if let year {
+            adjustPickerWheel(
+                identifier: Definitions.AccessibilityIdentifiers.SpreadCreationSheet.monthYearPicker,
+                to: year,
+                in: app
+            )
+        }
+
+        adjustPickerWheel(
+            identifier: Definitions.AccessibilityIdentifiers.SpreadCreationSheet.monthPicker,
+            to: monthName,
+            in: app
+        )
+
+        let createButton = app.buttons[Definitions.AccessibilityIdentifiers.SpreadCreationSheet.createButton]
+        waitForElement(createButton)
+        createButton.tap()
+    }
+
     func openInbox(in app: XCUIApplication) {
         let inboxButton = anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.Inbox.button)
         waitForElement(inboxButton)
@@ -151,9 +179,18 @@ class LocalhostScenarioUITestCase: XCTestCase {
     }
 
     func openTaskForEditing(title: String, in app: XCUIApplication) {
-        let taskLabel = app.staticTexts[title].firstMatch
-        waitForElement(taskLabel)
-        taskLabel.swipeLeft()
+        let taskRow = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(title)
+        )
+        let taskElement: XCUIElement
+        if taskRow.waitForExistence(timeout: 2) {
+            taskElement = taskRow
+        } else {
+            taskElement = app.staticTexts[title].firstMatch
+        }
+        waitForElement(taskElement)
+        taskElement.press(forDuration: 1.0)
 
         let editButton = app.buttons["Edit"].firstMatch
         waitForElement(editButton)
@@ -211,6 +248,68 @@ class LocalhostScenarioUITestCase: XCTestCase {
         XCTFail("Unable to select day \(dayString) in picker \(pickerIdentifier)")
     }
 
+    func tapElement(
+        identifier: String,
+        in app: XCUIApplication,
+        timeout: TimeInterval = 5,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let element = anyElement(in: app, identifier: identifier)
+        waitForElement(element, timeout: timeout, file: file, line: line)
+        element.tap()
+    }
+
+    func tapTaskDetailPeriodSegment(
+        rawValue: String,
+        in app: XCUIApplication,
+        timeout: TimeInterval = 5,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let identifier = Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodSegment(rawValue)
+        let identifiedElement = anyElement(in: app, identifier: identifier)
+        if identifiedElement.waitForExistence(timeout: 1) {
+            identifiedElement.tap()
+            return
+        }
+
+        let label: String
+        switch rawValue {
+        case "year":
+            label = "Year"
+        case "month":
+            label = "Month"
+        case "day":
+            label = "Day"
+        default:
+            label = rawValue.capitalized
+        }
+
+        let button = app.buttons[label].firstMatch
+        if button.waitForExistence(timeout: timeout) {
+            button.tap()
+            return
+        }
+
+        let text = app.staticTexts[label].firstMatch
+        waitForElement(text, timeout: timeout, file: file, line: line)
+        text.tap()
+    }
+
+    func adjustPickerWheel(
+        identifier: String,
+        to value: String,
+        in app: XCUIApplication
+    ) {
+        let picker = anyElement(in: app, identifier: identifier)
+        waitForElement(picker)
+
+        let wheel = picker.pickerWheels.firstMatch
+        waitForElement(wheel)
+        wheel.adjust(toPickerWheelValue: value)
+    }
+
     func tapSourceMigrationButton(taskTitle: String, in app: XCUIApplication) {
         let button = anyElement(
             in: app,
@@ -266,7 +365,47 @@ class LocalhostScenarioUITestCase: XCTestCase {
     }
 
     func openYear(_ year: Int, in app: XCUIApplication) {
+        let stripItem = anyElement(
+            in: app,
+            identifier: "spreads.strip.year.\(Definitions.AccessibilityIdentifiers.token(String(year)))"
+        )
+        if stripItem.waitForExistence(timeout: 2) {
+            tapElement(stripItem)
+            return
+        }
+
+        let strip = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.container
+        )
+        if strip.waitForExistence(timeout: 2) {
+            for _ in 0..<4 {
+                strip.swipeRight()
+                if stripItem.waitForExistence(timeout: 1) {
+                    tapElement(stripItem)
+                    return
+                }
+            }
+            for _ in 0..<4 {
+                strip.swipeLeft()
+                if stripItem.waitForExistence(timeout: 1) {
+                    tapElement(stripItem)
+                    return
+                }
+            }
+        }
+
         openHeaderNavigator(in: app)
+        let currentPage = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.yearPage(year)
+        )
+        if currentPage.waitForExistence(timeout: 2) {
+            tapNavigatorYearRow(year, in: app)
+            waitForNavigatorDismissal(in: app)
+            return
+        }
+
         let row = anyElement(
             in: app,
             identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.yearRow(year)
@@ -277,6 +416,17 @@ class LocalhostScenarioUITestCase: XCTestCase {
     }
 
     func openMonth(year: Int, month: Int, in app: XCUIApplication) {
+        let monthToken = Calendar(identifier: .gregorian)
+            .monthSymbols[month - 1]
+        let stripItem = anyElement(
+            in: app,
+            identifier: "spreads.strip.month.\(Definitions.AccessibilityIdentifiers.token(monthToken))"
+        )
+        if stripItem.waitForExistence(timeout: 2) {
+            tapElement(stripItem)
+            return
+        }
+
         openHeaderNavigator(in: app)
         expandNavigatorMonthIfNeeded(year: year, month: month, in: app)
         let viewMonthButton = anyElement(
