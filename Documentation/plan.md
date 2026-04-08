@@ -835,7 +835,7 @@
 
 ### [SPRD-141] Refactor: Consolidate task create/edit form logic and reassignment behavior - [ ]
 - **Context**: Task creation and task editing currently duplicate period/date form behavior. This drift has already produced a reassignment bug in the seeded navigator data: a task created from the `2026` year spread and later edited to `April 6, 2026` day can incorrectly resolve to the existing `January 1, 2026` day spread instead of remaining on the year spread until an April spread exists. The desired behavior is that the task stays on `2026`, appears in the April section with a `6` context label, then becomes migration-eligible for `April 2026` once that recommended month spread is created.
-- **Description**: Extract a shared task editor form/state flow for create and edit, and centralize task reassignment decisions so create/edit save paths cannot diverge.
+- **Description**: Extract a shared task editor form/state flow for create and edit, centralize task reassignment decisions so create/edit save paths cannot diverge, and update the task edit sheet so migration is driven by preferred date/period edits instead of a manual `migrated` status.
 - **Implementation Details**:
   - Introduce a shared task editor form or view-model used by both `TaskCreationSheet` and `TaskDetailSheet`.
   - Consolidate ownership of:
@@ -846,10 +846,24 @@
     - validation and inline error presentation rules
   - Keep mode-specific shell behavior thin:
     - create mode handles creation-specific toolbar copy and callbacks
-    - edit mode handles status, assignment history, and delete affordances
+    - edit mode handles status, assignment history, and delete/cancel/restore affordances
   - Centralize task preferred-date/period reassignment behavior in one `JournalManager` helper or dedicated service, and have both create/edit paths use it consistently.
+  - Remove manual `migrated` selection from the task edit sheet; `migrated` remains assignment/history-only.
+  - Add a reusable icon-only task status control that matches the entry list status affordance and toggles draft state `open <-> complete`.
+  - Move `Cancel Task` / `Restore Task` to bottom-sheet actions and keep `Delete Task` as a separate destructive action.
+  - Replace the edit-sheet period picker with a menu-style picker.
+  - Replace the edit-sheet date control with a menu-style summary row plus the existing inline period-appropriate picker.
+  - When draft status is `complete` or `cancelled`, keep period/date controls visible but disabled and keep assignment history visible.
+  - Re-enable those controls immediately if draft status returns to `open` before save.
+  - Centralize task status icon/symbol metadata so `EntryListView` and the task edit sheet share one source of truth.
 - **Acceptance Criteria**:
   - Task creation and task editing use one shared period/date normalization path. (Spec: Entries; Reassignment)
+  - The task edit sheet does not allow the user to manually set `migrated`. (Spec: Task Status)
+  - The task edit sheet status control is a reusable icon-only component that toggles `open <-> complete` in draft state only; changes persist only on save. (Spec: Entries)
+  - `Cancel Task` / `Restore Task` appear as bottom actions; `Delete Task` remains separate. (Spec: Entries)
+  - When the draft task status is `complete` or `cancelled`, period/date controls remain visible but are disabled, and assignment history remains visible. (Spec: Entries)
+  - Returning the draft status to `open` re-enables period/date controls immediately before save. (Spec: Entries)
+  - Entry-list status icons and task-edit-sheet status icons come from one shared source of truth. (Spec: Task Status)
   - Editing a task from `2026` to preferred assignment `April 6, 2026` day with no April month/day spread leaves it open on the `2026` year spread. (Spec: Reassignment)
   - In that state, the task appears in the April section of the year spread with a `6` contextual label. (Spec: Entry Lists)
   - Creating the recommended `April 2026` month spread makes that task appear in the destination spread's `Migrate tasks` section and surfaces the source-row migration arrow on the year spread. (Spec: Migration)
@@ -857,11 +871,18 @@
 - **Tests**:
   - Unit tests:
     - shared editor state normalizes and adjusts date consistently for create and edit modes
+    - task edit draft status toggles `open <-> complete` without persisting until save
+    - `migrated` is not exposed as a user-editable edit-sheet option
+    - complete/cancelled draft state disables period/date editing and reopening re-enables it
+    - task status icon metadata is shared between entry-list and edit-sheet consumers
     - edit-time reassignment for `2026` → `April 6, 2026` day falls back to the year spread when no April month/day spread exists
     - creating `April 2026` after that edit surfaces the expected migration candidate
   - UI tests:
     - edit seeded year task to `April 6, 2026` day and verify it remains on the year spread under April with `6` context
     - create the recommended April spread and verify `Migrate tasks` appears on the April spread and the year-spread row gains a migration arrow
+    - task edit icon toggle changes local draft status but persists only after tapping `Save`
+    - complete/cancelled task edit state shows period/date controls disabled and restore/reopen returns them to enabled state in-draft
+    - task edit sheet has no manual `migrated` status option
 - **Dependencies**: SPRD-23, SPRD-24, SPRD-137, SPRD-138, SPRD-140
 
 ## Story: Scope trim for v1 (event deferment)

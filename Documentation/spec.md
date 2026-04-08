@@ -78,6 +78,7 @@
 ### Task
 - Inherits Entry protocol. [SPRD-9]
 - Has status: open, complete, migrated, cancelled. [SPRD-10]
+- `migrated` is system-derived historical assignment state and is not user-editable in the task edit sheet. [SPRD-141]
 - Can be assigned to year, month, or day spreads. [SPRD-13]
 - Has a desired assignment defined by its preferred `date` and preferred `period`; this is the finest spread granularity the task should ultimately live on in conventional mode. [SPRD-24, SPRD-110]
 - Tracks migration history via TaskAssignment array. [SPRD-10]
@@ -184,7 +185,17 @@
   - Inline validation with Create button shown after first edit; whitespace-only titles are invalid. [SPRD-23]
   - Optional picker to choose from existing spreads or select a custom date; choosing a date without a matching spread is allowed (Inbox fallback). [SPRD-71, SPRD-14]
   - Spread picker lists created spreads chronologically with period filter toggles; multiday items expand to show contained dates (day selections appear on multiday). [SPRD-71]
-- Edit entries (title, date/period, status where applicable). [SPRD-24]
+- Task edit UI (v1): [SPRD-24, SPRD-141]
+  - Task edit uses the same shared period/date normalization path as task creation.
+  - The edit sheet does not expose `migrated` as a selectable status.
+  - Status is controlled by a reusable icon-only component that visually matches the entry-list status affordance.
+  - The status icon toggles draft state `open <-> complete`; the title remains trailing, matching entry-row layout.
+  - `Cancel Task` / `Restore Task` are bottom-sheet actions; `Delete Task` remains separate.
+  - Period is selected with a menu-style picker.
+  - Date uses a menu-style summary row plus the existing inline period-appropriate picker below it.
+  - Draft edits do not persist until `Save` is tapped.
+  - When draft status is `complete` or `cancelled`, period/date controls remain visible but are disabled; assignment history remains visible.
+  - If draft status is returned to `open` before save, period/date controls become editable again immediately.
 - Delete entries across all spreads. [SPRD-11, SPRD-5]
 - Events are deferred to v2 and not available in v1. [SPRD-69]
 
@@ -192,6 +203,7 @@
 - Changing preferred date or period triggers reassignment logic in conventional mode. [SPRD-24]
 - Period is independently editable (e.g., changing from month to day without changing the date month). [SPRD-24]
 - Task creation and task editing must use the same period/date normalization and adjustment rules so the saved preferred assignment is consistent regardless of entry point. A period change in the editor must not silently preserve a stale date from the previous period when that would change reassignment outcome. [SPRD-141]
+- In the edit sheet, reassignment is the user-facing way to migrate a task; changing preferred date and/or period updates the preferred assignment, and the previous assignment becomes migrated history if reassignment occurs. [SPRD-141]
 - Old assignments (on old date/period's spreads) are marked as migrated to preserve history. [SPRD-24]
 - New assignment is created on the best matching spread for the new date/period: [SPRD-24, SPRD-13]
   - Search from finest to coarsest: day → month → year.
@@ -203,7 +215,9 @@
 
 ### Task Status
 - Statuses: open, complete, migrated, cancelled. [SPRD-10, SPRD-24]
+- User-editable task statuses are `open`, `complete`, and `cancelled`; `migrated` remains assignment/history-only. [SPRD-141]
 - Cancelled tasks are hidden in v1 (excluded from Inbox, migration, and default lists). [SPRD-16, SPRD-31]
+- Shared status iconography for task rows and the task edit sheet must come from one source of truth so symbol/icon changes update both surfaces together. [SPRD-141]
 
 ### Overdue Tasks
 - Overdue review is task-only and global across the journal. [SPRD-112]
