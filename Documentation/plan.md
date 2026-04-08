@@ -1963,6 +1963,45 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit tests for size class adaptation logic.
 - **Dependencies**: SPRD-16
 
+### [SPRD-143] Refactor: Consolidate root navigation to sidebar-adaptable TabView - [ ]
+- **Context**: The current adaptive root navigation duplicates top-level container logic across `RootNavigationView`, `NavigationLayoutType`, `SidebarNavigationView`, and `TabNavigationView`. The product requirement remains the same: iPhone uses tab-bar navigation and iPad uses sidebar-style navigation. SwiftUI's adaptive tab APIs now support a single-root approach that can satisfy that requirement with less duplicated shell code.
+- **Description**: Replace the split root/sidebar/tab implementation with a single `TabView`-based root that uses SwiftUI's sidebar-adaptable tab style on supported OS versions while preserving current destination structure and toolbar behavior.
+- **Implementation Details**:
+  - Introduce a single consolidated adaptive root navigation view:
+    - Keep `NavigationTab` as the single source of truth for top-level destination identity and selection.
+    - Use one `TabView(selection:)` for `Spreads`, `Collections`, `Settings`, and `Debug` when available.
+    - Keep destinations flat; do not introduce `TabSection`s in this refactor.
+  - Apply SwiftUI adaptive tab APIs:
+    - Use `.tabViewStyle(.sidebarAdaptable)` when available under the current deployment target.
+    - Keep the structure non-customizable; do not add `tabViewCustomization` state or persistence.
+    - Preserve an explicit layout/testing override so tests and previews can still force compact vs regular adaptive behavior deterministically.
+  - Preserve current content composition:
+    - Keep each top-level destination wrapped in the same `NavigationStack` and content branching used today.
+    - Preserve current toolbar behavior:
+      - `Spreads` continues to own its spreads-specific toolbar/header behavior.
+      - Non-spread destinations continue to show inbox/auth toolbar actions in the navigation bar.
+  - Remove obsolete navigation shell types after migration:
+    - Delete `NavigationLayoutType.swift`.
+    - Delete `SidebarNavigationView.swift`.
+    - Delete `TabNavigationView.swift`.
+    - Simplify `RootNavigationView.swift` to the unified adaptive implementation.
+  - Update previews/tests away from shell-specific assertions toward behavior assertions based on adaptive presentation and destination selection.
+- **Acceptance Criteria**:
+  - A single root `TabView` implementation is used for both iPhone and iPad. (Spec: Multiplatform Strategy)
+  - iPhone still presents top-level navigation as a tab bar. (Spec: Multiplatform Strategy)
+  - iPad uses SwiftUI's sidebar-adaptable tab presentation instead of the current custom `NavigationSplitView` shell. (Spec: Multiplatform Strategy)
+  - Top-level destinations remain `Spreads`, `Collections`, `Settings`, and `Debug` when available, with flat destination structure. (Spec: Multiplatform Strategy)
+  - `NavigationTab` remains the single source of truth for destination identity/selection. (Spec: Multiplatform Strategy)
+  - Inbox/auth toolbar behavior remains unchanged for non-spread destinations, and spreads-specific toolbar behavior remains owned by the spreads surface. (Spec: Navigation and UI; Inbox)
+  - There is no user customization of tab/sidebar layout in v1. (Spec: Multiplatform Strategy)
+  - `NavigationLayoutType`, `SidebarNavigationView`, and `TabNavigationView` are removed from the project once the unified root is in place.
+- **Tests**:
+  - Unit tests for the unified root view's destination selection and override-driven adaptive style resolution.
+  - UI tests on compact-width devices verifying tab-bar navigation between `Spreads`, `Collections`, `Settings`, and `Debug` when present.
+  - UI tests on regular-width devices verifying the adaptive sidebar-capable presentation still exposes the same destinations and selection behavior.
+  - Regression UI tests verifying inbox/auth toolbar actions remain present on non-spread destinations and unchanged on the spreads destination.
+- **Dependencies**: SPRD-19
+
 ### [SPRD-21] Feature: Entry symbol component - [x] Complete
 - **Context**: Task/note symbols must be consistent across UI; event symbol reserved for v2.
 - **Description**: Create a reusable symbol/status component for entries.
