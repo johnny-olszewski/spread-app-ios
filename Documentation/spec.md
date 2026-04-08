@@ -6,7 +6,7 @@
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
-- Adaptive UI: top-level navigation adapts by device (sidebar on iPad, tab/sheet on iPhone). Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and the selected spread capsule presents a rooted spread navigator as a popover on iPad and a sheet on iPhone; traditional mode remains calendar-driven. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126]
+- Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and the selected spread capsule presents a rooted spread navigator as a popover on iPad and a sheet on iPhone; traditional mode remains calendar-driven. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143]
 - Core entities (v1): [SPRD-8, SPRD-9, SPRD-10]
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
   - Entry: protocol for task and note with type-specific behaviors. [SPRD-9]
@@ -16,7 +16,7 @@
 - Events are a v2 integration (calendar-backed date-range entries), not part of v1 UI/flows. [SPRD-57]
 - JournalManager owns in-memory data model, assignment logic, migration, spread creation, and deletion. [SPRD-11, SPRD-13, SPRD-15]
 - Two UI paths: [SPRD-25, SPRD-35, SPRD-38]
-  - Conventional UI (`MainTabView`) with hierarchical spread tab bar (year/month/day/multiday), entry list, inline migration controls/history, and settings. [SPRD-25, SPRD-27, SPRD-30, SPRD-140]
+  - Conventional UI with hierarchical spread tab bar (year/month/day/multiday), entry list, inline migration controls/history, and settings. [SPRD-25, SPRD-27, SPRD-30, SPRD-140]
   - Calendar-style UI for traditional mode with year/month/day drill-in. [SPRD-35, SPRD-38]
 - BuJo modes: "conventional" (migration history visible) and "traditional" (preferred assignment only). [SPRD-20, SPRD-17]
 
@@ -44,8 +44,13 @@
 
 ### Multiplatform Strategy
 - Adaptive layouts using size classes: [SPRD-19, SPRD-25]
-  - Regular width (iPad): NavigationSplitView for top-level destinations; spread navigation stays in the spread view via a centered horizontal spread-title navigator, whose selected capsule can open the rooted spread navigator popover
-  - Compact width (iPhone): Tab bar/sheets for top-level destinations; the same centered horizontal spread-title navigator appears in the spread view, and its selected capsule opens the same rooted spread navigator content in a large sheet
+  - A single top-level `TabView` is used for all devices. [SPRD-143]
+  - Regular width (iPad): the root `TabView` uses SwiftUI's sidebar-adaptable presentation so top-level destinations are surfaced through Apple's adaptive sidebar/tab model rather than a custom `NavigationSplitView`. Spread navigation stays in the spread view via a centered horizontal spread-title navigator, whose selected capsule can open the rooted spread navigator popover.
+  - Compact width (iPhone): the same root `TabView` presents as a bottom tab bar; the same centered horizontal spread-title navigator appears in the spread view, and its selected capsule opens the same rooted spread navigator content in a large sheet.
+  - Top-level destinations remain flat, first-class destinations: `Spreads`, `Collections`, `Settings`, and `Debug` when available. [SPRD-19, SPRD-143]
+  - User tab/sidebar customization is out of scope for v1; the adaptive tab structure is app-defined and non-customizable. [SPRD-143]
+  - `NavigationTab` remains the single source of truth for top-level destination identity and selection. [SPRD-143]
+  - The navigation shell keeps an explicit layout/testing override so previews and tests can force compact vs regular adaptive behavior deterministically without maintaining separate root container implementations. [SPRD-143]
 - iPad multitasking support: [SPRD-19]
   - Split View (1/3, 1/2, 2/3 configurations)
   - Slide Over
