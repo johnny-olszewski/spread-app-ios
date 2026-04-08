@@ -14,6 +14,50 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
         )
     }
 
+    func testTaskEditSheetUsesStatusIconInsteadOfManualMigratedPicker() throws {
+        let app = launchScenario(.reassignment)
+
+        openTaskForEditing(title: "Reassign me", in: app)
+
+        let statusToggle = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", "Mark task complete"))
+            .firstMatch
+        XCTAssertTrue(
+            statusToggle.waitForExistence(timeout: 5)
+        )
+        XCTAssertFalse(
+            app.segmentedControls[Definitions.AccessibilityIdentifiers.TaskDetailSheet.statusPicker].exists
+        )
+    }
+
+    func testTaskEditStatusToggleDisablesAndReenablesAssignmentControlsInDraft() throws {
+        let app = launchScenario(.reassignment)
+
+        openTaskForEditing(title: "Reassign me", in: app)
+
+        let statusToggle = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", "Mark task complete"))
+            .firstMatch
+        XCTAssertTrue(statusToggle.waitForExistence(timeout: 5))
+
+        let periodMenu = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodPicker
+        )
+        waitForElement(periodMenu)
+        XCTAssertTrue(periodMenu.isEnabled)
+
+        statusToggle.tap()
+        XCTAssertFalse(periodMenu.isEnabled)
+
+        let reopenToggle = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@", "Mark task open"))
+            .firstMatch
+        XCTAssertTrue(reopenToggle.waitForExistence(timeout: 5))
+        reopenToggle.tap()
+        XCTAssertTrue(periodMenu.isEnabled)
+    }
+
     func testMultidaySpreadShowsEveryDaySectionIncludingEmptyDays() throws {
         let app = launchScenario(.multidayLayout, today: "2026-01-10")
 

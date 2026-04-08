@@ -84,25 +84,11 @@ struct StatusIconConfiguration: Sendable {
         switch entryType {
         case .task:
             guard let status = taskStatus else { return nil }
-            switch status {
-            case .open:
-                return nil
-            case .complete:
-                return "xmark"
-            case .migrated:
-                return "arrow.right"
-            case .cancelled:
-                return "line.diagonal"
-            }
+            return status.statusIconOverlaySymbol
 
         case .note:
             guard let status = noteStatus else { return nil }
-            switch status {
-            case .active:
-                return nil
-            case .migrated:
-                return "arrow.right"
-            }
+            return status.statusIconOverlaySymbol
 
         case .event:
             return isEventPast ? "xmark" : nil
