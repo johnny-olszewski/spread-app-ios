@@ -74,8 +74,27 @@ struct Definitions {
                 "spreads.content.task.\(token(title)).titleField"
             }
 
+            static func taskStatusToggle(_ title: String) -> String {
+                "spreads.content.task.\(token(title)).statusToggle"
+            }
+
             static func taskTitleDiscardButton(_ title: String) -> String {
                 "spreads.content.task.\(token(title)).titleField.discard"
+            }
+
+            static func taskInlineEditButton(_ title: String) -> String {
+                "spreads.content.task.\(token(title)).inline.edit"
+            }
+
+            static func taskInlineMigrationMenu(_ title: String) -> String {
+                "spreads.content.task.\(token(title)).inline.migrate"
+            }
+
+            static func taskInlineMigrationOption(
+                _ title: String,
+                option: String
+            ) -> String {
+                "spreads.content.task.\(token(title)).inline.migrate.\(token(option))"
             }
 
             static func taskContextLabel(_ title: String) -> String {

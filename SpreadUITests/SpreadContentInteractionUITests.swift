@@ -3,15 +3,164 @@ import XCTest
 @MainActor
 final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
 
-    func testTaskRowTapOpensExistingTaskEditSheet() throws {
+    func testOpenTaskRowTapStartsInlineEditingWithoutOpeningSheet() throws {
         let app = launchScenario(.reassignment)
 
-        tapTaskForEditing(title: "Reassign me", in: app)
+        let rowIdentifier = Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Reassign me")
+        let row = anyElement(in: app, identifier: rowIdentifier)
+        waitForElement(row)
+
+        XCTAssertTrue(
+            row.waitForExistence(timeout: 5)
+        )
+
+        row.tap()
+
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(
+            app.buttons[Definitions.AccessibilityIdentifiers.TaskDetailSheet.saveButton].exists
+        )
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineEditButton("Reassign me")
+            ).waitForExistence(timeout: 5)
+        )
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu("Reassign me")
+            ).waitForExistence(timeout: 5)
+        )
+    }
+
+    func testTappingOutsideFocusedTaskRowDismissesInlineEditing() throws {
+        let app = launchScenario(.reassignment)
+
+        let row = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Reassign me")
+        )
+        waitForElement(row)
+        row.tap()
+
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+
+        let list = app.otherElements[Definitions.AccessibilityIdentifiers.SpreadContent.list]
+        waitForElement(list)
+        list.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.95)).tap()
+
+        let keyboardGone = NSPredicate(format: "exists == false")
+        let keyboardExpectation = XCTNSPredicateExpectation(
+            predicate: keyboardGone,
+            object: app.keyboards.firstMatch
+        )
+        XCTAssertEqual(XCTWaiter().wait(for: [keyboardExpectation], timeout: 5), .completed)
+
+        XCTAssertFalse(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineEditButton("Reassign me")
+            ).exists
+        )
+        XCTAssertFalse(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu("Reassign me")
+            ).exists
+        )
+    }
+
+    func testCompletedTaskRowTapOpensExistingTaskEditSheet() throws {
+        let app = launchScenario(.reassignment)
+
+        let row = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Reassign me")
+        )
+        waitForElement(row)
+        row.press(forDuration: 1.0)
+
+        let completeButton = app.buttons["Complete"].firstMatch
+        waitForElement(completeButton)
+        completeButton.tap()
+
+        row.tap()
 
         XCTAssertTrue(
             app.buttons[Definitions.AccessibilityIdentifiers.TaskDetailSheet.saveButton]
                 .waitForExistence(timeout: 5)
         )
+    }
+
+    func testInlinePencilCommitsDraftTitleBeforeOpeningSheet() throws {
+        let app = launchScenario(.reassignment)
+
+        let row = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Reassign me")
+        )
+        waitForElement(row)
+        row.tap()
+
+        let titleField = app.textFields.firstMatch
+        waitForElement(titleField)
+        titleField.tap()
+        titleField.typeText(" updated")
+
+        let editButton = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineEditButton("Reassign me")
+        )
+        waitForElement(editButton)
+        editButton.tap()
+
+        let saveButton = app.buttons[Definitions.AccessibilityIdentifiers.TaskDetailSheet.saveButton]
+        waitForElement(saveButton)
+        XCTAssertEqual(app.textFields.firstMatch.value as? String, "Reassign me updated")
+    }
+
+    func testInlineMigrateMenuShowsValidOptionsAndAppliesImmediately() throws {
+        let app = launchScenario(.reassignment, today: "2026-01-12")
+
+        let row = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Reassign me")
+        )
+        waitForElement(row)
+        row.tap()
+
+        let migrateMenu = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu("Reassign me")
+        )
+        waitForElement(migrateMenu)
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: migrateMenu.frame.midX, dy: migrateMenu.frame.midY))
+            .tap()
+
+        XCTAssertTrue(app.buttons["Tomorrow"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["February 2026"].exists)
+        XCTAssertTrue(app.buttons["February 12, 2026"].exists)
+        XCTAssertFalse(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationOption(
+                    "Reassign me",
+                    option: "today"
+                )
+            ).exists
+        )
+
+        app.buttons["Tomorrow"].tap()
+
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Reassign me")
+            ).waitForExistence(timeout: 5)
+        )
+        XCTAssertFalse(app.buttons["Tomorrow"].exists)
     }
 
     func testTaskEditSheetUsesStatusIconInsteadOfManualMigratedPicker() throws {

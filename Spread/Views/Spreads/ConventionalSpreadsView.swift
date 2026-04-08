@@ -248,10 +248,14 @@ struct ConventionalSpreadsView: View {
                     }
                 },
                 onUpdateTaskTitle: { task, newTitle in
+                    try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
                     Task {
-                        try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
                         await syncEngine?.syncNow()
                     }
+                },
+                onReassignTask: { task, date, period in
+                    try? await journalManager.updateTaskDateAndPeriod(task, newDate: date, newPeriod: period)
+                    await syncEngine?.syncNow()
                 },
                 onAddTask: { title, date, period in
                     try await journalManager.addTask(title: title, date: date, period: period)
@@ -446,7 +450,8 @@ private struct SpreadContentView: View {
     var onCompleteTask: ((DataModel.Task) -> Void)?
 
     /// Callback when a task title is committed via inline edit.
-    var onUpdateTaskTitle: ((DataModel.Task, String) -> Void)?
+    var onUpdateTaskTitle: ((DataModel.Task, String) async -> Void)?
+    var onReassignTask: ((DataModel.Task, Date, Period) async -> Void)?
 
     /// Callback when a new task should be created inline.
     var onAddTask: ((String, Date, Period) async throws -> Void)?
@@ -513,8 +518,9 @@ private struct SpreadContentView: View {
                 },
                 migrationConfiguration: migrationConfiguration,
                 onTitleCommit: { task, newTitle in
-                    onUpdateTaskTitle?(task, newTitle)
+                    await onUpdateTaskTitle?(task, newTitle)
                 },
+                onReassignTask: onReassignTask,
                 onAddTask: onAddTask,
                 onRefresh: onRefresh,
                 syncStatus: syncStatus

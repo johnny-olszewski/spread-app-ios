@@ -6,15 +6,18 @@ struct EntryRowTrailingAction {
     let action: () -> Void
 }
 
+struct EntryRowInlineActionConfiguration {
+    let migrationOptions: [EntryRowInlineMigrationOption]
+    let onEditSheet: () -> Void
+    let onMigrationSelected: (EntryRowInlineMigrationOption) async -> Void
+}
+
 /// A row component for displaying an entry with type symbol, title, and actions.
 ///
 /// Interaction model:
-/// - Tapping the title of an open task activates inline title editing.
-/// - Tapping anywhere else on the row opens the full edit sheet via `onEdit`.
+/// - Tapping an open task row activates inline title editing.
+/// - Tapping a completed/cancelled task row opens the full edit sheet via `onEdit`.
 /// - Long-pressing the row shows a context menu with Edit, Complete, Migrate, Delete.
-///
-/// The outer HStack is always present so the row height never shifts when entering
-/// or leaving inline editing mode.
 struct EntryRowView: View {
 
     // MARK: - Properties
@@ -27,14 +30,21 @@ struct EntryRowView: View {
     private let onEdit: (() -> Void)?
     private let onDelete: (() -> Void)?
     private let trailingAction: EntryRowTrailingAction?
+    private let inlineActionConfiguration: EntryRowInlineActionConfiguration?
+    private let isInlineActive: Bool
+    private let onBeginInlineEditing: (() -> Void)?
+    private let onEndInlineEditing: (() -> Void)?
 
     /// Callback when the user commits an inline title edit (open tasks only).
-    private let onTitleCommit: ((String) -> Void)?
+    private let onTitleCommit: ((String) async -> Void)?
 
     // MARK: - Inline edit state
 
-    @State private var isEditingTitle: Bool = false
-    @State private var editingText: String = ""
+    @State private var editingText: String
+    @State private var titleSelection: TextSelection?
+    @State private var inlineTaskStatus: DataModel.Task.Status?
+    @State private var hasAcquiredTitleFocus: Bool = false
+    @State private var isPerformingInlineAction: Bool = false
     @FocusState private var isTitleFocused: Bool
 
     // MARK: - Initialization
@@ -46,8 +56,12 @@ struct EntryRowView: View {
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
-        onTitleCommit: ((String) -> Void)? = nil,
-        trailingAction: EntryRowTrailingAction? = nil
+        onTitleCommit: ((String) async -> Void)? = nil,
+        trailingAction: EntryRowTrailingAction? = nil,
+        inlineActionConfiguration: EntryRowInlineActionConfiguration? = nil,
+        isInlineActive: Bool = false,
+        onBeginInlineEditing: (() -> Void)? = nil,
+        onEndInlineEditing: (() -> Void)? = nil
     ) {
         self.configuration = configuration
         self.iconConfiguration = iconConfiguration
@@ -57,6 +71,12 @@ struct EntryRowView: View {
         self.onDelete = onDelete
         self.onTitleCommit = onTitleCommit
         self.trailingAction = trailingAction
+        self.inlineActionConfiguration = inlineActionConfiguration
+        self.isInlineActive = isInlineActive
+        self.onBeginInlineEditing = onBeginInlineEditing
+        self.onEndInlineEditing = onEndInlineEditing
+        _editingText = State(initialValue: configuration.title)
+        _inlineTaskStatus = State(initialValue: configuration.taskStatus)
     }
 
     /// Creates an entry row view for a task.
@@ -68,8 +88,12 @@ struct EntryRowView: View {
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
-        onTitleCommit: ((String) -> Void)? = nil,
-        trailingAction: EntryRowTrailingAction? = nil
+        onTitleCommit: ((String) async -> Void)? = nil,
+        trailingAction: EntryRowTrailingAction? = nil,
+        inlineActionConfiguration: EntryRowInlineActionConfiguration? = nil,
+        isInlineActive: Bool = false,
+        onBeginInlineEditing: (() -> Void)? = nil,
+        onEndInlineEditing: (() -> Void)? = nil
     ) {
         self.configuration = EntryRowConfiguration(
             entryType: .task,
@@ -88,6 +112,12 @@ struct EntryRowView: View {
         self.onDelete = onDelete
         self.onTitleCommit = onTitleCommit
         self.trailingAction = trailingAction
+        self.inlineActionConfiguration = inlineActionConfiguration
+        self.isInlineActive = isInlineActive
+        self.onBeginInlineEditing = onBeginInlineEditing
+        self.onEndInlineEditing = onEndInlineEditing
+        _editingText = State(initialValue: task.title)
+        _inlineTaskStatus = State(initialValue: task.status)
     }
 
     /// Creates an entry row view for an event.
@@ -112,6 +142,12 @@ struct EntryRowView: View {
         self.onDelete = onDelete
         self.onTitleCommit = nil
         self.trailingAction = nil
+        self.inlineActionConfiguration = nil
+        self.isInlineActive = false
+        self.onBeginInlineEditing = nil
+        self.onEndInlineEditing = nil
+        _editingText = State(initialValue: event.title)
+        _inlineTaskStatus = State(initialValue: nil)
     }
 
     /// Creates an entry row view for a note.
@@ -140,83 +176,122 @@ struct EntryRowView: View {
         self.onDelete = onDelete
         self.onTitleCommit = nil
         self.trailingAction = nil
+        self.inlineActionConfiguration = nil
+        self.isInlineActive = false
+        self.onBeginInlineEditing = nil
+        self.onEndInlineEditing = nil
+        _editingText = State(initialValue: note.title)
+        _inlineTaskStatus = State(initialValue: nil)
     }
 
     // MARK: - Body
 
     var body: some View {
-        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            StatusIcon(configuration: iconConfiguration, color: rowColor)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+                leadingAccessory
 
-            titleArea
+                titleArea
 
-            Spacer()
+                Spacer()
 
-            trailingAccessory
+                trailingAccessory
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                handlePrimaryTap()
+            }
+
+            inlineActionRow
         }
         .foregroundStyle(rowColor)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            guard !isEditingTitle else { return }
-            onEdit?()
-        }
         .contextMenu {
             contextMenuActions
         }
-        .onChange(of: isEditingTitle) { _, editing in
-            if editing { isTitleFocused = true }
+        .onChange(of: isInlineActive) { oldValue, newValue in
+            guard oldValue != newValue else { return }
+            syncInlineEditingState(isActive: newValue)
         }
         .onChange(of: isTitleFocused) { _, focused in
-            if !focused && isEditingTitle { commitEdit() }
+            if focused {
+                if isInlineActive && !hasAcquiredTitleFocus {
+                    titleSelection = fullTextSelection(for: editingText)
+                }
+                hasAcquiredTitleFocus = true
+            } else if isInlineActive && hasAcquiredTitleFocus && !isPerformingInlineAction {
+                commitEdit(clearParentSelection: true)
+            }
         }
+        .onChange(of: configuration.title) { _, newTitle in
+            guard !isInlineActive else { return }
+            editingText = newTitle
+        }
+        .onChange(of: configuration.taskStatus) { _, newStatus in
+            inlineTaskStatus = newStatus
+        }
+        .animation(.easeInOut(duration: 0.18), value: isInlineActive)
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - Subviews
 
     @ViewBuilder
     private var titleArea: some View {
-        if isEditingTitle {
-            TextField("Task title", text: $editingText)
-                .textFieldStyle(.plain)
-                .focused($isTitleFocused)
-                .submitLabel(.done)
-                .onSubmit { commitEdit() }
-                .accessibilityIdentifier(
-                    Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(configuration.title)
-                )
-        } else {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            ZStack(alignment: .leading) {
                 Text(configuration.title)
+                    .font(.body)
                     .strikethrough(configuration.hasStrikethrough)
                     .lineLimit(2)
-                    .onTapGesture {
-                        guard configuration.entryType == .task,
-                              onTitleCommit != nil,
-                              configuration.taskStatus == .open else { return }
-                        beginEditing()
-                    }
+                    .opacity(isInlineActive ? 0 : 1)
 
-                if let contextualLabel = configuration.contextualLabel {
-                    contextualLabelView(contextualLabel)
-                }
+                TextField("", text: $editingText, selection: $titleSelection)
+                    .font(.body)
+                    .textFieldStyle(.plain)
+                    .focused($isTitleFocused)
+                    .submitLabel(.done)
+                    .onSubmit { commitEdit(clearParentSelection: true) }
+                    .allowsHitTesting(isInlineActive)
+                    .opacity(isInlineActive ? 1 : 0.01)
+                    .accessibilityHidden(!isInlineActive)
+                    .accessibilityIdentifier(
+                        Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(configuration.title)
+                    )
+            }
+
+            if let contextualLabel = configuration.contextualLabel {
+                contextualLabelView(contextualLabel)
             }
         }
     }
 
     @ViewBuilder
-    private var trailingAccessory: some View {
-        if isEditingTitle {
-            Button {
-                discardEdit()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier(
-                Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleDiscardButton(configuration.title)
+    private var leadingAccessory: some View {
+        if let inlineTaskStatus,
+           configuration.entryType == .task {
+            TaskStatusToggleButton(
+                status: Binding(
+                    get: { inlineTaskStatus },
+                    set: { newStatus in
+                        self.inlineTaskStatus = newStatus
+                        guard newStatus != configuration.taskStatus else { return }
+                        onComplete?()
+                    }
+                ),
+                accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskStatusToggle(
+                    configuration.title
+                ),
+                size: .caption,
+                color: rowColor
             )
-        } else if let trailingAction {
+        } else {
+            StatusIcon(configuration: iconConfiguration, color: rowColor)
+        }
+    }
+
+    @ViewBuilder
+    private var trailingAccessory: some View {
+        if let trailingAction {
             Button(action: trailingAction.action) {
                 Image(systemName: trailingAction.systemImage)
                     .foregroundStyle(.secondary)
@@ -228,26 +303,178 @@ struct EntryRowView: View {
         }
     }
 
+    @ViewBuilder
+    private var inlineActionRow: some View {
+        if supportsInlineEditing && isInlineActive {
+            HStack(spacing: 16) {
+                Button {
+                    Task {
+                        await openEditSheetFromInlineActions()
+                    }
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit task")
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineEditButton(configuration.title)
+                )
+                .accessibilityElement(children: .ignore)
+
+                if let inlineActionConfiguration,
+                   !inlineActionConfiguration.migrationOptions.isEmpty {
+                    Menu {
+                        ForEach(inlineActionConfiguration.migrationOptions) { option in
+                            Button {
+                                Task {
+                                    await performInlineMigration(option)
+                                }
+                            } label: {
+                                Text(option.label)
+                            }
+                            .accessibilityIdentifier(
+                                Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationOption(
+                                    configuration.title,
+                                    option: option.kind.rawValue
+                                )
+                            )
+                        }
+                    } label: {
+                        Image(systemName: "arrow.right")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityIdentifier(
+                        Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu(configuration.title)
+                    )
+                    .accessibilityElement(children: .ignore)
+                }
+
+                Spacer()
+            }
+            .padding(.leading, 24 + SpreadTheme.Spacing.entryIconSpacing)
+            .frame(height: 20)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
     // MARK: - Inline Edit Helpers
 
     private func beginEditing() {
-        guard !isEditingTitle else { return }
+        guard supportsInlineEditing, !isInlineActive else { return }
         editingText = configuration.title
-        isEditingTitle = true
+        titleSelection = fullTextSelection(for: editingText)
+        hasAcquiredTitleFocus = false
+        onBeginInlineEditing?()
     }
 
-    private func commitEdit() {
+    private func commitEdit(clearParentSelection: Bool) {
         let trimmed = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
-        isEditingTitle = false
         isTitleFocused = false
+        titleSelection = nil
+        hasAcquiredTitleFocus = false
+        if clearParentSelection {
+            onEndInlineEditing?()
+        }
         guard !trimmed.isEmpty, trimmed != configuration.title else { return }
-        onTitleCommit?(trimmed)
+        Task {
+            await onTitleCommit?(trimmed)
+        }
+    }
+
+    private func handlePrimaryTap() {
+        guard !isInlineActive else { return }
+
+        switch primaryInteraction {
+        case .inlineEdit:
+            beginEditing()
+        case .fullEditSheet:
+            onEdit?()
+        }
+    }
+
+    private var supportsInlineEditing: Bool {
+        primaryInteraction == .inlineEdit
+    }
+
+    private var primaryInteraction: EntryRowPrimaryInteraction {
+        EntryRowInlineEditSupport.primaryInteraction(
+            entryType: configuration.entryType,
+            taskStatus: configuration.taskStatus,
+            canInlineEditTitle: onTitleCommit != nil
+        )
+    }
+
+    private func openEditSheetFromInlineActions() async {
+        isPerformingInlineAction = true
+        isTitleFocused = false
+
+        await EntryRowInlineEditSupport.performInlineAction(
+            draftTitle: editingText,
+            originalTitle: configuration.title,
+            onCommit: { title in
+                await onTitleCommit?(title)
+            },
+            action: {
+                onEndInlineEditing?()
+                await Task.yield()
+                onEdit?()
+            }
+        )
+        isPerformingInlineAction = false
+    }
+
+    private func performInlineMigration(_ option: EntryRowInlineMigrationOption) async {
+        isPerformingInlineAction = true
+        isTitleFocused = false
+
+        await EntryRowInlineEditSupport.performInlineAction(
+            draftTitle: editingText,
+            originalTitle: configuration.title,
+            onCommit: { title in
+                await onTitleCommit?(title)
+            },
+            action: {
+                onEndInlineEditing?()
+                await inlineActionConfiguration?.onMigrationSelected(option)
+            }
+        )
+        isPerformingInlineAction = false
     }
 
     private func discardEdit() {
-        isEditingTitle = false
+        onEndInlineEditing?()
         isTitleFocused = false
+        hasAcquiredTitleFocus = false
         editingText = configuration.title
+        titleSelection = nil
+    }
+
+    private func syncInlineEditingState(isActive: Bool) {
+        if isActive {
+            editingText = configuration.title
+            titleSelection = fullTextSelection(for: editingText)
+            hasAcquiredTitleFocus = false
+            isTitleFocused = true
+        } else if hasAcquiredTitleFocus && !isPerformingInlineAction {
+            commitEdit(clearParentSelection: false)
+        } else {
+            isTitleFocused = false
+            titleSelection = nil
+            hasAcquiredTitleFocus = false
+            editingText = configuration.title
+        }
+    }
+
+    private func fullTextSelection(for text: String) -> TextSelection {
+        if text.isEmpty {
+            return TextSelection(insertionPoint: text.startIndex)
+        }
+        return TextSelection(range: text.startIndex..<text.endIndex)
     }
 
     // MARK: - Styling
