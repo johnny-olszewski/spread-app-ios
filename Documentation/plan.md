@@ -892,17 +892,20 @@
   - Refine `EntryRowView` interaction rules:
     - tapping anywhere on an open task row enters inline title editing and focuses the text field
     - tapping anywhere on a completed or cancelled task row opens the full task edit sheet
-    - entering inline edit mode must not change the row's overall layout height
+    - the title row must remain visually stable when inline editing begins; the only new visible layout is the secondary action row underneath
+    - tapping outside the active inline-edit row dismisses inline editing, releases focus, and hides the secondary action row
+    - `EntryListView` owns the currently active inline-edit task row so only one row can be active at a time
   - While an open task row is inline-editing:
-    - replace the leading static status icon with the reusable task status toggle, aligned on the title row
     - show a secondary action row underneath with exactly two actions, ordered `edit sheet` then `migrate`
     - the pencil-writing action commits any inline title draft before opening the edit sheet
     - the migrate action is a `Menu` that applies immediately and only lists valid destinations
     - valid inline migrate labels are descriptive and can include `Today`, `Tomorrow`, a month-level next-month option like `May 2026`, and a same-day next-month option like `May 5, 2026`
+  - Replace the leading static task status icon with the reusable task status toggle button in both passive and inline-active row states; the toggle remains pressable whenever the task status allows completion toggling.
 - **Acceptance Criteria**:
   - Tapping any part of an open task row starts inline editing and focuses the title field; tapping completed or cancelled rows still opens the full task edit sheet. (Spec: Entries)
-  - Entering inline edit mode does not change the row's overall layout height. (Spec: Entries)
-  - While inline editing, the row shows only the two secondary actions `edit sheet` and `migrate`, and the leading status control uses the same reusable task status toggle component as the edit sheet. (Spec: Entries)
+  - In the passive state the row shows the saved task title, not a placeholder prompt; when inline editing begins the title row remains visually stable and only the secondary action row appears underneath. (Spec: Entries)
+  - Tapping outside the active inline-edit row dismisses focus, hides the secondary action row, and commits pending inline title changes via the existing blur semantics. (Spec: Entries)
+  - While inline editing, the row shows only the two secondary actions `edit sheet` and `migrate`, and the leading status control uses the same reusable task status toggle component as the edit sheet in both passive and active states. (Spec: Entries)
   - Inline migrate menus show only valid destination options with descriptive labels and apply immediately on selection. (Spec: Migration)
   - Choosing the pencil-writing inline action commits any pending inline title change before opening the full edit sheet. (Spec: Entries)
 - **Tests**:
@@ -910,10 +913,12 @@
     - row interaction policy routes open tasks to inline editing and completed/cancelled tasks to full-sheet editing
     - inline migrate menu candidate generation returns only valid options with the expected descriptive labels for `Today`, `Tomorrow`, next-month month-level, and next-month same-day choices
     - choosing the inline pencil action commits a pending title draft before invoking the full edit-sheet callback
+    - task row status toggle presentation uses a stable size/configuration in both passive and inline-active states
   - UI tests:
     - tapping an open task row enters inline title editing without opening the full sheet
     - tapping a completed or cancelled task row opens the full edit sheet
-    - entering inline edit mode preserves row height and shows only the `edit sheet` and `migrate` secondary actions
+    - entering inline edit mode keeps the saved title visible except for the expected cursor/selection treatment and shows only the `edit sheet` and `migrate` secondary actions
+    - tapping outside the active inline-edit row dismisses the keyboard and hides the inline action row
     - inline migrate menu shows the correct valid options and selecting one immediately updates assignment/reassignment state
     - tapping the inline pencil action commits the inline title draft and then opens the full edit sheet with the updated title
 - **Dependencies**: SPRD-132, SPRD-140, SPRD-141

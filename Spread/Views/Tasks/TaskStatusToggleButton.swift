@@ -4,6 +4,8 @@ struct TaskStatusToggleButton: View {
 
     @Binding var status: DataModel.Task.Status
     let accessibilityIdentifier: String
+    var size: Font.TextStyle = .caption
+    var color: Color? = nil
 
     var body: some View {
         Button {
@@ -13,9 +15,9 @@ struct TaskStatusToggleButton: View {
                 configuration: StatusIconConfiguration(
                     entryType: .task,
                     taskStatus: status,
-                    size: .body
+                    size: size
                 ),
-                color: status.statusIconColor
+                color: color ?? status.statusIconColor
             )
             .frame(width: 24, height: 24)
         }

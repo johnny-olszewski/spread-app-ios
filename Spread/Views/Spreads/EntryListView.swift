@@ -17,15 +17,6 @@ struct EntryListView: View {
         let period: Period
     }
 
-    private struct PendingSourceMigration: Identifiable {
-        let task: DataModel.Task
-        let destination: DataModel.Spread
-
-        var id: String {
-            "\(task.id.uuidString)-\(destination.id.uuidString)"
-        }
-    }
-
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     // MARK: - Properties
@@ -55,7 +46,10 @@ struct EntryListView: View {
     var migrationConfiguration: EntryListMigrationConfiguration?
 
     /// Callback when a task title is committed via inline edit.
-    var onTitleCommit: ((DataModel.Task, String) -> Void)?
+    var onTitleCommit: ((DataModel.Task, String) async -> Void)?
+
+    /// Callback when a task's preferred date/period should be reassigned inline.
+    var onReassignTask: ((DataModel.Task, Date, Period) async -> Void)?
 
     /// Callback when a new task should be created inline.
     var onAddTask: ((String, Date, Period) async throws -> Void)?
@@ -72,7 +66,7 @@ struct EntryListView: View {
     @State private var inlineTitle: String = ""
     @State private var isContinuingEntry: Bool = false
     @State private var inlineCreationID: UUID = UUID()
-    @State private var pendingSourceMigration: PendingSourceMigration?
+    @State private var activeInlineTaskID: UUID?
     @FocusState private var isInlineFocused: Bool
 
     // MARK: - Computed Properties
@@ -199,22 +193,6 @@ struct EntryListView: View {
                     commitInlineTask(target: target)
                 }
             }
-            .alert(item: $pendingSourceMigration) { migration in
-                Alert(
-                    title: Text("Migrate task?"),
-                    message: Text("Move \"\(migration.task.title)\" to \(spreadTitle(for: migration.destination))?"),
-                    primaryButton: .default(
-                        Text("Migrate"),
-                        action: {
-                            migrationConfiguration?.onSourceMigrationConfirmed(
-                                migration.task,
-                                migration.destination
-                            )
-                        }
-                    ),
-                    secondaryButton: .cancel()
-                )
-            }
     }
 
     // MARK: - Content
@@ -289,6 +267,12 @@ struct EntryListView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(Color.clear)
+        .gesture(
+            TapGesture().onEnded {
+                dismissActiveInlineEditing()
+            },
+            including: .gesture
+        )
         .environment(\.defaultMinListRowHeight, 0)
         .modifier(RefreshableModifier(onRefresh: onRefresh))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
@@ -319,6 +303,12 @@ struct EntryListView: View {
             }
             .padding(16)
         }
+        .gesture(
+            TapGesture().onEnded {
+                dismissActiveInlineEditing()
+            },
+            including: .gesture
+        )
         .modifier(RefreshableModifier(onRefresh: onRefresh))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
     }
@@ -345,10 +335,24 @@ struct EntryListView: View {
             migrationDestination: destinationFormatter.destination(for: task, from: spreadDataModel.spread),
             contextualLabel: contextualLabel,
             onComplete: { onComplete?(task) },
-            onEdit: { onEdit?(task) },
+            onEdit: {
+                dismissActiveInlineEditing()
+                onEdit?(task)
+            },
             onDelete: { onDelete?(task) },
-            onTitleCommit: { newTitle in onTitleCommit?(task, newTitle) },
-            trailingAction: sourceMigrationAction(for: task)
+            onTitleCommit: { newTitle in
+                await onTitleCommit?(task, newTitle)
+            },
+            inlineActionConfiguration: inlineActionConfiguration(for: task),
+            isInlineActive: activeInlineTaskID == task.id,
+            onBeginInlineEditing: {
+                activeInlineTaskID = task.id
+            },
+            onEndInlineEditing: {
+                if activeInlineTaskID == task.id {
+                    activeInlineTaskID = nil
+                }
+            }
         )
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(task.title))
     }
@@ -358,7 +362,10 @@ struct EntryListView: View {
             note: note,
             migrationDestination: destinationFormatter.destination(for: note, from: spreadDataModel.spread),
             contextualLabel: contextualLabel,
-            onEdit: { onEdit?(note) },
+            onEdit: {
+                dismissActiveInlineEditing()
+                onEdit?(note)
+            },
             onDelete: { onDelete?(note) }
         )
     }
@@ -409,6 +416,10 @@ struct EntryListView: View {
         .accessibilityIdentifier(
             Definitions.AccessibilityIdentifiers.SpreadContent.multidaySection(dateID)
         )
+    }
+
+    private func dismissActiveInlineEditing() {
+        activeInlineTaskID = nil
     }
 
     private func multidayHeader(for date: Date) -> some View {
@@ -608,30 +619,24 @@ struct EntryListView: View {
         }
     }
 
-    private func sourceMigrationAction(
-        for task: DataModel.Task
-    ) -> EntryRowTrailingAction? {
-        guard let destination = migrationConfiguration?.sourceDestinations[task.id] else {
-            return nil
-        }
+    private func inlineActionConfiguration(for task: DataModel.Task) -> EntryRowInlineActionConfiguration? {
+        guard task.status == .open else { return nil }
 
-        return EntryRowTrailingAction(
-            systemImage: "arrow.right",
-            accessibilityIdentifier: Definitions.AccessibilityIdentifiers.Migration.sourceButton(task.title),
-            action: {
-                pendingSourceMigration = PendingSourceMigration(
-                    task: task,
-                    destination: destination
-                )
+        let migrationOptions = EntryRowInlineEditSupport.migrationOptions(
+            for: task,
+            today: today,
+            calendar: calendar
+        )
+
+        return EntryRowInlineActionConfiguration(
+            migrationOptions: migrationOptions,
+            onEditSheet: {
+                onEdit?(task)
+            },
+            onMigrationSelected: { option in
+                await onReassignTask?(task, option.date, option.period)
             }
         )
-    }
-
-    private func spreadTitle(for spread: DataModel.Spread) -> String {
-        SpreadHeaderConfiguration(
-            spread: spread,
-            calendar: calendar
-        ).title
     }
 }
 
