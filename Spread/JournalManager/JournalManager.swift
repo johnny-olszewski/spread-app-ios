@@ -1500,6 +1500,10 @@ final class JournalManager {
     ///   - newStatus: The new status for the task.
     /// - Throws: Repository errors if persistence fails.
     func updateTaskStatus(_ task: DataModel.Task, newStatus: DataModel.Task.Status) async throws {
+        guard newStatus != .migrated else {
+            throw TaskMutationError.manualMigratedStatusNotAllowed
+        }
+
         task.status = newStatus
 
         try await taskRepository.save(task)

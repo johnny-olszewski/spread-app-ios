@@ -175,6 +175,24 @@ struct JournalManagerTaskCRUDTests {
         #expect(manager.dataVersion > initialVersion)
     }
 
+    /// Condition: A caller attempts to set task status to migrated directly.
+    /// Expected: The mutation is rejected because migrated is assignment history, not a user-editable task status.
+    @Test("Updating task status to migrated is rejected")
+    func testUpdateTaskStatusToMigratedThrows() async throws {
+        let existingTask = DataModel.Task(
+            title: "Migrated guard",
+            createdDate: Self.testDate,
+            date: Self.testDate,
+            period: .day,
+            status: .open
+        )
+        let manager = try await makeManager(tasks: [existingTask])
+
+        await #expect(throws: TaskMutationError.manualMigratedStatusNotAllowed) {
+            try await manager.updateTaskStatus(existingTask, newStatus: .migrated)
+        }
+    }
+
     // MARK: - updateTaskDateAndPeriod Tests
 
     /// Condition: Update a task's date and period from day to month.

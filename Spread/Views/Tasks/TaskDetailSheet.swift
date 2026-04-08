@@ -2,30 +2,17 @@ import SwiftUI
 
 /// Modal sheet for editing an existing task.
 ///
-/// Supports editing:
-/// - Title
-/// - Status (open/complete/migrated/cancelled)
-/// - Period and date
-/// - Assignment history (visible in conventional mode)
-/// - Delete action with confirmation
+/// The task edit flow keeps lifecycle state and assignment state distinct:
+/// - Status changes are draft-only until save.
+/// - `.migrated` remains assignment history, not a user-editable task status.
+/// - Period/date changes are disabled while the draft task is complete or cancelled.
 struct TaskDetailSheet: View {
-
-    // MARK: - Environment
 
     @Environment(\.dismiss) private var dismiss
 
-    // MARK: - Properties
-
-    /// The task being edited.
     let task: DataModel.Task
-
-    /// The journal manager for persistence operations.
     @Bindable var journalManager: JournalManager
-
-    /// Callback when the task is deleted.
     let onDelete: () -> Void
-
-    // MARK: - State
 
     @State private var selectedStatus: DataModel.Task.Status = .open
     @State private var formModel: TaskEditorFormModel
@@ -39,18 +26,19 @@ struct TaskDetailSheet: View {
         )
     }
 
-    private var periodBinding: Binding<Period> {
-        Binding(
-            get: { formModel.selectedPeriod },
-            set: { formModel.setPeriod($0) }
-        )
-    }
-
     private var dateBinding: Binding<Date> {
         Binding(
             get: { formModel.selectedDate },
             set: { formModel.selectedDate = $0 }
         )
+    }
+
+    private var configuration: TaskCreationConfiguration {
+        formModel.configuration
+    }
+
+    private var isAssignmentEditable: Bool {
+        selectedStatus.allowsAssignmentEditingInTaskSheet
     }
 
     init(
@@ -74,15 +62,11 @@ struct TaskDetailSheet: View {
         )
     }
 
-    // MARK: - Body
-
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     titleSection
-                    compactDivider
-                    statusSection
                     compactDivider
                     periodSection
                     compactDivider
@@ -91,6 +75,18 @@ struct TaskDetailSheet: View {
                     if !task.assignments.isEmpty {
                         compactDivider
                         assignmentHistorySection
+                    }
+
+                    if let lifecycleActionTitle = selectedStatus.lifecycleActionTitleInTaskSheet,
+                       let lifecycleResult = selectedStatus.lifecycleActionResultInTaskSheet,
+                       let lifecycleIcon = selectedStatus.lifecycleActionIconInTaskSheet {
+                        compactDivider
+                        lifecycleSection(
+                            title: lifecycleActionTitle,
+                            icon: lifecycleIcon,
+                            role: selectedStatus.lifecycleActionRoleInTaskSheet,
+                            resultStatus: lifecycleResult
+                        )
                     }
 
                     compactDivider
@@ -112,7 +108,7 @@ struct TaskDetailSheet: View {
                     Button("Save") {
                         save()
                     }
-                    .disabled(isSaving || formModel.title.isEmpty || formModel.title.allSatisfy(\.isWhitespace))
+                    .disabled(isSaving || formModel.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.saveButton)
                 }
             }
@@ -127,50 +123,70 @@ struct TaskDetailSheet: View {
         }
     }
 
-    // MARK: - Sections
-
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Title")
-            TextField("Task title", text: titleBinding)
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.titleField)
-        }
-    }
+            HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+                TaskStatusToggleButton(
+                    status: $selectedStatus,
+                    accessibilityIdentifier: Definitions.AccessibilityIdentifiers.TaskDetailSheet.statusToggle
+                )
 
-    private var statusSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Status")
-            Picker("Status", selection: $selectedStatus) {
-                ForEach(DataModel.Task.Status.allCases, id: \.self) { status in
-                    Text(statusDisplayName(status))
-                        .tag(status)
-                }
+                TextField("Task title", text: titleBinding)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.titleField)
             }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.statusPicker)
         }
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.statusPicker)
     }
 
     private var periodSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Period")
-            TaskPeriodControl(
-                selection: periodBinding,
-                pickerIdentifier: Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodPicker,
-                segmentIdentifier: {
-                    Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodSegment($0.rawValue)
+
+            Menu {
+                ForEach(TaskCreationConfiguration.assignablePeriods, id: \.self) { period in
+                    Button {
+                        formModel.setPeriod(period)
+                    } label: {
+                        if period == formModel.selectedPeriod {
+                            Label(period.displayName, systemImage: "checkmark")
+                        } else {
+                            Text(period.displayName)
+                        }
+                    }
+                    .accessibilityIdentifier(
+                        Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodSegment(period.rawValue)
+                    )
                 }
-            )
+            } label: {
+                selectionSummaryRow(
+                    title: "Period",
+                    value: formModel.selectedPeriod.displayName,
+                    isEnabled: isAssignmentEditable
+                )
+            }
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodPicker)
+            .disabled(!isAssignmentEditable)
+
+            Text(formModel.periodDescription)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .opacity(isAssignmentEditable ? 1 : 0.7)
         }
     }
 
     private var dateSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Date")
-            let configuration = TaskCreationConfiguration(
-                calendar: journalManager.calendar,
-                today: journalManager.today
+
+            selectionSummaryRow(
+                title: "Date",
+                value: formattedDateSummary,
+                isEnabled: isAssignmentEditable,
+                showsChevron: false
             )
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.dateSummary)
+
             PeriodDatePicker(
                 period: formModel.selectedPeriod,
                 selectedDate: dateBinding,
@@ -185,16 +201,26 @@ struct TaskDetailSheet: View {
                     monthYearPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.monthYearPicker
                 )
             )
+            .disabled(!isAssignmentEditable)
+            .opacity(isAssignmentEditable ? 1 : 0.6)
         }
     }
 
     private var assignmentHistorySection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Assignment History")
+
             ForEach(Array(task.assignments.enumerated()), id: \.element) { index, assignment in
                 HStack {
-                    Image(systemName: assignmentIcon(for: assignment.status))
-                        .foregroundStyle(assignmentColor(for: assignment.status))
+                    StatusIcon(
+                        configuration: StatusIconConfiguration(
+                            entryType: .task,
+                            taskStatus: assignment.status,
+                            size: .caption
+                        ),
+                        color: assignment.status.statusIconColor
+                    )
+
                     VStack(alignment: .leading, spacing: 2) {
                         Text(assignment.period.displayName)
                             .font(.subheadline)
@@ -202,8 +228,10 @@ struct TaskDetailSheet: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+
                     Spacer()
-                    Text(assignmentStatusLabel(for: assignment.status))
+
+                    Text(assignment.status.displayName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -214,6 +242,27 @@ struct TaskDetailSheet: View {
             }
         }
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.assignmentHistory)
+    }
+
+    private func lifecycleSection(
+        title: String,
+        icon: String,
+        role: ButtonRole?,
+        resultStatus: DataModel.Task.Status
+    ) -> some View {
+        Button(role: role) {
+            selectedStatus = resultStatus
+        } label: {
+            HStack {
+                Image(systemName: icon)
+                Text(title)
+            }
+        }
+        .accessibilityIdentifier(
+            resultStatus == .cancelled
+                ? Definitions.AccessibilityIdentifiers.TaskDetailSheet.cancelTaskButton
+                : Definitions.AccessibilityIdentifiers.TaskDetailSheet.restoreTaskButton
+        )
     }
 
     private var deleteSection: some View {
@@ -228,6 +277,24 @@ struct TaskDetailSheet: View {
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.deleteButton)
     }
 
+    private var formattedDateSummary: String {
+        let formatter = DateFormatter()
+        formatter.calendar = journalManager.calendar
+        formatter.timeZone = journalManager.calendar.timeZone
+
+        switch formModel.selectedPeriod {
+        case .year:
+            formatter.dateFormat = "yyyy"
+        case .month:
+            formatter.dateFormat = "MMMM yyyy"
+        case .day, .multiday:
+            formatter.dateStyle = .long
+            formatter.timeStyle = .none
+        }
+
+        return formatter.string(from: formModel.effectiveSelectedDate)
+    }
+
     private var compactDivider: some View {
         Divider()
             .padding(.vertical, 2)
@@ -239,48 +306,39 @@ struct TaskDetailSheet: View {
             .foregroundStyle(.secondary)
     }
 
-    // MARK: - Helpers
-
-    private func statusDisplayName(_ status: DataModel.Task.Status) -> String {
-        switch status {
-        case .open: "Open"
-        case .complete: "Complete"
-        case .migrated: "Migrated"
-        case .cancelled: "Cancelled"
+    private func selectionSummaryRow(
+        title: String,
+        value: String,
+        isEnabled: Bool,
+        showsChevron: Bool = true
+    ) -> some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .foregroundStyle(.primary)
+            if showsChevron {
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
         }
-    }
-
-    private func assignmentIcon(for status: DataModel.Task.Status) -> String {
-        switch status {
-        case .open: "circle"
-        case .complete: "checkmark.circle"
-        case .migrated: "arrow.right.circle"
-        case .cancelled: "xmark.circle"
-        }
-    }
-
-    private func assignmentColor(for status: DataModel.Task.Status) -> Color {
-        switch status {
-        case .open: .primary
-        case .complete: .green
-        case .migrated: .orange
-        case .cancelled: .secondary
-        }
-    }
-
-    private func assignmentStatusLabel(for status: DataModel.Task.Status) -> String {
-        switch status {
-        case .open: "Open"
-        case .complete: "Complete"
-        case .migrated: "Migrated"
-        case .cancelled: "Cancelled"
-        }
+        .font(.subheadline)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemFill))
+        )
+        .opacity(isEnabled ? 1 : 0.7)
     }
 
     private func formatAssignmentDate(_ assignment: TaskAssignment) -> String {
         let formatter = DateFormatter()
         formatter.calendar = journalManager.calendar
         formatter.timeZone = journalManager.calendar.timeZone
+
         switch assignment.period {
         case .year:
             formatter.dateFormat = "yyyy"
@@ -289,10 +347,9 @@ struct TaskDetailSheet: View {
         case .day, .multiday:
             formatter.dateStyle = .medium
         }
+
         return formatter.string(from: assignment.date)
     }
-
-    // MARK: - Actions
 
     private func save() {
         isSaving = true
@@ -307,13 +364,15 @@ struct TaskDetailSheet: View {
                     try await journalManager.updateTaskStatus(task, newStatus: selectedStatus)
                 }
 
-                let effectiveDate = formModel.effectiveSelectedDate
-                if effectiveDate != task.date || formModel.selectedPeriod != task.period {
-                    try await journalManager.updateTaskDateAndPeriod(
-                        task,
-                        newDate: effectiveDate,
-                        newPeriod: formModel.selectedPeriod
-                    )
+                if selectedStatus.allowsAssignmentEditingInTaskSheet {
+                    let effectiveDate = formModel.effectiveSelectedDate
+                    if effectiveDate != task.date || formModel.selectedPeriod != task.period {
+                        try await journalManager.updateTaskDateAndPeriod(
+                            task,
+                            newDate: effectiveDate,
+                            newPeriod: formModel.selectedPeriod
+                        )
+                    }
                 }
 
                 await MainActor.run {
@@ -337,8 +396,6 @@ struct TaskDetailSheet: View {
         }
     }
 }
-
-// MARK: - Preview
 
 #Preview {
     let task = DataModel.Task(

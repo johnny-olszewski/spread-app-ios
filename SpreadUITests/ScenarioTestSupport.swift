@@ -206,11 +206,13 @@ class LocalhostScenarioUITestCase: XCTestCase {
             identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(title)
         )
         if taskRow.waitForExistence(timeout: 2) {
-            taskRow.tap()
+            let tappableCoordinate = taskRow.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5))
+            tappableCoordinate.tap()
         } else {
             let taskLabel = app.staticTexts[title].firstMatch
             waitForElement(taskLabel)
-            taskLabel.tap()
+            openTaskForEditing(title: title, in: app)
+            return
         }
 
         let saveButton = app.buttons[Definitions.AccessibilityIdentifiers.TaskDetailSheet.saveButton]
@@ -267,6 +269,21 @@ class LocalhostScenarioUITestCase: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
+        let periodMenu = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodPicker
+        )
+        if periodMenu.waitForExistence(timeout: 1) {
+            periodMenu.tap()
+            let menuOption = anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodSegment(rawValue)
+            )
+            waitForElement(menuOption, timeout: timeout, file: file, line: line)
+            menuOption.tap()
+            return
+        }
+
         let identifier = Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodSegment(rawValue)
         let identifiedElement = anyElement(in: app, identifier: identifier)
         if identifiedElement.waitForExistence(timeout: 1) {
