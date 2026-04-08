@@ -885,6 +885,39 @@
     - task edit sheet has no manual `migrated` status option
 - **Dependencies**: SPRD-23, SPRD-24, SPRD-137, SPRD-138, SPRD-140
 
+### [SPRD-142] Feature: Refine inline task-row editing actions and migration menu - [ ]
+- **Context**: The current row interaction model still reflects the older "tap title / swipe for sheet" behavior. The updated spec moves open tasks toward row-wide inline editing with stable layout, lightweight row actions, and immediate migration shortcuts while preserving full-sheet editing for completed and cancelled tasks.
+- **Description**: Update `EntryRowView` and the spread entry list interaction model so open-task rows enter inline title editing on row tap, expose only the new inline action row, and use descriptive immediate migration menu options.
+- **Implementation Details**:
+  - Refine `EntryRowView` interaction rules:
+    - tapping anywhere on an open task row enters inline title editing and focuses the text field
+    - tapping anywhere on a completed or cancelled task row opens the full task edit sheet
+    - entering inline edit mode must not change the row's overall layout height
+  - While an open task row is inline-editing:
+    - replace the leading static status icon with the reusable task status toggle, aligned on the title row
+    - show a secondary action row underneath with exactly two actions, ordered `edit sheet` then `migrate`
+    - the pencil-writing action commits any inline title draft before opening the edit sheet
+    - the migrate action is a `Menu` that applies immediately and only lists valid destinations
+    - valid inline migrate labels are descriptive and can include `Today`, `Tomorrow`, a month-level next-month option like `May 2026`, and a same-day next-month option like `May 5, 2026`
+- **Acceptance Criteria**:
+  - Tapping any part of an open task row starts inline editing and focuses the title field; tapping completed or cancelled rows still opens the full task edit sheet. (Spec: Entries)
+  - Entering inline edit mode does not change the row's overall layout height. (Spec: Entries)
+  - While inline editing, the row shows only the two secondary actions `edit sheet` and `migrate`, and the leading status control uses the same reusable task status toggle component as the edit sheet. (Spec: Entries)
+  - Inline migrate menus show only valid destination options with descriptive labels and apply immediately on selection. (Spec: Migration)
+  - Choosing the pencil-writing inline action commits any pending inline title change before opening the full edit sheet. (Spec: Entries)
+- **Tests**:
+  - Unit tests:
+    - row interaction policy routes open tasks to inline editing and completed/cancelled tasks to full-sheet editing
+    - inline migrate menu candidate generation returns only valid options with the expected descriptive labels for `Today`, `Tomorrow`, next-month month-level, and next-month same-day choices
+    - choosing the inline pencil action commits a pending title draft before invoking the full edit-sheet callback
+  - UI tests:
+    - tapping an open task row enters inline title editing without opening the full sheet
+    - tapping a completed or cancelled task row opens the full edit sheet
+    - entering inline edit mode preserves row height and shows only the `edit sheet` and `migrate` secondary actions
+    - inline migrate menu shows the correct valid options and selecting one immediately updates assignment/reassignment state
+    - tapping the inline pencil action commits the inline title draft and then opens the full edit sheet with the updated title
+- **Dependencies**: SPRD-132, SPRD-140, SPRD-141
+
 ## Story: Scope trim for v1 (event deferment)
 
 ### User Story
