@@ -89,14 +89,6 @@ enum SpreadTheme {
             todaySelectedEmphasis.opacity(0.34)
         }
 
-        /// Passive grey used to indicate a multiday day without an explicit day spread.
-        static let uncreatedDayText = Color.secondary.opacity(0.72)
-
-        /// Background tint for uncreated multiday day cards.
-        static let uncreatedDayFill = Color.secondary.opacity(0.07)
-
-        /// Border tint for uncreated multiday day cards.
-        static let uncreatedDayBorder = Color.secondary.opacity(0.2)
     }
 
     /// Dot grid colors.
