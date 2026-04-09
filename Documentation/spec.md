@@ -275,6 +275,8 @@
 - The app includes a top-level search-role tab that presents a global task browser. [SPRD-148]
 - The search tab is tasks-only in v1; notes and other result types are deferred. [SPRD-148]
 - The search screen includes a real search field from day one. [SPRD-148]
+- Entering the search tab should require only one press before the user can type: selecting the `Search` tab presents the search field ready for text entry. [SPRD-148]
+- The search field should remain visibly present at the top of the search screen rather than requiring a second toolbar/search affordance press to reveal it. [SPRD-148]
 - Search results are grouped into hidden-when-empty sections:
   - `Inbox` first.
   - Remaining sections follow the same ordering model as `SpreadTitleNavigatorView` for the active mode (`conventional` vs `traditional`). [SPRD-148]

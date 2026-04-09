@@ -2103,6 +2103,8 @@ Supabase: SPRD-85A -> SPRD-85C
   - Add a top-level tab item with `.search` role to the adaptive root `TabView`.
   - Remove the Inbox toolbar button, Inbox sheet, and coordinator/presentation code used only by those flows.
   - Build a task-only search screen with a real search field from day one.
+  - Selecting the `Search` tab should present the search screen ready for typing without a second press.
+  - Keep the search field visibly present at the top of the search screen rather than hiding it behind an additional toolbar interaction.
   - Group results into hidden-when-empty sections:
     - `Inbox` first.
     - Remaining sections in the same order as `SpreadTitleNavigatorView` for the active mode (`conventional` vs `traditional`).
@@ -2112,13 +2114,15 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Acceptance Criteria**:
   - The top-level Inbox toolbar button and Inbox sheet are removed. (Spec: Inbox; Navigation and UI)
   - A top-level search-role tab is present and opens a task-only browser with a real search field. (Spec: Inbox; Navigation and UI)
+  - Selecting the `Search` tab requires only one press before the user can type into search. (Spec: Navigation and UI)
+  - The search field remains visibly present at the top of the search screen. (Spec: Navigation and UI)
   - The first section is `Inbox`, and remaining non-empty sections match the active-mode spread-strip ordering. (Spec: Inbox; Navigation and UI)
   - Each task appears exactly once, under the spread where it is currently shown. (Spec: Navigation and UI)
   - Tapping a task in search navigates to that spread and then opens task editing there. (Spec: Navigation and UI)
 - **Tests**:
   - Unit tests for search grouping/order generation in both conventional and traditional modes, including Inbox-first ordering and empty-section suppression.
   - Unit tests verifying current-display-spread resolution excludes migrated history and keeps each task unique.
-  - UI tests verifying the search tab replaces the Inbox toolbar flow, shows the grouped task browser, filters results, and routes task taps to the destination spread edit sheet.
+  - UI tests verifying the search tab replaces the Inbox toolbar flow, shows the grouped task browser, places keyboard focus into search on tab selection, keeps the search field visibly present, filters results, and routes task taps to the destination spread edit sheet.
 - **Dependencies**: SPRD-143
 
 ### [SPRD-21] Feature: Entry symbol component - [x] Complete
