@@ -418,15 +418,16 @@
 - Source spreads expose per-task trailing-arrow migration actions with destination-naming confirmation alerts.
 - Destination spreads expose per-task tap-to-migrate rows plus a header-level `Migrate All` action scoped to that destination spread.
 - The inline migration UI lists only tasks, never notes.
-- A task may appear in both the overdue review sheet and a conventional inline migration surface at the same time when it is overdue globally and also eligible to move into the currently viewed spread.
+- A task may be both overdue on its current spread and eligible for conventional inline migration into a finer spread at the same time.
 - On a source spread, tapping a task in the disabled `Migrated tasks` subsection first navigates to that task's most granular current open destination spread and then immediately opens the task edit sheet there. If no valid destination spread can be resolved, it falls back to opening the edit sheet on the current spread. [SPRD-146]
-- Global overdue review UI: [SPRD-112]
-  - A yellow overdue toolbar button appears on all spreads in both conventional and traditional modes whenever at least one overdue task exists anywhere in the journal.
-  - The button shows an icon plus overdue count.
-  - Tapping it opens a global overdue review sheet.
-  - The overdue review sheet is read/review oriented in v1: rows open the task for inspection/editing, but there are no bulk overdue actions.
-  - Tasks are sectioned by current source assignment, ordered chronologically by source spread date; `Inbox` is treated as a source section when needed.
-  - A task may appear in both the overdue review sheet and a conventional migration review sheet at the same time when it is overdue globally and also eligible to move into the currently viewed spread.
+- Spread overdue badges: [SPRD-147]
+  - Overdue spread signaling moves from a global toolbar button/sheet into per-spread badges in the spread title navigator.
+  - Each spread item can show a top-right overdue count badge.
+  - Badge counts include only currently open overdue tasks assigned to that spread.
+  - Overdue tasks still in `Inbox` are excluded from this navigator badge UI.
+  - Badge counts are exact and uncapped.
+  - Selecting a spread does not suppress its overdue badge.
+  - Tapping a badged spread behaves the same as tapping any other spread; there is no separate overdue review action in v1.
 - Collections are accessed from a top-level entry point (outside spread navigation). [SPRD-19, SPRD-40]
 - Settings accessible via gear icon in navigation header. [SPRD-20]
 - iPad multitasking: UI adapts gracefully to Split View and Slide Over. [SPRD-19]
@@ -464,7 +465,7 @@
   - Migrating updates the preferred date/period; conventional assignments recomputed. [SPRD-17, SPRD-15]
   - If no conventional spread exists for migration target, assign to nearest parent or Inbox. [SPRD-17, SPRD-14]
   - Traditional mode does not show migration prompts because all calendar spreads are navigable without waiting for created conventional spreads. [SPRD-110]
-  - The global overdue toolbar button remains available in traditional mode. [SPRD-112]
+- Traditional mode does not gain any separate overdue review affordance; overdue spread badges are only shown where the spread title navigator is present. [SPRD-147]
 
 ### Collections
 - Collections are plain text pages (title + content). [SPRD-39]
@@ -566,8 +567,8 @@
 - **Merge RPC response**: All merge RPCs return the canonical row after applying LWW, so the client can update its local copy to match the server's resolved state. [SPRD-83]
 
 ### Auth UI (v1)
-- The overdue and inbox toolbar buttons form one trailing button group. The auth button is in a separate trailing group, visually separated by a gap. [SPRD-84, SPRD-134]
-- Auth button in toolbar, trailing the overdue/inbox group. [SPRD-84]
+- The inbox toolbar button forms its own trailing toolbar group, and the auth button remains in a separate trailing group, visually separated by a gap. [SPRD-84, SPRD-147]
+- Auth button in toolbar, trailing the inbox group. [SPRD-84]
 - Button appearance: [SPRD-84]
   - Logged out: person icon (`person.crop.circle`)
   - Logged in: filled person icon (`person.crop.circle.fill`)
@@ -620,19 +621,19 @@
 - Automated testing is split between deterministic unit tests for isolated logic and localhost-backed UI scenario tests for user-visible flows. [SPRD-113, SPRD-114]
 - Logic-heavy user scenarios must be exercised through Debug `localhost` launches with seeded mock data and a fixed `today` date so results remain deterministic. [SPRD-114]
 - UI scenario tests are additive to existing unit coverage; they do not replace unit tests for JournalManager, assignment logic, migration revalidation, or overdue computation. [SPRD-114]
-- Scenario UI tests focus on conventional-mode logic-heavy flows first: assignment fallback, Inbox resolution, migration prompting/review, overdue review, and edit-time reassignment. [SPRD-114]
+- Scenario UI tests focus on conventional-mode logic-heavy flows first: assignment fallback, Inbox resolution, migration prompting/review, overdue badge visibility, and edit-time reassignment. [SPRD-114]
 - UI scenario fixtures may seed the starting state, but the user action under test must still be performed through the UI. [SPRD-114]
 - A shared localhost scenario harness is required for UI tests. It must centralize:
   - app launch with `localhost`, scenario dataset selection, and fixed `today`
   - spread navigation
   - migration banner/review interactions
-  - overdue toolbar/review interactions
+  - overdue badge interactions
   - common assertions for relocated tasks, source sections, and migrated-history visibility
 - The UI scenario suite should stay organized by logic area instead of by fixture: assignment, reassignment, migration, and overdue each get their own test class backed by the shared harness.
 - Scenario-only mock data sets may live in the same in-code catalog as debug mock data, but test-only cases must be hidden from normal debug-menu browsing. [SPRD-114]
 - Scenario-test-critical UI must expose explicit accessibility identifiers instead of relying only on visible copy. This includes:
   - migration banner, review sheet, section headers, rows, selection controls, and confirm action
-  - overdue toolbar button, review sheet, section headers, rows, and row-open actions
+  - overdue badge counts, visibility, and selected-spread coexistence
   - any supporting source/destination labels needed to assert assignment and migration outcomes
 - UI scenario assertions should prefer user-visible outcomes. Localhost-only debug inspection may be used only when the UI cannot distinguish a required state clearly enough. [SPRD-114]
 - Focused unit tests still backstop exclusion-only and revalidation-heavy rules where UI coverage would otherwise become brittle, but user-visible scenario coverage remains the primary integration signal for assignment, migration, reassignment, and overdue.
@@ -648,12 +649,12 @@
 | Migration review flow | Conventional migration banner opens a sheet with eligible tasks preselected and sectioned by source. | Source and destination labels are visible, default selection is correct, and confirm migrates the selected tasks. |
 | Migration post-submit behavior | After migration, the review sheet updates in place and only dismisses when no eligible tasks remain. | Remaining rows stay visible; fully resolved sheets dismiss automatically. |
 | Edit-time reassignment | Editing a task's preferred date/period relocates it according to conventional reassignment rules. | The task appears on the new destination, disappears from the active list on the old spread, and appears in migrated history there. |
-| Overdue day threshold | Day-assigned open tasks become overdue after the assigned day passes. | The yellow overdue toolbar button count includes the task and the sheet lists it under its current source. |
-| Overdue month/year thresholds | Month- and year-assigned tasks become overdue only after the full assigned period passes. | Counts and sections change only at the defined absolute-date boundaries. |
-| Inbox overdue fallback | Inbox tasks become overdue from their desired assignment when no open spread assignment exists. | The overdue review sheet includes an `Inbox` section for those tasks. |
-| Overdue review flow | Tapping the yellow overdue button opens the global review sheet from conventional and traditional contexts. | Count and visibility remain correct from any spread context. |
-| Note exclusions | Notes never appear in migration or overdue review surfaces. | Migration review exclusion is covered in UI; overdue exclusion is backstopped by focused unit tests because the row surface is not reliably distinguishable enough for stable UI assertions. |
-| Traditional-mode parity check | Traditional mode still shows the global overdue button when overdue tasks exist, but never shows migration UI. | Overdue remains available and migration controls remain absent. |
+| Overdue day threshold | Day-assigned open tasks become overdue after the assigned day passes. | The assigned spread's navigator item shows the overdue count badge. |
+| Overdue month/year thresholds | Month- and year-assigned tasks become overdue only after the full assigned period passes. | Navigator badge counts change only at the defined absolute-date boundaries. |
+| Inbox overdue fallback | Inbox tasks become overdue from their desired assignment when no open spread assignment exists. | No spread badge is shown until the task has an open spread assignment. |
+| Overdue badge flow | Overdue signaling is passive in the spread title navigator rather than a toolbar-sheet flow. | Count and visibility remain correct from any spread context without introducing a special review interaction. |
+| Note exclusions | Notes never appear in migration or overdue navigator surfaces. | Migration review exclusion is covered in UI; overdue exclusion is backstopped by focused unit tests because notes should not contribute to spread badge counts. |
+| Traditional-mode parity check | Traditional mode still has no migration UI. | Traditional mode continues to omit migration controls; overdue navigator badge behavior applies only where the spread title navigator is shown. |
 | Spread task row visual treatment | Main spread task lists keep a solid list backing while task rows remain transparent. | The spread dot-grid background remains visible behind the task-list surface instead of each task row rendering as an opaque card. |
 | Task inline title editing | Tapping the title of a task row in a main spread list activates an inline text field for editing the title in place. | The row expands to show an editable text field in place of the title. A "×" cancel button appears. Tapping outside, pressing Return, or losing focus commits the change. Tapping "×" discards it. |
 | Task full-sheet access | The full task edit sheet (title, date, period, status) is accessible via the swipe-action Edit button. | The edit sheet opens and pre-populates with the current task values. |
