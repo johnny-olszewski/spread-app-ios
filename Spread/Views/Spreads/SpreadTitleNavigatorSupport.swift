@@ -25,6 +25,25 @@ struct SpreadTitleNavigatorModel {
     let headerModel: SpreadHeaderNavigatorModel
 
     var calendar: Calendar { headerModel.calendar }
+    var today: Date { headerModel.today }
+
+    func todaySemanticID(for currentSelection: SpreadHeaderNavigatorModel.Selection) -> String? {
+        switch currentSelection {
+        case .conventional:
+            let organizer = SpreadHierarchyOrganizer(
+                spreads: headerModel.spreads,
+                calendar: calendar
+            )
+            guard let spread = organizer.initialSelection(for: today) else { return nil }
+            return SpreadHeaderNavigatorModel.Selection
+                .conventional(spread)
+                .stableID(calendar: calendar)
+        case .traditionalYear, .traditionalMonth, .traditionalDay:
+            return SpreadHeaderNavigatorModel.Selection
+                .traditionalDay(Period.day.normalizeDate(today, calendar: calendar))
+                .stableID(calendar: calendar)
+        }
+    }
 
     func items(for currentSelection: SpreadHeaderNavigatorModel.Selection) -> [Item] {
         switch currentSelection {
@@ -225,8 +244,8 @@ struct SpreadTitleNavigatorModel {
             let rank: Int = switch spread.period {
             case .year: 0
             case .month: 1
-            case .day: 2
-            case .multiday: 3
+            case .multiday: 2
+            case .day: 3
             }
             return (spread.startDate ?? spread.date, rank)
         case .traditionalYear(let date):

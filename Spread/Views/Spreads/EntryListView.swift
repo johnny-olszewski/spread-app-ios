@@ -374,9 +374,10 @@ struct EntryListView: View {
     private func multidayDaySection(_ section: EntryListSection) -> some View {
         let dateID = multidaySectionDateID(for: section.date)
         let isDayActive = activeInlineCreationTarget?.sectionID == section.id
+        let isTodaySection = calendar.isDate(section.date, inSameDayAs: today)
 
         VStack(alignment: .leading, spacing: 12) {
-            multidayHeader(for: section.date)
+            multidayHeader(for: section.date, isToday: isTodaySection)
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(section.entries, id: \.id) { entry in
@@ -407,11 +408,20 @@ struct EntryListView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(SpreadTheme.Paper.primary.opacity(0.92))
+                .fill(
+                    isTodaySection
+                        ? SpreadTheme.Accent.todayEmphasis.opacity(0.08)
+                        : SpreadTheme.Paper.primary.opacity(0.55)
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.secondary.opacity(0.12))
+                .strokeBorder(
+                    isTodaySection
+                        ? SpreadTheme.Accent.todayEmphasisBorder
+                        : Color.secondary.opacity(0.12),
+                    lineWidth: isTodaySection ? 1.5 : 1
+                )
         )
         .accessibilityIdentifier(
             Definitions.AccessibilityIdentifiers.SpreadContent.multidaySection(dateID)
@@ -422,21 +432,24 @@ struct EntryListView: View {
         activeInlineTaskID = nil
     }
 
-    private func multidayHeader(for date: Date) -> some View {
+    private func multidayHeader(for date: Date, isToday: Bool) -> some View {
         HStack(alignment: .lastTextBaseline) {
             Text(multidayWeekdayText(for: date))
                 .font(SpreadTheme.Typography.title3)
-                .foregroundStyle(.primary)
+                .fontWeight(isToday ? .semibold : .regular)
+                .foregroundStyle(isToday ? SpreadTheme.Accent.todayEmphasis : .primary)
 
             Spacer(minLength: 16)
 
             VStack(alignment: .trailing, spacing: 0) {
                 Text(multidayShortMonthText(for: date))
                     .font(SpreadTheme.Typography.caption.smallCaps())
-                    .foregroundStyle(.secondary)
+                    .fontWeight(isToday ? .semibold : .regular)
+                    .foregroundStyle(isToday ? SpreadTheme.Accent.todayEmphasis.opacity(0.9) : .secondary)
                 Text(multidayDayNumberText(for: date))
                     .font(SpreadTheme.Typography.title3)
-                    .foregroundStyle(.primary)
+                    .fontWeight(isToday ? .semibold : .regular)
+                    .foregroundStyle(isToday ? SpreadTheme.Accent.todayEmphasis : .primary)
             }
             .alignmentGuide(.lastTextBaseline) { dimensions in
                 dimensions[.lastTextBaseline]
@@ -501,10 +514,12 @@ struct EntryListView: View {
     private func inlineCreationRow(for target: InlineCreationTarget) -> some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
             StatusIcon(entryType: .task, taskStatus: .open, color: .primary)
+                .frame(width: 24, height: 24)
 
             TextField("New task", text: $inlineTitle)
                 .id(inlineCreationID)
                 .textFieldStyle(.plain)
+                .font(SpreadTheme.Typography.body)
                 .focused($isInlineFocused)
                 .submitLabel(.return)
                 .onSubmit { commitAndContinue(target: target) }
@@ -525,7 +540,7 @@ struct EntryListView: View {
                 Image(systemName: "plus")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .frame(minWidth: 12)
+                    .frame(width: 24, height: 24)
                 Text("Add Task")
                     .font(SpreadTheme.Typography.body)
                     .foregroundStyle(.secondary)
