@@ -11,10 +11,10 @@ import SwiftUI
 /// Mirrors the look of physical bullet journal dot grid paper.
 struct DotGridConfiguration: Equatable {
     /// Color of the dots
-    var dotColor: Color = .secondary.opacity(0.2)
+    var dotColor: Color = .secondary.opacity(0.5)
 
     /// Diameter of each dot in points
-    var dotSize: CGFloat = 1.5
+    var dotSize: CGFloat = 5
 
     /// Distance between dot centers in points
     var dotSpacing: CGFloat = 20
@@ -41,7 +41,7 @@ struct DotGridConfiguration: Equatable {
 
     /// Paper preset for spread content surfaces.
     /// Uses warm off-white paper background with neutral gray dots.
-    /// Per spec: 1.5pt dots, 20pt spacing, ~15-20% opacity.
+    /// Per spec: 2pt dots, 26pt spacing, ~35% opacity.
     /// In DEBUG builds, respects debug appearance overrides.
     static var paper: DotGridConfiguration {
         #if DEBUG
@@ -49,8 +49,8 @@ struct DotGridConfiguration: Equatable {
         #else
         return DotGridConfiguration(
             dotColor: SpreadTheme.DotGrid.defaultDots,
-            dotSize: 1.5,
-            dotSpacing: 20,
+            dotSize: 2.0,
+            dotSpacing: 26,
             backgroundColor: SpreadTheme.Paper.defaultPrimary
         )
         #endif
