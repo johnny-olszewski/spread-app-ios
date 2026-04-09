@@ -170,6 +170,9 @@ class LocalhostScenarioUITestCase: XCTestCase {
 
         let screen = anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.Search.screen)
         waitForElement(screen)
+
+        let searchField = app.searchFields.firstMatch
+        waitForElement(searchField)
     }
 
     func openTaskForEditing(title: String, in app: XCUIApplication) {

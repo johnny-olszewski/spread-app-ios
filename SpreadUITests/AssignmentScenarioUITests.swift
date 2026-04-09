@@ -72,4 +72,24 @@ final class AssignmentScenarioUITests: LocalhostScenarioUITestCase {
         waitForElement(saveButton)
         XCTAssertTrue(app.tabBars.buttons["Spreads"].isSelected)
     }
+
+    /// Conditions: The search tab is opened from the main tab bar.
+    /// Expected: The search field is visible and ready for typing without a second tap.
+    func testSearchTabIsReadyForTypingAfterSingleTap() throws {
+        let app = launchScenario(.assignmentInboxFallback)
+
+        createTask(title: "Alpha task", in: app)
+        createTask(title: "Beta task", in: app)
+
+        openSearch(in: app)
+
+        let searchField = app.searchFields.firstMatch
+        waitForElement(searchField)
+        XCTAssertTrue(searchField.exists)
+
+        app.typeText("Alpha")
+
+        XCTAssertTrue(app.staticTexts["Alpha task"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Beta task"].waitForExistence(timeout: 1))
+    }
 }

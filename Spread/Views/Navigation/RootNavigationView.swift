@@ -68,7 +68,10 @@ struct RootNavigationView: View {
                 case .spreads:
                     spreadsView
                 case .search:
-                    TaskSearchView(journalManager: journalManager) { taskID, selection in
+                    TaskSearchView(
+                        journalManager: journalManager,
+                        isActive: selectedTab == .search
+                    ) { taskID, selection in
                         openTaskFromSearch(taskID: taskID, selection: selection)
                     }
                 case .collections:
