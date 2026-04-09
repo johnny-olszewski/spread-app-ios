@@ -3408,7 +3408,7 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ### [SPRD-149] UI: multiday day-card today/uncreated states and footer action - [ ]
 - **Context**: Multiday spreads currently show per-day cards, but they do not yet distinguish today's day at the header level, do not indicate when a covered day has no explicit day spread, and do not provide a direct footer action to open or create that day's spread.
-- **Description**: Refine multiday day cards to support `today`, `uncreated`, and normal created states, and add a trailing footer action that either navigates to the day spread or opens a preconfigured create-spread flow for that exact day.
+- **Description**: Refine multiday day cards to support `today`, `uncreated`, and normal created states, add a trailing footer action that either navigates to the day spread or opens a preconfigured create-spread flow for that exact day, and equalize card height per visual grid row.
 - **Implementation Details**:
   - Add a `Today` label above the weekday on multiday cards whose date is today.
   - Left-align that label with the weekday and style it to match the structural role of the short month label above the date.
@@ -3419,6 +3419,9 @@ Supabase: SPRD-85A -> SPRD-85C
   - If the day spread exists, the footer button should navigate through the normal spread-selection/navigation path.
   - If the day spread does not exist, the footer button should open the create-spread sheet already configured for that exact day spread.
   - After successful creation from that footer path, immediately navigate into the newly created day spread.
+  - Measure multiday card content height per grid row and equalize all cards in that row to the row's maximum height.
+  - Update the shared row height dynamically as card content changes, including task-count changes and inline interaction changes.
+  - Stretch shorter cards to the shared row height and pin the footer to the bottom edge of the stretched card.
 - **Acceptance Criteria**:
   - Today's multiday card shows a `Today` label above the weekday, left-aligned with it. (Spec: Spread Content Presentation and Interaction)
   - Uncreated multiday day cards use a dashed outline treatment instead of a distinct greyed container and header treatment. (Spec: Spread Content Presentation and Interaction)
@@ -3426,10 +3429,13 @@ Supabase: SPRD-85A -> SPRD-85C
   - Every multiday card shows a trailing filled blue circular footer icon button, with the same visual treatment used for both action states. (Spec: Spread Content Presentation and Interaction)
   - The footer action navigates to the day spread when it exists, or opens preconfigured day-spread creation when it does not. (Spec: Spread Content Presentation and Interaction)
   - Creating a day spread from the multiday footer action immediately navigates into that day spread. (Spec: Spread Content Presentation and Interaction)
+  - Multiday cards in the same visible grid row share the same height, based on the tallest card in that row. (Spec: Spread Content Presentation and Interaction)
+  - Shared row height updates dynamically as card content changes. (Spec: Spread Content Presentation and Interaction)
+  - Shorter cards stretch fully and keep their footer pinned to the bottom edge. (Spec: Spread Content Presentation and Interaction)
 - **Tests**:
   - Unit tests for multiday day-card state derivation covering created, uncreated, today, and today-uncreated precedence.
   - Unit tests for footer action resolution covering existing day navigation vs preconfigured day creation.
-  - UI tests verifying the `Today` label placement, uncreated visual treatment, footer button visibility, existing-day navigation, and create-then-navigate flow.
+  - UI tests verifying the `Today` label placement, uncreated visual treatment, footer button visibility, existing-day navigation, create-then-navigate flow, and per-row equal-height card behavior.
 - **Dependencies**: SPRD-124, SPRD-125, SPRD-126
 
 ### [SPRD-134] UI: toolbar and spread view button layout changes
