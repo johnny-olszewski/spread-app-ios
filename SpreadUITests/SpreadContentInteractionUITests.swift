@@ -278,9 +278,24 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
             app.scrollViews[Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid]
                 .waitForExistence(timeout: 5)
         )
-        XCTAssertTrue(app.staticTexts["January 10"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["January 11"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["January 12"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidaySection("2026-01-10")
+            ).waitForExistence(timeout: 5)
+        )
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidaySection("2026-01-11")
+            ).waitForExistence(timeout: 5)
+        )
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidaySection("2026-01-12")
+            ).waitForExistence(timeout: 5)
+        )
 
         XCTAssertTrue(
             app.staticTexts["Middle day task"].waitForExistence(timeout: 5)
@@ -291,6 +306,44 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
             app.staticTexts.matching(NSPredicate(format: "label == %@", "No tasks for this day.")).count,
             2
         )
+    }
+
+    func testMultidayTodayCardShowsTodayLabelAndFooterButton() throws {
+        let app = launchScenario(.multidayLayout, today: "2026-01-10")
+        let dateID = "2026-01-10"
+
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayTodayLabel(dateID)
+            ).waitForExistence(timeout: 5)
+        )
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID)
+            ).waitForExistence(timeout: 5)
+        )
+    }
+
+    func testMultidayFooterCreatesDaySpreadAndNavigatesToIt() throws {
+        let app = launchScenario(.multidayLayout, today: "2026-01-10")
+        let dateID = "2026-01-10"
+
+        let footerButton = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID)
+        )
+        waitForElement(footerButton)
+        footerButton.tap()
+
+        let createButton = app.buttons[Definitions.AccessibilityIdentifiers.SpreadCreationSheet.createButton]
+        waitForElement(createButton)
+        createButton.tap()
+
+        let contentTitle = app.staticTexts[Definitions.AccessibilityIdentifiers.SpreadContent.title]
+        waitForElement(contentTitle)
+        XCTAssertEqual(contentTitle.label, "Friday, January 10, 2026")
     }
 
     func testYearSpreadShowsUntitledYearTasksAndMonthSections() throws {

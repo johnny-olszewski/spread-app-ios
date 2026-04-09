@@ -3408,22 +3408,22 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ### [SPRD-149] UI: multiday day-card today/uncreated states and footer action - [ ]
 - **Context**: Multiday spreads currently show per-day cards, but they do not yet distinguish today's day at the header level, do not indicate when a covered day has no explicit day spread, and do not provide a direct footer action to open or create that day's spread.
-- **Description**: Refine multiday day cards to support `today`, `uncreated`, and normal created states, and add a trailing glass-effect footer action that either navigates to the day spread or opens a preconfigured create-spread flow for that exact day.
+- **Description**: Refine multiday day cards to support `today`, `uncreated`, and normal created states, and add a trailing footer action that either navigates to the day spread or opens a preconfigured create-spread flow for that exact day.
 - **Implementation Details**:
   - Add a `Today` label above the weekday on multiday cards whose date is today.
   - Left-align that label with the weekday and style it to match the structural role of the short month label above the date.
   - Detect whether each multiday-covered day has an explicit day spread.
-  - Apply an uncreated visual treatment to both the card container and the card header text when no explicit day spread exists.
+  - Apply an uncreated dashed-outline treatment when no explicit day spread exists, instead of a distinct grey header/fill treatment.
   - If a card is both today and uncreated, use only the today treatment.
-  - Add a footer to every multiday card with a single always-visible trailing icon button using `.glassEffect`.
+  - Add a footer to every multiday card with a single always-visible trailing icon button using the same filled blue circular treatment for both the `open day` and `create day` actions.
   - If the day spread exists, the footer button should navigate through the normal spread-selection/navigation path.
   - If the day spread does not exist, the footer button should open the create-spread sheet already configured for that exact day spread.
   - After successful creation from that footer path, immediately navigate into the newly created day spread.
 - **Acceptance Criteria**:
   - Today's multiday card shows a `Today` label above the weekday, left-aligned with it. (Spec: Spread Content Presentation and Interaction)
-  - Uncreated multiday day cards use a distinct greyed container and header treatment. (Spec: Spread Content Presentation and Interaction)
+  - Uncreated multiday day cards use a dashed outline treatment instead of a distinct greyed container and header treatment. (Spec: Spread Content Presentation and Interaction)
   - If a multiday card is both today and uncreated, the today treatment fully wins. (Spec: Spread Content Presentation and Interaction)
-  - Every multiday card shows a trailing glass-effect footer icon button. (Spec: Spread Content Presentation and Interaction)
+  - Every multiday card shows a trailing filled blue circular footer icon button, with the same visual treatment used for both action states. (Spec: Spread Content Presentation and Interaction)
   - The footer action navigates to the day spread when it exists, or opens preconfigured day-spread creation when it does not. (Spec: Spread Content Presentation and Interaction)
   - Creating a day spread from the multiday footer action immediately navigates into that day spread. (Spec: Spread Content Presentation and Interaction)
 - **Tests**:
