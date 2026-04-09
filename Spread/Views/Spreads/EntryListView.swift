@@ -10,6 +10,15 @@ import SwiftUI
 ///
 /// Uses `EntryRowView` for consistent entry rendering across all spread types.
 struct EntryListView: View {
+    private struct MultidayRowHeightPreferenceKey: PreferenceKey {
+        static var defaultValue: [Int: CGFloat] = [:]
+
+        static func reduce(value: inout [Int: CGFloat], nextValue: () -> [Int: CGFloat]) {
+            for (rowIndex, height) in nextValue() {
+                value[rowIndex] = max(value[rowIndex] ?? 0, height)
+            }
+        }
+    }
 
     private struct InlineCreationTarget: Equatable {
         let sectionID: Date
@@ -79,6 +88,7 @@ struct EntryListView: View {
     @State private var activeInlineTaskID: UUID?
     @State private var pendingSourceMigration: PendingSourceMigration?
     @State private var hasAcquiredInlineCreationFocus = false
+    @State private var multidayRowHeights: [Int: CGFloat] = [:]
     @FocusState private var isInlineFocused: Bool
 
     // MARK: - Computed Properties
@@ -335,11 +345,16 @@ struct EntryListView: View {
                 alignment: .leading,
                 spacing: 16
             ) {
-                ForEach(sections) { section in
-                    multidayDaySection(section)
+                ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
+                    multidayDaySection(
+                        section,
+                        rowHeight: multidayRowHeights[multidayRowIndex(for: index)],
+                        rowIndex: multidayRowIndex(for: index)
+                    )
                 }
             }
             .padding(16)
+            .onPreferenceChange(MultidayRowHeightPreferenceKey.self) { multidayRowHeights = $0 }
         }
         .gesture(
             TapGesture().onEnded {
@@ -424,7 +439,11 @@ struct EntryListView: View {
     }
 
     @ViewBuilder
-    private func multidayDaySection(_ section: EntryListSection) -> some View {
+    private func multidayDaySection(
+        _ section: EntryListSection,
+        rowHeight: CGFloat?,
+        rowIndex: Int
+    ) -> some View {
         let dateID = multidaySectionDateID(for: section.date)
         let isDayActive = activeInlineCreationTarget?.sectionID == section.id
         let explicitDaySpread = explicitDaySpreadForDate?(section.date)
@@ -467,9 +486,19 @@ struct EntryListView: View {
                 }
             }
 
+            Spacer(minLength: 0)
+
             multidayFooter(for: footerAction, dateID: dateID)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: MultidayRowHeightPreferenceKey.self,
+                    value: [rowIndex: proxy.size.height]
+                )
+            }
+        )
+        .frame(maxWidth: .infinity, minHeight: rowHeight, alignment: .topLeading)
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -491,6 +520,10 @@ struct EntryListView: View {
 
     private func dismissActiveInlineEditing() {
         activeInlineTaskID = nil
+    }
+
+    private func multidayRowIndex(for sectionIndex: Int) -> Int {
+        sectionIndex / multidayColumnCount
     }
 
     private func multidayHeader(
