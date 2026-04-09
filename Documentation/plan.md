@@ -2096,6 +2096,31 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying badge visibility/count on badged spreads, coexistence with selected-state styling, and absence of the old overdue toolbar/sheet flow.
 - **Dependencies**: SPRD-112, SPRD-143
 
+### [SPRD-148] UI: Replace Inbox toolbar flow with a search-role task browser tab - [ ]
+- **Context**: Inbox is still surfaced from a spread-toolbar button and sheet, which keeps task discovery tied to the spread screen and duplicates functionality that fits better as a global navigation destination.
+- **Description**: Remove the Inbox toolbar button and Inbox sheet flow, and replace them with a top-level `.search` tab that hosts a global task browser grouped by the spread where each task is currently shown.
+- **Implementation Details**:
+  - Add a top-level tab item with `.search` role to the adaptive root `TabView`.
+  - Remove the Inbox toolbar button, Inbox sheet, and coordinator/presentation code used only by those flows.
+  - Build a task-only search screen with a real search field from day one.
+  - Group results into hidden-when-empty sections:
+    - `Inbox` first.
+    - Remaining sections in the same order as `SpreadTitleNavigatorView` for the active mode (`conventional` vs `traditional`).
+  - Show each task exactly once under the spread where it is currently shown.
+  - Exclude migrated historical rows from the search browser.
+  - Tapping a result should navigate to the task's spread and then open the task edit sheet there.
+- **Acceptance Criteria**:
+  - The top-level Inbox toolbar button and Inbox sheet are removed. (Spec: Inbox; Navigation and UI)
+  - A top-level search-role tab is present and opens a task-only browser with a real search field. (Spec: Inbox; Navigation and UI)
+  - The first section is `Inbox`, and remaining non-empty sections match the active-mode spread-strip ordering. (Spec: Inbox; Navigation and UI)
+  - Each task appears exactly once, under the spread where it is currently shown. (Spec: Navigation and UI)
+  - Tapping a task in search navigates to that spread and then opens task editing there. (Spec: Navigation and UI)
+- **Tests**:
+  - Unit tests for search grouping/order generation in both conventional and traditional modes, including Inbox-first ordering and empty-section suppression.
+  - Unit tests verifying current-display-spread resolution excludes migrated history and keeps each task unique.
+  - UI tests verifying the search tab replaces the Inbox toolbar flow, shows the grouped task browser, filters results, and routes task taps to the destination spread edit sheet.
+- **Dependencies**: SPRD-143
+
 ### [SPRD-21] Feature: Entry symbol component - [x] Complete
 - **Context**: Task/note symbols must be consistent across UI; event symbol reserved for v2.
 - **Description**: Create a reusable symbol/status component for entries.
