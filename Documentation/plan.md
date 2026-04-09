@@ -2002,6 +2002,33 @@ Supabase: SPRD-85A -> SPRD-85C
   - Regression UI tests verifying inbox/auth toolbar actions remain present on non-spread destinations and unchanged on the spreads destination.
 - **Dependencies**: SPRD-19
 
+### [SPRD-144] UI: Refine today emphasis and strip ordering cues - [x] Complete
+- **Context**: The spread-title navigator and multiday content need a clearer passive indication of "today" that remains visible even when today is not the selected spread. The multiday add-task affordance should also align with the entry-row columns, and conventional strip ordering should resolve same-start-date multiday/day ties consistently.
+- **Description**: Add a shared configurable today-emphasis token, apply it to the title strip and today's multiday card, align the add-task row with entry rows, and order same-start multiday items before day items in the conventional strip.
+- **Implementation Details**:
+  - Add shared today-emphasis theme tokens for:
+    - today unselected foreground
+    - today selected foreground
+    - today border/background tint
+  - Update the spread-title navigator support and item rendering to:
+    - derive today's semantic strip item using the same destination rules as the `Today` button
+    - render distinct non-today selected, non-today unselected, today selected, and today unselected states
+  - Update multiday entry sections so only today's card uses the today-emphasis palette on its header, outline, and background.
+  - Align multiday `+ Add Task` and inline creation rows to the same 24pt leading icon column and body-text title column used by entry rows.
+  - Change conventional strip ranking so multiday spreads sort before day spreads when both start on the same date.
+- **Acceptance Criteria**:
+  - Today's strip item is passively emphasized regardless of selection state. (Spec: Navigation and UI)
+  - The strip uses separate today-selected and today-unselected appearance states. (Spec: Navigation and UI)
+  - The today emphasis colors are centrally configurable. (Spec: Navigation and UI)
+  - Only today's multiday section receives the today-emphasis treatment. (Spec: Entry lists / multiday)
+  - The multiday add-task row aligns with the standard entry-row icon and title columns. (Spec: Entry lists / add task)
+  - Same-start-date multiday items appear before day items in the conventional strip. (Spec: Navigation and UI)
+- **Tests**:
+  - Update strip support expectations for same-start multiday/day ordering.
+  - Add a support test verifying a conventional multiday item appears before a same-start day item.
+  - Build verification for the today-emphasis and multiday styling changes.
+- **Dependencies**: SPRD-127, SPRD-133
+
 ### [SPRD-21] Feature: Entry symbol component - [x] Complete
 - **Context**: Task/note symbols must be consistent across UI; event symbol reserved for v2.
 - **Description**: Create a reusable symbol/status component for entries.
