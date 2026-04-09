@@ -25,7 +25,6 @@ final class SpreadsCoordinator {
         case noteDetail(DataModel.Note)
         case inbox
         case auth
-        case overdueReview
 
         var id: String {
             switch self {
@@ -46,8 +45,6 @@ final class SpreadsCoordinator {
                 return "inbox"
             case .auth:
                 return "auth"
-            case .overdueReview:
-                return "overdueReview"
             }
         }
     }
@@ -92,11 +89,6 @@ final class SpreadsCoordinator {
     /// Presents the auth sheet (login or profile).
     func showAuth() {
         activeSheet = .auth
-    }
-
-    /// Presents the overdue review sheet.
-    func showOverdueReview() {
-        activeSheet = .overdueReview
     }
 
     /// Dismisses the currently active sheet.

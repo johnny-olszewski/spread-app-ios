@@ -6,8 +6,10 @@ struct SpreadTitleNavigatorItemView: View {
     let semanticID: String
     let style: SpreadTitleNavigatorItemStyle
     let display: SpreadTitleNavigatorModel.Item.Display
+    let overdueCount: Int
     let isSelected: Bool
     let accessibilityIdentifier: String
+    let overdueBadgeAccessibilityIdentifier: String
     let selectionIndicatorNamespace: Namespace.ID
     let showsSelectionIndicator: Bool
     let borderColor: Color?
@@ -73,6 +75,23 @@ struct SpreadTitleNavigatorItemView: View {
                 )
             }
         )
+        .overlay(alignment: .topTrailing) {
+            overdueBadge
+        }
+    }
+
+    @ViewBuilder
+    private var overdueBadge: some View {
+        if overdueCount > 0 {
+            Text("\(overdueCount)")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, overdueCount > 9 ? 6 : 5)
+                .padding(.vertical, 2)
+                .background(.red, in: Capsule())
+                .accessibilityLabel("\(overdueCount) overdue tasks")
+                .accessibilityIdentifier(overdueBadgeAccessibilityIdentifier)
+        }
     }
 
     @ViewBuilder

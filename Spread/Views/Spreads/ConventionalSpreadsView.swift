@@ -51,9 +51,6 @@ struct ConventionalSpreadsView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                OverdueButton(overdueCount: journalManager.overdueTaskCount) {
-                    coordinator.showOverdueReview()
-                }
                 InboxButton(inboxCount: journalManager.inboxCount) {
                     coordinator.showInbox()
                 }
@@ -126,7 +123,10 @@ struct ConventionalSpreadsView: View {
     }
 
     private var conventionalStripModel: SpreadTitleNavigatorModel {
-        SpreadTitleNavigatorModel(headerModel: conventionalHeaderNavigatorModel)
+        SpreadTitleNavigatorModel(
+            headerModel: conventionalHeaderNavigatorModel,
+            overdueItems: journalManager.overdueTaskItems
+        )
     }
 
     private var currentSelectionID: String {
@@ -342,11 +342,6 @@ struct ConventionalSpreadsView: View {
             InboxSheetView(journalManager: journalManager)
         case .auth:
             AuthEntrySheet(authManager: authManager, isBlocking: false)
-        case .overdueReview:
-            OverdueReviewSheet(
-                journalManager: journalManager,
-                syncEngine: syncEngine
-            )
         }
     }
 

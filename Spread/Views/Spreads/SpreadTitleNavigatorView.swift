@@ -127,14 +127,17 @@ struct SpreadTitleNavigatorView: View {
     }
 
     private func itemView(for item: SpreadTitleNavigatorModel.Item, index: Int) -> some View {
-        SpreadTitleNavigatorItemView(
+        let itemIdentifier = item.id == selectedSemanticID
+            ? Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
+            : identifier(for: item)
+        return SpreadTitleNavigatorItemView(
             semanticID: item.id,
             style: item.style,
             display: item.display,
+            overdueCount: item.overdueCount,
             isSelected: item.id == selectedSemanticID,
-            accessibilityIdentifier: item.id == selectedSemanticID
-                ? Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
-                : identifier(for: item),
+            accessibilityIdentifier: itemIdentifier,
+            overdueBadgeAccessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadStrip.overdueBadge(itemIdentifier),
             selectionIndicatorNamespace: selectionIndicatorNamespace,
             showsSelectionIndicator: true,
             borderColor: nil,
@@ -242,9 +245,13 @@ struct SpreadTitleNavigatorView: View {
             semanticID: item.id,
             style: item.style,
             display: item.display,
+            overdueCount: 0,
             isSelected: false,
             accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadStrip.recommendation(
                 recommendation.period.rawValue
+            ),
+            overdueBadgeAccessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadStrip.overdueBadge(
+                Definitions.AccessibilityIdentifiers.SpreadStrip.recommendation(recommendation.period.rawValue)
             ),
             selectionIndicatorNamespace: selectionIndicatorNamespace,
             showsSelectionIndicator: false,

@@ -24,11 +24,16 @@ final class ScenarioHarnessUITests: LocalhostScenarioUITestCase {
         )
     }
 
-    /// Conditions: Launch the overdue review scenario in localhost.
-    /// Expected: The overdue toolbar button and review sheet expose stable scenario-test identifiers.
+    /// Conditions: Launch the overdue scenario in localhost.
+    /// Expected: The overdue spread badge exposes a stable scenario-test identifier.
     func testOverdueScenarioExposesStableIdentifiers() throws {
         let app = launchScenario(.overdueReview)
 
-        openOverdueReview(in: app)
+        waitForElement(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.overdueBadge("spreads.strip.day.10")
+            )
+        )
     }
 }

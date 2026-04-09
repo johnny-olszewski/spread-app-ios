@@ -3,50 +3,62 @@ import XCTest
 @MainActor
 final class OverdueScenarioUITests: LocalhostScenarioUITestCase {
 
-    func testOverdueButtonShowsGlobalCountAndReviewContents() throws {
+    func testConventionalOverdueBadgesAppearOnAssignedSpreadsAndSelectedBadgePersists() throws {
         let app = launchScenario(.overdueReview)
 
-        let overdueButton = anyElement(
-            in: app,
-            identifier: Definitions.AccessibilityIdentifiers.Overdue.button
+        XCTAssertFalse(
+            app.descendants(matching: .any)["overdue.toolbar.button"].waitForExistence(timeout: 1)
         )
-        waitForElement(overdueButton)
-        XCTAssertTrue(overdueButton.label.contains("3"))
 
-        openOverdueReview(in: app)
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        let overdueDayItem = anyElement(in: app, identifier: "spreads.strip.day.10")
+        waitForElement(overdueDayItem)
+
+        let overdueBadge = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.overdueBadge("spreads.strip.day.10")
+        )
+        waitForElement(overdueBadge)
+        XCTAssertEqual(overdueBadge.label, "1 overdue tasks")
+
+        tapElement(identifier: "spreads.strip.day.10", in: app)
+
+        let selectedIndicator = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
+        )
+        waitForElement(selectedIndicator)
+        XCTAssertTrue(selectedIndicator.label.contains("10"))
+        waitForElement(overdueBadge)
     }
 
-    func testInboxOverdueTasksAppearInGlobalReview() throws {
+    func testInboxOverdueTasksDoNotProduceSpreadBadges() throws {
         let app = launchScenario(.overdueInbox)
 
-        let overdueButton = anyElement(
-            in: app,
-            identifier: Definitions.AccessibilityIdentifiers.Overdue.button
+        XCTAssertFalse(
+            app.descendants(matching: .any)["overdue.toolbar.button"].waitForExistence(timeout: 1)
         )
-        waitForElement(overdueButton)
-        XCTAssertTrue(overdueButton.label.contains("2"))
 
-        openOverdueReview(in: app)
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        let januaryBadge = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.overdueBadge("spreads.strip.month.jan")
+        )
+        XCTAssertFalse(januaryBadge.waitForExistence(timeout: 1))
     }
 
-    func testTraditionalModeShowsOverdueWithoutMigrationUI() throws {
+    func testTraditionalModeShowsOverdueBadgesWithoutMigrationUI() throws {
         let app = launchScenario(.traditionalOverdue)
 
         switchToTraditionalMode(in: app)
 
-        let overdueButton = anyElement(
+        let overdueBadge = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.Overdue.button
+            identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.overdueBadge("spreads.strip.day.10")
         )
-        waitForElement(overdueButton)
+        waitForElement(overdueBadge)
+        XCTAssertEqual(overdueBadge.label, "1 overdue tasks")
         XCTAssertFalse(
             anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.Migration.destinationSectionHeader)
                 .waitForExistence(timeout: 2)
         )
-
-        openOverdueReview(in: app)
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
     }
 }
