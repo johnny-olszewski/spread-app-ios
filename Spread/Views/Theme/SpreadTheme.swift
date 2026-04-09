@@ -62,13 +62,39 @@ enum SpreadTheme {
             return defaultPrimary
             #endif
         }
+
+        /// More vibrant blue used for passive today emphasis.
+        static let defaultTodayEmphasis = Color(red: 69/255, green: 120/255, blue: 184/255)
+
+        /// Passive today emphasis color for unselected contextual highlighting.
+        static var todayEmphasis: Color {
+            #if DEBUG
+            return debugPrimary.opacity(0.95)
+            #else
+            return defaultTodayEmphasis.opacity(0.95)
+            #endif
+        }
+
+        /// Stronger today emphasis color when the today item is also selected.
+        static var todaySelectedEmphasis: Color {
+            #if DEBUG
+            return debugPrimary
+            #else
+            return defaultTodayEmphasis
+            #endif
+        }
+
+        /// Border tint for today emphasis on passive surfaces.
+        static var todayEmphasisBorder: Color {
+            todaySelectedEmphasis.opacity(0.34)
+        }
     }
 
     /// Dot grid colors.
     enum DotGrid {
-        /// Default muted blue dot color at ~22% opacity.
+        /// Default muted blue dot color at ~35% opacity.
         /// Same color in both light and dark modes for consistency.
-        static let defaultDots = Color(red: 91/255, green: 122/255, blue: 153/255).opacity(0.22)
+        static let defaultDots = Color(red: 91/255, green: 122/255, blue: 153/255).opacity(0.35)
 
         /// Dot color, using debug overrides when available.
         static var dots: Color {

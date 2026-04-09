@@ -30,6 +30,10 @@ struct SpreadTitleNavigatorView: View {
         selection.stableID(calendar: stripModel.calendar)
     }
 
+    private var todaySemanticID: String? {
+        stripModel.todaySemanticID(for: selection)
+    }
+
     private var recommendations: [SpreadTitleNavigatorRecommendation] {
         recommendationProvider.recommendations(for: stripModel.headerModel)
     }
@@ -134,10 +138,13 @@ struct SpreadTitleNavigatorView: View {
             selectionIndicatorNamespace: selectionIndicatorNamespace,
             showsSelectionIndicator: true,
             borderColor: nil,
+            emphasisColor: SpreadTheme.Accent.todayEmphasis,
+            selectedEmphasisColor: SpreadTheme.Accent.todaySelectedEmphasis,
             horizontalPadding: 16,
             action: {
                 handleItemTap(item)
-            }
+            },
+            isTodayEmphasized: item.id == todaySemanticID
         )
         .id(stripID(for: item.id))
         .padding(.leading, extraLeadingSpacing(for: item, at: index))
@@ -242,9 +249,12 @@ struct SpreadTitleNavigatorView: View {
             selectionIndicatorNamespace: selectionIndicatorNamespace,
             showsSelectionIndicator: false,
             borderColor: nil,
+            emphasisColor: SpreadTheme.Accent.todayEmphasis,
+            selectedEmphasisColor: SpreadTheme.Accent.todaySelectedEmphasis,
             horizontalPadding: 0,
             action: {},
-            isInteractive: false
+            isInteractive: false,
+            isTodayEmphasized: item.id == todaySemanticID
         )
 
         return Group {

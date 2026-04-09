@@ -11,9 +11,12 @@ struct SpreadTitleNavigatorItemView: View {
     let selectionIndicatorNamespace: Namespace.ID
     let showsSelectionIndicator: Bool
     let borderColor: Color?
+    let emphasisColor: Color
+    let selectedEmphasisColor: Color
     let horizontalPadding: CGFloat
     let action: () -> Void
     var isInteractive: Bool = true
+    var isTodayEmphasized: Bool = false
 
     var body: some View {
         Group {
@@ -45,7 +48,7 @@ struct SpreadTitleNavigatorItemView: View {
 
                     if isSelected {
                         Circle()
-                            .fill(Color.accentColor)
+                            .fill(selectionIndicatorColor)
                             .frame(width: 6, height: 6)
                             .matchedGeometryEffect(
                                 id: Self.selectionIndicatorID,
@@ -87,41 +90,85 @@ struct SpreadTitleNavigatorItemView: View {
             VStack(spacing: -2) {
                 if let top = display.top {
                     Text(top)
-                        .font(.title3.weight(isSelected ? .bold : .semibold))
-                        .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                        .font(.title3.weight(yearWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                        .foregroundStyle(foregroundColor(selected: isSelected))
                 }
                 Text(display.bottom)
-                    .font(.title3.weight(isSelected ? .bold : .semibold))
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .font(.title3.weight(yearWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                    .foregroundStyle(foregroundColor(selected: isSelected))
             }
         case .month:
             Text(display.bottom)
-                .font(.subheadline.weight(isSelected ? .semibold : .medium))
+                .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
                 .textCase(.uppercase)
-                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                .foregroundStyle(foregroundColor(selected: isSelected))
                 .lineLimit(1)
         case .day, .multiday:
             VStack(spacing: 0) {
                 if let top = display.top {
                     Text(top)
                         .font(.caption2.smallCaps())
-                        .fontWeight(.semibold)
-                        .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                        .fontWeight(captionWeight(emphasized: isTodayEmphasized))
+                        .foregroundStyle(foregroundColor(selected: isSelected))
                         .lineLimit(1)
                 }
                 Text(display.bottom)
-                    .font(.body.weight(isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .font(.body.weight(dayWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                    .foregroundStyle(foregroundColor(selected: isSelected))
                     .lineLimit(1)
                 if let footer = display.footer {
                     Text(footer)
                         .font(.caption2.smallCaps())
-                        .fontWeight(.medium)
-                        .foregroundStyle(isSelected ? Color.primary : Color.secondary.opacity(0.85))
+                        .fontWeight(footerWeight(emphasized: isTodayEmphasized))
+                        .foregroundStyle(footerColor)
                         .lineLimit(1)
                 }
             }
         }
+    }
+
+    private func foregroundColor(selected: Bool) -> Color {
+        if isTodayEmphasized {
+            return selected ? selectedEmphasisColor : emphasisColor
+        }
+        return selected ? .primary : .secondary
+    }
+
+    private var footerColor: Color {
+        if isTodayEmphasized {
+            return isSelected ? selectedEmphasisColor.opacity(0.95) : emphasisColor.opacity(0.9)
+        }
+        return isSelected ? .primary : .secondary.opacity(0.85)
+    }
+
+    private var selectionIndicatorColor: Color {
+        if isTodayEmphasized {
+            return selectedEmphasisColor
+        }
+        return .accentColor
+    }
+
+    private func yearWeight(selected: Bool, emphasized: Bool) -> Font.Weight {
+        if selected || emphasized { return .bold }
+        return .semibold
+    }
+
+    private func monthWeight(selected: Bool, emphasized: Bool) -> Font.Weight {
+        if selected || emphasized { return .semibold }
+        return .medium
+    }
+
+    private func dayWeight(selected: Bool, emphasized: Bool) -> Font.Weight {
+        if selected || emphasized { return .semibold }
+        return .regular
+    }
+
+    private func captionWeight(emphasized: Bool) -> Font.Weight {
+        emphasized ? .bold : .semibold
+    }
+
+    private func footerWeight(emphasized: Bool) -> Font.Weight {
+        emphasized ? .semibold : .medium
     }
 }
 

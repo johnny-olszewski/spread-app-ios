@@ -187,13 +187,13 @@ struct SpreadTitleNavigatorSupportTests {
         let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
         let items = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(dayTwentyNine))
 
-        #expect(items.map { $0.label } == ["2026", "Jan", "1", "2", "2-5", "Feb", "Mar", "10", "20-22", "29"])
+        #expect(items.map { $0.label } == ["2026", "Jan", "1", "2-5", "2", "Feb", "Mar", "10", "20-22", "29"])
         #expect(items.map { $0.style } == [
             SpreadTitleNavigatorItemStyle.year,
             .month,
             .day,
-            .day,
             .multiday,
+            .day,
             .month,
             .month,
             .day,
@@ -223,6 +223,38 @@ struct SpreadTitleNavigatorSupportTests {
         let dayItems = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(marchTwentyNine))
 
         #expect(monthItems.map { $0.label } == dayItems.map { $0.label })
+    }
+
+    @Test func conventionalStripPlacesMultidayBeforeSameStartDay() {
+        let day = DataModel.Spread(
+            period: .day,
+            date: Self.makeDate(year: 2026, month: 3, day: 20),
+            calendar: Self.calendar
+        )
+        let multiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 3, day: 20),
+            endDate: Self.makeDate(year: 2026, month: 3, day: 22),
+            calendar: Self.calendar
+        )
+        let headerModel = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 20),
+            spreads: [day, multiday],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+
+        let items = SpreadTitleNavigatorModel(headerModel: headerModel)
+            .items(for: .conventional(day))
+
+        let multidayIndex = items.firstIndex(where: { $0.style == .multiday })!
+        let dayIndex = items.firstIndex(where: { $0.style == .day })!
+
+        #expect(multidayIndex < dayIndex)
+        #expect(items[multidayIndex].label == "20-22")
+        #expect(items[dayIndex].label == "20")
     }
 
     @Test func traditionalSelectionUsesFullYearSequence() {
