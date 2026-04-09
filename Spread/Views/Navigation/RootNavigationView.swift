@@ -13,8 +13,8 @@ struct RootNavigationView: View {
     let makeDebugMenuView: DebugMenuViewFactory?
 
     @State private var selectedTab: NavigationTab = .spreads
-    @State private var isInboxPresented = false
     @State private var isAuthPresented = false
+    @State private var spreadsNavigationState = SpreadsNavigationState()
 
     init(
         journalManager: JournalManager,
@@ -33,9 +33,6 @@ struct RootNavigationView: View {
     var body: some View {
         rootTabView
             .tabViewStyle(.sidebarAdaptable)
-            .sheet(isPresented: $isInboxPresented) {
-                InboxSheetView(journalManager: journalManager)
-            }
             .sheet(isPresented: $isAuthPresented) {
                 AuthEntrySheet(authManager: authManager, isBlocking: false)
             }
@@ -50,8 +47,14 @@ struct RootNavigationView: View {
     private var rootTabView: some View {
         TabView(selection: $selectedTab) {
             ForEach(NavigationTab.allCases) { tab in
-                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
-                    tabContent(for: tab)
+                if tab == .search {
+                    Tab(tab.title, systemImage: tab.systemImage, value: tab, role: .search) {
+                        tabContent(for: tab)
+                    }
+                } else {
+                    Tab(tab.title, systemImage: tab.systemImage, value: tab) {
+                        tabContent(for: tab)
+                    }
                 }
             }
         }
@@ -64,6 +67,10 @@ struct RootNavigationView: View {
                 switch tab {
                 case .spreads:
                     spreadsView
+                case .search:
+                    TaskSearchView(journalManager: journalManager) { taskID, selection in
+                        openTaskFromSearch(taskID: taskID, selection: selection)
+                    }
                 case .collections:
                     CollectionsListView(
                         collectionRepository: dependencies.collectionRepository,
@@ -83,11 +90,6 @@ struct RootNavigationView: View {
             .toolbar {
                 if tab != .spreads {
                     ToolbarItem(placement: .primaryAction) {
-                        InboxButton(inboxCount: journalManager.inboxCount) {
-                            isInboxPresented = true
-                        }
-                    }
-                    ToolbarItem(placement: .primaryAction) {
                         AuthButton(isSignedIn: authManager.state.isSignedIn) {
                             isAuthPresented = true
                         }
@@ -104,13 +106,49 @@ struct RootNavigationView: View {
             ConventionalSpreadsView(
                 journalManager: journalManager,
                 authManager: authManager,
-                syncEngine: syncEngine
+                syncEngine: syncEngine,
+                navigationState: spreadsNavigationState
             )
         case .traditional:
             TraditionalSpreadsView(
                 journalManager: journalManager,
                 authManager: authManager,
-                syncEngine: syncEngine
+                syncEngine: syncEngine,
+                navigationState: spreadsNavigationState
+            )
+        }
+    }
+
+    private func openTaskFromSearch(taskID: UUID, selection: SpreadHeaderNavigatorModel.Selection?) {
+        selectedTab = .spreads
+        if let selection {
+            spreadsNavigationState.pendingRequest = SpreadsNavigationRequest(
+                selection: selection,
+                taskID: taskID
+            )
+        } else {
+            let fallbackSelection = fallbackSearchSelection()
+            spreadsNavigationState.pendingRequest = SpreadsNavigationRequest(
+                selection: fallbackSelection,
+                taskID: taskID
+            )
+        }
+    }
+
+    private func fallbackSearchSelection() -> SpreadHeaderNavigatorModel.Selection {
+        switch journalManager.bujoMode {
+        case .conventional:
+            let organizer = SpreadHierarchyOrganizer(
+                spreads: journalManager.spreads,
+                calendar: journalManager.calendar
+            )
+            let spread = organizer.initialSelection(for: journalManager.today)
+                ?? journalManager.spreads.first
+                ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
+            return .conventional(spread)
+        case .traditional:
+            return .traditionalYear(
+                Period.year.normalizeDate(journalManager.today, calendar: journalManager.calendar)
             )
         }
     }

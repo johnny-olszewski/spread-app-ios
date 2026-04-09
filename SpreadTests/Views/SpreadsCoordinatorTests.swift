@@ -97,18 +97,6 @@ struct SpreadsCoordinatorTests {
         #expect(detailNote.id == note.id)
     }
 
-    /// Condition: Call showInbox().
-    /// Expected: Active sheet is .inbox.
-    @Test("showInbox sets inbox destination")
-    func testShowInbox() {
-        let coordinator = SpreadsCoordinator()
-        coordinator.showInbox()
-        guard case .inbox = coordinator.activeSheet else {
-            Issue.record("Expected .inbox, got \(String(describing: coordinator.activeSheet))")
-            return
-        }
-    }
-
     /// Condition: Call showAuth().
     /// Expected: Active sheet is .auth.
     @Test("showAuth sets auth destination")
@@ -128,7 +116,7 @@ struct SpreadsCoordinatorTests {
     @Test("dismiss clears the active sheet")
     func testDismissClearsActiveSheet() {
         let coordinator = SpreadsCoordinator()
-        coordinator.showInbox()
+        coordinator.showTaskCreation()
         #expect(coordinator.activeSheet != nil)
 
         coordinator.dismiss()
@@ -143,9 +131,9 @@ struct SpreadsCoordinatorTests {
     @Test("Showing a new sheet replaces the current one")
     func testShowingNewSheetReplacesCurrentOne() {
         let coordinator = SpreadsCoordinator()
-        coordinator.showInbox()
-        guard case .inbox = coordinator.activeSheet else {
-            Issue.record("Expected .inbox")
+        coordinator.showTaskCreation()
+        guard case .taskCreation = coordinator.activeSheet else {
+            Issue.record("Expected .taskCreation")
             return
         }
 
@@ -178,7 +166,6 @@ struct SpreadsCoordinatorTests {
             .noteCreation,
             .taskDetail(task),
             .noteDetail(note),
-            .inbox,
             .auth
         ]
 

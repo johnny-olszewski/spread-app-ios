@@ -163,19 +163,13 @@ class LocalhostScenarioUITestCase: XCTestCase {
         createButton.tap()
     }
 
-    func openInbox(in app: XCUIApplication) {
-        let inboxButton = anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.Inbox.button)
-        waitForElement(inboxButton)
-        inboxButton.tap()
+    func openSearch(in app: XCUIApplication) {
+        let searchTab = app.tabBars.buttons["Search"].firstMatch
+        waitForElement(searchTab)
+        searchTab.tap()
 
-        let doneButton = anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.Inbox.doneButton)
-        waitForElement(doneButton)
-    }
-
-    func dismissInbox(in app: XCUIApplication) {
-        let doneButton = anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.Inbox.doneButton)
-        waitForElement(doneButton)
-        doneButton.tap()
+        let screen = anyElement(in: app, identifier: Definitions.AccessibilityIdentifiers.Search.screen)
+        waitForElement(screen)
     }
 
     func openTaskForEditing(title: String, in app: XCUIApplication) {

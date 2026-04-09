@@ -6,12 +6,12 @@ enum TraditionalNavigationDestination: Hashable {
 }
 
 private enum TraditionalSheetDestination: Identifiable {
-    case inbox
+    case taskDetail(DataModel.Task)
     case auth
 
     var id: String {
         switch self {
-        case .inbox: "inbox"
+        case .taskDetail(let task): "taskDetail-\(task.id)"
         case .auth: "auth"
         }
     }
@@ -22,6 +22,7 @@ struct TraditionalSpreadsView: View {
     @Bindable var journalManager: JournalManager
     let authManager: AuthManager
     let syncEngine: SyncEngine?
+    let navigationState: SpreadsNavigationState
     private let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding = TodayMissingSpreadRecommendationProvider()
 
     @State private var selectedSelection: SpreadHeaderNavigatorModel.Selection?
@@ -102,8 +103,14 @@ struct TraditionalSpreadsView: View {
         }
         .sheet(item: $activeSheet) { destination in
             switch destination {
-            case .inbox:
-                InboxSheetView(journalManager: journalManager)
+            case .taskDetail(let task):
+                TaskDetailSheet(
+                    task: task,
+                    journalManager: journalManager,
+                    onDelete: {
+                        Task { @MainActor in await syncEngine?.syncNow() }
+                    }
+                )
             case .auth:
                 AuthEntrySheet(authManager: authManager, isBlocking: false)
             }
@@ -112,6 +119,10 @@ struct TraditionalSpreadsView: View {
             if selectedSelection == nil {
                 selectedSelection = .traditionalYear(defaultRootYearDate)
             }
+            handlePendingNavigationRequest()
+        }
+        .onChange(of: navigationState.pendingRequest?.id) { _, _ in
+            handlePendingNavigationRequest()
         }
     }
 
@@ -216,16 +227,32 @@ struct TraditionalSpreadsView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItemGroup(placement: .primaryAction) {
-            InboxButton(inboxCount: journalManager.inboxCount) {
-                activeSheet = .inbox
-            }
-        }
-        ToolbarSpacer(.fixed, placement: .primaryAction)
         ToolbarItem(placement: .primaryAction) {
             AuthButton(isSignedIn: authManager.state.isSignedIn) {
                 activeSheet = .auth
             }
+        }
+    }
+
+    private func handlePendingNavigationRequest() {
+        guard let request = navigationState.pendingRequest else { return }
+
+        switch request.selection {
+        case .traditionalYear, .traditionalMonth, .traditionalDay:
+            selectedSelection = request.selection
+        case .conventional:
+            return
+        }
+
+        guard let task = journalManager.tasks.first(where: { $0.id == request.taskID }) else {
+            navigationState.pendingRequest = nil
+            return
+        }
+
+        Task { @MainActor in
+            await Task.yield()
+            activeSheet = .taskDetail(task)
+            navigationState.pendingRequest = nil
         }
     }
 }
