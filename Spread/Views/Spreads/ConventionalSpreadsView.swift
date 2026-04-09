@@ -6,7 +6,6 @@ import SwiftUI
 /// The navigator provides navigation between spreads, and the content area
 /// shows the selected spread's entries.
 ///
-/// On iPad (regular width), the inbox button appears in this view's toolbar.
 struct ConventionalSpreadsView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -20,6 +19,7 @@ struct ConventionalSpreadsView: View {
 
     /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
+    let navigationState: SpreadsNavigationState
 
     /// Coordinates sheet presentation for this view.
     @State private var coordinator = SpreadsCoordinator()
@@ -50,12 +50,6 @@ struct ConventionalSpreadsView: View {
             contentArea
         }
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                InboxButton(inboxCount: journalManager.inboxCount) {
-                    coordinator.showInbox()
-                }
-            }
-            ToolbarSpacer(.fixed, placement: .primaryAction)
             ToolbarItem(placement: .primaryAction) {
                 AuthButton(isSignedIn: authManager.state.isSignedIn) {
                     coordinator.showAuth()
@@ -70,6 +64,10 @@ struct ConventionalSpreadsView: View {
         }
         .onAppear {
             resetSelectionIfNeeded()
+            handlePendingNavigationRequest()
+        }
+        .onChange(of: navigationState.pendingRequest?.id) { _, _ in
+            handlePendingNavigationRequest()
         }
     }
 
@@ -338,8 +336,6 @@ struct ConventionalSpreadsView: View {
                     Task { @MainActor in await syncEngine?.syncNow() }
                 }
             )
-        case .inbox:
-            InboxSheetView(journalManager: journalManager)
         case .auth:
             AuthEntrySheet(authManager: authManager, isBlocking: false)
         }
@@ -433,6 +429,24 @@ struct ConventionalSpreadsView: View {
             calendar: journalManager.calendar
         )
         selectedSpread = organizer.initialSelection(for: journalManager.today)
+    }
+
+    private func handlePendingNavigationRequest() {
+        guard let request = navigationState.pendingRequest else { return }
+        guard case .conventional(let spread) = request.selection else { return }
+
+        selectedSpread = spread
+
+        guard let task = journalManager.tasks.first(where: { $0.id == request.taskID }) else {
+            navigationState.pendingRequest = nil
+            return
+        }
+
+        Task { @MainActor in
+            await Task.yield()
+            coordinator.showTaskDetail(task)
+            navigationState.pendingRequest = nil
+        }
     }
 }
 
@@ -563,6 +577,7 @@ private struct SpreadContentView: View {
     ConventionalSpreadsView(
         journalManager: .previewInstance,
         authManager: .makeForPreview(),
-        syncEngine: nil
+        syncEngine: nil,
+        navigationState: SpreadsNavigationState()
     )
 }

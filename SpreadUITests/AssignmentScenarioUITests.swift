@@ -12,8 +12,14 @@ final class AssignmentScenarioUITests: LocalhostScenarioUITestCase {
 
         XCTAssertTrue(app.staticTexts["Direct assignment task"].waitForExistence(timeout: 5))
 
-        openInbox(in: app)
-        XCTAssertTrue(app.staticTexts["Inbox Empty"].waitForExistence(timeout: 5))
+        openSearch(in: app)
+        XCTAssertFalse(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.Search.section("inbox")
+            )
+            .waitForExistence(timeout: 2)
+        )
     }
 
     /// Conditions: No matching spreads exist in localhost conventional mode.
@@ -23,7 +29,7 @@ final class AssignmentScenarioUITests: LocalhostScenarioUITestCase {
 
         createTask(title: "Inbox fallback task", in: app)
 
-        openInbox(in: app)
+        openSearch(in: app)
         XCTAssertTrue(app.staticTexts["Inbox fallback task"].waitForExistence(timeout: 5))
     }
 
@@ -32,9 +38,12 @@ final class AssignmentScenarioUITests: LocalhostScenarioUITestCase {
     func testInboxTaskDoesNotAppearInDestinationMigrationSection() throws {
         let app = launchScenario(.inboxResolution)
 
-        openInbox(in: app)
+        openSearch(in: app)
         XCTAssertTrue(app.staticTexts["Inbox resolution task"].waitForExistence(timeout: 5))
-        dismissInbox(in: app)
+
+        let spreadsTab = app.tabBars.buttons["Spreads"].firstMatch
+        waitForElement(spreadsTab)
+        spreadsTab.tap()
 
         createDaySpread(day: 20, in: app)
         XCTAssertFalse(
@@ -44,5 +53,23 @@ final class AssignmentScenarioUITests: LocalhostScenarioUITestCase {
             )
             .waitForExistence(timeout: 2)
         )
+    }
+
+    /// Conditions: A task exists on a spread and is opened from the search tab.
+    /// Expected: Tapping the search result switches back to Spreads and opens the task edit sheet there.
+    func testSearchResultNavigatesToSpreadAndOpensTaskEditSheet() throws {
+        let app = launchScenario(.assignmentExistingSpread)
+
+        createTask(title: "Search navigation task", in: app)
+
+        openSearch(in: app)
+
+        let result = app.staticTexts["Search navigation task"].firstMatch
+        waitForElement(result)
+        result.tap()
+
+        let saveButton = app.buttons[Definitions.AccessibilityIdentifiers.TaskDetailSheet.saveButton]
+        waitForElement(saveButton)
+        XCTAssertTrue(app.tabBars.buttons["Spreads"].isSelected)
     }
 }

@@ -23,7 +23,6 @@ final class SpreadsCoordinator {
         case noteCreation
         case taskDetail(DataModel.Task)
         case noteDetail(DataModel.Note)
-        case inbox
         case auth
 
         var id: String {
@@ -41,8 +40,6 @@ final class SpreadsCoordinator {
                 return "taskDetail-\(task.id)"
             case .noteDetail(let note):
                 return "noteDetail-\(note.id)"
-            case .inbox:
-                return "inbox"
             case .auth:
                 return "auth"
             }
@@ -79,11 +76,6 @@ final class SpreadsCoordinator {
     /// Presents the note detail sheet for editing.
     func showNoteDetail(_ note: DataModel.Note) {
         activeSheet = .noteDetail(note)
-    }
-
-    /// Presents the inbox sheet.
-    func showInbox() {
-        activeSheet = .inbox
     }
 
     /// Presents the auth sheet (login or profile).

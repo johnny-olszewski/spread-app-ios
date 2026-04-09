@@ -17,6 +17,13 @@ struct RootNavigationViewTests {
         #expect(tab.systemImage == "folder")
     }
 
+    @Test func testSearchTabHasCorrectProperties() {
+        let tab = NavigationTab.search
+
+        #expect(tab.title == "Search")
+        #expect(tab.systemImage == "magnifyingglass")
+    }
+
     @Test func testSettingsTabHasCorrectProperties() {
         let tab = NavigationTab.settings
 
@@ -27,10 +34,11 @@ struct RootNavigationViewTests {
     @Test func testNavigationTabsAreInCorrectOrder() {
         let tabs = NavigationTab.allCases
 
-        #expect(tabs.count >= 3)
-        #expect(tabs.count <= 4)
+        #expect(tabs.count >= 4)
+        #expect(tabs.count <= 5)
         #expect(tabs[0] == .spreads)
-        #expect(tabs[1] == .collections)
-        #expect(tabs[2] == .settings)
+        #expect(tabs[1] == .search)
+        #expect(tabs[2] == .collections)
+        #expect(tabs[3] == .settings)
     }
 }

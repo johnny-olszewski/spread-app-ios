@@ -279,10 +279,17 @@ struct Definitions {
             }
         }
 
-        struct Inbox {
-            static let button = "inbox.toolbar.button"
-            static let sheet = "inbox.sheet"
-            static let doneButton = "inbox.sheet.done"
+        struct Search {
+            static let screen = "search.tasks.screen"
+            static let field = "search.tasks.field"
+
+            static func section(_ tokenValue: String) -> String {
+                "search.tasks.section.\(tokenValue)"
+            }
+
+            static func row(_ taskID: UUID) -> String {
+                "search.tasks.row.\(taskID.uuidString.lowercased())"
+            }
         }
 
         struct Settings {
