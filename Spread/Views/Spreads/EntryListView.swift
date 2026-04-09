@@ -17,6 +17,13 @@ struct EntryListView: View {
         let period: Period
     }
 
+    private struct PendingSourceMigration: Identifiable {
+        let task: DataModel.Task
+        let destination: DataModel.Spread
+
+        var id: UUID { task.id }
+    }
+
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     // MARK: - Properties
@@ -32,6 +39,7 @@ struct EntryListView: View {
 
     /// Callback when an entry is tapped for editing.
     var onEdit: ((any Entry) -> Void)?
+    var onOpenMigratedTask: ((DataModel.Task) -> Void)? = nil
 
     /// Callback when an entry should be deleted.
     var onDelete: ((any Entry) -> Void)?
@@ -64,9 +72,10 @@ struct EntryListView: View {
 
     @State private var activeInlineCreationTarget: InlineCreationTarget?
     @State private var inlineTitle: String = ""
-    @State private var isContinuingEntry: Bool = false
     @State private var inlineCreationID: UUID = UUID()
     @State private var activeInlineTaskID: UUID?
+    @State private var pendingSourceMigration: PendingSourceMigration?
+    @State private var hasAcquiredInlineCreationFocus = false
     @FocusState private var isInlineFocused: Bool
 
     // MARK: - Computed Properties
@@ -185,13 +194,36 @@ struct EntryListView: View {
                 }
             }
             .onChange(of: isInlineFocused) { _, focused in
-                guard !focused, !isContinuingEntry, activeInlineCreationTarget != nil else { return }
+                if focused {
+                    hasAcquiredInlineCreationFocus = true
+                    return
+                }
+
+                guard hasAcquiredInlineCreationFocus, activeInlineCreationTarget != nil else { return }
                 let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty {
                     dismissInlineCreation()
                 } else if let target = activeInlineCreationTarget {
                     commitInlineTask(target: target)
                 }
+            }
+            .onChange(of: activeInlineCreationTarget) { _, target in
+                guard target != nil else { return }
+                hasAcquiredInlineCreationFocus = false
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(150))
+                    isInlineFocused = true
+                }
+            }
+            .alert(item: $pendingSourceMigration) { migration in
+                Alert(
+                    title: Text("Migrate Task"),
+                    message: Text("Move \"\(migration.task.title)\" to \(sourceMigrationDestinationTitle(for: migration.destination))?"),
+                    primaryButton: .default(Text("Migrate")) {
+                        migrationConfiguration?.onSourceMigrationConfirmed(migration.task, migration.destination)
+                    },
+                    secondaryButton: .cancel()
+                )
             }
     }
 
@@ -259,7 +291,10 @@ struct EntryListView: View {
                 migratedTasks: migratedTasks,
                 migratedNotes: migratedNotes,
                 calendar: calendar,
-                onEdit: { entry in onEdit?(entry) }
+                onEdit: { entry in onEdit?(entry) },
+                onTaskTap: { task in
+                    onOpenMigratedTask?(task)
+                }
             )
             .listRowBackground(Color.clear)
 
@@ -330,11 +365,17 @@ struct EntryListView: View {
     }
 
     private func taskRow(_ task: DataModel.Task, contextualLabel: String?) -> some View {
-        EntryRowView(
+        let sourceMigrationDestination = migrationConfiguration?.sourceDestinations[task.id]
+        return EntryRowView(
             task: task,
             migrationDestination: destinationFormatter.destination(for: task, from: spreadDataModel.spread),
             contextualLabel: contextualLabel,
             onComplete: { onComplete?(task) },
+            onMigrate: sourceMigrationDestination.map { destination in
+                {
+                    pendingSourceMigration = PendingSourceMigration(task: task, destination: destination)
+                }
+            },
             onEdit: {
                 dismissActiveInlineEditing()
                 onEdit?(task)
@@ -342,6 +383,15 @@ struct EntryListView: View {
             onDelete: { onDelete?(task) },
             onTitleCommit: { @MainActor newTitle in
                 await onTitleCommit?(task, newTitle)
+            },
+            trailingAction: sourceMigrationDestination.map { destination in
+                EntryRowTrailingAction(
+                    systemImage: "arrow.right",
+                    accessibilityIdentifier: Definitions.AccessibilityIdentifiers.Migration.sourceButton(task.title),
+                    action: {
+                        pendingSourceMigration = PendingSourceMigration(task: task, destination: destination)
+                    }
+                )
             },
             inlineActionConfiguration: inlineActionConfiguration(for: task),
             isInlineActive: activeInlineTaskID == task.id,
@@ -521,9 +571,13 @@ struct EntryListView: View {
                 .textFieldStyle(.plain)
                 .font(SpreadTheme.Typography.body)
                 .focused($isInlineFocused)
-                .submitLabel(.return)
-                .onSubmit { commitAndContinue(target: target) }
-                .onAppear { isInlineFocused = true }
+                .submitLabel(.done)
+                .onSubmit { commitInlineTask(target: target) }
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        isInlineFocused = true
+                    }
+                }
                 .accessibilityIdentifier(
                     Definitions.AccessibilityIdentifiers.SpreadContent.inlineTaskCreationField
                 )
@@ -554,23 +608,10 @@ struct EntryListView: View {
     // MARK: - Inline Creation Helpers
 
     private func activateInlineCreation(for target: InlineCreationTarget) {
+        dismissActiveInlineEditing()
         inlineTitle = ""
+        inlineCreationID = UUID()
         activeInlineCreationTarget = target
-    }
-
-    private func commitAndContinue(target: InlineCreationTarget) {
-        let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            dismissInlineCreation()
-            return
-        }
-        isContinuingEntry = true
-        Task { @MainActor in
-            try? await onAddTask?(trimmed, target.date, target.period)
-            inlineTitle = ""
-            isContinuingEntry = false
-            inlineCreationID = UUID()
-        }
     }
 
     private func commitInlineTask(target: InlineCreationTarget) {
@@ -580,16 +621,44 @@ struct EntryListView: View {
             return
         }
         Task { @MainActor in
-            try? await onAddTask?(trimmed, target.date, target.period)
+            let didCreate = await performInlineTaskAdd(title: trimmed, target: target)
+            guard didCreate else { return }
             dismissInlineCreation()
         }
     }
 
+    @MainActor
+    private func performInlineTaskAdd(title: String, target: InlineCreationTarget) async -> Bool {
+        do {
+            try await onAddTask?(title, target.date, target.period)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     private func dismissInlineCreation() {
-        guard !isContinuingEntry else { return }
         activeInlineCreationTarget = nil
         inlineTitle = ""
+        hasAcquiredInlineCreationFocus = false
         isInlineFocused = false
+    }
+
+    private func sourceMigrationDestinationTitle(for spread: DataModel.Spread) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateStyle = .long
+
+        switch spread.period {
+        case .year:
+            return String(calendar.component(.year, from: spread.date))
+        case .month:
+            formatter.dateFormat = "MMMM yyyy"
+            return formatter.string(from: spread.date)
+        case .day, .multiday:
+            return formatter.string(from: spread.date)
+        }
     }
 
     private func creationTarget(for section: EntryListSection) -> InlineCreationTarget {

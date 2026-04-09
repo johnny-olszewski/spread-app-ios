@@ -389,6 +389,68 @@ struct MigrationTests {
         }
     }
 
+    /// Conditions: A task has multiple open assignments that match existing spreads.
+    /// Expected: The most granular current destination spread is returned.
+    @Test @MainActor func testCurrentDestinationSpreadPrefersMostGranularOpenAssignment() async throws {
+        let calendar = Self.testCalendar
+        let taskDate = Self.testDate
+
+        let yearSpread = DataModel.Spread(period: .year, date: taskDate, calendar: calendar)
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
+
+        let task = DataModel.Task(
+            title: "Test Task",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            assignments: [
+                TaskAssignment(period: .year, date: taskDate, status: .open),
+                TaskAssignment(period: .month, date: taskDate, status: .open),
+                TaskAssignment(period: .day, date: taskDate, status: .open)
+            ]
+        )
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: taskDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+        )
+
+        #expect(manager.currentDestinationSpread(for: task)?.id == daySpread.id)
+    }
+
+    /// Conditions: A task has open assignments on both the source spread and a more granular destination.
+    /// Expected: Excluding the source spread still resolves the live destination spread.
+    @Test @MainActor func testCurrentDestinationSpreadCanExcludeHistoricalSourceSpread() async throws {
+        let calendar = Self.testCalendar
+        let taskDate = Self.testDate
+
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
+
+        let task = DataModel.Task(
+            title: "Test Task",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            assignments: [
+                TaskAssignment(period: .month, date: taskDate, status: .open),
+                TaskAssignment(period: .day, date: taskDate, status: .open)
+            ]
+        )
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: taskDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        )
+
+        #expect(manager.currentDestinationSpread(for: task, excluding: monthSpread)?.id == daySpread.id)
+    }
+
     // MARK: - Note Migration Tests
 
     /// Conditions: A note has an assignment on a month spread and is migrated to a day spread.

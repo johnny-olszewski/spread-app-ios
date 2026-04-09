@@ -25,6 +25,7 @@ struct MigratedEntriesSection: View {
 
     /// Callback when an entry is tapped for editing.
     var onEdit: ((any Entry) -> Void)?
+    var onTaskTap: ((DataModel.Task) -> Void)?
 
     /// Whether the section is expanded.
     @State private var isExpanded = false
@@ -95,8 +96,15 @@ struct MigratedEntriesSection: View {
         EntryRowView(
             task: task,
             migrationDestination: formatter.destination(for: task, from: spread),
-            onEdit: { onEdit?(task) }
+            onEdit: {
+                if let onTaskTap {
+                    onTaskTap(task)
+                } else {
+                    onEdit?(task)
+                }
+            }
         )
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(task.title))
         .listRowBackground(Color.clear)
     }
 
@@ -106,6 +114,7 @@ struct MigratedEntriesSection: View {
             migrationDestination: formatter.destination(for: note, from: spread),
             onEdit: { onEdit?(note) }
         )
+        .accessibilityIdentifier("spreads.content.note.\(Definitions.AccessibilityIdentifiers.token(note.title))")
         .listRowBackground(Color.clear)
     }
 }
