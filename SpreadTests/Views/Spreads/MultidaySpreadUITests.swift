@@ -126,6 +126,78 @@ struct MultidaySpreadUITests {
         #expect(sections.isEmpty)
     }
 
+    // MARK: - Day Card State Tests
+
+    @Test("Multiday day card uses created state when explicit day exists")
+    func multidayDayCardUsesCreatedStateForExplicitDay() {
+        let date = makeDate(year: 2026, month: 1, day: 10)
+        let daySpread = DataModel.Spread(period: .day, date: date, calendar: calendar)
+
+        let state = MultidayDayCardSupport.visualState(
+            for: date,
+            today: makeDate(year: 2026, month: 1, day: 12),
+            explicitDaySpread: daySpread,
+            calendar: calendar
+        )
+
+        #expect(state == .created)
+    }
+
+    @Test("Multiday day card uses uncreated state when explicit day is missing")
+    func multidayDayCardUsesUncreatedStateWhenDayMissing() {
+        let date = makeDate(year: 2026, month: 1, day: 10)
+
+        let state = MultidayDayCardSupport.visualState(
+            for: date,
+            today: makeDate(year: 2026, month: 1, day: 12),
+            explicitDaySpread: nil,
+            calendar: calendar
+        )
+
+        #expect(state == .uncreated)
+    }
+
+    @Test("Multiday day card uses today state even when explicit day is missing")
+    func multidayDayCardTodayOverridesUncreatedState() {
+        let date = makeDate(year: 2026, month: 1, day: 10)
+
+        let state = MultidayDayCardSupport.visualState(
+            for: date,
+            today: date,
+            explicitDaySpread: nil,
+            calendar: calendar
+        )
+
+        #expect(state == .today)
+    }
+
+    @Test("Multiday footer action navigates when explicit day exists")
+    func multidayFooterActionNavigatesForExistingDay() {
+        let date = makeDate(year: 2026, month: 1, day: 10)
+        let daySpread = DataModel.Spread(period: .day, date: date, calendar: calendar)
+
+        let action = MultidayDayCardSupport.footerAction(
+            for: date,
+            explicitDaySpread: daySpread
+        )
+
+        #expect(action == .navigate(daySpread))
+        #expect(action.iconName == "arrow.right")
+    }
+
+    @Test("Multiday footer action creates prefills when explicit day is missing")
+    func multidayFooterActionCreatesForMissingDay() {
+        let date = makeDate(year: 2026, month: 1, day: 10)
+
+        let action = MultidayDayCardSupport.footerAction(
+            for: date,
+            explicitDaySpread: nil
+        )
+
+        #expect(action == .createDay(date))
+        #expect(action.iconName == "plus")
+    }
+
     // MARK: - No Migration Banner Tests
 
     /// Conditions: Multiday period.

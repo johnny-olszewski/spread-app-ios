@@ -112,6 +112,14 @@ struct Definitions {
             static func multidayAddTaskButton(_ dateID: String) -> String {
                 "spreads.content.multiday.section.\(dateID).addtask"
             }
+
+            static func multidayTodayLabel(_ dateID: String) -> String {
+                "spreads.content.multiday.section.\(dateID).today"
+            }
+
+            static func multidayFooterButton(_ dateID: String) -> String {
+                "spreads.content.multiday.section.\(dateID).footer"
+            }
         }
 
         struct SpreadNavigator {

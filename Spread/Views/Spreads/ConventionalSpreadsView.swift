@@ -273,6 +273,12 @@ struct ConventionalSpreadsView: View {
                 migrationConfiguration: migrationConfiguration(for: spread),
                 onSelectSpread: {
                     selectedSpread = $0
+                },
+                explicitDaySpreadForDate: { date in
+                    explicitDaySpread(for: date)
+                },
+                onCreateSpread: { date in
+                    coordinator.showSpreadCreation(prefill: .init(period: .day, date: date))
                 }
             )
         } else {
@@ -284,6 +290,17 @@ struct ConventionalSpreadsView: View {
         coordinator.showSpreadCreation(
             prefill: .init(period: recommendation.period, date: recommendation.date)
         )
+    }
+
+    private func explicitDaySpread(for date: Date) -> DataModel.Spread? {
+        let normalizedDate = Period.day.normalizeDate(date, calendar: journalManager.calendar)
+        return journalManager.spreads.first { spread in
+            spread.period == .day &&
+            journalManager.calendar.isDate(
+                Period.day.normalizeDate(spread.date, calendar: journalManager.calendar),
+                inSameDayAs: normalizedDate
+            )
+        }
     }
 
     // MARK: - Sheet Content
@@ -493,6 +510,8 @@ private struct SpreadContentView: View {
     let headerNavigatorModel: SpreadHeaderNavigatorModel
     var migrationConfiguration: EntryListMigrationConfiguration?
     var onSelectSpread: ((DataModel.Spread) -> Void)?
+    var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)?
+    var onCreateSpread: ((Date) -> Void)?
 
     @State private var isShowingNavigator = false
 
@@ -557,6 +576,9 @@ private struct SpreadContentView: View {
                 onAddTask: { @MainActor title, date, period in
                     try await onAddTask?(title, date, period)
                 },
+                explicitDaySpreadForDate: explicitDaySpreadForDate,
+                onSelectSpread: onSelectSpread,
+                onCreateSpread: onCreateSpread,
                 onRefresh: onRefresh,
                 syncStatus: syncStatus
             )
