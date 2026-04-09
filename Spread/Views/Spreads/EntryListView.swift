@@ -481,7 +481,7 @@ struct EntryListView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
                     multidayCardBorder(for: visualState),
-                    lineWidth: visualState == .today ? 1.5 : 1
+                    style: multidayCardBorderStyle(for: visualState)
                 )
         )
         .accessibilityIdentifier(
@@ -557,9 +557,11 @@ struct EntryListView: View {
             } label: {
                 Image(systemName: action.iconName)
                     .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(multidayFooterIconColor(for: action))
                     .frame(width: 30, height: 30)
+                    .background(multidayFooterBackground(for: action))
             }
-            .glassEffect(.clear, in: Circle())
+            .glassEffect(multidayFooterGlassStyle(for: action), in: Circle())
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(multidayFooterAccessibilityLabel(for: action))
             .accessibilityIdentifier(
@@ -582,7 +584,7 @@ struct EntryListView: View {
         case .today:
             return SpreadTheme.Accent.todayEmphasis.opacity(0.08)
         case .uncreated:
-            return SpreadTheme.Accent.uncreatedDayFill
+            return SpreadTheme.Paper.primary.opacity(0.55)
         case .created:
             return SpreadTheme.Paper.primary.opacity(0.55)
         }
@@ -593,9 +595,20 @@ struct EntryListView: View {
         case .today:
             return SpreadTheme.Accent.todayEmphasisBorder
         case .uncreated:
-            return SpreadTheme.Accent.uncreatedDayBorder
+            return Color.secondary.opacity(0.28)
         case .created:
             return Color.secondary.opacity(0.12)
+        }
+    }
+
+    private func multidayCardBorderStyle(for visualState: MultidayDayCardVisualState) -> StrokeStyle {
+        switch visualState {
+        case .today:
+            return StrokeStyle(lineWidth: 1.5)
+        case .uncreated:
+            return StrokeStyle(lineWidth: 1, dash: [6, 4])
+        case .created:
+            return StrokeStyle(lineWidth: 1)
         }
     }
 
@@ -604,7 +617,7 @@ struct EntryListView: View {
         case .today:
             return SpreadTheme.Accent.todayEmphasis
         case .uncreated:
-            return SpreadTheme.Accent.uncreatedDayText
+            return .primary
         case .created:
             return .primary
         }
@@ -615,7 +628,7 @@ struct EntryListView: View {
         case .today:
             return SpreadTheme.Accent.todayEmphasis.opacity(0.9)
         case .uncreated:
-            return SpreadTheme.Accent.uncreatedDayText
+            return .secondary
         case .created:
             return .secondary
         }
@@ -623,6 +636,36 @@ struct EntryListView: View {
 
     private func multidayHeaderWeight(for visualState: MultidayDayCardVisualState) -> Font.Weight {
         visualState == .today ? .semibold : .regular
+    }
+
+    private func multidayFooterIconColor(for action: MultidayDayCardAction) -> Color {
+        switch action {
+        case .navigate:
+            return .white
+        case .createDay:
+            return .white
+        }
+    }
+
+    @ViewBuilder
+    private func multidayFooterBackground(for action: MultidayDayCardAction) -> some View {
+        switch action {
+        case .navigate:
+            Circle()
+                .fill(SpreadTheme.Accent.todaySelectedEmphasis)
+        case .createDay:
+            Circle()
+                .fill(SpreadTheme.Accent.todaySelectedEmphasis)
+        }
+    }
+
+    private func multidayFooterGlassStyle(for action: MultidayDayCardAction) -> Glass {
+        switch action {
+        case .navigate:
+            return .regular.tint(SpreadTheme.Accent.todaySelectedEmphasis)
+        case .createDay:
+            return .regular.tint(SpreadTheme.Accent.todaySelectedEmphasis)
+        }
     }
 
     @ViewBuilder
