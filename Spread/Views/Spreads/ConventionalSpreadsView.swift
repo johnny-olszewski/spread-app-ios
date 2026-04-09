@@ -259,7 +259,12 @@ struct ConventionalSpreadsView: View {
                 },
                 onAddTask: { title, date, period in
                     try await journalManager.addTask(title: title, date: date, period: period)
-                    await syncEngine?.syncNow()
+                    Task { @MainActor in
+                        await syncEngine?.syncNow()
+                    }
+                },
+                onOpenMigratedTask: { task in
+                    openMigratedTask(task, from: spread)
                 },
                 onRefresh: {
                     guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
@@ -410,6 +415,19 @@ struct ConventionalSpreadsView: View {
         }
     }
 
+    private func openMigratedTask(_ task: DataModel.Task, from source: DataModel.Spread) {
+        guard let destination = journalManager.currentDestinationSpread(for: task, excluding: source) else {
+            coordinator.showTaskDetail(task)
+            return
+        }
+
+        selectedSpread = destination
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(150))
+            coordinator.showTaskDetail(task)
+        }
+    }
+
     private func resetSelectionIfNeeded() {
         if let selectedSpread, journalManager.spreads.contains(where: { $0.id == selectedSpread.id }) {
             return
@@ -455,6 +473,7 @@ private struct SpreadContentView: View {
 
     /// Callback when a new task should be created inline.
     var onAddTask: (@MainActor (String, Date, Period) async throws -> Void)?
+    var onOpenMigratedTask: ((DataModel.Task) -> Void)? = nil
 
     /// Callback invoked when the user pulls to refresh.
     var onRefresh: (() async -> Void)?
@@ -505,6 +524,9 @@ private struct SpreadContentView: View {
                     } else if let note = entry as? DataModel.Note {
                         onEditNote?(note)
                     }
+                },
+                onOpenMigratedTask: { task in
+                    onOpenMigratedTask?(task)
                 },
                 onDelete: { entry in
                     if let task = entry as? DataModel.Task {

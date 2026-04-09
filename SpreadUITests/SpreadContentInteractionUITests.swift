@@ -163,6 +163,70 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
         XCTAssertFalse(app.buttons["Tomorrow"].exists)
     }
 
+    func testInlineAddTaskSaveDismissesFieldAndKeyboardImmediately() throws {
+        let app = launchScenario(.reassignment)
+
+        let addButton = app.buttons[Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton]
+        waitForElement(addButton)
+        addButton.tap()
+
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+        app.typeText("Inline save task")
+
+        let saveButton = app.buttons["Save"].firstMatch
+        waitForElement(saveButton)
+        saveButton.tap()
+
+        let keyboardGone = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.keyboards.firstMatch
+        )
+        XCTAssertEqual(XCTWaiter().wait(for: [keyboardGone], timeout: 5), .completed)
+        XCTAssertFalse(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.inlineTaskCreationField
+            ).exists
+        )
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Inline save task")
+            ).waitForExistence(timeout: 5)
+        )
+    }
+
+    func testInlineAddTaskReturnDismissesFieldAndKeyboardImmediately() throws {
+        let app = launchScenario(.reassignment)
+
+        let addButton = app.buttons[Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton]
+        waitForElement(addButton)
+        addButton.tap()
+
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+        app.typeText("Inline return task\n")
+
+        let keyboardGone = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.keyboards.firstMatch
+        )
+        XCTAssertEqual(XCTWaiter().wait(for: [keyboardGone], timeout: 5), .completed)
+        XCTAssertFalse(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.inlineTaskCreationField
+            ).exists
+        )
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Inline return task")
+            ).waitForExistence(timeout: 5)
+        )
+    }
+
     func testTaskEditSheetUsesStatusIconInsteadOfManualMigratedPicker() throws {
         let app = launchScenario(.reassignment)
 

@@ -127,7 +127,9 @@ struct TraditionalDayView: View {
                 },
                 onAddTask: { title, date, period in
                     try await journalManager.addTask(title: title, date: date, period: period)
-                    await syncEngine?.syncNow()
+                    Task { @MainActor in
+                        await syncEngine?.syncNow()
+                    }
                 },
                 onRefresh: {
                     guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }

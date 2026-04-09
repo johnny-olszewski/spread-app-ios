@@ -1166,16 +1166,33 @@ final class JournalManager {
         return OverdueTaskItem(task: task, sourceKey: .init(kind: .inbox))
     }
 
-    private func currentOpenSpread(for task: DataModel.Task) -> DataModel.Spread? {
-        guard let openAssignment = task.assignments.first(where: { $0.status == .open }) else {
-            return nil
-        }
+    func currentDestinationSpread(
+        for task: DataModel.Task,
+        excluding excludedSpread: DataModel.Spread? = nil
+    ) -> DataModel.Spread? {
+        task.assignments
+            .filter { $0.status == .open }
+            .compactMap { assignment in
+                spreads.first(where: { spread in
+                    spread.period == assignment.period &&
+                    spread.period.normalizeDate(spread.date, calendar: calendar) ==
+                    assignment.period.normalizeDate(assignment.date, calendar: calendar)
+                })
+            }
+            .filter { spread in
+                guard let excludedSpread else { return true }
+                return spread.id != excludedSpread.id
+            }
+            .max { lhs, rhs in
+                if lhs.period.granularityRank == rhs.period.granularityRank {
+                    return lhs.date < rhs.date
+                }
+                return lhs.period.granularityRank < rhs.period.granularityRank
+            }
+    }
 
-        return spreads.first(where: { spread in
-            spread.period == openAssignment.period &&
-            spread.period.normalizeDate(spread.date, calendar: calendar) ==
-            openAssignment.period.normalizeDate(openAssignment.date, calendar: calendar)
-        })
+    private func currentOpenSpread(for task: DataModel.Task) -> DataModel.Spread? {
+        currentDestinationSpread(for: task)
     }
 
     private func destinationMatchesDesiredPath(

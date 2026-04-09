@@ -68,4 +68,41 @@ final class MigrationScenarioUITests: LocalhostScenarioUITestCase {
         waitForElement(taskRow)
         XCTAssertFalse(noteRow.waitForExistence(timeout: 2))
     }
+
+    func testTappingMigratedTaskNavigatesToDestinationBeforeOpeningEditSheet() throws {
+        let app = launchScenario(.migrationDaySuperseded)
+
+        tapSourceMigrationButton(taskTitle: "Day upgrade migration task", in: app)
+        let alert = app.alerts.firstMatch
+        waitForElement(alert)
+        alert.buttons["Migrate"].tap()
+
+        let migratedHeader = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.migratedSectionHeader
+        )
+        waitForElement(migratedHeader)
+        tapElement(migratedHeader)
+
+        let migratedTaskRow = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Day upgrade migration task")
+        )
+        waitForElement(migratedTaskRow)
+        tapElement(migratedTaskRow)
+
+        let saveButton = app.buttons[Definitions.AccessibilityIdentifiers.TaskDetailSheet.saveButton]
+        waitForElement(saveButton)
+        saveButton.tap()
+
+        XCTAssertTrue(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Day upgrade migration task")
+            ).waitForExistence(timeout: 5)
+        )
+        let contentTitle = app.staticTexts[Definitions.AccessibilityIdentifiers.SpreadContent.title]
+        waitForElement(contentTitle)
+        XCTAssertEqual(contentTitle.label, "January 20, 2026")
+    }
 }
