@@ -229,19 +229,19 @@ struct ConventionalSpreadsView: View {
                 onEditTask: { coordinator.showTaskDetail($0) },
                 onEditNote: { coordinator.showNoteDetail($0) },
                 onDeleteTask: { task in
-                    Task {
+                    Task { @MainActor in
                         try? await journalManager.deleteTask(task)
                         await syncEngine?.syncNow()
                     }
                 },
                 onDeleteNote: { note in
-                    Task {
+                    Task { @MainActor in
                         try? await journalManager.deleteNote(note)
                         await syncEngine?.syncNow()
                     }
                 },
                 onCompleteTask: { task in
-                    Task {
+                    Task { @MainActor in
                         let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
                         try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
                         await syncEngine?.syncNow()
@@ -249,7 +249,7 @@ struct ConventionalSpreadsView: View {
                 },
                 onUpdateTaskTitle: { task, newTitle in
                     try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
-                    Task {
+                    Task { @MainActor in
                         await syncEngine?.syncNow()
                     }
                 },
@@ -298,7 +298,7 @@ struct ConventionalSpreadsView: View {
                 initialDate: prefill?.date,
                 onSpreadCreated: { spread in
                     selectedSpread = spread
-                    Task { await syncEngine?.syncNow() }
+                    Task { @MainActor in await syncEngine?.syncNow() }
                 }
             )
         case .taskCreation:
@@ -306,7 +306,7 @@ struct ConventionalSpreadsView: View {
                 journalManager: journalManager,
                 selectedSpread: selectedSpread,
                 onTaskCreated: { _ in
-                    Task { await syncEngine?.syncNow() }
+                    Task { @MainActor in await syncEngine?.syncNow() }
                 }
             )
         case .noteCreation:
@@ -314,7 +314,7 @@ struct ConventionalSpreadsView: View {
                 journalManager: journalManager,
                 selectedSpread: selectedSpread,
                 onNoteCreated: { _ in
-                    Task { await syncEngine?.syncNow() }
+                    Task { @MainActor in await syncEngine?.syncNow() }
                 }
             )
         case .taskDetail(let task):
@@ -322,7 +322,7 @@ struct ConventionalSpreadsView: View {
                 task: task,
                 journalManager: journalManager,
                 onDelete: {
-                    Task { await syncEngine?.syncNow() }
+                    Task { @MainActor in await syncEngine?.syncNow() }
                 }
             )
         case .noteDetail(let note):
@@ -330,7 +330,7 @@ struct ConventionalSpreadsView: View {
                 note: note,
                 journalManager: journalManager,
                 onDelete: {
-                    Task { await syncEngine?.syncNow() }
+                    Task { @MainActor in await syncEngine?.syncNow() }
                 }
             )
         case .inbox:
@@ -392,7 +392,7 @@ struct ConventionalSpreadsView: View {
         from source: DataModel.Spread,
         to destination: DataModel.Spread
     ) {
-        Task {
+        Task { @MainActor in
             try? await journalManager.migrateTask(task, from: source, to: destination)
             await syncEngine?.syncNow()
         }
@@ -402,7 +402,7 @@ struct ConventionalSpreadsView: View {
         _ items: [EntryListMigrationConfiguration.DestinationItem],
         to destination: DataModel.Spread
     ) {
-        Task {
+        Task { @MainActor in
             for item in items {
                 try? await journalManager.migrateTask(item.task, from: item.source, to: destination)
             }
@@ -450,11 +450,11 @@ private struct SpreadContentView: View {
     var onCompleteTask: ((DataModel.Task) -> Void)?
 
     /// Callback when a task title is committed via inline edit.
-    var onUpdateTaskTitle: ((DataModel.Task, String) async -> Void)?
-    var onReassignTask: ((DataModel.Task, Date, Period) async -> Void)?
+    var onUpdateTaskTitle: (@MainActor (DataModel.Task, String) async -> Void)?
+    var onReassignTask: (@MainActor (DataModel.Task, Date, Period) async -> Void)?
 
     /// Callback when a new task should be created inline.
-    var onAddTask: ((String, Date, Period) async throws -> Void)?
+    var onAddTask: (@MainActor (String, Date, Period) async throws -> Void)?
 
     /// Callback invoked when the user pulls to refresh.
     var onRefresh: (() async -> Void)?
@@ -517,11 +517,15 @@ private struct SpreadContentView: View {
                     onCompleteTask?(task)
                 },
                 migrationConfiguration: migrationConfiguration,
-                onTitleCommit: { task, newTitle in
+                onTitleCommit: { @MainActor task, newTitle in
                     await onUpdateTaskTitle?(task, newTitle)
                 },
-                onReassignTask: onReassignTask,
-                onAddTask: onAddTask,
+                onReassignTask: { @MainActor task, date, period in
+                    await onReassignTask?(task, date, period)
+                },
+                onAddTask: { @MainActor title, date, period in
+                    try await onAddTask?(title, date, period)
+                },
                 onRefresh: onRefresh,
                 syncStatus: syncStatus
             )

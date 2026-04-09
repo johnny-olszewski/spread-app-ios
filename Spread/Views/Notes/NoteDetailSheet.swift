@@ -209,7 +209,7 @@ struct NoteDetailSheet: View {
     private func save() {
         isSaving = true
 
-        Task {
+        Task { @MainActor in
             do {
                 // Apply title and content changes
                 if title != note.title || content != note.content {
@@ -225,24 +225,18 @@ struct NoteDetailSheet: View {
                     )
                 }
 
-                await MainActor.run {
-                    dismiss()
-                }
+                dismiss()
             } catch {
-                await MainActor.run {
-                    isSaving = false
-                }
+                isSaving = false
             }
         }
     }
 
     private func deleteNote() {
-        Task {
+        Task { @MainActor in
             try? await journalManager.deleteNote(note)
-            await MainActor.run {
-                onDelete()
-                dismiss()
-            }
+            onDelete()
+            dismiss()
         }
     }
 }

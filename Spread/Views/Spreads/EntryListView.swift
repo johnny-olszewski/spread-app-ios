@@ -46,13 +46,13 @@ struct EntryListView: View {
     var migrationConfiguration: EntryListMigrationConfiguration?
 
     /// Callback when a task title is committed via inline edit.
-    var onTitleCommit: ((DataModel.Task, String) async -> Void)?
+    var onTitleCommit: (@MainActor (DataModel.Task, String) async -> Void)?
 
     /// Callback when a task's preferred date/period should be reassigned inline.
-    var onReassignTask: ((DataModel.Task, Date, Period) async -> Void)?
+    var onReassignTask: (@MainActor (DataModel.Task, Date, Period) async -> Void)?
 
     /// Callback when a new task should be created inline.
-    var onAddTask: ((String, Date, Period) async throws -> Void)?
+    var onAddTask: (@MainActor (String, Date, Period) async throws -> Void)?
 
     /// Callback invoked when the user pulls to refresh. `nil` disables pull-to-refresh.
     var onRefresh: (() async -> Void)?
@@ -340,7 +340,7 @@ struct EntryListView: View {
                 onEdit?(task)
             },
             onDelete: { onDelete?(task) },
-            onTitleCommit: { newTitle in
+            onTitleCommit: { @MainActor newTitle in
                 await onTitleCommit?(task, newTitle)
             },
             inlineActionConfiguration: inlineActionConfiguration(for: task),
@@ -453,7 +453,7 @@ struct EntryListView: View {
                 .listRowSeparator(.hidden)
         }
 
-        if let onAddTask {
+        if onAddTask != nil {
             if activeInlineCreationTarget?.sectionID == section.id {
                 inlineCreationRow(for: creationTarget(for: section))
                     .listRowInsets(Self.rowInsets)
@@ -550,7 +550,7 @@ struct EntryListView: View {
             return
         }
         isContinuingEntry = true
-        Task {
+        Task { @MainActor in
             try? await onAddTask?(trimmed, target.date, target.period)
             inlineTitle = ""
             isContinuingEntry = false
@@ -564,7 +564,7 @@ struct EntryListView: View {
             dismissInlineCreation()
             return
         }
-        Task {
+        Task { @MainActor in
             try? await onAddTask?(trimmed, target.date, target.period)
             dismissInlineCreation()
         }
