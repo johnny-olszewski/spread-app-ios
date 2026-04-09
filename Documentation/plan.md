@@ -2072,7 +2072,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying fallback to local edit when the destination spread no longer exists.
 - **Dependencies**: SPRD-140
 
-### [SPRD-147] UI: Replace overdue review toolbar flow with spread navigator badges - [ ]
+### [SPRD-147] UI: Replace overdue review toolbar flow with spread navigator badges - [x] Complete
 - **Context**: The current overdue experience is centered on a global toolbar button and review sheet. That adds a separate review surface and does not tie the signal to the actual spread that contains the overdue work.
 - **Description**: Remove the global overdue toolbar/sheet flow and instead show per-spread overdue count badges directly in the spread title navigator.
 - **Implementation Details**:

@@ -8,13 +8,11 @@ enum TraditionalNavigationDestination: Hashable {
 private enum TraditionalSheetDestination: Identifiable {
     case inbox
     case auth
-    case overdueReview
 
     var id: String {
         switch self {
         case .inbox: "inbox"
         case .auth: "auth"
-        case .overdueReview: "overdueReview"
         }
     }
 }
@@ -49,7 +47,10 @@ struct TraditionalSpreadsView: View {
     }
 
     private var stripModel: SpreadTitleNavigatorModel {
-        SpreadTitleNavigatorModel(headerModel: navigatorModel)
+        SpreadTitleNavigatorModel(
+            headerModel: navigatorModel,
+            overdueItems: journalManager.overdueTaskItems
+        )
     }
 
     private var currentSelection: SpreadHeaderNavigatorModel.Selection {
@@ -105,8 +106,6 @@ struct TraditionalSpreadsView: View {
                 InboxSheetView(journalManager: journalManager)
             case .auth:
                 AuthEntrySheet(authManager: authManager, isBlocking: false)
-            case .overdueReview:
-                OverdueReviewSheet(journalManager: journalManager, syncEngine: syncEngine)
             }
         }
         .onAppear {
@@ -218,9 +217,6 @@ struct TraditionalSpreadsView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            OverdueButton(overdueCount: journalManager.overdueTaskCount) {
-                activeSheet = .overdueReview
-            }
             InboxButton(inboxCount: journalManager.inboxCount) {
                 activeSheet = .inbox
             }

@@ -363,24 +363,6 @@ class LocalhostScenarioUITestCase: XCTestCase {
         tapElement(button)
     }
 
-    func openOverdueReview(in app: XCUIApplication) {
-        let identifiedButton = anyElement(
-            in: app,
-            identifier: Definitions.AccessibilityIdentifiers.Overdue.button
-        )
-        let button = identifiedButton.waitForExistence(timeout: 2) ? identifiedButton : app.buttons.matching(identifier: "Overdue tasks").firstMatch
-        waitForElement(button)
-        tapElement(button)
-        let identifiedDone = anyElement(
-            in: app,
-            identifier: Definitions.AccessibilityIdentifiers.Overdue.doneButton
-        )
-        if identifiedDone.waitForExistence(timeout: 2) {
-            return
-        }
-        waitForElement(app.buttons["Done"])
-    }
-
     func openYear(_ year: Int, in app: XCUIApplication) {
         let stripItem = anyElement(
             in: app,

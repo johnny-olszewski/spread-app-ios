@@ -257,6 +257,127 @@ struct SpreadTitleNavigatorSupportTests {
         #expect(items[dayIndex].label == "20")
     }
 
+    /// Setup: overdue items exist on a visible day spread and on an inbox-only task.
+    /// Expected: only the assigned spread item gets a badge count in the conventional strip.
+    @Test func conventionalItemsIncludeOverdueCountsForAssignedSpreadsOnly() {
+        let visibleDay = DataModel.Spread(
+            period: .day,
+            date: Self.makeDate(year: 2026, month: 1, day: 10),
+            calendar: Self.calendar
+        )
+        let headerModel = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 1, day: 12),
+            spreads: [visibleDay],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+        let overdueTask = DataModel.Task(
+            title: "Assigned overdue",
+            date: visibleDay.date,
+            period: .day,
+            status: .open
+        )
+        let inboxTask = DataModel.Task(
+            title: "Inbox overdue",
+            date: Self.makeDate(year: 2026, month: 1, day: 8),
+            period: .day,
+            status: .open
+        )
+        let items = SpreadTitleNavigatorModel(
+            headerModel: headerModel,
+            overdueItems: [
+                OverdueTaskItem(
+                    task: overdueTask,
+                    sourceKey: TaskReviewSourceKey(kind: .spread(id: visibleDay.id, period: .day, date: visibleDay.date))
+                ),
+                OverdueTaskItem(
+                    task: inboxTask,
+                    sourceKey: TaskReviewSourceKey(kind: .inbox)
+                )
+            ]
+        )
+        .items(for: .conventional(visibleDay))
+
+        let expectedDayID = SpreadHeaderNavigatorModel.Selection.conventional(visibleDay).stableID(calendar: Self.calendar)
+        let dayItem = items.first(where: { $0.selection.stableID(calendar: Self.calendar) == expectedDayID })
+        #expect(dayItem?.overdueCount == 1)
+        #expect(items.filter { $0.overdueCount > 0 }.count == 1)
+    }
+
+    /// Setup: two overdue tasks share the same visible day spread.
+    /// Expected: the strip badge count is exact and not propagated to other selections.
+    @Test func conventionalItemsShowExactOverdueCountsWithoutAncestorPropagation() {
+        let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let day = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 1, day: 10), calendar: Self.calendar)
+        let taskA = DataModel.Task(title: "A", date: day.date, period: .day, status: .open)
+        let taskB = DataModel.Task(title: "B", date: day.date, period: .day, status: .open)
+        let items = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: Self.makeDate(year: 2026, month: 1, day: 12),
+                spreads: [year, day],
+                tasks: [],
+                notes: [],
+                events: []
+            ),
+            overdueItems: [
+                OverdueTaskItem(task: taskA, sourceKey: TaskReviewSourceKey(kind: .spread(id: day.id, period: .day, date: day.date))),
+                OverdueTaskItem(task: taskB, sourceKey: TaskReviewSourceKey(kind: .spread(id: day.id, period: .day, date: day.date))),
+            ]
+        )
+        .items(for: .conventional(day))
+
+        let yearItem = items.first(where: { $0.style == .year })
+        let dayItem = items.first(where: { $0.style == .day })
+        #expect(yearItem?.overdueCount == 0)
+        #expect(dayItem?.overdueCount == 2)
+    }
+
+    /// Setup: a traditional strip with an overdue day assignment and a multiday overdue source.
+    /// Expected: only the matching day selection gets a badge because multiday assignments do not map to traditional selections.
+    @Test func traditionalItemsBadgeMatchingPeriodsOnly() {
+        let overdueDay = DataModel.Task(title: "Day", date: Self.makeDate(year: 2026, month: 1, day: 10), period: .day, status: .open)
+        let overdueMultiday = DataModel.Task(title: "Multi", date: Self.makeDate(year: 2026, month: 1, day: 10), period: .multiday, status: .open)
+        let multiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 1, day: 10),
+            endDate: Self.makeDate(year: 2026, month: 1, day: 12),
+            calendar: Self.calendar
+        )
+        let items = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .traditional,
+                calendar: Self.calendar,
+                today: Self.makeDate(year: 2026, month: 1, day: 12),
+                spreads: [multiday],
+                tasks: [],
+                notes: [],
+                events: []
+            ),
+            overdueItems: [
+                OverdueTaskItem(
+                    task: overdueDay,
+                    sourceKey: TaskReviewSourceKey(kind: .spread(id: UUID(), period: .day, date: overdueDay.date))
+                ),
+                OverdueTaskItem(
+                    task: overdueMultiday,
+                    sourceKey: TaskReviewSourceKey(kind: .spread(id: multiday.id, period: .multiday, date: overdueMultiday.date))
+                )
+            ]
+        )
+        .items(for: .traditionalDay(Self.makeDate(year: 2026, month: 1, day: 12)))
+
+        let expectedDayID = SpreadHeaderNavigatorModel.Selection
+            .traditionalDay(Self.makeDate(year: 2026, month: 1, day: 10))
+            .stableID(calendar: Self.calendar)
+        let dayItem = items.first(where: { $0.selection.stableID(calendar: Self.calendar) == expectedDayID })
+        #expect(dayItem?.overdueCount == 1)
+        #expect(items.filter { $0.overdueCount > 0 }.count == 1)
+    }
+
     @Test func traditionalSelectionUsesFullYearSequence() {
         let headerModel = SpreadHeaderNavigatorModel(
             mode: .traditional,

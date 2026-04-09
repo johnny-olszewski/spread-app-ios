@@ -164,6 +164,10 @@ struct Definitions {
             static func recommendation(_ periodRawValue: String) -> String {
                 "spreads.strip.recommendation.\(periodRawValue)"
             }
+
+            static func overdueBadge(_ itemIdentifier: String) -> String {
+                "\(itemIdentifier).overdueBadge"
+            }
         }
 
         struct SpreadToolbar {
@@ -272,24 +276,6 @@ struct Definitions {
 
             static func destinationRow(_ taskTitle: String) -> String {
                 "migration.destination.\(token(taskTitle)).row"
-            }
-        }
-
-        struct Overdue {
-            static let button = "overdue.toolbar.button"
-            static let sheet = "overdue.sheet"
-            static let doneButton = "overdue.sheet.done"
-
-            static func section(_ sourceID: String) -> String {
-                "overdue.sheet.section.\(token(sourceID))"
-            }
-
-            static func row(_ taskTitle: String) -> String {
-                "overdue.sheet.row.\(token(taskTitle))"
-            }
-
-            static func rowTitle(_ taskTitle: String) -> String {
-                "overdue.sheet.row.\(token(taskTitle)).title"
             }
         }
 

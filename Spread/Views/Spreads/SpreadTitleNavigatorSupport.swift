@@ -20,9 +20,19 @@ struct SpreadTitleNavigatorModel {
         let selection: SpreadHeaderNavigatorModel.Selection
         let style: SpreadTitleNavigatorItemStyle
         let display: Display
+        let overdueCount: Int
     }
 
     let headerModel: SpreadHeaderNavigatorModel
+    let overdueItems: [OverdueTaskItem]
+
+    init(
+        headerModel: SpreadHeaderNavigatorModel,
+        overdueItems: [OverdueTaskItem] = []
+    ) {
+        self.headerModel = headerModel
+        self.overdueItems = overdueItems
+    }
 
     var calendar: Calendar { headerModel.calendar }
     var today: Date { headerModel.today }
@@ -83,7 +93,8 @@ struct SpreadTitleNavigatorModel {
                 label: String(year),
                 selection: .traditionalYear(yearStart(year)),
                 style: .year,
-                display: yearDisplay(for: year)
+                display: yearDisplay(for: year),
+                overdueCount: overdueCount(for: .traditionalYear(yearStart(year)))
             )
         ]
 
@@ -96,7 +107,8 @@ struct SpreadTitleNavigatorModel {
                     label: DataModel.Spread(period: .month, date: monthDate, calendar: calendar).displayLabel(calendar: calendar),
                     selection: monthSelection,
                     style: .month,
-                    display: monthDisplay(for: monthDate)
+                    display: monthDisplay(for: monthDate),
+                    overdueCount: overdueCount(for: monthSelection)
                 )
             )
 
@@ -110,7 +122,8 @@ struct SpreadTitleNavigatorModel {
                         label: String(day),
                         selection: daySelection,
                         style: .day,
-                        display: dayDisplay(for: dayDate)
+                        display: dayDisplay(for: dayDate),
+                        overdueCount: overdueCount(for: daySelection)
                     )
                 )
             }
@@ -126,7 +139,8 @@ struct SpreadTitleNavigatorModel {
             label: label(for: spread),
             selection: selection,
             style: style(for: spread),
-            display: display(for: spread)
+            display: display(for: spread),
+            overdueCount: overdueCount(for: selection)
         )
     }
 
@@ -227,6 +241,49 @@ struct SpreadTitleNavigatorModel {
 
     private func yearStart(_ year: Int) -> Date {
         calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
+    }
+
+    private func overdueCount(for selection: SpreadHeaderNavigatorModel.Selection) -> Int {
+        overdueCountsBySelectionID[selection.stableID(calendar: calendar), default: 0]
+    }
+
+    private var overdueCountsBySelectionID: [String: Int] {
+        overdueItems.reduce(into: [:]) { counts, item in
+            guard let selectionID = selectionID(for: item.sourceKey) else { return }
+            counts[selectionID, default: 0] += 1
+        }
+    }
+
+    private func selectionID(for sourceKey: TaskReviewSourceKey) -> String? {
+        switch sourceKey.kind {
+        case .inbox:
+            return nil
+        case .spread(let id, let period, let date):
+            switch headerModel.mode {
+            case .conventional:
+                guard let spread = headerModel.spreads.first(where: { $0.id == id }) else { return nil }
+                return SpreadHeaderNavigatorModel.Selection
+                    .conventional(spread)
+                    .stableID(calendar: calendar)
+            case .traditional:
+                switch period {
+                case .year:
+                    return SpreadHeaderNavigatorModel.Selection
+                        .traditionalYear(Period.year.normalizeDate(date, calendar: calendar))
+                        .stableID(calendar: calendar)
+                case .month:
+                    return SpreadHeaderNavigatorModel.Selection
+                        .traditionalMonth(Period.month.normalizeDate(date, calendar: calendar))
+                        .stableID(calendar: calendar)
+                case .day:
+                    return SpreadHeaderNavigatorModel.Selection
+                        .traditionalDay(Period.day.normalizeDate(date, calendar: calendar))
+                        .stableID(calendar: calendar)
+                case .multiday:
+                    return nil
+                }
+            }
+        }
     }
 
     private func isEarlier(_ lhs: Item, _ rhs: Item) -> Bool {
