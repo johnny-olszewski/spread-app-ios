@@ -415,10 +415,11 @@
   - Year, month, and day spreads may show the bottom `Migrate tasks` section when at least one task is eligible to move into that spread.
   - Multiday spreads never show migration UI.
   - Traditional mode never shows migration UI because all calendar spreads are navigable without created conventional spread records.
-  - Source spreads expose per-task trailing-arrow migration actions with destination-naming confirmation alerts.
-  - Destination spreads expose per-task tap-to-migrate rows plus a header-level `Migrate All` action scoped to that destination spread.
-  - The inline migration UI lists only tasks, never notes.
-  - A task may appear in both the overdue review sheet and a conventional inline migration surface at the same time when it is overdue globally and also eligible to move into the currently viewed spread.
+- Source spreads expose per-task trailing-arrow migration actions with destination-naming confirmation alerts.
+- Destination spreads expose per-task tap-to-migrate rows plus a header-level `Migrate All` action scoped to that destination spread.
+- The inline migration UI lists only tasks, never notes.
+- A task may appear in both the overdue review sheet and a conventional inline migration surface at the same time when it is overdue globally and also eligible to move into the currently viewed spread.
+- On a source spread, tapping a task in the disabled `Migrated tasks` subsection first navigates to that task's most granular current open destination spread and then immediately opens the task edit sheet there. If no valid destination spread can be resolved, it falls back to opening the edit sheet on the current spread. [SPRD-146]
 - Global overdue review UI: [SPRD-112]
   - A yellow overdue toolbar button appears on all spreads in both conventional and traditional modes whenever at least one overdue task exists anywhere in the journal.
   - The button shows an icon plus overdue count.
@@ -739,6 +740,7 @@
 - Pressing Return commits the current title if non-empty and immediately opens a new blank input row, allowing rapid sequential task creation without tapping the button again. [SPRD-133]
 - When the input row loses focus, non-empty input is saved as a new task; an empty field is silently discarded and the row dismissed. [SPRD-133]
 - Tasks created via inline creation are assigned to the spread's own period and date — identical to the defaults the full `TaskCreationSheet` applies when that spread is pre-selected. [SPRD-133]
+- For all inline task creation commit paths (`Save`, `Return`, and focus-loss save), once the local add succeeds the transient inline creation row and keyboard dismiss immediately; they do not remain visible while follow-up sync completes. [SPRD-145]
 - Inline task creation applies to tasks only in v1. [SPRD-133]
 - For multiday spreads, every calendar day in the spread's covered date range renders a visible day section even when that day has no tasks. [SPRD-124]
 - Empty multiday day sections show the day header plus an explicit empty-state message rather than collapsing away. [SPRD-124]
