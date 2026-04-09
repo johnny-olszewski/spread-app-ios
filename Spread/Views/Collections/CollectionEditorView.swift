@@ -95,13 +95,14 @@ struct CollectionEditorView: View {
     private func scheduleSave() {
         hasUnsavedChanges = true
         saveTask?.cancel()
-        saveTask = Task {
+        saveTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(debounceInterval))
             guard !Task.isCancelled else { return }
             await save()
         }
     }
 
+    @MainActor
     private func save() async {
         guard hasUnsavedChanges else { return }
         collection.title = title
@@ -114,7 +115,7 @@ struct CollectionEditorView: View {
 
     private func saveImmediatelyAndSync() {
         saveTask?.cancel()
-        Task {
+        Task { @MainActor in
             await save()
             await syncEngine?.syncNow()
         }

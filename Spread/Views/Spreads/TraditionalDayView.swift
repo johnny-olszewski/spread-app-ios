@@ -97,19 +97,19 @@ struct TraditionalDayView: View {
                 },
                 onDelete: { entry in
                     if let task = entry as? DataModel.Task {
-                        Task {
+                        Task { @MainActor in
                             try? await journalManager.deleteTask(task)
                             await syncEngine?.syncNow()
                         }
                     } else if let note = entry as? DataModel.Note {
-                        Task {
+                        Task { @MainActor in
                             try? await journalManager.deleteNote(note)
                             await syncEngine?.syncNow()
                         }
                     }
                 },
                 onComplete: { task in
-                    Task {
+                    Task { @MainActor in
                         let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
                         try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
                         await syncEngine?.syncNow()
@@ -117,7 +117,7 @@ struct TraditionalDayView: View {
                 },
                 onTitleCommit: { task, newTitle in
                     try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
-                    Task {
+                    Task { @MainActor in
                         await syncEngine?.syncNow()
                     }
                 },
@@ -142,7 +142,7 @@ struct TraditionalDayView: View {
                 note: note,
                 journalManager: journalManager,
                 onDelete: {
-                    Task { await syncEngine?.syncNow() }
+                    Task { @MainActor in await syncEngine?.syncNow() }
                 }
             )
         }
@@ -151,7 +151,7 @@ struct TraditionalDayView: View {
                 task: task,
                 journalManager: journalManager,
                 onDelete: {
-                    Task { await syncEngine?.syncNow() }
+                    Task { @MainActor in await syncEngine?.syncNow() }
                 }
             )
         }

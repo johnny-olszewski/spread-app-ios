@@ -354,7 +354,7 @@ struct TaskDetailSheet: View {
     private func save() {
         isSaving = true
 
-        Task {
+        Task { @MainActor in
             do {
                 if formModel.title != task.title {
                     try await journalManager.updateTaskTitle(task, newTitle: formModel.title)
@@ -375,24 +375,18 @@ struct TaskDetailSheet: View {
                     }
                 }
 
-                await MainActor.run {
-                    dismiss()
-                }
+                dismiss()
             } catch {
-                await MainActor.run {
-                    isSaving = false
-                }
+                isSaving = false
             }
         }
     }
 
     private func deleteTask() {
-        Task {
+        Task { @MainActor in
             try? await journalManager.deleteTask(task)
-            await MainActor.run {
-                onDelete()
-                dismiss()
-            }
+            onDelete()
+            dismiss()
         }
     }
 }

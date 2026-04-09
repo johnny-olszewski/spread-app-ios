@@ -36,7 +36,7 @@ struct EntryRowView: View {
     private let onEndInlineEditing: (() -> Void)?
 
     /// Callback when the user commits an inline title edit (open tasks only).
-    private let onTitleCommit: ((String) async -> Void)?
+    private let onTitleCommit: (@MainActor (String) async -> Void)?
 
     // MARK: - Inline edit state
 
@@ -56,7 +56,7 @@ struct EntryRowView: View {
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
-        onTitleCommit: ((String) async -> Void)? = nil,
+        onTitleCommit: (@MainActor (String) async -> Void)? = nil,
         trailingAction: EntryRowTrailingAction? = nil,
         inlineActionConfiguration: EntryRowInlineActionConfiguration? = nil,
         isInlineActive: Bool = false,
@@ -88,7 +88,7 @@ struct EntryRowView: View {
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
-        onTitleCommit: ((String) async -> Void)? = nil,
+        onTitleCommit: (@MainActor (String) async -> Void)? = nil,
         trailingAction: EntryRowTrailingAction? = nil,
         inlineActionConfiguration: EntryRowInlineActionConfiguration? = nil,
         isInlineActive: Bool = false,
@@ -308,7 +308,7 @@ struct EntryRowView: View {
         if supportsInlineEditing && isInlineActive {
             HStack(spacing: 16) {
                 Button {
-                    Task {
+                    Task { @MainActor in
                         await openEditSheetFromInlineActions()
                     }
                 } label: {
@@ -329,7 +329,7 @@ struct EntryRowView: View {
                     Menu {
                         ForEach(inlineActionConfiguration.migrationOptions) { option in
                             Button {
-                                Task {
+                                Task { @MainActor in
                                     await performInlineMigration(option)
                                 }
                             } label: {
@@ -381,7 +381,7 @@ struct EntryRowView: View {
             onEndInlineEditing?()
         }
         guard !trimmed.isEmpty, trimmed != configuration.title else { return }
-        Task {
+        Task { @MainActor in
             await onTitleCommit?(trimmed)
         }
     }
