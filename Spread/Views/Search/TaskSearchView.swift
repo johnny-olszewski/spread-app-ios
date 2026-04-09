@@ -2,9 +2,11 @@ import SwiftUI
 
 struct TaskSearchView: View {
     let journalManager: JournalManager
+    let isActive: Bool
     let onOpenTask: (UUID, SpreadHeaderNavigatorModel.Selection?) -> Void
 
     @State private var searchText = ""
+    @State private var isSearchPresented = false
 
     private var sections: [TaskSearchSection] {
         TaskSearchSectionBuilder(journalManager: journalManager).build(searchText: searchText)
@@ -39,8 +41,25 @@ struct TaskSearchView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Search")
-        .searchable(text: $searchText, prompt: "Search tasks")
+        .searchable(
+            text: $searchText,
+            isPresented: $isSearchPresented,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Search tasks"
+        )
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Search.screen)
+        .task(id: isActive) {
+            guard isActive else { return }
+            await Task.yield()
+            isSearchPresented = true
+        }
+        .onChange(of: isActive) { _, newValue in
+            guard newValue else { return }
+            Task { @MainActor in
+                await Task.yield()
+                isSearchPresented = true
+            }
+        }
     }
 
     private func subtitle(for row: TaskSearchSection.Row) -> String {
