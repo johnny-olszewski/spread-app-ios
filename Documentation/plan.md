@@ -2029,6 +2029,49 @@ Supabase: SPRD-85A -> SPRD-85C
   - Build verification for the today-emphasis and multiday styling changes.
 - **Dependencies**: SPRD-127, SPRD-133
 
+### [SPRD-145] Bug: Dismiss inline task creation UI immediately after local add - [ ]
+- **Context**: Inline task creation currently keeps its transient input row and keyboard visible until follow-up sync work finishes. That delay makes the just-created task appear duplicated for a few seconds because the stale input row remains visible after the new row has already been inserted.
+- **Description**: Clear the inline task-creation UI immediately after local add success, while allowing sync to continue asynchronously.
+- **Implementation Details**:
+  - Apply the fix uniformly to all inline creation commit paths:
+    - keyboard `Save`
+    - `Return`
+    - focus-loss save
+  - Once the local add succeeds:
+    - dismiss the inline creation row immediately
+    - dismiss the keyboard immediately
+    - do not wait for sync completion before clearing transient UI state
+  - Preserve existing local-add failure handling.
+- **Acceptance Criteria**:
+  - The transient inline creation row disappears immediately after a successful local add. (Spec: Inline task creation)
+  - The keyboard dismisses immediately after a successful local add. (Spec: Inline task creation)
+  - The UI does not show a duplicate-looking stale inline row while sync completes. (Spec: Inline task creation)
+  - The behavior is consistent for `Save`, `Return`, and focus-loss save. (Spec: Inline task creation)
+- **Tests**:
+  - Unit tests for inline creation state transitions across all commit paths.
+  - UI tests verifying the inline row and keyboard dismiss immediately after inline task creation without waiting for sync.
+- **Dependencies**: SPRD-133
+
+### [SPRD-146] Bug: Migrated task taps should jump to the current spread before editing - [ ]
+- **Context**: Source spreads keep migrated-task history visible, but tapping a migrated task currently edits in the historical context instead of taking the user to the task's current live spread first. That breaks the migrated-history mental model.
+- **Description**: Make migrated-task taps on source spreads navigate to the task's most granular current open destination spread and then present the edit sheet there.
+- **Implementation Details**:
+  - For tasks shown in the disabled `Migrated tasks` subsection:
+    - resolve the task's most granular current open assignment
+    - navigate to the spread that matches that assignment
+    - once navigation settles, immediately present the task edit sheet on that destination spread
+  - If multiple non-migrated assignments exist, prefer the most granular assignment.
+  - If no destination spread can be resolved, fall back to opening the edit sheet on the current spread.
+- **Acceptance Criteria**:
+  - Tapping a migrated task on a source spread first navigates to its current destination spread and then opens the edit sheet there. (Spec: Conventional migration UI)
+  - The chosen destination is the most granular current open assignment when multiple current assignments exist. (Spec: Conventional migration UI)
+  - If navigation cannot resolve a destination spread, the app falls back to opening the edit sheet on the current spread. (Spec: Conventional migration UI)
+- **Tests**:
+  - Unit tests for migrated-task destination resolution and most-granular tie-breaking.
+  - UI tests verifying a migrated task tap changes the selected spread and then opens the task edit sheet on the destination spread.
+  - UI tests verifying fallback to local edit when the destination spread no longer exists.
+- **Dependencies**: SPRD-140
+
 ### [SPRD-21] Feature: Entry symbol component - [x] Complete
 - **Context**: Task/note symbols must be consistent across UI; event symbol reserved for v2.
 - **Description**: Create a reusable symbol/status component for entries.
