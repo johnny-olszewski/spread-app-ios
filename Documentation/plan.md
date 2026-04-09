@@ -2072,6 +2072,30 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying fallback to local edit when the destination spread no longer exists.
 - **Dependencies**: SPRD-140
 
+### [SPRD-147] UI: Replace overdue review toolbar flow with spread navigator badges - [ ]
+- **Context**: The current overdue experience is centered on a global toolbar button and review sheet. That adds a separate review surface and does not tie the signal to the actual spread that contains the overdue work.
+- **Description**: Remove the global overdue toolbar/sheet flow and instead show per-spread overdue count badges directly in the spread title navigator.
+- **Implementation Details**:
+  - Remove the overdue toolbar button from spread toolbars.
+  - Remove the overdue review sheet and coordinator/support code used only by that flow.
+  - Compute overdue badge counts per spread from current open assignments only.
+  - Badge only the spread that currently contains the overdue task assignment.
+  - Exclude overdue tasks that are still in `Inbox` from the spread-badge UI.
+  - Show the badge in the top-right of each spread item in `SpreadTitleNavigatorView`.
+  - Keep the badge visible even when that spread is selected.
+  - Preserve normal spread-selection behavior when a badged spread is tapped.
+- **Acceptance Criteria**:
+  - Spread items with currently open overdue tasks show an exact overdue count badge in the title navigator. (Spec: Conventional navigation and UI)
+  - Only the spread that currently contains an overdue task assignment is badged; ancestor spreads are not. (Spec: Conventional navigation and UI)
+  - Selected spreads can still show overdue badges. (Spec: Conventional navigation and UI)
+  - Overdue tasks still in `Inbox` do not produce spread badges. (Spec: Conventional navigation and UI)
+  - The overdue toolbar button and overdue review sheet are removed. (Spec: Conventional navigation and UI)
+- **Tests**:
+  - Unit tests for overdue count aggregation by current open spread assignment, including day/month/year thresholds and inbox exclusion.
+  - Unit tests for exact-count badge values and no ancestor-spread propagation.
+  - UI tests verifying badge visibility/count on badged spreads, coexistence with selected-state styling, and absence of the old overdue toolbar/sheet flow.
+- **Dependencies**: SPRD-112, SPRD-143
+
 ### [SPRD-21] Feature: Entry symbol component - [x] Complete
 - **Context**: Task/note symbols must be consistent across UI; event symbol reserved for v2.
 - **Description**: Create a reusable symbol/status component for entries.
