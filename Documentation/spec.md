@@ -430,6 +430,9 @@
   - If that day's explicit day spread does not exist, the footer button opens the create-spread sheet preconfigured for that exact day spread. [SPRD-149]
   - Both footer button states share the same filled blue circular treatment, with the create-day state using a `plus` icon and the open-day state using a navigation icon. [SPRD-149]
   - After creating a day spread from that multiday footer flow, the app immediately navigates into the newly created day spread. [SPRD-149]
+  - Multiday day cards equalize height per visual grid row using the tallest card in that row as the shared height reference. [SPRD-149]
+  - That row-height equalization updates dynamically as card content changes, including task-count and inline interaction changes. [SPRD-149]
+  - Shorter cards stretch their full container height to the shared row height, with the footer pinned to the bottom edge of the card. [SPRD-149]
 - Conventional-mode inline migration UI: [SPRD-140]
   - Year, month, and day spreads may show the bottom `Migrate tasks` section when at least one task is eligible to move into that spread.
   - Multiday spreads never show migration UI.
