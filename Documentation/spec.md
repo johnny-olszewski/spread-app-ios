@@ -6,7 +6,7 @@
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
-- Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and the selected spread capsule presents a rooted spread navigator as a popover on iPad and a sheet on iPhone; traditional mode remains calendar-driven. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143]
+- Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and the selected spread capsule presents a rooted spread navigator as a popover on iPad and a sheet on iPhone; traditional mode remains calendar-driven. A dedicated top-level search-role tab replaces the old Inbox toolbar flow and hosts the global task browser. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143, SPRD-148]
 - Core entities (v1): [SPRD-8, SPRD-9, SPRD-10]
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
   - Entry: protocol for task and note with type-specific behaviors. [SPRD-9]
@@ -253,9 +253,9 @@
 
 ### Inbox
 - Unassigned entries (tasks/notes) are stored in a global Inbox. [SPRD-14]
-- Inbox appears as a toolbar button in the spread content view (not a tab). [SPRD-31, SPRD-68]
-- When Inbox has entries, tint the button yellow instead of showing a badge count. [SPRD-68]
-- Tapping the button opens Inbox view as sheet. [SPRD-31]
+- Inbox is surfaced as the first section inside the global search tab's task browser rather than a spread-toolbar button or standalone sheet. [SPRD-148]
+- The global task browser uses a top-level tab item with `.search` role. [SPRD-148]
+- The Inbox section contains only tasks currently shown in Inbox. [SPRD-148]
 - Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
 - Cancelled tasks are excluded from Inbox. [SPRD-16]
 - A standalone `Today` text button appears as a `.glassEffect` overlay button anchored to the bottom-leading corner of the spread content view on both iPhone and iPad. It is always visible regardless of the currently selected spread. [SPRD-130]
@@ -272,6 +272,14 @@
 
 ### Navigation and UI
 - Spread navigation uses an in-view hierarchical tab bar on both iPad and iPhone; it handles navigation between spreads only. [SPRD-19, SPRD-25]
+- The app includes a top-level search-role tab that presents a global task browser. [SPRD-148]
+- The search tab is tasks-only in v1; notes and other result types are deferred. [SPRD-148]
+- The search screen includes a real search field from day one. [SPRD-148]
+- Search results are grouped into hidden-when-empty sections:
+  - `Inbox` first.
+  - Remaining sections follow the same ordering model as `SpreadTitleNavigatorView` for the active mode (`conventional` vs `traditional`). [SPRD-148]
+- Each task appears exactly once in search, under the spread where it is currently shown. Migrated historical entries are excluded. [SPRD-148]
+- Tapping a search result navigates to the task's current spread and then opens the task edit sheet there. [SPRD-148]
 - Horizontal spread-title navigator behavior: [SPRD-126, SPRD-127]
   - Periods shown remain year → month → (day, multiday); no week period. [SPRD-8, SPRD-126]
   - The navigator replaces the old top spread selection bar and becomes the primary in-view spread-selection control on both iPhone and iPad. [SPRD-126]
@@ -567,7 +575,7 @@
 - **Merge RPC response**: All merge RPCs return the canonical row after applying LWW, so the client can update its local copy to match the server's resolved state. [SPRD-83]
 
 ### Auth UI (v1)
-- The inbox toolbar button forms its own trailing toolbar group, and the auth button remains in a separate trailing group, visually separated by a gap. [SPRD-84, SPRD-147]
+- The auth button remains a trailing toolbar control in spread content views; the old Inbox toolbar group is removed because Inbox is now surfaced through the top-level search tab. [SPRD-84, SPRD-148]
 - Auth button in toolbar, trailing the inbox group. [SPRD-84]
 - Button appearance: [SPRD-84]
   - Logged out: person icon (`person.crop.circle`)
@@ -651,7 +659,7 @@
 | Edit-time reassignment | Editing a task's preferred date/period relocates it according to conventional reassignment rules. | The task appears on the new destination, disappears from the active list on the old spread, and appears in migrated history there. |
 | Overdue day threshold | Day-assigned open tasks become overdue after the assigned day passes. | The assigned spread's navigator item shows the overdue count badge. |
 | Overdue month/year thresholds | Month- and year-assigned tasks become overdue only after the full assigned period passes. | Navigator badge counts change only at the defined absolute-date boundaries. |
-| Inbox overdue fallback | Inbox tasks become overdue from their desired assignment when no open spread assignment exists. | No spread badge is shown until the task has an open spread assignment. |
+| Inbox overdue fallback | Inbox tasks become overdue from their desired assignment when no open spread assignment exists. | No spread badge is shown until the task has an open spread assignment; Inbox overdue items remain discoverable through the search tab's Inbox section. |
 | Overdue badge flow | Overdue signaling is passive in the spread title navigator rather than a toolbar-sheet flow. | Count and visibility remain correct from any spread context without introducing a special review interaction. |
 | Note exclusions | Notes never appear in migration or overdue navigator surfaces. | Migration review exclusion is covered in UI; overdue exclusion is backstopped by focused unit tests because notes should not contribute to spread badge counts. |
 | Traditional-mode parity check | Traditional mode still has no migration UI. | Traditional mode continues to omit migration controls; overdue navigator badge behavior applies only where the spread title navigator is shown. |
@@ -828,7 +836,7 @@
 - Entry architecture uses protocol + separate @Model classes for scalability. [SPRD-9]
 - Week period removed from Period enum; multiday covers week-like scenarios. [SPRD-8, SPRD-56]
 - Notes migrate only via explicit user action, not batch suggestions. [SPRD-34]
-- Inbox appears as a toolbar button in the spread content view and opens as sheet; when non-empty, the icon is tinted yellow. [SPRD-31, SPRD-68]
+- Inbox is surfaced through the global search-role tab; there is no spread-toolbar Inbox button or Inbox sheet in v1. [SPRD-148]
 - Settings include mode toggle + first day of week preference. [SPRD-20, SPRD-49]
 - Spread deletion never deletes entries; reassigns to parent or Inbox (multiday deletion has no reassignment). [SPRD-15, SPRD-18]
 - Collections are plain text pages outside spread navigation; sorted by modified date; content is unbounded; collections sync via Supabase. [SPRD-19, SPRD-40, SPRD-85]
