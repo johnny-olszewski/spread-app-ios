@@ -3408,34 +3408,36 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ### [SPRD-149] UI: multiday day-card today/uncreated states and footer action - [ ]
 - **Context**: Multiday spreads currently show per-day cards, but they do not yet distinguish today's day at the header level, do not indicate when a covered day has no explicit day spread, and do not provide a direct footer action to open or create that day's spread.
-- **Description**: Refine multiday day cards to support `today`, `uncreated`, and normal created states, add a trailing footer action that either navigates to the day spread or opens a preconfigured create-spread flow for that exact day, and equalize card height per visual grid row.
+- **Description**: Refine multiday day cards to support `today`, `uncreated`, and normal created states, add a trailing footer action that either navigates to the day spread or opens a preconfigured create-spread flow for that exact day, add overdue badges, and align supporting conventional spread chrome and header formatting with the new multiday presentation.
 - **Implementation Details**:
   - Add a `Today` label above the weekday on multiday cards whose date is today.
   - Left-align that label with the weekday and style it to match the structural role of the short month label above the date.
   - Detect whether each multiday-covered day has an explicit day spread.
   - Apply an uncreated dashed-outline treatment when no explicit day spread exists, instead of a distinct grey header/fill treatment.
   - If a card is both today and uncreated, use only the today treatment.
-  - Add a footer to every multiday card with a single always-visible trailing icon button using the same filled blue circular treatment for both the `open day` and `create day` actions.
+  - Add a footer to every multiday card with a single always-visible trailing icon button using the same filled circular treatment for both the `open day` and `create day` actions.
   - If the day spread exists, the footer button should navigate through the normal spread-selection/navigation path.
   - If the day spread does not exist, the footer button should open the create-spread sheet already configured for that exact day spread.
   - After successful creation from that footer path, immediately navigate into the newly created day spread.
-  - Measure multiday card content height per grid row and equalize all cards in that row to the row's maximum height.
-  - Update the shared row height dynamically as card content changes, including task-count changes and inline interaction changes.
-  - Stretch shorter cards to the shared row height and pin the footer to the bottom edge of the stretched card.
+  - Use `calendar.badge.plus` for the create-day footer state and a navigation icon for the open-day state, with white-tinted circular fills and blue iconography.
+  - Add top-right overdue count badges to multiday cards using the same visual badge language as the spread title navigator.
+  - Extract the multiday day card into its own view.
+  - Move conventional spread `Today` and `+` controls into a bottom safe-area inset, with `Today` leading and `+` trailing, while preserving the paper dot grid through the inset region.
+  - Update spread header formatting so year, month, day, and multiday titles/subtitles match the current visual rules and the navigator chevron sits on the trailing edge of the centered title block.
 - **Acceptance Criteria**:
   - Today's multiday card shows a `Today` label above the weekday, left-aligned with it. (Spec: Spread Content Presentation and Interaction)
   - Uncreated multiday day cards use a dashed outline treatment instead of a distinct greyed container and header treatment. (Spec: Spread Content Presentation and Interaction)
   - If a multiday card is both today and uncreated, the today treatment fully wins. (Spec: Spread Content Presentation and Interaction)
-  - Every multiday card shows a trailing filled blue circular footer icon button, with the same visual treatment used for both action states. (Spec: Spread Content Presentation and Interaction)
+  - Every multiday card shows a trailing filled circular footer icon button, with the same visual treatment used for both action states. (Spec: Spread Content Presentation and Interaction)
   - The footer action navigates to the day spread when it exists, or opens preconfigured day-spread creation when it does not. (Spec: Spread Content Presentation and Interaction)
   - Creating a day spread from the multiday footer action immediately navigates into that day spread. (Spec: Spread Content Presentation and Interaction)
-  - Multiday cards in the same visible grid row share the same height, based on the tallest card in that row. (Spec: Spread Content Presentation and Interaction)
-  - Shared row height updates dynamically as card content changes. (Spec: Spread Content Presentation and Interaction)
-  - Shorter cards stretch fully and keep their footer pinned to the bottom edge. (Spec: Spread Content Presentation and Interaction)
+  - Multiday cards can show a top-right overdue count badge using the same badge language as the spread title navigator. (Spec: Spread Content Presentation and Interaction)
+  - Conventional spread bottom controls sit in a safe-area inset with the dot grid continuing behind them. (Spec: Spread Content Presentation and Interaction)
+  - Spread headers use the current title/subtitle formatting rules and keep the chevron attached to the trailing edge of the centered title block. (Spec: Rooted spread header navigator behavior)
 - **Tests**:
   - Unit tests for multiday day-card state derivation covering created, uncreated, today, and today-uncreated precedence.
   - Unit tests for footer action resolution covering existing day navigation vs preconfigured day creation.
-  - UI tests verifying the `Today` label placement, uncreated visual treatment, footer button visibility, existing-day navigation, create-then-navigate flow, and per-row equal-height card behavior.
+  - UI tests verifying the `Today` label placement, uncreated visual treatment, footer button visibility, existing-day navigation, create-then-navigate flow, multiday overdue badges, and updated conventional bottom controls/header formatting.
 - **Dependencies**: SPRD-124, SPRD-125, SPRD-126
 
 ### [SPRD-134] UI: toolbar and spread view button layout changes

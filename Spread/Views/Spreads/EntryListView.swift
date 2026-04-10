@@ -437,10 +437,28 @@ struct EntryListView: View {
             for: section.date,
             explicitDaySpread: explicitDaySpread
         )
+        let overdueCount = multidayOverdueCount(for: section)
 
-        VStack(alignment: .leading, spacing: 12) {
-            multidayHeader(for: section.date, visualState: visualState, dateID: dateID)
-
+        MultidayDayCardView(
+            dateID: dateID,
+            visualState: visualState,
+            footerAction: footerAction,
+            overdueCount: overdueCount,
+            shortMonthText: multidayShortMonthText(for: section.date),
+            weekdayText: multidayWeekdayText(for: section.date),
+            dayNumberText: multidayDayNumberText(for: section.date),
+            footerAccessibilityLabel: multidayFooterAccessibilityLabel(for: footerAction),
+            onFooterTap: {
+                switch footerAction {
+                case .navigate(let spread):
+                    dismissActiveInlineEditing()
+                    onSelectSpread?(spread)
+                case .createDay(let date):
+                    dismissActiveInlineEditing()
+                    onCreateSpread?(date)
+                }
+            }
+        ) {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(section.entries, id: \.id) { entry in
                     entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
@@ -465,110 +483,11 @@ struct EntryListView: View {
                         )
                 }
             }
-
-            Spacer(minLength: 0)
-
-            multidayFooter(for: footerAction, dateID: dateID)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(
-                    multidayCardFill(for: visualState)
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(
-                    multidayCardBorder(for: visualState),
-                    style: multidayCardBorderStyle(for: visualState)
-                )
-        )
-        .accessibilityIdentifier(
-            Definitions.AccessibilityIdentifiers.SpreadContent.multidaySection(dateID)
-        )
     }
 
     private func dismissActiveInlineEditing() {
         activeInlineTaskID = nil
-    }
-
-    private func multidayHeader(
-        for date: Date,
-        visualState: MultidayDayCardVisualState,
-        dateID: String
-    ) -> some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .lastTextBaseline) {
-                if visualState == .today {
-                    Text("Today")
-                        .font(SpreadTheme.Typography.caption.smallCaps())
-                        .fontWeight(.semibold)
-                        .foregroundStyle(SpreadTheme.Accent.todayEmphasis.opacity(0.9))
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("Today")
-                        .accessibilityIdentifier(
-                            Definitions.AccessibilityIdentifiers.SpreadContent.multidayTodayLabel(dateID)
-                        )
-                } else {
-                    Spacer(minLength: 0)
-                }
-
-                Spacer(minLength: 16)
-
-                Text(multidayShortMonthText(for: date))
-                    .font(SpreadTheme.Typography.caption.smallCaps())
-                    .fontWeight(multidayHeaderWeight(for: visualState))
-                    .foregroundStyle(multidaySecondaryHeaderColor(for: visualState))
-            }
-
-            HStack(alignment: .lastTextBaseline) {
-                Text(multidayWeekdayText(for: date))
-                    .font(SpreadTheme.Typography.title3)
-                    .fontWeight(multidayHeaderWeight(for: visualState))
-                    .foregroundStyle(multidayPrimaryHeaderColor(for: visualState))
-
-                Spacer(minLength: 16)
-
-                Text(multidayDayNumberText(for: date))
-                    .font(SpreadTheme.Typography.title3)
-                    .fontWeight(multidayHeaderWeight(for: visualState))
-                    .foregroundStyle(multidayPrimaryHeaderColor(for: visualState))
-            }
-        }
-    }
-
-    private func multidayFooter(
-        for action: MultidayDayCardAction,
-        dateID: String
-    ) -> some View {
-        HStack {
-            Spacer()
-
-            Button {
-                switch action {
-                case .navigate(let spread):
-                    dismissActiveInlineEditing()
-                    onSelectSpread?(spread)
-                case .createDay(let date):
-                    dismissActiveInlineEditing()
-                    onCreateSpread?(date)
-                }
-            } label: {
-                Image(systemName: action.iconName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(multidayFooterIconColor(for: action))
-                    .frame(width: 30, height: 30)
-                    .background(multidayFooterBackground(for: action))
-            }
-            .glassEffect(multidayFooterGlassStyle(for: action), in: Circle())
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(multidayFooterAccessibilityLabel(for: action))
-            .accessibilityIdentifier(
-                Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID)
-            )
-        }
     }
 
     private func multidayFooterAccessibilityLabel(for action: MultidayDayCardAction) -> String {
@@ -577,95 +496,6 @@ struct EntryListView: View {
             return "Open day spread"
         case .createDay:
             return "Create day spread"
-        }
-    }
-
-    private func multidayCardFill(for visualState: MultidayDayCardVisualState) -> Color {
-        switch visualState {
-        case .today:
-            return SpreadTheme.Accent.todayEmphasis.opacity(0.08)
-        case .uncreated:
-            return SpreadTheme.Paper.primary.opacity(0.55)
-        case .created:
-            return SpreadTheme.Paper.primary.opacity(0.55)
-        }
-    }
-
-    private func multidayCardBorder(for visualState: MultidayDayCardVisualState) -> Color {
-        switch visualState {
-        case .today:
-            return SpreadTheme.Accent.todayEmphasisBorder
-        case .uncreated:
-            return Color.secondary.opacity(0.28)
-        case .created:
-            return Color.secondary.opacity(0.12)
-        }
-    }
-
-    private func multidayCardBorderStyle(for visualState: MultidayDayCardVisualState) -> StrokeStyle {
-        switch visualState {
-        case .today:
-            return StrokeStyle(lineWidth: 1.5)
-        case .uncreated:
-            return StrokeStyle(lineWidth: 1, dash: [6, 4])
-        case .created:
-            return StrokeStyle(lineWidth: 1)
-        }
-    }
-
-    private func multidayPrimaryHeaderColor(for visualState: MultidayDayCardVisualState) -> Color {
-        switch visualState {
-        case .today:
-            return SpreadTheme.Accent.todayEmphasis
-        case .uncreated:
-            return .primary
-        case .created:
-            return .primary
-        }
-    }
-
-    private func multidaySecondaryHeaderColor(for visualState: MultidayDayCardVisualState) -> Color {
-        switch visualState {
-        case .today:
-            return SpreadTheme.Accent.todayEmphasis.opacity(0.9)
-        case .uncreated:
-            return .secondary
-        case .created:
-            return .secondary
-        }
-    }
-
-    private func multidayHeaderWeight(for visualState: MultidayDayCardVisualState) -> Font.Weight {
-        visualState == .today ? .semibold : .regular
-    }
-
-    private func multidayFooterIconColor(for action: MultidayDayCardAction) -> Color {
-        switch action {
-        case .navigate:
-            return .white
-        case .createDay:
-            return .white
-        }
-    }
-
-    @ViewBuilder
-    private func multidayFooterBackground(for action: MultidayDayCardAction) -> some View {
-        switch action {
-        case .navigate:
-            Circle()
-                .fill(SpreadTheme.Accent.todaySelectedEmphasis)
-        case .createDay:
-            Circle()
-                .fill(SpreadTheme.Accent.todaySelectedEmphasis)
-        }
-    }
-
-    private func multidayFooterGlassStyle(for action: MultidayDayCardAction) -> Glass {
-        switch action {
-        case .navigate:
-            return .regular.tint(SpreadTheme.Accent.todaySelectedEmphasis)
-        case .createDay:
-            return .regular.tint(SpreadTheme.Accent.todaySelectedEmphasis)
         }
     }
 
@@ -883,6 +713,40 @@ struct EntryListView: View {
                 await onReassignTask?(task, option.date, option.period)
             }
         )
+    }
+
+    private func multidayOverdueCount(for section: EntryListSection) -> Int {
+        section.entries.reduce(into: 0) { count, entry in
+            guard let task = entry as? DataModel.Task,
+                  task.status == .open,
+                  isOverdue(date: task.date, period: task.period) else {
+                return
+            }
+            count += 1
+        }
+    }
+
+    private func isOverdue(date: Date, period: Period) -> Bool {
+        let todayStart = today.startOfDay(calendar: calendar)
+
+        switch period {
+        case .day:
+            return todayStart > date.startOfDay(calendar: calendar)
+        case .month:
+            let startOfMonth = period.normalizeDate(date, calendar: calendar)
+            guard let startOfNextMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth) else {
+                return false
+            }
+            return todayStart >= startOfNextMonth
+        case .year:
+            let startOfYear = period.normalizeDate(date, calendar: calendar)
+            guard let startOfNextYear = calendar.date(byAdding: .year, value: 1, to: startOfYear) else {
+                return false
+            }
+            return todayStart >= startOfNextYear
+        case .multiday:
+            return false
+        }
     }
 }
 

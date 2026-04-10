@@ -340,6 +340,12 @@
     - A recommendation remains visible while the create-spread flow is open and disappears only after successful spread creation.
   - Rooted spread header navigator behavior: [SPRD-125, SPRD-139]
     - The spread header title control opens a rooted spread navigator: as a popover on iPad and as a large sheet on iPhone.
+    - The spread header shows the period type in the existing small-caps style above the main title.
+    - Year spread headers use the year as the main title and reserve subtitle space without rendering subtitle text.
+    - Month spread headers use the month name as the main title and the year as the subtitle.
+    - Day spread headers keep the long-form date as the main title and show the weekday as the subtitle.
+    - Multiday spread headers use `DD MMM - DD MMM` as the main title regardless of whether the start and end dates share a month, and show the weekday range as the subtitle.
+    - When the rooted navigator chevron is present, the title block remains visually centered independent of the chevron's width, and the chevron sits on the trailing edge of the centered title block rather than the far edge of the header.
     - The rooted navigator is a horizontal paging scroll view of year pages ordered chronologically from left to right.
     - Each page is a separate injected year view configured with the spreads for one specific year.
     - The initially visible page is the year of the currently selected spread.
@@ -428,11 +434,9 @@
   - Every multiday day card includes an always-visible footer with a single trailing filled circular icon button. [SPRD-149]
   - If that day's explicit day spread exists, the footer button navigates using the normal spread-selection path to that day spread. [SPRD-149]
   - If that day's explicit day spread does not exist, the footer button opens the create-spread sheet preconfigured for that exact day spread. [SPRD-149]
-  - Both footer button states share the same filled blue circular treatment, with the create-day state using a `plus` icon and the open-day state using a navigation icon. [SPRD-149]
+  - Both footer button states share the same filled circular treatment with a white-tinted background and blue iconography, with the create-day state using `calendar.badge.plus` and the open-day state using a navigation icon. [SPRD-149]
   - After creating a day spread from that multiday footer flow, the app immediately navigates into the newly created day spread. [SPRD-149]
-  - Multiday day cards equalize height per visual grid row using the tallest card in that row as the shared height reference. [SPRD-149]
-  - That row-height equalization updates dynamically as card content changes, including task-count and inline interaction changes. [SPRD-149]
-  - Shorter cards stretch their full container height to the shared row height, with the footer pinned to the bottom edge of the card. [SPRD-149]
+  - Multiday day cards can show an overdue count badge at the top-right, using the same count-badge language as the spread title navigator. [SPRD-149]
 - Conventional-mode inline migration UI: [SPRD-140]
   - Year, month, and day spreads may show the bottom `Migrate tasks` section when at least one task is eligible to move into that spread.
   - Multiday spreads never show migration UI.

@@ -15,7 +15,7 @@ enum MultidayDayCardAction: Equatable {
         case .navigate:
             return "arrow.right"
         case .createDay:
-            return "plus"
+            return "calendar.badge.plus"
         }
     }
 }
