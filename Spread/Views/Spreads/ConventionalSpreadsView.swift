@@ -7,8 +7,6 @@ import SwiftUI
 /// shows the selected spread's entries.
 ///
 struct ConventionalSpreadsView: View {
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
     // MARK: - Properties
 
     /// The journal manager providing spread data.
@@ -69,16 +67,17 @@ struct ConventionalSpreadsView: View {
         .onChange(of: navigationState.pendingRequest?.id) { _, _ in
             handlePendingNavigationRequest()
         }
+        .safeAreaInset(edge: .bottom) {
+            spreadBottomInsetButtons
+        }
     }
 
     // MARK: - Content
 
     @ViewBuilder
     private var contentArea: some View {
-        ZStack(alignment: overlayAlignment) {
-            spreadContent
-            spreadOverlayButtons
-        }
+        spreadContent
+            .dotGridBackground(.paper, ignoresSafeAreaEdges: .bottom)
     }
 
     @ViewBuilder
@@ -172,20 +171,20 @@ struct ConventionalSpreadsView: View {
         }
     }
 
-    private var overlayAlignment: Alignment {
-        horizontalSizeClass == .regular ? .topTrailing : .bottomLeading
-    }
-
     @ViewBuilder
-    private var spreadOverlayButtons: some View {
+    private var spreadBottomInsetButtons: some View {
         HStack(spacing: 12) {
-            Button("Today", action: navigateToToday)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .glassEffect(.clear, in: Capsule())
-                .accessibilityIdentifier(
-                    Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton
-                )
+            Button(action: navigateToToday) {
+                Text("Today")
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .glassEffect(.clear, in: Capsule())
+            }
+            .accessibilityIdentifier(
+                Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton
+            )
+
+            Spacer()
 
             Menu {
                 Button(action: { coordinator.showSpreadCreation() }) {
@@ -204,16 +203,17 @@ struct ConventionalSpreadsView: View {
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createNote)
             } label: {
                 Image(systemName: "plus")
+                    .padding(8)
                     .font(.system(size: 16, weight: .semibold))
-                    .frame(width: 32, height: 32)
-                    .foregroundStyle(Color.accentColor)
-                    .glassEffect(.clear, in: Capsule())
+                    .foregroundStyle(.white)
+                    .glassEffect(.regular.tint(SpreadTheme.Accent.todaySelectedEmphasis), in: Circle())
             }
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.button)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
-        .padding(.bottom, 20)
+        .padding(.bottom, 12)
+        .background(Color.clear)
     }
 
     @ViewBuilder
@@ -536,7 +536,6 @@ private struct SpreadContentView: View {
             // Entry list grouped by period
             entryList
         }
-        .dotGridBackground(.paper)
     }
 
     @ViewBuilder
