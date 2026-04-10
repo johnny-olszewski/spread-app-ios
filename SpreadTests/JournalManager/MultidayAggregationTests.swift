@@ -234,7 +234,7 @@ struct MultidayAggregationTests {
 
         let data = manager.dataModel[.multiday]?[spread.date]
 
-        #expect(data?.tasks.count == 1)
-        #expect(data?.tasks.first?.id == activeTask.id)
+        #expect(data?.tasks.count == 2)
+        #expect(data?.tasks.map(\.id) == [activeTask.id, cancelledTask.id])
     }
 }

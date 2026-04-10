@@ -36,7 +36,7 @@ struct MultidaySpreadUITests {
     // MARK: - Range Header Tests
 
     /// Conditions: Multiday spread within a single month (Jan 6-12, 2026).
-    /// Expected: Header title shows "Jan 6 - Jan 12, 2026".
+    /// Expected: Header title shows "6 Jan - 12 Jan".
     @Test("Multiday header shows same-year range")
     func multidayHeaderShowsSameYearRange() {
         let spread = makeMultidaySpread(
@@ -45,11 +45,11 @@ struct MultidaySpreadUITests {
         )
         let config = SpreadHeaderConfiguration(spread: spread, calendar: calendar)
 
-        #expect(config.title == "Jan 6 - Jan 12, 2026")
+        #expect(config.title == "6 Jan - 12 Jan")
     }
 
     /// Conditions: Multiday spread crossing year boundary (Dec 28, 2025 - Jan 3, 2026).
-    /// Expected: Header title shows "Dec 28, 2025 - Jan 3, 2026".
+    /// Expected: Header title shows "28 Dec - 3 Jan".
     @Test("Multiday header shows cross-year range")
     func multidayHeaderShowsCrossYearRange() {
         let spread = makeMultidaySpread(
@@ -58,7 +58,7 @@ struct MultidaySpreadUITests {
         )
         let config = SpreadHeaderConfiguration(spread: spread, calendar: calendar)
 
-        #expect(config.title == "Dec 28, 2025 - Jan 3, 2026")
+        #expect(config.title == "28 Dec - 3 Jan")
     }
 
     // MARK: - Display Label Tests
@@ -90,11 +90,18 @@ struct MultidaySpreadUITests {
     // MARK: - Entry Aggregation Tests
 
     /// Conditions: Multiday spread with entries from multiple days within range.
-    /// Expected: Entries are grouped by day with correct section titles.
+    /// Expected: Entries are grouped by day with one section per covered date.
     @Test("Multiday entries grouped by day within range")
     func multidayEntriesGroupedByDay() {
         let spreadDate = makeDate(year: 2026, month: 1, day: 6)
-        let grouper = EntryListGrouper(period: .multiday, spreadDate: spreadDate, calendar: calendar)
+        let endDate = makeDate(year: 2026, month: 1, day: 8)
+        let grouper = EntryListGrouper(
+            period: .multiday,
+            spreadDate: spreadDate,
+            spreadStartDate: spreadDate,
+            spreadEndDate: endDate,
+            calendar: calendar
+        )
 
         let entries: [any Entry] = [
             DataModel.Task(title: "Day 6 task", date: makeDate(year: 2026, month: 1, day: 6)),
@@ -106,11 +113,11 @@ struct MultidaySpreadUITests {
         let sections = grouper.group(entries)
 
         #expect(sections.count == 3)
-        #expect(sections[0].title == "January 6")
+        #expect(sections[0].title.isEmpty)
         #expect(sections[0].entries.count == 2) // task + note
-        #expect(sections[1].title == "January 7")
+        #expect(sections[1].title.isEmpty)
         #expect(sections[1].entries.count == 1)
-        #expect(sections[2].title == "January 8")
+        #expect(sections[2].title.isEmpty)
         #expect(sections[2].entries.count == 1)
     }
 
@@ -119,11 +126,20 @@ struct MultidaySpreadUITests {
     @Test("Multiday with no entries returns empty sections")
     func multidayNoEntriesReturnsEmpty() {
         let spreadDate = makeDate(year: 2026, month: 1, day: 6)
-        let grouper = EntryListGrouper(period: .multiday, spreadDate: spreadDate, calendar: calendar)
+        let endDate = makeDate(year: 2026, month: 1, day: 8)
+        let grouper = EntryListGrouper(
+            period: .multiday,
+            spreadDate: spreadDate,
+            spreadStartDate: spreadDate,
+            spreadEndDate: endDate,
+            calendar: calendar
+        )
 
         let sections = grouper.group([])
 
-        #expect(sections.isEmpty)
+        #expect(sections.count == 3)
+        #expect(sections.allSatisfy { $0.title.isEmpty })
+        #expect(sections.allSatisfy { $0.entries.isEmpty })
     }
 
     // MARK: - Day Card State Tests
@@ -195,7 +211,7 @@ struct MultidaySpreadUITests {
         )
 
         #expect(action == .createDay(date))
-        #expect(action.iconName == "plus")
+        #expect(action.iconName == "calendar.badge.plus")
     }
 
     // MARK: - No Migration Banner Tests

@@ -103,11 +103,11 @@ struct StatusIconTests {
     // MARK: - Size Configuration Tests
 
     /// Conditions: Configuration created with default size.
-    /// Expected: Size is .body (default).
-    @Test func testDefaultSizeIsBody() {
+    /// Expected: Size is .caption (default row icon size).
+    @Test func testDefaultSizeIsCaption() {
         let config = StatusIconConfiguration(entryType: .task)
 
-        #expect(config.size == .body)
+        #expect(config.size == .caption)
     }
 
     /// Conditions: Configuration created with custom size.
@@ -121,19 +121,19 @@ struct StatusIconTests {
     // MARK: - Overlay Scale Tests
 
     /// Conditions: Overlay symbol exists.
-    /// Expected: Overlay scale is smaller than base (0.5).
+    /// Expected: Overlay scale uses the tuned default.
     @Test func testOverlayScaleIsSmallerThanBase() {
         let config = StatusIconConfiguration(entryType: .task, taskStatus: .complete)
 
-        #expect(config.overlayScale == 0.5)
+        #expect(config.overlayScale == 0.65)
     }
 
     /// Conditions: No overlay symbol.
-    /// Expected: Overlay scale is still defined (for consistency).
+    /// Expected: Overlay scale still uses the tuned default.
     @Test func testOverlayScaleDefinedEvenWithoutOverlay() {
         let config = StatusIconConfiguration(entryType: .task)
 
-        #expect(config.overlayScale == 0.5)
+        #expect(config.overlayScale == 0.65)
     }
 
     // MARK: - Note Status Overlay Tests

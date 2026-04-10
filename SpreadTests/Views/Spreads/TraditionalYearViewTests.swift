@@ -79,10 +79,10 @@ struct TraditionalYearViewTests {
         #expect(marModel.tasks.count + marModel.notes.count == 0)
     }
 
-    /// Cancelled tasks should not be included in month entry counts.
+    /// Cancelled tasks remain visible in month entry counts.
     /// Setup: 1 open task and 1 cancelled task in January.
-    /// Expected: Jan count = 1.
-    @Test func testCancelledTasksExcludedFromCounts() {
+    /// Expected: Jan count = 2.
+    @Test func testCancelledTasksIncludedInCounts() {
         let service = Self.makeService()
         let jan15 = Self.makeDate(year: 2026, month: 1, day: 15)
         let jan1 = Self.makeDate(year: 2026, month: 1)
@@ -96,8 +96,8 @@ struct TraditionalYearViewTests {
             period: .month, date: jan1, tasks: tasks, notes: [], events: []
         )
 
-        #expect(model.tasks.count == 1)
-        #expect(model.tasks.first?.title == "Open Task")
+        #expect(model.tasks.count == 2)
+        #expect(model.tasks.map(\.title) == ["Open Task", "Cancelled Task"])
     }
 
     /// Month-period tasks should appear in their respective month's count.

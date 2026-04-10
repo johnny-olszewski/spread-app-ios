@@ -57,36 +57,38 @@ struct SpreadHeaderTests {
     // MARK: - Month Title Formatting Tests
 
     /// Conditions: Month spread for January 2026.
-    /// Expected: Title displays "January 2026".
-    @Test("Month spread title displays month and year")
-    func monthSpreadTitleDisplaysMonthAndYear() {
+    /// Expected: Title displays "January" and subtitle displays "2026".
+    @Test("Month spread title displays month and subtitle year")
+    func monthSpreadTitleDisplaysMonthAndSubtitleYear() {
         let calendar = makeTestCalendar()
         let date = makeDate(year: 2026, month: 1, day: 1, calendar: calendar)
         let spread = DataModel.Spread(period: .month, date: date, calendar: calendar)
 
         let config = SpreadHeaderConfiguration(spread: spread, calendar: calendar)
 
-        #expect(config.title == "January 2026")
+        #expect(config.title == "January")
+        #expect(config.subtitle == "2026")
     }
 
     /// Conditions: Month spreads for various months.
-    /// Expected: Title displays full month name and year for each.
+    /// Expected: Title displays full month name and subtitle displays year for each.
     @Test("Month spread title works for various months")
     func monthSpreadTitleWorksForVariousMonths() {
         let calendar = makeTestCalendar()
         let expectedTitles = [
-            (1, "January 2026"),
-            (2, "February 2026"),
-            (6, "June 2026"),
-            (12, "December 2026")
+            (1, "January", "2026"),
+            (2, "February", "2026"),
+            (6, "June", "2026"),
+            (12, "December", "2026")
         ]
 
-        for (month, expected) in expectedTitles {
+        for (month, expectedTitle, expectedSubtitle) in expectedTitles {
             let date = makeDate(year: 2026, month: month, day: 15, calendar: calendar)
             let spread = DataModel.Spread(period: .month, date: date, calendar: calendar)
             let config = SpreadHeaderConfiguration(spread: spread, calendar: calendar)
 
-            #expect(config.title == expected)
+            #expect(config.title == expectedTitle)
+            #expect(config.subtitle == expectedSubtitle)
         }
     }
 
@@ -129,7 +131,7 @@ struct SpreadHeaderTests {
     // MARK: - Multiday Title Formatting Tests
 
     /// Conditions: Multiday spread within same month (Jan 6-12, 2026).
-    /// Expected: Title displays "Jan 6 - Jan 12, 2026".
+    /// Expected: Title displays "6 Jan - 12 Jan".
     @Test("Multiday spread title displays date range within same month")
     func multidaySpreadTitleDisplaysDateRangeWithinMonth() {
         let calendar = makeTestCalendar()
@@ -139,11 +141,11 @@ struct SpreadHeaderTests {
 
         let config = SpreadHeaderConfiguration(spread: spread, calendar: calendar)
 
-        #expect(config.title == "Jan 6 - Jan 12, 2026")
+        #expect(config.title == "6 Jan - 12 Jan")
     }
 
     /// Conditions: Multiday spread spanning two months (Jan 28 - Feb 3, 2026).
-    /// Expected: Title displays "Jan 28 - Feb 3, 2026".
+    /// Expected: Title displays "28 Jan - 3 Feb".
     @Test("Multiday spread title displays date range spanning months")
     func multidaySpreadTitleDisplaysDateRangeSpanningMonths() {
         let calendar = makeTestCalendar()
@@ -153,11 +155,11 @@ struct SpreadHeaderTests {
 
         let config = SpreadHeaderConfiguration(spread: spread, calendar: calendar)
 
-        #expect(config.title == "Jan 28 - Feb 3, 2026")
+        #expect(config.title == "28 Jan - 3 Feb")
     }
 
     /// Conditions: Multiday spread spanning two years (Dec 28, 2025 - Jan 3, 2026).
-    /// Expected: Title displays "Dec 28, 2025 - Jan 3, 2026".
+    /// Expected: Title displays "28 Dec - 3 Jan".
     @Test("Multiday spread title displays date range spanning years")
     func multidaySpreadTitleDisplaysDateRangeSpanningYears() {
         let calendar = makeTestCalendar()
@@ -167,7 +169,7 @@ struct SpreadHeaderTests {
 
         let config = SpreadHeaderConfiguration(spread: spread, calendar: calendar)
 
-        #expect(config.title == "Dec 28, 2025 - Jan 3, 2026")
+        #expect(config.title == "28 Dec - 3 Jan")
     }
 
     /// Conditions: Multiday spread with missing dates (edge case).
