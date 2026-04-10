@@ -111,13 +111,22 @@ struct MultidayDayCardView<Content: View>: View {
     @ViewBuilder
     private var overdueBadge: some View {
         if overdueCount > 0 {
-            Text("\(overdueCount)")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, overdueCount > 9 ? 8 : 7)
-                .padding(.vertical, 3)
-                .background(.red, in: Capsule())
-                .accessibilityLabel("\(overdueCount) overdue tasks")
+            if overdueCount > 9 {
+                Text("\(overdueCount)")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(.red, in: Capsule())
+                    .accessibilityLabel("\(overdueCount) overdue tasks")
+            } else {
+                Text("\(overdueCount)")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 24, height: 24)
+                    .background(.red, in: Circle())
+                    .accessibilityLabel("\(overdueCount) overdue tasks")
+            }
         }
     }
 
