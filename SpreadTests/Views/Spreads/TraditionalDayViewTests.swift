@@ -117,8 +117,8 @@ struct TraditionalDayViewTests {
 
     /// Day view should exclude cancelled tasks.
     /// Setup: One open and one cancelled task on the same day.
-    /// Expected: Only the open task appears.
-    @Test func testDayViewExcludesCancelledTasks() {
+    /// Expected: Both tasks appear, with cancelled styled later in the row layer.
+    @Test func testDayViewIncludesCancelledTasks() {
         let service = TraditionalSpreadService(calendar: Self.testCalendar)
         let jan15 = Self.makeDate(year: 2026, month: 1, day: 15)
 
@@ -131,8 +131,8 @@ struct TraditionalDayViewTests {
             period: .day, date: jan15, tasks: tasks, notes: [], events: []
         )
 
-        #expect(dataModel.tasks.count == 1)
-        #expect(dataModel.tasks[0].title == "Open Task")
+        #expect(dataModel.tasks.count == 2)
+        #expect(dataModel.tasks.map(\.title) == ["Open Task", "Cancelled Task"])
     }
 
     /// Day view should show completed tasks (they appear but greyed out).

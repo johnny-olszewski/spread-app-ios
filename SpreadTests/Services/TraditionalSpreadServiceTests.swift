@@ -290,7 +290,7 @@ struct TraditionalSpreadServiceTests {
 
     // MARK: - Virtual Spread Data Model
 
-    /// Virtual spread data model includes only entries with matching preferred dates.
+    /// Virtual spread data model includes entries with matching preferred dates, including cancelled tasks.
     @Test func testVirtualSpreadDataModelFiltersCorrectly() {
         let service = Self.makeService()
 
@@ -307,14 +307,14 @@ struct TraditionalSpreadServiceTests {
             events: []
         )
 
-        #expect(result.tasks.count == 1)
-        #expect(result.tasks.first?.title == "Jan Task")
+        #expect(result.tasks.count == 2)
+        #expect(result.tasks.map(\.title) == ["Jan Task", "Cancelled"])
         #expect(result.notes.count == 1)
         #expect(result.notes.first?.title == "Jan Note")
     }
 
-    /// Cancelled tasks are excluded from virtual spread data models.
-    @Test func testVirtualSpreadExcludesCancelledTasks() {
+    /// Cancelled tasks remain visible in virtual spread data models.
+    @Test func testVirtualSpreadIncludesCancelledTasks() {
         let service = Self.makeService()
 
         let openTask = Self.makeTask(title: "Open", date: Self.jan15, period: .day)
@@ -328,8 +328,8 @@ struct TraditionalSpreadServiceTests {
             events: []
         )
 
-        #expect(result.tasks.count == 1)
-        #expect(result.tasks.first?.title == "Open")
+        #expect(result.tasks.count == 2)
+        #expect(result.tasks.map(\.title) == ["Open", "Cancelled"])
     }
 
     // MARK: - Years With Entries
@@ -356,8 +356,8 @@ struct TraditionalSpreadServiceTests {
         #expect(yearComponents == [2026, 2027])
     }
 
-    /// Cancelled tasks are excluded from yearsWithEntries.
-    @Test func testYearsWithEntriesExcludesCancelledTasks() {
+    /// Cancelled tasks still contribute yearsWithEntries because they remain visible.
+    @Test func testYearsWithEntriesIncludesCancelledTasks() {
         let service = Self.makeService()
 
         let cancelledTask = Self.makeTask(date: Self.jan15, period: .day, status: .cancelled)
@@ -368,8 +368,9 @@ struct TraditionalSpreadServiceTests {
 
         let years = service.yearsWithEntries(tasks: [cancelledTask, activeTask], notes: [], events: [])
 
-        #expect(years.count == 1)
-        #expect(Self.testCalendar.component(.year, from: years[0]) == 2027)
+        #expect(years.count == 2)
+        let yearComponents = years.map { Self.testCalendar.component(.year, from: $0) }
+        #expect(yearComponents == [2026, 2027])
     }
 
     // MARK: - Months With Entries

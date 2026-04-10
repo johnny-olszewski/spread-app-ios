@@ -791,7 +791,7 @@
   - UI tests: banner appears only with eligible tasks, review sheet selection, and migrate-all action.
 - **Dependencies**: SPRD-29
 
-### [SPRD-140] Refactor: Replace migration banner/sheet with inline source and destination migration UI - [ ]
+### [SPRD-140] Refactor: Replace migration banner/sheet with inline source and destination migration UI - [x] Complete
 - **Context**: The current migration flow appears to be leaving source assignments active after migration, and the banner/sheet review flow should be replaced with inline migration controls on the spreads themselves.
 - **Description**: Fix migration assignment-state correctness and replace the old conventional migration banner/sheet flow with source-row and destination-section inline affordances.
 - **Implementation Details**:
@@ -833,7 +833,7 @@
     - no migration banner or migration review sheet entry points remain
 - **Dependencies**: SPRD-29, SPRD-30, SPRD-110, SPRD-111, SPRD-114, SPRD-116
 
-### [SPRD-141] Refactor: Consolidate task create/edit form logic and reassignment behavior - [ ]
+### [SPRD-141] Refactor: Consolidate task create/edit form logic and reassignment behavior - [x] Complete
 - **Context**: Task creation and task editing currently duplicate period/date form behavior. This drift has already produced a reassignment bug in the seeded navigator data: a task created from the `2026` year spread and later edited to `April 6, 2026` day can incorrectly resolve to the existing `January 1, 2026` day spread instead of remaining on the year spread until an April spread exists. The desired behavior is that the task stays on `2026`, appears in the April section with a `6` context label, then becomes migration-eligible for `April 2026` once that recommended month spread is created.
 - **Description**: Extract a shared task editor form/state flow for create and edit, centralize task reassignment decisions so create/edit save paths cannot diverge, and update the task edit sheet so migration is driven by preferred date/period edits instead of a manual `migrated` status.
 - **Implementation Details**:
@@ -885,7 +885,7 @@
     - task edit sheet has no manual `migrated` status option
 - **Dependencies**: SPRD-23, SPRD-24, SPRD-137, SPRD-138, SPRD-140
 
-### [SPRD-142] Feature: Refine inline task-row editing actions and migration menu - [ ]
+### [SPRD-142] Feature: Refine inline task-row editing actions and migration menu - [x] Complete
 - **Context**: The current row interaction model still reflects the older "tap title / swipe for sheet" behavior. The updated spec moves open tasks toward row-wide inline editing with stable layout, lightweight row actions, and immediate migration shortcuts while preserving full-sheet editing for completed and cancelled tasks.
 - **Description**: Update `EntryRowView` and the spread entry list interaction model so open-task rows enter inline title editing on row tap, expose only the new inline action row, and use descriptive immediate migration menu options.
 - **Implementation Details**:
@@ -1963,7 +1963,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit tests for size class adaptation logic.
 - **Dependencies**: SPRD-16
 
-### [SPRD-143] Refactor: Consolidate root navigation to sidebar-adaptable TabView - [ ]
+### [SPRD-143] Refactor: Consolidate root navigation to sidebar-adaptable TabView - [x] Complete
 - **Context**: The current adaptive root navigation duplicates top-level container logic across `RootNavigationView`, `NavigationLayoutType`, `SidebarNavigationView`, and `TabNavigationView`. The product requirement remains the same: iPhone uses tab-bar navigation and iPad uses sidebar-style navigation. SwiftUI's adaptive tab APIs now support a single-root approach that can satisfy that requirement with less duplicated shell code.
 - **Description**: Replace the split root/sidebar/tab implementation with a single `TabView`-based root that uses SwiftUI's sidebar-adaptable tab style on supported OS versions while preserving current destination structure and toolbar behavior.
 - **Implementation Details**:
@@ -2029,7 +2029,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Build verification for the today-emphasis and multiday styling changes.
 - **Dependencies**: SPRD-127, SPRD-133
 
-### [SPRD-145] Bug: Dismiss inline task creation UI immediately after local add - [ ]
+### [SPRD-145] Bug: Dismiss inline task creation UI immediately after local add - [x] Complete
 - **Context**: Inline task creation currently keeps its transient input row and keyboard visible until follow-up sync work finishes. That delay makes the just-created task appear duplicated for a few seconds because the stale input row remains visible after the new row has already been inserted.
 - **Description**: Clear the inline task-creation UI immediately after local add success, while allowing sync to continue asynchronously.
 - **Implementation Details**:
@@ -2052,7 +2052,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying the inline row and keyboard dismiss immediately after inline task creation without waiting for sync.
 - **Dependencies**: SPRD-133
 
-### [SPRD-146] Bug: Migrated task taps should jump to the current spread before editing - [ ]
+### [SPRD-146] Bug: Migrated task taps should jump to the current spread before editing - [x] Complete
 - **Context**: Source spreads keep migrated-task history visible, but tapping a migrated task currently edits in the historical context instead of taking the user to the task's current live spread first. That breaks the migrated-history mental model.
 - **Description**: Make migrated-task taps on source spreads navigate to the task's most granular current open destination spread and then present the edit sheet there.
 - **Implementation Details**:
@@ -2096,7 +2096,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying badge visibility/count on badged spreads, coexistence with selected-state styling, and absence of the old overdue toolbar/sheet flow.
 - **Dependencies**: SPRD-112, SPRD-143
 
-### [SPRD-148] UI: Replace Inbox toolbar flow with a search-role task browser tab - [ ]
+### [SPRD-148] UI: Replace Inbox toolbar flow with a search-role task browser tab - [x] Complete
 - **Context**: Inbox is still surfaced from a spread-toolbar button and sheet, which keeps task discovery tied to the spread screen and duplicates functionality that fits better as a global navigation destination.
 - **Description**: Remove the Inbox toolbar button and Inbox sheet flow, and replace them with a top-level `.search` tab that hosts a global task browser grouped by the spread where each task is currently shown.
 - **Implementation Details**:
@@ -3406,7 +3406,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying the button appears, tapping it opens the input row, Return creates a task and opens a new row, Save closes the row, Cancel discards.
 - **Dependencies**: SPRD-124, SPRD-132
 
-### [SPRD-149] UI: multiday day-card today/uncreated states and footer action - [ ]
+### [SPRD-149] UI: multiday day-card today/uncreated states and footer action - [x] Complete
 - **Context**: Multiday spreads currently show per-day cards, but they do not yet distinguish today's day at the header level, do not indicate when a covered day has no explicit day spread, and do not provide a direct footer action to open or create that day's spread.
 - **Description**: Refine multiday day cards to support `today`, `uncreated`, and normal created states, add a trailing footer action that either navigates to the day spread or opens a preconfigured create-spread flow for that exact day, add overdue badges, and align supporting conventional spread chrome and header formatting with the new multiday presentation.
 - **Implementation Details**:
@@ -3440,7 +3440,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying the `Today` label placement, uncreated visual treatment, footer button visibility, existing-day navigation, create-then-navigate flow, multiday overdue badges, and updated conventional bottom controls/header formatting.
 - **Dependencies**: SPRD-124, SPRD-125, SPRD-126
 
-### [SPRD-150] UI: show cancelled and migrated task rows inline with terminal-state styling - [ ]
+### [SPRD-150] UI: show cancelled and migrated task rows inline with terminal-state styling - [x] Complete
 - **Context**: Task rows currently emphasize active editing and migration shortcuts, but cancelled tasks are filtered away and migrated tasks only appear in special source-history surfaces. The row-level reassignment affordance also has no direct path into the full edit sheet when the user needs a non-shortcut destination.
 - **Description**: Extend `EntryRowView` and the task-list query/presentation pipeline so cancelled and migrated tasks remain visible in normal task lists with distinct terminal-state styling, while the inline reassignment menu gains a final `Custom...` route into the full task editor.
 - **Implementation Details**:
