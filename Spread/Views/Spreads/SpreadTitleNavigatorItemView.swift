@@ -83,14 +83,24 @@ struct SpreadTitleNavigatorItemView: View {
     @ViewBuilder
     private var overdueBadge: some View {
         if overdueCount > 0 {
-            Text("\(overdueCount)")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, overdueCount > 9 ? 6 : 5)
-                .padding(.vertical, 2)
-                .background(.red, in: Capsule())
-                .accessibilityLabel("\(overdueCount) overdue tasks")
-                .accessibilityIdentifier(overdueBadgeAccessibilityIdentifier)
+            if overdueCount > 9 {
+                Text("\(overdueCount)")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.red, in: Capsule())
+                    .accessibilityLabel("\(overdueCount) overdue tasks")
+                    .accessibilityIdentifier(overdueBadgeAccessibilityIdentifier)
+            } else {
+                Text("\(overdueCount)")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 18, height: 18)
+                    .background(.red, in: Circle())
+                    .accessibilityLabel("\(overdueCount) overdue tasks")
+                    .accessibilityIdentifier(overdueBadgeAccessibilityIdentifier)
+            }
         }
     }
 
