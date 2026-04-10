@@ -266,11 +266,11 @@ struct EntryRowConfigurationTests {
     }
 
     /// Conditions: Task with cancelled status.
-    /// Expected: Row is not greyed out (cancelled uses strikethrough instead).
-    @Test func testCancelledTaskIsNotGreyedOut() {
+    /// Expected: Row is greyed out in addition to using strikethrough styling.
+    @Test func testCancelledTaskIsGreyedOut() {
         let config = EntryRowConfiguration(entryType: .task, taskStatus: .cancelled)
 
-        #expect(config.isGreyedOut == false)
+        #expect(config.isGreyedOut == true)
     }
 
     /// Conditions: Note with migrated status.
@@ -387,5 +387,23 @@ struct EntryRowConfigurationTests {
         let config = EntryRowConfiguration(entryType: .task, taskStatus: .open)
 
         #expect(config.isEventPast == false)
+    }
+
+    /// Conditions: Cancelled task configuration.
+    /// Expected: The row is greyed out and uses strikethrough styling.
+    @Test func testCancelledTaskPresentationFlags() {
+        let config = EntryRowConfiguration(entryType: .task, taskStatus: .cancelled)
+
+        #expect(config.isGreyedOut == true)
+        #expect(config.hasStrikethrough == true)
+    }
+
+    /// Conditions: Migrated task configuration.
+    /// Expected: The row is greyed out without the cancelled strike treatment.
+    @Test func testMigratedTaskPresentationFlags() {
+        let config = EntryRowConfiguration(entryType: .task, taskStatus: .migrated)
+
+        #expect(config.isGreyedOut == true)
+        #expect(config.hasStrikethrough == false)
     }
 }

@@ -20,8 +20,8 @@ struct CancelledTaskTests {
     // MARK: - Spread Entry List Tests
 
     /// Conditions: A cancelled task has an assignment matching an existing spread.
-    /// Expected: The spread's task list excludes the cancelled task.
-    @Test @MainActor func testSpreadEntryListExcludesCancelledTasks() async throws {
+    /// Expected: The spread's task list includes the cancelled task.
+    @Test @MainActor func testSpreadEntryListIncludesCancelledTasks() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
 
@@ -54,12 +54,13 @@ struct CancelledTaskTests {
         let spreadData = manager.dataModel[spread.period]?[normalizedDate]
 
         #expect(spreadData != nil)
-        #expect(spreadData?.tasks.isEmpty == true)
+        #expect(spreadData?.tasks.count == 1)
+        #expect(spreadData?.tasks.first?.id == cancelledTask.id)
     }
 
     /// Conditions: A spread has both open and cancelled tasks with assignments.
-    /// Expected: Only open tasks appear in the spread's task list.
-    @Test @MainActor func testSpreadEntryListIncludesOpenTasksExcludesCancelledTasks() async throws {
+    /// Expected: Both open and cancelled tasks appear in the spread's task list.
+    @Test @MainActor func testSpreadEntryListIncludesOpenAndCancelledTasks() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
 
@@ -102,13 +103,14 @@ struct CancelledTaskTests {
         let normalizedDate = spread.period.normalizeDate(spread.date, calendar: calendar)
         let spreadData = manager.dataModel[spread.period]?[normalizedDate]
 
-        #expect(spreadData?.tasks.count == 1)
-        #expect(spreadData?.tasks.first?.id == openTask.id)
+        #expect(spreadData?.tasks.count == 2)
+        #expect(spreadData?.tasks.contains(where: { $0.id == openTask.id }) == true)
+        #expect(spreadData?.tasks.contains(where: { $0.id == cancelledTask.id }) == true)
     }
 
     /// Conditions: A cancelled task has an assignment to a month spread.
-    /// Expected: The month spread's task list excludes the cancelled task.
-    @Test @MainActor func testMonthSpreadExcludesCancelledTasks() async throws {
+    /// Expected: The month spread's task list includes the cancelled task.
+    @Test @MainActor func testMonthSpreadIncludesCancelledTasks() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
 
@@ -139,12 +141,13 @@ struct CancelledTaskTests {
         let normalizedDate = monthSpread.period.normalizeDate(monthSpread.date, calendar: calendar)
         let spreadData = manager.dataModel[monthSpread.period]?[normalizedDate]
 
-        #expect(spreadData?.tasks.isEmpty == true)
+        #expect(spreadData?.tasks.count == 1)
+        #expect(spreadData?.tasks.first?.id == cancelledTask.id)
     }
 
     /// Conditions: A cancelled task has a preferred date within a multiday spread's range.
-    /// Expected: The multiday spread excludes the cancelled task.
-    @Test @MainActor func testMultidaySpreadExcludesCancelledTasks() async throws {
+    /// Expected: The multiday spread includes the cancelled task.
+    @Test @MainActor func testMultidaySpreadIncludesCancelledTasks() async throws {
         let calendar = Self.testCalendar
         let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 13))!
         let endDate = calendar.date(from: .init(year: 2026, month: 1, day: 19))!
@@ -178,7 +181,8 @@ struct CancelledTaskTests {
 
         let spreadData = manager.dataModel[.multiday]?[multidaySpread.date]
 
-        #expect(spreadData?.tasks.isEmpty == true)
+        #expect(spreadData?.tasks.count == 1)
+        #expect(spreadData?.tasks.first?.id == cancelledTask.id)
     }
 
     // MARK: - Database Retention Tests

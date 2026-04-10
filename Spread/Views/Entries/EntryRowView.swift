@@ -188,11 +188,8 @@ struct EntryRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-                leadingAccessory
-
-                titleArea
-
+            HStack(spacing: 0) {
+                rowMainContent
                 Spacer()
 
                 trailingAccessory
@@ -265,6 +262,24 @@ struct EntryRowView: View {
         }
     }
 
+    private var rowMainContent: some View {
+        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+            leadingAccessory
+            titleArea
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .overlay(alignment: .leading) {
+            if configuration.hasStrikethrough {
+                Rectangle()
+                    .fill(rowColor.opacity(0.9))
+                    .frame(height: 1.2)
+                    .padding(.trailing, -4)
+                    .offset(y: 1)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
     @ViewBuilder
     private var leadingAccessory: some View {
         if let inlineTaskStatus,
@@ -324,8 +339,7 @@ struct EntryRowView: View {
                 )
                 .accessibilityElement(children: .ignore)
 
-                if let inlineActionConfiguration,
-                   !inlineActionConfiguration.migrationOptions.isEmpty {
+                if let inlineActionConfiguration {
                     Menu {
                         ForEach(inlineActionConfiguration.migrationOptions) { option in
                             Button {
@@ -341,6 +355,18 @@ struct EntryRowView: View {
                                     option: option.kind.rawValue
                                 )
                             )
+                        }
+
+                        if !inlineActionConfiguration.migrationOptions.isEmpty {
+                            Divider()
+                        }
+
+                        Button {
+                            Task { @MainActor in
+                                await openEditSheetFromInlineActions()
+                            }
+                        } label: {
+                            Text("Custom...")
                         }
                     } label: {
                         Image(systemName: "arrow.right")
@@ -480,9 +506,7 @@ struct EntryRowView: View {
     // MARK: - Styling
 
     private var rowColor: Color {
-        if configuration.hasStrikethrough {
-            return .secondary
-        } else if configuration.isGreyedOut {
+        if configuration.isGreyedOut || configuration.hasStrikethrough {
             return .secondary
         }
         return .primary

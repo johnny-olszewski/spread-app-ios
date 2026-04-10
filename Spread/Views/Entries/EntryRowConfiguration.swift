@@ -167,6 +167,7 @@ struct EntryRowConfiguration: Sendable {
     ///
     /// Returns `true` for:
     /// - Complete tasks
+    /// - Cancelled tasks
     /// - Migrated tasks
     /// - Migrated notes
     /// - Past events
@@ -174,7 +175,7 @@ struct EntryRowConfiguration: Sendable {
         switch entryType {
         case .task:
             guard let status = taskStatus else { return false }
-            return status == .complete || status == .migrated
+            return status == .complete || status == .migrated || status == .cancelled
         case .note:
             guard let status = noteStatus else { return false }
             return status == .migrated
