@@ -82,41 +82,32 @@ struct EntryListView: View {
 
     // MARK: - Computed Properties
 
-    /// Active (non-migrated) entries combined from the spread data model.
-    private var activeEntries: [any Entry] {
+    /// Entries combined from the spread data model for normal list rendering.
+    private var displayedEntries: [any Entry] {
         if isMultidaySpread {
             var entries: [any Entry] = []
-            entries.append(contentsOf: activeTasks)
+            entries.append(contentsOf: displayedTasks)
             return entries
         }
 
         var entries: [any Entry] = []
-        entries.append(contentsOf: activeTasks)
-        entries.append(contentsOf: activeNotes)
+        entries.append(contentsOf: displayedTasks)
+        entries.append(contentsOf: displayedNotes)
         return entries
     }
 
-    /// Tasks that are not migrated on this spread.
-    private var activeTasks: [DataModel.Task] {
-        spreadDataModel.tasks.filter { task in
-            !isMigratedOnSpread(task)
-        }
+    /// Tasks rendered in the normal list, including cancelled and migrated rows.
+    private var displayedTasks: [DataModel.Task] {
+        spreadDataModel.tasks
     }
 
     /// Notes that are not migrated on this spread.
-    private var activeNotes: [DataModel.Note] {
+    private var displayedNotes: [DataModel.Note] {
         if isMultidaySpread {
             return []
         }
         return spreadDataModel.notes.filter { note in
             !isMigratedOnSpread(note)
-        }
-    }
-
-    /// Tasks migrated from this spread (have a migrated assignment on this spread).
-    private var migratedTasks: [DataModel.Task] {
-        spreadDataModel.tasks.filter { task in
-            isMigratedOnSpread(task)
         }
     }
 
@@ -135,7 +126,7 @@ struct EntryListView: View {
         MigrationDestinationFormatter(calendar: calendar)
     }
 
-    /// Grouped sections for display (active entries only).
+    /// Grouped sections for display.
     private var sections: [EntryListSection] {
         let grouper = EntryListGrouper(
             period: spreadDataModel.spread.period,
@@ -144,7 +135,7 @@ struct EntryListView: View {
             spreadEndDate: spreadDataModel.spread.endDate,
             calendar: calendar
         )
-        return grouper.group(activeEntries)
+        return grouper.group(displayedEntries)
     }
 
     private var isMultidaySpread: Bool {
@@ -155,10 +146,9 @@ struct EntryListView: View {
         MultidaySectionLayout.columnCount(for: horizontalSizeClass)
     }
 
-    /// Whether there are any entries (active or migrated) to display.
+    /// Whether there are any entries or migration affordances to display.
     private var hasAnyEntries: Bool {
-        !activeEntries.isEmpty ||
-        !migratedTasks.isEmpty ||
+        !displayedEntries.isEmpty ||
         !migratedNotes.isEmpty ||
         !(migrationConfiguration?.destinationItems.isEmpty ?? true)
     }
@@ -290,7 +280,7 @@ struct EntryListView: View {
             // Collapsible migrated entries section
             MigratedEntriesSection(
                 spread: spreadDataModel.spread,
-                migratedTasks: migratedTasks,
+                migratedTasks: [],
                 migratedNotes: migratedNotes,
                 calendar: calendar,
                 onEdit: { entry in onEdit?(entry) },
@@ -367,26 +357,42 @@ struct EntryListView: View {
     }
 
     private func taskRow(_ task: DataModel.Task, contextualLabel: String?) -> some View {
+        let isMigratedRow = isMigratedOnSpread(task)
+        let rowStatus: DataModel.Task.Status = isMigratedRow ? .migrated : task.status
         let sourceMigrationDestination = migrationConfiguration?.sourceDestinations[task.id]
         return EntryRowView(
-            task: task,
-            migrationDestination: destinationFormatter.destination(for: task, from: spreadDataModel.spread),
-            contextualLabel: contextualLabel,
-            onComplete: { onComplete?(task) },
-            onMigrate: sourceMigrationDestination.map { destination in
+            configuration: EntryRowConfiguration(
+                entryType: .task,
+                taskStatus: rowStatus,
+                title: task.title,
+                migrationDestination: isMigratedRow
+                    ? destinationFormatter.destination(for: task, from: spreadDataModel.spread)
+                    : nil,
+                contextualLabel: contextualLabel
+            ),
+            iconConfiguration: StatusIconConfiguration(
+                entryType: .task,
+                taskStatus: rowStatus
+            ),
+            onComplete: rowStatus == .open ? { onComplete?(task) } : nil,
+            onMigrate: rowStatus == .open ? sourceMigrationDestination.map { destination in
                 {
                     pendingSourceMigration = PendingSourceMigration(task: task, destination: destination)
                 }
-            },
+            } : nil,
             onEdit: {
                 dismissActiveInlineEditing()
-                onEdit?(task)
+                if isMigratedRow {
+                    onOpenMigratedTask?(task)
+                } else {
+                    onEdit?(task)
+                }
             },
             onDelete: { onDelete?(task) },
             onTitleCommit: { @MainActor newTitle in
                 await onTitleCommit?(task, newTitle)
             },
-            trailingAction: sourceMigrationDestination.map { destination in
+            trailingAction: rowStatus == .open ? sourceMigrationDestination.map { destination in
                 EntryRowTrailingAction(
                     systemImage: "arrow.right",
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.Migration.sourceButton(task.title),
@@ -394,8 +400,8 @@ struct EntryListView: View {
                         pendingSourceMigration = PendingSourceMigration(task: task, destination: destination)
                     }
                 )
-            },
-            inlineActionConfiguration: inlineActionConfiguration(for: task),
+            } : nil,
+            inlineActionConfiguration: rowStatus == .open ? inlineActionConfiguration(for: task) : nil,
             isInlineActive: activeInlineTaskID == task.id,
             onBeginInlineEditing: {
                 activeInlineTaskID = task.id

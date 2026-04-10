@@ -89,6 +89,47 @@ struct StatusIcon: View {
                 .scaleEffect(configuration.overlayScale)
                 .fontWeight(.bold)
                 .foregroundStyle(color)
+                .frame(
+                    width: overlayFrameWidth,
+                    alignment: .leading
+                )
+                .offset(configuration.overlayOffset)
+        }
+    }
+
+    private var overlayFrameWidth: CGFloat? {
+        let leading = configuration.overlayLeadingExtension
+        let trailing = configuration.overlayTrailingExtension
+        guard leading > 0 || trailing > 0 else { return nil }
+        return iconPointSize + leading + trailing
+    }
+
+    private var iconPointSize: CGFloat {
+        switch configuration.size {
+        case .largeTitle:
+            return 34
+        case .title:
+            return 28
+        case .title2:
+            return 22
+        case .title3:
+            return 20
+        case .headline:
+            return 17
+        case .subheadline:
+            return 15
+        case .body:
+            return 17
+        case .callout:
+            return 16
+        case .footnote:
+            return 13
+        case .caption:
+            return 12
+        case .caption2:
+            return 11
+        @unknown default:
+            return 12
         }
     }
 }

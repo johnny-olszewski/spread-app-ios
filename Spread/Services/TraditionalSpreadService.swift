@@ -44,7 +44,7 @@ struct TraditionalSpreadService {
 
         // Filter tasks by preferred date/period
         let matchingTasks = tasks.filter { task in
-            task.status != .cancelled && taskBelongsOnSpread(task, period: period, normalizedDate: normalizedDate)
+            taskBelongsOnSpread(task, period: period, normalizedDate: normalizedDate)
         }
 
         // Filter notes by preferred date/period
@@ -201,7 +201,7 @@ struct TraditionalSpreadService {
     ) -> [Date] {
         var years: Set<Date> = []
 
-        for task in tasks where task.status != .cancelled {
+        for task in tasks {
             let yearDate = Period.year.normalizeDate(task.date, calendar: calendar)
             years.insert(yearDate)
         }
@@ -237,7 +237,7 @@ struct TraditionalSpreadService {
 
         let year = calendar.component(.year, from: yearDate)
 
-        for task in tasks where task.status != .cancelled {
+        for task in tasks {
             let taskYear = calendar.component(.year, from: task.date)
             if taskYear == year {
                 let monthDate = Period.month.normalizeDate(task.date, calendar: calendar)
@@ -283,7 +283,7 @@ struct TraditionalSpreadService {
         let year = calendar.component(.year, from: monthDate)
         let month = calendar.component(.month, from: monthDate)
 
-        for task in tasks where task.status != .cancelled {
+        for task in tasks {
             if task.period == .day {
                 let taskYear = calendar.component(.year, from: task.date)
                 let taskMonth = calendar.component(.month, from: task.date)

@@ -100,6 +100,46 @@ struct StatusIconConfiguration: Sendable {
     /// The overlay is rendered larger than the base circle so status marks
     /// (xmark, arrow, slash) remain clearly visible at small icon sizes.
     var overlayScale: CGFloat {
-        0.65
+        switch entryType {
+        case .task where taskStatus == .migrated:
+            return 2.0
+        case .note where noteStatus == .migrated:
+            return 1.0
+        default:
+            return 0.65
+        }
+    }
+
+    var overlayOffset: CGSize {
+        switch entryType {
+        case .task where taskStatus == .migrated:
+            return CGSize(width: 4, height: 0)
+        case .note where noteStatus == .migrated:
+            return CGSize(width: 4, height: 0)
+        default:
+            return .zero
+        }
+    }
+
+    var overlayLeadingExtension: CGFloat {
+        switch entryType {
+        case .task where taskStatus == .migrated:
+            return 4
+        case .note where noteStatus == .migrated:
+            return 4
+        default:
+            return 0
+        }
+    }
+
+    var overlayTrailingExtension: CGFloat {
+        switch entryType {
+        case .task where taskStatus == .migrated:
+            return 8
+        case .note where noteStatus == .migrated:
+            return 8
+        default:
+            return 0
+        }
     }
 }
