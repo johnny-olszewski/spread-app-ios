@@ -446,6 +446,16 @@
 - The inline migration UI lists only tasks, never notes.
 - A task may be both overdue on its current spread and eligible for conventional inline migration into a finer spread at the same time.
 - On a source spread, tapping a task in the disabled `Migrated tasks` subsection first navigates to that task's most granular current open destination spread and then immediately opens the task edit sheet there. If no valid destination spread can be resolved, it falls back to opening the edit sheet on the current spread. [SPRD-146]
+- Inline task-row state presentation and reassignment: [SPRD-150]
+  - The inline reassignment menu shown from task rows ends with a `Custom...` option.
+  - Selecting `Custom...` exits inline editing and opens the full task edit sheet.
+  - Cancelled and migrated tasks remain visible in normal task lists everywhere task rows render, including multiday day sections.
+  - Existing list ordering is preserved; cancelled and migrated rows remain in-place rather than being regrouped.
+  - Cancelled and migrated rows are visually greyed out and do not use inline row editing.
+  - Cancelled task rows use a continuous strike line that visually runs from the status icon through the title text.
+  - Migrated task rows use a task-sized dot overlaid with a right arrow that extends beyond the dot bounds.
+  - Tapping a cancelled row opens the task edit sheet.
+  - Tapping a migrated row follows the migrated-task navigation rule to the task's current spread before opening edit. [SPRD-146]
 - Spread overdue badges: [SPRD-147]
   - Overdue spread signaling moves from a global toolbar button/sheet into per-spread badges in the spread title navigator.
   - Each spread item can show a top-right overdue count badge.

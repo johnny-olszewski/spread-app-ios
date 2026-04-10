@@ -3440,6 +3440,32 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying the `Today` label placement, uncreated visual treatment, footer button visibility, existing-day navigation, create-then-navigate flow, multiday overdue badges, and updated conventional bottom controls/header formatting.
 - **Dependencies**: SPRD-124, SPRD-125, SPRD-126
 
+### [SPRD-150] UI: show cancelled and migrated task rows inline with terminal-state styling - [ ]
+- **Context**: Task rows currently emphasize active editing and migration shortcuts, but cancelled tasks are filtered away and migrated tasks only appear in special source-history surfaces. The row-level reassignment affordance also has no direct path into the full edit sheet when the user needs a non-shortcut destination.
+- **Description**: Extend `EntryRowView` and the task-list query/presentation pipeline so cancelled and migrated tasks remain visible in normal task lists with distinct terminal-state styling, while the inline reassignment menu gains a final `Custom...` route into the full task editor.
+- **Implementation Details**:
+  - Add a final `Custom...` item to the inline reassignment menu in `EntryRowView`.
+  - Selecting `Custom...` should end inline editing and open the task edit sheet for that row.
+  - Include cancelled and migrated task rows anywhere task rows are normally rendered, including multiday day sections.
+  - Preserve the existing task ordering logic instead of regrouping terminal states.
+  - Keep cancelled and migrated rows greyed out and non-inline-editable.
+  - Render cancelled task rows with a continuous strike line that visually runs from the status icon through the title.
+  - Render migrated task rows with a normal task-sized dot plus a right-arrow overlay that extends beyond the dot bounds.
+  - Tapping a cancelled row should open the task edit sheet.
+  - Tapping a migrated row should use the existing migrated-task navigation path to the current destination spread before opening edit.
+- **Acceptance Criteria**:
+  - The inline reassignment menu ends with `Custom...`, and selecting it opens the full task edit sheet. (Spec: Conventional-mode inline migration UI)
+  - Cancelled and migrated tasks remain visible in standard task lists and multiday day sections. (Spec: Conventional-mode inline migration UI)
+  - Existing row ordering is preserved while including cancelled and migrated rows. (Spec: Conventional-mode inline migration UI)
+  - Cancelled task rows are greyed out and show a continuous strike line from icon through title. (Spec: Conventional-mode inline migration UI)
+  - Migrated task rows are greyed out and show the dot-plus-arrow migrated symbol. (Spec: Conventional-mode inline migration UI)
+  - Cancelled rows open the edit sheet on tap, and migrated rows navigate to the current spread before editing. (Spec: Conventional-mode inline migration UI)
+- **Tests**:
+  - Unit tests covering row presentation config for cancelled and migrated task states.
+  - Unit tests covering inline reassignment menu options including the `Custom...` fallback.
+  - UI tests verifying cancelled and migrated rows remain visible, cancelled strike styling is discoverable, migrated rows follow destination navigation, and `Custom...` opens the edit sheet.
+- **Dependencies**: SPRD-140, SPRD-142, SPRD-146
+
 ### [SPRD-134] UI: toolbar and spread view button layout changes
 - **Context**: Several button/indicator changes are grouped here: remove the sync status toolbar icon and content-area banner entirely (sync feedback deferred to pull-to-refresh in SPRD-135); move the `Today` button from the navigation bar to a `.glassEffect` overlay in the bottom-leading corner of the spread content view; and split the trailing toolbar buttons into two distinct groups — overdue + inbox in one group, auth (profile) button in a separate group with a gap between them.
 - **Spec**: Inbox (Today button), Auth UI (toolbar grouping), Sync & Data (sync status)
