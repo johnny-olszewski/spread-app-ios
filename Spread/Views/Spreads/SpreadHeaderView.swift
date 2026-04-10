@@ -24,6 +24,7 @@ struct SpreadHeaderView: View {
     var onNavigatorSelect: ((SpreadHeaderNavigatorModel.Selection) -> Void)? = nil
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var centeredTitleWidth: CGFloat = 0
 
     // MARK: - Body
 
@@ -63,10 +64,11 @@ struct SpreadHeaderView: View {
                     Spacer(minLength: 0)
                 }
 
-                titleLabel(withChevron: true)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
+                centeredTitleStack
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton)
+
+                chevronLabel
+                    .offset(x: centeredTitleWidth / 2 + 10)
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal)
@@ -76,7 +78,7 @@ struct SpreadHeaderView: View {
     }
 
     private var titleLabel: some View {
-        titleLabel(withChevron: false)
+        centeredTitleStack
     }
 
     private var entryCountLabel: some View {
@@ -87,22 +89,50 @@ struct SpreadHeaderView: View {
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.entryCounts)
     }
 
-    private func titleLabel(withChevron: Bool) -> some View {
+    private var centeredTitleStack: some View {
         VStack(spacing: 2) {
-            HStack(spacing: 6) {
-                Text(configuration.title)
-                    .font(SpreadTheme.Typography.title2)
-                if withChevron {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
-            }
             Text(configuration.spread.period.displayName)
                 .font(.caption.smallCaps())
                 .foregroundStyle(.secondary)
+
+            Text(configuration.title)
+                .font(SpreadTheme.Typography.title2)
+
+            subtitleLabel
         }
-        .frame(maxWidth: .infinity)
+        .fixedSize()
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        centeredTitleWidth = proxy.size.width
+                    }
+                    .onChange(of: proxy.size.width) { _, newWidth in
+                        centeredTitleWidth = newWidth
+                    }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var subtitleLabel: some View {
+        if let subtitle = configuration.subtitle {
+            Text(subtitle)
+                .font(.footnote.smallCaps())
+                .foregroundStyle(.secondary)
+        } else {
+            Text(" ")
+                .font(.footnote.smallCaps())
+                .hidden()
+        }
+    }
+
+    private var chevronLabel: some View {
+        Image(systemName: "chevron.down")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .padding(.leading, 8)
+            .padding(.vertical, 4)
     }
 }
 

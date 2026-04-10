@@ -69,9 +69,9 @@ struct SpreadHeaderConfiguration {
     ///
     /// Format varies by period:
     /// - Year: "2026"
-    /// - Month: "January 2026"
+    /// - Month: "January"
     /// - Day: "January 5, 2026"
-    /// - Multiday: "Jan 6 - Jan 12, 2026" or "Dec 28, 2025 - Jan 3, 2026"
+    /// - Multiday: "6 Jan - 12 Jan"
     var title: String {
         switch spread.period {
         case .year:
@@ -82,6 +82,19 @@ struct SpreadHeaderConfiguration {
             return formatDayTitle()
         case .multiday:
             return formatMultidayTitle()
+        }
+    }
+
+    var subtitle: String? {
+        switch spread.period {
+        case .year:
+            return nil
+        case .month:
+            return formatMonthSubtitle()
+        case .day:
+            return formatDaySubtitle()
+        case .multiday:
+            return formatMultidaySubtitle()
         }
     }
 
@@ -127,7 +140,7 @@ struct SpreadHeaderConfiguration {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "MMMM yyyy"
+        formatter.dateFormat = "MMMM"
         return formatter.string(from: spread.date)
     }
 
@@ -144,30 +157,41 @@ struct SpreadHeaderConfiguration {
             return "Multiday"
         }
 
-        let startYear = calendar.component(.year, from: startDate)
-        let endYear = calendar.component(.year, from: endDate)
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "d MMM"
 
-        if startYear == endYear {
-            // Same year: "Jan 6 - Jan 12, 2026"
-            let startFormatter = DateFormatter()
-            startFormatter.calendar = calendar
-            startFormatter.timeZone = calendar.timeZone
-            startFormatter.dateFormat = "MMM d"
+        return "\(formatter.string(from: startDate)) - \(formatter.string(from: endDate))"
+    }
 
-            let endFormatter = DateFormatter()
-            endFormatter.calendar = calendar
-            endFormatter.timeZone = calendar.timeZone
-            endFormatter.dateFormat = "MMM d, yyyy"
+    private func formatMonthSubtitle() -> String {
+        String(calendar.component(.year, from: spread.date))
+    }
 
-            return "\(startFormatter.string(from: startDate)) - \(endFormatter.string(from: endDate))"
-        } else {
-            // Different years: "Dec 28, 2025 - Jan 3, 2026"
-            let formatter = DateFormatter()
-            formatter.calendar = calendar
-            formatter.timeZone = calendar.timeZone
-            formatter.dateFormat = "MMM d, yyyy"
+    private func formatDaySubtitle() -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "EEEE"
+        return formatter.string(from: spread.date)
+    }
 
-            return "\(formatter.string(from: startDate)) - \(formatter.string(from: endDate))"
+    private func formatMultidaySubtitle() -> String {
+        guard let startDate = spread.startDate, let endDate = spread.endDate else {
+            return ""
         }
+
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "EEEE"
+
+        let startWeekday = formatter.string(from: startDate)
+        let endWeekday = formatter.string(from: endDate)
+        if startWeekday == endWeekday {
+            return startWeekday
+        }
+        return "\(startWeekday) - \(endWeekday)"
     }
 }
