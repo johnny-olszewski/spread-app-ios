@@ -3507,6 +3507,68 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying conventional and traditional month inclusion differences remain correct after consolidation.
 - **Dependencies**: SPRD-143, SPRD-148, SPRD-149, SPRD-150
 
+### [SPRD-152] Infrastructure: create johnnyo-foundation local package
+- **Context**: Shared UI primitives and utilities are starting to outgrow the app target. The repository needs a real local Swift Package boundary that can evolve into a publishable GitHub package later, beginning with calendar-related components while keeping app-specific content generation in the app target.
+- **Spec**: Project Summary; Shared Foundations Package
+- **Acceptance Criteria**:
+  - A real local Swift Package named `johnnyo-foundation` is added to the repository and integrated into the Xcode project/package graph.
+  - The package starts with separate targets for UI and non-UI/core code.
+  - The app imports only the package UI target for the initial calendar use case.
+  - The package includes package-local tests.
+  - The package includes publishable package-local documentation, including a `README.md` and a package-local `spec.md`.
+  - The package includes minimal package-local examples or previews demonstrating the public month-calendar API shape.
+  - Package boundaries prevent app-specific `Spread` code from leaking into the package targets.
+- **Implementation Details**:
+  - Create a package manifest and folder structure suitable for later GitHub publication.
+  - Define initial target layout, for example:
+    - `JohnnyOFoundationCore`
+    - `JohnnyOFoundationUI`
+  - Keep package-internal API documentation close to the package sources rather than overloading the app product spec.
+  - Ensure the app target links/imports the package through the local package integration path rather than source-file duplication.
+- **Tests**:
+  - Package-unit tests covering initial exported types/buildability.
+  - Verification that package-local documentation files (`README.md`, package-local `spec.md`) are present.
+  - A build verification that the app target resolves the local package successfully.
+- **Dependencies**: SPRD-151
+
+### [SPRD-153] Feature: shared month calendar shell in johnnyo-foundation and month-spread embedding
+- **Context**: Month spreads need a reusable calendar component that can be shared across conventional and traditional month surfaces without replacing the month spread itself. The month spread should embed a generic package-owned month calendar shell above the existing entry list, with `Spread` supplying content generation and keeping this first integration view-only.
+- **Spec**: Shared Foundations Package; Shared Month Calendar Component; Shared Spread Surface Architecture
+- **Acceptance Criteria**:
+  - `johnnyo-foundation` exposes a reusable month calendar shell component.
+  - The month shell is driven by:
+    - a displayed month `Date`
+    - an injected `Calendar`
+    - explicit configuration including peripheral-date behavior
+  - The month shell owns:
+    - header placement
+    - weekday header row placement
+    - date-grid generation
+    - first-weekday and locale-aware weekday ordering
+    - leading/trailing peripheral-date generation when enabled
+  - The month shell renders the minimum number of week rows needed for the displayed month/peripheral-date policy.
+  - Grid cells abut with no built-in spacing by default.
+  - The month shell uses an injected `CalendarContentGenerator` protocol for semantic slots including:
+    - month header
+    - weekday column headers
+    - date cells
+    - additional shell-defined decoration slots as needed
+  - Date-cell callbacks receive rich context models rather than raw `Date` values alone.
+  - The month shell accepts an optional injected delegate protocol covering shell-generated interaction points.
+  - The initial `Spread` month integration is view-only and does not change month-list filtering or selection behavior yet.
+  - Both conventional and traditional month spreads embed the same package month calendar component above the entry list.
+- **Implementation Details**:
+  - Define public month-shell configuration and context-model types in the package.
+  - Keep shell structure/calendar math in the package; keep `Spread`-specific content generator and any view-only adapter code in the app target.
+  - Do not add built-in previous/next month controls to the package shell in this first version; let header content be generator-driven.
+  - Replace existing app-local traditional month-grid implementation with the package calendar embedding where appropriate.
+- **Tests**:
+  - Package-unit tests covering month-grid generation, first-weekday handling, peripheral-date inclusion/exclusion, and minimum-row behavior.
+  - Package tests covering content-generator slot invocation and rich cell-context derivation.
+  - App-level tests verifying both conventional and traditional month spreads render the embedded package calendar above the entry list.
+  - App-level tests verifying the first `Spread` integration is view-only and does not alter existing month entry-list filtering semantics.
+- **Dependencies**: SPRD-152
+
 ### [SPRD-134] UI: toolbar and spread view button layout changes
 - **Context**: Several button/indicator changes are grouped here: remove the sync status toolbar icon and content-area banner entirely (sync feedback deferred to pull-to-refresh in SPRD-135); move the `Today` button from the navigation bar to a `.glassEffect` overlay in the bottom-leading corner of the spread content view; and split the trailing toolbar buttons into two distinct groups — overdue + inbox in one group, auth (profile) button in a separate group with a gap between them.
 - **Spec**: Inbox (Today button), Auth UI (toolbar grouping), Sync & Data (sync status)
