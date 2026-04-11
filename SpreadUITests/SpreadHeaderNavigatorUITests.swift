@@ -15,7 +15,12 @@ final class SpreadHeaderNavigatorUITests: LocalhostScenarioUITestCase {
         openMonth(year: 2026, month: 3, in: app)
         openHeaderNavigator(in: app)
 
-        waitForNavigatorYearPage(2026, in: app)
+        let popover = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.popover
+        )
+        waitForElement(popover)
+        expandNavigatorMonthIfNeeded(year: 2026, month: 3, in: app)
         waitForElement(
             anyElement(
                 in: app,
@@ -29,10 +34,10 @@ final class SpreadHeaderNavigatorUITests: LocalhostScenarioUITestCase {
 
         openMonth(year: 2026, month: 3, in: app)
         openHeaderNavigator(in: app)
+        expandNavigatorMonthIfNeeded(year: 2026, month: 3, in: app)
 
         XCTAssertTrue(app.navigationBars.staticTexts["2026"].firstMatch.waitForExistence(timeout: 2))
         swipeNavigatorToNextYear(in: app)
-        waitForNavigatorYearPage(2027, in: app)
         XCTAssertTrue(app.navigationBars.staticTexts["2027"].firstMatch.waitForExistence(timeout: 2))
     }
 

@@ -7,7 +7,7 @@
 
 import XCTest
 
-final class SpreadUITests: XCTestCase {
+final class SpreadUITests: LocalhostScenarioUITestCase {
 
     private func launchApp(mockDataSet: String, today: String = "2026-01-15") -> XCUIApplication {
         XCUIDevice.shared.orientation = .portrait
@@ -18,22 +18,15 @@ final class SpreadUITests: XCTestCase {
             "-Today", today
         ]
         app.launch()
+        tapTab("Spreads", in: app)
         return app
     }
 
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
-        continueAfterFailure = false
-
-        XCUIDevice.shared.orientation = .portrait
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+    private func headerTitleElement(in app: XCUIApplication) -> XCUIElement {
+        anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton
+        )
     }
 
     /// Conditions: Launch the app from a UI test.
@@ -53,13 +46,7 @@ final class SpreadUITests: XCTestCase {
     func testCreateYearSpreadFromEmptyState() throws {
         let app = launchApp(mockDataSet: "empty", today: "2026-01-01")
 
-        let createButton = app.buttons[Definitions.AccessibilityIdentifiers.CreateMenu.button]
-        XCTAssertTrue(createButton.waitForExistence(timeout: 5))
-        createButton.tap()
-
-        let createSpreadMenuItem = app.buttons[Definitions.AccessibilityIdentifiers.CreateMenu.createSpread]
-        XCTAssertTrue(createSpreadMenuItem.waitForExistence(timeout: 5))
-        createSpreadMenuItem.tap()
+        openCreateSpread(in: app)
 
         let yearSegment = app.buttons[
             Definitions.AccessibilityIdentifiers.SpreadCreationSheet.periodSegment("year")
@@ -73,16 +60,12 @@ final class SpreadUITests: XCTestCase {
         XCTAssertTrue(createSpreadButton.waitForExistence(timeout: 5))
         createSpreadButton.tap()
 
-        let yearTab = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearIdentifier(2026)
-        ]
-        XCTAssertTrue(yearTab.waitForExistence(timeout: 5))
+        let yearStripItem = anyElement(in: app, identifier: "spreads.strip.year.2026")
+        XCTAssertTrue(yearStripItem.waitForExistence(timeout: 5))
 
-        let contentTitle = app.staticTexts[
-            Definitions.AccessibilityIdentifiers.SpreadContent.title
-        ]
-        XCTAssertTrue(contentTitle.waitForExistence(timeout: 5))
-        XCTAssertEqual(contentTitle.label, "2026")
+        let headerTitle = headerTitleElement(in: app)
+        XCTAssertTrue(headerTitle.waitForExistence(timeout: 5))
+        XCTAssertTrue(headerTitle.label.contains("2026"))
     }
 
     /// Conditions: Boundary data set with multiple years (2026/2027).
@@ -91,22 +74,11 @@ final class SpreadUITests: XCTestCase {
     func testYearMenuSelectionUpdatesYearTab() throws {
         let app = launchApp(mockDataSet: "boundary")
 
-        let yearTab = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearIdentifier(2026)
-        ]
-        XCTAssertTrue(yearTab.waitForExistence(timeout: 5))
-        yearTab.tap()
+        openYear(2027, in: app)
 
-        let yearMenuItem = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearMenuItem(2027)
-        ]
-        XCTAssertTrue(yearMenuItem.waitForExistence(timeout: 5))
-        yearMenuItem.tap()
-
-        let updatedYearTab = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearIdentifier(2027)
-        ]
-        XCTAssertTrue(updatedYearTab.waitForExistence(timeout: 5))
+        let headerTitle = headerTitleElement(in: app)
+        XCTAssertTrue(headerTitle.waitForExistence(timeout: 5))
+        XCTAssertTrue(headerTitle.label.contains("2027"))
     }
 
     /// Conditions: Boundary data set with current and next month in 2026.
@@ -115,22 +87,11 @@ final class SpreadUITests: XCTestCase {
     func testMonthMenuSelectionUpdatesMonthTab() throws {
         let app = launchApp(mockDataSet: "boundary")
 
-        let monthTab = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.monthIdentifier(year: 2026, month: 1)
-        ]
-        XCTAssertTrue(monthTab.waitForExistence(timeout: 5))
-        monthTab.tap()
+        openMonth(year: 2026, month: 2, in: app)
 
-        let monthMenuItem = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.monthMenuItem(year: 2026, month: 2)
-        ]
-        XCTAssertTrue(monthMenuItem.waitForExistence(timeout: 5))
-        monthMenuItem.tap()
-
-        let updatedMonthTab = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.monthIdentifier(year: 2026, month: 2)
-        ]
-        XCTAssertTrue(updatedMonthTab.waitForExistence(timeout: 5))
+        let headerTitle = headerTitleElement(in: app)
+        XCTAssertTrue(headerTitle.waitForExistence(timeout: 5))
+        XCTAssertTrue(headerTitle.label.contains("February"))
     }
 
     /// Conditions: Open the spread creation sheet.
@@ -139,13 +100,7 @@ final class SpreadUITests: XCTestCase {
     func testMultidaySelectionShowsPresetAndRangePickers() throws {
         let app = launchApp(mockDataSet: "empty")
 
-        let createButton = app.buttons[Definitions.AccessibilityIdentifiers.CreateMenu.button]
-        XCTAssertTrue(createButton.waitForExistence(timeout: 5))
-        createButton.tap()
-
-        let createSpreadMenuItem = app.buttons[Definitions.AccessibilityIdentifiers.CreateMenu.createSpread]
-        XCTAssertTrue(createSpreadMenuItem.waitForExistence(timeout: 5))
-        createSpreadMenuItem.tap()
+        openCreateSpread(in: app)
 
         let multidaySegment = app.buttons[
             Definitions.AccessibilityIdentifiers.SpreadCreationSheet.periodSegment("multiday")
@@ -185,13 +140,7 @@ final class SpreadUITests: XCTestCase {
     func testCancelDismissesCreateSheet() throws {
         let app = launchApp(mockDataSet: "empty")
 
-        let createButton = app.buttons[Definitions.AccessibilityIdentifiers.CreateMenu.button]
-        XCTAssertTrue(createButton.waitForExistence(timeout: 5))
-        createButton.tap()
-
-        let createSpreadMenuItem = app.buttons[Definitions.AccessibilityIdentifiers.CreateMenu.createSpread]
-        XCTAssertTrue(createSpreadMenuItem.waitForExistence(timeout: 5))
-        createSpreadMenuItem.tap()
+        openCreateSpread(in: app)
 
         let cancelButton = app.buttons[
             Definitions.AccessibilityIdentifiers.SpreadCreationSheet.cancelButton
@@ -224,11 +173,9 @@ final class SpreadUITests: XCTestCase {
         let app = launchApp(mockDataSet: "baseline", today: "2026-01-15")
 
         // The day spread should be selected by default (smallest period containing today)
-        let contentTitle = app.staticTexts[
-            Definitions.AccessibilityIdentifiers.SpreadContent.title
-        ]
-        XCTAssertTrue(contentTitle.waitForExistence(timeout: 5))
-        XCTAssertEqual(contentTitle.label, "January 15, 2026")
+        let headerTitle = headerTitleElement(in: app)
+        XCTAssertTrue(headerTitle.waitForExistence(timeout: 5))
+        XCTAssertTrue(headerTitle.label.contains("January 15, 2026"))
 
         // Entry counts should be displayed
         let entryCounts = app.staticTexts[
@@ -246,24 +193,12 @@ final class SpreadUITests: XCTestCase {
         let app = launchApp(mockDataSet: "baseline", today: "2026-01-15")
 
         // Open month menu and select the current month
-        let monthTab = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.monthIdentifier(year: 2026, month: 1)
-        ]
-        XCTAssertTrue(monthTab.waitForExistence(timeout: 5))
-        monthTab.tap()
+        openMonth(year: 2026, month: 1, in: app)
 
-        let monthMenuItem = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.monthMenuItem(year: 2026, month: 1)
-        ]
-        XCTAssertTrue(monthMenuItem.waitForExistence(timeout: 5))
-        monthMenuItem.tap()
-
-        // Header should show month/year format
-        let contentTitle = app.staticTexts[
-            Definitions.AccessibilityIdentifiers.SpreadContent.title
-        ]
-        XCTAssertTrue(contentTitle.waitForExistence(timeout: 5))
-        XCTAssertEqual(contentTitle.label, "January 2026")
+        let headerTitle = headerTitleElement(in: app)
+        XCTAssertTrue(headerTitle.waitForExistence(timeout: 5))
+        XCTAssertTrue(headerTitle.label.contains("January"))
+        XCTAssertTrue(headerTitle.label.contains("2026"))
     }
 
     /// Conditions: Baseline data set, select year spread.
@@ -273,24 +208,11 @@ final class SpreadUITests: XCTestCase {
         let app = launchApp(mockDataSet: "baseline", today: "2026-01-15")
 
         // Open year menu and select the current year
-        let yearTab = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearIdentifier(2026)
-        ]
-        XCTAssertTrue(yearTab.waitForExistence(timeout: 5))
-        yearTab.tap()
+        openYear(2026, in: app)
 
-        let yearMenuItem = app.buttons[
-            Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.yearMenuItem(2026)
-        ]
-        XCTAssertTrue(yearMenuItem.waitForExistence(timeout: 5))
-        yearMenuItem.tap()
-
-        // Header should show just the year
-        let contentTitle = app.staticTexts[
-            Definitions.AccessibilityIdentifiers.SpreadContent.title
-        ]
-        XCTAssertTrue(contentTitle.waitForExistence(timeout: 5))
-        XCTAssertEqual(contentTitle.label, "2026")
+        let headerTitle = headerTitleElement(in: app)
+        XCTAssertTrue(headerTitle.waitForExistence(timeout: 5))
+        XCTAssertTrue(headerTitle.label.contains("2026"))
     }
 
     /// Conditions: Multiday data set with multiday spread.
@@ -307,12 +229,9 @@ final class SpreadUITests: XCTestCase {
             multidayTab.tap()
 
             // Header should show date range format
-            let contentTitle = app.staticTexts[
-                Definitions.AccessibilityIdentifiers.SpreadContent.title
-            ]
-            XCTAssertTrue(contentTitle.waitForExistence(timeout: 5))
-            // Should contain a dash indicating a range
-            XCTAssertTrue(contentTitle.label.contains(" - "))
+            let headerTitle = headerTitleElement(in: app)
+            XCTAssertTrue(headerTitle.waitForExistence(timeout: 5))
+            XCTAssertTrue(headerTitle.label.contains(" - "))
         }
     }
 

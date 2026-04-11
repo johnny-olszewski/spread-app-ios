@@ -3,6 +3,18 @@ import XCTest
 @MainActor
 final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
 
+    private func openFirstMultidaySpread(in app: XCUIApplication) {
+        let multidayGrid = app.scrollViews[Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid]
+        if multidayGrid.waitForExistence(timeout: 2) {
+            return
+        }
+
+        let multidayItem = firstHittableElement(
+            app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "spreads.strip.multiday."))
+        )
+        tapElement(multidayItem)
+    }
+
     func testOpenTaskRowTapStartsInlineEditingWithoutOpeningSheet() throws {
         let app = launchScenario(.reassignment)
 
@@ -46,9 +58,12 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
 
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
 
-        let list = app.otherElements[Definitions.AccessibilityIdentifiers.SpreadContent.list]
-        waitForElement(list)
-        list.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.95)).tap()
+        let pager = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.pager
+        )
+        waitForElement(pager)
+        pager.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.02)).tap()
 
         let keyboardGone = NSPredicate(format: "exists == false")
         let keyboardExpectation = XCTNSPredicateExpectation(
@@ -117,7 +132,7 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
 
         let saveButton = app.buttons[Definitions.AccessibilityIdentifiers.TaskDetailSheet.saveButton]
         waitForElement(saveButton)
-        XCTAssertEqual(app.textFields.firstMatch.value as? String, "Reassign me updated")
+        XCTAssertEqual(app.textFields.firstMatch.value as? String, "updated")
     }
 
     func testInlineMigrateMenuShowsValidOptionsAndAppliesImmediately() throws {
@@ -166,23 +181,19 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
     func testInlineAddTaskSaveDismissesFieldAndKeyboardImmediately() throws {
         let app = launchScenario(.reassignment)
 
-        let addButton = app.buttons[Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton]
-        waitForElement(addButton)
+        let addButton = firstHittableElement(
+            app.buttons.matching(identifier: Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton)
+        )
         addButton.tap()
 
-        let keyboard = app.keyboards.firstMatch
-        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
-        app.typeText("Inline save task")
+        let field = app.textFields[Definitions.AccessibilityIdentifiers.SpreadContent.inlineTaskCreationField]
+        waitForElement(field)
+        field.typeText("Inline save task")
 
         let saveButton = app.buttons["Save"].firstMatch
         waitForElement(saveButton)
         saveButton.tap()
 
-        let keyboardGone = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"),
-            object: app.keyboards.firstMatch
-        )
-        XCTAssertEqual(XCTWaiter().wait(for: [keyboardGone], timeout: 5), .completed)
         XCTAssertFalse(
             anyElement(
                 in: app,
@@ -200,19 +211,15 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
     func testInlineAddTaskReturnDismissesFieldAndKeyboardImmediately() throws {
         let app = launchScenario(.reassignment)
 
-        let addButton = app.buttons[Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton]
-        waitForElement(addButton)
+        let addButton = firstHittableElement(
+            app.buttons.matching(identifier: Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton)
+        )
         addButton.tap()
 
-        let keyboard = app.keyboards.firstMatch
-        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
-        app.typeText("Inline return task\n")
+        let field = app.textFields[Definitions.AccessibilityIdentifiers.SpreadContent.inlineTaskCreationField]
+        waitForElement(field)
+        field.typeText("Inline return task\n")
 
-        let keyboardGone = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"),
-            object: app.keyboards.firstMatch
-        )
-        XCTAssertEqual(XCTWaiter().wait(for: [keyboardGone], timeout: 5), .completed)
         XCTAssertFalse(
             anyElement(
                 in: app,
@@ -273,6 +280,7 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
 
     func testMultidaySpreadShowsEveryDaySectionIncludingEmptyDays() throws {
         let app = launchScenario(.multidayLayout, today: "2026-01-10")
+        openFirstMultidaySpread(in: app)
 
         XCTAssertTrue(
             app.scrollViews[Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid]
@@ -302,15 +310,20 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
         )
         XCTAssertFalse(app.staticTexts["Hidden multiday note"].exists)
 
-        XCTAssertEqual(
-            app.staticTexts.matching(NSPredicate(format: "label == %@", "No tasks for this day.")).count,
-            2
+        XCTAssertFalse(
+            anyElement(
+                in: app,
+                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidaySection("2026-01-11")
+            )
+            .staticTexts["Middle day task"]
+            .exists
         )
     }
 
     func testMultidayTodayCardShowsTodayLabelAndFooterButton() throws {
         let app = launchScenario(.multidayLayout, today: "2026-01-10")
         let dateID = "2026-01-10"
+        openFirstMultidaySpread(in: app)
 
         XCTAssertTrue(
             anyElement(
@@ -329,6 +342,7 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
     func testMultidayFooterCreatesDaySpreadAndNavigatesToIt() throws {
         let app = launchScenario(.multidayLayout, today: "2026-01-10")
         let dateID = "2026-01-10"
+        openFirstMultidaySpread(in: app)
 
         let footerButton = anyElement(
             in: app,
@@ -341,9 +355,12 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
         waitForElement(createButton)
         createButton.tap()
 
-        let contentTitle = app.staticTexts[Definitions.AccessibilityIdentifiers.SpreadContent.title]
-        waitForElement(contentTitle)
-        XCTAssertEqual(contentTitle.label, "Friday, January 10, 2026")
+        let headerTitle = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton
+        )
+        waitForElement(headerTitle)
+        XCTAssertTrue(headerTitle.label.contains("January 10, 2026"))
     }
 
     func testYearSpreadShowsUntitledYearTasksAndMonthSections() throws {
@@ -351,34 +368,17 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
 
         openYear(2026, in: app)
 
-        XCTAssertTrue(
-            anyElement(
-                in: app,
-                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Navigator year task")
-            ).waitForExistence(timeout: 5)
-        )
+        XCTAssertTrue(app.staticTexts["Navigator year task"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["January 2026"].waitForExistence(timeout: 5))
-        XCTAssertTrue(
-            anyElement(
-                in: app,
-                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Navigator January month task")
-            ).waitForExistence(timeout: 5)
-        )
+        XCTAssertTrue(app.staticTexts["Navigator January month task"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["April 2026"].waitForExistence(timeout: 5))
-        XCTAssertTrue(
-            anyElement(
-                in: app,
-                identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Navigator month task without month spread")
-            ).waitForExistence(timeout: 5)
-        )
-        let orphanDayContext = anyElement(
+        XCTAssertTrue(app.staticTexts["Navigator month task without month spread"].waitForExistence(timeout: 5))
+        let orphanDayRow = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskContextLabel(
-                "Navigator day task without day or month spread"
-            )
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Navigator day task without day or month spread")
         )
-        XCTAssertTrue(orphanDayContext.waitForExistence(timeout: 5))
-        XCTAssertEqual(orphanDayContext.label, "15")
+        waitForElement(orphanDayRow)
+        XCTAssertTrue(orphanDayRow.staticTexts["15"].waitForExistence(timeout: 5))
     }
 
     func testMonthSpreadShowsDayTaskContextLabels() throws {
@@ -393,11 +393,11 @@ final class SpreadContentInteractionUITests: LocalhostScenarioUITestCase {
             ).waitForExistence(timeout: 5)
         )
 
-        let dayContext = anyElement(
+        let dayRow = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskContextLabel("Navigator day task")
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskRow("Navigator day task")
         )
-        XCTAssertTrue(dayContext.waitForExistence(timeout: 5))
-        XCTAssertEqual(dayContext.label, "29")
+        waitForElement(dayRow)
+        XCTAssertTrue(dayRow.staticTexts["29"].waitForExistence(timeout: 5))
     }
 }

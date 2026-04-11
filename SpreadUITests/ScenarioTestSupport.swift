@@ -56,12 +56,38 @@ class LocalhostScenarioUITestCase: XCTestCase {
         app.descendants(matching: .any)[identifier].firstMatch
     }
 
+    func firstHittableElement(
+        _ query: XCUIElementQuery,
+        timeout: TimeInterval = 5,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> XCUIElement {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let elements = query.allElementsBoundByIndex
+            if let hittable = elements.first(where: { $0.exists && $0.isHittable }) {
+                return hittable
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+
+        let fallback = query.firstMatch
+        XCTAssertTrue(fallback.waitForExistence(timeout: 0.5), file: file, line: line)
+        return fallback
+    }
+
     func openCreateTask(in app: XCUIApplication) {
-        let createMenu = app.buttons[Definitions.AccessibilityIdentifiers.CreateMenu.button]
+        let createMenu = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.CreateMenu.button
+        )
         waitForElement(createMenu)
         createMenu.tap()
 
-        let createTask = app.buttons[Definitions.AccessibilityIdentifiers.CreateMenu.createTask]
+        let createTask = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.CreateMenu.createTask
+        )
         waitForElement(createTask)
         createTask.tap()
 
@@ -70,11 +96,17 @@ class LocalhostScenarioUITestCase: XCTestCase {
     }
 
     func openCreateSpread(in app: XCUIApplication) {
-        let createMenu = app.buttons[Definitions.AccessibilityIdentifiers.CreateMenu.button]
+        let createMenu = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.CreateMenu.button
+        )
         waitForElement(createMenu)
         createMenu.tap()
 
-        let createSpread = app.buttons[Definitions.AccessibilityIdentifiers.CreateMenu.createSpread]
+        let createSpread = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.CreateMenu.createSpread
+        )
         waitForElement(createSpread)
         createSpread.tap()
 
@@ -412,8 +444,12 @@ class LocalhostScenarioUITestCase: XCTestCase {
     }
 
     func openMonth(year: Int, month: Int, in app: XCUIApplication) {
-        let monthToken = Calendar(identifier: .gregorian)
-            .monthSymbols[month - 1]
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.setLocalizedDateFormatFromTemplate("MMM")
+        let monthDate = Calendar(identifier: .gregorian).date(from: DateComponents(year: year, month: month, day: 1))!
+        let monthToken = formatter.string(from: monthDate)
         let stripItem = anyElement(
             in: app,
             identifier: "spreads.strip.month.\(Definitions.AccessibilityIdentifiers.token(monthToken))"
