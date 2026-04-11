@@ -240,6 +240,7 @@ struct EntryRowView: View {
                     .font(.body)
                     .strikethrough(configuration.hasStrikethrough)
                     .lineLimit(2)
+                    .multilineTextAlignment(.leading)
                     .opacity(isInlineActive ? 0 : 1)
 
                 TextField("", text: $editingText, selection: $titleSelection)
@@ -260,6 +261,7 @@ struct EntryRowView: View {
                 contextualLabelView(contextualLabel)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var rowMainContent: some View {
@@ -267,7 +269,7 @@ struct EntryRowView: View {
             leadingAccessory
             titleArea
         }
-        .fixedSize(horizontal: true, vertical: false)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(alignment: .leading) {
             if configuration.hasStrikethrough {
                 Rectangle()
