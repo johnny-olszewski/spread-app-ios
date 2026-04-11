@@ -1,58 +1,31 @@
 import SwiftUI
 
-/// Main spreads view for conventional mode.
-///
-/// Combines the spread title navigator with the spread content area.
-/// The navigator provides navigation between spreads, and the content area
-/// shows the selected spread's entries.
-///
 struct ConventionalSpreadsView: View {
-    // MARK: - Properties
-
-    /// The journal manager providing spread data.
     @Bindable var journalManager: JournalManager
-
-    /// The auth manager for handling authentication.
     let authManager: AuthManager
-
-    /// The sync engine for data synchronization.
     let syncEngine: SyncEngine?
     let navigationState: SpreadsNavigationState
 
-    /// Coordinates sheet presentation for this view.
     @State private var coordinator = SpreadsCoordinator()
-
-    /// The currently selected spread.
     @State private var selectedSpread: DataModel.Spread?
     @State private var recenterToken = 0
+
     private let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding = TodayMissingSpreadRecommendationProvider()
 
-    // MARK: - Body
-
     var body: some View {
-        VStack(spacing: 0) {
-            SpreadTitleNavigatorView(
-                stripModel: conventionalStripModel,
-                recenterToken: recenterToken,
-                onRecommendedSpreadTapped: { openRecommendedSpreadCreation($0) },
-                recommendationProvider: recommendationProvider,
-                selection: conventionalSelectionBinding
-            )
-
-            Divider()
-
-            if case .error = syncEngine?.status {
-                SyncErrorBanner()
-            }
-
-            contentArea
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                    coordinator.showAuth()
-                }
-            }
+        SharedSpreadsShellView(
+            selection: conventionalSelectionBinding,
+            stripModel: conventionalStripModel,
+            recenterToken: recenterToken,
+            recommendationProvider: recommendationProvider,
+            onRecommendedSpreadTapped: { openRecommendedSpreadCreation($0) },
+            authManager: authManager,
+            onAuth: { coordinator.showAuth() },
+            syncStatus: syncEngine?.status,
+            controls: shellControls,
+            items: conventionalStripItems
+        ) { item in
+            conventionalPage(for: item)
         }
         .sheet(item: $coordinator.activeSheet) { destination in
             sheetContent(for: destination)
@@ -67,41 +40,12 @@ struct ConventionalSpreadsView: View {
         .onChange(of: navigationState.pendingRequest?.id) { _, _ in
             handlePendingNavigationRequest()
         }
-        .safeAreaInset(edge: .bottom) {
-            spreadBottomInsetButtons
-        }
     }
 
-    // MARK: - Content
-
-    @ViewBuilder
-    private var contentArea: some View {
-        spreadContent
-            .dotGridBackground(.paper, ignoresSafeAreaEdges: .bottom)
+    private var conventionalStripItems: [SpreadTitleNavigatorModel.Item] {
+        conventionalStripModel.items(for: .conventional(currentSelectedSpread))
     }
 
-    @ViewBuilder
-    private var spreadContent: some View {
-        let items = conventionalStripModel.items(for: .conventional(currentSelectedSpread))
-        if !items.isEmpty {
-            SpreadContentPagerView(
-                model: conventionalStripModel,
-                items: items,
-                recenterToken: recenterToken,
-                selection: conventionalSelectionBinding
-            ) { item in
-                conventionalPage(for: item)
-            }
-        } else {
-            ContentUnavailableView {
-                Label("No Spread Selected", systemImage: "book")
-            } description: {
-                Text("Select a spread from the bar above or create a new one.")
-            }
-        }
-    }
-
-    /// Returns the spread data model for the given spread.
     private func spreadDataModel(for spread: DataModel.Spread) -> SpreadDataModel? {
         let normalizedDate = spread.period.normalizeDate(spread.date, calendar: journalManager.calendar)
         return journalManager.dataModel[spread.period]?[normalizedDate]
@@ -126,16 +70,9 @@ struct ConventionalSpreadsView: View {
         )
     }
 
-    private var currentSelectionID: String {
-        SpreadHeaderNavigatorModel.Selection.conventional(currentSelectedSpread)
-            .stableID(calendar: journalManager.calendar)
-    }
-
     private var conventionalSelectionBinding: Binding<SpreadHeaderNavigatorModel.Selection> {
         Binding(
-            get: {
-                .conventional(currentSelectedSpread)
-            },
+            get: { .conventional(currentSelectedSpread) },
             set: { newValue in
                 guard case .conventional(let spread) = newValue else { return }
                 selectedSpread = spread
@@ -145,6 +82,16 @@ struct ConventionalSpreadsView: View {
 
     private var currentSelectedSpread: DataModel.Spread {
         selectedSpread ?? fallbackSelectedSpread()
+    }
+
+    private var shellControls: SharedSpreadsShellControlConfiguration {
+        SharedSpreadsShellControlConfiguration(
+            showsTodayButton: true,
+            onToday: navigateToToday,
+            onCreateSpread: { coordinator.showSpreadCreation() },
+            onCreateTask: { coordinator.showTaskCreation() },
+            onCreateNote: { coordinator.showNoteCreation() }
+        )
     }
 
     private func fallbackSelectedSpread() -> DataModel.Spread {
@@ -172,58 +119,15 @@ struct ConventionalSpreadsView: View {
     }
 
     @ViewBuilder
-    private var spreadBottomInsetButtons: some View {
-        HStack(spacing: 12) {
-            Button(action: navigateToToday) {
-                Text("Today")
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .glassEffect(.clear, in: Capsule())
-            }
-            .accessibilityIdentifier(
-                Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton
-            )
-
-            Spacer()
-
-            Menu {
-                Button(action: { coordinator.showSpreadCreation() }) {
-                    Label("Create Spread", systemImage: "book")
-                }
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createSpread)
-
-                Button(action: { coordinator.showTaskCreation() }) {
-                    Label("Create Task", systemImage: "circle.fill")
-                }
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createTask)
-
-                Button(action: { coordinator.showNoteCreation() }) {
-                    Label("Create Note", systemImage: "minus")
-                }
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createNote)
-            } label: {
-                Image(systemName: "plus")
-                    .padding(8)
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .glassEffect(.regular.tint(SpreadTheme.Accent.todaySelectedEmphasis), in: Circle())
-            }
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.button)
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
-        .background(Color.clear)
-    }
-
-    @ViewBuilder
     private func conventionalPage(for item: SpreadTitleNavigatorModel.Item) -> some View {
         if case .conventional(let spread) = item.selection {
-            SpreadContentView(
+            SpreadSurfaceView(
                 spread: spread,
                 spreadDataModel: spreadDataModel(for: spread),
                 calendar: journalManager.calendar,
                 today: journalManager.today,
+                headerNavigatorModel: conventionalHeaderNavigatorModel,
+                entryListConfiguration: .init(),
                 onEditTask: { coordinator.showTaskDetail($0) },
                 onEditNote: { coordinator.showNoteDetail($0) },
                 onDeleteTask: { task in
@@ -269,10 +173,10 @@ struct ConventionalSpreadsView: View {
                     await engine.syncNow()
                 },
                 syncStatus: syncEngine?.status,
-                headerNavigatorModel: conventionalHeaderNavigatorModel,
                 migrationConfiguration: migrationConfiguration(for: spread),
-                onSelectSpread: {
-                    selectedSpread = $0
+                onSelectSpread: { selection in
+                    guard case .conventional(let selectedSpread) = selection else { return }
+                    self.selectedSpread = selectedSpread
                 },
                 explicitDaySpreadForDate: { date in
                     explicitDaySpread(for: date)
@@ -303,12 +207,8 @@ struct ConventionalSpreadsView: View {
         }
     }
 
-    // MARK: - Sheet Content
-
     @ViewBuilder
-    private func sheetContent(
-        for destination: SpreadsCoordinator.SheetDestination
-    ) -> some View {
+    private func sheetContent(for destination: SpreadsCoordinator.SheetDestination) -> some View {
         switch destination {
         case .spreadCreation(let prefill):
             SpreadCreationSheet(
@@ -358,11 +258,7 @@ struct ConventionalSpreadsView: View {
         }
     }
 
-    // MARK: - Migration
-
-    private func migrationConfiguration(
-        for spread: DataModel.Spread
-    ) -> EntryListMigrationConfiguration? {
+    private func migrationConfiguration(for spread: DataModel.Spread) -> EntryListMigrationConfiguration? {
         guard spread.period != .multiday else { return nil }
 
         let sourceDestinations: [UUID: DataModel.Spread] = Dictionary(
@@ -466,133 +362,6 @@ struct ConventionalSpreadsView: View {
         }
     }
 }
-
-/// Spread content view displaying header and entry list.
-///
-/// Shows the spread header with title and entry counts, followed by
-/// the entry list grouped by period. Uses dot grid paper background
-/// per visual design spec.
-private struct SpreadContentView: View {
-    let spread: DataModel.Spread
-    let spreadDataModel: SpreadDataModel?
-    let calendar: Calendar
-    let today: Date
-
-    /// Callback when a task is tapped for editing.
-    var onEditTask: ((DataModel.Task) -> Void)?
-
-    /// Callback when a note is tapped for editing.
-    var onEditNote: ((DataModel.Note) -> Void)?
-
-    /// Callback when a task is deleted via swipe.
-    var onDeleteTask: ((DataModel.Task) -> Void)?
-
-    /// Callback when a note is deleted via swipe.
-    var onDeleteNote: ((DataModel.Note) -> Void)?
-
-    /// Callback when a task is marked complete via swipe.
-    var onCompleteTask: ((DataModel.Task) -> Void)?
-
-    /// Callback when a task title is committed via inline edit.
-    var onUpdateTaskTitle: (@MainActor (DataModel.Task, String) async -> Void)?
-    var onReassignTask: (@MainActor (DataModel.Task, Date, Period) async -> Void)?
-
-    /// Callback when a new task should be created inline.
-    var onAddTask: (@MainActor (String, Date, Period) async throws -> Void)?
-    var onOpenMigratedTask: ((DataModel.Task) -> Void)? = nil
-
-    /// Callback invoked when the user pulls to refresh.
-    var onRefresh: (() async -> Void)?
-
-    /// The current sync status, used to populate the pull-to-refresh indicator title.
-    var syncStatus: SyncStatus?
-
-    let headerNavigatorModel: SpreadHeaderNavigatorModel
-    var migrationConfiguration: EntryListMigrationConfiguration?
-    var onSelectSpread: ((DataModel.Spread) -> Void)?
-    var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)?
-    var onCreateSpread: ((Date) -> Void)?
-
-    @State private var isShowingNavigator = false
-
-    var body: some View {
-        VStack(spacing: 0) {
-            SpreadHeaderView(
-                configuration: SpreadHeaderConfiguration(
-                    spread: spread,
-                    calendar: calendar,
-                    taskCount: spreadDataModel?.tasks.count ?? 0,
-                    noteCount: spreadDataModel?.notes.count ?? 0
-                ),
-                isShowingNavigator: $isShowingNavigator,
-                navigatorModel: headerNavigatorModel,
-                currentSpread: spread,
-                onNavigatorSelect: { selection in
-                    guard case .conventional(let selectedSpread) = selection else { return }
-                    onSelectSpread?(selectedSpread)
-                }
-            )
-
-            // Entry list grouped by period
-            entryList
-        }
-    }
-
-    @ViewBuilder
-    private var entryList: some View {
-        if let dataModel = spreadDataModel {
-            EntryListView(
-                spreadDataModel: dataModel,
-                calendar: calendar,
-                today: today,
-                onEdit: { entry in
-                    if let task = entry as? DataModel.Task {
-                        onEditTask?(task)
-                    } else if let note = entry as? DataModel.Note {
-                        onEditNote?(note)
-                    }
-                },
-                onOpenMigratedTask: { task in
-                    onOpenMigratedTask?(task)
-                },
-                onDelete: { entry in
-                    if let task = entry as? DataModel.Task {
-                        onDeleteTask?(task)
-                    } else if let note = entry as? DataModel.Note {
-                        onDeleteNote?(note)
-                    }
-                },
-                onComplete: { task in
-                    onCompleteTask?(task)
-                },
-                migrationConfiguration: migrationConfiguration,
-                onTitleCommit: { @MainActor task, newTitle in
-                    await onUpdateTaskTitle?(task, newTitle)
-                },
-                onReassignTask: { @MainActor task, date, period in
-                    await onReassignTask?(task, date, period)
-                },
-                onAddTask: { @MainActor title, date, period in
-                    try await onAddTask?(title, date, period)
-                },
-                explicitDaySpreadForDate: explicitDaySpreadForDate,
-                onSelectSpread: onSelectSpread,
-                onCreateSpread: onCreateSpread,
-                onRefresh: onRefresh,
-                syncStatus: syncStatus
-            )
-        } else {
-            ContentUnavailableView {
-                Label("No Data", systemImage: "tray")
-            } description: {
-                Text("Unable to load spread data.")
-            }
-        }
-    }
-
-}
-
-// MARK: - Preview
 
 #Preview {
     ConventionalSpreadsView(

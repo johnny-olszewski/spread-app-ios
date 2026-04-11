@@ -69,13 +69,9 @@ struct TraditionalSpreadService {
 
     /// Determines if a task belongs on a virtual spread based on its preferred date/period.
     ///
-    /// In traditional mode, a task appears on a spread if:
+    /// In traditional mode, a task appears on a spread only when:
     /// - The task's preferred period matches the spread's period exactly, AND
     /// - The task's preferred date normalizes to the spread's date for that period
-    ///
-    /// For coarser periods (year, month), tasks with finer preferred periods also appear
-    /// if their date falls within the coarser period. For example, a task with preferred
-    /// period `.day` and date Jan 15 appears on the January month spread.
     ///
     /// - Parameters:
     ///   - task: The task to check.
@@ -120,10 +116,8 @@ struct TraditionalSpreadService {
     /// Core matching logic: determines if an entry's preferred date/period places it on a spread.
     ///
     /// Rules:
-    /// - If the entry's preferred period is the same as or finer than the spread period,
-    ///   the entry appears if its date normalizes to the spread's date at the spread's period.
-    /// - Entries with coarser preferred periods than the spread do NOT appear
-    ///   (e.g., a year-level task does not appear on a specific month spread).
+    /// - The entry's preferred period must match the spread period exactly.
+    /// - The entry's preferred date must normalize to the spread's normalized date.
     private func entryBelongsOnSpread(
         preferredDate: Date,
         preferredPeriod: Period,
@@ -132,25 +126,11 @@ struct TraditionalSpreadService {
     ) -> Bool {
         // Multiday spreads are not used in traditional mode navigation
         guard spreadPeriod != .multiday, preferredPeriod != .multiday else { return false }
-
-        // Check if the entry's preferred period is the same as or finer than the spread period
-        guard isEqualOrFiner(preferredPeriod, than: spreadPeriod) else { return false }
+        guard preferredPeriod == spreadPeriod else { return false }
 
         // Normalize the entry's date to the spread's period for comparison
         let entryDateAtSpreadPeriod = spreadPeriod.normalizeDate(preferredDate, calendar: calendar)
         return entryDateAtSpreadPeriod == spreadNormalizedDate
-    }
-
-    /// Returns true if `period` is the same as or finer than `target`.
-    ///
-    /// Period hierarchy from coarsest to finest: year > month > day.
-    private func isEqualOrFiner(_ period: Period, than target: Period) -> Bool {
-        let ordering: [Period] = [.year, .month, .day]
-        guard let periodIndex = ordering.firstIndex(of: period),
-              let targetIndex = ordering.firstIndex(of: target) else {
-            return false
-        }
-        return periodIndex >= targetIndex
     }
 
     // MARK: - Traditional Migration
