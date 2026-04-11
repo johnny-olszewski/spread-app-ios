@@ -46,6 +46,7 @@ struct EntryListSection: Identifiable, Sendable {
 /// - Day: Flat list (no grouping)
 /// - Multiday: Groups entries by day within the range
 struct EntryListGrouper: Sendable {
+    let configuration: EntryListConfiguration
 
     // MARK: - Properties
 
@@ -73,12 +74,14 @@ struct EntryListGrouper: Sendable {
     ///   - spreadDate: The spread's normalized date.
     ///   - calendar: The calendar for date calculations.
     init(
+        configuration: EntryListConfiguration = .init(),
         period: Period,
         spreadDate: Date,
         spreadStartDate: Date? = nil,
         spreadEndDate: Date? = nil,
         calendar: Calendar
     ) {
+        self.configuration = configuration
         self.period = period
         self.spreadDate = spreadDate
         self.spreadStartDate = spreadStartDate
@@ -93,18 +96,50 @@ struct EntryListGrouper: Sendable {
     /// - Parameter entries: The entries to group.
     /// - Returns: An array of sections with grouped entries.
     func group(_ entries: [any Entry]) -> [EntryListSection] {
-        switch period {
-        case .year:
-            guard !entries.isEmpty else { return [] }
-            return groupByMonth(entries)
-        case .month:
-            guard !entries.isEmpty else { return [] }
-            return groupByDay(entries)
-        case .day:
+        switch resolvedGroupingStyle {
+        case .flat:
             guard !entries.isEmpty else { return [] }
             return flatSection(entries)
-        case .multiday:
+        case .byMonth:
+            guard !entries.isEmpty else { return [] }
+            return groupByMonth(entries)
+        case .byDay:
+            guard !entries.isEmpty else { return [] }
+            return groupByDay(entries)
+        case .byDayIncludingEmptyDates:
             return groupByDayIncludingEmptyDates(entries)
+        case .automatic:
+            switch period {
+            case .year:
+                guard !entries.isEmpty else { return [] }
+                return groupByMonth(entries)
+            case .month:
+                guard !entries.isEmpty else { return [] }
+                return groupByDay(entries)
+            case .day:
+                guard !entries.isEmpty else { return [] }
+                return flatSection(entries)
+            case .multiday:
+                return groupByDayIncludingEmptyDates(entries)
+            }
+        }
+    }
+
+    private var resolvedGroupingStyle: EntryListConfiguration.GroupingStyle {
+        switch configuration.groupingStyle {
+        case .automatic:
+            switch period {
+            case .year:
+                return .byMonth
+            case .month:
+                return .byDay
+            case .day:
+                return .flat
+            case .multiday:
+                return .byDayIncludingEmptyDates
+            }
+        default:
+            return configuration.groupingStyle
         }
     }
 

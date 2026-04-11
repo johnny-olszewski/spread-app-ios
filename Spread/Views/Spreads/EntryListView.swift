@@ -36,6 +36,8 @@ struct EntryListView: View {
     /// The current date for determining past event status (v2 only).
     let today: Date
 
+    let configuration: EntryListConfiguration
+
     /// Callback when an entry is tapped for editing.
     var onEdit: ((any Entry) -> Void)?
     var onOpenMigratedTask: ((DataModel.Task) -> Void)? = nil
@@ -80,6 +82,46 @@ struct EntryListView: View {
     @State private var hasAcquiredInlineCreationFocus = false
     @FocusState private var isInlineFocused: Bool
 
+    init(
+        spreadDataModel: SpreadDataModel,
+        calendar: Calendar,
+        today: Date,
+        configuration: EntryListConfiguration = .init(),
+        onEdit: ((any Entry) -> Void)? = nil,
+        onOpenMigratedTask: ((DataModel.Task) -> Void)? = nil,
+        onDelete: ((any Entry) -> Void)? = nil,
+        onComplete: ((DataModel.Task) -> Void)? = nil,
+        onMigrate: ((any Entry) -> Void)? = nil,
+        migrationConfiguration: EntryListMigrationConfiguration? = nil,
+        onTitleCommit: (@MainActor (DataModel.Task, String) async -> Void)? = nil,
+        onReassignTask: (@MainActor (DataModel.Task, Date, Period) async -> Void)? = nil,
+        onAddTask: (@MainActor (String, Date, Period) async throws -> Void)? = nil,
+        explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil,
+        onSelectSpread: ((DataModel.Spread) -> Void)? = nil,
+        onCreateSpread: ((Date) -> Void)? = nil,
+        onRefresh: (() async -> Void)? = nil,
+        syncStatus: SyncStatus? = nil
+    ) {
+        self.spreadDataModel = spreadDataModel
+        self.calendar = calendar
+        self.today = today
+        self.configuration = configuration
+        self.onEdit = onEdit
+        self.onOpenMigratedTask = onOpenMigratedTask
+        self.onDelete = onDelete
+        self.onComplete = onComplete
+        self.onMigrate = onMigrate
+        self.migrationConfiguration = migrationConfiguration
+        self.onTitleCommit = onTitleCommit
+        self.onReassignTask = onReassignTask
+        self.onAddTask = onAddTask
+        self.explicitDaySpreadForDate = explicitDaySpreadForDate
+        self.onSelectSpread = onSelectSpread
+        self.onCreateSpread = onCreateSpread
+        self.onRefresh = onRefresh
+        self.syncStatus = syncStatus
+    }
+
     // MARK: - Computed Properties
 
     /// Entries combined from the spread data model for normal list rendering.
@@ -106,6 +148,9 @@ struct EntryListView: View {
         if isMultidaySpread {
             return []
         }
+        guard configuration.showsMigrationHistory else {
+            return spreadDataModel.notes
+        }
         return spreadDataModel.notes.filter { note in
             !isMigratedOnSpread(note)
         }
@@ -113,7 +158,7 @@ struct EntryListView: View {
 
     /// Notes migrated from this spread (have a migrated assignment on this spread).
     private var migratedNotes: [DataModel.Note] {
-        if isMultidaySpread {
+        if isMultidaySpread || !configuration.showsMigrationHistory {
             return []
         }
         return spreadDataModel.notes.filter { note in
@@ -129,6 +174,7 @@ struct EntryListView: View {
     /// Grouped sections for display.
     private var sections: [EntryListSection] {
         let grouper = EntryListGrouper(
+            configuration: configuration,
             period: spreadDataModel.spread.period,
             spreadDate: spreadDataModel.spread.date,
             spreadStartDate: spreadDataModel.spread.startDate,
@@ -265,7 +311,7 @@ struct EntryListView: View {
                 }
             }
 
-            if let migrationConfiguration {
+            if let migrationConfiguration, configuration.showsMigrationHistory {
                 InlineTaskMigrationSection(
                     items: migrationConfiguration.destinationItems,
                     calendar: calendar,
@@ -278,28 +324,24 @@ struct EntryListView: View {
             }
 
             // Collapsible migrated entries section
-            MigratedEntriesSection(
-                spread: spreadDataModel.spread,
-                migratedTasks: [],
-                migratedNotes: migratedNotes,
-                calendar: calendar,
-                onEdit: { entry in onEdit?(entry) },
-                onTaskTap: { task in
-                    onOpenMigratedTask?(task)
-                }
-            )
-            .listRowBackground(Color.clear)
+            if configuration.showsMigrationHistory {
+                MigratedEntriesSection(
+                    spread: spreadDataModel.spread,
+                    migratedTasks: [],
+                    migratedNotes: migratedNotes,
+                    calendar: calendar,
+                    onEdit: { entry in onEdit?(entry) },
+                    onTaskTap: { task in
+                        onOpenMigratedTask?(task)
+                    }
+                )
+                .listRowBackground(Color.clear)
+            }
 
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(Color.clear)
-        .gesture(
-            TapGesture().onEnded {
-                dismissActiveInlineEditing()
-            },
-            including: .gesture
-        )
         .environment(\.defaultMinListRowHeight, 0)
         .modifier(RefreshableModifier(onRefresh: onRefresh))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
@@ -330,12 +372,6 @@ struct EntryListView: View {
             }
             .padding(16)
         }
-        .gesture(
-            TapGesture().onEnded {
-                dismissActiveInlineEditing()
-            },
-            including: .gesture
-        )
         .modifier(RefreshableModifier(onRefresh: onRefresh))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
     }
@@ -357,7 +393,7 @@ struct EntryListView: View {
     }
 
     private func taskRow(_ task: DataModel.Task, contextualLabel: String?) -> some View {
-        let isMigratedRow = isMigratedOnSpread(task)
+        let isMigratedRow = configuration.showsMigrationHistory && isMigratedOnSpread(task)
         let rowStatus: DataModel.Task.Status = isMigratedRow ? .migrated : task.status
         let sourceMigrationDestination = migrationConfiguration?.sourceDestinations[task.id]
         return EntryRowView(
