@@ -7,6 +7,7 @@
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
 - Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and the selected spread capsule presents a rooted spread navigator as a popover on iPad and a sheet on iPhone. Conventional and traditional modes share the same navigator, rooted selector, swipe pager, and spread-surface architecture; mode differences are expressed through spread availability and entry inclusion/assignment rules rather than separate navigation UIs. A dedicated top-level search-role tab replaces the old Inbox toolbar flow and hosts the global task browser. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-151]
+- Shared foundations package: the app may host reusable UI components and utilities in a local Swift Package named `johnnyo-foundation`, structured for later GitHub publication. App-facing product spec captures integration points and high-level contracts; detailed package API spec should live with the package. [SPRD-152, SPRD-153]
 - Core entities (v1): [SPRD-8, SPRD-9, SPRD-10]
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
   - Entry: protocol for task and note with type-specific behaviors. [SPRD-9]
@@ -342,6 +343,36 @@
   - mode-specific builders/adapters translate domain state into shared UI configuration
 - Mode-specific inclusion rules remain explicit even when visual components are shared. [SPRD-151]
   - Example: in conventional mode, a month surface may include day-assigned tasks that have not yet been taken over by explicit day spreads; in traditional mode, the month surface includes only month-assigned tasks because day-assigned tasks belong on day surfaces.
+
+### Shared Foundations Package
+- The repository may contain a local Swift Package named `johnnyo-foundation` for reusable components and utilities intended to be publishable independently later. [SPRD-152]
+- `johnnyo-foundation` starts as a real local Swift Package integrated into the app through Xcode package dependency wiring, not as an app-only target. [SPRD-152]
+- The package should begin with separate targets so UI components and non-UI utilities can evolve independently. The app should import only the package UI target for calendar UI use cases; that UI target may depend on the package core target internally. [SPRD-152]
+- The package must include package-local tests and minimal package-local example/preview coverage from the start so the package boundary is validated independently of the app target. [SPRD-152]
+- The package must also include package-local documentation suitable for future publication, including at least a package `README.md`, a package-local `spec.md`, and unit-test coverage for exported behavior. [SPRD-152]
+
+### Shared Month Calendar Component
+- `johnnyo-foundation` should provide a reusable month-based calendar shell component intended for embedding inside spread surfaces rather than replacing the month spread surface entirely. [SPRD-153]
+- In `Spread`, both conventional and traditional month spreads should embed the shared month calendar above the existing entry list content. The calendar is view-only for this first integration and must not change list filtering or month-spread selection behavior yet. [SPRD-153]
+- The month calendar shell owns month structure and calendar math, including: [SPRD-153]
+  - header placement
+  - weekday header row placement
+  - date-grid generation
+  - first-weekday handling
+  - locale-aware weekday ordering
+  - leading and trailing peripheral-date generation when enabled
+- Peripheral-date visibility is configurable. When enabled, the shell renders dates that share the first or last visible week with the target month even when those dates are outside the displayed month. [SPRD-153]
+- The month shell renders the minimum number of week rows required for the displayed month and peripheral-date policy; it does not force a fixed six-row grid. [SPRD-153]
+- Grid cells are abutting with no built-in spacing by default so callers can render content that visually spans adjacent days. [SPRD-153]
+- The package month shell is driven by a displayed month `Date`, an injected `Calendar`, and explicit configuration rather than by a caller-precomputed month model. [SPRD-153]
+- The package month shell uses an injected `CalendarContentGenerator` protocol to render month-specific content. The shell owns structure; the content generator supplies views for semantic slots such as: [SPRD-153]
+  - the month header
+  - weekday column headers
+  - each date cell
+  - any additional shell-defined decoration slots needed to keep the shell flexible
+- Date-cell rendering callbacks should receive rich semantic context models rather than raw dates alone, so callers can render based on in-month vs peripheral state, today state, row/column position, and related shell-owned metadata without recomputing package-owned calendar logic. [SPRD-153]
+- The package month shell also accepts an optional injected delegate protocol for shell-generated actions and interactions. The initial `Spread` integration may omit the delegate and remain view-only, but the action API should exist from the start so later interactive consumers do not require a package API redesign. [SPRD-153]
+- The package month shell does not ship with built-in previous/next month controls in v1; header rendering is generator-driven so callers can choose their own month-navigation affordances later. [SPRD-153]
   - Recommended spread inset behavior: [SPRD-137]
     - In conventional mode only, the title navigator shows a separate fixed trailing inset area for recommended spreads to create.
     - Recommendations are based on `today`, not on the currently selected spread.
