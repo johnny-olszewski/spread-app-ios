@@ -3466,6 +3466,47 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying cancelled and migrated rows remain visible, cancelled strike styling is discoverable, migrated rows follow destination navigation, and `Custom...` opens the edit sheet.
 - **Dependencies**: SPRD-140, SPRD-142, SPRD-146
 
+### [SPRD-151] Refactor: unify conventional and traditional spread surfaces
+- **Context**: `ConventionalSpreadsView`, `TraditionalSpreadsView`, and the traditional year/month/day surfaces duplicate navigation shell, paging, header, and entry rendering responsibilities even though the foundational distinction between the two modes is not the UI mechanics. The real difference is mode semantics: conventional mode exposes only explicit created spreads and conventional migration/inclusion rules, while traditional mode exposes the full year/month/day hierarchy with traditional inclusion and assignment rules. The architecture should express those differences through injected builders/configuration rather than separate view trees.
+- **Spec**: Project Summary; BuJo Mode; Navigation and UI; Shared Spread Surface Architecture
+- **Acceptance Criteria**:
+  - Conventional and traditional modes render through the same shared spread-shell architecture.
+  - The shared shell owns the common layout for:
+    - `SpreadTitleNavigatorView`
+    - `SpreadContentPagerView`
+    - injected shell controls such as `Today`, create actions, and auth actions
+  - A shared spread-surface renderer owns:
+    - `SpreadHeaderView`
+    - section composition
+    - one or more `EntryListView` instances
+  - `ConventionalSpreadsView` and `TraditionalSpreadsView` become thin wrappers/adapters around the shared shell rather than separate full layouts.
+  - Traditional navigation uses the same user-facing navigation mechanics as conventional:
+    - spread-title strip
+    - header chevron selector
+    - swipe paging
+  - Traditional mode no longer uses separate calendar-grid/drill-in spread views as its primary UI.
+  - `EntryListView` remains reusable and config-driven, receiving injected data/config rather than reading `JournalManager` directly.
+  - Multiday rendering is composed from repeated multiday-section components, each hosting an `EntryListView`.
+  - Shared visual section/list components are reused across both modes; conventional-only migration/history behavior is enabled through injected config.
+  - `SpreadDataModel` remains the core domain input; mode-specific builders/adapters derive UI configuration from it.
+  - Mode-specific inclusion rules remain explicit and preserved, including:
+    - conventional month surfaces can include day-assigned tasks that have not been taken over by explicit day spreads according to conventional rules
+    - traditional month surfaces include only month-assigned tasks because day-assigned tasks belong on day surfaces
+  - Traditional mode continues to exclude multiday destinations.
+- **Implementation Details**:
+  - Introduce a shared spread shell view and injected shell-control configuration.
+  - Introduce mode-specific spread-surface builders/adapters, for example:
+    - `ConventionalSpreadSurfaceBuilder`
+    - `TraditionalSpreadSurfaceBuilder`
+  - Extract shared spread-surface/section/list contracts so reusable UI components depend on injected configuration and action closures, not manager/service lookups.
+  - Remove or retire traditional-only year/month/day view trees once their behavior has been absorbed into the shared spread-surface pipeline.
+- **Tests**:
+  - Unit tests for conventional and traditional surface builders covering section derivation and entry inclusion rules.
+  - Unit tests for injected shell-control configuration and shared shell selection behavior.
+  - UI tests verifying both modes navigate through the same strip, rooted selector, and swipe pager interactions.
+  - UI tests verifying conventional and traditional month inclusion differences remain correct after consolidation.
+- **Dependencies**: SPRD-143, SPRD-148, SPRD-149, SPRD-150
+
 ### [SPRD-134] UI: toolbar and spread view button layout changes
 - **Context**: Several button/indicator changes are grouped here: remove the sync status toolbar icon and content-area banner entirely (sync feedback deferred to pull-to-refresh in SPRD-135); move the `Today` button from the navigation bar to a `.glassEffect` overlay in the bottom-leading corner of the spread content view; and split the trailing toolbar buttons into two distinct groups — overdue + inbox in one group, auth (profile) button in a separate group with a gap between them.
 - **Spec**: Inbox (Today button), Auth UI (toolbar grouping), Sync & Data (sync status)

@@ -6,7 +6,7 @@
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
-- Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and the selected spread capsule presents a rooted spread navigator as a popover on iPad and a sheet on iPhone; traditional mode remains calendar-driven. A dedicated top-level search-role tab replaces the old Inbox toolbar flow and hosts the global task browser. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143, SPRD-148]
+- Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and the selected spread capsule presents a rooted spread navigator as a popover on iPad and a sheet on iPhone. Conventional and traditional modes share the same navigator, rooted selector, swipe pager, and spread-surface architecture; mode differences are expressed through spread availability and entry inclusion/assignment rules rather than separate navigation UIs. A dedicated top-level search-role tab replaces the old Inbox toolbar flow and hosts the global task browser. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-151]
 - Core entities (v1): [SPRD-8, SPRD-9, SPRD-10]
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
   - Entry: protocol for task and note with type-specific behaviors. [SPRD-9]
@@ -15,14 +15,14 @@
   - TaskAssignment/NoteAssignment: period/date/status for migration tracking. [SPRD-10, SPRD-15]
 - Events are a v2 integration (calendar-backed date-range entries), not part of v1 UI/flows. [SPRD-57]
 - JournalManager owns in-memory data model, assignment logic, migration, spread creation, and deletion. [SPRD-11, SPRD-13, SPRD-15]
-- Two UI paths: [SPRD-25, SPRD-35, SPRD-38]
-  - Conventional UI with hierarchical spread tab bar (year/month/day/multiday), entry list, inline migration controls/history, and settings. [SPRD-25, SPRD-27, SPRD-30, SPRD-140]
-  - Calendar-style UI for traditional mode with year/month/day drill-in. [SPRD-35, SPRD-38]
-- BuJo modes: "conventional" (migration history visible) and "traditional" (preferred assignment only). [SPRD-20, SPRD-17]
+- Two mode-specific spread rule sets over a shared UI architecture: [SPRD-25, SPRD-35, SPRD-38, SPRD-151]
+  - Conventional mode exposes only explicitly created spreads, including explicit multiday spreads, and shows migration/history affordances. [SPRD-25, SPRD-27, SPRD-30, SPRD-140, SPRD-151]
+  - Traditional mode exposes year/month/day destinations through the same shared spread navigation and surface components, but applies traditional spread-availability and entry-inclusion rules and does not surface multiday destinations. [SPRD-35, SPRD-38, SPRD-151]
+- BuJo modes: "conventional" (explicit-spread-driven, migration history visible) and "traditional" (full year/month/day hierarchy, preferred-assignment driven). [SPRD-20, SPRD-17, SPRD-151]
 
 ## Goals
 - Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with an in-view horizontal spread navigator, a selected-spread navigator surface presented as an iPad popover and iPhone sheet, manual migration, and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29, SPRD-125, SPRD-126]
-- Provide calendar-style navigation in traditional mode (year/month/day) without altering created-spread data. [SPRD-17, SPRD-35, SPRD-38]
+- Provide a unified spread-surface architecture where traditional mode reuses the same navigator, pager, header, section, and list components as conventional mode while preserving traditional spread availability and assignment semantics. [SPRD-17, SPRD-35, SPRD-38, SPRD-151]
 - Support offline-first usage with SwiftData local storage and Supabase sync. [SPRD-80, SPRD-85]
 - Require authentication for all product usage in dev/prod environments, while preserving offline access for users with an existing cached session and local data. [SPRD-104, SPRD-106]
 - Preserve a debug-only `localhost` mode for engineering workflows; it uses mock auth, supports mock data loading, is selected per launch, and never persists across launches. [SPRD-105, SPRD-107]
@@ -155,7 +155,7 @@
 
 ### BuJo Mode
 - Conventional: show migration history across spreads, tasks appear on multiple spreads. [SPRD-29]
-- Traditional: show entries only on their preferred assignment, no migration history visible. [SPRD-17, SPRD-35]
+- Traditional: show entries only on their preferred assignment, no migration history visible, and expose the full year/month/day hierarchy through the same shared spread navigation and surface components used by conventional mode. [SPRD-17, SPRD-35, SPRD-151]
 
 ---
 
@@ -318,6 +318,30 @@
       - cross-month ranges show a smallcaps month span above the compact endpoint day range and a short weekday span beneath it [SPRD-129]
   - The strip height is content-driven with a minimum visual floor; it must not be hardcoded. The strip expands to fit its tallest item label (including multi-line day and multiday items) plus adequate vertical padding so the selected indicator and labels are never clipped or overlapped by sibling views. [SPRD-136]
   - Scrolling the title strip is isolated from the content pager. Strip scroll events must not propagate to the pager or change the selected spread unless the user explicitly taps a strip item. [SPRD-136]
+
+### Shared Spread Surface Architecture
+- Conventional and traditional modes must render through the same shared spread UI architecture. [SPRD-151]
+- Shared shell responsibilities: [SPRD-151]
+  - render `SpreadTitleNavigatorView`
+  - render `SpreadContentPagerView`
+  - accept injected shell-control configuration for controls such as `Today`, create actions, and auth actions
+- Shared spread-surface responsibilities: [SPRD-151]
+  - render `SpreadHeaderView`
+  - render one or more sections
+  - render one or more `EntryListView` instances inside those sections
+- `EntryListView` responsibilities: [SPRD-151]
+  - remain a reusable renderer driven by injected data and configuration
+  - support different use cases through configuration, including inline-action configuration
+  - avoid direct `JournalManager` reads in the reusable view layer
+- Multiday responsibilities: [SPRD-151]
+  - a multiday spread is composed from repeated multiday-section components
+  - each multiday-section component hosts its own `EntryListView`
+- Builders and dependency injection: [SPRD-151]
+  - shared UI components should prefer injected data, config, and action closures over direct manager/service access
+  - `SpreadDataModel` remains the core domain input
+  - mode-specific builders/adapters translate domain state into shared UI configuration
+- Mode-specific inclusion rules remain explicit even when visual components are shared. [SPRD-151]
+  - Example: in conventional mode, a month surface may include day-assigned tasks that have not yet been taken over by explicit day spreads; in traditional mode, the month surface includes only month-assigned tasks because day-assigned tasks belong on day surfaces.
   - Recommended spread inset behavior: [SPRD-137]
     - In conventional mode only, the title navigator shows a separate fixed trailing inset area for recommended spreads to create.
     - Recommendations are based on `today`, not on the currently selected spread.
