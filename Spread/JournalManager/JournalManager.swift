@@ -135,6 +135,9 @@ final class JournalManager {
     /// Coordinates note mutation workflows that combine assignment rules and persistence.
     let noteMutationCoordinator: any NoteMutationCoordinator
 
+    /// Plans and persists spread deletion reassignment workflows.
+    let spreadDeletionCoordinator: any SpreadDeletionCoordinator
+
     /// Version counter that increments on data mutations.
     ///
     /// SwiftUI views can observe this to trigger refreshes when data changes.
@@ -280,7 +283,9 @@ final class JournalManager {
         taskAssignmentReconciler: (any TaskAssignmentReconciler)? = nil,
         noteAssignmentReconciler: (any NoteAssignmentReconciler)? = nil,
         taskMutationCoordinator: (any TaskMutationCoordinator)? = nil,
-        noteMutationCoordinator: (any NoteMutationCoordinator)? = nil
+        noteMutationCoordinator: (any NoteMutationCoordinator)? = nil,
+        spreadDeletionPlanner: (any SpreadDeletionPlanner)? = nil,
+        spreadDeletionCoordinator: (any SpreadDeletionCoordinator)? = nil
     ) {
         self.calendar = calendar
         self.today = today
@@ -305,6 +310,7 @@ final class JournalManager {
         let resolvedNoteAssignmentReconciler = noteAssignmentReconciler ?? StandardNoteAssignmentReconciler(
             calendar: calendar
         )
+        let resolvedSpreadDeletionPlanner = spreadDeletionPlanner ?? StandardSpreadDeletionPlanner(calendar: calendar)
         self.inboxResolver = inboxResolver ?? StandardInboxResolver(calendar: calendar)
         self.migrationPlanner = resolvedMigrationPlanner
         self.overdueEvaluator = overdueEvaluator ?? StandardOverdueEvaluator(
@@ -329,6 +335,15 @@ final class JournalManager {
                 Self.logger.info("\(message, privacy: .public)")
             }),
             calendar: calendar
+        )
+        self.spreadDeletionCoordinator = spreadDeletionCoordinator ?? StandardSpreadDeletionCoordinator(
+            planner: resolvedSpreadDeletionPlanner,
+            spreadRepository: spreadRepository,
+            taskRepository: taskRepository,
+            noteRepository: noteRepository,
+            logger: LoggerAdapter(info: { message in
+                Self.logger.info("\(message, privacy: .public)")
+            })
         )
     }
 
@@ -482,22 +497,6 @@ final class JournalManager {
             for collection in allCollections {
                 try await collectionRepository.delete(collection)
             }
-        }
-    }
-
-    // MARK: - Entry Association Helpers
-
-    /// Checks if a task has any assignment, including migrated history, on the given spread.
-    private func hasSpreadAssociation(_ task: DataModel.Task, for spread: DataModel.Spread) -> Bool {
-        task.assignments.contains { assignment in
-            assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
-        }
-    }
-
-    /// Checks if a note has any assignment, including migrated history, on the given spread.
-    private func hasSpreadAssociation(_ note: DataModel.Note, for spread: DataModel.Spread) -> Bool {
-        note.assignments.contains { assignment in
-            assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
         }
     }
 
@@ -973,158 +972,20 @@ final class JournalManager {
     /// - Parameter spread: The spread to delete.
     /// - Throws: Repository errors if persistence fails.
     func deleteSpread(_ spread: DataModel.Spread) async throws {
-        // Find parent spread for reassignment
-        let parentSpread = findParentSpread(for: spread)
+        let result = try await spreadDeletionCoordinator.deleteSpread(
+            spread,
+            spreads: spreads,
+            tasks: tasks,
+            notes: notes
+        )
 
-        // Reassign tasks
-        for task in tasksWithAssignment(on: spread) {
-            try await reassignTaskOnSpreadDeletion(task, from: spread, toParent: parentSpread)
-        }
-
-        // Reassign notes
-        for note in notesWithAssignment(on: spread) {
-            try await reassignNoteOnSpreadDeletion(note, from: spread, toParent: parentSpread)
-        }
-
-        // Delete spread from repository
-        try await spreadRepository.delete(spread)
-        Self.logger.info("Spread deleted: \(spread.period.rawValue) spread \(spread.id)")
-
-        // Remove spread from local list
-        spreads.removeAll { $0.id == spread.id }
-
-        // Reload entries to ensure state is synchronized
-        tasks = await taskRepository.getTasks()
-        notes = await noteRepository.getNotes()
+        spreads = result.spreads
+        tasks = result.tasks
+        notes = result.notes
 
         // Rebuild data model and trigger UI update
         buildDataModel()
         dataVersion += 1
-    }
-
-    // MARK: - Spread Deletion Helpers
-
-    /// Finds the parent spread for reassignment during deletion.
-    ///
-    /// Searches from the spread's parent period up through coarser periods
-    /// (day → month → year) to find an existing spread.
-    private func findParentSpread(for spread: DataModel.Spread) -> DataModel.Spread? {
-        var currentPeriod: Period? = spread.period.parentPeriod
-
-        while let period = currentPeriod {
-            let normalizedDate = period.normalizeDate(spread.date, calendar: calendar)
-
-            if let parentSpread = spreads.first(where: { existingSpread in
-                existingSpread.period == period &&
-                existingSpread.period.normalizeDate(existingSpread.date, calendar: calendar) == normalizedDate
-            }) {
-                return parentSpread
-            }
-
-            currentPeriod = period.parentPeriod
-        }
-
-        return nil
-    }
-
-    /// Returns tasks that have an assignment on the given spread.
-    private func tasksWithAssignment(on spread: DataModel.Spread) -> [DataModel.Task] {
-        tasks.filter { hasSpreadAssociation($0, for: spread) }
-    }
-
-    /// Returns notes that have an assignment on the given spread.
-    private func notesWithAssignment(on spread: DataModel.Spread) -> [DataModel.Note] {
-        notes.filter { hasSpreadAssociation($0, for: spread) }
-    }
-
-    /// Reassigns a task during spread deletion.
-    ///
-    /// Marks the current assignment as migrated and creates a new assignment
-    /// on the parent spread. If no parent exists, the task goes to Inbox.
-    private func reassignTaskOnSpreadDeletion(
-        _ task: DataModel.Task,
-        from spread: DataModel.Spread,
-        toParent parent: DataModel.Spread?
-    ) async throws {
-        // Find assignment on the deleted spread
-        guard let assignmentIndex = task.assignments.firstIndex(where: { assignment in
-            assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
-        }) else {
-            return
-        }
-
-        // Get the status before marking as migrated (to preserve on parent)
-        let originalStatus = task.assignments[assignmentIndex].status
-
-        // Mark current assignment as migrated
-        task.assignments[assignmentIndex].status = .migrated
-
-        // Create new assignment on parent if exists
-        if let parent = parent {
-            // Check if assignment already exists on parent
-            if let parentIndex = task.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: parent.period, date: parent.date, calendar: calendar)
-            }) {
-                // Update existing parent assignment with original status
-                task.assignments[parentIndex].status = originalStatus
-            } else {
-                // Create new assignment on parent
-                let parentAssignment = TaskAssignment(
-                    period: parent.period,
-                    date: parent.date,
-                    status: originalStatus
-                )
-                task.assignments.append(parentAssignment)
-            }
-        }
-        // If no parent, task goes to Inbox (no new assignment needed)
-
-        try await taskRepository.save(task)
-    }
-
-    /// Reassigns a note during spread deletion.
-    ///
-    /// Marks the current assignment as migrated and creates a new assignment
-    /// on the parent spread. If no parent exists, the note goes to Inbox.
-    private func reassignNoteOnSpreadDeletion(
-        _ note: DataModel.Note,
-        from spread: DataModel.Spread,
-        toParent parent: DataModel.Spread?
-    ) async throws {
-        // Find assignment on the deleted spread
-        guard let assignmentIndex = note.assignments.firstIndex(where: { assignment in
-            assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
-        }) else {
-            return
-        }
-
-        // Get the status before marking as migrated (to preserve on parent)
-        let originalStatus = note.assignments[assignmentIndex].status
-
-        // Mark current assignment as migrated
-        note.assignments[assignmentIndex].status = .migrated
-
-        // Create new assignment on parent if exists
-        if let parent = parent {
-            // Check if assignment already exists on parent
-            if let parentIndex = note.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: parent.period, date: parent.date, calendar: calendar)
-            }) {
-                // Update existing parent assignment with original status
-                note.assignments[parentIndex].status = originalStatus
-            } else {
-                // Create new assignment on parent
-                let parentAssignment = NoteAssignment(
-                    period: parent.period,
-                    date: parent.date,
-                    status: originalStatus
-                )
-                note.assignments.append(parentAssignment)
-            }
-        }
-        // If no parent, note goes to Inbox (no new assignment needed)
-
-        try await noteRepository.save(note)
     }
 
     // MARK: - Task Creation
