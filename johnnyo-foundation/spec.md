@@ -29,6 +29,18 @@
   - configurable peripheral-date rendering
   - shell-owned month math and weekday ordering
   - injected content generator and optional action delegate
+  - placeholder-cell support when peripheral dates are hidden
+  - per-week background slot so callers can render visuals that span adjacent days
+
+## Month Calendar Contracts
+
+- `MonthCalendarModelBuilder` owns:
+  - month normalization
+  - minimum week-row derivation
+  - locale-aware weekday ordering
+  - peripheral vs placeholder slot generation
+- `CalendarContentGenerator` owns rendering only.
+- `MonthCalendarActionDelegate` owns shell-generated interactions only.
 
 ## Integration Boundary
 

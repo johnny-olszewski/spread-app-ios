@@ -19,7 +19,29 @@ The app should import only `JohnnyOFoundationUI` for UI use cases. That target d
 
 ## Initial Scope
 
-The first package feature is a reusable month calendar shell. The app will provide `Spread`-specific content generation and embed the month calendar inside month spread surfaces above the existing entry list.
+The first package feature is a reusable month calendar shell. The app provides `Spread`-specific content generation and embeds the month calendar inside month spread surfaces above the existing entry list.
+
+## Month Calendar
+
+The month calendar package surface is split intentionally:
+
+- `JohnnyOFoundationCore`
+  - month-grid generation
+  - weekday ordering
+  - peripheral-date handling
+  - semantic context models
+  - optional action-delegate protocol
+- `JohnnyOFoundationUI`
+  - `CalendarContentGenerator`
+  - `MonthCalendarView`
+
+The shell owns structure. Callers inject content for:
+
+- month header
+- weekday headers
+- day cells
+- placeholder cells when peripheral dates are hidden
+- per-week background content for span-style rendering
 
 ## Package Documentation
 
