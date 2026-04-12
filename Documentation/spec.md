@@ -15,7 +15,7 @@
   - Note: assignable entry with explicit-only migration. [SPRD-9, SPRD-34]
   - TaskAssignment/NoteAssignment: period/date/status for migration tracking. [SPRD-10, SPRD-15]
 - Events are a v2 integration (calendar-backed date-range entries), not part of v1 UI/flows. [SPRD-57]
-- JournalManager owns in-memory data model, assignment logic, migration, spread creation, and deletion. [SPRD-11, SPRD-13, SPRD-15]
+- JournalManager is the app's central journal facade and in-memory state owner. It owns repository coordination, cached journal state, data-model refresh, and app-facing mutation/query APIs, but business-rule engines should be extracted behind injected protocols so they can be unit tested independently and swapped when needed. [SPRD-11, SPRD-13, SPRD-15, SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
 - Two mode-specific spread rule sets over a shared UI architecture: [SPRD-25, SPRD-35, SPRD-38, SPRD-151]
   - Conventional mode exposes only explicitly created spreads, including explicit multiday spreads, and shows migration/history affordances. [SPRD-25, SPRD-27, SPRD-30, SPRD-140, SPRD-151]
   - Traditional mode exposes year/month/day destinations through the same shared spread navigation and surface components, but applies traditional spread-availability and entry-inclusion rules and does not surface multiday destinations. [SPRD-35, SPRD-38, SPRD-151]
@@ -157,6 +157,23 @@
 ### BuJo Mode
 - Conventional: show migration history across spreads, tasks appear on multiple spreads. [SPRD-29]
 - Traditional: show entries only on their preferred assignment, no migration history visible, and expose the full year/month/day hierarchy through the same shared spread navigation and surface components used by conventional mode. [SPRD-17, SPRD-35, SPRD-151]
+
+### Journal Logic Architecture
+- `JournalManager` should remain the sole UI-facing journal facade. Views and view models should not call low-level business-rule engines directly; `JournalManager` delegates internally and remains responsible for repository effects, state refresh, logging, and `dataVersion` invalidation. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
+- `JournalManager` should not remain a rule engine. Beyond collaborator selection based on runtime mode and workflow orchestration, business-rule branching should live in extracted services/coordinators. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
+- Extracted journal logic seams should be protocol-backed from day one so implementations are swappable and unit-test seams are explicit. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
+- Rule engines should be pure or mostly pure where possible, returning derived models, plans, or mutation decisions without performing repository writes directly. Repository effects belong in workflow coordinators and the `JournalManager` facade. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
+- Task and note logic should prefer separate services/coordinators when their domain behavior differs materially; shared helpers are acceptable only where the business rule is truly identical. Do not force aggressive generic `Entry` abstractions that blur task/note semantics. [SPRD-155, SPRD-156, SPRD-157]
+- Each refactor slice must land with exhaustive unit coverage for its extracted seam before the task is considered complete; no deferred testing sweep. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
+- Each slice task must also remove or shrink the superseded private `JournalManager` helpers in the same change so duplicate rule paths do not remain in the codebase. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
+- Preferred extracted seams for journal logic are: [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
+  - `JournalDataModelBuilder` protocol with separate `ConventionalJournalDataModelBuilder` and `TraditionalJournalDataModelBuilder` implementations.
+  - `InboxResolver` protocol for Inbox membership and count resolution.
+  - `OverdueEvaluator` protocol for overdue state and source resolution.
+  - `MigrationPlanner` protocol for migration eligibility, current displayed/destination spread resolution, hierarchy traversal, and destination planning.
+  - `AssignmentReconciliationCoordinator` protocol(s) for task/note preferred-assignment reconciliation and mutation workflows.
+  - `SpreadDeletionCoordinator` protocol for deletion planning, reassignment, and persistence orchestration.
+- `JournalManager` may select mode-specific implementations internally based on `bujoMode` when that keeps runtime wiring simpler, but the implementations themselves should remain behind injected protocol boundaries. [SPRD-154, SPRD-158]
 
 ---
 
