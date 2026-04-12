@@ -1,4 +1,5 @@
 import SwiftUI
+@_exported import JohnnyOFoundationCore
 import JohnnyOFoundationCore
 
 public enum JohnnyOFoundationUINamespace {
