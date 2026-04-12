@@ -44,8 +44,8 @@ struct TraditionalYearViewTests {
 
     // MARK: - Year Aggregation
 
-    /// Year view should show entry counts per month across all entry types.
-    /// Setup: 2 tasks in January, 1 note in February, no entries in March.
+    /// Year view month counts should include only month-period entries.
+    /// Setup: 2 month tasks in January, 1 month note in February, no entries in March.
     /// Expected: Jan=2, Feb=1, Mar=0.
     @Test func testMonthEntryCountsAcrossEntryTypes() {
         let service = Self.makeService()
@@ -57,11 +57,11 @@ struct TraditionalYearViewTests {
         let mar1 = Self.makeDate(year: 2026, month: 3)
 
         let tasks = [
-            Self.makeTask(title: "Jan Task 1", date: jan15, period: .day),
-            Self.makeTask(title: "Jan Task 2", date: jan20, period: .day),
+            Self.makeTask(title: "Jan Task 1", date: jan1, period: .month),
+            Self.makeTask(title: "Jan Task 2", date: jan1, period: .month),
         ]
         let notes = [
-            Self.makeNote(title: "Feb Note", date: feb10, period: .day),
+            Self.makeNote(title: "Feb Note", date: feb1, period: .month),
         ]
 
         let janModel = service.virtualSpreadDataModel(
@@ -79,8 +79,8 @@ struct TraditionalYearViewTests {
         #expect(marModel.tasks.count + marModel.notes.count == 0)
     }
 
-    /// Cancelled tasks remain visible in month entry counts.
-    /// Setup: 1 open task and 1 cancelled task in January.
+    /// Cancelled month tasks remain visible in month entry counts.
+    /// Setup: 1 open month task and 1 cancelled month task in January.
     /// Expected: Jan count = 2.
     @Test func testCancelledTasksIncludedInCounts() {
         let service = Self.makeService()
@@ -88,8 +88,8 @@ struct TraditionalYearViewTests {
         let jan1 = Self.makeDate(year: 2026, month: 1)
 
         let tasks = [
-            Self.makeTask(title: "Open Task", date: jan15, period: .day, status: .open),
-            Self.makeTask(title: "Cancelled Task", date: jan15, period: .day, status: .cancelled),
+            Self.makeTask(title: "Open Task", date: jan1, period: .month, status: .open),
+            Self.makeTask(title: "Cancelled Task", date: jan1, period: .month, status: .cancelled),
         ]
 
         let model = service.virtualSpreadDataModel(
@@ -138,7 +138,7 @@ struct TraditionalYearViewTests {
     }
 
     /// Entries from different years should not appear in the year's month counts.
-    /// Setup: Tasks in Jan 2026 and Jan 2027.
+    /// Setup: Month tasks in Jan 2026 and Jan 2027.
     /// Expected: Jan 2026 month only shows 2026 task.
     @Test func testEntriesFromOtherYearsExcluded() {
         let service = Self.makeService()
@@ -147,8 +147,8 @@ struct TraditionalYearViewTests {
         let jan1_2026 = Self.makeDate(year: 2026, month: 1)
 
         let tasks = [
-            Self.makeTask(title: "2026 Task", date: jan15_2026, period: .day),
-            Self.makeTask(title: "2027 Task", date: jan15_2027, period: .day),
+            Self.makeTask(title: "2026 Task", date: jan1_2026, period: .month),
+            Self.makeTask(title: "2027 Task", date: Self.makeDate(year: 2027, month: 1), period: .month),
         ]
 
         let model = service.virtualSpreadDataModel(

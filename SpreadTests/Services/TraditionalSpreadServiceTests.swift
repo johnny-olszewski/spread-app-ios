@@ -112,7 +112,7 @@ struct TraditionalSpreadServiceTests {
 
     // MARK: - Entry Matching: Month Spread
 
-    /// A day-period task on Jan 15 should appear on the January 2026 month spread.
+    /// A day-period task on Jan 15 should not appear on the January 2026 month spread.
     @Test func testDayTaskAppearsOnContainingMonthSpread() {
         let service = Self.makeService()
         let normalizedDate = Period.month.normalizeDate(Self.jan15, calendar: Self.testCalendar)
@@ -123,7 +123,7 @@ struct TraditionalSpreadServiceTests {
             normalizedDate: normalizedDate
         )
 
-        #expect(result == true)
+        #expect(result == false)
     }
 
     /// A month-period task for January should appear on the January month spread.
@@ -156,7 +156,7 @@ struct TraditionalSpreadServiceTests {
 
     // MARK: - Entry Matching: Year Spread
 
-    /// A day-period task on Jan 15 2026 should appear on the 2026 year spread.
+    /// A day-period task on Jan 15 2026 should not appear on the 2026 year spread.
     @Test func testDayTaskAppearsOnContainingYearSpread() {
         let service = Self.makeService()
         let normalizedDate = Period.year.normalizeDate(Self.jan15, calendar: Self.testCalendar)
@@ -167,10 +167,10 @@ struct TraditionalSpreadServiceTests {
             normalizedDate: normalizedDate
         )
 
-        #expect(result == true)
+        #expect(result == false)
     }
 
-    /// A month-period task for January 2026 should appear on the 2026 year spread.
+    /// A month-period task for January 2026 should not appear on the 2026 year spread.
     @Test func testMonthTaskAppearsOnContainingYearSpread() {
         let service = Self.makeService()
         let normalizedDate = Period.year.normalizeDate(Self.jan1, calendar: Self.testCalendar)
@@ -181,7 +181,7 @@ struct TraditionalSpreadServiceTests {
             normalizedDate: normalizedDate
         )
 
-        #expect(result == true)
+        #expect(result == false)
     }
 
     /// A year-period task for 2026 should appear on the 2026 year spread.
@@ -274,7 +274,7 @@ struct TraditionalSpreadServiceTests {
 
     // MARK: - Entry Matching: Notes
 
-    /// A note with day-period on Jan 15 should appear on the January month spread.
+    /// A note with day-period on Jan 15 should not appear on the January month spread.
     @Test func testDayNoteAppearsOnContainingMonthSpread() {
         let service = Self.makeService()
         let normalizedDate = Period.month.normalizeDate(Self.jan15, calendar: Self.testCalendar)
@@ -285,19 +285,19 @@ struct TraditionalSpreadServiceTests {
             normalizedDate: normalizedDate
         )
 
-        #expect(result == true)
+        #expect(result == false)
     }
 
     // MARK: - Virtual Spread Data Model
 
-    /// Virtual spread data model includes entries with matching preferred dates, including cancelled tasks.
+    /// Virtual spread data model includes only entries whose preferred period matches the spread period exactly.
     @Test func testVirtualSpreadDataModelFiltersCorrectly() {
         let service = Self.makeService()
 
-        let janTask = Self.makeTask(title: "Jan Task", date: Self.jan15, period: .day)
+        let janTask = Self.makeTask(title: "Jan Task", date: Self.jan1, period: .month)
         let febTask = Self.makeTask(title: "Feb Task", date: Self.feb10, period: .day)
-        let janNote = Self.makeNote(title: "Jan Note", date: Self.jan15, period: .day)
-        let cancelledTask = Self.makeTask(title: "Cancelled", date: Self.jan15, period: .day, status: .cancelled)
+        let janNote = Self.makeNote(title: "Jan Note", date: Self.jan1, period: .month)
+        let cancelledTask = Self.makeTask(title: "Cancelled", date: Self.jan1, period: .month, status: .cancelled)
 
         let result = service.virtualSpreadDataModel(
             period: .month,
