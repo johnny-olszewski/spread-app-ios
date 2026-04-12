@@ -138,6 +138,12 @@ final class JournalManager {
     /// Plans and persists spread deletion reassignment workflows.
     let spreadDeletionCoordinator: any SpreadDeletionCoordinator
 
+    /// Coordinates explicit task migration workflows and batch migration persistence.
+    let taskMigrationCoordinator: any TaskMigrationCoordinator
+
+    /// Coordinates explicit note migration workflows.
+    let noteMigrationCoordinator: any NoteMigrationCoordinator
+
     /// Version counter that increments on data mutations.
     ///
     /// SwiftUI views can observe this to trigger refreshes when data changes.
@@ -160,16 +166,6 @@ final class JournalManager {
     /// Provides nested dictionary access: `dataModel[.month][normalizedDate]`
     /// returns the `SpreadDataModel` for that month spread.
     private(set) var dataModel: JournalDataModel = [:]
-
-    /// Service for finding best spreads for entry assignment in conventional mode.
-    private var spreadService: ConventionalSpreadService {
-        ConventionalSpreadService(calendar: calendar)
-    }
-
-    /// Service for virtual spread generation and entry mapping in traditional mode.
-    private var traditionalSpreadService: TraditionalSpreadService {
-        TraditionalSpreadService(calendar: calendar)
-    }
 
     // MARK: - Inbox
 
@@ -285,7 +281,9 @@ final class JournalManager {
         taskMutationCoordinator: (any TaskMutationCoordinator)? = nil,
         noteMutationCoordinator: (any NoteMutationCoordinator)? = nil,
         spreadDeletionPlanner: (any SpreadDeletionPlanner)? = nil,
-        spreadDeletionCoordinator: (any SpreadDeletionCoordinator)? = nil
+        spreadDeletionCoordinator: (any SpreadDeletionCoordinator)? = nil,
+        taskMigrationCoordinator: (any TaskMigrationCoordinator)? = nil,
+        noteMigrationCoordinator: (any NoteMigrationCoordinator)? = nil
     ) {
         self.calendar = calendar
         self.today = today
@@ -340,6 +338,18 @@ final class JournalManager {
             planner: resolvedSpreadDeletionPlanner,
             spreadRepository: spreadRepository,
             taskRepository: taskRepository,
+            noteRepository: noteRepository,
+            logger: LoggerAdapter(info: { message in
+                Self.logger.info("\(message, privacy: .public)")
+            })
+        )
+        self.taskMigrationCoordinator = taskMigrationCoordinator ?? StandardTaskMigrationCoordinator(
+            taskRepository: taskRepository,
+            logger: LoggerAdapter(info: { message in
+                Self.logger.info("\(message, privacy: .public)")
+            })
+        )
+        self.noteMigrationCoordinator = noteMigrationCoordinator ?? StandardNoteMigrationCoordinator(
             noteRepository: noteRepository,
             logger: LoggerAdapter(info: { message in
                 Self.logger.info("\(message, privacy: .public)")
@@ -582,62 +592,12 @@ final class JournalManager {
         from sourceKey: TaskReviewSourceKey,
         to destination: DataModel.Spread
     ) async throws {
-        // Cancelled tasks cannot be migrated
-        guard task.status != .cancelled else {
-            throw MigrationError.taskCancelled
-        }
-
-        // Multiday spreads cannot accept direct assignments
-        guard destination.period.canHaveTasksAssigned else {
-            throw MigrationError.destinationNotAssignable
-        }
-
-        switch sourceKey.kind {
-        case .inbox:
-            break
-        case .spread(_, let sourcePeriod, let sourceDate):
-            guard let sourceIndex = task.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: sourcePeriod, date: sourceDate, calendar: calendar)
-            }) else {
-                throw MigrationError.noSourceAssignment
-            }
-
-            // Mark source as migrated
-            task.assignments[sourceIndex].status = .migrated
-        }
-
-        // Check if destination assignment already exists
-        if let destIndex = task.assignments.firstIndex(where: { assignment in
-            assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
-        }) {
-            // Update existing destination assignment
-            task.assignments[destIndex].status = .open
-        } else {
-            // Create new destination assignment
-            let destinationAssignment = TaskAssignment(
-                period: destination.period,
-                date: destination.date,
-                status: .open
-            )
-            task.assignments.append(destinationAssignment)
-        }
-
-        task.status = .open
-
-        // Persist changes
-        try await taskRepository.save(task)
-        let sourceDescription: String = switch sourceKey.kind {
-        case .inbox:
-            "inbox"
-        case .spread(_, let period, _):
-            period.rawValue
-        }
-        Self.logger.info("Migration performed: task \(task.id) from \(sourceDescription) to \(destination.period.rawValue)")
-
-        // Reload tasks to ensure state is synchronized
-        tasks = await taskRepository.getTasks()
-
-        // Rebuild data model and trigger UI update
+        tasks = try await taskMigrationCoordinator.moveTask(
+            task,
+            from: sourceKey,
+            to: destination,
+            calendar: calendar
+        )
         buildDataModel()
         dataVersion += 1
     }
@@ -662,47 +622,12 @@ final class JournalManager {
         from source: DataModel.Spread,
         to destination: DataModel.Spread
     ) async throws {
-        // Multiday spreads cannot accept direct assignments
-        guard destination.period.canHaveTasksAssigned else {
-            throw MigrationError.destinationNotAssignable
-        }
-
-        // Find source assignment
-        guard let sourceIndex = note.assignments.firstIndex(where: { assignment in
-            assignment.matches(period: source.period, date: source.date, calendar: calendar)
-        }) else {
-            throw MigrationError.noSourceAssignment
-        }
-
-        // Mark source as migrated
-        note.assignments[sourceIndex].status = .migrated
-
-        // Check if destination assignment already exists
-        if let destIndex = note.assignments.firstIndex(where: { assignment in
-            assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
-        }) {
-            // Update existing destination assignment
-            note.assignments[destIndex].status = .active
-        } else {
-            // Create new destination assignment
-            let destinationAssignment = NoteAssignment(
-                period: destination.period,
-                date: destination.date,
-                status: .active
-            )
-            note.assignments.append(destinationAssignment)
-        }
-
-        // Persist changes
-        try await noteRepository.save(note)
-        Self.logger.info(
-            "Migration performed: note \(note.id) from \(source.period.rawValue) to \(destination.period.rawValue)"
+        notes = try await noteMigrationCoordinator.migrateNote(
+            note,
+            from: source,
+            to: destination,
+            calendar: calendar
         )
-
-        // Reload notes to ensure state is synchronized
-        notes = await noteRepository.getNotes()
-
-        // Rebuild data model and trigger UI update
         buildDataModel()
         dataVersion += 1
     }
@@ -723,66 +648,18 @@ final class JournalManager {
         from source: DataModel.Spread,
         to destination: DataModel.Spread
     ) async throws {
-        // Early return for empty batch
-        guard !tasks.isEmpty else { return }
+        let result = try await taskMigrationCoordinator.migrateTasksBatch(
+            tasks,
+            from: source,
+            to: destination,
+            calendar: calendar
+        )
 
-        // Multiday spreads cannot accept direct assignments
-        guard destination.period.canHaveTasksAssigned else {
-            throw MigrationError.destinationNotAssignable
-        }
+        guard result.migratedAny else { return }
 
-        var migratedAny = false
-
-        for task in tasks {
-            // Skip cancelled tasks
-            guard task.status != .cancelled else { continue }
-
-            // Find source assignment
-            guard let sourceIndex = task.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: source.period, date: source.date, calendar: calendar)
-            }) else {
-                continue
-            }
-
-            // Mark source as migrated
-            task.assignments[sourceIndex].status = .migrated
-
-            // Check if destination assignment already exists
-            if let destIndex = task.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
-            }) {
-                // Update existing destination assignment
-                task.assignments[destIndex].status = .open
-            } else {
-                // Create new destination assignment
-                let destinationAssignment = TaskAssignment(
-                    period: destination.period,
-                    date: destination.date,
-                    status: .open
-                )
-                task.assignments.append(destinationAssignment)
-            }
-
-            task.status = .open
-
-            // Persist changes
-            try await taskRepository.save(task)
-            migratedAny = true
-        }
-
-        // Only update state if we actually migrated something
-        if migratedAny {
-            Self.logger.info(
-                "Batch migration performed: \(tasks.count) task(s) from \(source.period.rawValue) to \(destination.period.rawValue)"
-            )
-
-            // Reload tasks to ensure state is synchronized
-            self.tasks = await taskRepository.getTasks()
-
-            // Rebuild data model and trigger UI update
-            buildDataModel()
-            dataVersion += 1
-        }
+        self.tasks = result.tasks
+        buildDataModel()
+        dataVersion += 1
     }
 
     // MARK: - Traditional Mode Migration

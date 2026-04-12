@@ -165,9 +165,9 @@ struct TraditionalNavigationTests {
         }
     }
 
-    /// Month view at a navigation destination should provide correct entry counts.
-    /// Setup: Tasks in March, navigate to .month(March).
-    /// Expected: Virtual spread data model has the matching tasks.
+    /// Month view at a navigation destination should include only month-period entries.
+    /// Setup: Day task in March, navigate to .month(March).
+    /// Expected: Virtual spread data model excludes the day task.
     @Test func testMonthDestinationShowsCorrectEntries() {
         let service = TraditionalSpreadService(calendar: Self.testCalendar)
         let march1 = Self.makeDate(year: 2026, month: 3)
@@ -183,7 +183,7 @@ struct TraditionalNavigationTests {
             let dataModel = service.virtualSpreadDataModel(
                 period: .month, date: monthDate, tasks: tasks, notes: [], events: []
             )
-            #expect(dataModel.tasks.count == 1)
+            #expect(dataModel.tasks.count == 0)
         }
     }
 }
