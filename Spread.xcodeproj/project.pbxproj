@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		319A04C72F1E0080002D6FA2 /* AllUITests.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = 319A04C62F1E0080002D6FA2 /* AllUITests.xctestplan */; };
 		A1B2C3D4E5F60718293A4B5D /* Definitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5C /* Definitions.swift */; };
+		A7B9000120F1000000000001 /* JohnnyOFoundationUI in Frameworks */ = {isa = PBXBuildFile; productRef = A7B9000220F1000000000001 /* JohnnyOFoundationUI */; };
 		SUPABASE001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = SUPABASE002 /* Supabase */; };
 /* End PBXBuildFile section */
 
@@ -74,6 +75,11 @@
 			path = SpreadUITests;
 			sourceTree = "<group>";
 		};
+		A7B9000320F1000000000001 /* johnnyo-foundation */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "johnnyo-foundation";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -81,6 +87,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A7B9000120F1000000000001 /* JohnnyOFoundationUI in Frameworks */,
 				SUPABASE001 /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -106,6 +113,7 @@
 			isa = PBXGroup;
 			children = (
 				318A6DCF2F5FC97B00A95F3D /* Documentation */,
+				A7B9000320F1000000000001 /* johnnyo-foundation */,
 				319A04C62F1E0080002D6FA2 /* AllUITests.xctestplan */,
 				A1B2C3D4E5F60718293A4B5C /* Definitions.swift */,
 				SPRD94011 /* Configuration */,
@@ -157,6 +165,7 @@
 			);
 			name = Spread;
 			packageProductDependencies = (
+				A7B9000220F1000000000001 /* JohnnyOFoundationUI */,
 				SUPABASE002 /* Supabase */,
 			);
 			productName = Spread;
@@ -242,6 +251,7 @@
 			mainGroup = 31E0DA772F0DB76200B0A403;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				A7B9000420F1000000000001 /* XCLocalSwiftPackageReference "johnnyo-foundation" */,
 				SUPABASE003 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -778,6 +788,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		A7B9000420F1000000000001 /* XCLocalSwiftPackageReference "johnnyo-foundation" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "johnnyo-foundation";
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		SUPABASE003 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -790,6 +807,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A7B9000220F1000000000001 /* JohnnyOFoundationUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A7B9000420F1000000000001 /* XCLocalSwiftPackageReference "johnnyo-foundation" */;
+			productName = JohnnyOFoundationUI;
+		};
 		SUPABASE002 /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = SUPABASE003 /* XCRemoteSwiftPackageReference "supabase-swift" */;
