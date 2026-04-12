@@ -402,10 +402,10 @@ struct TraditionalModeIntegrationTests {
         #expect(manager.dataModel[.day]?.count == 2) // Jan 15, Feb 10
     }
 
-    /// Virtual spreads aggregate entries correctly at the year level.
+    /// Virtual year spreads are generated as containers without inheriting day-period entries.
     /// Setup: Two day-period tasks in the same year.
-    /// Expected: Year-level virtual spread contains both tasks.
-    @Test @MainActor func testYearLevelVirtualSpreadAggregatesEntries() async throws {
+    /// Expected: Year-level virtual spread exists, but day-period tasks remain on their exact preferred day spreads.
+    @Test @MainActor func testYearLevelVirtualSpreadDoesNotAggregateDayEntries() async throws {
         let jan15 = Self.makeDate(year: 2026, month: 1, day: 15)
         let feb10 = Self.makeDate(year: 2026, month: 2, day: 10)
         let task1 = DataModel.Task(title: "Task 1", date: jan15, period: .day)
@@ -420,7 +420,7 @@ struct TraditionalModeIntegrationTests {
         let yearDate = Period.year.normalizeDate(jan15, calendar: Self.testCalendar)
         let yearModel = manager.dataModel[.year]?[yearDate]
         #expect(yearModel != nil)
-        #expect(yearModel?.tasks.count == 2)
+        #expect(yearModel?.tasks.count == 0)
     }
 
     /// Data model rebuild after migration reflects updated virtual spreads.

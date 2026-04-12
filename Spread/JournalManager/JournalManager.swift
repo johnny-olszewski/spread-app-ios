@@ -108,6 +108,15 @@ final class JournalManager {
     /// Policy for validating spread creation.
     let creationPolicy: SpreadCreationPolicy
 
+    /// Builds conventional-mode spread data models from explicit spreads and entries.
+    let conventionalDataModelBuilder: any JournalDataModelBuilder
+
+    /// Builds traditional-mode virtual spread data models from entry preference data.
+    let traditionalDataModelBuilder: any JournalDataModelBuilder
+
+    /// Resolves Inbox membership from the current spreads and entries.
+    let inboxResolver: any InboxResolver
+
     /// Version counter that increments on data mutations.
     ///
     /// SwiftUI views can observe this to trigger refreshes when data changes.
@@ -149,23 +158,7 @@ final class JournalManager {
     /// assignment matching any existing spread. Events are excluded (they use
     /// computed visibility). Cancelled tasks are excluded.
     var inboxEntries: [any Entry] {
-        var entries: [any Entry] = []
-
-        // Add unassigned tasks (excluding cancelled)
-        for task in tasks where task.status != .cancelled {
-            if task.assignments.isEmpty || !hasMatchingAssignment(for: task) {
-                entries.append(task)
-            }
-        }
-
-        // Add unassigned notes
-        for note in notes {
-            if note.assignments.isEmpty || !hasMatchingAssignment(for: note) {
-                entries.append(note)
-            }
-        }
-
-        return entries
+        inboxResolver.inboxEntries(tasks: tasks, notes: notes, spreads: spreads)
     }
 
     /// The number of entries in the Inbox.
@@ -278,7 +271,10 @@ final class JournalManager {
         collectionRepository: (any CollectionRepository)? = nil,
         bujoMode: BujoMode,
         firstWeekday: FirstWeekday = .systemDefault,
-        creationPolicy: SpreadCreationPolicy
+        creationPolicy: SpreadCreationPolicy,
+        conventionalDataModelBuilder: (any JournalDataModelBuilder)? = nil,
+        traditionalDataModelBuilder: (any JournalDataModelBuilder)? = nil,
+        inboxResolver: (any InboxResolver)? = nil
     ) {
         self.calendar = calendar
         self.today = today
@@ -290,6 +286,13 @@ final class JournalManager {
         self.bujoMode = bujoMode
         self.firstWeekday = firstWeekday
         self.creationPolicy = creationPolicy
+        self.conventionalDataModelBuilder = conventionalDataModelBuilder ?? ConventionalJournalDataModelBuilder(
+            calendar: calendar
+        )
+        self.traditionalDataModelBuilder = traditionalDataModelBuilder ?? TraditionalJournalDataModelBuilder(
+            calendar: calendar
+        )
+        self.inboxResolver = inboxResolver ?? StandardInboxResolver(calendar: calendar)
     }
 
     // MARK: - Factory Methods
@@ -397,98 +400,20 @@ final class JournalManager {
     private func buildDataModel() {
         switch bujoMode {
         case .conventional:
-            buildConventionalDataModel()
-        case .traditional:
-            buildTraditionalDataModel()
-        }
-    }
-
-    /// Builds the data model for conventional mode using created spreads and assignments.
-    private func buildConventionalDataModel() {
-        var model: JournalDataModel = [:]
-
-        // Organize spreads by period and normalized date
-        for spread in spreads {
-            let normalizedDate = spread.period.normalizeDate(spread.date, calendar: calendar)
-
-            if model[spread.period] == nil {
-                model[spread.period] = [:]
-            }
-
-            var spreadData = SpreadDataModel(spread: spread)
-
-            // Associate tasks with this spread
-            spreadData.tasks = tasksForSpread(spread)
-
-            // Associate notes with this spread
-            spreadData.notes = notesForSpread(spread)
-
-            // Associate events based on date overlap
-            spreadData.events = events.filter { event in
-                eventAppearsOnSpread(event, spread: spread)
-            }
-
-            model[spread.period]?[normalizedDate] = spreadData
-        }
-
-        dataModel = model
-    }
-
-    /// Builds the data model for traditional mode using virtual spreads from entry preferred dates.
-    ///
-    /// Generates virtual spreads for every year, month, and day that contains entries.
-    /// Entries appear only on their preferred date/period (no assignment history).
-    private func buildTraditionalDataModel() {
-        var model: JournalDataModel = [:]
-        let service = traditionalSpreadService
-
-        // Collect all unique period/date combinations from entries
-        var virtualSpreads: [(period: Period, date: Date)] = []
-
-        // Gather year-level virtual spreads
-        let years = service.yearsWithEntries(tasks: tasks, notes: notes, events: events)
-        for yearDate in years {
-            virtualSpreads.append((.year, yearDate))
-        }
-
-        // Gather month-level virtual spreads
-        for yearDate in years {
-            let months = service.monthsWithEntries(inYear: yearDate, tasks: tasks, notes: notes, events: events)
-            for monthDate in months {
-                virtualSpreads.append((.month, monthDate))
-            }
-        }
-
-        // Gather day-level virtual spreads
-        let allMonths = years.flatMap {
-            service.monthsWithEntries(inYear: $0, tasks: tasks, notes: notes, events: events)
-        }
-        for monthDate in allMonths {
-            let days = service.daysWithEntries(inMonth: monthDate, tasks: tasks, notes: notes, events: events)
-            for dayDate in days {
-                virtualSpreads.append((.day, dayDate))
-            }
-        }
-
-        // Build SpreadDataModel for each virtual spread
-        for (period, date) in virtualSpreads {
-            let spreadData = service.virtualSpreadDataModel(
-                period: period,
-                date: date,
+            dataModel = conventionalDataModelBuilder.buildDataModel(
+                spreads: spreads,
                 tasks: tasks,
                 notes: notes,
                 events: events
             )
-
-            if model[period] == nil {
-                model[period] = [:]
-            }
-
-            let normalizedDate = period.normalizeDate(date, calendar: calendar)
-            model[period]?[normalizedDate] = spreadData
+        case .traditional:
+            dataModel = traditionalDataModelBuilder.buildDataModel(
+                spreads: spreads,
+                tasks: tasks,
+                notes: notes,
+                events: events
+            )
         }
-
-        dataModel = model
     }
 
     /// Clears all data from repositories (without updating in-memory state).
@@ -525,51 +450,6 @@ final class JournalManager {
 
     // MARK: - Entry Association Helpers
 
-    /// Returns tasks that should appear on the given spread.
-    ///
-    private func tasksForSpread(_ spread: DataModel.Spread) -> [DataModel.Task] {
-        if spread.period == .multiday {
-            return tasks.filter { entryDateFallsWithinMultidayRange($0.date, spread: spread) }
-        }
-        return tasks.filter { hasSpreadAssociation($0, for: spread) }
-    }
-
-    /// Returns notes that should appear on the given spread.
-    private func notesForSpread(_ spread: DataModel.Spread) -> [DataModel.Note] {
-        if spread.period == .multiday {
-            return notes.filter { entryDateFallsWithinMultidayRange($0.date, spread: spread) }
-        }
-        return notes.filter { hasSpreadAssociation($0, for: spread) }
-    }
-
-    /// Checks whether a preferred date falls within a multiday spread's range.
-    private func entryDateFallsWithinMultidayRange(_ date: Date, spread: DataModel.Spread) -> Bool {
-        guard spread.period == .multiday,
-              let startDate = spread.startDate,
-              let endDate = spread.endDate else {
-            return false
-        }
-
-        let normalizedDate = date.startOfDay(calendar: calendar)
-        return normalizedDate >= startDate && normalizedDate <= endDate
-    }
-
-    /// Checks if a task has an assignment matching the given spread.
-    private func hasAssignment(_ task: DataModel.Task, for spread: DataModel.Spread) -> Bool {
-        task.assignments.contains { assignment in
-            assignment.status != .migrated &&
-            assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
-        }
-    }
-
-    /// Checks if a note has an assignment matching the given spread.
-    private func hasAssignment(_ note: DataModel.Note, for spread: DataModel.Spread) -> Bool {
-        note.assignments.contains { assignment in
-            assignment.status != .migrated &&
-            assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
-        }
-    }
-
     /// Checks if a task has any assignment, including migrated history, on the given spread.
     private func hasSpreadAssociation(_ task: DataModel.Task, for spread: DataModel.Spread) -> Bool {
         task.assignments.contains { assignment in
@@ -582,39 +462,6 @@ final class JournalManager {
         note.assignments.contains { assignment in
             assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
         }
-    }
-
-    /// Checks if an event should appear on the given spread.
-    private func eventAppearsOnSpread(_ event: DataModel.Event, spread: DataModel.Spread) -> Bool {
-        if spread.period == .multiday {
-            // For multiday spreads, check if event overlaps with the custom range
-            guard let startDate = spread.startDate, let endDate = spread.endDate else {
-                return false
-            }
-            let eventStart = event.startDate.startOfDay(calendar: calendar)
-            let eventEnd = event.endDate.startOfDay(calendar: calendar)
-            return eventStart <= endDate && eventEnd >= startDate
-        }
-
-        return event.appearsOn(period: spread.period, date: spread.date, calendar: calendar)
-    }
-
-    // MARK: - Inbox Helpers
-
-    /// Checks if a task has an assignment matching any existing spread.
-    ///
-    /// Returns `true` if at least one assignment matches a spread, meaning it
-    /// should not appear in the Inbox.
-    private func hasMatchingAssignment(for task: DataModel.Task) -> Bool {
-        spreads.contains { hasAssignment(task, for: $0) }
-    }
-
-    /// Checks if a note has an assignment matching any existing spread.
-    ///
-    /// Returns `true` if at least one assignment matches a spread, meaning it
-    /// should not appear in the Inbox.
-    private func hasMatchingAssignment(for note: DataModel.Note) -> Bool {
-        spreads.contains { hasAssignment(note, for: $0) }
     }
 
     // MARK: - Spread Management
