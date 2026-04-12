@@ -68,6 +68,133 @@
 - Migration logic and cancelled-task behavior are implemented.
 - Unit tests for creation, assignment, and migration pass.
 
+## Story: Journal logic extraction and hardening
+
+### User Story
+- As the team, we want journal business logic isolated behind testable, swappable seams so edge cases can be covered thoroughly and `JournalManager` can remain a stable orchestration facade instead of a monolithic rule engine.
+
+### Definition of Done
+- `JournalManager` remains the sole UI-facing journal facade but delegates business rules to extracted protocol-backed collaborators.
+- Each extracted seam lands with focused unit coverage for normal flows and edge cases before the task is complete.
+- Superseded private helpers are removed or reduced from `JournalManager` in the same task that extracts the logic.
+- Rule engines are pure or mostly pure where possible; repository writes are performed by coordinators/orchestrators rather than pure logic services.
+
+### [SPRD-154] Refactor: extract JournalDataModel builders and core journal queries
+- **Context**: `JournalManager` currently builds conventional and traditional data models itself and also owns inbox/association/visibility helpers. This mixes state ownership with high-value logic that should be independently testable.
+- **Description**: Introduce protocol-backed journal data-model builders and move data-model construction plus closely related pure query logic out of `JournalManager`.
+- **Implementation Details**:
+  - Add `JournalDataModelBuilder` protocol.
+  - Add `ConventionalJournalDataModelBuilder` and `TraditionalJournalDataModelBuilder`.
+  - Move conventional/traditional model building and shared helper logic behind these builders.
+  - Extract protocol-backed `InboxResolver` and `OverdueEvaluator` seams if their logic remains coupled to the same model/query surface during this slice.
+  - `JournalManager` selects the correct builder for `bujoMode` and delegates model construction/query resolution.
+  - Remove or shrink superseded helpers from `JournalManager` in the same change.
+- **Acceptance Criteria**:
+  - `JournalManager` no longer directly implements conventional/traditional data-model construction.
+  - Mode-specific building logic is isolated behind `JournalDataModelBuilder` conformers.
+  - Inbox and overdue query logic are either extracted in this slice or reduced to collaborator delegation without duplicate rule paths left in `JournalManager`.
+  - Edge-case tests cover spread visibility and inclusion for conventional vs traditional rules.
+- **Tests**:
+  - Unit tests for both data-model builders across:
+    - year/month/day visibility boundaries
+    - multiday inclusion
+    - migrated-history inclusion/exclusion
+    - conventional vs traditional month/day differences
+  - Unit tests for Inbox and overdue resolution if extracted in this slice.
+- **Dependencies**: SPRD-151
+
+### [SPRD-155] Refactor: extract migration planning and overdue/inbox rule engines
+- **Context**: Migration candidate resolution, current spread resolution, hierarchy traversal, and overdue/source determination are dense rule systems embedded inside `JournalManager`.
+- **Description**: Move migration planning and remaining rule-heavy query logic into protocol-backed planners/evaluators with exhaustive unit coverage.
+- **Implementation Details**:
+  - Add `MigrationPlanner` protocol and concrete implementation(s).
+  - Planner owns:
+    - migration candidate generation
+    - destination resolution
+    - parent-hierarchy traversal
+    - current destination/current displayed spread resolution
+  - If `InboxResolver` and `OverdueEvaluator` were not completed in `SPRD-154`, complete them here.
+  - `JournalManager` delegates migration/overdue/inbox queries to these collaborators.
+  - Remove superseded migration/query helpers from `JournalManager`.
+- **Acceptance Criteria**:
+  - `JournalManager` no longer directly contains migration-planning rules.
+  - Current displayed/destination spread logic is delegated to a planner.
+  - Overdue/source resolution is delegated to an evaluator.
+  - No duplicate migration-rule helper path remains inside `JournalManager`.
+- **Tests**:
+  - Unit tests for migration planning across:
+    - Inbox sources
+    - parent hierarchy sources
+    - preferred-period ceilings
+    - most-granular-valid-destination selection
+    - migrated/completed/cancelled exclusions
+  - Unit tests for overdue evaluation by period and source.
+- **Dependencies**: SPRD-154
+
+### [SPRD-156] Refactor: extract assignment reconciliation and entry mutation coordinators
+- **Context**: Preferred-date/period changes, assignment reconciliation, and task/note mutation workflows are central domain logic currently embedded in `JournalManager` mutation methods.
+- **Description**: Extract protocol-backed coordinators for assignment reconciliation and entry mutation workflows while keeping `JournalManager` as the public facade.
+- **Implementation Details**:
+  - Add protocol-backed task/note assignment reconciliation collaborators.
+  - Add workflow coordinators for task/note mutation paths as needed so repository writes and refresh flows are orchestrated outside pure rule engines.
+  - Keep task and note logic separate where rules differ materially.
+  - `JournalManager` delegates add/update/move-style entry workflows internally and remains the sole UI-facing API.
+  - Remove superseded reconciliation helpers from `JournalManager`.
+- **Acceptance Criteria**:
+  - Task and note preferred-assignment reconciliation no longer live as private rule helpers inside `JournalManager`.
+  - Entry mutation workflows use extracted coordinators internally.
+  - `JournalManager` still exposes the same app-facing mutation surface.
+  - No duplicated task/note assignment rule path remains in `JournalManager`.
+- **Tests**:
+  - Unit tests for task assignment reconciliation across:
+    - Inbox fallback
+    - existing destination assignment reuse
+    - completed-status preservation
+    - active-assignment migration to history
+  - Unit tests for note assignment reconciliation across analogous note rules.
+  - Coordinator tests for task/note create and edit workflows.
+- **Dependencies**: SPRD-154, SPRD-155
+
+### [SPRD-157] Refactor: extract spread deletion planning and reassignment coordination
+- **Context**: Spread deletion combines parent lookup, reassignment rules, persistence, and state refresh in one high-risk `JournalManager` workflow.
+- **Description**: Move spread deletion reassignment rules and workflow coordination behind dedicated protocol-backed planning/coordinator types.
+- **Implementation Details**:
+  - Add `SpreadDeletionCoordinator` and supporting planner/policy types as needed.
+  - Move parent spread lookup, affected-entry discovery, and reassignment planning out of `JournalManager`.
+  - Keep repository effects and state refresh orchestrated through coordinator + `JournalManager` facade.
+  - Remove superseded deletion helpers from `JournalManager`.
+- **Acceptance Criteria**:
+  - `JournalManager.deleteSpread` delegates deletion planning/reassignment logic.
+  - Deletion rule logic is no longer implemented by private helper chain inside `JournalManager`.
+  - Entry preservation and parent/Inbox fallback behavior remain unchanged.
+- **Tests**:
+  - Unit tests for deletion planning across:
+    - parent spread exists
+    - no parent spread
+    - task vs note reassignment
+    - migrated/history preservation
+    - multiday deletion no-op reassignment behavior
+  - Coordinator tests for spread deletion persistence workflow.
+- **Dependencies**: SPRD-156
+
+### [SPRD-158] Refactor: finalize JournalManager as orchestration facade and tighten dependency injection
+- **Context**: After extractions land, `JournalManager` should be hardened as a facade with explicit collaborator injection and minimal remaining rule branching.
+- **Description**: Complete the architectural pass so `JournalManager` is primarily orchestration/state management and all extracted seams are injected, selected, and tested coherently.
+- **Implementation Details**:
+  - Audit `JournalManager` for remaining business-rule branching.
+  - Normalize collaborator injection and factory/default wiring.
+  - Ensure mode-specific collaborator selection happens inside `JournalManager` where intended, without leaking rule logic back in.
+  - Add/refine integration-style unit tests around the facade to verify delegation and state refresh behavior.
+- **Acceptance Criteria**:
+  - `JournalManager` primarily coordinates repositories, state refresh, logging, and collaborator delegation.
+  - Remaining private helpers in `JournalManager` are orchestration-only or trivial adapter glue.
+  - Extracted collaborators are injectable and swappable in tests.
+  - No major business-rule subsystem remains trapped directly inside `JournalManager`.
+- **Tests**:
+  - Unit tests for `JournalManager` facade delegation and refresh/version behavior.
+  - Integration-style tests proving alternate collaborator implementations can be injected.
+- **Dependencies**: SPRD-154, SPRD-155, SPRD-156, SPRD-157
+
 ## Story: Conventional MVP UI: create spreads and tasks
 
 ### User Story
