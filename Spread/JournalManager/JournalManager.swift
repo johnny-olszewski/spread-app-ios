@@ -123,6 +123,18 @@ final class JournalManager {
     /// Evaluates overdue open-task review items.
     let overdueEvaluator: any OverdueEvaluator
 
+    /// Reconciles task preferred assignments against the current created spreads.
+    let taskAssignmentReconciler: any TaskAssignmentReconciler
+
+    /// Reconciles note preferred assignments against the current created spreads.
+    let noteAssignmentReconciler: any NoteAssignmentReconciler
+
+    /// Coordinates task mutation workflows that combine assignment rules and persistence.
+    let taskMutationCoordinator: any TaskMutationCoordinator
+
+    /// Coordinates note mutation workflows that combine assignment rules and persistence.
+    let noteMutationCoordinator: any NoteMutationCoordinator
+
     /// Version counter that increments on data mutations.
     ///
     /// SwiftUI views can observe this to trigger refreshes when data changes.
@@ -264,7 +276,11 @@ final class JournalManager {
         traditionalDataModelBuilder: (any JournalDataModelBuilder)? = nil,
         inboxResolver: (any InboxResolver)? = nil,
         migrationPlanner: (any MigrationPlanner)? = nil,
-        overdueEvaluator: (any OverdueEvaluator)? = nil
+        overdueEvaluator: (any OverdueEvaluator)? = nil,
+        taskAssignmentReconciler: (any TaskAssignmentReconciler)? = nil,
+        noteAssignmentReconciler: (any NoteAssignmentReconciler)? = nil,
+        taskMutationCoordinator: (any TaskMutationCoordinator)? = nil,
+        noteMutationCoordinator: (any NoteMutationCoordinator)? = nil
     ) {
         self.calendar = calendar
         self.today = today
@@ -283,12 +299,36 @@ final class JournalManager {
             calendar: calendar
         )
         let resolvedMigrationPlanner = migrationPlanner ?? StandardMigrationPlanner(calendar: calendar)
+        let resolvedTaskAssignmentReconciler = taskAssignmentReconciler ?? StandardTaskAssignmentReconciler(
+            calendar: calendar
+        )
+        let resolvedNoteAssignmentReconciler = noteAssignmentReconciler ?? StandardNoteAssignmentReconciler(
+            calendar: calendar
+        )
         self.inboxResolver = inboxResolver ?? StandardInboxResolver(calendar: calendar)
         self.migrationPlanner = resolvedMigrationPlanner
         self.overdueEvaluator = overdueEvaluator ?? StandardOverdueEvaluator(
             calendar: calendar,
             today: today,
             migrationPlanner: resolvedMigrationPlanner
+        )
+        self.taskAssignmentReconciler = resolvedTaskAssignmentReconciler
+        self.noteAssignmentReconciler = resolvedNoteAssignmentReconciler
+        self.taskMutationCoordinator = taskMutationCoordinator ?? StandardTaskMutationCoordinator(
+            taskRepository: taskRepository,
+            taskAssignmentReconciler: resolvedTaskAssignmentReconciler,
+            logger: LoggerAdapter(info: { message in
+                Self.logger.info("\(message, privacy: .public)")
+            }),
+            calendar: calendar
+        )
+        self.noteMutationCoordinator = noteMutationCoordinator ?? StandardNoteMutationCoordinator(
+            noteRepository: noteRepository,
+            noteAssignmentReconciler: resolvedNoteAssignmentReconciler,
+            logger: LoggerAdapter(info: { message in
+                Self.logger.info("\(message, privacy: .public)")
+            }),
+            calendar: calendar
         )
     }
 
@@ -766,40 +806,13 @@ final class JournalManager {
         newDate: Date,
         newPeriod: Period
     ) async throws {
-        guard task.status != .cancelled else {
-            throw MigrationError.taskCancelled
-        }
-
-        let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
-
-        // Update preferred date/period
-        task.date = normalizedDate
-        task.period = newPeriod
-
-        // Clear all existing assignments and create a new one via conventional logic
-        task.assignments.removeAll()
-
-        if let bestSpread = traditionalSpreadService.findConventionalSpread(
-            forPreferredDate: normalizedDate,
-            preferredPeriod: newPeriod,
-            in: spreads
-        ) {
-            let assignment = TaskAssignment(
-                period: bestSpread.period,
-                date: bestSpread.date,
-                status: task.status == .complete ? .complete : .open
-            )
-            task.assignments.append(assignment)
-        }
-        // If no spread found, task goes to Inbox (no assignment)
-
-        try await taskRepository.save(task)
-        Self.logger.info(
-            "Traditional migration: task \(task.id) → \(newPeriod.rawValue) \(normalizedDate)"
+        tasks = try await taskMutationCoordinator.traditionalMigrateTask(
+            task,
+            newDate: newDate,
+            newPeriod: newPeriod,
+            calendar: calendar,
+            spreads: spreads
         )
-
-        // Reload and rebuild
-        tasks = await taskRepository.getTasks()
         buildDataModel()
         dataVersion += 1
     }
@@ -822,36 +835,13 @@ final class JournalManager {
         newDate: Date,
         newPeriod: Period
     ) async throws {
-        let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
-
-        // Update preferred date/period
-        note.date = normalizedDate
-        note.period = newPeriod
-
-        // Clear all existing assignments and create a new one via conventional logic
-        note.assignments.removeAll()
-
-        if let bestSpread = traditionalSpreadService.findConventionalSpread(
-            forPreferredDate: normalizedDate,
-            preferredPeriod: newPeriod,
-            in: spreads
-        ) {
-            let assignment = NoteAssignment(
-                period: bestSpread.period,
-                date: bestSpread.date,
-                status: .active
-            )
-            note.assignments.append(assignment)
-        }
-        // If no spread found, note goes to Inbox (no assignment)
-
-        try await noteRepository.save(note)
-        Self.logger.info(
-            "Traditional migration: note \(note.id) → \(newPeriod.rawValue) \(normalizedDate)"
+        notes = try await noteMutationCoordinator.traditionalMigrateNote(
+            note,
+            newDate: newDate,
+            newPeriod: newPeriod,
+            calendar: calendar,
+            spreads: spreads
         )
-
-        // Reload and rebuild
-        notes = await noteRepository.getNotes()
         buildDataModel()
         dataVersion += 1
     }
@@ -1153,26 +1143,15 @@ final class JournalManager {
     /// - Returns: The newly created task.
     /// - Throws: Repository errors if persistence fails.
     func addTask(title: String, date: Date, period: Period) async throws -> DataModel.Task {
-        // Normalize the date for the selected period
-        let normalizedDate = period.normalizeDate(date, calendar: calendar)
-
-        // Create the task
-        let task = DataModel.Task(
+        let result = try await taskMutationCoordinator.createTask(
             title: title,
-            createdDate: .now,
-            date: normalizedDate,
+            date: date,
             period: period,
-            status: .open,
-            assignments: []
+            calendar: calendar,
+            spreads: spreads
         )
-
-        reconcileTaskAssignmentsForPreferredAssignment(task)
-
-        // Save task
-        try await taskRepository.save(task)
-
-        // Add to local list
-        tasks.append(task)
+        let task = result.task
+        tasks = result.tasks
 
         if task.assignments.isEmpty {
             Self.logger.debug("Task created: \(task.id) '\(task.title)' → Inbox (no matching spread)")
@@ -1242,12 +1221,13 @@ final class JournalManager {
         newPeriod: Period
     ) async throws {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
-        task.date = normalizedDate
-        task.period = newPeriod
-        reassignTaskAfterDateChange(task)
-
-        try await taskRepository.save(task)
-        tasks = await taskRepository.getTasks()
+        tasks = try await taskMutationCoordinator.updateTaskDateAndPeriod(
+            task,
+            newDate: newDate,
+            newPeriod: newPeriod,
+            calendar: calendar,
+            spreads: spreads
+        )
 
         Self.logger.debug("Task date updated: \(task.id) → \(newPeriod.rawValue) \(normalizedDate)")
 
@@ -1291,29 +1271,16 @@ final class JournalManager {
         date: Date,
         period: Period
     ) async throws -> DataModel.Note {
-        let normalizedDate = period.normalizeDate(date, calendar: calendar)
-
-        let note = DataModel.Note(
+        let result = try await noteMutationCoordinator.createNote(
             title: title,
             content: content,
-            date: normalizedDate,
+            date: date,
             period: period,
-            assignments: []
+            calendar: calendar,
+            spreads: spreads
         )
-
-        // Find the best spread for assignment
-        if let bestSpread = spreadService.findBestSpread(for: note, in: spreads) {
-            let assignment = NoteAssignment(
-                period: bestSpread.period,
-                date: bestSpread.date,
-                status: .active
-            )
-            note.assignments.append(assignment)
-        }
-        // If no spread found, note goes to Inbox (no assignment)
-
-        try await noteRepository.save(note)
-        notes.append(note)
+        let note = result.note
+        notes = result.notes
 
         if note.assignments.isEmpty {
             Self.logger.debug("Note created: \(note.id) '\(note.title)' → Inbox (no matching spread)")
@@ -1376,12 +1343,13 @@ final class JournalManager {
         newPeriod: Period
     ) async throws {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
-        note.date = normalizedDate
-        note.period = newPeriod
-        reassignNoteAfterDateChange(note)
-
-        try await noteRepository.save(note)
-        notes = await noteRepository.getNotes()
+        notes = try await noteMutationCoordinator.updateNoteDateAndPeriod(
+            note,
+            newDate: newDate,
+            newPeriod: newPeriod,
+            calendar: calendar,
+            spreads: spreads
+        )
 
         Self.logger.debug("Note date updated: \(note.id) → \(newPeriod.rawValue) \(normalizedDate)")
 
@@ -1389,72 +1357,4 @@ final class JournalManager {
         dataVersion += 1
     }
 
-    private func reassignTaskAfterDateChange(_ task: DataModel.Task) {
-        reconcileTaskAssignmentsForPreferredAssignment(task)
-    }
-
-    private func reconcileTaskAssignmentsForPreferredAssignment(_ task: DataModel.Task) {
-        let destination = spreadService.findBestSpread(for: task, in: spreads)
-        let destinationStatus = task.status == .complete ? DataModel.Task.Status.complete : task.status
-
-        if let destination {
-            if let destinationIndex = task.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
-            }) {
-                for index in task.assignments.indices where index != destinationIndex && task.assignments[index].status != .migrated {
-                    task.assignments[index].status = .migrated
-                }
-                task.assignments[destinationIndex].status = destinationStatus
-            } else {
-                migrateActiveTaskAssignmentsToHistory(task)
-                task.assignments.append(
-                    TaskAssignment(
-                        period: destination.period,
-                        date: destination.date,
-                        status: destinationStatus
-                    )
-                )
-            }
-        } else {
-            migrateActiveTaskAssignmentsToHistory(task)
-        }
-    }
-
-    private func reassignNoteAfterDateChange(_ note: DataModel.Note) {
-        let destination = spreadService.findBestSpread(for: note, in: spreads)
-
-        if let destination {
-            if let destinationIndex = note.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
-            }) {
-                for index in note.assignments.indices where index != destinationIndex && note.assignments[index].status != .migrated {
-                    note.assignments[index].status = .migrated
-                }
-                note.assignments[destinationIndex].status = .active
-            } else {
-                migrateActiveNoteAssignmentsToHistory(note)
-                note.assignments.append(
-                    NoteAssignment(
-                        period: destination.period,
-                        date: destination.date,
-                        status: .active
-                    )
-                )
-            }
-        } else {
-            migrateActiveNoteAssignmentsToHistory(note)
-        }
-    }
-
-    private func migrateActiveTaskAssignmentsToHistory(_ task: DataModel.Task) {
-        for index in task.assignments.indices where task.assignments[index].status != .migrated {
-            task.assignments[index].status = .migrated
-        }
-    }
-
-    private func migrateActiveNoteAssignmentsToHistory(_ note: DataModel.Note) {
-        for index in note.assignments.indices where note.assignments[index].status != .migrated {
-            note.assignments[index].status = .migrated
-        }
-    }
 }
