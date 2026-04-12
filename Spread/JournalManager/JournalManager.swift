@@ -117,6 +117,12 @@ final class JournalManager {
     /// Resolves Inbox membership from the current spreads and entries.
     let inboxResolver: any InboxResolver
 
+    /// Plans migration sources, destinations, and source-spread resolution.
+    let migrationPlanner: any MigrationPlanner
+
+    /// Evaluates overdue open-task review items.
+    let overdueEvaluator: any OverdueEvaluator
+
     /// Version counter that increments on data mutations.
     ///
     /// SwiftUI views can observe this to trigger refreshes when data changes.
@@ -177,13 +183,12 @@ final class JournalManager {
     func migrationCandidates(
         to destination: DataModel.Spread
     ) -> [MigrationCandidate] {
-        guard bujoMode == .conventional, destination.period.canHaveTasksAssigned else {
-            return []
-        }
-
-        return tasks.compactMap { task in
-            migrationCandidate(for: task, to: destination)
-        }
+        migrationPlanner.migrationCandidates(
+            tasks: tasks,
+            spreads: spreads,
+            bujoMode: bujoMode,
+            to: destination
+        )
     }
 
     /// Returns the smallest valid existing destination spread for a task on a specific source spread.
@@ -194,22 +199,11 @@ final class JournalManager {
         for task: DataModel.Task,
         on source: DataModel.Spread
     ) -> DataModel.Spread? {
-        guard bujoMode == .conventional,
-              source.period.canHaveTasksAssigned,
-              task.status == .open else {
-            return nil
-        }
-
-        guard task.assignments.contains(where: { assignment in
-            assignment.status == .open &&
-            assignment.matches(period: source.period, date: source.date, calendar: calendar)
-        }) else {
-            return nil
-        }
-
-        return mostGranularValidDestination(
+        migrationPlanner.migrationDestination(
             for: task,
-            sourceRank: source.period.granularityRank
+            on: source,
+            spreads: spreads,
+            bujoMode: bujoMode
         )
     }
 
@@ -220,23 +214,17 @@ final class JournalManager {
     func parentHierarchyMigrationCandidates(
         to destination: DataModel.Spread
     ) -> [MigrationCandidate] {
-        let parentSpreadIDs = Set(parentHierarchySpreads(for: destination).map(\.id))
-
-        return migrationCandidates(to: destination)
-            .filter { candidate in
-                guard let sourceSpread = candidate.sourceSpread else { return false }
-                return parentSpreadIDs.contains(sourceSpread.id)
-            }
-            .sorted { lhs, rhs in
-                lhs.task.title.localizedCaseInsensitiveCompare(rhs.task.title) == .orderedAscending
-            }
+        migrationPlanner.parentHierarchyMigrationCandidates(
+            tasks: tasks,
+            spreads: spreads,
+            bujoMode: bujoMode,
+            to: destination
+        )
     }
 
     /// Open tasks that are overdue anywhere in the journal.
     var overdueTaskItems: [OverdueTaskItem] {
-        tasks.compactMap { task in
-            overdueTaskItem(for: task)
-        }
+        overdueEvaluator.overdueTaskItems(tasks: tasks, spreads: spreads)
     }
 
     /// The global overdue count used by the toolbar review button.
@@ -274,7 +262,9 @@ final class JournalManager {
         creationPolicy: SpreadCreationPolicy,
         conventionalDataModelBuilder: (any JournalDataModelBuilder)? = nil,
         traditionalDataModelBuilder: (any JournalDataModelBuilder)? = nil,
-        inboxResolver: (any InboxResolver)? = nil
+        inboxResolver: (any InboxResolver)? = nil,
+        migrationPlanner: (any MigrationPlanner)? = nil,
+        overdueEvaluator: (any OverdueEvaluator)? = nil
     ) {
         self.calendar = calendar
         self.today = today
@@ -292,7 +282,14 @@ final class JournalManager {
         self.traditionalDataModelBuilder = traditionalDataModelBuilder ?? TraditionalJournalDataModelBuilder(
             calendar: calendar
         )
+        let resolvedMigrationPlanner = migrationPlanner ?? StandardMigrationPlanner(calendar: calendar)
         self.inboxResolver = inboxResolver ?? StandardInboxResolver(calendar: calendar)
+        self.migrationPlanner = resolvedMigrationPlanner
+        self.overdueEvaluator = overdueEvaluator ?? StandardOverdueEvaluator(
+            calendar: calendar,
+            today: today,
+            migrationPlanner: resolvedMigrationPlanner
+        )
     }
 
     // MARK: - Factory Methods
@@ -941,153 +938,26 @@ final class JournalManager {
 
     // MARK: - Migration + Overdue Helpers
 
-    private func migrationCandidate(
-        for task: DataModel.Task,
-        to destination: DataModel.Spread
-    ) -> MigrationCandidate? {
-        guard task.status == .open else {
-            return nil
-        }
-
-        guard destinationMatchesDesiredPath(destination, forDesiredDate: task.date) else {
-            return nil
-        }
-
-        guard destination.period.granularityRank <= task.period.granularityRank else {
-            return nil
-        }
-
-        let sourceKey: TaskReviewSourceKey
-        let sourceSpread: DataModel.Spread?
-        if let openSpread = currentOpenSpread(for: task) {
-            sourceKey = sourceSpreadSource(openSpread)
-            sourceSpread = openSpread
-        } else {
-            sourceKey = .init(kind: .inbox)
-            sourceSpread = nil
-        }
-
-        guard destination.period.granularityRank > sourceKey.sourceRank else {
-            return nil
-        }
-
-        guard let bestDestination = mostGranularValidDestination(
-            for: task,
-            sourceRank: sourceKey.sourceRank
-        ) else {
-            return nil
-        }
-
-        guard bestDestination.id == destination.id else {
-            return nil
-        }
-
-        return MigrationCandidate(
-            task: task,
-            sourceKey: sourceKey,
-            sourceSpread: sourceSpread,
-            destination: destination
-        )
-    }
-
-    private func overdueTaskItem(for task: DataModel.Task) -> OverdueTaskItem? {
-        guard task.status == .open else {
-            return nil
-        }
-
-        if let openSpread = currentOpenSpread(for: task) {
-            let sourceKey = sourceSpreadSource(openSpread)
-            guard isOverdue(
-                date: openSpread.date,
-                period: openSpread.period
-            ) else {
-                return nil
-            }
-            return OverdueTaskItem(task: task, sourceKey: sourceKey)
-        }
-
-        guard isOverdue(date: task.date, period: task.period) else {
-            return nil
-        }
-        return OverdueTaskItem(task: task, sourceKey: .init(kind: .inbox))
-    }
-
     func currentDestinationSpread(
         for task: DataModel.Task,
         excluding excludedSpread: DataModel.Spread? = nil
     ) -> DataModel.Spread? {
-        task.assignments
-            .filter { $0.status == .open }
-            .compactMap { assignment in
-                spreads.first(where: { spread in
-                    spread.period == assignment.period &&
-                    spread.period.normalizeDate(spread.date, calendar: calendar) ==
-                    assignment.period.normalizeDate(assignment.date, calendar: calendar)
-                })
-            }
-            .filter { spread in
-                guard let excludedSpread else { return true }
-                return spread.id != excludedSpread.id
-            }
-            .max { lhs, rhs in
-                if lhs.period.granularityRank == rhs.period.granularityRank {
-                    return lhs.date < rhs.date
-                }
-                return lhs.period.granularityRank < rhs.period.granularityRank
-            }
+        migrationPlanner.currentDestinationSpread(
+            for: task,
+            spreads: spreads,
+            excluding: excludedSpread
+        )
     }
 
     func currentDisplayedSpread(
         for task: DataModel.Task,
         excluding excludedSpread: DataModel.Spread? = nil
     ) -> DataModel.Spread? {
-        task.assignments
-            .filter { $0.status != .migrated }
-            .compactMap { assignment in
-                spreads.first(where: { spread in
-                    spread.period == assignment.period &&
-                    spread.period.normalizeDate(spread.date, calendar: calendar) ==
-                    assignment.period.normalizeDate(assignment.date, calendar: calendar)
-                })
-            }
-            .filter { spread in
-                guard let excludedSpread else { return true }
-                return spread.id != excludedSpread.id
-            }
-            .max { lhs, rhs in
-                if lhs.period.granularityRank == rhs.period.granularityRank {
-                    return lhs.date < rhs.date
-                }
-                return lhs.period.granularityRank < rhs.period.granularityRank
-            }
-    }
-
-    private func currentOpenSpread(for task: DataModel.Task) -> DataModel.Spread? {
-        currentDestinationSpread(for: task)
-    }
-
-    private func destinationMatchesDesiredPath(
-        _ destination: DataModel.Spread,
-        forDesiredDate desiredDate: Date
-    ) -> Bool {
-        destination.period.normalizeDate(destination.date, calendar: calendar) ==
-        destination.period.normalizeDate(desiredDate, calendar: calendar)
-    }
-
-    private func mostGranularValidDestination(
-        for task: DataModel.Task,
-        sourceRank: Int
-    ) -> DataModel.Spread? {
-        spreads
-            .filter { spread in
-                spread.period.canHaveTasksAssigned &&
-                destinationMatchesDesiredPath(spread, forDesiredDate: task.date) &&
-                spread.period.granularityRank <= task.period.granularityRank &&
-                spread.period.granularityRank > sourceRank
-            }
-            .max { lhs, rhs in
-                lhs.period.granularityRank < rhs.period.granularityRank
-            }
+        migrationPlanner.currentDisplayedSpread(
+            for: task,
+            spreads: spreads,
+            excluding: excludedSpread
+        )
     }
 
     private func sourceSpreadSource(_ spread: DataModel.Spread) -> TaskReviewSourceKey {
@@ -1098,50 +968,6 @@ final class JournalManager {
                 date: spread.period.normalizeDate(spread.date, calendar: calendar)
             )
         )
-    }
-
-    private func parentHierarchySpreads(
-        for destination: DataModel.Spread
-    ) -> [DataModel.Spread] {
-        var parentSpreads: [DataModel.Spread] = []
-        var currentPeriod = destination.period.parentPeriod
-
-        while let period = currentPeriod {
-            let normalizedDate = period.normalizeDate(destination.date, calendar: calendar)
-            if let spread = spreads.first(where: { existingSpread in
-                existingSpread.period == period &&
-                existingSpread.period.normalizeDate(existingSpread.date, calendar: calendar) == normalizedDate
-            }) {
-                parentSpreads.append(spread)
-            }
-            currentPeriod = period.parentPeriod
-        }
-
-        return parentSpreads
-    }
-
-    private func isOverdue(date: Date, period: Period) -> Bool {
-        let todayStart = today.startOfDay(calendar: calendar)
-
-        switch period {
-        case .day:
-            let dueDay = date.startOfDay(calendar: calendar)
-            return todayStart > dueDay
-        case .month:
-            let startOfMonth = period.normalizeDate(date, calendar: calendar)
-            guard let startOfNextMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth) else {
-                return false
-            }
-            return todayStart >= startOfNextMonth
-        case .year:
-            let startOfYear = period.normalizeDate(date, calendar: calendar)
-            guard let startOfNextYear = calendar.date(byAdding: .year, value: 1, to: startOfYear) else {
-                return false
-            }
-            return todayStart >= startOfNextYear
-        case .multiday:
-            return false
-        }
     }
 
     // MARK: - Spread Deletion
