@@ -2,64 +2,6 @@ import Foundation
 import OSLog
 import Observation
 
-struct TaskReviewSourceKey: Hashable, Identifiable {
-    enum Kind: Hashable {
-        case inbox
-        case spread(id: UUID, period: Period, date: Date)
-    }
-
-    let kind: Kind
-
-    var id: String {
-        switch kind {
-        case .inbox:
-            return "inbox"
-        case .spread(let id, _, _):
-            return "spread-\(id.uuidString)"
-        }
-    }
-
-    var period: Period? {
-        switch kind {
-        case .inbox:
-            return nil
-        case .spread(_, let period, _):
-            return period
-        }
-    }
-
-    var date: Date? {
-        switch kind {
-        case .inbox:
-            return nil
-        case .spread(_, _, let date):
-            return date
-        }
-    }
-
-    var sourceRank: Int {
-        period?.granularityRank ?? 0
-    }
-}
-
-struct MigrationCandidate: Identifiable {
-    let task: DataModel.Task
-    let sourceKey: TaskReviewSourceKey
-    let sourceSpread: DataModel.Spread?
-    let destination: DataModel.Spread
-
-    var id: String {
-        "\(task.id.uuidString)-\(sourceKey.id)-\(destination.id.uuidString)"
-    }
-}
-
-struct OverdueTaskItem: Identifiable {
-    let task: DataModel.Task
-    let sourceKey: TaskReviewSourceKey
-
-    var id: UUID { task.id }
-}
-
 /// Central coordinator for journal data and operations.
 ///
 /// JournalManager owns the in-memory data model, handles data loading from
@@ -481,7 +423,7 @@ final class JournalManager {
     /// Clears all data from repositories (without updating in-memory state).
     ///
     /// Helper for sign-out and debug data resets.
-    func clearAllDataFromRepositories() async throws {
+    func optioin  async throws {
         let allTasks = await taskRepository.getTasks()
         for task in allTasks {
             try await taskRepository.delete(task)
@@ -804,6 +746,16 @@ final class JournalManager {
 
     // MARK: - Migration + Overdue Helpers
 
+    /// Returns the spread where the task has an open assignment, if any.
+    ///
+    /// The "destination spread" is the spread a task is currently assigned to with
+    /// an `.open` status — i.e., where it is actively due. Used to determine the
+    /// current source location before initiating a migration.
+    ///
+    /// - Parameters:
+    ///   - task: The task to inspect.
+    ///   - excludedSpread: An optional spread to exclude from the search (e.g., the spread being deleted).
+    /// - Returns: The most granular spread with an open assignment, or `nil` if none exists.
     func currentDestinationSpread(
         for task: DataModel.Task,
         excluding excludedSpread: DataModel.Spread? = nil
@@ -815,6 +767,17 @@ final class JournalManager {
         )
     }
 
+    /// Returns the spread where the task is currently visible to the user.
+    ///
+    /// The "displayed spread" is the most granular spread where the task has any
+    /// non-migrated assignment. This differs from `currentDestinationSpread` in that
+    /// it includes completed assignments, not just open ones. Used to show the task's
+    /// current location in migration review UIs.
+    ///
+    /// - Parameters:
+    ///   - task: The task to inspect.
+    ///   - excludedSpread: An optional spread to exclude from the search.
+    /// - Returns: The most granular spread with a non-migrated assignment, or `nil` if none exists.
     func currentDisplayedSpread(
         for task: DataModel.Task,
         excluding excludedSpread: DataModel.Spread? = nil
@@ -826,6 +789,10 @@ final class JournalManager {
         )
     }
 
+    /// Creates a `TaskReviewSourceKey` for the given spread.
+    ///
+    /// Normalizes the spread's date to the period before packaging it into a key,
+    /// ensuring consistent date representation across the migration system.
     private func sourceSpreadSource(_ spread: DataModel.Spread) -> TaskReviewSourceKey {
         TaskReviewSourceKey(
             kind: .spread(
