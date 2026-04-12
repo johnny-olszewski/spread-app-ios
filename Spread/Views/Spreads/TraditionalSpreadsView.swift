@@ -150,6 +150,7 @@ struct TraditionalSpreadsView: View {
                     groupingStyle: .flat,
                     showsMigrationHistory: false
                 ),
+                accessoryContent: monthAccessory(for: spread),
                 onEditTask: { coordinator.showTaskDetail($0) },
                 onEditNote: { coordinator.showNoteDetail($0) },
                 onDeleteTask: { task in
@@ -246,6 +247,17 @@ struct TraditionalSpreadsView: View {
         case .auth:
             AuthEntrySheet(authManager: authManager, isBlocking: false)
         }
+    }
+
+    private func monthAccessory(for spread: DataModel.Spread) -> AnyView? {
+        guard spread.period == .month else { return nil }
+        return AnyView(
+            SpreadMonthCalendarView(
+                monthDate: spread.date,
+                mode: .traditional,
+                journalManager: journalManager
+            )
+        )
     }
 
     private func handlePendingNavigationRequest() {

@@ -128,6 +128,7 @@ struct ConventionalSpreadsView: View {
                 today: journalManager.today,
                 headerNavigatorModel: conventionalHeaderNavigatorModel,
                 entryListConfiguration: .init(),
+                accessoryContent: monthAccessory(for: spread),
                 onEditTask: { coordinator.showTaskDetail($0) },
                 onEditNote: { coordinator.showNoteDetail($0) },
                 onDeleteTask: { task in
@@ -193,6 +194,17 @@ struct ConventionalSpreadsView: View {
     private func openRecommendedSpreadCreation(_ recommendation: SpreadTitleNavigatorRecommendation) {
         coordinator.showSpreadCreation(
             prefill: .init(period: recommendation.period, date: recommendation.date)
+        )
+    }
+
+    private func monthAccessory(for spread: DataModel.Spread) -> AnyView? {
+        guard spread.period == .month else { return nil }
+        return AnyView(
+            SpreadMonthCalendarView(
+                monthDate: spread.date,
+                mode: .conventional,
+                journalManager: journalManager
+            )
         )
     }
 

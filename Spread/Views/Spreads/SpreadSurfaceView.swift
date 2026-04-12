@@ -7,6 +7,7 @@ struct SpreadSurfaceView: View {
     let today: Date
     let headerNavigatorModel: SpreadHeaderNavigatorModel
     var entryListConfiguration: EntryListConfiguration = .init()
+    var accessoryContent: AnyView? = nil
 
     var onEditTask: ((DataModel.Task) -> Void)?
     var onEditNote: ((DataModel.Note) -> Void)?
@@ -40,6 +41,10 @@ struct SpreadSurfaceView: View {
                 currentSpread: spread,
                 onNavigatorSelect: onSelectSpread
             )
+
+            if let accessoryContent {
+                accessoryContent
+            }
 
             entryList
         }
