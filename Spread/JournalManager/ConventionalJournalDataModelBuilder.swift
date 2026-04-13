@@ -58,6 +58,9 @@ struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
         return model
     }
 
+    /// Rebuilds one explicit spread surface for scoped `JournalManager` patching.
+    ///
+    /// Returns `nil` only when the matching explicit spread no longer exists.
     func buildSpreadDataModel(
         for key: SpreadDataModelKey,
         spreads: [DataModel.Spread],
@@ -80,6 +83,10 @@ struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
         )
     }
 
+    /// Returns all conventional surfaces that can display the task.
+    ///
+    /// This includes explicit assignment-backed spreads plus any multiday spreads whose
+    /// date range contains the task's preferred date.
     func spreadKeys(
         for task: DataModel.Task,
         spreads: [DataModel.Spread]
@@ -95,6 +102,10 @@ struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
         return keys
     }
 
+    /// Returns all conventional surfaces that can display the note.
+    ///
+    /// This includes explicit assignment-backed spreads plus any multiday spreads whose
+    /// date range contains the note's preferred date.
     func spreadKeys(
         for note: DataModel.Note,
         spreads: [DataModel.Spread]
@@ -110,6 +121,7 @@ struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
         return keys
     }
 
+    /// Returns the canonical derived-model key for an explicit conventional spread.
     func spreadKey(
         for spread: DataModel.Spread,
         spreads: [DataModel.Spread],

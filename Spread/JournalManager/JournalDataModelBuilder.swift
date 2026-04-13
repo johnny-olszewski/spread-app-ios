@@ -8,8 +8,8 @@ import Foundation
 /// - **Traditional**: Derives virtual spreads from the entries' preferred dates. No
 ///   explicit spread records are required.
 ///
-/// `JournalManager` calls the active builder after every data load or mutation and
-/// replaces `dataModel` with the result.
+/// `JournalManager` uses the active builder for both full rebuilds and targeted
+/// spread/surface patching after mutations.
 protocol JournalDataModelBuilder {
     /// Constructs the nested period → date → `SpreadDataModel` dictionary.
     ///
@@ -26,8 +26,10 @@ protocol JournalDataModelBuilder {
         events: [DataModel.Event]
     ) -> JournalDataModel
 
-    /// Builds one spread/surface model for the given key, or returns `nil` when no
-    /// surface should exist for that key under the current mode/data.
+    /// Builds one spread/surface model for the given key.
+    ///
+    /// Returns `nil` when the surface should be removed from the derived model under
+    /// the current mode and data snapshot.
     func buildSpreadDataModel(
         for key: SpreadDataModelKey,
         spreads: [DataModel.Spread],
@@ -36,13 +38,15 @@ protocol JournalDataModelBuilder {
         events: [DataModel.Event]
     ) -> SpreadDataModel?
 
-    /// Returns the spread keys that can be affected by this task in the current mode.
+    /// Returns the derived spread/surface keys that can be affected by this task in
+    /// the current mode.
     func spreadKeys(
         for task: DataModel.Task,
         spreads: [DataModel.Spread]
     ) -> Set<SpreadDataModelKey>
 
-    /// Returns the spread keys that can be affected by this note in the current mode.
+    /// Returns the derived spread/surface keys that can be affected by this note in
+    /// the current mode.
     func spreadKeys(
         for note: DataModel.Note,
         spreads: [DataModel.Spread]
