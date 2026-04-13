@@ -307,7 +307,7 @@
 - `SpreadSurfaceView` is removed if fully subsumed by the new pager/content structure.
 - User-visible spread behavior remains unchanged.
 
-### [SPRD-163] Refactor: introduce SpreadsView and SpreadsViewModel as the shared spreads shell
+### [SPRD-163] Refactor: introduce SpreadsView and SpreadsViewModel as the shared spreads shell - [x] Complete
 - **Context**: `ConventionalSpreadsView` and `TraditionalSpreadsView` still duplicate root shell concerns such as selection state, recentering, sheet routing, and shared control assembly.
 - **Description**: Create a shared `SpreadsView` and a shell-scoped `SpreadsViewModel`, then move shared root-view composition into that one shell.
 - **Implementation Details**:
@@ -333,7 +333,7 @@
   - App build and relevant spread unit tests remain green.
 - **Dependencies**: SPRD-162
 
-### [SPRD-164] Refactor: add SpreadTitleNavigatorProviding and move strip-model generation into JournalManager
+### [SPRD-164] Refactor: add SpreadTitleNavigatorProviding and move strip-model generation into JournalManager - [x] Complete
 - **Context**: The title navigator is still wired from mode-specific spread roots even though strip generation should come from the journal facade based on `bujoMode`.
 - **Description**: Introduce `SpreadTitleNavigatorProviding` and move strip/title navigator provision behind `JournalManager`.
 - **Implementation Details**:
@@ -351,7 +351,7 @@
   - Spread shell tests remain green.
 - **Dependencies**: SPRD-163
 
-### [SPRD-165] Refactor: collapse SpreadSurfaceView into pager-assembled spread content views
+### [SPRD-165] Refactor: collapse SpreadSurfaceView into pager-assembled spread content views - [x] Complete
 - **Context**: `SpreadSurfaceView` and `SpreadContentPagerView` currently split responsibilities that can be simplified by letting the pager assemble each page directly.
 - **Description**: Make `SpreadContentPagerView` assemble page headers plus spread-type content views and remove `SpreadSurfaceView` if fully subsumed.
 - **Implementation Details**:
