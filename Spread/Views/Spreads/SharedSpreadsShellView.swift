@@ -8,9 +8,12 @@ struct SharedSpreadsShellControlConfiguration {
     var onCreateNote: (() -> Void)?
 }
 
-struct SharedSpreadsShellView<Page: View>: View {
+struct SharedSpreadsShellView: View {
     @Binding var selection: SpreadHeaderNavigatorModel.Selection
 
+    let journalManager: JournalManager
+    let viewModel: SpreadsViewModel
+    let syncEngine: SyncEngine?
     let stripModel: SpreadTitleNavigatorModel
     let recenterToken: Int
     let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding
@@ -19,8 +22,10 @@ struct SharedSpreadsShellView<Page: View>: View {
     let onAuth: () -> Void
     let syncStatus: SyncStatus?
     let controls: SharedSpreadsShellControlConfiguration
-    let items: [SpreadTitleNavigatorModel.Item]
-    @ViewBuilder let page: (SpreadTitleNavigatorModel.Item) -> Page
+
+    private var items: [SpreadTitleNavigatorModel.Item] {
+        stripModel.items(for: selection)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -54,13 +59,14 @@ struct SharedSpreadsShellView<Page: View>: View {
     private var contentArea: some View {
         if !items.isEmpty {
             SpreadContentPagerView(
+                journalManager: journalManager,
+                viewModel: viewModel,
+                syncEngine: syncEngine,
                 model: stripModel,
                 items: items,
                 recenterToken: recenterToken,
                 selection: $selection
-            ) { item in
-                page(item)
-            }
+            )
             .dotGridBackground(.paper, ignoresSafeAreaEdges: .bottom)
         } else {
             ContentUnavailableView {
