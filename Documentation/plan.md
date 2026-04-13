@@ -207,7 +207,7 @@
 - Existing behavior for conventional, traditional, multiday, Inbox, migration, and overdue surfaces is unchanged.
 - Unit tests for targeted mutation behavior are extensive and fully green before the story is considered complete.
 
-### [SPRD-164] Refactor: introduce typed journal mutation results and remove unnecessary full repository reloads
+### [SPRD-159] Refactor: introduce typed journal mutation results and remove unnecessary full repository reloads
 - **Context**: `JournalManager` currently rebuilds derived state after nearly every mutation, and some simple single-entity edits also re-fetch an entire repository slice before rebuilding.
 - **Description**: Add a typed mutation result contract for journal mutations and eliminate avoidable full repository re-fetches on simple edits where the updated entity is already known.
 - **Implementation Details**:
@@ -228,7 +228,7 @@
   - Unit tests verifying repository-wide reload is not performed on the targeted simple-edit paths.
 - **Dependencies**: SPRD-158
 
-### [SPRD-165] Refactor: add stable spread keys and targeted JournalDataModel builder APIs
+### [SPRD-160] Refactor: add stable spread keys and targeted JournalDataModel builder APIs
 - **Context**: Targeted mutation patching is not possible unless the app can identify and rebuild one spread/surface at a time instead of only producing full `JournalDataModel` snapshots.
 - **Description**: Introduce canonical spread/surface identity and extend journal data-model builders to support targeted spread/surface rebuilding alongside full rebuilds.
 - **Implementation Details**:
@@ -247,9 +247,9 @@
   - Unit tests for stable key generation across period/date/multiday cases.
   - Unit tests for targeted builder output matching full builder output for the same spread/surface.
   - Regression tests covering conventional vs traditional inclusion rules under targeted rebuilds.
-- **Dependencies**: SPRD-164
+- **Dependencies**: SPRD-159
 
-### [SPRD-166] Refactor: patch JournalManager derived state by affected scope
+### [SPRD-161] Refactor: patch JournalManager derived state by affected scope
 - **Context**: After mutation results and targeted builder APIs exist, `JournalManager` still needs a scoped apply path that updates only affected derived slices instead of always replacing the whole `dataModel`.
 - **Description**: Teach `JournalManager` to merge updated entities, interpret affected mutation scope, and patch only the affected derived spread/surface slices when safe.
 - **Implementation Details**:
@@ -273,9 +273,9 @@
     - spread create/delete
   - Regression tests proving affected spread slices update correctly while unrelated slices remain stable.
   - Explicit tests for structural fallback behavior.
-- **Dependencies**: SPRD-165
+- **Dependencies**: SPRD-160
 
-### [SPRD-167] Refactor: harden targeted mutation architecture and verify no user-visible regression
+### [SPRD-162] Refactor: harden targeted mutation architecture and verify no user-visible regression
 - **Context**: Once scoped mutation patching is in place, the architecture needs a final hardening pass so it remains safe, testable, and maintainable.
 - **Description**: Audit targeted mutation adoption, remove obsolete full-rebuild call paths where appropriate, and expand tests so the green suite proves the refactor preserved behavior.
 - **Implementation Details**:
@@ -292,7 +292,7 @@
   - Full `SpreadTests` suite green.
   - New targeted-mutation unit tests covering edge cases and fallback paths.
   - Added regression tests for current journal behaviors most sensitive to stale derived state.
-- **Dependencies**: SPRD-166
+- **Dependencies**: SPRD-161
 
 ## Story: Conventional MVP UI: create spreads and tasks
 
