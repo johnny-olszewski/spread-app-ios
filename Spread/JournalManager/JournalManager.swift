@@ -402,22 +402,54 @@ final class JournalManager {
     /// then associates entries via assignments.
     /// In traditional mode, generates virtual spreads from entries' preferred dates.
     private func buildDataModel() {
+        dataModel = activeDataModelBuilder.buildDataModel(
+            spreads: spreads,
+            tasks: tasks,
+            notes: notes,
+            events: events
+        )
+    }
+
+    private var activeDataModelBuilder: any JournalDataModelBuilder {
         switch bujoMode {
         case .conventional:
-            dataModel = conventionalDataModelBuilder.buildDataModel(
-                spreads: spreads,
-                tasks: tasks,
-                notes: notes,
-                events: events
-            )
+            conventionalDataModelBuilder
         case .traditional:
-            dataModel = traditionalDataModelBuilder.buildDataModel(
-                spreads: spreads,
-                tasks: tasks,
-                notes: notes,
-                events: events
-            )
+            traditionalDataModelBuilder
         }
+    }
+
+    private func refreshDataModel(for scope: JournalMutationScope) {
+        switch scope {
+        case .structural:
+            buildDataModel()
+        case .spreadKeys(let keys):
+            for key in keys {
+                dataModel[key: key] = activeDataModelBuilder.buildSpreadDataModel(
+                    for: key,
+                    spreads: spreads,
+                    tasks: tasks,
+                    notes: notes,
+                    events: events
+                )
+            }
+        }
+    }
+
+    private func scopeForTaskChange(
+        previousKeys: Set<SpreadDataModelKey>,
+        task: DataModel.Task
+    ) -> JournalMutationScope {
+        let nextKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        return .spreadKeys(previousKeys.union(nextKeys))
+    }
+
+    private func scopeForNoteChange(
+        previousKeys: Set<SpreadDataModelKey>,
+        note: DataModel.Note
+    ) -> JournalMutationScope {
+        let nextKeys = activeDataModelBuilder.spreadKeys(for: note, spreads: spreads)
+        return .spreadKeys(previousKeys.union(nextKeys))
     }
 
     /// Clears all data from repositories (without updating in-memory state).
@@ -470,7 +502,17 @@ final class JournalManager {
         try await spreadRepository.save(spread)
         spreads.append(spread)
 
-        buildDataModel()
+        if let key = activeDataModelBuilder.spreadKey(
+            for: spread,
+            spreads: spreads,
+            tasks: tasks,
+            notes: notes,
+            events: events
+        ) {
+            refreshDataModel(for: .spreadKeys([key]))
+        } else {
+            refreshDataModel(for: .structural)
+        }
         dataVersion += 1
 
         return spread
@@ -498,8 +540,17 @@ final class JournalManager {
         try await spreadRepository.save(spread)
         spreads.append(spread)
 
-        // Rebuild data model and trigger UI update
-        buildDataModel()
+        if let key = activeDataModelBuilder.spreadKey(
+            for: spread,
+            spreads: spreads,
+            tasks: tasks,
+            notes: notes,
+            events: events
+        ) {
+            refreshDataModel(for: .spreadKeys([key]))
+        } else {
+            refreshDataModel(for: .structural)
+        }
         dataVersion += 1
 
         return spread
@@ -534,13 +585,15 @@ final class JournalManager {
         from sourceKey: TaskReviewSourceKey,
         to destination: DataModel.Spread
     ) async throws {
-        tasks = try await taskMigrationCoordinator.moveTask(
+        let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        let result = try await taskMigrationCoordinator.moveTask(
             task,
             from: sourceKey,
             to: destination,
             calendar: calendar
         )
-        buildDataModel()
+        tasks = result.tasks
+        refreshDataModel(for: scopeForTaskChange(previousKeys: previousKeys, task: result.task))
         dataVersion += 1
     }
 
@@ -564,13 +617,15 @@ final class JournalManager {
         from source: DataModel.Spread,
         to destination: DataModel.Spread
     ) async throws {
-        notes = try await noteMigrationCoordinator.migrateNote(
+        let previousKeys = activeDataModelBuilder.spreadKeys(for: note, spreads: spreads)
+        let result = try await noteMigrationCoordinator.migrateNote(
             note,
             from: source,
             to: destination,
             calendar: calendar
         )
-        buildDataModel()
+        notes = result.notes
+        refreshDataModel(for: scopeForNoteChange(previousKeys: previousKeys, note: result.note))
         dataVersion += 1
     }
 
@@ -590,6 +645,7 @@ final class JournalManager {
         from source: DataModel.Spread,
         to destination: DataModel.Spread
     ) async throws {
+        let previousKeys = Set(tasks.flatMap { activeDataModelBuilder.spreadKeys(for: $0, spreads: spreads) })
         let result = try await taskMigrationCoordinator.migrateTasksBatch(
             tasks,
             from: source,
@@ -600,7 +656,8 @@ final class JournalManager {
         guard result.migratedAny else { return }
 
         self.tasks = result.tasks
-        buildDataModel()
+        let nextKeys = Set(result.migratedTasks.flatMap { activeDataModelBuilder.spreadKeys(for: $0, spreads: spreads) })
+        refreshDataModel(for: .spreadKeys(previousKeys.union(nextKeys)))
         dataVersion += 1
     }
 
@@ -624,14 +681,16 @@ final class JournalManager {
         newDate: Date,
         newPeriod: Period
     ) async throws {
-        tasks = try await taskMutationCoordinator.traditionalMigrateTask(
+        let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        let result = try await taskMutationCoordinator.traditionalMigrateTask(
             task,
             newDate: newDate,
             newPeriod: newPeriod,
             calendar: calendar,
             spreads: spreads
         )
-        buildDataModel()
+        tasks = result.tasks
+        refreshDataModel(for: scopeForTaskChange(previousKeys: previousKeys, task: result.task))
         dataVersion += 1
     }
 
@@ -653,14 +712,16 @@ final class JournalManager {
         newDate: Date,
         newPeriod: Period
     ) async throws {
-        notes = try await noteMutationCoordinator.traditionalMigrateNote(
+        let previousKeys = activeDataModelBuilder.spreadKeys(for: note, spreads: spreads)
+        let result = try await noteMutationCoordinator.traditionalMigrateNote(
             note,
             newDate: newDate,
             newPeriod: newPeriod,
             calendar: calendar,
             spreads: spreads
         )
-        buildDataModel()
+        notes = result.notes
+        refreshDataModel(for: scopeForNoteChange(previousKeys: previousKeys, note: result.note))
         dataVersion += 1
     }
 
@@ -827,8 +888,7 @@ final class JournalManager {
         tasks = result.tasks
         notes = result.notes
 
-        // Rebuild data model and trigger UI update
-        buildDataModel()
+        refreshDataModel(for: .structural)
         dataVersion += 1
     }
 
@@ -864,8 +924,7 @@ final class JournalManager {
             Self.logger.debug("Task created: \(task.id) '\(task.title)' → \(task.period.rawValue) spread")
         }
 
-        // Rebuild data model and trigger UI update
-        buildDataModel()
+        refreshDataModel(for: .spreadKeys(activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)))
         dataVersion += 1
 
         return task
@@ -880,14 +939,14 @@ final class JournalManager {
     ///   - newTitle: The new title for the task.
     /// - Throws: Repository errors if persistence fails.
     func updateTaskTitle(_ task: DataModel.Task, newTitle: String) async throws {
+        let scope = JournalMutationScope.spreadKeys(activeDataModelBuilder.spreadKeys(for: task, spreads: spreads))
         task.title = newTitle
 
         try await taskRepository.save(task)
-        tasks = await taskRepository.getTasks()
 
         Self.logger.debug("Task title updated: \(task.id) '\(task.title)'")
 
-        buildDataModel()
+        refreshDataModel(for: scope)
         dataVersion += 1
     }
 
@@ -902,14 +961,14 @@ final class JournalManager {
             throw TaskMutationError.manualMigratedStatusNotAllowed
         }
 
+        let scope = JournalMutationScope.spreadKeys(activeDataModelBuilder.spreadKeys(for: task, spreads: spreads))
         task.status = newStatus
 
         try await taskRepository.save(task)
-        tasks = await taskRepository.getTasks()
 
         Self.logger.debug("Task status updated: \(task.id) → \(newStatus.rawValue)")
 
-        buildDataModel()
+        refreshDataModel(for: scope)
         dataVersion += 1
     }
 
@@ -926,17 +985,19 @@ final class JournalManager {
         newPeriod: Period
     ) async throws {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
-        tasks = try await taskMutationCoordinator.updateTaskDateAndPeriod(
+        let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        let result = try await taskMutationCoordinator.updateTaskDateAndPeriod(
             task,
             newDate: newDate,
             newPeriod: newPeriod,
             calendar: calendar,
             spreads: spreads
         )
+        tasks = result.tasks
 
         Self.logger.debug("Task date updated: \(task.id) → \(newPeriod.rawValue) \(normalizedDate)")
 
-        buildDataModel()
+        refreshDataModel(for: scopeForTaskChange(previousKeys: previousKeys, task: result.task))
         dataVersion += 1
     }
 
@@ -945,12 +1006,13 @@ final class JournalManager {
     /// - Parameter task: The task to delete.
     /// - Throws: Repository errors if deletion fails.
     func deleteTask(_ task: DataModel.Task) async throws {
+        let scope = JournalMutationScope.spreadKeys(activeDataModelBuilder.spreadKeys(for: task, spreads: spreads))
         try await taskRepository.delete(task)
         tasks.removeAll { $0.id == task.id }
 
         Self.logger.debug("Task deleted: \(task.id) '\(task.title)'")
 
-        buildDataModel()
+        refreshDataModel(for: scope)
         dataVersion += 1
     }
 
@@ -993,7 +1055,7 @@ final class JournalManager {
             Self.logger.debug("Note created: \(note.id) '\(note.title)' → \(note.period.rawValue) spread")
         }
 
-        buildDataModel()
+        refreshDataModel(for: .spreadKeys(activeDataModelBuilder.spreadKeys(for: note, spreads: spreads)))
         dataVersion += 1
 
         return note
@@ -1004,12 +1066,13 @@ final class JournalManager {
     /// - Parameter note: The note to delete.
     /// - Throws: Repository errors if deletion fails.
     func deleteNote(_ note: DataModel.Note) async throws {
+        let scope = JournalMutationScope.spreadKeys(activeDataModelBuilder.spreadKeys(for: note, spreads: spreads))
         try await noteRepository.delete(note)
         notes.removeAll { $0.id == note.id }
 
         Self.logger.debug("Note deleted: \(note.id) '\(note.title)'")
 
-        buildDataModel()
+        refreshDataModel(for: scope)
         dataVersion += 1
     }
 
@@ -1021,15 +1084,15 @@ final class JournalManager {
     ///   - newContent: The new content for the note.
     /// - Throws: Repository errors if persistence fails.
     func updateNoteTitle(_ note: DataModel.Note, newTitle: String, newContent: String) async throws {
+        let scope = JournalMutationScope.spreadKeys(activeDataModelBuilder.spreadKeys(for: note, spreads: spreads))
         note.title = newTitle
         note.content = newContent
 
         try await noteRepository.save(note)
-        notes = await noteRepository.getNotes()
 
         Self.logger.debug("Note updated: \(note.id) '\(note.title)'")
 
-        buildDataModel()
+        refreshDataModel(for: scope)
         dataVersion += 1
     }
 
@@ -1048,17 +1111,19 @@ final class JournalManager {
         newPeriod: Period
     ) async throws {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
-        notes = try await noteMutationCoordinator.updateNoteDateAndPeriod(
+        let previousKeys = activeDataModelBuilder.spreadKeys(for: note, spreads: spreads)
+        let result = try await noteMutationCoordinator.updateNoteDateAndPeriod(
             note,
             newDate: newDate,
             newPeriod: newPeriod,
             calendar: calendar,
             spreads: spreads
         )
+        notes = result.notes
 
         Self.logger.debug("Note date updated: \(note.id) → \(newPeriod.rawValue) \(normalizedDate)")
 
-        buildDataModel()
+        refreshDataModel(for: scopeForNoteChange(previousKeys: previousKeys, note: result.note))
         dataVersion += 1
     }
 
