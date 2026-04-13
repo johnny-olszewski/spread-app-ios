@@ -204,6 +204,38 @@
   - targeted patch tests must prove no user-visible regression in conventional, traditional, multiday, Inbox, migration, and overdue scenarios
   - tests should verify that simple mutations do not trigger unnecessary full rebuild paths once the targeted path is implemented [SPRD-159, SPRD-160, SPRD-161, SPRD-162]
 
+### Spread View Architecture
+- The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
+- `SpreadsView` should assemble:
+  - `SpreadTitleNavigatorView`
+  - `SpreadContentPagerView`
+  - shared sheet presentation
+  - shared bottom controls [SPRD-163]
+- `ConventionalSpreadsView` and `TraditionalSpreadsView` should be removed once the shared `SpreadsView` fully replaces them. Mode-specific behavior should be expressed through injected models/data rather than separate root layouts. [SPRD-163, SPRD-165]
+- A `SpreadsViewModel` should own spread-shell UI state only, such as:
+  - current selection
+  - recenter token
+  - active sheet
+  - shell-level control state [SPRD-163]
+- `SpreadsViewModel` should not become a replacement business-logic owner. Journal mutations and journal-derived data remain sourced from `JournalManager`. [SPRD-163, SPRD-164, SPRD-165]
+- `SpreadTitleNavigatorView` should depend on a new `SpreadTitleNavigatorProviding` protocol rather than mode-specific root-view wiring. [SPRD-164]
+- `JournalManager` should conform to `SpreadTitleNavigatorProviding`, with the conformance placed in `JournalManager+SpreadTitleNavigatorProviding.swift`. [SPRD-164]
+- `JournalManager` should provide the correct strip/title navigator model and items based on the current `bujoMode`, so mode-aware strip generation stays out of the root shell UI. [SPRD-164]
+- `SpreadContentPagerView` should own page assembly for the shared spread shell. [SPRD-165]
+- `SpreadContentPagerView` should assemble, inside the horizontal pager, one page per spread item consisting of:
+  - `SpreadHeaderView`
+  - one spread-type content view matching the spread period [SPRD-165]
+- Spread-type content views should be:
+  - `YearSpreadContentView`
+  - `MonthSpreadContentView`
+  - `DaySpreadContentView`
+  - `MultidaySpreadContentView` [SPRD-165]
+- Those spread-type content views are content renderers, not full pages. The header remains outside them and is assembled by `SpreadContentPagerView`. [SPRD-165]
+- Spread-type content views should receive fully prepared display models. They should not derive mode-specific journal inclusion rules by querying `JournalManager` directly. [SPRD-165]
+- Actions may still be passed to lower-level components as closures, but the same closure should not be threaded through multiple layers redundantly. If a deeply nested component needs shared shell/journal behavior, it should prefer access through `SpreadsViewModel` and/or `JournalManager`. [SPRD-163, SPRD-165]
+- `SpreadSurfaceView` should be removed if its responsibilities are fully absorbed by `SpreadContentPagerView` and the new spread-type content views. [SPRD-165]
+- This refactor is intended as an initial shell/content consolidation pass. It should preserve current user-visible spread behavior, then be reevaluated for follow-up scope once the shared shell is in place. [SPRD-163, SPRD-164, SPRD-165]
+
 ---
 
 ## Functional Requirements

@@ -294,6 +294,85 @@
   - Added regression tests for current journal behaviors most sensitive to stale derived state.
 - **Dependencies**: SPRD-161
 
+## Story: Shared spreads shell and page-content refactor
+
+### User Story
+- As the team, we want one shared spreads shell and one shared pager/page assembly path so the spread UI is easier to evolve without duplicating conventional and traditional root view logic.
+
+### Definition of Done
+- One shared `SpreadsView` replaces the conventional/traditional root composition split.
+- `SpreadsViewModel` owns shell-level UI state without becoming a new business-logic owner.
+- `SpreadTitleNavigatorView` reads from `SpreadTitleNavigatorProviding`, with `JournalManager` providing mode-aware strip data.
+- `SpreadContentPagerView` assembles page headers and spread-type content views directly.
+- `SpreadSurfaceView` is removed if fully subsumed by the new pager/content structure.
+- User-visible spread behavior remains unchanged.
+
+### [SPRD-163] Refactor: introduce SpreadsView and SpreadsViewModel as the shared spreads shell
+- **Context**: `ConventionalSpreadsView` and `TraditionalSpreadsView` still duplicate root shell concerns such as selection state, recentering, sheet routing, and shared control assembly.
+- **Description**: Create a shared `SpreadsView` and a shell-scoped `SpreadsViewModel`, then move shared root-view composition into that one shell.
+- **Implementation Details**:
+  - Add `SpreadsView`.
+  - Add `SpreadsViewModel` for shell UI state only:
+    - selection
+    - recenter token
+    - active sheet
+    - shell control state
+  - Move shared shell assembly for:
+    - `SpreadTitleNavigatorView`
+    - `SpreadContentPagerView`
+    - shared sheets
+    - shared bottom controls
+  - Remove duplicated root-shell logic from `ConventionalSpreadsView` and `TraditionalSpreadsView`.
+- **Acceptance Criteria**:
+  - One shared root spreads shell is used for both BuJo modes.
+  - `SpreadsViewModel` owns shell state only and does not absorb journal business logic.
+  - User-visible spread behavior remains unchanged.
+- **Tests**:
+  - Unit tests for `SpreadsViewModel` shell state transitions.
+  - Existing spread shell/support tests updated to target the shared root.
+  - App build and relevant spread unit tests remain green.
+- **Dependencies**: SPRD-162
+
+### [SPRD-164] Refactor: add SpreadTitleNavigatorProviding and move strip-model generation into JournalManager
+- **Context**: The title navigator is still wired from mode-specific spread roots even though strip generation should come from the journal facade based on `bujoMode`.
+- **Description**: Introduce `SpreadTitleNavigatorProviding` and move strip/title navigator provision behind `JournalManager`.
+- **Implementation Details**:
+  - Add `SpreadTitleNavigatorProviding`.
+  - Add `JournalManager+SpreadTitleNavigatorProviding.swift`.
+  - Move strip model / item generation behind the protocol.
+  - Update `SpreadTitleNavigatorView` and the shared spreads shell to depend on the protocol rather than conventional/traditional-specific wiring.
+- **Acceptance Criteria**:
+  - `SpreadTitleNavigatorView` is fed by a `SpreadTitleNavigatorProviding` instance.
+  - `JournalManager` provides the correct strip data for the current mode.
+  - Conventional/traditional root-specific strip wiring is removed.
+- **Tests**:
+  - Unit tests for `JournalManager` strip provision across conventional and traditional modes.
+  - Existing navigator support tests updated for the protocol-backed provider path.
+  - Spread shell tests remain green.
+- **Dependencies**: SPRD-163
+
+### [SPRD-165] Refactor: collapse SpreadSurfaceView into pager-assembled spread content views
+- **Context**: `SpreadSurfaceView` and `SpreadContentPagerView` currently split responsibilities that can be simplified by letting the pager assemble each page directly.
+- **Description**: Make `SpreadContentPagerView` assemble page headers plus spread-type content views and remove `SpreadSurfaceView` if fully subsumed.
+- **Implementation Details**:
+  - Update `SpreadContentPagerView` to assemble each page as:
+    - `SpreadHeaderView`
+    - `YearSpreadContentView`, `MonthSpreadContentView`, `DaySpreadContentView`, or `MultidaySpreadContentView`
+  - Content views receive fully prepared display models.
+  - Header remains outside the content views.
+  - Prefer `SpreadsViewModel` / `JournalManager` access over repeatedly threading identical closures through multiple layers.
+  - Remove `SpreadSurfaceView` if no longer needed.
+- **Acceptance Criteria**:
+  - `SpreadContentPagerView` becomes the shared page assembler.
+  - Spread-type content views exist for year/month/day/multiday rendering.
+  - `SpreadSurfaceView` is removed if redundant.
+  - No user-visible spread behavior change.
+- **Tests**:
+  - Unit/support tests for pager page assembly and spread-type content selection.
+  - Updated spread support tests for header + content composition.
+  - App build and spread-related unit tests remain green.
+- **Dependencies**: SPRD-163, SPRD-164
+
 ## Story: Conventional MVP UI: create spreads and tasks
 
 ### User Story
