@@ -1,32 +1,10 @@
 import Foundation
 
-/// The result of a task creation operation.
-///
-/// Returns both the newly created task and the full refreshed task list so that
-/// callers can update their in-memory state atomically.
-struct TaskMutationResult {
-    /// The task that was just created.
-    let task: DataModel.Task
-    /// The full task list from the repository after the creation.
-    let tasks: [DataModel.Task]
-}
-
-/// The result of a note creation operation.
-///
-/// Returns both the newly created note and the full refreshed note list so that
-/// callers can update their in-memory state atomically.
-struct NoteMutationResult {
-    /// The note that was just created.
-    let note: DataModel.Note
-    /// The full note list from the repository after the creation.
-    let notes: [DataModel.Note]
-}
-
 /// Coordinates task creation and preferred-date mutation workflows.
 ///
 /// Encapsulates the rules for normalizing dates, reconciling spread assignments, and
-/// persisting changes. All methods return the refreshed task list so callers can
-/// replace their in-memory state in a single step.
+/// persisting changes. Methods return the updated task plus the refreshed task list
+/// so callers can update in-memory state and derive targeted mutation scope.
 @MainActor
 protocol TaskMutationCoordinator {
     /// Creates a new open task and assigns it to the best matching spread.
@@ -49,7 +27,7 @@ protocol TaskMutationCoordinator {
         period: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
-    ) async throws -> TaskMutationResult
+    ) async throws -> TaskListMutationResult
 
     /// Updates a task's preferred date and period, then re-reconciles its spread assignment.
     ///
@@ -62,7 +40,7 @@ protocol TaskMutationCoordinator {
     ///   - newPeriod: The new preferred period.
     ///   - calendar: Calendar for date normalization and spread matching.
     ///   - spreads: The current spread list used for assignment reconciliation.
-    /// - Returns: The full refreshed task list.
+    /// - Returns: The updated task and refreshed full task list.
     /// - Throws: Repository errors if persistence fails.
     func updateTaskDateAndPeriod(
         _ task: DataModel.Task,
@@ -70,7 +48,7 @@ protocol TaskMutationCoordinator {
         newPeriod: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
-    ) async throws -> [DataModel.Task]
+    ) async throws -> TaskListMutationResult
 
     /// Migrates a task to a new preferred date/period in traditional mode.
     ///
@@ -85,7 +63,7 @@ protocol TaskMutationCoordinator {
     ///   - newPeriod: The new preferred period.
     ///   - calendar: Calendar for date normalization and spread matching.
     ///   - spreads: The current spread list used to find the best conventional spread.
-    /// - Returns: The full refreshed task list.
+    /// - Returns: The updated task and refreshed full task list.
     /// - Throws: `MigrationError.taskCancelled` if the task is cancelled; repository errors
     ///   if persistence fails.
     func traditionalMigrateTask(
@@ -94,7 +72,7 @@ protocol TaskMutationCoordinator {
         newPeriod: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
-    ) async throws -> [DataModel.Task]
+    ) async throws -> TaskListMutationResult
 }
 
 /// Coordinates note creation and preferred-date mutation workflows.
@@ -124,7 +102,7 @@ protocol NoteMutationCoordinator {
         period: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
-    ) async throws -> NoteMutationResult
+    ) async throws -> NoteListMutationResult
 
     /// Updates a note's preferred date and period, then re-reconciles its spread assignment.
     ///
@@ -134,7 +112,7 @@ protocol NoteMutationCoordinator {
     ///   - newPeriod: The new preferred period.
     ///   - calendar: Calendar for date normalization and spread matching.
     ///   - spreads: The current spread list used for assignment reconciliation.
-    /// - Returns: The full refreshed note list.
+    /// - Returns: The updated note and refreshed full note list.
     /// - Throws: Repository errors if persistence fails.
     func updateNoteDateAndPeriod(
         _ note: DataModel.Note,
@@ -142,7 +120,7 @@ protocol NoteMutationCoordinator {
         newPeriod: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
-    ) async throws -> [DataModel.Note]
+    ) async throws -> NoteListMutationResult
 
     /// Migrates a note to a new preferred date/period in traditional mode.
     ///
@@ -155,7 +133,7 @@ protocol NoteMutationCoordinator {
     ///   - newPeriod: The new preferred period.
     ///   - calendar: Calendar for date normalization and spread matching.
     ///   - spreads: The current spread list used to find the best conventional spread.
-    /// - Returns: The full refreshed note list.
+    /// - Returns: The updated note and refreshed full note list.
     /// - Throws: Repository errors if persistence fails.
     func traditionalMigrateNote(
         _ note: DataModel.Note,
@@ -163,7 +141,7 @@ protocol NoteMutationCoordinator {
         newPeriod: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
-    ) async throws -> [DataModel.Note]
+    ) async throws -> NoteListMutationResult
 }
 
 /// Standard implementation of `TaskMutationCoordinator`.
@@ -191,7 +169,7 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         period: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
-    ) async throws -> TaskMutationResult {
+    ) async throws -> TaskListMutationResult {
         let normalizedDate = period.normalizeDate(date, calendar: calendar)
         let task = DataModel.Task(
             title: title,
@@ -204,7 +182,14 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
 
         taskAssignmentReconciler.reconcilePreferredAssignment(for: task, in: spreads)
         try await taskRepository.save(task)
-        return TaskMutationResult(task: task, tasks: await taskRepository.getTasks())
+        return TaskListMutationResult(
+            task: task,
+            tasks: await taskRepository.getTasks(),
+            mutation: JournalMutationResult(
+                kind: .taskChanged(id: task.id),
+                scope: .structural
+            )
+        )
     }
 
     func updateTaskDateAndPeriod(
@@ -213,13 +198,20 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         newPeriod: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
-    ) async throws -> [DataModel.Task] {
+    ) async throws -> TaskListMutationResult {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
         task.date = normalizedDate
         task.period = newPeriod
         taskAssignmentReconciler.reconcilePreferredAssignment(for: task, in: spreads)
         try await taskRepository.save(task)
-        return await taskRepository.getTasks()
+        return TaskListMutationResult(
+            task: task,
+            tasks: await taskRepository.getTasks(),
+            mutation: JournalMutationResult(
+                kind: .taskChanged(id: task.id),
+                scope: .structural
+            )
+        )
     }
 
     func traditionalMigrateTask(
@@ -228,7 +220,7 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         newPeriod: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
-    ) async throws -> [DataModel.Task] {
+    ) async throws -> TaskListMutationResult {
         guard task.status != .cancelled else {
             throw MigrationError.taskCancelled
         }
@@ -254,7 +246,14 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
 
         try await taskRepository.save(task)
         logger.info("Traditional migration: task \(task.id) → \(newPeriod.rawValue) \(normalizedDate)")
-        return await taskRepository.getTasks()
+        return TaskListMutationResult(
+            task: task,
+            tasks: await taskRepository.getTasks(),
+            mutation: JournalMutationResult(
+                kind: .taskChanged(id: task.id),
+                scope: .structural
+            )
+        )
     }
 }
 
@@ -284,7 +283,7 @@ struct StandardNoteMutationCoordinator: NoteMutationCoordinator {
         period: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
-    ) async throws -> NoteMutationResult {
+    ) async throws -> NoteListMutationResult {
         let normalizedDate = period.normalizeDate(date, calendar: calendar)
         let note = DataModel.Note(
             title: title,
@@ -296,7 +295,14 @@ struct StandardNoteMutationCoordinator: NoteMutationCoordinator {
 
         noteAssignmentReconciler.reconcilePreferredAssignment(for: note, in: spreads)
         try await noteRepository.save(note)
-        return NoteMutationResult(note: note, notes: await noteRepository.getNotes())
+        return NoteListMutationResult(
+            note: note,
+            notes: await noteRepository.getNotes(),
+            mutation: JournalMutationResult(
+                kind: .noteChanged(id: note.id),
+                scope: .structural
+            )
+        )
     }
 
     func updateNoteDateAndPeriod(
@@ -305,13 +311,20 @@ struct StandardNoteMutationCoordinator: NoteMutationCoordinator {
         newPeriod: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
-    ) async throws -> [DataModel.Note] {
+    ) async throws -> NoteListMutationResult {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
         note.date = normalizedDate
         note.period = newPeriod
         noteAssignmentReconciler.reconcilePreferredAssignment(for: note, in: spreads)
         try await noteRepository.save(note)
-        return await noteRepository.getNotes()
+        return NoteListMutationResult(
+            note: note,
+            notes: await noteRepository.getNotes(),
+            mutation: JournalMutationResult(
+                kind: .noteChanged(id: note.id),
+                scope: .structural
+            )
+        )
     }
 
     func traditionalMigrateNote(
@@ -320,7 +333,7 @@ struct StandardNoteMutationCoordinator: NoteMutationCoordinator {
         newPeriod: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
-    ) async throws -> [DataModel.Note] {
+    ) async throws -> NoteListMutationResult {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
         note.date = normalizedDate
         note.period = newPeriod
@@ -342,7 +355,14 @@ struct StandardNoteMutationCoordinator: NoteMutationCoordinator {
 
         try await noteRepository.save(note)
         logger.info("Traditional migration: note \(note.id) → \(newPeriod.rawValue) \(normalizedDate)")
-        return await noteRepository.getNotes()
+        return NoteListMutationResult(
+            note: note,
+            notes: await noteRepository.getNotes(),
+            mutation: JournalMutationResult(
+                kind: .noteChanged(id: note.id),
+                scope: .structural
+            )
+        )
     }
 }
 
