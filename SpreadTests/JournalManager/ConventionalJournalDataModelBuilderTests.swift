@@ -99,4 +99,56 @@ struct ConventionalJournalDataModelBuilderTests {
         #expect(dayModel?.events.map(\.id) == [overlappingEvent.id])
         #expect(multidayModel?.events.map(\.id) == [overlappingEvent.id])
     }
+
+    @Test func testBuildSpreadDataModelMatchesFullBuildForExplicitSpread() {
+        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
+        let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: Self.calendar)
+        let task = DataModel.Task(
+            title: "Open",
+            date: dayDate,
+            period: .day,
+            assignments: [TaskAssignment(period: .day, date: dayDate, status: .open)]
+        )
+
+        let builder = ConventionalJournalDataModelBuilder(calendar: Self.calendar)
+        let fullModel = builder.buildDataModel(
+            spreads: [daySpread],
+            tasks: [task],
+            notes: [],
+            events: []
+        )
+        let key = SpreadDataModelKey(spread: daySpread, calendar: Self.calendar)
+        let targeted = builder.buildSpreadDataModel(
+            for: key,
+            spreads: [daySpread],
+            tasks: [task],
+            notes: [],
+            events: []
+        )
+
+        #expect(targeted?.spread.id == fullModel[key: key]?.spread.id)
+        #expect(targeted?.tasks.map(\.id) == fullModel[key: key]?.tasks.map(\.id))
+    }
+
+    @Test func testSpreadKeysForTaskIncludeAssignmentsAndMatchingMultidaySurfaces() {
+        let taskDate = Self.makeDate(year: 2026, month: 1, day: 11)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
+        let multidaySpread = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 1, day: 10),
+            endDate: Self.makeDate(year: 2026, month: 1, day: 12),
+            calendar: Self.calendar
+        )
+        let task = DataModel.Task(
+            title: "Scoped",
+            date: taskDate,
+            period: .day,
+            assignments: [TaskAssignment(period: .day, date: taskDate, status: .open)]
+        )
+
+        let builder = ConventionalJournalDataModelBuilder(calendar: Self.calendar)
+        let keys = builder.spreadKeys(for: task, spreads: [daySpread, multidaySpread])
+
+        #expect(keys.contains(SpreadDataModelKey(spread: daySpread, calendar: Self.calendar)))
+        #expect(keys.contains(SpreadDataModelKey(spread: multidaySpread, calendar: Self.calendar)))
+    }
 }

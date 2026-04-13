@@ -25,6 +25,38 @@ protocol JournalDataModelBuilder {
         notes: [DataModel.Note],
         events: [DataModel.Event]
     ) -> JournalDataModel
+
+    /// Builds one spread/surface model for the given key, or returns `nil` when no
+    /// surface should exist for that key under the current mode/data.
+    func buildSpreadDataModel(
+        for key: SpreadDataModelKey,
+        spreads: [DataModel.Spread],
+        tasks: [DataModel.Task],
+        notes: [DataModel.Note],
+        events: [DataModel.Event]
+    ) -> SpreadDataModel?
+
+    /// Returns the spread keys that can be affected by this task in the current mode.
+    func spreadKeys(
+        for task: DataModel.Task,
+        spreads: [DataModel.Spread]
+    ) -> Set<SpreadDataModelKey>
+
+    /// Returns the spread keys that can be affected by this note in the current mode.
+    func spreadKeys(
+        for note: DataModel.Note,
+        spreads: [DataModel.Spread]
+    ) -> Set<SpreadDataModelKey>
+
+    /// Returns the stable key representing an explicit spread if it participates in
+    /// the current mode's data model, otherwise `nil`.
+    func spreadKey(
+        for spread: DataModel.Spread,
+        spreads: [DataModel.Spread],
+        tasks: [DataModel.Task],
+        notes: [DataModel.Note],
+        events: [DataModel.Event]
+    ) -> SpreadDataModelKey?
 }
 
 
@@ -110,5 +142,56 @@ struct TraditionalJournalDataModelBuilder: JournalDataModelBuilder {
         }
 
         return model
+    }
+
+    func buildSpreadDataModel(
+        for key: SpreadDataModelKey,
+        spreads: [DataModel.Spread],
+        tasks: [DataModel.Task],
+        notes: [DataModel.Note],
+        events: [DataModel.Event]
+    ) -> SpreadDataModel? {
+        guard key.period != .multiday else { return nil }
+
+        let spreadData = traditionalSpreadService.virtualSpreadDataModel(
+            period: key.period,
+            date: key.date,
+            tasks: tasks,
+            notes: notes,
+            events: events
+        )
+
+        guard !spreadData.tasks.isEmpty || !spreadData.notes.isEmpty || !spreadData.events.isEmpty else {
+            return nil
+        }
+
+        return spreadData
+    }
+
+    func spreadKeys(
+        for task: DataModel.Task,
+        spreads: [DataModel.Spread]
+    ) -> Set<SpreadDataModelKey> {
+        guard task.period != .multiday else { return [] }
+        return [SpreadDataModelKey(period: task.period, date: task.date, calendar: calendar)]
+    }
+
+    func spreadKeys(
+        for note: DataModel.Note,
+        spreads: [DataModel.Spread]
+    ) -> Set<SpreadDataModelKey> {
+        guard note.period != .multiday else { return [] }
+        return [SpreadDataModelKey(period: note.period, date: note.date, calendar: calendar)]
+    }
+
+    func spreadKey(
+        for spread: DataModel.Spread,
+        spreads: [DataModel.Spread],
+        tasks: [DataModel.Task],
+        notes: [DataModel.Note],
+        events: [DataModel.Event]
+    ) -> SpreadDataModelKey? {
+        let key = SpreadDataModelKey(spread: spread, calendar: calendar)
+        return buildSpreadDataModel(for: key, spreads: spreads, tasks: tasks, notes: notes, events: events) == nil ? nil : key
     }
 }
