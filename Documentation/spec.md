@@ -176,33 +176,33 @@
 - `JournalManager` may select mode-specific implementations internally based on `bujoMode` when that keeps runtime wiring simpler, but the implementations themselves should remain behind injected protocol boundaries. [SPRD-154, SPRD-158]
 
 ### Targeted Journal Mutation Architecture
-- The app should preserve the current user-visible behavior while reducing full `JournalDataModel` reconstruction after ordinary mutations. This is an internal performance and maintainability refactor, not a product behavior change. [SPRD-164, SPRD-165, SPRD-166, SPRD-167]
-- `JournalManager` remains the single observed journal state owner. Views continue to call `JournalManager`, not repositories or low-level logic services directly. [SPRD-164, SPRD-165, SPRD-166, SPRD-167]
+- The app should preserve the current user-visible behavior while reducing full `JournalDataModel` reconstruction after ordinary mutations. This is an internal performance and maintainability refactor, not a product behavior change. [SPRD-159, SPRD-160, SPRD-161, SPRD-162]
+- `JournalManager` remains the single observed journal state owner. Views continue to call `JournalManager`, not repositories or low-level logic services directly. [SPRD-159, SPRD-160, SPRD-161, SPRD-162]
 - Journal mutations should follow a typed command/result pipeline:
   - UI triggers a typed journal mutation through `JournalManager`.
   - `JournalManager` routes that mutation to the correct injected logic service/coordinator.
   - The service/coordinator returns updated domain entities plus a domain-scoped mutation result describing the affected scope.
-  - `JournalManager` persists as needed, merges updated entities into in-memory state, and patches only the affected derived presentation slices when safe. [SPRD-164, SPRD-165, SPRD-166, SPRD-167]
-- Logic services should not mutate `JournalManager` state directly. They should return updated entities and mutation scope so business logic stays unit-testable and independent of observation mechanics. [SPRD-164, SPRD-165, SPRD-166]
+  - `JournalManager` persists as needed, merges updated entities into in-memory state, and patches only the affected derived presentation slices when safe. [SPRD-159, SPRD-160, SPRD-161, SPRD-162]
+- Logic services should not mutate `JournalManager` state directly. They should return updated entities and mutation scope so business logic stays unit-testable and independent of observation mechanics. [SPRD-159, SPRD-160, SPRD-161]
 - Mutation scope must be described in domain terms, not UI terms. Examples:
   - acceptable: renamed task, task status changed, task moved from source spread to destination spread, affected spread keys, inbox changed, overdue changed, structural rebuild required
-  - not acceptable: reload row, refresh header badge, reload section 0 [SPRD-164, SPRD-165, SPRD-166]
-- `JournalDataModel` patching must be keyed by stable spread/surface identity. Conventional created spreads, traditional virtual spreads, multiday surfaces, Inbox-derived state, and overdue-derived state must all have canonical keys or patch points that `JournalManager` can target deterministically. [SPRD-164, SPRD-165]
+  - not acceptable: reload row, refresh header badge, reload section 0 [SPRD-159, SPRD-160, SPRD-161]
+- `JournalDataModel` patching must be keyed by stable spread/surface identity. Conventional created spreads, traditional virtual spreads, multiday surfaces, Inbox-derived state, and overdue-derived state must all have canonical keys or patch points that `JournalManager` can target deterministically. [SPRD-159, SPRD-160]
 - Journal data-model builders must support more than full rebuild:
   - full data-model build remains required
   - targeted spread/surface rebuild APIs should be added so `JournalManager` can rebuild one spread or a bounded set of spreads without replacing the whole journal snapshot
-  - broad or uncertain invalidation must still fall back to a full rebuild for correctness [SPRD-165]
+  - broad or uncertain invalidation must still fall back to a full rebuild for correctness [SPRD-160]
 - Expected mutation handling tiers:
   - simple content edits: patch only affected spread surfaces and any directly impacted summary slices
   - spread membership changes such as migration or date/period reassignment: rebuild source, destination, and any affected parent/multiday/Inbox/overdue slices
-  - structural changes such as reload, mode change, first-weekday change, large sync refresh, or other broad invalidation: full rebuild [SPRD-165, SPRD-166]
-- During rollout, correctness wins over maximal optimization. If mutation scope is ambiguous, `JournalManager` should use the structural fallback rather than risk stale UI state. [SPRD-165, SPRD-166, SPRD-167]
-- The refactor should remove redundant full-repository re-fetches on simple single-entity edits where the updated entity is already known, unless a specific repository boundary requires a verified reload. [SPRD-164]
+  - structural changes such as reload, mode change, first-weekday change, large sync refresh, or other broad invalidation: full rebuild [SPRD-160, SPRD-161]
+- During rollout, correctness wins over maximal optimization. If mutation scope is ambiguous, `JournalManager` should use the structural fallback rather than risk stale UI state. [SPRD-160, SPRD-161, SPRD-162]
+- The refactor should remove redundant full-repository re-fetches on simple single-entity edits where the updated entity is already known, unless a specific repository boundary requires a verified reload. [SPRD-159]
 - Testing requirements for this architecture are strict:
   - all existing unit tests must remain green
   - new unit tests must cover mutation result scope, targeted patch behavior, and full-rebuild fallback behavior
   - targeted patch tests must prove no user-visible regression in conventional, traditional, multiday, Inbox, migration, and overdue scenarios
-  - tests should verify that simple mutations do not trigger unnecessary full rebuild paths once the targeted path is implemented [SPRD-164, SPRD-165, SPRD-166, SPRD-167]
+  - tests should verify that simple mutations do not trigger unnecessary full rebuild paths once the targeted path is implemented [SPRD-159, SPRD-160, SPRD-161, SPRD-162]
 
 ---
 
