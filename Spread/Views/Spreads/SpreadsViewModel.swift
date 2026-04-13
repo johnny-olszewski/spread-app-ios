@@ -1,20 +1,20 @@
 import Foundation
 import Observation
 
-/// Coordinates sheet presentation for `ConventionalSpreadsView`.
+/// Shell UI state owner for the spreads root view.
 ///
-/// Owns a single `activeSheet` enum instead of multiple booleans,
-/// guaranteeing only one sheet is presented at a time. Child views
-/// call action methods to trigger presentation.
+/// Owns selection, recenter token, and sheet presentation state.
+/// Does not absorb journal business logic.
 @Observable
 @MainActor
-final class SpreadsCoordinator {
+final class SpreadsViewModel {
+
+    // MARK: - Sheet Destinations
+
     struct SpreadCreationPrefill: Equatable {
         let period: Period
         let date: Date
     }
-
-    // MARK: - Sheet Destinations
 
     /// All possible sheet presentations in the spreads view.
     enum SheetDestination: Identifiable {
@@ -46,9 +46,15 @@ final class SpreadsCoordinator {
         }
     }
 
-    // MARK: - Properties
+    // MARK: - Shell State
 
-    /// The currently active sheet, or `nil` if no sheet is presented.
+    /// The current navigator selection, nil until resolved on appear.
+    var selectedSelection: SpreadHeaderNavigatorModel.Selection?
+
+    /// Incremented to force the pager and strip to recenter on the current selection.
+    var recenterToken: Int = 0
+
+    /// The currently active sheet, or nil if no sheet is presented.
     var activeSheet: SheetDestination?
 
     // MARK: - Actions
@@ -78,7 +84,7 @@ final class SpreadsCoordinator {
         activeSheet = .noteDetail(note)
     }
 
-    /// Presents the auth sheet (login or profile).
+    /// Presents the auth sheet.
     func showAuth() {
         activeSheet = .auth
     }

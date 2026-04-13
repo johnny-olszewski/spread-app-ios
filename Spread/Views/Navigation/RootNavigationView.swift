@@ -102,24 +102,13 @@ struct RootNavigationView: View {
         }
     }
 
-    @ViewBuilder
     private var spreadsView: some View {
-        switch journalManager.bujoMode {
-        case .conventional:
-            ConventionalSpreadsView(
-                journalManager: journalManager,
-                authManager: authManager,
-                syncEngine: syncEngine,
-                navigationState: spreadsNavigationState
-            )
-        case .traditional:
-            TraditionalSpreadsView(
-                journalManager: journalManager,
-                authManager: authManager,
-                syncEngine: syncEngine,
-                navigationState: spreadsNavigationState
-            )
-        }
+        SpreadsView(
+            journalManager: journalManager,
+            authManager: authManager,
+            syncEngine: syncEngine,
+            navigationState: spreadsNavigationState
+        )
     }
 
     private func openTaskFromSearch(taskID: UUID, selection: SpreadHeaderNavigatorModel.Selection?) {
