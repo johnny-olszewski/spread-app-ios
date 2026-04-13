@@ -76,34 +76,7 @@ struct SpreadsView: View {
     // MARK: - Strip Model
 
     private var stripModel: SpreadTitleNavigatorModel {
-        switch journalManager.bujoMode {
-        case .conventional:
-            return SpreadTitleNavigatorModel(
-                headerModel: SpreadHeaderNavigatorModel(
-                    mode: .conventional,
-                    calendar: journalManager.calendar,
-                    today: journalManager.today,
-                    spreads: journalManager.spreads,
-                    tasks: [],
-                    notes: [],
-                    events: []
-                ),
-                overdueItems: journalManager.overdueTaskItems
-            )
-        case .traditional:
-            return SpreadTitleNavigatorModel(
-                headerModel: SpreadHeaderNavigatorModel(
-                    mode: .traditional,
-                    calendar: journalManager.calendar,
-                    today: journalManager.today,
-                    spreads: journalManager.spreads,
-                    tasks: journalManager.tasks,
-                    notes: journalManager.notes,
-                    events: FeatureFlags.eventsEnabled ? journalManager.events : []
-                ),
-                overdueItems: journalManager.overdueTaskItems
-            )
-        }
+        journalManager.titleNavigatorModel
     }
 
     private var stripItems: [SpreadTitleNavigatorModel.Item] {
