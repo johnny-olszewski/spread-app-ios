@@ -1,0 +1,40 @@
+import Foundation
+
+extension JournalManager: SpreadTitleNavigatorProviding {
+    /// Returns the strip model for the current BuJo mode.
+    ///
+    /// - Conventional: header model carries only spreads (no tasks/notes/events),
+    ///   matching the conventional strip's explicit-spread-only display.
+    /// - Traditional: header model carries all entries so the strip can reflect
+    ///   virtual spread content across the full calendar.
+    var titleNavigatorModel: SpreadTitleNavigatorModel {
+        switch bujoMode {
+        case .conventional:
+            return SpreadTitleNavigatorModel(
+                headerModel: SpreadHeaderNavigatorModel(
+                    mode: .conventional,
+                    calendar: calendar,
+                    today: today,
+                    spreads: spreads,
+                    tasks: [],
+                    notes: [],
+                    events: []
+                ),
+                overdueItems: overdueTaskItems
+            )
+        case .traditional:
+            return SpreadTitleNavigatorModel(
+                headerModel: SpreadHeaderNavigatorModel(
+                    mode: .traditional,
+                    calendar: calendar,
+                    today: today,
+                    spreads: spreads,
+                    tasks: tasks,
+                    notes: notes,
+                    events: FeatureFlags.eventsEnabled ? events : []
+                ),
+                overdueItems: overdueTaskItems
+            )
+        }
+    }
+}
