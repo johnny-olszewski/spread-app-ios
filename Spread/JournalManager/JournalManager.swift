@@ -410,6 +410,10 @@ final class JournalManager {
         )
     }
 
+    /// The builder matching the current BuJo mode.
+    ///
+    /// `JournalManager` owns mode selection while builder implementations remain
+    /// mode-specific and pure.
     private var activeDataModelBuilder: any JournalDataModelBuilder {
         switch bujoMode {
         case .conventional:
@@ -419,6 +423,10 @@ final class JournalManager {
         }
     }
 
+    /// Refreshes derived journal state for the supplied invalidation scope.
+    ///
+    /// Ordinary mutations patch only the affected spread/surface keys. Structural
+    /// mutations fall back to a full rebuild for correctness.
     private func refreshDataModel(for scope: JournalMutationScope) {
         switch scope {
         case .structural:
@@ -436,6 +444,8 @@ final class JournalManager {
         }
     }
 
+    /// Computes the targeted spread-key scope for a task mutation by unioning the
+    /// task's previous and current derived surfaces.
     private func scopeForTaskChange(
         previousKeys: Set<SpreadDataModelKey>,
         task: DataModel.Task
@@ -444,6 +454,8 @@ final class JournalManager {
         return .spreadKeys(previousKeys.union(nextKeys))
     }
 
+    /// Computes the targeted spread-key scope for a note mutation by unioning the
+    /// note's previous and current derived surfaces.
     private func scopeForNoteChange(
         previousKeys: Set<SpreadDataModelKey>,
         note: DataModel.Note
