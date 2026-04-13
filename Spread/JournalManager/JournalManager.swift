@@ -423,7 +423,7 @@ final class JournalManager {
     /// Clears all data from repositories (without updating in-memory state).
     ///
     /// Helper for sign-out and debug data resets.
-    func optioin  async throws {
+    func clearAllDataFromRepositories() async throws {
         let allTasks = await taskRepository.getTasks()
         for task in allTasks {
             try await taskRepository.delete(task)
