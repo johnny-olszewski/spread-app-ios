@@ -113,6 +113,11 @@ private final class BuilderTracker {
 private struct TrackingJournalDataModelBuilder: JournalDataModelBuilder {
     let tracker: BuilderTracker
     let model: JournalDataModel
+    let calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }()
 
     func buildDataModel(
         spreads: [DataModel.Spread],
@@ -122,6 +127,40 @@ private struct TrackingJournalDataModelBuilder: JournalDataModelBuilder {
     ) -> JournalDataModel {
         tracker.buildCallCount += 1
         return model
+    }
+
+    func buildSpreadDataModel(
+        for key: SpreadDataModelKey,
+        spreads: [DataModel.Spread],
+        tasks: [DataModel.Task],
+        notes: [DataModel.Note],
+        events: [DataModel.Event]
+    ) -> SpreadDataModel? {
+        model[key: key]
+    }
+
+    func spreadKeys(
+        for task: DataModel.Task,
+        spreads: [DataModel.Spread]
+    ) -> Set<SpreadDataModelKey> {
+        Set(task.assignments.map { SpreadDataModelKey(period: $0.period, date: $0.date, calendar: calendar) })
+    }
+
+    func spreadKeys(
+        for note: DataModel.Note,
+        spreads: [DataModel.Spread]
+    ) -> Set<SpreadDataModelKey> {
+        Set(note.assignments.map { SpreadDataModelKey(period: $0.period, date: $0.date, calendar: calendar) })
+    }
+
+    func spreadKey(
+        for spread: DataModel.Spread,
+        spreads: [DataModel.Spread],
+        tasks: [DataModel.Task],
+        notes: [DataModel.Note],
+        events: [DataModel.Event]
+    ) -> SpreadDataModelKey? {
+        SpreadDataModelKey(spread: spread, calendar: calendar)
     }
 }
 
@@ -140,9 +179,13 @@ private struct TrackingTaskMigrationCoordinator: TaskMigrationCoordinator {
         from sourceKey: TaskReviewSourceKey,
         to destination: DataModel.Spread,
         calendar: Calendar
-    ) async throws -> [DataModel.Task] {
+    ) async throws -> TaskListMutationResult {
         tracker.moveCallCount += 1
-        return resultTasks
+        return TaskListMutationResult(
+            task: task,
+            tasks: resultTasks,
+            mutation: JournalMutationResult(kind: .taskChanged(id: task.id), scope: .structural)
+        )
     }
 
     func migrateTasksBatch(
@@ -151,7 +194,7 @@ private struct TrackingTaskMigrationCoordinator: TaskMigrationCoordinator {
         to destination: DataModel.Spread,
         calendar: Calendar
     ) async throws -> TaskBatchMigrationResult {
-        TaskBatchMigrationResult(tasks: resultTasks, migratedAny: true)
+        TaskBatchMigrationResult(tasks: resultTasks, migratedTasks: resultTasks, migratedAny: true)
     }
 }
 

@@ -78,4 +78,44 @@ struct TraditionalJournalDataModelBuilderTests {
         let dayModel = model[.day]?[Period.day.normalizeDate(dayDate, calendar: Self.calendar)]
         #expect(dayModel?.events.map(\.id) == [matchingEvent.id])
     }
+
+    @Test func testBuildSpreadDataModelMatchesFullBuildForTraditionalVirtualSpread() {
+        let monthDate = Self.makeDate(year: 2026, month: 4, day: 20)
+        let monthTask = DataModel.Task(title: "Month", date: monthDate, period: .month)
+
+        let builder = TraditionalJournalDataModelBuilder(calendar: Self.calendar)
+        let fullModel = builder.buildDataModel(
+            spreads: [],
+            tasks: [monthTask],
+            notes: [],
+            events: []
+        )
+        let key = SpreadDataModelKey(period: .month, date: monthDate, calendar: Self.calendar)
+        let targeted = builder.buildSpreadDataModel(
+            for: key,
+            spreads: [],
+            tasks: [monthTask],
+            notes: [],
+            events: []
+        )
+
+        #expect(targeted?.spread.period == Period.month)
+        #expect(targeted?.tasks.map { $0.id } == fullModel[key: key]?.tasks.map { $0.id })
+    }
+
+    @Test func testSpreadKeysForTraditionalEntriesUseOnlyExactPreferredSurface() {
+        let monthDate = Self.makeDate(year: 2026, month: 4, day: 20)
+        let dayDate = Self.makeDate(year: 2026, month: 4, day: 6)
+        let monthTask = DataModel.Task(title: "Month", date: monthDate, period: .month)
+        let dayNote = DataModel.Note(title: "Day", date: dayDate, period: .day)
+        let builder = TraditionalJournalDataModelBuilder(calendar: Self.calendar)
+
+        #expect(builder.spreadKeys(for: monthTask, spreads: []).count == 1)
+        #expect(builder.spreadKeys(for: monthTask, spreads: []).contains(
+            SpreadDataModelKey(period: .month, date: monthDate, calendar: Self.calendar)
+        ))
+        #expect(builder.spreadKeys(for: dayNote, spreads: []).contains(
+            SpreadDataModelKey(period: .day, date: dayDate, calendar: Self.calendar)
+        ))
+    }
 }

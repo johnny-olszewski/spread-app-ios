@@ -58,6 +58,68 @@ struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
         return model
     }
 
+    func buildSpreadDataModel(
+        for key: SpreadDataModelKey,
+        spreads: [DataModel.Spread],
+        tasks: [DataModel.Task],
+        notes: [DataModel.Note],
+        events: [DataModel.Event]
+    ) -> SpreadDataModel? {
+        guard let spread = spreads.first(where: { candidate in
+            candidate.period == key.period &&
+            candidate.period.normalizeDate(candidate.date, calendar: calendar) == key.date
+        }) else {
+            return nil
+        }
+
+        return SpreadDataModel(
+            spread: spread,
+            tasks: tasksForSpread(spread, tasks: tasks),
+            notes: notesForSpread(spread, notes: notes),
+            events: events.filter { spreadService.eventAppearsOnSpread($0, spread: spread) }
+        )
+    }
+
+    func spreadKeys(
+        for task: DataModel.Task,
+        spreads: [DataModel.Spread]
+    ) -> Set<SpreadDataModelKey> {
+        var keys = Set(task.assignments.map {
+            SpreadDataModelKey(period: $0.period, date: $0.date, calendar: calendar)
+        })
+
+        for spread in spreads where spread.period == .multiday && entryDateFallsWithinMultidayRange(task.date, spread: spread) {
+            keys.insert(SpreadDataModelKey(spread: spread, calendar: calendar))
+        }
+
+        return keys
+    }
+
+    func spreadKeys(
+        for note: DataModel.Note,
+        spreads: [DataModel.Spread]
+    ) -> Set<SpreadDataModelKey> {
+        var keys = Set(note.assignments.map {
+            SpreadDataModelKey(period: $0.period, date: $0.date, calendar: calendar)
+        })
+
+        for spread in spreads where spread.period == .multiday && entryDateFallsWithinMultidayRange(note.date, spread: spread) {
+            keys.insert(SpreadDataModelKey(spread: spread, calendar: calendar))
+        }
+
+        return keys
+    }
+
+    func spreadKey(
+        for spread: DataModel.Spread,
+        spreads: [DataModel.Spread],
+        tasks: [DataModel.Task],
+        notes: [DataModel.Note],
+        events: [DataModel.Event]
+    ) -> SpreadDataModelKey? {
+        SpreadDataModelKey(spread: spread, calendar: calendar)
+    }
+
     /// Returns the tasks that belong on the given spread.
     ///
     /// Multiday spreads match tasks whose preferred date falls within the spread's
