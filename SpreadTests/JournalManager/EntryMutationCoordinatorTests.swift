@@ -57,7 +57,7 @@ struct EntryMutationCoordinatorTests {
             calendar: Self.calendar
         )
 
-        let tasks = try await coordinator.traditionalMigrateTask(
+        let result = try await coordinator.traditionalMigrateTask(
             task,
             newDate: destinationDate,
             newPeriod: .day,
@@ -65,10 +65,11 @@ struct EntryMutationCoordinatorTests {
             spreads: [daySpread]
         )
 
-        let updatedTask = try #require(tasks.first)
+        let updatedTask = try #require(result.tasks.first)
         #expect(updatedTask.assignments.count == 1)
         #expect(updatedTask.assignments.first?.period == .day)
         #expect(updatedTask.assignments.first?.date == daySpread.date)
+        #expect(result.mutation.kind == .taskChanged(id: task.id))
     }
 
     @Test func testNoteCoordinatorCreatesInboxNoteWhenNoSpreadMatches() async throws {
@@ -112,7 +113,7 @@ struct EntryMutationCoordinatorTests {
             calendar: Self.calendar
         )
 
-        let notes = try await coordinator.updateNoteDateAndPeriod(
+        let result = try await coordinator.updateNoteDateAndPeriod(
             note,
             newDate: destinationDate,
             newPeriod: .day,
@@ -120,8 +121,9 @@ struct EntryMutationCoordinatorTests {
             spreads: [destinationSpread]
         )
 
-        let updatedNote = try #require(notes.first)
+        let updatedNote = try #require(result.notes.first)
         #expect(updatedNote.assignments.contains(where: { $0.period == .day && $0.status == .active }))
         #expect(updatedNote.assignments.contains(where: { $0.period == .month && $0.status == .migrated }))
+        #expect(result.mutation.kind == .noteChanged(id: note.id))
     }
 }

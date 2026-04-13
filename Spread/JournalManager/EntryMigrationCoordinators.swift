@@ -22,7 +22,7 @@ protocol TaskMigrationCoordinator {
     ///   - sourceKey: The source — Inbox or a specific spread.
     ///   - destination: The spread to move the task to.
     ///   - calendar: Calendar used for assignment date matching.
-    /// - Returns: The full updated task list from the repository.
+    /// - Returns: The updated task and full updated task list from the repository.
     /// - Throws: `MigrationError` if the task is cancelled, the destination is not assignable,
     ///   or the source assignment cannot be found.
     func moveTask(
@@ -30,7 +30,7 @@ protocol TaskMigrationCoordinator {
         from sourceKey: TaskReviewSourceKey,
         to destination: DataModel.Spread,
         calendar: Calendar
-    ) async throws -> [DataModel.Task]
+    ) async throws -> TaskListMutationResult
 
     /// Migrates multiple open tasks from one spread to another in a single batch.
     ///
@@ -73,7 +73,7 @@ protocol NoteMigrationCoordinator {
     ///   - source: The spread to migrate from.
     ///   - destination: The spread to migrate to.
     ///   - calendar: Calendar used for assignment date matching.
-    /// - Returns: The full updated note list from the repository.
+    /// - Returns: The updated note and full updated note list from the repository.
     /// - Throws: `MigrationError` if the destination is not assignable or the source assignment
     ///   cannot be found.
     func migrateNote(
@@ -81,13 +81,16 @@ protocol NoteMigrationCoordinator {
         from source: DataModel.Spread,
         to destination: DataModel.Spread,
         calendar: Calendar
-    ) async throws -> [DataModel.Note]
+    ) async throws -> NoteListMutationResult
 }
 
 /// The result of a batch task migration operation.
 struct TaskBatchMigrationResult {
     /// The full, refreshed task list after the migration (or unchanged if nothing migrated).
     let tasks: [DataModel.Task]
+
+    /// The tasks that were actually migrated in this batch.
+    let migratedTasks: [DataModel.Task]
 
     /// `true` if at least one task was successfully migrated; `false` if all were skipped.
     let migratedAny: Bool
@@ -108,7 +111,7 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
         from sourceKey: TaskReviewSourceKey,
         to destination: DataModel.Spread,
         calendar: Calendar
-    ) async throws -> [DataModel.Task] {
+    ) async throws -> TaskListMutationResult {
         guard task.status != .cancelled else {
             throw MigrationError.taskCancelled
         }
@@ -153,7 +156,14 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
             period.rawValue
         }
         logger.info("Migration performed: task \(task.id) from \(sourceDescription) to \(destination.period.rawValue)")
-        return await taskRepository.getTasks()
+        return TaskListMutationResult(
+            task: task,
+            tasks: await taskRepository.getTasks(),
+            mutation: JournalMutationResult(
+                kind: .taskChanged(id: task.id),
+                scope: .structural
+            )
+        )
     }
 
     func migrateTasksBatch(
@@ -163,7 +173,7 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
         calendar: Calendar
     ) async throws -> TaskBatchMigrationResult {
         guard !tasks.isEmpty else {
-            return TaskBatchMigrationResult(tasks: await taskRepository.getTasks(), migratedAny: false)
+            return TaskBatchMigrationResult(tasks: await taskRepository.getTasks(), migratedTasks: [], migratedAny: false)
         }
 
         guard destination.period.canHaveTasksAssigned else {
@@ -171,6 +181,7 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
         }
 
         var migratedAny = false
+        var migratedTasks: [DataModel.Task] = []
 
         for task in tasks {
             guard task.status != .cancelled else { continue }
@@ -199,6 +210,7 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
             task.status = .open
             try await taskRepository.save(task)
             migratedAny = true
+            migratedTasks.append(task)
         }
 
         if migratedAny {
@@ -207,7 +219,7 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
             )
         }
 
-        return TaskBatchMigrationResult(tasks: await taskRepository.getTasks(), migratedAny: migratedAny)
+        return TaskBatchMigrationResult(tasks: await taskRepository.getTasks(), migratedTasks: migratedTasks, migratedAny: migratedAny)
     }
 }
 
@@ -226,7 +238,7 @@ struct StandardNoteMigrationCoordinator: NoteMigrationCoordinator {
         from source: DataModel.Spread,
         to destination: DataModel.Spread,
         calendar: Calendar
-    ) async throws -> [DataModel.Note] {
+    ) async throws -> NoteListMutationResult {
         guard destination.period.canHaveTasksAssigned else {
             throw MigrationError.destinationNotAssignable
         }
@@ -255,6 +267,13 @@ struct StandardNoteMigrationCoordinator: NoteMigrationCoordinator {
 
         try await noteRepository.save(note)
         logger.info("Migration performed: note \(note.id) from \(source.period.rawValue) to \(destination.period.rawValue)")
-        return await noteRepository.getNotes()
+        return NoteListMutationResult(
+            note: note,
+            notes: await noteRepository.getNotes(),
+            mutation: JournalMutationResult(
+                kind: .noteChanged(id: note.id),
+                scope: .structural
+            )
+        )
     }
 }

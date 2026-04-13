@@ -23,15 +23,16 @@ struct EntryMigrationCoordinatorTests {
             logger: LoggerAdapter(info: { _ in })
         )
 
-        let tasks = try await coordinator.moveTask(
+        let result = try await coordinator.moveTask(
             task,
             from: TaskReviewSourceKey(kind: .inbox),
             to: day,
             calendar: Self.calendar
         )
 
-        let updated = try #require(tasks.first)
+        let updated = try #require(result.tasks.first)
         #expect(updated.assignments.contains(where: { $0.period == .day && $0.status == .open }))
+        #expect(result.mutation.kind == .taskChanged(id: task.id))
     }
 
     @Test func taskBatchMigrationSkipsCancelledTasks() async throws {
@@ -91,15 +92,16 @@ struct EntryMigrationCoordinatorTests {
             logger: LoggerAdapter(info: { _ in })
         )
 
-        let notes = try await coordinator.migrateNote(
+        let result = try await coordinator.migrateNote(
             note,
             from: month,
             to: day,
             calendar: Self.calendar
         )
 
-        let updated = try #require(notes.first)
+        let updated = try #require(result.notes.first)
         #expect(updated.assignments.first(where: { $0.period == .month })?.status == .migrated)
         #expect(updated.assignments.first(where: { $0.period == .day })?.status == .active)
+        #expect(result.mutation.kind == .noteChanged(id: note.id))
     }
 }
