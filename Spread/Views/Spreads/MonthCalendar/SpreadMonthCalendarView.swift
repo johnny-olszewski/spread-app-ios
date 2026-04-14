@@ -69,12 +69,16 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
             .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(context.isToday ? visualState.fill : Color.clear)
+                    .fill(cellFill(visualState: visualState, isPeripheral: context.isPeripheral))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(visualState.borderColor, style: visualState.borderStyle)
+                    .strokeBorder(
+                        context.isPeripheral ? Color.clear : visualState.borderColor,
+                        style: visualState.borderStyle
+                    )
             )
+            .padding(2)
         )
     }
 
@@ -83,8 +87,19 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
         entryCount: Int
     ) -> MultidayDayCardVisualState {
         if context.isToday { return .today }
-        if context.isPeripheral { return .created }
         return entryCount > 0 ? .created : .uncreated
+    }
+
+    private func cellFill(
+        visualState: MultidayDayCardVisualState,
+        isPeripheral: Bool
+    ) -> Color {
+        if isPeripheral { return Color.clear }
+        switch visualState {
+        case .today: return visualState.fill
+        case .created: return Color.primary.opacity(0.04)
+        case .uncreated: return Color.clear
+        }
     }
 
     func placeholderCellView(context: MonthCalendarPlaceholderContext) -> AnyView {
