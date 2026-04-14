@@ -11,21 +11,40 @@ struct SpreadsView: View {
     private let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding =
         TodayMissingSpreadRecommendationProvider()
 
+    private var stripModel: SpreadTitleNavigatorModel {
+        journalManager.titleNavigatorModel
+    }
+
+    private var items: [SpreadTitleNavigatorModel.Item] {
+        stripModel.items(for: currentSelection)
+    }
+
     var body: some View {
-        SharedSpreadsShellView(
-            selection: selectionBinding,
-            journalManager: journalManager,
-            viewModel: viewModel,
-            syncEngine: syncEngine,
-            stripModel: journalManager.titleNavigatorModel,
-            recenterToken: viewModel.recenterToken,
-            recommendationProvider: recommendationProvider,
-            onRecommendedSpreadTapped: onRecommendedSpreadTapped,
-            authManager: authManager,
-            onAuth: { viewModel.showAuth() },
-            syncStatus: syncEngine?.status,
-            controls: shellControls
-        )
+        VStack(spacing: 0) {
+            SpreadTitleNavigatorView(
+                stripModel: stripModel,
+                recenterToken: viewModel.recenterToken,
+                onRecommendedSpreadTapped: onRecommendedSpreadTapped,
+                recommendationProvider: recommendationProvider,
+                selection: selectionBinding
+            )
+
+            Divider()
+
+            if case .error = syncEngine?.status {
+                SyncErrorBanner()
+            }
+
+            contentArea
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                AuthButton(isSignedIn: authManager.state.isSignedIn, action: { viewModel.showAuth() })
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            bottomInsetControls
+        }
         .sheet(item: $viewModel.activeSheet) { destination in
             sheetContent(for: destination)
         }
@@ -43,6 +62,76 @@ struct SpreadsView: View {
         .onChange(of: navigationState.pendingRequest?.id) { _, _ in
             handlePendingNavigationRequest()
         }
+    }
+
+    // MARK: - Content
+
+    @ViewBuilder
+    private var contentArea: some View {
+        if !items.isEmpty {
+            SpreadContentPagerView(
+                journalManager: journalManager,
+                viewModel: viewModel,
+                syncEngine: syncEngine,
+                model: stripModel,
+                items: items,
+                recenterToken: viewModel.recenterToken,
+                selection: selectionBinding
+            )
+            .dotGridBackground(.paper, ignoresSafeAreaEdges: .bottom)
+        } else {
+            ContentUnavailableView {
+                Label("No Spread Selected", systemImage: "book")
+            } description: {
+                Text("Select a spread from the bar above.")
+            }
+            .dotGridBackground(.paper, ignoresSafeAreaEdges: .bottom)
+        }
+    }
+
+    @ViewBuilder
+    private var bottomInsetControls: some View {
+        HStack(spacing: 12) {
+            Button(action: navigateToToday) {
+                Text("Today")
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .glassEffect(.clear, in: Capsule())
+            }
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
+
+            Spacer()
+
+            Menu {
+                if journalManager.bujoMode == .conventional {
+                    Button(action: { viewModel.showSpreadCreation() }) {
+                        Label("Create Spread", systemImage: "book")
+                    }
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createSpread)
+                }
+
+                Button(action: { viewModel.showTaskCreation() }) {
+                    Label("Create Task", systemImage: "circle.fill")
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createTask)
+
+                Button(action: { viewModel.showNoteCreation() }) {
+                    Label("Create Note", systemImage: "minus")
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createNote)
+            } label: {
+                Image(systemName: "plus")
+                    .padding(8)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .glassEffect(.regular.tint(SpreadTheme.Accent.todaySelectedEmphasis), in: Circle())
+            }
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.button)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .background(Color.clear)
     }
 
     // MARK: - Selection
@@ -71,20 +160,6 @@ struct SpreadsView: View {
         let calendar = journalManager.calendar
         let year = calendar.component(.year, from: journalManager.today)
         return calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
-    }
-
-    // MARK: - Shell Controls
-
-    private var shellControls: SharedSpreadsShellControlConfiguration {
-        SharedSpreadsShellControlConfiguration(
-            showsTodayButton: true,
-            onToday: navigateToToday,
-            onCreateSpread: journalManager.bujoMode == .conventional
-                ? { viewModel.showSpreadCreation() }
-                : nil,
-            onCreateTask: { viewModel.showTaskCreation() },
-            onCreateNote: { viewModel.showNoteCreation() }
-        )
     }
 
     private var onRecommendedSpreadTapped: ((SpreadTitleNavigatorRecommendation) -> Void)? {

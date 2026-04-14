@@ -54,7 +54,7 @@ struct SpreadContentPagerView: View {
                 ForEach(items) { item in
                     Group {
                         if liveWindowIDs.contains(item.id) {
-                            SpreadPageAssemblyView(
+                            SpreadPageContentView(
                                 item: item,
                                 journalManager: journalManager,
                                 viewModel: viewModel,
@@ -125,7 +125,7 @@ struct SpreadContentPagerView: View {
 // MARK: - Page Assembly
 
 /// Assembles a single spread page: `SpreadHeaderView` followed by the period-appropriate content view.
-private struct SpreadPageAssemblyView: View {
+private struct SpreadPageContentView: View {
     let item: SpreadTitleNavigatorModel.Item
     let journalManager: JournalManager
     let viewModel: SpreadsViewModel
