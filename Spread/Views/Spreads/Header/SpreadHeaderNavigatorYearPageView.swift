@@ -61,31 +61,12 @@ struct SpreadHeaderNavigatorYearPageView: View {
         let isExpanded = expandedMonth == monthRow.date
 
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                Button {
-                    expandedMonth = isExpanded ? nil : monthRow.date
-                } label: {
-                    HStack(spacing: 10) {
-                        Text(monthRow.date.formatted(.dateTime.month(.wide)))
-                            .font(SpreadTheme.Typography.body)
-                            .foregroundStyle(monthRow.isDerived ? .secondary : .primary)
-                        Spacer(minLength: 8)
-                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(model.isCurrent(monthRow: monthRow, currentSpread: currentSpread) ? Color.accentColor.opacity(0.16) : Color.clear)
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier(
-                    Definitions.AccessibilityIdentifiers.SpreadNavigator.monthRow(year: page.year, month: monthValue)
-                )
+            HStack(spacing: 10) {
+                Text(monthRow.date.formatted(.dateTime.month(.wide)))
+                    .font(SpreadTheme.Typography.body)
+                    .foregroundStyle(monthRow.isDerived ? .secondary : .primary)
+
+                Spacer(minLength: 8)
 
                 if isExpanded, let selection = model.selectionTarget(for: monthRow) {
                     Button("View Month") {
@@ -96,14 +77,36 @@ struct SpreadHeaderNavigatorYearPageView: View {
                     .accessibilityIdentifier(
                         Definitions.AccessibilityIdentifiers.SpreadNavigator.viewMonthButton(year: page.year, month: monthValue)
                     )
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
+
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .animation(.easeInOut(duration: 0.2), value: isExpanded)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(model.isCurrent(monthRow: monthRow, currentSpread: currentSpread) ? Color.accentColor.opacity(0.16) : Color.clear)
+            )
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    expandedMonth = isExpanded ? nil : monthRow.date
                 }
             }
+            .accessibilityIdentifier(
+                Definitions.AccessibilityIdentifiers.SpreadNavigator.monthRow(year: page.year, month: monthValue)
+            )
 
             if isExpanded {
                 calendarGrid(for: monthRow)
-                    .padding(.leading, 8)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .animation(.easeInOut(duration: 0.25), value: isExpanded)
     }
 
     private func calendarGrid(for monthRow: SpreadHeaderNavigatorModel.MonthRow) -> some View {
