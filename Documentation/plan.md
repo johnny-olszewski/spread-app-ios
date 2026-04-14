@@ -373,7 +373,7 @@
   - App build and spread-related unit tests remain green.
 - **Dependencies**: SPRD-163, SPRD-164
 
-### [SPRD-166] Refactor: replace rooted-navigator calendar grid with MonthCalendarView and share day visual style
+### [SPRD-166] Refactor: replace rooted-navigator calendar grid with MonthCalendarView and share day visual style - [x] Complete
 - **Context**: `SpreadHeaderNavigatorYearPageView` renders the expanded-month calendar grid with a bespoke `calendarGrid` method backed by `CalendarGridHelper`. `MonthCalendarView` from `johnnyo-foundation` is already used for `SpreadMonthCalendarView` and provides the `CalendarContentGenerator` protocol. The multiday day-card visual states (today / created / uncreated) also inline their style constants as private view properties; the navigator grid needs those same styles, making this the right moment to centralize them.
 - **Description**: Replace the bespoke calendar grid in the rooted navigator with `MonthCalendarView` via a new dedicated `CalendarContentGenerator`. Move fill, border color, and stroke style constants out of `MultidayDayCardView` into computed properties on `MultidayDayCardVisualState`, and have both the card and the new generator reference those shared properties. Delete `CalendarGridHelper` once it is no longer used.
 - **Implementation Details**:
