@@ -221,7 +221,8 @@ private struct SpreadPageContentView: View {
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
                 viewModel: viewModel,
-                syncEngine: syncEngine
+                syncEngine: syncEngine,
+                explicitDaySpreadForDate: { date in explicitDaySpread(for: date) }
             )
         }
     }
