@@ -28,13 +28,13 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
     func dayCellView(context: MonthCalendarDayContext) -> AnyView {
         let normalizedDate = Period.day.normalizeDate(context.date, calendar: calendar)
         let entryCount = entryCountsByDate[normalizedDate] ?? 0
-        let monthSymbol = shortMonth(for: context.date)
+        let visualState = dayVisualState(for: context, entryCount: entryCount)
         let foreground: Color = context.isPeripheral ? .secondary : .primary
 
         return AnyView(
             VStack(alignment: .leading, spacing: 4) {
                 if context.isPeripheral {
-                    Text(monthSymbol)
+                    Text(shortMonth(for: context.date))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 } else {
@@ -44,8 +44,8 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
 
                 Text("\(calendar.component(.day, from: context.date))")
                     .font(SpreadTheme.Typography.body)
-                    .fontWeight(context.isToday ? .bold : .regular)
-                    .foregroundStyle(context.isToday ? SpreadTheme.Accent.todaySelectedEmphasis : foreground)
+                    .fontWeight(context.isToday ? .semibold : .regular)
+                    .foregroundStyle(context.isToday ? SpreadTheme.Accent.todayEmphasis : foreground)
 
                 if entryCount > 0 {
                     HStack(spacing: 3) {
@@ -68,10 +68,23 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
             .frame(maxWidth: .infinity, minHeight: 54, alignment: .topLeading)
             .padding(8)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(context.isToday ? SpreadTheme.Accent.todaySelectedEmphasis.opacity(0.1) : Color.clear)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(context.isToday ? visualState.fill : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(visualState.borderColor, style: visualState.borderStyle)
             )
         )
+    }
+
+    private func dayVisualState(
+        for context: MonthCalendarDayContext,
+        entryCount: Int
+    ) -> MultidayDayCardVisualState {
+        if context.isToday { return .today }
+        if context.isPeripheral { return .created }
+        return entryCount > 0 ? .created : .uncreated
     }
 
     func placeholderCellView(context: MonthCalendarPlaceholderContext) -> AnyView {
