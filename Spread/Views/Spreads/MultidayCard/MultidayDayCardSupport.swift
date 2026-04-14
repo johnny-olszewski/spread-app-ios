@@ -9,8 +9,10 @@ enum MultidayDayCardVisualState: Equatable {
         switch self {
         case .today:
             return SpreadTheme.Accent.todayEmphasis.opacity(0.08)
-        case .uncreated, .created:
-            return SpreadTheme.Paper.primary.opacity(0.55)
+        case .created:
+            return SpreadTheme.Paper.primary.opacity(0.6)
+        case .uncreated:
+            return SpreadTheme.Paper.primary.opacity(0.25)
         }
     }
 

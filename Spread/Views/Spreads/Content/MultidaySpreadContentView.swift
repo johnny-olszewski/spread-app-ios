@@ -8,6 +8,7 @@ struct MultidaySpreadContentView: View {
     let viewModel: SpreadsViewModel
     let syncEngine: SyncEngine?
     var entryListConfiguration: EntryListConfiguration = .init()
+    var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
 
     var body: some View {
         if let dataModel = spreadDataModel {
@@ -52,6 +53,7 @@ struct MultidaySpreadContentView: View {
                     _ = try await journalManager.addTask(title: title, date: date, period: period)
                     Task { @MainActor in await syncEngine?.syncNow() }
                 },
+                explicitDaySpreadForDate: explicitDaySpreadForDate,
                 onRefresh: {
                     guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
                     await engine.syncNow()
