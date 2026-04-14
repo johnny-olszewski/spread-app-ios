@@ -130,36 +130,9 @@ struct MultidayDayCardView<Content: View>: View {
         }
     }
 
-    private var cardFill: Color {
-        switch visualState {
-        case .today:
-            return SpreadTheme.Accent.todayEmphasis.opacity(0.08)
-        case .uncreated, .created:
-            return SpreadTheme.Paper.primary.opacity(0.55)
-        }
-    }
-
-    private var cardBorder: Color {
-        switch visualState {
-        case .today:
-            return SpreadTheme.Accent.todayEmphasisBorder
-        case .uncreated:
-            return Color.secondary.opacity(0.28)
-        case .created:
-            return Color.secondary.opacity(0.12)
-        }
-    }
-
-    private var cardBorderStyle: StrokeStyle {
-        switch visualState {
-        case .today:
-            return StrokeStyle(lineWidth: 1.5)
-        case .uncreated:
-            return StrokeStyle(lineWidth: 1, dash: [6, 4])
-        case .created:
-            return StrokeStyle(lineWidth: 1)
-        }
-    }
+    private var cardFill: Color { visualState.fill }
+    private var cardBorder: Color { visualState.borderColor }
+    private var cardBorderStyle: StrokeStyle { visualState.borderStyle }
 
     private var primaryHeaderColor: Color {
         switch visualState {

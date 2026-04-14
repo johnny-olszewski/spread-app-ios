@@ -1,13 +1,7 @@
 import SwiftUI
+import JohnnyOFoundationUI
 
 struct SpreadHeaderNavigatorYearPageView: View {
-    private struct WeekdayHeader: Identifiable {
-        let weekday: Int
-        let symbol: String
-
-        var id: Int { weekday }
-    }
-
     let page: SpreadHeaderNavigatorModel.YearPage
     let model: SpreadHeaderNavigatorModel
     let currentSpread: DataModel.Spread
@@ -18,12 +12,20 @@ struct SpreadHeaderNavigatorYearPageView: View {
     @State private var dialogTargets: [SpreadHeaderNavigatorModel.SelectionTarget] = []
     @State private var isShowingSelectionDialog = false
 
-    private var weekdayHeaders: [WeekdayHeader] {
-        let symbols = model.calendar.veryShortWeekdaySymbols
-        let firstWeekday = model.calendar.firstWeekday - 1
-        let orderedOffsets = Array(firstWeekday..<symbols.count) + Array(0..<firstWeekday)
-        return orderedOffsets.map { offset in
-            WeekdayHeader(weekday: offset + 1, symbol: symbols[offset])
+    private struct CalendarDelegate: MonthCalendarActionDelegate {
+        let monthRow: SpreadHeaderNavigatorModel.MonthRow
+        let calendar: Calendar
+        let onSingleTarget: (SpreadHeaderNavigatorModel.Selection) -> Void
+        let onMultipleTargets: ([SpreadHeaderNavigatorModel.SelectionTarget]) -> Void
+
+        func monthCalendarDidTapDay(_ context: MonthCalendarDayContext) {
+            let targets = monthRow.targets(for: context.date, calendar: calendar)
+            guard !targets.isEmpty else { return }
+            if targets.count == 1, let selection = targets.first?.selection {
+                onSingleTarget(selection)
+            } else {
+                onMultipleTargets(targets)
+            }
         }
     }
 
@@ -105,70 +107,35 @@ struct SpreadHeaderNavigatorYearPageView: View {
     }
 
     private func calendarGrid(for monthRow: SpreadHeaderNavigatorModel.MonthRow) -> some View {
-        let cells = CalendarGridHelper.cells(for: monthRow.date, calendar: model.calendar)
-        return VStack(alignment: .leading, spacing: 8) {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
-                ForEach(weekdayHeaders) { header in
-                    Text(header.symbol)
-                        .font(SpreadTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
+        MonthCalendarView(
+            displayedMonth: monthRow.date,
+            calendar: model.calendar,
+            today: model.today,
+            configuration: .init(showsPeripheralDates: false),
+            contentGenerator: SpreadHeaderNavigatorCalendarGenerator(
+                model: model,
+                monthRow: monthRow,
+                currentSpread: currentSpread
+            ),
+            actionDelegate: CalendarDelegate(
+                monthRow: monthRow,
+                calendar: model.calendar,
+                onSingleTarget: { selection in
+                    onSelect(selection)
+                    onDismiss()
+                },
+                onMultipleTargets: { targets in
+                    dialogTargets = targets
+                    isShowingSelectionDialog = true
                 }
-            }
-
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
-                ForEach(Array(cells.enumerated()), id: \.offset) { _, cellDate in
-                    if let date = cellDate {
-                        dayCell(for: date, monthRow: monthRow)
-                    } else {
-                        Color.clear
-                            .frame(height: 40)
-                    }
-                }
-            }
-            .accessibilityIdentifier(
-                Definitions.AccessibilityIdentifiers.SpreadNavigator.grid(
-                    year: page.year,
-                    month: model.calendar.component(.month, from: monthRow.date)
-                )
             )
-        }
-    }
-
-    private func dayCell(for date: Date, monthRow: SpreadHeaderNavigatorModel.MonthRow) -> some View {
-        let targets = monthRow.targets(for: date, calendar: model.calendar)
-        let isSelectable = !targets.isEmpty
-        let isCurrent = model.isCurrent(date: date, currentSpread: currentSpread)
-
-        return Button {
-            if targets.count == 1, let selection = targets.first?.selection {
-                onSelect(selection)
-                onDismiss()
-            } else {
-                dialogTargets = targets
-                isShowingSelectionDialog = true
-            }
-        } label: {
-            Text("\(model.calendar.component(.day, from: date))")
-                .font(SpreadTheme.Typography.body)
-                .foregroundStyle(isSelectable ? .primary : .tertiary)
-                .frame(maxWidth: .infinity, minHeight: 40)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(isCurrent ? Color.accentColor.opacity(0.16) : Color.clear)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(
-                            isSelectable ? Color.secondary.opacity(0.12) : Color.clear,
-                            lineWidth: 0.8
-                        )
-                )
-        }
-        .buttonStyle(.plain)
-        .disabled(!isSelectable)
+        )
+        .padding(.leading, 8)
         .accessibilityIdentifier(
-            Definitions.AccessibilityIdentifiers.SpreadNavigator.dayTile(date: date, calendar: model.calendar)
+            Definitions.AccessibilityIdentifiers.SpreadNavigator.grid(
+                year: page.year,
+                month: model.calendar.component(.month, from: monthRow.date)
+            )
         )
     }
 }
