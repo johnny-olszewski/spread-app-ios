@@ -489,6 +489,9 @@
     - In conventional mode, a year page shows only months that have an explicit month spread or at least one day or multiday sub-spread in that month.
     - In traditional mode, a year page shows all months.
     - Expanding a month shows that month's calendar grid.
+    - Calendar grids in the rooted navigator are rendered using `MonthCalendarView` from `johnnyo-foundation` with a dedicated `CalendarContentGenerator`; out-of-month (peripheral) dates are not shown. [SPRD-166]
+    - Day cells use a three-state visual treatment that matches the multiday day card: today (accent fill + solid accent border), created/selectable (solid secondary border, transparent fill), uncreated/no targets (dashed secondary border, transparent fill). The fill, border color, and stroke style for each state are defined as shared properties on `MultidayDayCardVisualState` and referenced by both the multiday card and the navigator calendar generator. [SPRD-166]
+    - In conventional mode, a day cell is "created" if it has at least one selection target; otherwise it is "uncreated". In traditional mode, every day cell is always "created" since all days are navigable. [SPRD-166]
     - Calendar days with no selectable target are disabled and not tappable.
     - A day with exactly one target selects that spread immediately and dismisses the rooted navigator.
     - A day with multiple targets presents a native confirmation dialog so the user can choose among the day spread and any covering multiday spread targets.
@@ -560,7 +563,7 @@
     - tasks assigned directly to that month appear in an untitled top section because they belong to the current spread
     - tasks assigned to days in that month appear in the same list and show the day number next to the task
   - Day and multiday spreads do not use this year/month sectioning rule; they continue to show their normal flat task presentation for the current spread. [SPRD-138]
-  - Multiday day cards support normal created, uncreated, and today visual states. [SPRD-149]
+  - Multiday day cards support normal created, uncreated, and today visual states; the fill, border color, and stroke style for each state are defined as shared properties on `MultidayDayCardVisualState` and reused by the rooted navigator calendar grid. [SPRD-149, SPRD-166]
   - If a multiday card's date is today, it shows a `Today` label above the weekday, left-aligned with the weekday and matching the structural style role of the short month label above the date. [SPRD-149]
   - If a multiday card's corresponding explicit day spread does not exist, the card uses an uncreated treatment via a dashed outline rather than a distinct grey text or fill color treatment. [SPRD-149]
   - If a multiday card is both today and uncreated, the today treatment fully wins and suppresses the uncreated styling. [SPRD-149]
