@@ -1,9 +1,40 @@
-import Foundation
+import SwiftUI
 
 enum MultidayDayCardVisualState: Equatable {
     case created
     case uncreated
     case today
+
+    var fill: Color {
+        switch self {
+        case .today:
+            return SpreadTheme.Accent.todayEmphasis.opacity(0.08)
+        case .uncreated, .created:
+            return SpreadTheme.Paper.primary.opacity(0.55)
+        }
+    }
+
+    var borderColor: Color {
+        switch self {
+        case .today:
+            return SpreadTheme.Accent.todayEmphasisBorder
+        case .uncreated:
+            return Color.secondary.opacity(0.28)
+        case .created:
+            return Color.secondary.opacity(0.12)
+        }
+    }
+
+    var borderStyle: StrokeStyle {
+        switch self {
+        case .today:
+            return StrokeStyle(lineWidth: 1.5)
+        case .uncreated:
+            return StrokeStyle(lineWidth: 1, dash: [6, 4])
+        case .created:
+            return StrokeStyle(lineWidth: 1)
+        }
+    }
 }
 
 enum MultidayDayCardAction: Equatable {
