@@ -42,6 +42,7 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(visualState.borderColor, style: visualState.borderStyle)
             )
+            .padding(3)
     }
 
     func placeholderCellView(context: MonthCalendarPlaceholderContext) -> some View {
