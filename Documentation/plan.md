@@ -373,6 +373,37 @@
   - App build and spread-related unit tests remain green.
 - **Dependencies**: SPRD-163, SPRD-164
 
+### [SPRD-166] Refactor: replace rooted-navigator calendar grid with MonthCalendarView and share day visual style
+- **Context**: `SpreadHeaderNavigatorYearPageView` renders the expanded-month calendar grid with a bespoke `calendarGrid` method backed by `CalendarGridHelper`. `MonthCalendarView` from `johnnyo-foundation` is already used for `SpreadMonthCalendarView` and provides the `CalendarContentGenerator` protocol. The multiday day-card visual states (today / created / uncreated) also inline their style constants as private view properties; the navigator grid needs those same styles, making this the right moment to centralize them.
+- **Description**: Replace the bespoke calendar grid in the rooted navigator with `MonthCalendarView` via a new dedicated `CalendarContentGenerator`. Move fill, border color, and stroke style constants out of `MultidayDayCardView` into computed properties on `MultidayDayCardVisualState`, and have both the card and the new generator reference those shared properties. Delete `CalendarGridHelper` once it is no longer used.
+- **Implementation Details**:
+  - Add computed properties to `MultidayDayCardVisualState`: `fill: Color`, `borderColor: Color`, `borderStyle: StrokeStyle`. Values match the current private computed properties in `MultidayDayCardView`.
+  - Update `MultidayDayCardView` to reference these shared properties instead of its own inline values.
+  - Create `SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator` in `Spread/Views/Spreads/Header/`:
+    - Receives `model: SpreadHeaderNavigatorModel`, `monthRow: SpreadHeaderNavigatorModel.MonthRow`, `currentSpread: DataModel.Spread`, and `onDayTapped: (Date, [SpreadHeaderNavigatorModel.SelectionTarget]) -> Void`
+    - `headerView`: returns `EmptyView` (the month name is already shown by `navigationTitle` in the popover)
+    - `weekdayHeaderView`: renders the very-short weekday symbol using `SpreadTheme.Typography.caption`
+    - `dayCellView`: maps `MonthCalendarDayContext` → `MultidayDayCardVisualState` (today → `.today`; conventional with targets → `.created`; conventional without targets → `.uncreated`; traditional → always `.created`), applies shared `fill`/`borderColor`/`borderStyle` from `MultidayDayCardVisualState`, calls `onDayTapped` on tap
+    - `placeholderCellView`: returns `Color.clear` with a fixed height (peripheral dates hidden via `showsPeripheralDates: false`)
+    - `weekBackgroundView`: returns `Color.clear`
+  - Replace `calendarGrid(for:)` in `SpreadHeaderNavigatorYearPageView` with a `MonthCalendarView` instantiation using `SpreadHeaderNavigatorCalendarGenerator`, passing `showsPeripheralDates: false`
+  - Wire tap handling inside `onDayTapped`: single target → call `onSelect` + `onDismiss`; multiple targets → set `dialogTargets` and `isShowingSelectionDialog = true`
+  - Delete `CalendarGridHelper.swift` once `calendarGrid` is removed
+  - Remove the `weekdayHeaders` computed property from `SpreadHeaderNavigatorYearPageView`; weekday rendering moves into the generator
+- **Acceptance Criteria**:
+  - Expanded-month calendar grid in the rooted navigator is rendered by `MonthCalendarView` with `SpreadHeaderNavigatorCalendarGenerator`
+  - Day cells use today / created / uncreated visual treatment matching the multiday card's three-state style
+  - `MultidayDayCardVisualState` owns the fill, border color, and border style for each state
+  - `MultidayDayCardView` reads from `MultidayDayCardVisualState` properties (no inline duplication)
+  - `CalendarGridHelper.swift` is deleted
+  - Tap behavior is unchanged: single target selects immediately, multiple targets show confirmation dialog
+  - No visual regression on `SpreadMonthCalendarView` (unchanged; has its own generator)
+  - App builds cleanly and existing tests remain green
+- **Tests**:
+  - Unit tests for `MultidayDayCardVisualState` shared properties (correct colors and stroke styles)
+  - Unit tests for visual state mapping in the navigator generator (today / created / uncreated) for both conventional and traditional modes
+- **Dependencies**: SPRD-153, SPRD-165
+
 ## Story: Conventional MVP UI: create spreads and tasks
 
 ### User Story
