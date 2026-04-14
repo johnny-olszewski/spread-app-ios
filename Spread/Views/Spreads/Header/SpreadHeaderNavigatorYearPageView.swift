@@ -80,9 +80,10 @@ struct SpreadHeaderNavigatorYearPageView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
 
-                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .animation(.easeInOut(duration: 0.2), value: isExpanded)
             }
             .padding(.horizontal, 12)
@@ -103,7 +104,7 @@ struct SpreadHeaderNavigatorYearPageView: View {
 
             if isExpanded {
                 calendarGrid(for: monthRow)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
             }
         }
         .animation(.easeInOut(duration: 0.25), value: isExpanded)
