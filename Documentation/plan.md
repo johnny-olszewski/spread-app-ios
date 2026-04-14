@@ -390,14 +390,18 @@
   - Wire tap handling inside `onDayTapped`: single target → call `onSelect` + `onDismiss`; multiple targets → set `dialogTargets` and `isShowingSelectionDialog = true`
   - Delete `CalendarGridHelper.swift` once `calendarGrid` is removed
   - Remove the `weekdayHeaders` computed property from `SpreadHeaderNavigatorYearPageView`; weekday rendering moves into the generator
+  - Update `SpreadMonthCalendarContentGenerator.dayCellView` to apply the same three-state visual treatment:
+    - Map context to `MultidayDayCardVisualState`: today → `.today`; entryCount > 0 → `.created`; entryCount == 0 → `.uncreated`
+    - Apply shared `borderColor` and `borderStyle` from `MultidayDayCardVisualState` as a `strokeBorder` overlay on each cell
+    - Cell fill: today → `visualState.fill`; others → `Color.clear`
+    - Entry count dot indicators are retained beneath the day number
 - **Acceptance Criteria**:
   - Expanded-month calendar grid in the rooted navigator is rendered by `MonthCalendarView` with `SpreadHeaderNavigatorCalendarGenerator`
-  - Day cells use today / created / uncreated visual treatment matching the multiday card's three-state style
+  - Day cells in both the navigator grid and the month spread calendar use today / created / uncreated visual treatment
   - `MultidayDayCardVisualState` owns the fill, border color, and border style for each state
   - `MultidayDayCardView` reads from `MultidayDayCardVisualState` properties (no inline duplication)
   - `CalendarGridHelper.swift` is deleted
   - Tap behavior is unchanged: single target selects immediately, multiple targets show confirmation dialog
-  - No visual regression on `SpreadMonthCalendarView` (unchanged; has its own generator)
   - App builds cleanly and existing tests remain green
 - **Tests**:
   - Unit tests for `MultidayDayCardVisualState` shared properties (correct colors and stroke styles)

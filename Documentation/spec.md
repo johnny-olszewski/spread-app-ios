@@ -432,6 +432,7 @@
 ### Shared Month Calendar Component
 - `johnnyo-foundation` should provide a reusable month-based calendar shell component intended for embedding inside spread surfaces rather than replacing the month spread surface entirely. [SPRD-153]
 - In `Spread`, both conventional and traditional month spreads should embed the shared month calendar above the existing entry list content. The calendar is view-only for this first integration and must not change list filtering or month-spread selection behavior yet. [SPRD-153]
+- The month spread calendar uses the same three-state day cell visual treatment as the rooted navigator and the multiday day card: today (accent fill + solid accent border), created (day has at least one entry — solid secondary border), uncreated (day has no entries — dashed secondary border, transparent fill). Entry count dot indicators are retained below the day number. [SPRD-166]
 - The month calendar shell owns month structure and calendar math, including: [SPRD-153]
   - header placement
   - weekday header row placement
