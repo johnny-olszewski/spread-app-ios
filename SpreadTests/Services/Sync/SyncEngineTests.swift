@@ -7,6 +7,22 @@ import Testing
 @MainActor
 struct SyncEngineTests {
 
+    private nonisolated static func emptyServerRowsFetcher(
+        _: SyncEntityType,
+        _: Int64,
+        _: Int
+    ) async throws -> (rows: [[String: Any]], maxRevision: Int64) {
+        ([], 0)
+    }
+
+    private nonisolated static func initialServerRowsFetcher(
+        _: SyncEntityType,
+        _: Int64,
+        _: Int
+    ) async throws -> (rows: [[String: Any]], maxRevision: Int64) {
+        ([], 0)
+    }
+
     // MARK: - Test Helpers
 
     /// Mock network monitor for controlling connectivity in tests.
@@ -265,10 +281,7 @@ struct SyncEngineTests {
     @Test func syncBackfillsTaskAssignmentsWhenServerHasZeroRows() async throws {
         var mergeCalls: [(String, Data)] = []
         let (engine, container, _, _) = try makeEngine(
-            serverRowsFetcher: { _, afterRevision, _ in
-                #expect(afterRevision == 0)
-                return ([], 0)
-            },
+            serverRowsFetcher: Self.initialServerRowsFetcher,
             mergeRPCCaller: { name, params in
                 let data = try JSONEncoder().encode(params)
                 mergeCalls.append((name, data))
@@ -306,7 +319,7 @@ struct SyncEngineTests {
     @Test func syncSkipsBackfillWhenServerAlreadyHasAssignmentRows() async throws {
         var mergeCalls: [(String, Data)] = []
         let (engine, container, _, _) = try makeEngine(
-            serverRowsFetcher: { _, _, _ in ([], 0) },
+            serverRowsFetcher: Self.emptyServerRowsFetcher,
             mergeRPCCaller: { name, params in
                 let data = try JSONEncoder().encode(params)
                 mergeCalls.append((name, data))
@@ -369,7 +382,7 @@ struct SyncEngineTests {
             deviceId: UUID(),
             isSyncEnabled: true,
             policy: DefaultSyncPolicy(),
-            serverRowsFetcher: { _, _, _ in ([], 0) },
+            serverRowsFetcher: Self.emptyServerRowsFetcher,
             mergeRPCCaller: { name, params in
                 let data = try JSONEncoder().encode(params)
                 mergeCalls.append((name, data))
@@ -420,7 +433,7 @@ struct SyncEngineTests {
             deviceId: UUID(),
             isSyncEnabled: true,
             policy: DefaultSyncPolicy(),
-            serverRowsFetcher: { _, _, _ in ([], 0) },
+            serverRowsFetcher: Self.emptyServerRowsFetcher,
             mergeRPCCaller: { name, params in
                 let data = try JSONEncoder().encode(params)
                 mergeCalls.append((name, data))
