@@ -1,57 +1,67 @@
 import SwiftUI
 
-/// A row component for displaying an entry with type symbol, title, and swipe actions.
+struct EntryRowTrailingAction {
+    let systemImage: String
+    let accessibilityIdentifier: String
+    let action: () -> Void
+}
+
+struct EntryRowInlineActionConfiguration {
+    let migrationOptions: [EntryRowInlineMigrationOption]
+    let onEditSheet: () -> Void
+    let onMigrationSelected: (EntryRowInlineMigrationOption) async -> Void
+}
+
+/// A row component for displaying an entry with type symbol, title, and actions.
 ///
-/// Renders the entry with:
-/// - StatusIcon (leading) showing entry type and status
-/// - Title
-/// - Migration badge (if migrated, shows destination)
-/// - Swipe actions based on entry type
-///
-/// Swipe actions by type:
-/// - Task: Complete (trailing), Migrate (leading)
-/// - Note: Migrate (leading) - explicit only
-/// - Event: No migrate action
+/// Interaction model:
+/// - Tapping an open task row activates inline title editing.
+/// - Tapping a completed/cancelled task row opens the full edit sheet via `onEdit`.
+/// - Long-pressing the row shows a context menu with Edit, Complete, Migrate, Delete.
 struct EntryRowView: View {
 
     // MARK: - Properties
 
-    /// The configuration for this entry row.
     private let configuration: EntryRowConfiguration
-
-    /// The status icon configuration.
     private let iconConfiguration: StatusIconConfiguration
 
-    /// Callback when complete action is triggered.
     private let onComplete: (() -> Void)?
-
-    /// Callback when migrate action is triggered.
     private let onMigrate: (() -> Void)?
-
-    /// Callback when edit action is triggered.
     private let onEdit: (() -> Void)?
-
-    /// Callback when delete action is triggered.
     private let onDelete: (() -> Void)?
+    private let trailingAction: EntryRowTrailingAction?
+    private let inlineActionConfiguration: EntryRowInlineActionConfiguration?
+    private let isInlineActive: Bool
+    private let onBeginInlineEditing: (() -> Void)?
+    private let onEndInlineEditing: (() -> Void)?
+
+    /// Callback when the user commits an inline title edit (open tasks only).
+    private let onTitleCommit: (@MainActor (String) async -> Void)?
+
+    // MARK: - Inline edit state
+
+    @State private var editingText: String
+    @State private var titleSelection: TextSelection?
+    @State private var inlineTaskStatus: DataModel.Task.Status?
+    @State private var hasAcquiredTitleFocus: Bool = false
+    @State private var isPerformingInlineAction: Bool = false
+    @FocusState private var isTitleFocused: Bool
 
     // MARK: - Initialization
 
-    /// Creates an entry row view.
-    ///
-    /// - Parameters:
-    ///   - configuration: The row configuration.
-    ///   - iconConfiguration: The status icon configuration.
-    ///   - onComplete: Callback for complete action.
-    ///   - onMigrate: Callback for migrate action.
-    ///   - onEdit: Callback for edit action.
-    ///   - onDelete: Callback for delete action.
     init(
         configuration: EntryRowConfiguration,
         iconConfiguration: StatusIconConfiguration,
         onComplete: (() -> Void)? = nil,
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil
+        onDelete: (() -> Void)? = nil,
+        onTitleCommit: (@MainActor (String) async -> Void)? = nil,
+        trailingAction: EntryRowTrailingAction? = nil,
+        inlineActionConfiguration: EntryRowInlineActionConfiguration? = nil,
+        isInlineActive: Bool = false,
+        onBeginInlineEditing: (() -> Void)? = nil,
+        onEndInlineEditing: (() -> Void)? = nil
     ) {
         self.configuration = configuration
         self.iconConfiguration = iconConfiguration
@@ -59,30 +69,38 @@ struct EntryRowView: View {
         self.onMigrate = onMigrate
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.onTitleCommit = onTitleCommit
+        self.trailingAction = trailingAction
+        self.inlineActionConfiguration = inlineActionConfiguration
+        self.isInlineActive = isInlineActive
+        self.onBeginInlineEditing = onBeginInlineEditing
+        self.onEndInlineEditing = onEndInlineEditing
+        _editingText = State(initialValue: configuration.title)
+        _inlineTaskStatus = State(initialValue: configuration.taskStatus)
     }
 
     /// Creates an entry row view for a task.
-    ///
-    /// - Parameters:
-    ///   - task: The task to display.
-    ///   - migrationDestination: Optional migration destination label.
-    ///   - onComplete: Callback for complete action.
-    ///   - onMigrate: Callback for migrate action.
-    ///   - onEdit: Callback for edit action.
-    ///   - onDelete: Callback for delete action.
     init(
         task: DataModel.Task,
         migrationDestination: String? = nil,
+        contextualLabel: String? = nil,
         onComplete: (() -> Void)? = nil,
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil
+        onDelete: (() -> Void)? = nil,
+        onTitleCommit: (@MainActor (String) async -> Void)? = nil,
+        trailingAction: EntryRowTrailingAction? = nil,
+        inlineActionConfiguration: EntryRowInlineActionConfiguration? = nil,
+        isInlineActive: Bool = false,
+        onBeginInlineEditing: (() -> Void)? = nil,
+        onEndInlineEditing: (() -> Void)? = nil
     ) {
         self.configuration = EntryRowConfiguration(
             entryType: .task,
             taskStatus: task.status,
             title: task.title,
-            migrationDestination: migrationDestination
+            migrationDestination: migrationDestination,
+            contextualLabel: contextualLabel
         )
         self.iconConfiguration = StatusIconConfiguration(
             entryType: .task,
@@ -92,15 +110,17 @@ struct EntryRowView: View {
         self.onMigrate = onMigrate
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.onTitleCommit = onTitleCommit
+        self.trailingAction = trailingAction
+        self.inlineActionConfiguration = inlineActionConfiguration
+        self.isInlineActive = isInlineActive
+        self.onBeginInlineEditing = onBeginInlineEditing
+        self.onEndInlineEditing = onEndInlineEditing
+        _editingText = State(initialValue: task.title)
+        _inlineTaskStatus = State(initialValue: task.status)
     }
 
     /// Creates an entry row view for an event.
-    ///
-    /// - Parameters:
-    ///   - event: The event to display.
-    ///   - isEventPast: Whether the event is past (computed by caller based on spread context).
-    ///   - onEdit: Callback for edit action.
-    ///   - onDelete: Callback for delete action.
     init(
         event: DataModel.Event,
         isEventPast: Bool = false,
@@ -120,19 +140,21 @@ struct EntryRowView: View {
         self.onMigrate = nil
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.onTitleCommit = nil
+        self.trailingAction = nil
+        self.inlineActionConfiguration = nil
+        self.isInlineActive = false
+        self.onBeginInlineEditing = nil
+        self.onEndInlineEditing = nil
+        _editingText = State(initialValue: event.title)
+        _inlineTaskStatus = State(initialValue: nil)
     }
 
     /// Creates an entry row view for a note.
-    ///
-    /// - Parameters:
-    ///   - note: The note to display.
-    ///   - migrationDestination: Optional migration destination label.
-    ///   - onMigrate: Callback for migrate action.
-    ///   - onEdit: Callback for edit action.
-    ///   - onDelete: Callback for delete action.
     init(
         note: DataModel.Note,
         migrationDestination: String? = nil,
+        contextualLabel: String? = nil,
         onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil
@@ -141,7 +163,8 @@ struct EntryRowView: View {
             entryType: .note,
             noteStatus: note.status,
             title: note.title,
-            migrationDestination: migrationDestination
+            migrationDestination: migrationDestination,
+            contextualLabel: contextualLabel
         )
         self.iconConfiguration = StatusIconConfiguration(
             entryType: .note,
@@ -151,46 +174,341 @@ struct EntryRowView: View {
         self.onMigrate = onMigrate
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.onTitleCommit = nil
+        self.trailingAction = nil
+        self.inlineActionConfiguration = nil
+        self.isInlineActive = false
+        self.onBeginInlineEditing = nil
+        self.onEndInlineEditing = nil
+        _editingText = State(initialValue: note.title)
+        _inlineTaskStatus = State(initialValue: nil)
     }
 
     // MARK: - Body
 
     var body: some View {
-        rowContent
-            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                leadingSwipeActions
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 0) {
+                rowMainContent
+                Spacer()
+
+                trailingAccessory
             }
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                trailingSwipeActions
+            .contentShape(Rectangle())
+            .onTapGesture {
+                handlePrimaryTap()
             }
-    }
 
-    // MARK: - Row Content
-
-    private var rowContent: some View {
-        HStack(spacing: 12) {
-            StatusIcon(configuration: iconConfiguration, color: rowColor)
-
-            Text(configuration.title)
-                .strikethrough(configuration.hasStrikethrough)
-                .lineLimit(2)
-
-            Spacer()
-
-            if configuration.showsMigrationBadge, let destination = configuration.migrationDestination {
-                migrationBadge(destination: destination)
-            }
+            inlineActionRow
         }
         .foregroundStyle(rowColor)
-        .contentShape(Rectangle())
+        .contextMenu {
+            contextMenuActions
+        }
+        .onChange(of: isInlineActive) { oldValue, newValue in
+            guard oldValue != newValue else { return }
+            syncInlineEditingState(isActive: newValue)
+        }
+        .onChange(of: isTitleFocused) { _, focused in
+            if focused {
+                if isInlineActive && !hasAcquiredTitleFocus {
+                    titleSelection = fullTextSelection(for: editingText)
+                }
+                hasAcquiredTitleFocus = true
+            } else if isInlineActive && hasAcquiredTitleFocus && !isPerformingInlineAction {
+                commitEdit(clearParentSelection: true)
+            }
+        }
+        .onChange(of: configuration.title) { _, newTitle in
+            guard !isInlineActive else { return }
+            editingText = newTitle
+        }
+        .onChange(of: configuration.taskStatus) { _, newStatus in
+            inlineTaskStatus = newStatus
+        }
+        .animation(.easeInOut(duration: 0.18), value: isInlineActive)
+        .accessibilityElement(children: .contain)
+    }
+
+    // MARK: - Subviews
+
+    @ViewBuilder
+    private var titleArea: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            ZStack(alignment: .leading) {
+                Text(configuration.title)
+                    .font(.body)
+                    .strikethrough(configuration.hasStrikethrough)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .opacity(isInlineActive ? 0 : 1)
+
+                TextField("", text: $editingText, selection: $titleSelection)
+                    .font(.body)
+                    .textFieldStyle(.plain)
+                    .focused($isTitleFocused)
+                    .submitLabel(.done)
+                    .onSubmit { commitEdit(clearParentSelection: true) }
+                    .allowsHitTesting(isInlineActive)
+                    .opacity(isInlineActive ? 1 : 0.01)
+                    .accessibilityHidden(!isInlineActive)
+                    .accessibilityIdentifier(
+                        Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(configuration.title)
+                    )
+            }
+
+            if let contextualLabel = configuration.contextualLabel {
+                contextualLabelView(contextualLabel)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var rowMainContent: some View {
+        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+            leadingAccessory
+            titleArea
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .leading) {
+            if configuration.hasStrikethrough {
+                Rectangle()
+                    .fill(rowColor.opacity(0.9))
+                    .frame(height: 1.2)
+                    .padding(.trailing, -4)
+                    .offset(y: 1)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var leadingAccessory: some View {
+        if let inlineTaskStatus,
+           configuration.entryType == .task {
+            TaskStatusToggleButton(
+                status: Binding(
+                    get: { inlineTaskStatus },
+                    set: { newStatus in
+                        self.inlineTaskStatus = newStatus
+                        guard newStatus != configuration.taskStatus else { return }
+                        onComplete?()
+                    }
+                ),
+                accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskStatusToggle(
+                    configuration.title
+                ),
+                size: .caption,
+                color: rowColor
+            )
+        } else {
+            StatusIcon(configuration: iconConfiguration, color: rowColor)
+        }
+    }
+
+    @ViewBuilder
+    private var trailingAccessory: some View {
+        if let trailingAction {
+            Button(action: trailingAction.action) {
+                Image(systemName: trailingAction.systemImage)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(trailingAction.accessibilityIdentifier)
+        } else if configuration.showsMigrationBadge, let destination = configuration.migrationDestination {
+            migrationBadge(destination: destination)
+        }
+    }
+
+    @ViewBuilder
+    private var inlineActionRow: some View {
+        if supportsInlineEditing && isInlineActive {
+            HStack(spacing: 16) {
+                Button {
+                    Task { @MainActor in
+                        await openEditSheetFromInlineActions()
+                    }
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit task")
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineEditButton(configuration.title)
+                )
+                .accessibilityElement(children: .ignore)
+
+                if let inlineActionConfiguration {
+                    Menu {
+                        ForEach(inlineActionConfiguration.migrationOptions) { option in
+                            Button {
+                                Task { @MainActor in
+                                    await performInlineMigration(option)
+                                }
+                            } label: {
+                                Text(option.label)
+                            }
+                            .accessibilityIdentifier(
+                                Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationOption(
+                                    configuration.title,
+                                    option: option.kind.rawValue
+                                )
+                            )
+                        }
+
+                        if !inlineActionConfiguration.migrationOptions.isEmpty {
+                            Divider()
+                        }
+
+                        Button {
+                            Task { @MainActor in
+                                await openEditSheetFromInlineActions()
+                            }
+                        } label: {
+                            Text("Custom...")
+                        }
+                    } label: {
+                        Image(systemName: "arrow.right")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityIdentifier(
+                        Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu(configuration.title)
+                    )
+                    .accessibilityElement(children: .ignore)
+                }
+
+                Spacer()
+            }
+            .padding(.leading, 24 + SpreadTheme.Spacing.entryIconSpacing)
+            .frame(height: 20)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    // MARK: - Inline Edit Helpers
+
+    private func beginEditing() {
+        guard supportsInlineEditing, !isInlineActive else { return }
+        editingText = configuration.title
+        titleSelection = fullTextSelection(for: editingText)
+        hasAcquiredTitleFocus = false
+        onBeginInlineEditing?()
+    }
+
+    private func commitEdit(clearParentSelection: Bool) {
+        let trimmed = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        isTitleFocused = false
+        titleSelection = nil
+        hasAcquiredTitleFocus = false
+        if clearParentSelection {
+            onEndInlineEditing?()
+        }
+        guard !trimmed.isEmpty, trimmed != configuration.title else { return }
+        Task { @MainActor in
+            await onTitleCommit?(trimmed)
+        }
+    }
+
+    private func handlePrimaryTap() {
+        guard !isInlineActive else { return }
+
+        switch primaryInteraction {
+        case .inlineEdit:
+            beginEditing()
+        case .fullEditSheet:
+            onEdit?()
+        }
+    }
+
+    private var supportsInlineEditing: Bool {
+        primaryInteraction == .inlineEdit
+    }
+
+    private var primaryInteraction: EntryRowPrimaryInteraction {
+        EntryRowInlineEditSupport.primaryInteraction(
+            entryType: configuration.entryType,
+            taskStatus: configuration.taskStatus,
+            canInlineEditTitle: onTitleCommit != nil
+        )
+    }
+
+    private func openEditSheetFromInlineActions() async {
+        isPerformingInlineAction = true
+        isTitleFocused = false
+
+        await EntryRowInlineEditSupport.performInlineAction(
+            draftTitle: editingText,
+            originalTitle: configuration.title,
+            onCommit: { title in
+                await onTitleCommit?(title)
+            },
+            action: {
+                onEndInlineEditing?()
+                await Task.yield()
+                onEdit?()
+            }
+        )
+        isPerformingInlineAction = false
+    }
+
+    private func performInlineMigration(_ option: EntryRowInlineMigrationOption) async {
+        isPerformingInlineAction = true
+        isTitleFocused = false
+
+        await EntryRowInlineEditSupport.performInlineAction(
+            draftTitle: editingText,
+            originalTitle: configuration.title,
+            onCommit: { title in
+                await onTitleCommit?(title)
+            },
+            action: {
+                onEndInlineEditing?()
+                await inlineActionConfiguration?.onMigrationSelected(option)
+            }
+        )
+        isPerformingInlineAction = false
+    }
+
+    private func discardEdit() {
+        onEndInlineEditing?()
+        isTitleFocused = false
+        hasAcquiredTitleFocus = false
+        editingText = configuration.title
+        titleSelection = nil
+    }
+
+    private func syncInlineEditingState(isActive: Bool) {
+        if isActive {
+            editingText = configuration.title
+            titleSelection = fullTextSelection(for: editingText)
+            hasAcquiredTitleFocus = false
+            isTitleFocused = true
+        } else if hasAcquiredTitleFocus && !isPerformingInlineAction {
+            commitEdit(clearParentSelection: false)
+        } else {
+            isTitleFocused = false
+            titleSelection = nil
+            hasAcquiredTitleFocus = false
+            editingText = configuration.title
+        }
+    }
+
+    private func fullTextSelection(for text: String) -> TextSelection {
+        if text.isEmpty {
+            return TextSelection(insertionPoint: text.startIndex)
+        }
+        return TextSelection(range: text.startIndex..<text.endIndex)
     }
 
     // MARK: - Styling
 
     private var rowColor: Color {
-        if configuration.hasStrikethrough {
-            return .secondary
-        } else if configuration.isGreyedOut {
+        if configuration.isGreyedOut || configuration.hasStrikethrough {
             return .secondary
         }
         return .primary
@@ -208,37 +526,32 @@ struct EntryRowView: View {
         .foregroundStyle(.secondary)
     }
 
-    // MARK: - Swipe Actions
-
     @ViewBuilder
-    private var leadingSwipeActions: some View {
-        if configuration.canMigrate, let onMigrate {
-            Button {
-                onMigrate()
-            } label: {
-                Label("Migrate", systemImage: "arrow.right.circle")
-            }
-            .tint(.orange)
+    private func contextualLabelView(_ contextualLabel: String) -> some View {
+        let label = Text(contextualLabel)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize()
+
+        if configuration.entryType == .task {
+            label.accessibilityIdentifier(
+                Definitions.AccessibilityIdentifiers.SpreadContent.taskContextLabel(configuration.title)
+            )
+        } else {
+            label
         }
     }
 
-    @ViewBuilder
-    private var trailingSwipeActions: some View {
-        if configuration.canDelete, let onDelete {
-            Button(role: .destructive) {
-                onDelete()
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
+    // MARK: - Context Menu
 
+    @ViewBuilder
+    private var contextMenuActions: some View {
         if configuration.canEdit, let onEdit {
             Button {
                 onEdit()
             } label: {
                 Label("Edit", systemImage: "pencil")
             }
-            .tint(.blue)
         }
 
         if configuration.canComplete, let onComplete {
@@ -247,7 +560,22 @@ struct EntryRowView: View {
             } label: {
                 Label("Complete", systemImage: "checkmark.circle")
             }
-            .tint(.green)
+        }
+
+        if configuration.canMigrate, let onMigrate {
+            Button {
+                onMigrate()
+            } label: {
+                Label("Migrate", systemImage: "arrow.right.circle")
+            }
+        }
+
+        if configuration.canDelete, let onDelete {
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
         }
     }
 }
@@ -261,7 +589,8 @@ struct EntryRowView: View {
             onComplete: {},
             onMigrate: {},
             onEdit: {},
-            onDelete: {}
+            onDelete: {},
+            onTitleCommit: { print("Committed: \($0)") }
         )
     }
 }
@@ -347,7 +676,8 @@ struct EntryRowView: View {
             EntryRowView(
                 task: DataModel.Task(title: "Open task", status: .open),
                 onComplete: {},
-                onMigrate: {}
+                onMigrate: {},
+                onTitleCommit: { print("Committed: \($0)") }
             )
             EntryRowView(
                 task: DataModel.Task(title: "Complete task (greyed)", status: .complete)

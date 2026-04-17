@@ -10,6 +10,7 @@ import Foundation
 /// - `boundary`: Month and year transition dates
 /// - `highVolume`: Large data set for performance testing
 /// - `inboxNextYear`: Current year spreads with tasks dated in the following year
+/// - `scenario*`: hidden localhost UI-test fixtures for deterministic scenario coverage
 enum MockDataSet: String, CaseIterable {
     /// Clears all data (empty state).
     case empty
@@ -29,7 +30,75 @@ enum MockDataSet: String, CaseIterable {
     /// Current year spreads with next year tasks for inbox testing.
     case inboxNextYear
 
+    /// Hidden scenario fixture: direct assignment to an existing spread.
+    case scenarioAssignmentExistingSpread
+
+    /// Hidden scenario fixture: task creation falls back to Inbox.
+    case scenarioAssignmentInboxFallback
+
+    /// Hidden scenario fixture: Inbox task becomes eligible when a spread is created.
+    case scenarioInboxResolution
+
+    /// Hidden scenario fixture: month-bounded migration.
+    case scenarioMigrationMonthBound
+
+    /// Hidden scenario fixture: day migration supersedes month prompt once created.
+    case scenarioMigrationDayUpgrade
+
+    /// Hidden scenario fixture: finer day spread already exists, so month prompt is suppressed.
+    case scenarioMigrationDaySuperseded
+
+    /// Hidden scenario fixture: task reassignment and migrated history.
+    case scenarioReassignment
+
+    /// Hidden scenario fixture: global overdue review by assignment period.
+    case scenarioOverdueReview
+
+    /// Hidden scenario fixture: overdue fallback for Inbox tasks.
+    case scenarioOverdueInbox
+
+    /// Hidden scenario fixture: overdue remains available in traditional mode while migration stays absent.
+    case scenarioTraditionalOverdue
+
+    /// Hidden scenario fixture: notes excluded from migration/overdue review.
+    case scenarioNoteExclusions
+
+    /// Hidden scenario fixture: multiday spreads show empty days with adaptive section layout.
+    case scenarioMultidayLayout
+
+    /// Hidden scenario fixture: iPad header spread navigator across conventional and traditional flows.
+    case scenarioSpreadNavigator
+
     // MARK: - Display
+
+    static var debugMenuCases: [MockDataSet] {
+        allCases.filter(\.isVisibleInDebugMenu)
+    }
+
+    var isScenarioFixture: Bool {
+        !isVisibleInDebugMenu
+    }
+
+    var isVisibleInDebugMenu: Bool {
+        switch self {
+        case .empty, .baseline, .multiday, .boundary, .highVolume, .inboxNextYear:
+            return true
+        case .scenarioAssignmentExistingSpread,
+                .scenarioAssignmentInboxFallback,
+                .scenarioInboxResolution,
+                .scenarioMigrationMonthBound,
+                .scenarioMigrationDayUpgrade,
+                .scenarioMigrationDaySuperseded,
+                .scenarioReassignment,
+                .scenarioOverdueReview,
+                .scenarioOverdueInbox,
+                .scenarioTraditionalOverdue,
+                .scenarioNoteExclusions,
+                .scenarioMultidayLayout,
+                .scenarioSpreadNavigator:
+            return false
+        }
+    }
 
     /// The display name shown in the Debug menu.
     var displayName: String {
@@ -46,6 +115,32 @@ enum MockDataSet: String, CaseIterable {
             return "High Volume"
         case .inboxNextYear:
             return "Inbox (Next Year Tasks)"
+        case .scenarioAssignmentExistingSpread:
+            return "Scenario: Assignment Existing Spread"
+        case .scenarioAssignmentInboxFallback:
+            return "Scenario: Assignment Inbox Fallback"
+        case .scenarioInboxResolution:
+            return "Scenario: Inbox Resolution"
+        case .scenarioMigrationMonthBound:
+            return "Scenario: Migration Month Bound"
+        case .scenarioMigrationDayUpgrade:
+            return "Scenario: Migration Day Upgrade"
+        case .scenarioMigrationDaySuperseded:
+            return "Scenario: Migration Day Superseded"
+        case .scenarioReassignment:
+            return "Scenario: Reassignment"
+        case .scenarioOverdueReview:
+            return "Scenario: Overdue Review"
+        case .scenarioOverdueInbox:
+            return "Scenario: Overdue Inbox"
+        case .scenarioTraditionalOverdue:
+            return "Scenario: Traditional Overdue"
+        case .scenarioNoteExclusions:
+            return "Scenario: Note Exclusions"
+        case .scenarioMultidayLayout:
+            return "Scenario: Multiday Layout"
+        case .scenarioSpreadNavigator:
+            return "Scenario: Spread Navigator"
         }
     }
 
@@ -64,6 +159,32 @@ enum MockDataSet: String, CaseIterable {
             return "50+ spreads and 100+ tasks for performance testing."
         case .inboxNextYear:
             return "Current year spreads only, with tasks dated next year to populate the Inbox."
+        case .scenarioAssignmentExistingSpread:
+            return "Hidden UI-test fixture for direct assignment to an existing spread."
+        case .scenarioAssignmentInboxFallback:
+            return "Hidden UI-test fixture for task creation routing to Inbox."
+        case .scenarioInboxResolution:
+            return "Hidden UI-test fixture for Inbox tasks that become migratable after spread creation."
+        case .scenarioMigrationMonthBound:
+            return "Hidden UI-test fixture for desired-assignment-bounded migration."
+        case .scenarioMigrationDayUpgrade:
+            return "Hidden UI-test fixture for most-granular valid destination migration behavior."
+        case .scenarioMigrationDaySuperseded:
+            return "Hidden UI-test fixture where an existing day spread suppresses the month migration prompt."
+        case .scenarioReassignment:
+            return "Hidden UI-test fixture for edit-time reassignment and migrated history."
+        case .scenarioOverdueReview:
+            return "Hidden UI-test fixture for overdue review by assignment granularity."
+        case .scenarioOverdueInbox:
+            return "Hidden UI-test fixture for Inbox overdue fallback."
+        case .scenarioTraditionalOverdue:
+            return "Hidden UI-test fixture for overdue access in traditional mode without migration UI."
+        case .scenarioNoteExclusions:
+            return "Hidden UI-test fixture for note exclusion assertions."
+        case .scenarioMultidayLayout:
+            return "Hidden UI-test fixture for multiday empty-day layout and task-only sections."
+        case .scenarioSpreadNavigator:
+            return "Hidden UI-test fixture for the iPad header spread navigator."
         }
     }
 
@@ -101,6 +222,32 @@ enum MockDataSet: String, CaseIterable {
             return generateHighVolumeData(calendar: calendar, today: today)
         case .inboxNextYear:
             return generateInboxNextYearData(calendar: calendar, today: today)
+        case .scenarioAssignmentExistingSpread:
+            return generateScenarioAssignmentExistingSpread(calendar: calendar, today: today)
+        case .scenarioAssignmentInboxFallback:
+            return generateScenarioAssignmentInboxFallback(calendar: calendar, today: today)
+        case .scenarioInboxResolution:
+            return generateScenarioInboxResolution(calendar: calendar, today: today)
+        case .scenarioMigrationMonthBound:
+            return generateScenarioMigrationMonthBound(calendar: calendar, today: today)
+        case .scenarioMigrationDayUpgrade:
+            return generateScenarioMigrationDayUpgrade(calendar: calendar, today: today)
+        case .scenarioMigrationDaySuperseded:
+            return generateScenarioMigrationDaySuperseded(calendar: calendar, today: today)
+        case .scenarioReassignment:
+            return generateScenarioReassignment(calendar: calendar, today: today)
+        case .scenarioOverdueReview:
+            return generateScenarioOverdueReview(calendar: calendar, today: today)
+        case .scenarioOverdueInbox:
+            return generateScenarioOverdueInbox(calendar: calendar, today: today)
+        case .scenarioTraditionalOverdue:
+            return generateScenarioTraditionalOverdue(calendar: calendar, today: today)
+        case .scenarioNoteExclusions:
+            return generateScenarioNoteExclusions(calendar: calendar, today: today)
+        case .scenarioMultidayLayout:
+            return generateScenarioMultidayLayout(calendar: calendar, today: today)
+        case .scenarioSpreadNavigator:
+            return generateScenarioSpreadNavigator(calendar: calendar, today: today)
         }
     }
 

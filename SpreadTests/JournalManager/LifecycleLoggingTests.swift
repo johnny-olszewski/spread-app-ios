@@ -55,9 +55,9 @@ struct LifecycleLoggingTests {
         #expect(task.assignments.count == 1)
     }
 
-    /// Conditions: A new spread is created that captures an inbox entry.
-    /// Expected: Inbox entry is auto-assigned (log points: "Assignment created" + "Inbox resolved").
-    @Test func assignmentCreatedLogPointReachedOnInboxResolution() async throws {
+    /// Conditions: A new spread is created that matches an inbox task.
+    /// Expected: The task remains in Inbox and becomes a migration candidate from Inbox.
+    @Test func spreadCreationLeavesInboxTaskForExplicitMigration() async throws {
         let calendar = Self.testCalendar
         let today = Self.testDate
         let task = DataModel.Task(
@@ -72,12 +72,12 @@ struct LifecycleLoggingTests {
         // Task starts in inbox
         #expect(manager.inboxEntries.count == 1)
 
-        // Adding a matching spread resolves the inbox entry
-        _ = try await manager.addSpread(period: .day, date: today)
+        let spread = try await manager.addSpread(period: .day, date: today)
 
-        #expect(manager.inboxEntries.isEmpty)
-        let updatedTask = manager.tasks.first { $0.id == task.id }
-        #expect(updatedTask?.assignments.count == 1)
+        #expect(manager.inboxEntries.count == 1)
+        let candidates = manager.migrationCandidates(to: spread)
+        #expect(candidates.count == 1)
+        #expect(candidates.first?.sourceKey.kind == .inbox)
     }
 
     // MARK: - Migration Performed

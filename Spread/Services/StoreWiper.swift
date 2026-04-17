@@ -2,8 +2,8 @@ import SwiftData
 
 /// Protocol for wiping all local data.
 ///
-/// Used by environment switching and launch-time mismatch handling
-/// to ensure a clean slate before connecting to a different backend.
+/// Used by sign-out and localhost-isolation handling
+/// to ensure a clean slate before reconnecting product data.
 @MainActor
 protocol StoreWiper: Sendable {
     /// Deletes all local data including SwiftData entities and sync state.
@@ -13,9 +13,9 @@ protocol StoreWiper: Sendable {
 /// SwiftData implementation of StoreWiper.
 ///
 /// Deletes all entities from all model types in the schema:
-/// Spread, Task, Event, Note, Collection, SyncMutation, SyncCursor.
+/// Spread, Task, Event, Note, Collection, SyncMutation, SyncCursor, SyncRepairMarker.
 @MainActor
-final class SwiftDataStoreWiper: StoreWiper {
+struct SwiftDataStoreWiper: StoreWiper {
 
     private let modelContainer: ModelContainer
 
@@ -37,6 +37,7 @@ final class SwiftDataStoreWiper: StoreWiper {
         // Delete sync data
         try deleteAll(DataModel.SyncMutation.self, from: context)
         try deleteAll(DataModel.SyncCursor.self, from: context)
+        try deleteAll(DataModel.SyncRepairMarker.self, from: context)
 
         try context.save()
     }

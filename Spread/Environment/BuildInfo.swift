@@ -11,7 +11,7 @@ enum BuildInfo {
         buildConfiguration.displayName
     }
 
-    /// Whether the current build allows debug UI (debug menu, environment switcher, etc.).
+    /// Whether the current build allows debug UI (debug menu and engineering overrides).
     ///
     /// Returns `true` for Debug and QA builds.
     static var allowsDebugUI: Bool {
@@ -25,13 +25,13 @@ enum BuildInfo {
 
     /// The default data environment for the current build configuration.
     ///
-    /// - Debug: localhost (local-only, no backend)
+    /// - Debug: development (dev backend, auth-gated unless launched with localhost override)
     /// - QA: development (Supabase dev project)
     /// - Release: production (Supabase prod project)
     static var defaultDataEnvironment: DataEnvironment {
         switch buildConfiguration {
         case .debug:
-            return .localhost
+            return .development
         case .qa:
             return .development
         case .release:

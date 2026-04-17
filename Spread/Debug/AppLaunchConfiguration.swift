@@ -4,6 +4,7 @@ import Foundation
 struct AppLaunchConfiguration {
     let mockDataSet: MockDataSet?
     let today: Date?
+    let bujoMode: BujoMode?
 
     static var current: AppLaunchConfiguration {
         resolve(launchArguments: ProcessInfo.processInfo.arguments)
@@ -12,7 +13,8 @@ struct AppLaunchConfiguration {
     static func resolve(launchArguments: [String]) -> AppLaunchConfiguration {
         let mockDataSet = mockDataSetValue(from: launchArguments)
         let today = todayValue(from: launchArguments)
-        return AppLaunchConfiguration(mockDataSet: mockDataSet, today: today)
+        let bujoMode = bujoModeValue(from: launchArguments)
+        return AppLaunchConfiguration(mockDataSet: mockDataSet, today: today, bujoMode: bujoMode)
     }
 
     private static func mockDataSetValue(from launchArguments: [String]) -> MockDataSet? {
@@ -27,6 +29,13 @@ struct AppLaunchConfiguration {
             return nil
         }
         return dateFromYMD(value)
+    }
+
+    private static func bujoModeValue(from launchArguments: [String]) -> BujoMode? {
+        guard let value = value(for: "-BujoMode", in: launchArguments) else {
+            return nil
+        }
+        return BujoMode(rawValue: value)
     }
 
     private static func value(for key: String, in launchArguments: [String]) -> String? {

@@ -249,6 +249,7 @@ struct MigrationTests {
 
         let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: calendar)
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
+        let destinationID = UUID()
 
         // Task already has assignment on destination but with migrated status
         let task = DataModel.Task(
@@ -258,7 +259,7 @@ struct MigrationTests {
             status: .open,
             assignments: [
                 TaskAssignment(period: .month, date: taskDate, status: .open),
-                TaskAssignment(period: .day, date: taskDate, status: .migrated)
+                TaskAssignment(id: destinationID, period: .day, date: taskDate, status: .migrated)
             ]
         )
 
@@ -281,6 +282,7 @@ struct MigrationTests {
 
         // Destination assignment should be open now
         let destinationAssignment = updatedTask?.assignments.first { $0.period == .day }
+        #expect(destinationAssignment?.id == destinationID)
         #expect(destinationAssignment?.status == .open)
     }
 
@@ -385,6 +387,68 @@ struct MigrationTests {
         await #expect(throws: MigrationError.self) {
             try await manager.migrateTask(task, from: monthSpread, to: multidaySpread)
         }
+    }
+
+    /// Conditions: A task has multiple open assignments that match existing spreads.
+    /// Expected: The most granular current destination spread is returned.
+    @Test @MainActor func testCurrentDestinationSpreadPrefersMostGranularOpenAssignment() async throws {
+        let calendar = Self.testCalendar
+        let taskDate = Self.testDate
+
+        let yearSpread = DataModel.Spread(period: .year, date: taskDate, calendar: calendar)
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
+
+        let task = DataModel.Task(
+            title: "Test Task",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            assignments: [
+                TaskAssignment(period: .year, date: taskDate, status: .open),
+                TaskAssignment(period: .month, date: taskDate, status: .open),
+                TaskAssignment(period: .day, date: taskDate, status: .open)
+            ]
+        )
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: taskDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+        )
+
+        #expect(manager.currentDestinationSpread(for: task)?.id == daySpread.id)
+    }
+
+    /// Conditions: A task has open assignments on both the source spread and a more granular destination.
+    /// Expected: Excluding the source spread still resolves the live destination spread.
+    @Test @MainActor func testCurrentDestinationSpreadCanExcludeHistoricalSourceSpread() async throws {
+        let calendar = Self.testCalendar
+        let taskDate = Self.testDate
+
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
+
+        let task = DataModel.Task(
+            title: "Test Task",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            assignments: [
+                TaskAssignment(period: .month, date: taskDate, status: .open),
+                TaskAssignment(period: .day, date: taskDate, status: .open)
+            ]
+        )
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: taskDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        )
+
+        #expect(manager.currentDestinationSpread(for: task, excluding: monthSpread)?.id == daySpread.id)
     }
 
     // MARK: - Note Migration Tests
@@ -860,5 +924,147 @@ struct MigrationTests {
         let eligible = manager.eligibleTasksForMigration(from: yearSpread, to: monthSpread)
 
         #expect(eligible.isEmpty)
+    }
+
+    /// Conditions: A task is open on a source spread with more granular spreads available.
+    /// Expected: The source reports the most granular existing destination before migration, and none after migration.
+    @Test @MainActor func testMigrationDestinationClearsFromOldSourceAfterMigration() async throws {
+        let calendar = Self.testCalendar
+        let yearDate = calendar.date(from: .init(year: 2026, month: 1, day: 1))!
+        let monthDate = calendar.date(from: .init(year: 2026, month: 1, day: 1))!
+        let dayDate = calendar.date(from: .init(year: 2026, month: 1, day: 20))!
+
+        let yearSpread = DataModel.Spread(period: .year, date: yearDate, calendar: calendar)
+        let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: calendar)
+
+        let task = DataModel.Task(
+            title: "Source migration task",
+            date: dayDate,
+            period: .day,
+            status: .open,
+            assignments: [
+                TaskAssignment(period: .year, date: yearDate, status: .open)
+            ]
+        )
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: dayDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+        )
+
+        #expect(manager.migrationDestination(for: task, on: yearSpread)?.id == daySpread.id)
+
+        try await manager.migrateTask(task, from: yearSpread, to: daySpread)
+
+        let updatedTask = manager.tasks.first { $0.id == task.id }
+        #expect(updatedTask != nil)
+        #expect(manager.migrationDestination(for: updatedTask!, on: yearSpread) == nil)
+    }
+
+    /// Conditions: A destination spread has both a parent-spread task and an Inbox task aligned to it.
+    /// Expected: The destination migration section source only includes the parent-spread task, and clears after migration.
+    @Test @MainActor func testParentHierarchyMigrationCandidatesExcludeInboxAndClearAfterMigration() async throws {
+        let calendar = Self.testCalendar
+        let yearDate = calendar.date(from: .init(year: 2026, month: 1, day: 1))!
+        let dayDate = calendar.date(from: .init(year: 2026, month: 1, day: 20))!
+
+        let yearSpread = DataModel.Spread(period: .year, date: yearDate, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: calendar)
+
+        let yearTask = DataModel.Task(
+            title: "Parent task",
+            date: dayDate,
+            period: .day,
+            status: .open,
+            assignments: [
+                TaskAssignment(period: .year, date: yearDate, status: .open)
+            ]
+        )
+        let inboxTask = DataModel.Task(
+            title: "Inbox task",
+            date: dayDate,
+            period: .day,
+            status: .open
+        )
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: dayDate,
+            taskRepository: InMemoryTaskRepository(tasks: [yearTask, inboxTask]),
+            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, daySpread])
+        )
+
+        let initialCandidates = manager.parentHierarchyMigrationCandidates(to: daySpread)
+        #expect(initialCandidates.count == 1)
+        #expect(initialCandidates.first?.task.id == yearTask.id)
+
+        try await manager.migrateTask(yearTask, from: yearSpread, to: daySpread)
+
+        #expect(manager.parentHierarchyMigrationCandidates(to: daySpread).isEmpty)
+    }
+
+    /// Conditions: A day task is currently assigned to a month spread and a matching day spread exists.
+    /// Expected: Source-side migration offers the day spread as the next destination.
+    @Test @MainActor func testMigrationDestinationFromMonthToDay() async throws {
+        let calendar = Self.testCalendar
+        let monthDate = calendar.date(from: .init(year: 2026, month: 1, day: 1))!
+        let dayDate = calendar.date(from: .init(year: 2026, month: 1, day: 20))!
+
+        let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: calendar)
+
+        let task = DataModel.Task(
+            title: "Month source task",
+            date: dayDate,
+            period: .day,
+            status: .open,
+            assignments: [
+                TaskAssignment(period: .month, date: monthDate, status: .open)
+            ]
+        )
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: monthDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        )
+
+        #expect(manager.migrationDestination(for: task, on: monthSpread)?.id == daySpread.id)
+    }
+
+    /// Conditions: A month-bound task exists on a parent spread and a child day spread exists.
+    /// Expected: The day destination migration section does not include the month-bound task.
+    @Test @MainActor func testParentHierarchyCandidatesExcludeMonthBoundTaskForDayDestination() async throws {
+        let calendar = Self.testCalendar
+        let yearDate = calendar.date(from: .init(year: 2026, month: 1, day: 1))!
+        let monthDate = yearDate
+        let dayDate = calendar.date(from: .init(year: 2026, month: 1, day: 20))!
+
+        let yearSpread = DataModel.Spread(period: .year, date: yearDate, calendar: calendar)
+        let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: calendar)
+
+        let task = DataModel.Task(
+            title: "Month-bound task",
+            date: dayDate,
+            period: .month,
+            status: .open,
+            assignments: [
+                TaskAssignment(period: .year, date: yearDate, status: .open)
+            ]
+        )
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: dayDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+        )
+
+        #expect(manager.parentHierarchyMigrationCandidates(to: daySpread).isEmpty)
     }
 }

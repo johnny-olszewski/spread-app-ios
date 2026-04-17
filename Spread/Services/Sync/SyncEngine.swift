@@ -21,11 +21,13 @@ import UIKit
 @Observable
 @MainActor
 final class SyncEngine {
+    typealias ServerRowsFetcher = @Sendable (SyncEntityType, Int64, Int) async throws -> (rows: [[String: Any]], maxRevision: Int64)
+    typealias MergeRPCCaller = @Sendable (String, AnyEncodable) async throws -> Void
+    typealias AssignmentPresenceChecker = @Sendable (SyncEntityType, UUID) async throws -> Bool
 
     // MARK: - Observable State
 
     /// The current sync status.
-    /// Settable by `AuthLifecycleCoordinator` for entitlement gating.
     var status: SyncStatus = .idle
 
     /// The date of the last successful sync.
@@ -46,6 +48,9 @@ final class SyncEngine {
     private let deviceId: UUID
     private let isSyncEnabled: Bool
     let policy: SyncPolicy
+    private let serverRowsFetcher: ServerRowsFetcher?
+    private let mergeRPCCaller: MergeRPCCaller?
+    private let assignmentPresenceChecker: AssignmentPresenceChecker?
 
     // MARK: - Private State
 
@@ -60,6 +65,7 @@ final class SyncEngine {
         static let baseBackoffSeconds: TimeInterval = 2
         static let maxBackoffSeconds: TimeInterval = 300
         static let pullPageSize = 100
+        static let assignmentRepairChangedFields = ["period", "date", "status"]
     }
 
     // MARK: - Initialization
@@ -81,7 +87,10 @@ final class SyncEngine {
         networkMonitor: any NetworkMonitoring,
         deviceId: UUID,
         isSyncEnabled: Bool,
-        policy: SyncPolicy = DefaultSyncPolicy()
+        policy: SyncPolicy = DefaultSyncPolicy(),
+        serverRowsFetcher: ServerRowsFetcher? = nil,
+        mergeRPCCaller: MergeRPCCaller? = nil,
+        assignmentPresenceChecker: AssignmentPresenceChecker? = nil
     ) {
         self.client = client
         self.modelContainer = modelContainer
@@ -90,6 +99,9 @@ final class SyncEngine {
         self.deviceId = deviceId
         self.isSyncEnabled = isSyncEnabled
         self.policy = policy
+        self.serverRowsFetcher = serverRowsFetcher
+        self.mergeRPCCaller = mergeRPCCaller
+        self.assignmentPresenceChecker = assignmentPresenceChecker
 
         if !isSyncEnabled {
             self.status = .localOnly
@@ -106,13 +118,6 @@ final class SyncEngine {
         guard isSyncEnabled else {
             logger.info("Auto sync not started (sync disabled)")
             syncLog.info("Sync disabled (local only)")
-            return
-        }
-
-        if authManager.state.isSignedIn && !authManager.hasBackupEntitlement {
-            status = .backupUnavailable
-            logger.info("Auto sync not started (no backup entitlement)")
-            syncLog.warning("Backup unavailable")
             return
         }
 
@@ -195,13 +200,6 @@ final class SyncEngine {
             return
         }
 
-        guard authManager.hasBackupEntitlement else {
-            status = .backupUnavailable
-            logger.debug("Sync skipped: no backup entitlement")
-            syncLog.warning("Backup unavailable")
-            return
-        }
-
         if let forcedDuration = policy.forceSyncingDuration() {
             await simulateSync(duration: forcedDuration)
             return
@@ -260,7 +258,7 @@ final class SyncEngine {
     // MARK: - Core Sync
 
     private func performSync() async {
-        guard client != nil else {
+        guard client != nil || (serverRowsFetcher != nil && mergeRPCCaller != nil) else {
             logger.warning("Sync attempted without Supabase client")
             return
         }
@@ -272,6 +270,13 @@ final class SyncEngine {
         do {
             try await push()
             try await pull()
+
+            let repairPlan = try await prepareAssignmentRepairPlan()
+            if repairPlan.enqueuedBackfill {
+                try await push()
+                try await pull()
+            }
+            persistRepairMarkers(repairPlan.markers)
 
             consecutiveFailures = 0
             lastSyncDate = .now
@@ -371,10 +376,15 @@ final class SyncEngine {
     }
 
     private func callMergeRPC(name: String, params: any Encodable) async throws {
+        let wrapper = AnyEncodable(params)
+        if let mergeRPCCaller {
+            try await mergeRPCCaller(name, wrapper)
+            return
+        }
+
         guard let client else {
             throw SyncError.notAuthenticated
         }
-        let wrapper = AnyEncodable(params)
         _ = try await client.rpc(name, params: wrapper).execute()
     }
 
@@ -450,6 +460,10 @@ final class SyncEngine {
         afterRevision: Int64,
         limit: Int
     ) async throws -> (rows: [[String: Any]], maxRevision: Int64) {
+        if let serverRowsFetcher {
+            return try await serverRowsFetcher(entityType, afterRevision, limit)
+        }
+
         guard let client else {
             throw SyncError.notAuthenticated
         }
@@ -470,6 +484,42 @@ final class SyncEngine {
         let maxRevision = rows.compactMap { ($0["revision"] as? NSNumber)?.int64Value }
             .max() ?? afterRevision
         return (rows, maxRevision)
+    }
+
+    private func serverHasAssignmentRows(
+        entityType: SyncEntityType,
+        entryId: UUID
+    ) async throws -> Bool {
+        if let assignmentPresenceChecker {
+            return try await assignmentPresenceChecker(entityType, entryId)
+        }
+
+        guard let client else {
+            throw SyncError.notAuthenticated
+        }
+
+        let column = switch entityType {
+        case .taskAssignment:
+            "task_id"
+        case .noteAssignment:
+            "note_id"
+        default:
+            preconditionFailure("Assignment presence can only be queried for assignment tables")
+        }
+
+        let data = try await client
+            .from(entityType.rawValue)
+            .select("id")
+            .eq(column, value: entryId.uuidString)
+            .limit(1)
+            .execute()
+            .data
+
+        guard let rows = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return false
+        }
+
+        return !rows.isEmpty
     }
 
     private func applyPulledRows(
@@ -685,12 +735,13 @@ final class SyncEngine {
 
         if row.deletedAt != nil {
             task.assignments.removeAll {
-                $0.period == rowPeriod && $0.date == rowDate
+                $0.id == row.id || ($0.period == rowPeriod && $0.date == rowDate)
             }
         } else if let assignment = SyncSerializer.createTaskAssignment(from: row) {
-            if let index = task.assignments.firstIndex(where: {
-                $0.period == rowPeriod && $0.date == rowDate
-            }) {
+            if let index = task.assignments.firstIndex(where: { $0.id == row.id })
+                ?? task.assignments.firstIndex(where: {
+                    $0.period == rowPeriod && $0.date == rowDate
+                }) {
                 task.assignments[index] = assignment
             } else {
                 task.assignments.append(assignment)
@@ -718,17 +769,207 @@ final class SyncEngine {
 
         if row.deletedAt != nil {
             note.assignments.removeAll {
-                $0.period == rowPeriod && $0.date == rowDate
+                $0.id == row.id || ($0.period == rowPeriod && $0.date == rowDate)
             }
         } else if let assignment = SyncSerializer.createNoteAssignment(from: row) {
-            if let index = note.assignments.firstIndex(where: {
-                $0.period == rowPeriod && $0.date == rowDate
-            }) {
+            if let index = note.assignments.firstIndex(where: { $0.id == row.id })
+                ?? note.assignments.firstIndex(where: {
+                    $0.period == rowPeriod && $0.date == rowDate
+                }) {
                 note.assignments[index] = assignment
             } else {
                 note.assignments.append(assignment)
             }
         }
+    }
+
+    // MARK: - Assignment Repair
+
+    private struct AssignmentRepairMarkerRecord {
+        let accountId: UUID
+        let entryType: String
+        let entryId: UUID
+        let didBackfill: Bool
+    }
+
+    private struct AssignmentRepairPlan {
+        var markers: [AssignmentRepairMarkerRecord] = []
+        var enqueuedBackfill = false
+    }
+
+    private func prepareAssignmentRepairPlan() async throws -> AssignmentRepairPlan {
+        guard isSyncEnabled, authManager.state.isSignedIn,
+              let accountId = authManager.state.user?.id else {
+            return AssignmentRepairPlan()
+        }
+
+        let context = modelContainer.mainContext
+        var plan = AssignmentRepairPlan()
+
+        let tasks = try context.fetch(FetchDescriptor<DataModel.Task>())
+        for task in tasks where !task.assignments.isEmpty {
+            guard !hasCompletedRepairMarker(
+                accountId: accountId,
+                entryType: SyncEntityType.task.rawValue,
+                entryId: task.id,
+                context: context
+            ) else { continue }
+
+            if try await serverHasAssignmentRows(entityType: .taskAssignment, entryId: task.id) {
+                plan.markers.append(.init(
+                    accountId: accountId,
+                    entryType: SyncEntityType.task.rawValue,
+                    entryId: task.id,
+                    didBackfill: false
+                ))
+                continue
+            }
+
+            enqueueTaskAssignmentBackfill(task)
+            plan.enqueuedBackfill = true
+            plan.markers.append(.init(
+                accountId: accountId,
+                entryType: SyncEntityType.task.rawValue,
+                entryId: task.id,
+                didBackfill: true
+            ))
+        }
+
+        let notes = try context.fetch(FetchDescriptor<DataModel.Note>())
+        for note in notes where !note.assignments.isEmpty {
+            guard !hasCompletedRepairMarker(
+                accountId: accountId,
+                entryType: SyncEntityType.note.rawValue,
+                entryId: note.id,
+                context: context
+            ) else { continue }
+
+            if try await serverHasAssignmentRows(entityType: .noteAssignment, entryId: note.id) {
+                plan.markers.append(.init(
+                    accountId: accountId,
+                    entryType: SyncEntityType.note.rawValue,
+                    entryId: note.id,
+                    didBackfill: false
+                ))
+                continue
+            }
+
+            enqueueNoteAssignmentBackfill(note)
+            plan.enqueuedBackfill = true
+            plan.markers.append(.init(
+                accountId: accountId,
+                entryType: SyncEntityType.note.rawValue,
+                entryId: note.id,
+                didBackfill: true
+            ))
+        }
+
+        return plan
+    }
+
+    private func enqueueTaskAssignmentBackfill(_ task: DataModel.Task) {
+        let timestamp = Date.now
+
+        for assignment in task.assignments {
+            guard let recordData = SyncSerializer.serializeTaskAssignment(
+                assignment,
+                taskId: task.id,
+                deviceId: deviceId,
+                timestamp: timestamp
+            ) else { continue }
+
+            enqueueMutation(
+                entityType: .taskAssignment,
+                entityId: assignment.id,
+                operation: .create,
+                recordData: recordData,
+                changedFields: Constants.assignmentRepairChangedFields
+            )
+        }
+    }
+
+    private func enqueueNoteAssignmentBackfill(_ note: DataModel.Note) {
+        let timestamp = Date.now
+
+        for assignment in note.assignments {
+            guard let recordData = SyncSerializer.serializeNoteAssignment(
+                assignment,
+                noteId: note.id,
+                deviceId: deviceId,
+                timestamp: timestamp
+            ) else { continue }
+
+            enqueueMutation(
+                entityType: .noteAssignment,
+                entityId: assignment.id,
+                operation: .create,
+                recordData: recordData,
+                changedFields: Constants.assignmentRepairChangedFields
+            )
+        }
+    }
+
+    private func persistRepairMarkers(_ markers: [AssignmentRepairMarkerRecord]) {
+        guard !markers.isEmpty else { return }
+
+        let context = modelContainer.mainContext
+        for marker in markers {
+            if let existingMarker = fetchRepairMarker(
+                accountId: marker.accountId,
+                entryType: marker.entryType,
+                entryId: marker.entryId,
+                context: context
+            ) {
+                existingMarker.didBackfill = existingMarker.didBackfill || marker.didBackfill
+            } else {
+                context.insert(
+                    DataModel.SyncRepairMarker(
+                        accountId: marker.accountId,
+                        entryType: marker.entryType,
+                        entryId: marker.entryId,
+                        didBackfill: marker.didBackfill
+                    )
+                )
+            }
+        }
+
+        do {
+            try context.save()
+        } catch {
+            logger.error("Failed to persist assignment repair markers: \(error)")
+        }
+    }
+
+    private func hasCompletedRepairMarker(
+        accountId: UUID,
+        entryType: String,
+        entryId: UUID,
+        context: ModelContext
+    ) -> Bool {
+        fetchRepairMarker(
+            accountId: accountId,
+            entryType: entryType,
+            entryId: entryId,
+            context: context
+        )?.didBackfill == true
+    }
+
+    private func fetchRepairMarker(
+        accountId: UUID,
+        entryType: String,
+        entryId: UUID,
+        context: ModelContext
+    ) -> DataModel.SyncRepairMarker? {
+        let key = DataModel.SyncRepairMarker.makeKey(
+            accountId: accountId,
+            entryType: entryType,
+            entryId: entryId
+        )
+        var descriptor = FetchDescriptor<DataModel.SyncRepairMarker>(
+            predicate: #Predicate { $0.key == key }
+        )
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first
     }
 
     // MARK: - Backoff & Retry
@@ -791,7 +1032,7 @@ final class SyncEngine {
 ///
 /// @unchecked Sendable: The stored closure captures only `Sendable` values (enforced by the `init`
 /// parameter constraint), but the compiler cannot verify closure captures automatically.
-private struct AnyEncodable: Encodable, @unchecked Sendable {
+struct AnyEncodable: Encodable, @unchecked Sendable {
     private let encodeClosure: @Sendable (Encoder) throws -> Void
 
     init(_ value: any Encodable & Sendable) {

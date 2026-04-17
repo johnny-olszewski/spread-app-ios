@@ -37,16 +37,6 @@ struct DebugMenuTests {
         #expect(debugTab.systemImage == "ant")
     }
 
-    /// Verifies that the debug sidebar item uses the correct SF Symbol.
-    ///
-    /// Setup: SidebarItem.debug case in DEBUG build
-    /// Expected: systemImage is "ant"
-    @Test("Debug sidebar uses ant SF Symbol")
-    func debugSidebarUsesAntSymbol() {
-        let debugSidebar = SidebarItem.debug
-        #expect(debugSidebar.systemImage == "ant")
-    }
-
     /// Verifies that the debug tab has the correct display title.
     ///
     /// Setup: NavigationTab.debug case
@@ -57,14 +47,5 @@ struct DebugMenuTests {
         #expect(debugTab.title == "Debug")
     }
 
-    /// Verifies that the debug sidebar item has the correct display title.
-    ///
-    /// Setup: SidebarItem.debug case
-    /// Expected: title is "Debug"
-    @Test("Debug sidebar has correct title")
-    func debugSidebarHasCorrectTitle() {
-        let debugSidebar = SidebarItem.debug
-        #expect(debugSidebar.title == "Debug")
-    }
 }
 #endif

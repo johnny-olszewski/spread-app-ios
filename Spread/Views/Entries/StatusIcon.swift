@@ -48,14 +48,14 @@ struct StatusIcon: View {
     ///   - taskStatus: The task status (only used for tasks).
     ///   - noteStatus: The note status (only used for notes).
     ///   - isEventPast: Whether the event is past (only used for events).
-    ///   - size: The text style size (defaults to `.body`).
+    ///   - size: The text style size (defaults to `.caption`).
     ///   - color: The icon color (defaults to primary).
     init(
         entryType: EntryType,
         taskStatus: DataModel.Task.Status? = nil,
         noteStatus: DataModel.Note.Status? = nil,
         isEventPast: Bool = false,
-        size: Font.TextStyle = .body,
+        size: Font.TextStyle = .caption,
         color: Color = .primary
     ) {
         self.configuration = StatusIconConfiguration(
@@ -89,6 +89,47 @@ struct StatusIcon: View {
                 .scaleEffect(configuration.overlayScale)
                 .fontWeight(.bold)
                 .foregroundStyle(color)
+                .frame(
+                    width: overlayFrameWidth,
+                    alignment: .leading
+                )
+                .offset(configuration.overlayOffset)
+        }
+    }
+
+    private var overlayFrameWidth: CGFloat? {
+        let leading = configuration.overlayLeadingExtension
+        let trailing = configuration.overlayTrailingExtension
+        guard leading > 0 || trailing > 0 else { return nil }
+        return iconPointSize + leading + trailing
+    }
+
+    private var iconPointSize: CGFloat {
+        switch configuration.size {
+        case .largeTitle:
+            return 34
+        case .title:
+            return 28
+        case .title2:
+            return 22
+        case .title3:
+            return 20
+        case .headline:
+            return 17
+        case .subheadline:
+            return 15
+        case .body:
+            return 17
+        case .callout:
+            return 16
+        case .footnote:
+            return 13
+        case .caption:
+            return 12
+        case .caption2:
+            return 11
+        @unknown default:
+            return 12
         }
     }
 }

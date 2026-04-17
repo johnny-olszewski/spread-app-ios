@@ -271,6 +271,7 @@ struct SyncMetadataTests {
         #expect(fetched.deviceId == nil)
         #expect(fetched.revision == 0)
         #expect(fetched.titleUpdatedAt == nil)
+        #expect(fetched.contentUpdatedAt == nil)
     }
 
     /// Conditions: Create a collection with explicit sync metadata values.
@@ -286,7 +287,8 @@ struct SyncMetadataTests {
             deletedAt: now,
             deviceId: deviceId,
             revision: 99,
-            titleUpdatedAt: now
+            titleUpdatedAt: now,
+            contentUpdatedAt: now
         )
         context.insert(collection)
         try context.save()
@@ -296,6 +298,7 @@ struct SyncMetadataTests {
         #expect(fetched.deviceId == deviceId)
         #expect(fetched.revision == 99)
         #expect(fetched.titleUpdatedAt != nil)
+        #expect(fetched.contentUpdatedAt != nil)
     }
 
     // MARK: - Assignment statusUpdatedAt
@@ -509,8 +512,10 @@ struct SyncMetadataTests {
     @Test func testSerializerUsesTaskAssignmentMetadata() throws {
         let modelTimestamp = SyncDateFormatting.parseTimestamp("2025-01-01T00:00:00.000Z")!
         let fallbackTimestamp = SyncDateFormatting.parseTimestamp("2025-12-31T23:59:59.000Z")!
+        let assignmentID = UUID()
 
         let assignment = TaskAssignment(
+            id: assignmentID,
             period: .day,
             date: referenceDate,
             status: .open,
@@ -523,6 +528,7 @@ struct SyncMetadataTests {
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(modelTimestamp)
+        #expect(json["id"] as? String == assignmentID.uuidString)
         #expect(json["status_updated_at"] as? String == expectedTs)
     }
 
@@ -531,8 +537,10 @@ struct SyncMetadataTests {
     @Test func testSerializerUsesNoteAssignmentMetadata() throws {
         let modelTimestamp = SyncDateFormatting.parseTimestamp("2025-01-01T00:00:00.000Z")!
         let fallbackTimestamp = SyncDateFormatting.parseTimestamp("2025-12-31T23:59:59.000Z")!
+        let assignmentID = UUID()
 
         let assignment = NoteAssignment(
+            id: assignmentID,
             period: .day,
             date: referenceDate,
             status: .active,
@@ -545,6 +553,7 @@ struct SyncMetadataTests {
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(modelTimestamp)
+        #expect(json["id"] as? String == assignmentID.uuidString)
         #expect(json["status_updated_at"] as? String == expectedTs)
     }
 

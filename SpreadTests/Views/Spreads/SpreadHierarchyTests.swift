@@ -225,10 +225,10 @@ struct SpreadHierarchyTests {
 
     // MARK: - Multiday Tiebreaker Tests
 
-    /// Conditions: Multiple multiday spreads include today with different start dates.
-    /// Expected: Multiday with earliest start date is selected.
-    @Test("Multiday tiebreaker prefers earliest start date")
-    func multidayTiebreakerPrefersEarliestStart() {
+    /// Conditions: Multiple multiday spreads include today with different widths.
+    /// Expected: Multiday with the narrowest containing range is selected.
+    @Test("Multiday tiebreaker prefers narrowest containing range")
+    func multidayTiebreakerPrefersNarrowestRange() {
         let calendar = makeTestCalendar()
         let today = makeDate(year: 2026, month: 1, day: 15, calendar: calendar)
         let jan10 = makeDate(year: 2026, month: 1, day: 10, calendar: calendar)
@@ -245,7 +245,7 @@ struct SpreadHierarchyTests {
 
         let initialSelection = organizer.initialSelection(for: today)
 
-        #expect(initialSelection?.id == multiday2.id) // jan10 start is earlier
+        #expect(initialSelection?.id == multiday1.id) // jan12-jan20 is narrower than jan10-jan20
     }
 
     /// Conditions: Multiple multiday spreads with same start date, different end dates.

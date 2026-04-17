@@ -62,10 +62,8 @@ struct AppDependencies: @unchecked Sendable {
             spreadRepository: SwiftDataSpreadRepository(modelContainer: modelContainer),
             // TODO: SPRD-57 - Create SwiftDataEventRepository
             eventRepository: EmptyEventRepository(),
-            // TODO: SPRD-58 - Create SwiftDataNoteRepository
-            noteRepository: EmptyNoteRepository(),
-            // TODO: SPRD-39 - Create SwiftDataCollectionRepository
-            collectionRepository: EmptyCollectionRepository(),
+            noteRepository: SwiftDataNoteRepository(modelContainer: modelContainer),
+            collectionRepository: SwiftDataCollectionRepository(modelContainer: modelContainer),
             settingsRepository: SwiftDataSettingsRepository(modelContainer: modelContainer),
             networkMonitor: makeNetworkMonitor()
         )
@@ -126,10 +124,8 @@ struct AppDependencies: @unchecked Sendable {
             spreadRepository: MockSpreadRepository(),
             // TODO: SPRD-57 - Create MockEventRepository with seeded data
             eventRepository: EmptyEventRepository(),
-            // TODO: SPRD-58 - Create MockNoteRepository with seeded data
-            noteRepository: EmptyNoteRepository(),
-            // TODO: SPRD-39 - Create MockCollectionRepository with seeded data
-            collectionRepository: EmptyCollectionRepository(),
+            noteRepository: MockNoteRepository(),
+            collectionRepository: MockCollectionRepository(),
             settingsRepository: EmptySettingsRepository(),
             networkMonitor: makeNetworkMonitor()
         )
@@ -143,11 +139,13 @@ struct AppDependencies: @unchecked Sendable {
     ///   - calendar: The calendar for date calculations (defaults to current).
     ///   - today: The current date (defaults to now).
     ///   - bujoMode: The initial BuJo mode (defaults to conventional).
+    ///   - firstWeekday: The user's first day of week preference (defaults to system default).
     /// - Returns: A configured JournalManager with data loaded.
     func makeJournalManager(
         calendar: Calendar = .current,
         today: Date = .now,
-        bujoMode: BujoMode = .conventional
+        bujoMode: BujoMode = .conventional,
+        firstWeekday: FirstWeekday = .systemDefault
     ) async throws -> JournalManager {
         try await JournalManager.make(
             calendar: calendar,
@@ -157,7 +155,8 @@ struct AppDependencies: @unchecked Sendable {
             eventRepository: eventRepository,
             noteRepository: noteRepository,
             collectionRepository: collectionRepository,
-            bujoMode: bujoMode
+            bujoMode: bujoMode,
+            firstWeekday: firstWeekday
         )
     }
 }

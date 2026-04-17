@@ -39,13 +39,13 @@ struct StatusIconConfiguration: Sendable {
     ///   - taskStatus: The task status (only used for tasks).
     ///   - noteStatus: The note status (only used for notes).
     ///   - isEventPast: Whether the event is past (only used for events).
-    ///   - size: The text style size (defaults to `.body`).
+    ///   - size: The text style size (defaults to `.caption`).
     init(
         entryType: EntryType,
         taskStatus: DataModel.Task.Status? = nil,
         noteStatus: DataModel.Note.Status? = nil,
         isEventPast: Bool = false,
-        size: Font.TextStyle = .body
+        size: Font.TextStyle = .caption
     ) {
         self.entryType = entryType
         self.taskStatus = taskStatus
@@ -84,25 +84,11 @@ struct StatusIconConfiguration: Sendable {
         switch entryType {
         case .task:
             guard let status = taskStatus else { return nil }
-            switch status {
-            case .open:
-                return nil
-            case .complete:
-                return "xmark"
-            case .migrated:
-                return "arrow.right"
-            case .cancelled:
-                return "line.diagonal"
-            }
+            return status.statusIconOverlaySymbol
 
         case .note:
             guard let status = noteStatus else { return nil }
-            switch status {
-            case .active:
-                return nil
-            case .migrated:
-                return "arrow.right"
-            }
+            return status.statusIconOverlaySymbol
 
         case .event:
             return isEventPast ? "xmark" : nil
@@ -111,8 +97,49 @@ struct StatusIconConfiguration: Sendable {
 
     /// The scale factor for the overlay symbol relative to the base symbol.
     ///
-    /// The overlay is rendered at half the size of the base symbol.
+    /// The overlay is rendered larger than the base circle so status marks
+    /// (xmark, arrow, slash) remain clearly visible at small icon sizes.
     var overlayScale: CGFloat {
-        0.5
+        switch entryType {
+        case .task where taskStatus == .migrated:
+            return 2.0
+        case .note where noteStatus == .migrated:
+            return 1.0
+        default:
+            return 0.65
+        }
+    }
+
+    var overlayOffset: CGSize {
+        switch entryType {
+        case .task where taskStatus == .migrated:
+            return CGSize(width: 4, height: 0)
+        case .note where noteStatus == .migrated:
+            return CGSize(width: 4, height: 0)
+        default:
+            return .zero
+        }
+    }
+
+    var overlayLeadingExtension: CGFloat {
+        switch entryType {
+        case .task where taskStatus == .migrated:
+            return 4
+        case .note where noteStatus == .migrated:
+            return 4
+        default:
+            return 0
+        }
+    }
+
+    var overlayTrailingExtension: CGFloat {
+        switch entryType {
+        case .task where taskStatus == .migrated:
+            return 8
+        case .note where noteStatus == .migrated:
+            return 8
+        default:
+            return 0
+        }
     }
 }

@@ -2,6 +2,16 @@
 import SwiftUI
 
 extension AppRuntimeConfiguration {
+    static func mockDataSetToLoad(
+        environment: DataEnvironment,
+        launchConfiguration: AppLaunchConfiguration
+    ) -> MockDataSet? {
+        guard environment == .localhost else {
+            return nil
+        }
+        return launchConfiguration.mockDataSet
+    }
+
     /// Creates a configuration with debug overrides for auth, sync, mock data, and network.
     ///
     /// Called by `AppRuntimeBootstrapFactory` in debug builds. Each closure wraps or replaces
@@ -21,18 +31,23 @@ extension AppRuntimeConfiguration {
                 AppLaunchConfiguration.current.today ?? .now
             },
             loadMockDataSet: { journalManager in
-                if let dataSet = AppLaunchConfiguration.current.mockDataSet {
+                if let dataSet = mockDataSetToLoad(
+                    environment: DataEnvironment.current,
+                    launchConfiguration: AppLaunchConfiguration.current
+                ) {
                     try await journalManager.loadMockDataSet(dataSet)
                 }
+                if let bujoMode = AppLaunchConfiguration.current.bujoMode {
+                    journalManager.bujoMode = bujoMode
+                }
             },
-            makeDebugMenuView: { dependencies, journalManager, authManager, syncEngine, onRestartRequired in
+            makeDebugMenuView: { dependencies, journalManager, authManager, syncEngine in
                 AnyView(
                     DebugMenuView(
                         dependencies: dependencies,
                         journalManager: journalManager,
                         authManager: authManager,
-                        syncEngine: syncEngine,
-                        onRestartRequired: onRestartRequired
+                        syncEngine: syncEngine
                     )
                 )
             },

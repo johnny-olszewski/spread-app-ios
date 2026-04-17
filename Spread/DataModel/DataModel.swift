@@ -27,4 +27,7 @@ enum DataModel {
 
     /// Tracks the last-synced revision per server table for incremental pull.
     typealias SyncCursor = DataModelSchemaV1.SyncCursor
+
+    /// Records once-per-entry/account assignment repair checks.
+    typealias SyncRepairMarker = DataModelSchemaV1.SyncRepairMarker
 }

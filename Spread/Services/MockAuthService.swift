@@ -8,11 +8,9 @@ import Foundation
 /// - Unit tests requiring predictable auth behavior
 @MainActor
 final class MockAuthService: AuthService {
+    private static let localhostEmail = "localhost@spread.debug"
 
     // MARK: - Configuration
-
-    /// Whether the mock user has backup entitlement.
-    var mockHasBackupEntitlement = true
 
     /// The mock user email (updated on sign-in).
     private(set) var currentEmail: String?
@@ -20,16 +18,23 @@ final class MockAuthService: AuthService {
     // MARK: - AuthService
 
     func checkSession() async -> AuthSuccess? {
-        // Mock service has no persistent session
-        nil
+        let email = currentEmail ?? Self.localhostEmail
+        currentEmail = email
+        return AuthSuccess(user: makeLocalhostUser(email: email))
     }
 
     func signIn(email: String, password: String) async throws -> AuthSuccess {
         currentEmail = email
-        return AuthSuccess(
-            user: makeLocalhostUser(email: email),
-            hasBackupEntitlement: mockHasBackupEntitlement
-        )
+        return AuthSuccess(user: makeLocalhostUser(email: email))
+    }
+
+    func signUp(email: String, password: String) async throws -> AuthSuccess {
+        currentEmail = email
+        return AuthSuccess(user: makeLocalhostUser(email: email))
+    }
+
+    func resetPassword(email: String) async throws {
+        // No-op for mock
     }
 
     func signOut() async throws {
@@ -42,9 +47,9 @@ final class MockAuthService: AuthService {
     private func makeLocalhostUser(email: String) -> User {
         let json = """
         {
-            "id": "\(UUID().uuidString)",
+            "id": "11111111-1111-1111-1111-111111111111",
             "email": "\(email)",
-            "appMetadata": {"backup_entitled": \(mockHasBackupEntitlement)},
+            "appMetadata": {},
             "userMetadata": {},
             "aud": "authenticated",
             "createdAt": "2024-01-01T00:00:00Z",

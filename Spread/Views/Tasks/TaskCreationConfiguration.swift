@@ -129,6 +129,17 @@ struct TaskCreationConfiguration {
         period.normalizeDate(today, calendar: calendar)
     }
 
+    /// Returns the adjusted selected date when the editor changes periods.
+    ///
+    /// The selected date is normalized to the new period and then clamped to the
+    /// minimum valid date for that period so create/edit flows resolve the same
+    /// effective preferred assignment.
+    func adjustedDate(_ date: Date, for period: Period) -> Date {
+        let normalizedDate = period.normalizeDate(date, calendar: calendar)
+        let minimumDate = minimumDate(for: period)
+        return normalizedDate < minimumDate ? minimumDate : normalizedDate
+    }
+
     /// Returns the maximum selectable date (10 years in the future).
     var maximumDate: Date {
         calendar.date(byAdding: .year, value: 10, to: today) ?? today
