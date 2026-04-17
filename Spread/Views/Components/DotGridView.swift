@@ -11,10 +11,10 @@ import SwiftUI
 /// Mirrors the look of physical bullet journal dot grid paper.
 struct DotGridConfiguration: Equatable {
     /// Color of the dots
-    var dotColor: Color = .secondary.opacity(0.2)
+    var dotColor: Color = .secondary.opacity(0.5)
 
     /// Diameter of each dot in points
-    var dotSize: CGFloat = 1.5
+    var dotSize: CGFloat = 5
 
     /// Distance between dot centers in points
     var dotSpacing: CGFloat = 20
@@ -41,13 +41,20 @@ struct DotGridConfiguration: Equatable {
 
     /// Paper preset for spread content surfaces.
     /// Uses warm off-white paper background with neutral gray dots.
-    /// Per spec: 1.5pt dots, 20pt spacing, ~15-20% opacity.
-    static let paper = DotGridConfiguration(
-        dotColor: SpreadTheme.DotGrid.dots,
-        dotSize: 1.5,
-        dotSpacing: 20,
-        backgroundColor: SpreadTheme.Paper.primary
-    )
+    /// Per spec: 2pt dots, 26pt spacing, ~35% opacity.
+    /// In DEBUG builds, respects debug appearance overrides.
+    static var paper: DotGridConfiguration {
+        #if DEBUG
+        return .debugPaper
+        #else
+        return DotGridConfiguration(
+            dotColor: SpreadTheme.DotGrid.defaultDots,
+            dotSize: 2.0,
+            dotSpacing: 26,
+            backgroundColor: SpreadTheme.Paper.defaultPrimary
+        )
+        #endif
+    }
 
     /// Subtle, barely visible grid
     static let subtle = DotGridConfiguration(
@@ -133,17 +140,36 @@ struct DotGridView: View {
 /// A view modifier that adds a dot grid background to any view.
 struct DotGridBackgroundModifier: ViewModifier {
     var configuration: DotGridConfiguration
+    var ignoresSafeAreaEdges: Edge.Set = []
 
     func body(content: Content) -> some View {
         content
-            .background(DotGridView(configuration: configuration))
+            .background(backgroundView)
+    }
+
+    @ViewBuilder
+    private var backgroundView: some View {
+        if ignoresSafeAreaEdges.isEmpty {
+            DotGridView(configuration: configuration)
+        } else {
+            DotGridView(configuration: configuration)
+                .ignoresSafeArea(edges: ignoresSafeAreaEdges)
+        }
     }
 }
 
 extension View {
     /// Adds a dot grid background to the view.
-    func dotGridBackground(_ configuration: DotGridConfiguration = .standard) -> some View {
-        modifier(DotGridBackgroundModifier(configuration: configuration))
+    func dotGridBackground(
+        _ configuration: DotGridConfiguration = .standard,
+        ignoresSafeAreaEdges: Edge.Set = []
+    ) -> some View {
+        modifier(
+            DotGridBackgroundModifier(
+                configuration: configuration,
+                ignoresSafeAreaEdges: ignoresSafeAreaEdges
+            )
+        )
     }
 }
 

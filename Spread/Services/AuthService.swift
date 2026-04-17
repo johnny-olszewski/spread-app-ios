@@ -1,14 +1,9 @@
 import struct Auth.User
 
 /// Successful authentication outcome.
-///
-/// Contains the authenticated user and their entitlement status.
 struct AuthSuccess: Sendable {
     /// The authenticated user.
     let user: User
-
-    /// Whether the user has backup entitlement.
-    let hasBackupEntitlement: Bool
 }
 
 /// Service that performs authentication operations.
@@ -33,6 +28,21 @@ protocol AuthService: Sendable {
     /// - Returns: The auth result on success.
     /// - Throws: An error if sign-in fails.
     func signIn(email: String, password: String) async throws -> AuthSuccess
+
+    /// Creates a new account with email and password.
+    ///
+    /// - Parameters:
+    ///   - email: The new user's email address.
+    ///   - password: The new user's password.
+    /// - Returns: The auth result on success.
+    /// - Throws: An error if sign-up fails.
+    func signUp(email: String, password: String) async throws -> AuthSuccess
+
+    /// Sends a password reset email.
+    ///
+    /// - Parameter email: The email address to send the reset link to.
+    /// - Throws: An error if the request fails.
+    func resetPassword(email: String) async throws
 
     /// Signs out the current user.
     ///

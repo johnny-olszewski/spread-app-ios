@@ -44,7 +44,7 @@ struct StoreWiperTests {
         #expect(notesAfter == 0)
     }
 
-    /// Conditions: Store has sync mutations and cursors.
+    /// Conditions: Store has sync mutations, cursors, and repair markers.
     /// Expected: Sync data is also deleted after wipeAll().
     @Test func wipeAllDeletesSyncData() async throws {
         let container = try ModelContainerFactory.makeInMemory()
@@ -59,15 +59,24 @@ struct StoreWiperTests {
             changedFields: []
         )
         let cursor = DataModel.SyncCursor(tableName: "tasks", lastRevision: 100)
+        let repairMarker = DataModel.SyncRepairMarker(
+            accountId: UUID(),
+            entryType: SyncEntityType.task.rawValue,
+            entryId: UUID(),
+            didBackfill: true
+        )
         context.insert(mutation)
         context.insert(cursor)
+        context.insert(repairMarker)
         try context.save()
 
         // Verify data exists
         let mutationsBefore = try context.fetchCount(FetchDescriptor<DataModel.SyncMutation>())
         let cursorsBefore = try context.fetchCount(FetchDescriptor<DataModel.SyncCursor>())
+        let markersBefore = try context.fetchCount(FetchDescriptor<DataModel.SyncRepairMarker>())
         #expect(mutationsBefore > 0)
         #expect(cursorsBefore > 0)
+        #expect(markersBefore > 0)
 
         // Wipe
         let wiper = SwiftDataStoreWiper(modelContainer: container)
@@ -76,8 +85,10 @@ struct StoreWiperTests {
         // Verify sync data deleted
         let mutationsAfter = try context.fetchCount(FetchDescriptor<DataModel.SyncMutation>())
         let cursorsAfter = try context.fetchCount(FetchDescriptor<DataModel.SyncCursor>())
+        let markersAfter = try context.fetchCount(FetchDescriptor<DataModel.SyncRepairMarker>())
         #expect(mutationsAfter == 0)
         #expect(cursorsAfter == 0)
+        #expect(markersAfter == 0)
     }
 
     /// Conditions: Store is already empty.

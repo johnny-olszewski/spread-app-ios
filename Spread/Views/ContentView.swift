@@ -6,19 +6,25 @@ import SwiftUI
 /// Handles async runtime initialization and displays the appropriate
 /// navigation shell once ready. Shows a loading state during initialization.
 /// Auth lifecycle logic is delegated to `AuthLifecycleCoordinator`.
-///
-/// Supports soft restart for environment switching: calling `restartApp()` nils
-/// out the runtime and bumps `appRuntimeId` to re-trigger `.task(id:)`.
 struct ContentView: View {
     @State private var runtime: AppRuntime?
-    @State private var appRuntimeId = UUID()
+    @State private var hasCompletedOnboarding: Bool
 
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "ContentView")
 
     private let dependenciesOverride: AppDependencies?
+    private let dataEnvironmentOverride: DataEnvironment?
+    private let onboardingStore: any OnboardingStateStoring
 
-    init(dependencies: AppDependencies? = nil) {
+    init(
+        dependencies: AppDependencies? = nil,
+        dataEnvironment: DataEnvironment? = nil,
+        onboardingStore: any OnboardingStateStoring = OnboardingStateStore()
+    ) {
         self.dependenciesOverride = dependencies
+        self.dataEnvironmentOverride = dataEnvironment
+        self.onboardingStore = onboardingStore
+        _hasCompletedOnboarding = State(initialValue: onboardingStore.hasCompletedOnboarding)
     }
 
     var body: some View {
@@ -29,40 +35,28 @@ struct ContentView: View {
                     authManager: runtime.authManager,
                     dependencies: runtime.dependencies,
                     syncEngine: runtime.syncEngine,
-                    onRestartRequired: restartApp,
                     makeDebugMenuView: runtime.makeDebugMenuView
                 )
             } else {
                 loadingView
             }
         }
-        .task(id: appRuntimeId) {
+        .task {
             await initializeApp()
         }
-        .alert(
-            "Local Data Found",
-            isPresented: Binding(
-                get: { runtime?.authCoordinator.isShowingMigrationPrompt ?? false },
-                set: { newValue in
-                    if !newValue { runtime?.authCoordinator.isShowingMigrationPrompt = false }
-                }
-            )
-        ) {
-            Button("Merge into Account") {
-                Task {
-                    await runtime?.authCoordinator.handleMigrationDecision(.merge)
-                }
+        .sheet(isPresented: blockingAuthGateBinding) {
+            if let runtime {
+                AuthEntrySheet(
+                    authManager: runtime.authManager,
+                    isBlocking: true
+                )
             }
-            Button("Discard Local Data", role: .destructive) {
-                Task {
-                    await runtime?.authCoordinator.handleMigrationDecision(.discard)
-                }
+        }
+        .sheet(isPresented: onboardingBinding) {
+            OnboardingSheet {
+                hasCompletedOnboarding = true
+                onboardingStore.markCompleted()
             }
-        } message: {
-            Text(
-                "This device has local data from a signed-out session. "
-                    + "Choose whether to merge it into this account or discard it."
-            )
         }
     }
 
@@ -73,16 +67,31 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Soft Restart
+    private var currentDataEnvironment: DataEnvironment {
+        dataEnvironmentOverride ?? DataEnvironment.current
+    }
 
-    /// Tears down the runtime and re-triggers app initialization.
-    ///
-    /// Called after an environment switch to rebuild the service graph
-    /// with fresh instances bound to the new data environment.
-    private func restartApp() {
-        Self.logger.info("Soft restart initiated")
-        runtime = nil
-        appRuntimeId = UUID()
+    private var activeOverlay: AppLaunchOverlay {
+        guard let runtime else { return .none }
+        return AppLaunchOverlayPolicy.overlay(
+            environment: currentDataEnvironment,
+            isSignedIn: runtime.authManager.state.isSignedIn,
+            hasCompletedOnboarding: hasCompletedOnboarding
+        )
+    }
+
+    private var blockingAuthGateBinding: Binding<Bool> {
+        Binding(
+            get: { activeOverlay == .authGate },
+            set: { _ in }
+        )
+    }
+
+    private var onboardingBinding: Binding<Bool> {
+        Binding(
+            get: { activeOverlay == .onboarding },
+            set: { _ in }
+        )
     }
 
     // MARK: - Initialization
@@ -102,5 +111,8 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(dependencies: try! .makeForPreview())
+    ContentView(
+        dependencies: try! .makeForPreview(),
+        dataEnvironment: .localhost
+    )
 }

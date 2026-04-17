@@ -1,6 +1,6 @@
 # Supabase Setup Guide
 
-This document covers the Supabase configuration for the Spread app, including environment setup, CLI usage, and migrations workflow.
+This document covers the Supabase configuration for the Spread app, including environment setup, CLI usage, migrations workflow, and the local Supabase durability-testing stack.
 
 ## Environments
 
@@ -11,29 +11,40 @@ The app uses two Supabase projects:
 | Development | spread-dev | `https://apblzzondjcughtgqowd.supabase.co` | Local development, testing |
 | Production | spread-prod | `https://nzsswqmxodkvgsnabnaj.supabase.co` | App Store releases |
 
+The testing workflow also uses two local-only environments:
+
+| Environment | Backend | Purpose |
+|-------------|---------|---------|
+| Debug `localhost` | None (local-only app state) | Mock-data/UI logic scenarios with no auth or sync |
+| Local Supabase | Local Docker stack | Destructive sync durability, rebuild, and repair testing |
+
 ## Build Configuration
 
 Supabase configuration is managed via xcconfig files:
 
-- `Configuration/Debug.xcconfig` - Uses dev environment
+- `Configuration/Debug.xcconfig` - Uses dev environment by default
+- `Configuration/QA.xcconfig` - Uses dev environment
 - `Configuration/Release.xcconfig` - Uses prod environment
 
 These values are injected into `Info.plist` at build time and read by `SupabaseConfiguration.swift` at runtime.
 
-### Debug Environment Switching
+### Debug Localhost Mode
 
-In Debug builds, the Supabase environment can be switched at runtime via the Debug menu (see SPRD-86). This allows testing against production data without rebuilding.
+Runtime environment switching is not part of v1. Debug builds normally use the dev backend, and `localhost` is available only when explicitly selected before launch with `-DataEnvironment localhost`.
 
-**Warning:** Switching to production in Debug builds requires explicit confirmation due to the risk of affecting real user data.
+`localhost` is an engineering-only mode:
+- it bypasses product auth with a mock user
+- it keeps all persistence local for that run
+- it is the only mode where mock data loading is available
+- it is not persisted across launches
+- the app wipes the local store when switching to or from `localhost` so mock data cannot contaminate dev-backed local state
 
 ## Auth Providers
 
 ### Currently Enabled
 - **Email/Password** - Basic authentication
 
-### Deferred to SPRD-91
-- **Sign in with Apple** - Requires Apple Developer account configuration
-- **Google Sign-in** - Requires Google Cloud OAuth setup
+V1 does not use Sign in with Apple or Google Sign-in.
 
 ## Supabase CLI Setup
 
@@ -147,30 +158,46 @@ Add to your Claude MCP configuration:
 
 ## Local Development
 
-### Running Supabase Locally (Optional)
+### Running Supabase Locally
 
-For fully offline development:
+Spread uses local Supabase for sync-enabled durability testing while staying on the hosted free tier.
+
+Use the repo helper script instead of raw CLI commands:
 
 ```bash
-# Start local Supabase
-supabase start
+# Start the local stack
+./scripts/local-supabase.sh start
 
-# Stop local Supabase
-supabase stop
+# Bootstrap the local public schema from spread-dev (one-time and whenever schema changes)
+./scripts/local-supabase.sh bootstrap-schema-from-dev
+
+# Reset local schema and provision deterministic local test users
+./scripts/local-supabase.sh reset
+
+# Print local app launch arguments
+./scripts/local-supabase.sh launch-args
+
+# Stop the local stack
+./scripts/local-supabase.sh stop
 ```
 
-This requires Docker and provides a local PostgreSQL, Auth, and Storage instance.
+See [docs/local-supabase-testing.md](./local-supabase-testing.md) for the full workflow.
+Use `supabase/.env.local.example` as the starting point for local secrets.
 
-### Environment Variables
+### Launch Modes
 
-For local testing, you can override the Supabase configuration via environment variables or launch arguments:
+For local testing against the app's in-memory/local-only stack, launch Debug with:
 
-```bash
-# Via environment variable
-export SUPABASE_URL="http://localhost:54321"
+```text
+-DataEnvironment localhost
+```
 
-# Via Xcode launch argument
--SUPABASE_URL http://localhost:54321
+For local Supabase sync testing, keep the app in a sync-enabled mode and override the backend:
+
+```text
+-DataEnvironment development
+-SupabaseURL <local api url>
+-SupabaseKey <local anon key>
 ```
 
 ## Database Schema
@@ -301,6 +328,53 @@ Merge functions implement field-level last-write-wins (LWW) conflict resolution:
 
 All merge RPCs use `SECURITY DEFINER` and validate `user_id = auth.uid()`.
 
+## Tombstone Cleanup Job
+
+Added in SPRD-89. Migration: `20260320000000_tombstone_cleanup_job`
+
+Soft-deleted rows (`deleted_at IS NOT NULL`) older than 90 days are permanently removed by a scheduled PostgreSQL function.
+
+### Prerequisites
+
+- **`pg_cron` extension** must be enabled. The migration handles this automatically (`CREATE EXTENSION IF NOT EXISTS pg_cron`), or enable it manually via Dashboard > Database > Extensions.
+
+### How It Works
+
+- **Function**: `cleanup_tombstones()` — `SECURITY DEFINER` function that bypasses RLS and hard-deletes expired tombstones from all 7 tables.
+- **Schedule**: Runs daily at 03:00 UTC via `pg_cron`.
+- **Deletion order**: Child assignments first (task_assignments, note_assignments), then parent entries (tasks, notes), then other entities (spreads, collections, settings).
+
+### Manual Verification
+
+```sql
+-- Check cron job is registered
+SELECT * FROM cron.job WHERE jobname = 'cleanup-tombstones';
+
+-- Check recent job runs
+SELECT * FROM cron.job_run_details
+WHERE jobid = (SELECT jobid FROM cron.job WHERE jobname = 'cleanup-tombstones')
+ORDER BY start_time DESC
+LIMIT 5;
+
+-- Create a test tombstone older than 90 days (use a test user)
+UPDATE tasks
+SET deleted_at = now() - interval '91 days'
+WHERE id = '<test-task-id>';
+
+-- Run cleanup manually
+SELECT cleanup_tombstones();
+
+-- Verify the row was removed
+SELECT * FROM tasks WHERE id = '<test-task-id>';
+```
+
+### Disabling the Job
+
+```sql
+-- Unschedule the cron job
+SELECT cron.unschedule('cleanup-tombstones');
+```
+
 ## Troubleshooting
 
 ### Configuration Not Loading
@@ -314,10 +388,8 @@ All merge RPCs use `SECURITY DEFINER` and validate `user_id = auth.uid()`.
 
 ### Auth Issues
 
-1. Verify auth providers are enabled in Supabase Dashboard:
+1. Verify email/password auth is enabled in Supabase Dashboard:
    - Authentication > Providers
-
-2. Check redirect URLs are configured for OAuth providers
 
 ### Migration Failures
 
@@ -332,5 +404,4 @@ All merge RPCs use `SECURITY DEFINER` and validate `user_id = auth.uid()`.
 - SPRD-82: RLS policies
 - SPRD-83: DB triggers + merge RPCs
 - SPRD-84: Supabase client + auth integration
-- SPRD-86: Debug environment switcher
-- SPRD-91: Apple + Google auth providers (deferred)
+- SPRD-89: Tombstone cleanup job (90-day cron)

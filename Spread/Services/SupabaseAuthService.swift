@@ -5,7 +5,7 @@ import Supabase
 /// Creates and manages its own Supabase client internally.
 /// Use `MockAuthService` for localhost or `DebugAuthService` to inject test errors.
 @MainActor
-final class SupabaseAuthService: AuthService {
+struct SupabaseAuthService: AuthService {
 
     // MARK: - Properties
 
@@ -17,7 +17,8 @@ final class SupabaseAuthService: AuthService {
     init() {
         self.client = SupabaseClient(
             supabaseURL: SupabaseConfiguration.url,
-            supabaseKey: SupabaseConfiguration.publishableKey
+            supabaseKey: SupabaseConfiguration.publishableKey,
+            options: .init(auth: .init(emitLocalSessionAsInitialSession: true))
         )
     }
 
@@ -31,10 +32,8 @@ final class SupabaseAuthService: AuthService {
     func checkSession() async -> AuthSuccess? {
         do {
             let session = try await client.auth.session
-            return AuthSuccess(
-                user: session.user,
-                hasBackupEntitlement: readBackupEntitlement(from: session.user)
-            )
+            guard !session.isExpired else { return nil }
+            return AuthSuccess(user: session.user)
         } catch {
             return nil
         }
@@ -45,20 +44,22 @@ final class SupabaseAuthService: AuthService {
             email: email,
             password: password
         )
-        return AuthSuccess(
-            user: session.user,
-            hasBackupEntitlement: readBackupEntitlement(from: session.user)
+        return AuthSuccess(user: session.user)
+    }
+
+    func signUp(email: String, password: String) async throws -> AuthSuccess {
+        let response = try await client.auth.signUp(
+            email: email,
+            password: password
         )
+        return AuthSuccess(user: response.user)
+    }
+
+    func resetPassword(email: String) async throws {
+        try await client.auth.resetPasswordForEmail(email)
     }
 
     func signOut() async throws {
         try await client.auth.signOut()
-    }
-
-    // MARK: - Helpers
-
-    /// Reads the backup entitlement flag from the user's app metadata.
-    private func readBackupEntitlement(from user: User) -> Bool {
-        user.appMetadata["backup_entitled"]?.boolValue ?? false
     }
 }

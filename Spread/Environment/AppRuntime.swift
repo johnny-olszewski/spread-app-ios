@@ -5,8 +5,7 @@ typealias DebugMenuViewFactory = (
     AppDependencies,
     JournalManager,
     AuthManager,
-    SyncEngine?,
-    (() -> Void)?
+    SyncEngine?
 ) -> AnyView
 
 /// Aggregates app-level services created for a running app runtime.
@@ -16,6 +15,11 @@ struct AppRuntime {
     let authManager: AuthManager
     let syncEngine: SyncEngine
     let authCoordinator: AuthLifecycleCoordinator
+
+    /// Repository for persisting user settings changes.
+    var settingsRepository: any SettingsRepository {
+        dependencies.settingsRepository
+    }
 
     /// Optional factory for constructing the debug menu view.
     ///

@@ -13,16 +13,25 @@ enum SpreadTheme {
     /// Light mode: warm off-white tones.
     /// Dark mode: warm dark tones for content, system backgrounds for chrome.
     enum Paper {
-        /// Primary paper color for spread content backgrounds.
+        /// Default primary paper color for spread content backgrounds.
         /// Light: warm off-white (#F7F3EA)
         /// Dark: warm dark variant (#1C1A18)
-        static let primary = Color(
+        static let defaultPrimary = Color(
             uiColor: UIColor { traits in
                 traits.userInterfaceStyle == .dark
                     ? UIColor(red: 28/255, green: 26/255, blue: 24/255, alpha: 1)
                     : UIColor(red: 247/255, green: 243/255, blue: 234/255, alpha: 1)
             }
         )
+
+        /// Primary paper color, using debug overrides when available.
+        static var primary: Color {
+            #if DEBUG
+            return debugPrimary
+            #else
+            return defaultPrimary
+            #endif
+        }
 
         /// Secondary paper tone for navigation chrome.
         /// Light: slightly darker warm tone
@@ -41,16 +50,61 @@ enum SpreadTheme {
 
     /// Accent color for interactive elements.
     enum Accent {
-        /// Muted blue accent color for controls and highlights.
+        /// Default muted blue accent color for controls and highlights.
         /// Hex: #5B7A99
-        static let primary = Color(red: 91/255, green: 122/255, blue: 153/255)
+        static let defaultPrimary = Color(red: 91/255, green: 122/255, blue: 153/255)
+
+        /// Primary accent color, using debug overrides when available.
+        static var primary: Color {
+            #if DEBUG
+            return debugPrimary
+            #else
+            return defaultPrimary
+            #endif
+        }
+
+        /// More vibrant blue used for passive today emphasis.
+        static let defaultTodayEmphasis = Color(red: 69/255, green: 120/255, blue: 184/255)
+
+        /// Passive today emphasis color for unselected contextual highlighting.
+        static var todayEmphasis: Color {
+            #if DEBUG
+            return debugPrimary.opacity(0.95)
+            #else
+            return defaultTodayEmphasis.opacity(0.95)
+            #endif
+        }
+
+        /// Stronger today emphasis color when the today item is also selected.
+        static var todaySelectedEmphasis: Color {
+            #if DEBUG
+            return debugPrimary
+            #else
+            return defaultTodayEmphasis
+            #endif
+        }
+
+        /// Border tint for today emphasis on passive surfaces.
+        static var todayEmphasisBorder: Color {
+            todaySelectedEmphasis.opacity(0.34)
+        }
+
     }
 
     /// Dot grid colors.
     enum DotGrid {
-        /// Muted blue dot color at ~22% opacity.
+        /// Default muted blue dot color at ~35% opacity.
         /// Same color in both light and dark modes for consistency.
-        static let dots = Color(red: 91/255, green: 122/255, blue: 153/255).opacity(0.22)
+        static let defaultDots = Color(red: 91/255, green: 122/255, blue: 153/255).opacity(0.35)
+
+        /// Dot color, using debug overrides when available.
+        static var dots: Color {
+            #if DEBUG
+            return debugDots
+            #else
+            return defaultDots
+            #endif
+        }
     }
 
     // MARK: - Typography
@@ -59,7 +113,11 @@ enum SpreadTheme {
     enum Typography {
         /// Heading font - distinct sans family for titles.
         static func heading(size: CGFloat, weight: Font.Weight = .semibold) -> Font {
-            .custom("Avenir Next", size: size).weight(weight)
+            #if DEBUG
+            return debugHeading(size: size, weight: weight)
+            #else
+            return .custom("Avenir Next", size: size).weight(weight)
+            #endif
         }
 
         /// Large title heading.
@@ -107,6 +165,12 @@ enum SpreadTheme {
         static let standard: CGFloat = 12
         static let large: CGFloat = 16
         static let extraLarge: CGFloat = 24
+
+        /// Vertical padding for entry rows in spread lists.
+        static let entryRowVertical: CGFloat = 8
+
+        /// Horizontal gap between the status icon and entry title.
+        static let entryIconSpacing: CGFloat = 8
     }
 }
 

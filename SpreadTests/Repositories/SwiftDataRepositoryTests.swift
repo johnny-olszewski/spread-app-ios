@@ -133,6 +133,42 @@ struct SwiftDataRepositoryTests {
         #expect(record?["device_id"] as? String == deviceId.uuidString)
     }
 
+    /// Conditions: Save a task with an initial spread assignment.
+    /// Expected: Parent task mutation is enqueued before a child task-assignment create mutation.
+    @Test func testTaskRepositorySaveEnqueuesAssignmentCreateMutation() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let deviceId = UUID()
+        let repository = SwiftDataTaskRepository(
+            modelContainer: container,
+            deviceId: deviceId,
+            nowProvider: { Date(timeIntervalSince1970: 110) }
+        )
+
+        let assignment = TaskAssignment(
+            period: .day,
+            date: Date(timeIntervalSince1970: 1_000),
+            status: .open
+        )
+        let task = DataModel.Task(title: "Assigned task", assignments: [assignment])
+
+        try await repository.save(task)
+
+        let mutations = try fetchMutations(from: container)
+        #expect(mutations.map(\.entityType) == [
+            SyncEntityType.task.rawValue,
+            SyncEntityType.taskAssignment.rawValue
+        ])
+
+        let assignmentMutation = mutations.last
+        #expect(assignmentMutation?.entityId == assignment.id)
+        #expect(assignmentMutation?.operation == SyncOperation.create.rawValue)
+
+        let record = try decodeRecord(assignmentMutation?.recordData)
+        #expect(record?["task_id"] as? String == task.id.uuidString)
+        #expect(record?["device_id"] as? String == deviceId.uuidString)
+        #expect(record?["deleted_at"] is NSNull)
+    }
+
     /// Conditions: Save a task, then save again after updating its title.
     /// Expected: An update mutation is enqueued in the outbox.
     @Test func testTaskRepositoryUpdateEnqueuesUpdateMutation() async throws {
@@ -153,6 +189,38 @@ struct SwiftDataRepositoryTests {
         let operations = try fetchMutations(from: container).map { $0.operation }
 
         #expect(operations.contains(SyncOperation.update.rawValue))
+    }
+
+    /// Conditions: Save a task, then change its assignment status and save again.
+    /// Expected: A task-assignment update mutation is enqueued for the same logical assignment.
+    @Test func testTaskRepositoryUpdateEnqueuesAssignmentUpdateMutation() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let assignmentDate = Date(timeIntervalSince1970: 2_000)
+        let repository = SwiftDataTaskRepository(
+            modelContainer: container,
+            deviceId: UUID(),
+            nowProvider: { Date(timeIntervalSince1970: 210) }
+        )
+
+        let assignment = TaskAssignment(period: .day, date: assignmentDate, status: .open)
+        let task = DataModel.Task(title: "Assigned task", assignments: [assignment])
+        try await repository.save(task)
+
+        task.assignments[0].status = .complete
+        try await repository.save(task)
+
+        let mutations = try fetchMutations(from: container)
+        let assignmentUpdate = mutations.last {
+            $0.entityType == SyncEntityType.taskAssignment.rawValue &&
+            $0.operation == SyncOperation.update.rawValue
+        }
+
+        #expect(assignmentUpdate != nil)
+        #expect(assignmentUpdate?.entityId == assignment.id)
+
+        let record = try decodeRecord(assignmentUpdate?.recordData)
+        #expect(record?["status"] as? String == DataModel.Task.Status.complete.rawValue)
+        #expect(record?["deleted_at"] is NSNull)
     }
 
     /// Conditions: Save a task, then delete it.
@@ -182,6 +250,82 @@ struct SwiftDataRepositoryTests {
         let record = try decodeRecord(deleteMutation?.recordData)
         let deletedAt = record?["deleted_at"] as? String
         #expect(deletedAt == SyncDateFormatting.formatTimestamp(Date(timeIntervalSince1970: 400)))
+    }
+
+    /// Conditions: Save a task with an assignment, then delete the task.
+    /// Expected: A task-assignment delete mutation is enqueued as a tombstone.
+    @Test func testTaskRepositoryDeleteEnqueuesAssignmentDeleteMutation() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        var timestamps = [
+            Date(timeIntervalSince1970: 500),
+            Date(timeIntervalSince1970: 600)
+        ]
+        let repository = SwiftDataTaskRepository(
+            modelContainer: container,
+            deviceId: UUID(),
+            nowProvider: { timestamps.removeFirst() }
+        )
+
+        let assignment = TaskAssignment(
+            period: .month,
+            date: Date(timeIntervalSince1970: 3_000),
+            status: .open
+        )
+        let task = DataModel.Task(title: "Delete assigned task", assignments: [assignment])
+        try await repository.save(task)
+        try await repository.delete(task)
+
+        let mutations = try fetchMutations(from: container)
+        let assignmentDelete = mutations.last {
+            $0.entityType == SyncEntityType.taskAssignment.rawValue &&
+            $0.operation == SyncOperation.delete.rawValue
+        }
+
+        #expect(assignmentDelete != nil)
+        #expect(assignmentDelete?.entityId == assignment.id)
+
+        let record = try decodeRecord(assignmentDelete?.recordData)
+        let deletedAt = record?["deleted_at"] as? String
+        #expect(deletedAt == SyncDateFormatting.formatTimestamp(Date(timeIntervalSince1970: 600)))
+    }
+
+    /// Conditions: Save a task with an assignment, clear assignments, and save again.
+    /// Expected: A task-assignment tombstone is enqueued even though the parent task remains.
+    @Test func testTaskRepositoryUpdateEnqueuesAssignmentDeleteWhenAssignmentRemoved() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        var timestamps = [
+            Date(timeIntervalSince1970: 700),
+            Date(timeIntervalSince1970: 800)
+        ]
+        let repository = SwiftDataTaskRepository(
+            modelContainer: container,
+            deviceId: UUID(),
+            nowProvider: { timestamps.removeFirst() }
+        )
+
+        let assignment = TaskAssignment(
+            period: .day,
+            date: Date(timeIntervalSince1970: 4_000),
+            status: .open
+        )
+        let task = DataModel.Task(title: "Inbox fallback", assignments: [assignment])
+        try await repository.save(task)
+
+        task.assignments.removeAll()
+        try await repository.save(task)
+
+        let mutations = try fetchMutations(from: container)
+        let assignmentDelete = mutations.last {
+            $0.entityType == SyncEntityType.taskAssignment.rawValue &&
+            $0.operation == SyncOperation.delete.rawValue
+        }
+
+        #expect(assignmentDelete != nil)
+        #expect(assignmentDelete?.entityId == assignment.id)
+
+        let record = try decodeRecord(assignmentDelete?.recordData)
+        let deletedAt = record?["deleted_at"] as? String
+        #expect(deletedAt == SyncDateFormatting.formatTimestamp(Date(timeIntervalSince1970: 800)))
     }
 
     // MARK: - SpreadRepository Tests

@@ -2,6 +2,20 @@ import Foundation
 
 struct Definitions {
     struct AccessibilityIdentifiers {
+        static func token(_ value: String) -> String {
+            let lowercased = value.lowercased()
+            let scalars = lowercased.unicodeScalars.map { scalar -> Character in
+                if CharacterSet.alphanumerics.contains(scalar) {
+                    return Character(scalar)
+                }
+                return "."
+            }
+            let collapsed = String(scalars)
+                .split(separator: ".", omittingEmptySubsequences: true)
+                .joined(separator: ".")
+            return collapsed.isEmpty ? "item" : collapsed
+        }
+
         struct SpreadHierarchyTabBar {
             static let createButton = "spreads.tabbar.create"
 
@@ -45,6 +59,127 @@ struct Definitions {
         struct SpreadContent {
             static let title = "spreads.content.title"
             static let entryCounts = "spreads.content.entryCounts"
+            static let list = "spreads.content.list"
+            static let pager = "spreads.content.pager"
+            static let multidayGrid = "spreads.content.multiday.grid"
+            static let migratedSectionHeader = "spreads.content.migrated.section"
+            static let addTaskButton = "spreads.content.addtask.button"
+            static let inlineTaskCreationField = "spreads.content.addtask.field"
+
+            static func taskRow(_ title: String) -> String {
+                "spreads.content.task.\(token(title))"
+            }
+
+            static func taskTitleField(_ title: String) -> String {
+                "spreads.content.task.\(token(title)).titleField"
+            }
+
+            static func taskStatusToggle(_ title: String) -> String {
+                "spreads.content.task.\(token(title)).statusToggle"
+            }
+
+            static func taskTitleDiscardButton(_ title: String) -> String {
+                "spreads.content.task.\(token(title)).titleField.discard"
+            }
+
+            static func taskInlineEditButton(_ title: String) -> String {
+                "spreads.content.task.\(token(title)).inline.edit"
+            }
+
+            static func taskInlineMigrationMenu(_ title: String) -> String {
+                "spreads.content.task.\(token(title)).inline.migrate"
+            }
+
+            static func taskInlineMigrationOption(
+                _ title: String,
+                option: String
+            ) -> String {
+                "spreads.content.task.\(token(title)).inline.migrate.\(token(option))"
+            }
+
+            static func taskContextLabel(_ title: String) -> String {
+                "spreads.content.task.\(token(title)).context"
+            }
+
+            static func multidaySection(_ dateID: String) -> String {
+                "spreads.content.multiday.section.\(dateID)"
+            }
+
+            static func multidayEmptyState(_ dateID: String) -> String {
+                "spreads.content.multiday.section.\(dateID).empty"
+            }
+
+            static func multidayAddTaskButton(_ dateID: String) -> String {
+                "spreads.content.multiday.section.\(dateID).addtask"
+            }
+
+            static func multidayTodayLabel(_ dateID: String) -> String {
+                "spreads.content.multiday.section.\(dateID).today"
+            }
+
+            static func multidayFooterButton(_ dateID: String) -> String {
+                "spreads.content.multiday.section.\(dateID).footer"
+            }
+        }
+
+        struct SpreadNavigator {
+            static let titleButton = "spreads.navigator.titleButton"
+            static let popover = "spreads.navigator.popover"
+
+            static func yearPage(_ year: Int) -> String {
+                "spreads.navigator.yearPage.\(year)"
+            }
+
+            static func yearRow(_ year: Int) -> String {
+                "spreads.navigator.year.\(year)"
+            }
+
+            static func yearDisclosure(_ year: Int) -> String {
+                "spreads.navigator.year.\(year).disclosure"
+            }
+
+            static func monthRow(year: Int, month: Int) -> String {
+                String(format: "spreads.navigator.month.%04d-%02d", year, month)
+            }
+
+            static func viewMonthButton(year: Int, month: Int) -> String {
+                String(format: "spreads.navigator.month.%04d-%02d.viewMonth", year, month)
+            }
+
+            static func monthDisclosure(year: Int, month: Int) -> String {
+                String(format: "spreads.navigator.month.%04d-%02d.disclosure", year, month)
+            }
+
+            static func grid(year: Int, month: Int) -> String {
+                String(format: "spreads.navigator.grid.%04d-%02d", year, month)
+            }
+
+            static func dayTile(date: Date, calendar: Calendar) -> String {
+                "spreads.navigator.day.\(SpreadHierarchyTabBar.ymd(from: date, calendar: calendar))"
+            }
+
+            static func multidayTile(startDate: Date, endDate: Date, calendar: Calendar) -> String {
+                "spreads.navigator.multiday.\(SpreadHierarchyTabBar.ymd(from: startDate, calendar: calendar))_to_\(SpreadHierarchyTabBar.ymd(from: endDate, calendar: calendar))"
+            }
+        }
+
+        struct SpreadStrip {
+            static let container = "spreads.strip.container"
+            static let selectedIndicator = "spreads.strip.selected"
+            static let selectSpreadButton = "spreads.strip.selectSpread"
+            static let recenterButton = "spreads.strip.recenter"
+
+            static func recommendation(_ periodRawValue: String) -> String {
+                "spreads.strip.recommendation.\(periodRawValue)"
+            }
+
+            static func overdueBadge(_ itemIdentifier: String) -> String {
+                "\(itemIdentifier).overdueBadge"
+            }
+        }
+
+        struct SpreadToolbar {
+            static let todayButton = "spreads.toolbar.today"
         }
 
         struct SpreadCreationSheet {
@@ -83,10 +218,105 @@ struct Definitions {
             }
         }
 
+        struct NoteCreationSheet {
+            static let titleField = "notes.create.title"
+            static let contentField = "notes.create.content"
+            static let periodPicker = "notes.create.period"
+            static let createButton = "notes.create.create"
+            static let cancelButton = "notes.create.cancel"
+            static let datePicker = "notes.create.date"
+            static let yearPicker = "notes.create.year"
+            static let monthPicker = "notes.create.month"
+            static let monthYearPicker = "notes.create.month.year"
+            static let spreadPickerButton = "notes.create.spreadpicker"
+
+            static func periodSegment(_ periodRawValue: String) -> String {
+                "notes.create.period.\(periodRawValue)"
+            }
+        }
+
+        struct NoteDetailSheet {
+            static let titleField = "notes.detail.title"
+            static let contentField = "notes.detail.content"
+            static let periodPicker = "notes.detail.period"
+            static let saveButton = "notes.detail.save"
+            static let cancelButton = "notes.detail.cancel"
+            static let deleteButton = "notes.detail.delete"
+        }
+
+        struct TaskDetailSheet {
+            static let titleField = "tasks.detail.title"
+            static let statusPicker = "tasks.detail.status"
+            static let statusToggle = "tasks.detail.status.toggle"
+            static let periodPicker = "tasks.detail.period"
+            static let saveButton = "tasks.detail.save"
+            static let cancelButton = "tasks.detail.cancel"
+            static let deleteButton = "tasks.detail.delete"
+            static let cancelTaskButton = "tasks.detail.cancelTask"
+            static let restoreTaskButton = "tasks.detail.restoreTask"
+            static let datePicker = "tasks.detail.date"
+            static let dateSummary = "tasks.detail.date.summary"
+            static let yearPicker = "tasks.detail.year"
+            static let monthPicker = "tasks.detail.month"
+            static let monthYearPicker = "tasks.detail.month.year"
+            static let assignmentHistory = "tasks.detail.assignmentHistory"
+
+            static func assignmentHistoryRow(_ index: Int) -> String {
+                "tasks.detail.assignmentHistory.\(index)"
+            }
+
+            static func periodSegment(_ periodRawValue: String) -> String {
+                "tasks.detail.period.\(periodRawValue)"
+            }
+        }
+
+        struct SyncError {
+            static let banner = "syncError.banner"
+        }
+
+        struct Migration {
+            static let destinationSectionHeader = "migration.destination.header"
+            static let destinationMigrateAllButton = "migration.destination.migrateAll"
+
+            static func sourceButton(_ taskTitle: String) -> String {
+                "migration.source.\(token(taskTitle)).button"
+            }
+
+            static func destinationRow(_ taskTitle: String) -> String {
+                "migration.destination.\(token(taskTitle)).row"
+            }
+        }
+
+        struct Search {
+            static let screen = "search.tasks.screen"
+            static let field = "search.tasks.field"
+
+            static func section(_ tokenValue: String) -> String {
+                "search.tasks.section.\(tokenValue)"
+            }
+
+            static func row(_ taskID: UUID) -> String {
+                "search.tasks.row.\(taskID.uuidString.lowercased())"
+            }
+        }
+
+        struct Settings {
+            static func modeOption(_ rawValue: String) -> String {
+                "settings.mode.\(rawValue)"
+            }
+        }
+
+        struct Navigation {
+            static func sidebarItem(_ rawValue: String) -> String {
+                "navigation.sidebar.\(rawValue)"
+            }
+        }
+
         struct CreateMenu {
             static let button = "spreads.tabbar.create.menu"
             static let createSpread = "spreads.tabbar.create.menu.spread"
             static let createTask = "spreads.tabbar.create.menu.task"
+            static let createNote = "spreads.tabbar.create.menu.note"
         }
 
         struct SpreadPicker {

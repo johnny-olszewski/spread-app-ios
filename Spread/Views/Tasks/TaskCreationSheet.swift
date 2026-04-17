@@ -26,23 +26,55 @@ struct TaskCreationSheet: View {
 
     // MARK: - State
 
-    @State private var title: String = ""
-    @State private var selectedPeriod: Period = .day
-    @State private var selectedDate: Date = Date()
-    @State private var hasEditedTitle = false
-    @State private var showValidationErrors = false
+    @State private var formModel: TaskEditorFormModel
     @State private var isCreating = false
-    @State private var titleError: TaskCreationError?
-    @State private var dateError: TaskCreationError?
     @State private var isShowingSpreadPicker = false
     @FocusState private var isTitleFocused: Bool
+
+    init(
+        journalManager: JournalManager,
+        selectedSpread: DataModel.Spread?,
+        onTaskCreated: @escaping (DataModel.Task) -> Void
+    ) {
+        self.journalManager = journalManager
+        self.selectedSpread = selectedSpread
+        self.onTaskCreated = onTaskCreated
+        let configuration = TaskCreationConfiguration(
+            calendar: journalManager.calendar,
+            today: journalManager.today
+        )
+        _formModel = State(
+            initialValue: TaskEditorFormModel(
+                configuration: configuration,
+                selectedSpread: selectedSpread
+            )
+        )
+    }
 
     // MARK: - Computed Properties
 
     private var configuration: TaskCreationConfiguration {
-        TaskCreationConfiguration(
-            calendar: journalManager.calendar,
-            today: journalManager.today
+        formModel.configuration
+    }
+
+    private var titleBinding: Binding<String> {
+        Binding(
+            get: { formModel.title },
+            set: { formModel.title = $0 }
+        )
+    }
+
+    private var periodBinding: Binding<Period> {
+        Binding(
+            get: { formModel.selectedPeriod },
+            set: { formModel.setPeriod($0) }
+        )
+    }
+
+    private var dateBinding: Binding<Date> {
+        Binding(
+            get: { formModel.selectedDate },
+            set: { formModel.selectedDate = $0 }
         )
     }
 
@@ -50,15 +82,15 @@ struct TaskCreationSheet: View {
     ///
     /// Hidden until title is edited once; then always visible.
     private var isCreateButtonVisible: Bool {
-        hasEditedTitle
+        formModel.isCreateButtonVisible
     }
 
     /// Whether the form has any validation errors.
     private var hasValidationErrors: Bool {
         let result = configuration.validate(
-            title: title,
-            period: selectedPeriod,
-            date: selectedDate
+            title: formModel.title,
+            period: formModel.selectedPeriod,
+            date: formModel.effectiveSelectedDate
         )
         return !result.isValid
     }
@@ -81,17 +113,15 @@ struct TaskCreationSheet: View {
                 .padding(.vertical, 12)
             }
             .sheet(isPresented: $isShowingSpreadPicker) {
-                SpreadPickerView(
-                    spreads: journalManager.spreads,
-                    calendar: journalManager.calendar,
-                    today: journalManager.today,
-                    onSpreadSelected: { period, date in
-                        selectedPeriod = period
-                        selectedDate = date
-                        clearDateError()
-                    },
-                    onChooseCustomDate: {
-                        // Stay on custom date entry - no action needed
+                    SpreadPickerView(
+                        spreads: journalManager.spreads,
+                        calendar: journalManager.calendar,
+                        today: journalManager.today,
+                        onSpreadSelected: { period, date in
+                            formModel.applySpreadSelection(period: period, date: date)
+                        },
+                        onChooseCustomDate: {
+                            // Stay on custom date entry - no action needed
                     }
                 )
             }
@@ -115,12 +145,7 @@ struct TaskCreationSheet: View {
                 }
             }
             .onAppear {
-                initializeDefaults()
                 isTitleFocused = true
-            }
-            .onChange(of: selectedPeriod) { _, newPeriod in
-                adjustDateForPeriod(newPeriod)
-                clearDateError()
             }
         }
     }
@@ -130,17 +155,14 @@ struct TaskCreationSheet: View {
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Title")
-            TextField("Task title", text: $title)
+            TextField("Task title", text: titleBinding)
                 .focused($isTitleFocused)
-                .onChange(of: title) { _, _ in
-                    if !hasEditedTitle {
-                        hasEditedTitle = true
-                    }
-                    clearTitleError()
+                .onChange(of: formModel.title) { _, _ in
+                    formModel.handleTitleChange()
                 }
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.titleField)
 
-            if showValidationErrors, let error = titleError {
+            if formModel.showValidationErrors, let error = formModel.titleError {
                 validationErrorRow(message: error.message)
             }
         }
@@ -173,21 +195,15 @@ struct TaskCreationSheet: View {
     private var periodSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Period")
-            Picker("Period", selection: $selectedPeriod) {
-                ForEach(TaskCreationConfiguration.assignablePeriods, id: \.self) { period in
-                    Text(period.displayName)
-                        .tag(period)
-                        .accessibilityIdentifier(
-                            Definitions.AccessibilityIdentifiers.TaskCreationSheet.periodSegment(
-                                period.rawValue
-                            )
-                        )
+            TaskPeriodControl(
+                selection: periodBinding,
+                pickerIdentifier: Definitions.AccessibilityIdentifiers.TaskCreationSheet.periodPicker,
+                segmentIdentifier: {
+                    Definitions.AccessibilityIdentifiers.TaskCreationSheet.periodSegment($0.rawValue)
                 }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.periodPicker)
+            )
 
-            Text(periodDescription)
+            Text(formModel.periodDescription)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -197,8 +213,8 @@ struct TaskCreationSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Date")
             PeriodDatePicker(
-                period: selectedPeriod,
-                selectedDate: $selectedDate,
+                period: formModel.selectedPeriod,
+                selectedDate: dateBinding,
                 calendar: journalManager.calendar,
                 today: journalManager.today,
                 minimumDate: configuration.minimumDate(for: .day),
@@ -211,7 +227,7 @@ struct TaskCreationSheet: View {
                 )
             )
 
-            if showValidationErrors, let error = dateError {
+            if formModel.showValidationErrors, let error = formModel.dateError {
                 validationErrorRow(message: error.message)
             }
         }
@@ -238,72 +254,13 @@ struct TaskCreationSheet: View {
             .foregroundStyle(.secondary)
     }
 
-    // MARK: - Period Description
-
-    private var periodDescription: String {
-        switch selectedPeriod {
-        case .year:
-            return "Task will be assigned to a year spread"
-        case .month:
-            return "Task will be assigned to a month spread"
-        case .day:
-            return "Task will be assigned to a day spread"
-        case .multiday:
-            return "Task will be assigned to a day spread"
-        }
-    }
-
-    // MARK: - Date Helpers
-
-
     // MARK: - Actions
 
-    private func initializeDefaults() {
-        let defaults = configuration.defaultSelection(from: selectedSpread)
-        selectedPeriod = defaults.period
-        selectedDate = defaults.date
-
-        // Ensure date is within valid range
-        adjustDateForPeriod(selectedPeriod)
-    }
-
-    private func adjustDateForPeriod(_ period: Period) {
-        let minDate = configuration.minimumDate(for: period)
-
-        // Normalize selected date to period and check if valid
-        let normalizedSelected = period.normalizeDate(selectedDate, calendar: journalManager.calendar)
-
-        if normalizedSelected < minDate {
-            selectedDate = minDate
-        }
-    }
-
-    private func clearTitleError() {
-        if showValidationErrors {
-            titleError = nil
-        }
-    }
-
-    private func clearDateError() {
-        if showValidationErrors {
-            dateError = nil
-        }
-    }
-
     private func attemptCreate() {
-        // Validate
-        let titleResult = configuration.validateTitle(title)
-        let dateResult = configuration.validateDate(period: selectedPeriod, date: selectedDate)
-
-        // Show validation errors if any
-        if !titleResult.isValid || !dateResult.isValid {
-            showValidationErrors = true
-            titleError = titleResult.error
-            dateError = dateResult.error
+        guard formModel.validateForSubmission() else {
             return
         }
 
-        // Create the task
         createTask()
     }
 
@@ -313,9 +270,9 @@ struct TaskCreationSheet: View {
         Task {
             do {
                 let task = try await journalManager.addTask(
-                    title: title,
-                    date: selectedDate,
-                    period: selectedPeriod
+                    title: formModel.title,
+                    date: formModel.effectiveSelectedDate,
+                    period: formModel.selectedPeriod
                 )
                 await MainActor.run {
                     onTaskCreated(task)

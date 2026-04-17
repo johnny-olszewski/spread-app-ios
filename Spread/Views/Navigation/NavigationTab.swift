@@ -5,6 +5,9 @@ enum NavigationTab: String, Identifiable, Sendable {
     /// Spreads tab showing journal spreads.
     case spreads
 
+    /// Search tab showing the global task browser.
+    case search
+
     /// Collections tab showing all collections.
     case collections
 
@@ -22,7 +25,7 @@ enum NavigationTab: String, Identifiable, Sendable {
 
     /// All navigation tabs, conditionally including Debug when enabled.
     static var allCases: [NavigationTab] {
-        var cases: [NavigationTab] = [.spreads, .collections, .settings]
+        var cases: [NavigationTab] = [.spreads, .search, .collections, .settings]
         if BuildInfo.allowsDebugUI {
             cases.append(.debug)
         }
@@ -36,6 +39,8 @@ enum NavigationTab: String, Identifiable, Sendable {
         switch self {
         case .spreads:
             return "Spreads"
+        case .search:
+            return "Search"
         case .collections:
             return "Collections"
         case .settings:
@@ -50,6 +55,8 @@ enum NavigationTab: String, Identifiable, Sendable {
         switch self {
         case .spreads:
             return "book"
+        case .search:
+            return "magnifyingglass"
         case .collections:
             return "folder"
         case .settings:

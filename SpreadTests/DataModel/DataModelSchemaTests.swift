@@ -25,10 +25,10 @@ struct DataModelSchemaTests {
     }
 
     /// Conditions: Access schema models.
-    /// Expected: Should contain 8 models: Spread, Task, Event, Note, Collection, Settings, SyncMutation, SyncCursor.
+    /// Expected: Should contain 9 models including SyncRepairMarker.
     @Test func testSchemaContainsAllModels() {
         let models = DataModelSchemaV1.models
-        #expect(models.count == 8)
+        #expect(models.count == 9)
 
         let modelTypes = models.map { String(describing: $0) }
         #expect(modelTypes.contains { $0.contains("Spread") })
@@ -39,6 +39,7 @@ struct DataModelSchemaTests {
         #expect(modelTypes.contains { $0.contains("Settings") })
         #expect(modelTypes.contains { $0.contains("SyncMutation") })
         #expect(modelTypes.contains { $0.contains("SyncCursor") })
+        #expect(modelTypes.contains { $0.contains("SyncRepairMarker") })
     }
 
     // MARK: - Migration Plan Tests
@@ -61,17 +62,17 @@ struct DataModelSchemaTests {
     // MARK: - ModelContainerFactory Tests
 
     /// Conditions: Create in-memory container.
-    /// Expected: Container should have 8 entity types in schema.
+    /// Expected: Container should have 9 entity types in schema.
     @Test func testCreateInMemoryContainer() throws {
         let container = try ModelContainerFactory.makeInMemory()
-        #expect(container.schema.entities.count == 8)
+        #expect(container.schema.entities.count == 9)
     }
 
     /// Conditions: Create test container.
-    /// Expected: Container should have 8 entity types in schema.
+    /// Expected: Container should have 9 entity types in schema.
     @Test func testCreateTestContainer() throws {
         let container = try ModelContainerFactory.makeInMemory()
-        #expect(container.schema.entities.count == 8)
+        #expect(container.schema.entities.count == 9)
     }
 
     /// Conditions: Create in-memory container and check configuration.

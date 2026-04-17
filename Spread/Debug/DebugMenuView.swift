@@ -5,12 +5,11 @@ import struct Auth.User
 /// Debug menu for inspecting environment, dependencies, and app state.
 ///
 /// Provides grouped sections for:
-/// - Environment switcher with safe switch flow
 /// - Current DataEnvironment and Supabase configuration
 /// - App dependencies summary
 /// - Mock data sets loader with overwrite + reload behavior
 ///
-/// Only available in DEBUG builds. Accessible as a navigation destination
+/// Only available in debug-enabled builds. Accessible as a navigation destination
 /// via the Debug tab (iPhone) or sidebar item (iPad).
 struct DebugMenuView: View {
     /// The app dependencies for inspecting repository types.
@@ -28,24 +27,12 @@ struct DebugMenuView: View {
     /// The sync engine for inspecting sync state.
     let syncEngine: SyncEngine?
 
-    /// Callback when environment switch completes and restart is needed.
-    var onRestartRequired: (() -> Void)?
-
     @State private var isLoading = false
     @State private var loadingDataSet: MockDataSet?
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var showSuccess = false
     @State private var successMessage = ""
-
-    // Environment switch state
-    @State private var switchCoordinator: DataEnvironmentSwitchCoordinator?
-    @State private var pendingTargetEnvironment: DataEnvironment?
-    @State private var showProdConfirmation = false
-    @State private var prodConfirmationText = ""
-    @State private var showUnsyncedWarning = false
-    @State private var unsyncedOutboxCount = 0
-    @State private var showRestartRequired = false
 
     private var blockAllNetworkBinding: Binding<Bool> {
         guard let debugMonitor = dependencies.networkMonitor as? DebugNetworkMonitor else {
@@ -67,10 +54,12 @@ struct DebugMenuView: View {
         )
     }
 
+    @State private var appearanceSettings = DebugAppearanceSettings.shared
+
     var body: some View {
         List {
             buildInfoSection
-            environmentSwitcherSection
+            appearanceSection
             supabaseSection
             authSection
             syncSection
@@ -79,7 +68,7 @@ struct DebugMenuView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Debug")
-        .disabled(isLoading || switchCoordinator?.isInProgress == true)
+        .disabled(isLoading)
         .alert("Error", isPresented: $showError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -90,144 +79,76 @@ struct DebugMenuView: View {
         } message: {
             Text(successMessage)
         }
-        .alert("Switch to Production", isPresented: $showProdConfirmation) {
-            TextField("Type PRODUCTION to confirm", text: $prodConfirmationText)
-                .textInputAutocapitalization(.characters)
-            Button("Cancel", role: .cancel) {
-                prodConfirmationText = ""
-                pendingTargetEnvironment = nil
-            }
-            Button("Switch", role: .destructive) {
-                if prodConfirmationText.uppercased() == "PRODUCTION" {
-                    Task {
-                        await beginSwitch(to: .production)
-                    }
-                }
-                prodConfirmationText = ""
-            }
-            .disabled(prodConfirmationText.uppercased() != "PRODUCTION")
-        } message: {
-            Text("Switching to production will sign you out and wipe all local data. Type PRODUCTION to confirm.")
-        }
-        .alert("Unsynced Data", isPresented: $showUnsyncedWarning) {
-            Button("Cancel", role: .cancel) {
-                switchCoordinator?.cancelSwitch()
-                pendingTargetEnvironment = nil
-            }
-            Button("Switch Anyway", role: .destructive) {
-                Task {
-                    if let target = pendingTargetEnvironment {
-                        await switchCoordinator?.confirmSwitchDespiteUnsyncedData(to: target)
-                        checkForRestartRequired()
-                    }
-                }
-            }
-        } message: {
-            Text("You have \(unsyncedOutboxCount) unsynced change(s) that will be lost. Are you sure you want to switch environments?")
-        }
-        .alert("Restart Required", isPresented: $showRestartRequired) {
-            Button("OK") {
-                onRestartRequired?()
-            }
-        } message: {
-            Text("Environment switched successfully. Please restart the app for changes to take effect.")
-        }
-        .onAppear {
-            initializeSwitchCoordinator()
-        }
+
     }
 
-    // MARK: - Environment Switcher Section
+    // MARK: - Appearance Section
 
-    private var environmentSwitcherSection: some View {
+    private var appearanceSection: some View {
         Section {
-            ForEach(DataEnvironment.allCases, id: \.rawValue) { env in
-                environmentButton(for: env)
+            // Paper Tone
+            Picker("Paper Tone", selection: $appearanceSettings.paperTone) {
+                ForEach(DebugAppearanceSettings.PaperTonePreset.allCases) { preset in
+                    HStack {
+                        Circle()
+                            .fill(preset.color)
+                            .frame(width: 16, height: 16)
+                            .overlay(Circle().stroke(.secondary.opacity(0.3), lineWidth: 0.5))
+                        Text(preset.displayName)
+                    }
+                    .tag(preset)
+                }
+            }
+
+            // Dot Grid
+            Toggle("Dot Grid", isOn: $appearanceSettings.isDotGridVisible)
+
+            if appearanceSettings.isDotGridVisible {
+                LabeledContent("Dot Size: \(appearanceSettings.dotSize, specifier: "%.1f")pt") {
+                    Slider(value: $appearanceSettings.dotSize, in: 0.5...4.0, step: 0.5)
+                        .frame(width: 150)
+                }
+
+                LabeledContent("Spacing: \(appearanceSettings.dotSpacing, specifier: "%.0f")pt") {
+                    Slider(value: $appearanceSettings.dotSpacing, in: 8...40, step: 2)
+                        .frame(width: 150)
+                }
+
+                LabeledContent("Opacity: \(appearanceSettings.dotOpacity, specifier: "%.0f")%%") {
+                    Slider(value: $appearanceSettings.dotOpacity, in: 0.05...0.5, step: 0.01)
+                        .frame(width: 150)
+                }
+            }
+
+            // Heading Font
+            Picker("Heading Font", selection: $appearanceSettings.headingFont) {
+                ForEach(DebugAppearanceSettings.HeadingFont.allCases) { font in
+                    Text(font.displayName)
+                        .tag(font)
+                }
+            }
+
+            // Accent Color
+            Picker("Accent Color", selection: $appearanceSettings.accentColor) {
+                ForEach(DebugAppearanceSettings.AccentColorPreset.allCases) { preset in
+                    HStack {
+                        Circle()
+                            .fill(preset.color)
+                            .frame(width: 16, height: 16)
+                        Text(preset.displayName)
+                    }
+                    .tag(preset)
+                }
+            }
+
+            // Reset
+            Button("Reset to Defaults", role: .destructive) {
+                appearanceSettings.resetToDefaults()
             }
         } header: {
-            Label("Switch Environment", systemImage: "arrow.triangle.swap")
+            Label("Appearance", systemImage: "paintbrush")
         } footer: {
-            Text("Switching environments will sign out and wipe local data. Production requires confirmation.")
-        }
-    }
-
-    @ViewBuilder
-    private func environmentButton(for env: DataEnvironment) -> some View {
-        Button {
-            handleEnvironmentSwitch(to: env)
-        } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(env.displayName)
-                        .fontWeight(.medium)
-                    Text(environmentDescription(for: env))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                if DataEnvironment.current == env {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                } else if switchCoordinator?.isInProgress == true && pendingTargetEnvironment == env {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-            }
-        }
-        .disabled(DataEnvironment.current == env || switchCoordinator?.isInProgress == true)
-    }
-
-    private func environmentDescription(for env: DataEnvironment) -> String {
-        switch env {
-        case .localhost:
-            "No network, any credentials work, mock data available"
-        case .development:
-            "Dev Supabase project, real auth required"
-        case .production:
-            "Prod Supabase project, real auth required"
-        }
-    }
-
-    private func handleEnvironmentSwitch(to env: DataEnvironment) {
-        pendingTargetEnvironment = env
-        if env == .production {
-            showProdConfirmation = true
-        } else {
-            Task {
-                await beginSwitch(to: env)
-            }
-        }
-    }
-
-    private func initializeSwitchCoordinator() {
-        guard switchCoordinator == nil else { return }
-        let wiper = SwiftDataStoreWiper(modelContainer: dependencies.modelContainer)
-        switchCoordinator = DataEnvironmentSwitchCoordinator(
-            authManager: authManager,
-            syncEngine: syncEngine,
-            storeWiper: wiper
-        )
-    }
-
-    private func beginSwitch(to env: DataEnvironment) async {
-        initializeSwitchCoordinator()
-        await switchCoordinator?.beginSwitch(to: env)
-        checkForRestartRequired()
-    }
-
-    private func checkForRestartRequired() {
-        guard let coordinator = switchCoordinator else { return }
-
-        switch coordinator.phase {
-        case .pendingConfirmation(let outboxCount):
-            unsyncedOutboxCount = outboxCount
-            showUnsyncedWarning = true
-        case .restartRequired:
-            showRestartRequired = true
-        default:
-            break
+            Text("Override visual appearance settings for tuning. Changes apply immediately to spread content surfaces.")
         }
     }
 
@@ -243,7 +164,7 @@ struct DebugMenuView: View {
         } header: {
             Label("Supabase", systemImage: "cloud")
         } footer: {
-            Text("Supabase configuration is driven by the Data Environment. Use -SupabaseURL and -SupabaseKey launch arguments for explicit overrides.")
+            Text("Supabase configuration is driven by the resolved Data Environment. Debug localhost bypasses Supabase entirely.")
         }
     }
 
@@ -264,8 +185,6 @@ struct DebugMenuView: View {
                     .font(.caption)
                     .monospaced()
             }
-            LabeledContent("Backup Entitled", value: authManager.hasBackupEntitlement ? "Yes" : "No")
-
             Picker("Forced Auth Error", selection: forcedAuthErrorBinding) {
                 Text("None").tag(nil as ForcedAuthError?)
                 ForEach(ForcedAuthError.allCases, id: \.self) { error in
@@ -281,22 +200,78 @@ struct DebugMenuView: View {
 
     // MARK: - Sync Section
 
+    private var debugSyncPolicy: DebugSyncPolicy? {
+        syncEngine?.policy as? DebugSyncPolicy
+    }
+
+    private var disableSyncBinding: Binding<Bool> {
+        guard let policy = debugSyncPolicy else {
+            return .constant(false)
+        }
+        return Binding(
+            get: { policy.isSyncDisabled },
+            set: { policy.isSyncDisabled = $0 }
+        )
+    }
+
+    private var forceSyncFailureBinding: Binding<Bool> {
+        guard let policy = debugSyncPolicy else {
+            return .constant(false)
+        }
+        return Binding(
+            get: { policy.isForceSyncFailure },
+            set: { policy.isForceSyncFailure = $0 }
+        )
+    }
+
     @ViewBuilder
     private var syncSection: some View {
         if let syncEngine {
             Section {
+                // Live readout
                 LabeledContent("Status", value: syncEngine.status.displayText)
                 LabeledContent("Outbox Count", value: "\(syncEngine.outboxCount)")
                 if let lastSync = syncEngine.lastSyncDate {
                     LabeledContent("Last Sync", value: lastSync.formatted(date: .abbreviated, time: .shortened))
                 }
                 LabeledContent("Network", value: dependencies.networkMonitor.isConnected ? "Connected" : "Disconnected")
+
+                // Controls
                 Toggle("Block Network", isOn: blockAllNetworkBinding)
+                Toggle("Disable Sync", isOn: disableSyncBinding)
+                Toggle("Force Sync Failure", isOn: forceSyncFailureBinding)
+
+                Button("Force Syncing (5s)") {
+                    Task {
+                        debugSyncPolicy?.forcedSyncingDuration = 5
+                        await syncEngine.syncNow()
+                        debugSyncPolicy?.forcedSyncingDuration = nil
+                    }
+                }
+
+                Button("Force Status: Idle") {
+                    syncEngine.status = .idle
+                }
+                Button("Force Status: Synced") {
+                    syncEngine.status = .synced(.now)
+                }
+                Button("Force Status: Error") {
+                    syncEngine.status = .error("Debug: forced sync failure")
+                }
+                Button("Force Status: Offline") {
+                    syncEngine.status = .offline
+                }
+
+                Button("Seed Outbox (5 mutations)") {
+                    seedOutbox(count: 5, syncEngine: syncEngine)
+                }
+
                 Button("Sync Now") {
                     Task {
                         await syncEngine.syncNow()
                     }
                 }
+
                 if !syncEngine.syncLog.entries.isEmpty {
                     DisclosureGroup("Sync Log (\(syncEngine.syncLog.entries.count))") {
                         ForEach(syncEngine.syncLog.entries) { entry in
@@ -314,9 +289,79 @@ struct DebugMenuView: View {
             } header: {
                 Label("Sync", systemImage: "arrow.triangle.2.circlepath")
             } footer: {
-                Text("Current sync engine state. Tap 'Sync Now' to trigger a manual sync attempt.")
+                Text("Current sync engine state. Disable Sync blocks auto/manual triggers. Force Syncing pins the UI for 5s.")
+            }
+
+            // Scenario presets
+            Section {
+                Button("Offline + Auth Error") {
+                    applyPreset(.offlineAuthError)
+                }
+                Button("Sync Backlog") {
+                    applyPreset(.syncBacklog(syncEngine: syncEngine))
+                }
+                Button("All Failures") {
+                    applyPreset(.allFailures)
+                }
+                Button("Reset All Overrides", role: .destructive) {
+                    resetAllOverrides(syncEngine: syncEngine)
+                }
+            } header: {
+                Label("Scenario Presets", systemImage: "theatermask.and.paintbrush")
+            } footer: {
+                Text("Apply multiple debug overrides at once. Reset clears all network, auth, and sync overrides.")
             }
         }
+    }
+
+    // MARK: - Outbox Seeding
+
+    private func seedOutbox(count: Int, syncEngine: SyncEngine) {
+        for _ in 0..<count {
+            let entityId = UUID()
+            let fakeData = try! JSONSerialization.data(
+                withJSONObject: ["id": entityId.uuidString, "title": "Debug seed"],
+                options: []
+            )
+            syncEngine.enqueueMutation(
+                entityType: .task,
+                entityId: entityId,
+                operation: .create,
+                recordData: fakeData,
+                changedFields: ["title"]
+            )
+        }
+        syncEngine.refreshOutboxCount()
+    }
+
+    // MARK: - Scenario Presets
+
+    private enum ScenarioPreset {
+        case offlineAuthError
+        case syncBacklog(syncEngine: SyncEngine)
+        case allFailures
+    }
+
+    private func applyPreset(_ preset: ScenarioPreset) {
+        switch preset {
+        case .offlineAuthError:
+            (dependencies.networkMonitor as? DebugNetworkMonitor)?.blockAllNetwork = true
+            (authManager.service as? DebugAuthService)?.forcedAuthError = .invalidCredentials
+
+        case .syncBacklog(let engine):
+            seedOutbox(count: 10, syncEngine: engine)
+
+        case .allFailures:
+            (dependencies.networkMonitor as? DebugNetworkMonitor)?.blockAllNetwork = true
+            (authManager.service as? DebugAuthService)?.forcedAuthError = .invalidCredentials
+            debugSyncPolicy?.isForceSyncFailure = true
+        }
+    }
+
+    private func resetAllOverrides(syncEngine: SyncEngine) {
+        (dependencies.networkMonitor as? DebugNetworkMonitor)?.blockAllNetwork = false
+        (authManager.service as? DebugAuthService)?.forcedAuthError = nil
+        debugSyncPolicy?.resetAll()
     }
 
     // MARK: - Dependencies Section
@@ -365,7 +410,7 @@ struct DebugMenuView: View {
     private var mockDataSection: some View {
         if DataEnvironment.current == .localhost {
             Section {
-                ForEach(MockDataSet.allCases, id: \.rawValue) { dataSet in
+                ForEach(MockDataSet.debugMenuCases, id: \.rawValue) { dataSet in
                     mockDataSetButton(for: dataSet)
                 }
             } header: {
@@ -423,6 +468,20 @@ struct DebugMenuView: View {
             "chart.bar.fill"
         case .inboxNextYear:
             "tray.full"
+        case .scenarioAssignmentExistingSpread,
+                .scenarioAssignmentInboxFallback,
+                .scenarioInboxResolution,
+                .scenarioMigrationMonthBound,
+                .scenarioMigrationDayUpgrade,
+                .scenarioMigrationDaySuperseded,
+                .scenarioReassignment,
+                .scenarioOverdueReview,
+                .scenarioOverdueInbox,
+                .scenarioTraditionalOverdue,
+                .scenarioNoteExclusions,
+                .scenarioMultidayLayout,
+                .scenarioSpreadNavigator:
+            "testtube.2"
         }
     }
 

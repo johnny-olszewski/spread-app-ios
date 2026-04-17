@@ -15,7 +15,15 @@ final class DebugNetworkMonitor: NetworkMonitoring {
     private let wrapped: any NetworkMonitoring
 
     /// When true, forces `isConnected` to return false regardless of real connectivity.
-    var blockAllNetwork = false
+    ///
+    /// Setting this fires `onConnectionChange` so the sync engine immediately reacts
+    /// to the simulated connectivity change.
+    var blockAllNetwork = false {
+        didSet {
+            guard blockAllNetwork != oldValue else { return }
+            onConnectionChange?(blockAllNetwork ? false : wrapped.isConnected)
+        }
+    }
 
     /// Returns false when `blockAllNetwork` is true, otherwise delegates to wrapped monitor.
     var isConnected: Bool {

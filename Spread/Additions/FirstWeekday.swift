@@ -56,4 +56,21 @@ enum FirstWeekday: String, CaseIterable {
         calendar.firstWeekday = weekdayValue(using: baseCalendar)
         return calendar
     }
+
+    // MARK: - Reverse Mapping
+
+    /// Creates a `FirstWeekday` from a stored weekday integer value.
+    ///
+    /// - Parameter weekdayValue: The weekday integer (1 = Sunday, 2 = Monday).
+    /// - Returns: The matching `FirstWeekday`, or `nil` if the value doesn't match a known case.
+    static func from(weekdayValue: Int) -> FirstWeekday? {
+        switch weekdayValue {
+        case 1:
+            return .sunday
+        case 2:
+            return .monday
+        default:
+            return nil
+        }
+    }
 }

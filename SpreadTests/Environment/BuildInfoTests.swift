@@ -21,11 +21,10 @@ struct BuildInfoTests {
 
     // MARK: - configurationName
 
-    /// Conditions: Tests run under the Debug build configuration with a non-QA bundle identifier.
-    /// Expected: configurationName should be "Debug" (not "QA" since the test host bundle ID
-    /// does not end in ".qa").
-    @Test func testConfigurationNameIsDebugInDebugBuild() {
-        #expect(BuildInfo.configurationName == "Debug")
+    /// Conditions: Tests run under the QA scheme.
+    /// Expected: configurationName should reflect the QA build configuration.
+    @Test func testConfigurationNameMatchesQAScheme() {
+        #expect(BuildInfo.configurationName == "QA")
     }
 
     // MARK: - Consistency
@@ -34,5 +33,13 @@ struct BuildInfoTests {
     /// Expected: allowsDebugUI and isRelease should be mutually exclusive — exactly one is true.
     @Test func testAllowsDebugUIAndIsReleaseAreMutuallyExclusive() {
         #expect(BuildInfo.allowsDebugUI != BuildInfo.isRelease)
+    }
+
+    // MARK: - defaultDataEnvironment
+
+    /// Conditions: Tests run under the Debug build configuration with a non-QA bundle identifier.
+    /// Expected: Debug builds default to development unless localhost is selected explicitly.
+    @Test func testDefaultDataEnvironmentIsDevelopmentInDebugBuild() {
+        #expect(BuildInfo.defaultDataEnvironment == .development)
     }
 }

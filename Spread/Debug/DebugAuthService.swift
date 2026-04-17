@@ -43,6 +43,23 @@ final class DebugAuthService: AuthService {
         return try await wrapped.signIn(email: email, password: password)
     }
 
+    func signUp(email: String, password: String) async throws -> AuthSuccess {
+        if !networkMonitor.isConnected {
+            throw ForcedAuthSignInError(forced: .networkTimeout)
+        }
+        if let forced = forcedAuthError {
+            throw ForcedAuthSignInError(forced: forced)
+        }
+        return try await wrapped.signUp(email: email, password: password)
+    }
+
+    func resetPassword(email: String) async throws {
+        if !networkMonitor.isConnected {
+            throw ForcedAuthSignInError(forced: .networkTimeout)
+        }
+        try await wrapped.resetPassword(email: email)
+    }
+
     func signOut() async throws {
         try await wrapped.signOut()
     }
