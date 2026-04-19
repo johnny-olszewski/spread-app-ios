@@ -175,12 +175,7 @@ struct SpreadTitleNavigatorModel {
     private func display(for spread: DataModel.Spread, allowsPersonalization: Bool) -> Item.Display {
         let displayName = displayName(for: spread, allowsPersonalization: allowsPersonalization)
         if displayName.isPersonalized {
-            return .init(
-                top: nil,
-                bottom: displayName.primary,
-                footer: compactCanonicalFooter(for: spread),
-                isPersonalized: true
-            )
+            return personalizedDisplay(for: spread, name: displayName.primary)
         }
 
         switch spread.period {
@@ -204,18 +199,36 @@ struct SpreadTitleNavigatorModel {
         .display(for: spread, allowsPersonalization: allowsPersonalization)
     }
 
-    private func compactCanonicalFooter(for spread: DataModel.Spread) -> String? {
+    private func personalizedDisplay(for spread: DataModel.Spread, name: String) -> Item.Display {
         switch spread.period {
         case .year:
-            return nil
+            return .init(
+                top: String(calendar.component(.year, from: spread.date)),
+                bottom: name,
+                footer: nil,
+                isPersonalized: true
+            )
         case .month:
-            return String(calendar.component(.year, from: spread.date))
+            return .init(
+                top: monthAbbreviation(for: spread.date),
+                bottom: name,
+                footer: String(calendar.component(.year, from: spread.date)),
+                isPersonalized: true
+            )
         case .day:
-            return dayMonthFooter(for: spread.date)
+            return .init(
+                top: dayMonthHeader(for: spread.date),
+                bottom: name,
+                footer: weekdayAbbreviation(for: spread.date),
+                isPersonalized: true
+            )
         case .multiday:
-            let startDate = spread.startDate ?? spread.date
-            let endDate = spread.endDate ?? spread.date
-            return "\(dayMonthFooter(for: startDate))-\(dayMonthFooter(for: endDate))"
+            return .init(
+                top: compactDateRange(for: spread),
+                bottom: name,
+                footer: weekdayRange(for: spread),
+                isPersonalized: true
+            )
         }
     }
 
@@ -227,7 +240,11 @@ struct SpreadTitleNavigatorModel {
     }
 
     private func monthDisplay(for date: Date) -> Item.Display {
-        .init(top: nil, bottom: monthAbbreviation(for: date), footer: nil)
+        .init(
+            top: String(calendar.component(.year, from: date)),
+            bottom: monthAbbreviation(for: date).uppercased(),
+            footer: nil
+        )
     }
 
     private func dayDisplay(for date: Date) -> Item.Display {
@@ -253,6 +270,7 @@ struct SpreadTitleNavigatorModel {
 
     private func monthAbbreviation(for date: Date) -> String {
         let formatter = DateFormatter()
+        formatter.calendar = calendar
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = calendar.timeZone
         formatter.setLocalizedDateFormatFromTemplate("MMM")
@@ -261,18 +279,45 @@ struct SpreadTitleNavigatorModel {
 
     private func weekdayAbbreviation(for date: Date) -> String {
         let formatter = DateFormatter()
+        formatter.calendar = calendar
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = calendar.timeZone
         formatter.setLocalizedDateFormatFromTemplate("EEE")
         return formatter.string(from: date)
     }
 
-    private func dayMonthFooter(for date: Date) -> String {
+    private func dayMonthHeader(for date: Date) -> String {
         let formatter = DateFormatter()
+        formatter.calendar = calendar
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = calendar.timeZone
         formatter.setLocalizedDateFormatFromTemplate("MMM d")
         return formatter.string(from: date)
+    }
+
+    private func compactDateRange(for spread: DataModel.Spread) -> String {
+        let startDate = spread.startDate ?? spread.date
+        let endDate = spread.endDate ?? spread.date
+        let startMonth = monthAbbreviation(for: startDate)
+        let endMonth = monthAbbreviation(for: endDate)
+        let startDay = calendar.component(.day, from: startDate)
+        let endDay = calendar.component(.day, from: endDate)
+
+        if startMonth == endMonth {
+            return "\(startMonth) \(startDay)-\(endDay)"
+        }
+        return "\(startMonth) \(startDay)-\(endMonth) \(endDay)"
+    }
+
+    private func weekdayRange(for spread: DataModel.Spread) -> String {
+        let startDate = spread.startDate ?? spread.date
+        let endDate = spread.endDate ?? spread.date
+        let startWeekday = weekdayAbbreviation(for: startDate)
+        let endWeekday = weekdayAbbreviation(for: endDate)
+        if startWeekday == endWeekday {
+            return startWeekday
+        }
+        return "\(startWeekday)-\(endWeekday)"
     }
 
     private func spreadYear(for spread: DataModel.Spread) -> Int {

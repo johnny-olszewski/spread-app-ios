@@ -115,21 +115,7 @@ struct SpreadTitleNavigatorItemView: View {
     @ViewBuilder
     private var itemLabel: some View {
         if display.isPersonalized {
-            VStack(spacing: 0) {
-                Text(display.bottom)
-                    .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
-                    .foregroundStyle(foregroundColor(selected: isSelected))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-                if let footer = display.footer {
-                    Text(footer)
-                        .font(.caption2)
-                        .fontWeight(footerWeight(emphasized: isTodayEmphasized))
-                        .foregroundStyle(footerColor)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.78)
-                }
-            }
+            personalizedLabel
         } else {
             switch style {
             case .year:
@@ -144,11 +130,26 @@ struct SpreadTitleNavigatorItemView: View {
                         .foregroundStyle(foregroundColor(selected: isSelected))
                 }
             case .month:
-                Text(display.bottom)
-                    .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
-                    .textCase(.uppercase)
-                    .foregroundStyle(foregroundColor(selected: isSelected))
-                    .lineLimit(1)
+                if let top = display.top {
+                    VStack(spacing: 0) {
+                        Text(top)
+                            .font(.caption2.smallCaps())
+                            .fontWeight(captionWeight(emphasized: isTodayEmphasized))
+                            .foregroundStyle(foregroundColor(selected: isSelected))
+                            .lineLimit(1)
+                        Text(display.bottom)
+                            .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                            .textCase(.uppercase)
+                            .foregroundStyle(foregroundColor(selected: isSelected))
+                            .lineLimit(1)
+                    }
+                } else {
+                    Text(display.bottom)
+                        .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                        .textCase(.uppercase)
+                        .foregroundStyle(foregroundColor(selected: isSelected))
+                        .lineLimit(1)
+                }
             case .day, .multiday:
                 VStack(spacing: 0) {
                     if let top = display.top {
@@ -170,6 +171,32 @@ struct SpreadTitleNavigatorItemView: View {
                             .lineLimit(1)
                     }
                 }
+            }
+        }
+    }
+
+    private var personalizedLabel: some View {
+        VStack(spacing: 0) {
+            if let top = display.top {
+                Text(top)
+                    .font(.caption2.smallCaps())
+                    .fontWeight(captionWeight(emphasized: isTodayEmphasized))
+                    .foregroundStyle(footerColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+            }
+            Text(display.bottom)
+                .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                .foregroundStyle(foregroundColor(selected: isSelected))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+            if let footer = display.footer {
+                Text(footer)
+                    .font(.caption2.smallCaps())
+                    .fontWeight(footerWeight(emphasized: isTodayEmphasized))
+                    .foregroundStyle(footerColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
             }
         }
     }

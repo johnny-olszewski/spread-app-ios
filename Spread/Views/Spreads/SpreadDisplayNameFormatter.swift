@@ -42,7 +42,7 @@ struct SpreadDisplayNameFormatter {
                 canonicalTitle: canonicalTitle,
                 canonicalSubtitle: canonicalSubtitle,
                 canonicalContext: canonicalContext,
-                isPersonalized: customName != canonicalTitle
+                isPersonalized: true
             )
         }
 
