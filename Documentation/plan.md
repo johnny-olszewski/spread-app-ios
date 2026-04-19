@@ -8,7 +8,7 @@
 - Backup entitlement is removed from v1; authenticated users can sync without a purchase gate. [SPRD-104]
 - Sign in with Apple and Google are removed from v1 scope; auth is email/password only, with sign-up and forgot-password flows retained. [SPRD-104, SPRD-108]
 - Runtime environment switching is removed from v1. Debug keeps a non-persistent `localhost` mode for engineering only; QA remains dev-backed and Release remains prod-backed. [SPRD-105, SPRD-107]
-- `WKFLW-17` is a workflow branch for one bundled schema/sync pass across spread personalization and richer task metadata. The approved scope is explicit spread favorites, explicit spread custom/dynamic naming, task body, task priority, task due date, and task-only nil preferred assignment. Links, tags, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads, status expansion, and note nil-assignment parity are deferred. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171]
+- `WKFLW-17` is a workflow branch for one bundled schema/sync pass across spread personalization and richer task metadata. The approved scope is explicit spread favorites, explicit spread custom/dynamic naming, task body, task priority, task due date, and task-only nil preferred assignment. Links, tags, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads, status expansion, and note nil-assignment parity are deferred and tracked in `Documentation/backlog.md`. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171]
 
 ## Story Overview (v1)
 - Foundation and scaffolding (completed)
