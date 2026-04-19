@@ -201,7 +201,7 @@ struct StandardMigrationPlanner: MigrationPlanner {
         spreads: [DataModel.Spread],
         to destination: DataModel.Spread
     ) -> MigrationCandidate? {
-        guard task.status == .open else {
+        guard task.status == .open, task.hasPreferredAssignment else {
             return nil
         }
 
@@ -287,7 +287,8 @@ struct StandardMigrationPlanner: MigrationPlanner {
         spreads: [DataModel.Spread],
         sourceRank: Int
     ) -> DataModel.Spread? {
-        spreads
+        guard task.hasPreferredAssignment else { return nil }
+        return spreads
             .filter { spread in
                 spread.period.canHaveTasksAssigned &&
                 destinationMatchesDesiredPath(spread, forDesiredDate: task.date) &&

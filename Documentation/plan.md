@@ -116,7 +116,7 @@
   - N/A beyond doc review.
 - **Dependencies**: None
 
-### [SPRD-168] Schema: land one additive schema/sync pass for the approved `WKFLW-17` bundle - [ ] Pending
+### [SPRD-168] Schema: land one additive schema/sync pass for the approved `WKFLW-17` bundle - [x] Complete
 - **Context**: The current persisted model is minimal. Any approved spread/task enhancements must update SwiftData, Supabase tables, merge RPCs, serializers, repair/rebuild paths, and the committed local schema snapshot together.
 - **Description**: Implement one coordinated schema migration for the approved persisted fields from `SPRD-167`, keeping the pass additive and bounded.
 - **Implementation Details**:

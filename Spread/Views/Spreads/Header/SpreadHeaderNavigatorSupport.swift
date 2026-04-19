@@ -308,7 +308,9 @@ struct SpreadHeaderNavigatorModel {
         var years: [Int] = []
 
         years.append(contentsOf: spreads.flatMap { Array(yearsTouched(by: $0)) })
-        years.append(contentsOf: tasks.map { calendar.component(.year, from: $0.date) })
+        years.append(contentsOf: tasks.compactMap {
+            $0.hasPreferredAssignment ? calendar.component(.year, from: $0.date) : nil
+        })
         years.append(contentsOf: notes.map { calendar.component(.year, from: $0.date) })
         years.append(contentsOf: events.flatMap { event in
             [event.startDate, event.endDate].map { calendar.component(.year, from: $0) }

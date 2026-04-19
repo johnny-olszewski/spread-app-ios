@@ -86,12 +86,18 @@ struct MergeSpreadParams: Encodable, Sendable {
     let pDate: String
     let pStartDate: String?
     let pEndDate: String?
+    let pIsFavorite: Bool
+    let pCustomName: String?
+    let pUsesDynamicName: Bool
     let pCreatedAt: String
     let pDeletedAt: String?
     let pPeriodUpdatedAt: String
     let pDateUpdatedAt: String
     let pStartDateUpdatedAt: String
     let pEndDateUpdatedAt: String
+    let pIsFavoriteUpdatedAt: String
+    let pCustomNameUpdatedAt: String
+    let pUsesDynamicNameUpdatedAt: String
 
     enum CodingKeys: String, CodingKey {
         case pId = "p_id"
@@ -101,12 +107,18 @@ struct MergeSpreadParams: Encodable, Sendable {
         case pDate = "p_date"
         case pStartDate = "p_start_date"
         case pEndDate = "p_end_date"
+        case pIsFavorite = "p_is_favorite"
+        case pCustomName = "p_custom_name"
+        case pUsesDynamicName = "p_uses_dynamic_name"
         case pCreatedAt = "p_created_at"
         case pDeletedAt = "p_deleted_at"
         case pPeriodUpdatedAt = "p_period_updated_at"
         case pDateUpdatedAt = "p_date_updated_at"
         case pStartDateUpdatedAt = "p_start_date_updated_at"
         case pEndDateUpdatedAt = "p_end_date_updated_at"
+        case pIsFavoriteUpdatedAt = "p_is_favorite_updated_at"
+        case pCustomNameUpdatedAt = "p_custom_name_updated_at"
+        case pUsesDynamicNameUpdatedAt = "p_uses_dynamic_name_updated_at"
     }
 
     func encode(to encoder: Encoder) throws {
@@ -118,12 +130,18 @@ struct MergeSpreadParams: Encodable, Sendable {
         try container.encode(pDate, forKey: .pDate)
         try container.encode(pStartDate, forKey: .pStartDate)
         try container.encode(pEndDate, forKey: .pEndDate)
+        try container.encode(pIsFavorite, forKey: .pIsFavorite)
+        try container.encode(pCustomName, forKey: .pCustomName)
+        try container.encode(pUsesDynamicName, forKey: .pUsesDynamicName)
         try container.encode(pCreatedAt, forKey: .pCreatedAt)
         try container.encode(pDeletedAt, forKey: .pDeletedAt)
         try container.encode(pPeriodUpdatedAt, forKey: .pPeriodUpdatedAt)
         try container.encode(pDateUpdatedAt, forKey: .pDateUpdatedAt)
         try container.encode(pStartDateUpdatedAt, forKey: .pStartDateUpdatedAt)
         try container.encode(pEndDateUpdatedAt, forKey: .pEndDateUpdatedAt)
+        try container.encode(pIsFavoriteUpdatedAt, forKey: .pIsFavoriteUpdatedAt)
+        try container.encode(pCustomNameUpdatedAt, forKey: .pCustomNameUpdatedAt)
+        try container.encode(pUsesDynamicNameUpdatedAt, forKey: .pUsesDynamicNameUpdatedAt)
     }
 }
 
@@ -133,8 +151,11 @@ struct MergeTaskParams: Encodable, Sendable {
     let pUserId: String
     let pDeviceId: String
     let pTitle: String
-    let pDate: String
-    let pPeriod: String
+    let pBody: String?
+    let pPriority: String
+    let pDueDate: String?
+    let pDate: String?
+    let pPeriod: String?
     let pStatus: String
     let pCreatedAt: String
     let pDeletedAt: String?
@@ -142,12 +163,18 @@ struct MergeTaskParams: Encodable, Sendable {
     let pDateUpdatedAt: String
     let pPeriodUpdatedAt: String
     let pStatusUpdatedAt: String
+    let pBodyUpdatedAt: String
+    let pPriorityUpdatedAt: String
+    let pDueDateUpdatedAt: String
 
     enum CodingKeys: String, CodingKey {
         case pId = "p_id"
         case pUserId = "p_user_id"
         case pDeviceId = "p_device_id"
         case pTitle = "p_title"
+        case pBody = "p_body"
+        case pPriority = "p_priority"
+        case pDueDate = "p_due_date"
         case pDate = "p_date"
         case pPeriod = "p_period"
         case pStatus = "p_status"
@@ -157,6 +184,9 @@ struct MergeTaskParams: Encodable, Sendable {
         case pDateUpdatedAt = "p_date_updated_at"
         case pPeriodUpdatedAt = "p_period_updated_at"
         case pStatusUpdatedAt = "p_status_updated_at"
+        case pBodyUpdatedAt = "p_body_updated_at"
+        case pPriorityUpdatedAt = "p_priority_updated_at"
+        case pDueDateUpdatedAt = "p_due_date_updated_at"
     }
 
     func encode(to encoder: Encoder) throws {
@@ -165,6 +195,9 @@ struct MergeTaskParams: Encodable, Sendable {
         try container.encode(pUserId, forKey: .pUserId)
         try container.encode(pDeviceId, forKey: .pDeviceId)
         try container.encode(pTitle, forKey: .pTitle)
+        try container.encode(pBody, forKey: .pBody)
+        try container.encode(pPriority, forKey: .pPriority)
+        try container.encode(pDueDate, forKey: .pDueDate)
         try container.encode(pDate, forKey: .pDate)
         try container.encode(pPeriod, forKey: .pPeriod)
         try container.encode(pStatus, forKey: .pStatus)
@@ -174,6 +207,9 @@ struct MergeTaskParams: Encodable, Sendable {
         try container.encode(pDateUpdatedAt, forKey: .pDateUpdatedAt)
         try container.encode(pPeriodUpdatedAt, forKey: .pPeriodUpdatedAt)
         try container.encode(pStatusUpdatedAt, forKey: .pStatusUpdatedAt)
+        try container.encode(pBodyUpdatedAt, forKey: .pBodyUpdatedAt)
+        try container.encode(pPriorityUpdatedAt, forKey: .pPriorityUpdatedAt)
+        try container.encode(pDueDateUpdatedAt, forKey: .pDueDateUpdatedAt)
     }
 }
 
@@ -383,6 +419,9 @@ struct ServerSpreadRow: Decodable, Sendable {
     let date: String
     let startDate: String?
     let endDate: String?
+    let isFavorite: Bool
+    let customName: String?
+    let usesDynamicName: Bool
     let createdAt: String
     let deletedAt: String?
     let revision: Int64
@@ -391,8 +430,52 @@ struct ServerSpreadRow: Decodable, Sendable {
         case id, period, date, revision
         case startDate = "start_date"
         case endDate = "end_date"
+        case isFavorite = "is_favorite"
+        case customName = "custom_name"
+        case usesDynamicName = "uses_dynamic_name"
         case createdAt = "created_at"
         case deletedAt = "deleted_at"
+    }
+
+    init(
+        id: UUID,
+        period: String,
+        date: String,
+        startDate: String?,
+        endDate: String?,
+        isFavorite: Bool = false,
+        customName: String? = nil,
+        usesDynamicName: Bool = true,
+        createdAt: String,
+        deletedAt: String?,
+        revision: Int64
+    ) {
+        self.id = id
+        self.period = period
+        self.date = date
+        self.startDate = startDate
+        self.endDate = endDate
+        self.isFavorite = isFavorite
+        self.customName = customName
+        self.usesDynamicName = usesDynamicName
+        self.createdAt = createdAt
+        self.deletedAt = deletedAt
+        self.revision = revision
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        period = try container.decode(String.self, forKey: .period)
+        date = try container.decode(String.self, forKey: .date)
+        startDate = try container.decodeIfPresent(String.self, forKey: .startDate)
+        endDate = try container.decodeIfPresent(String.self, forKey: .endDate)
+        isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        customName = try container.decodeIfPresent(String.self, forKey: .customName)
+        usesDynamicName = try container.decodeIfPresent(Bool.self, forKey: .usesDynamicName) ?? false
+        createdAt = try container.decode(String.self, forKey: .createdAt)
+        deletedAt = try container.decodeIfPresent(String.self, forKey: .deletedAt)
+        revision = try container.decode(Int64.self, forKey: .revision)
     }
 }
 
@@ -400,17 +483,62 @@ struct ServerSpreadRow: Decodable, Sendable {
 struct ServerTaskRow: Decodable, Sendable {
     let id: UUID
     let title: String
-    let date: String
-    let period: String
+    let body: String?
+    let priority: String
+    let dueDate: String?
+    let date: String?
+    let period: String?
     let status: String
     let createdAt: String
     let deletedAt: String?
     let revision: Int64
 
     enum CodingKeys: String, CodingKey {
-        case id, title, date, period, status, revision
+        case id, title, body, priority, date, period, status, revision
+        case dueDate = "due_date"
         case createdAt = "created_at"
         case deletedAt = "deleted_at"
+    }
+
+    init(
+        id: UUID,
+        title: String,
+        body: String? = nil,
+        priority: String = "none",
+        dueDate: String? = nil,
+        date: String?,
+        period: String?,
+        status: String,
+        createdAt: String,
+        deletedAt: String?,
+        revision: Int64
+    ) {
+        self.id = id
+        self.title = title
+        self.body = body
+        self.priority = priority
+        self.dueDate = dueDate
+        self.date = date
+        self.period = period
+        self.status = status
+        self.createdAt = createdAt
+        self.deletedAt = deletedAt
+        self.revision = revision
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        body = try container.decodeIfPresent(String.self, forKey: .body)
+        priority = try container.decodeIfPresent(String.self, forKey: .priority) ?? "none"
+        dueDate = try container.decodeIfPresent(String.self, forKey: .dueDate)
+        date = try container.decodeIfPresent(String.self, forKey: .date)
+        period = try container.decodeIfPresent(String.self, forKey: .period)
+        status = try container.decode(String.self, forKey: .status)
+        createdAt = try container.decode(String.self, forKey: .createdAt)
+        deletedAt = try container.decodeIfPresent(String.self, forKey: .deletedAt)
+        revision = try container.decode(Int64.self, forKey: .revision)
     }
 }
 
@@ -540,12 +668,18 @@ enum SyncSerializer {
             "date": SyncDateFormatting.formatDate(spread.date),
             "start_date": spread.startDate.map { SyncDateFormatting.formatDate($0) },
             "end_date": spread.endDate.map { SyncDateFormatting.formatDate($0) },
+            "is_favorite": spread.isFavorite,
+            "custom_name": spread.customName,
+            "uses_dynamic_name": spread.usesDynamicName,
             "created_at": SyncDateFormatting.formatTimestamp(spread.createdDate),
             "deleted_at": (deletedAt ?? spread.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
             "period_updated_at": SyncDateFormatting.formatTimestamp(spread.periodUpdatedAt ?? timestamp),
             "date_updated_at": SyncDateFormatting.formatTimestamp(spread.dateUpdatedAt ?? timestamp),
             "start_date_updated_at": SyncDateFormatting.formatTimestamp(spread.startDateUpdatedAt ?? timestamp),
-            "end_date_updated_at": SyncDateFormatting.formatTimestamp(spread.endDateUpdatedAt ?? timestamp)
+            "end_date_updated_at": SyncDateFormatting.formatTimestamp(spread.endDateUpdatedAt ?? timestamp),
+            "is_favorite_updated_at": SyncDateFormatting.formatTimestamp(spread.isFavoriteUpdatedAt ?? timestamp),
+            "custom_name_updated_at": SyncDateFormatting.formatTimestamp(spread.customNameUpdatedAt ?? timestamp),
+            "uses_dynamic_name_updated_at": SyncDateFormatting.formatTimestamp(spread.usesDynamicNameUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(
             withJSONObject: record.compactMapValues { $0 ?? NSNull() }
@@ -563,15 +697,21 @@ enum SyncSerializer {
             "id": task.id.uuidString,
             "device_id": deviceId.uuidString,
             "title": task.title,
-            "date": SyncDateFormatting.formatDate(task.date),
-            "period": task.period.rawValue,
+            "body": task.body,
+            "priority": task.priority.rawValue,
+            "due_date": task.dueDate.map { SyncDateFormatting.formatDate($0) },
+            "date": task.hasPreferredAssignment ? SyncDateFormatting.formatDate(task.date) : nil,
+            "period": task.hasPreferredAssignment ? task.period.rawValue : nil,
             "status": task.status.rawValue,
             "created_at": SyncDateFormatting.formatTimestamp(task.createdDate),
             "deleted_at": (deletedAt ?? task.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
             "title_updated_at": SyncDateFormatting.formatTimestamp(task.titleUpdatedAt ?? timestamp),
             "date_updated_at": SyncDateFormatting.formatTimestamp(task.dateUpdatedAt ?? timestamp),
             "period_updated_at": SyncDateFormatting.formatTimestamp(task.periodUpdatedAt ?? timestamp),
-            "status_updated_at": SyncDateFormatting.formatTimestamp(task.statusUpdatedAt ?? timestamp)
+            "status_updated_at": SyncDateFormatting.formatTimestamp(task.statusUpdatedAt ?? timestamp),
+            "body_updated_at": SyncDateFormatting.formatTimestamp(task.bodyUpdatedAt ?? timestamp),
+            "priority_updated_at": SyncDateFormatting.formatTimestamp(task.priorityUpdatedAt ?? timestamp),
+            "due_date_updated_at": SyncDateFormatting.formatTimestamp(task.dueDateUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(
             withJSONObject: record.compactMapValues { $0 ?? NSNull() }
@@ -721,11 +861,16 @@ enum SyncSerializer {
                   let deviceId = json["device_id"] as? String,
                   let period = json["period"] as? String,
                   let date = json["date"] as? String,
+                  let isFavorite = json["is_favorite"] as? Bool,
+                  let usesDynamicName = json["uses_dynamic_name"] as? Bool,
                   let createdAt = json["created_at"] as? String,
                   let periodUpdatedAt = json["period_updated_at"] as? String,
                   let dateUpdatedAt = json["date_updated_at"] as? String,
                   let startDateUpdatedAt = json["start_date_updated_at"] as? String,
-                  let endDateUpdatedAt = json["end_date_updated_at"] as? String else {
+                  let endDateUpdatedAt = json["end_date_updated_at"] as? String,
+                  let isFavoriteUpdatedAt = json["is_favorite_updated_at"] as? String,
+                  let customNameUpdatedAt = json["custom_name_updated_at"] as? String,
+                  let usesDynamicNameUpdatedAt = json["uses_dynamic_name_updated_at"] as? String else {
                 return nil
             }
             let params = MergeSpreadParams(
@@ -733,12 +878,18 @@ enum SyncSerializer {
                 pPeriod: period, pDate: date,
                 pStartDate: json["start_date"] as? String,
                 pEndDate: json["end_date"] as? String,
+                pIsFavorite: isFavorite,
+                pCustomName: json["custom_name"] as? String,
+                pUsesDynamicName: usesDynamicName,
                 pCreatedAt: createdAt,
                 pDeletedAt: json["deleted_at"] as? String,
                 pPeriodUpdatedAt: periodUpdatedAt,
                 pDateUpdatedAt: dateUpdatedAt,
                 pStartDateUpdatedAt: startDateUpdatedAt,
-                pEndDateUpdatedAt: endDateUpdatedAt
+                pEndDateUpdatedAt: endDateUpdatedAt,
+                pIsFavoriteUpdatedAt: isFavoriteUpdatedAt,
+                pCustomNameUpdatedAt: customNameUpdatedAt,
+                pUsesDynamicNameUpdatedAt: usesDynamicNameUpdatedAt
             )
             return (entityType.mergeRPCName, params)
 
@@ -746,25 +897,36 @@ enum SyncSerializer {
             guard let id = json["id"] as? String,
                   let deviceId = json["device_id"] as? String,
                   let title = json["title"] as? String,
-                  let date = json["date"] as? String,
-                  let period = json["period"] as? String,
+                  let priority = json["priority"] as? String,
                   let status = json["status"] as? String,
                   let createdAt = json["created_at"] as? String,
                   let titleUpdatedAt = json["title_updated_at"] as? String,
                   let dateUpdatedAt = json["date_updated_at"] as? String,
                   let periodUpdatedAt = json["period_updated_at"] as? String,
-                  let statusUpdatedAt = json["status_updated_at"] as? String else {
+                  let statusUpdatedAt = json["status_updated_at"] as? String,
+                  let bodyUpdatedAt = json["body_updated_at"] as? String,
+                  let priorityUpdatedAt = json["priority_updated_at"] as? String,
+                  let dueDateUpdatedAt = json["due_date_updated_at"] as? String else {
                 return nil
             }
             let params = MergeTaskParams(
                 pId: id, pUserId: uid, pDeviceId: deviceId,
-                pTitle: title, pDate: date, pPeriod: period, pStatus: status,
+                pTitle: title,
+                pBody: json["body"] as? String,
+                pPriority: priority,
+                pDueDate: json["due_date"] as? String,
+                pDate: json["date"] as? String,
+                pPeriod: json["period"] as? String,
+                pStatus: status,
                 pCreatedAt: createdAt,
                 pDeletedAt: json["deleted_at"] as? String,
                 pTitleUpdatedAt: titleUpdatedAt,
                 pDateUpdatedAt: dateUpdatedAt,
                 pPeriodUpdatedAt: periodUpdatedAt,
-                pStatusUpdatedAt: statusUpdatedAt
+                pStatusUpdatedAt: statusUpdatedAt,
+                pBodyUpdatedAt: bodyUpdatedAt,
+                pPriorityUpdatedAt: priorityUpdatedAt,
+                pDueDateUpdatedAt: dueDateUpdatedAt
             )
             return (entityType.mergeRPCName, params)
 
@@ -870,6 +1032,9 @@ enum SyncSerializer {
         if let date = SyncDateFormatting.parseDate(row.date) { spread.date = date }
         spread.startDate = row.startDate.flatMap { SyncDateFormatting.parseDate($0) }
         spread.endDate = row.endDate.flatMap { SyncDateFormatting.parseDate($0) }
+        spread.isFavorite = row.isFavorite
+        spread.customName = row.customName
+        spread.usesDynamicName = row.usesDynamicName
         return true
     }
 
@@ -889,13 +1054,19 @@ enum SyncSerializer {
             }
             return DataModel.Spread(
                 id: row.id, startDate: startDate, endDate: endDate,
-                calendar: calendar, createdDate: createdAt
+                calendar: calendar, createdDate: createdAt,
+                isFavorite: row.isFavorite,
+                customName: row.customName,
+                usesDynamicName: row.usesDynamicName
             )
         }
 
         return DataModel.Spread(
             id: row.id, period: period, date: date,
-            calendar: calendar, createdDate: createdAt
+            calendar: calendar, createdDate: createdAt,
+            isFavorite: row.isFavorite,
+            customName: row.customName,
+            usesDynamicName: row.usesDynamicName
         )
     }
 
@@ -903,8 +1074,16 @@ enum SyncSerializer {
     static func applyTaskRow(_ row: ServerTaskRow, to task: DataModel.Task) -> Bool {
         guard row.deletedAt == nil else { return false }
         task.title = row.title
-        if let date = SyncDateFormatting.parseDate(row.date) { task.date = date }
-        if let period = Period(rawValue: row.period) { task.period = period }
+        task.body = row.body
+        if let priority = DataModel.Task.Priority(rawValue: row.priority) { task.priority = priority }
+        task.dueDate = row.dueDate.flatMap { SyncDateFormatting.parseDate($0) }
+        if let rowDate = row.date, let date = SyncDateFormatting.parseDate(rowDate) {
+            task.date = date
+        }
+        if let rowPeriod = row.period, let period = Period(rawValue: rowPeriod) {
+            task.period = period
+        }
+        task.hasPreferredAssignment = row.date != nil && row.period != nil
         if let status = DataModel.Task.Status(rawValue: row.status) { task.status = status }
         return true
     }
@@ -912,15 +1091,28 @@ enum SyncSerializer {
     /// Creates a new local task from a server row.
     static func createTask(from row: ServerTaskRow) -> DataModel.Task? {
         guard row.deletedAt == nil,
-              let date = SyncDateFormatting.parseDate(row.date),
-              let period = Period(rawValue: row.period),
               let status = DataModel.Task.Status(rawValue: row.status),
+              let priority = DataModel.Task.Priority(rawValue: row.priority),
               let createdAt = SyncDateFormatting.parseTimestamp(row.createdAt) else {
             return nil
         }
+        guard row.date == nil || row.date.flatMap({ SyncDateFormatting.parseDate($0) }) != nil,
+              row.period == nil || row.period.flatMap({ Period(rawValue: $0) }) != nil else {
+            return nil
+        }
+        let parsedDate = row.date.flatMap { SyncDateFormatting.parseDate($0) } ?? createdAt
+        let parsedPeriod = row.period.flatMap { Period(rawValue: $0) } ?? .day
         return DataModel.Task(
-            id: row.id, title: row.title, createdDate: createdAt,
-            date: date, period: period, status: status
+            id: row.id,
+            title: row.title,
+            body: row.body,
+            priority: priority,
+            dueDate: row.dueDate.flatMap { SyncDateFormatting.parseDate($0) },
+            createdDate: createdAt,
+            date: parsedDate,
+            period: parsedPeriod,
+            hasPreferredAssignment: row.date != nil && row.period != nil,
+            status: status
         )
     }
 

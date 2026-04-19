@@ -127,11 +127,15 @@ struct SyncSerializerTests {
             pId: UUID().uuidString, pUserId: UUID().uuidString,
             pDeviceId: UUID().uuidString, pPeriod: "day", pDate: "2025-03-15",
             pStartDate: nil, pEndDate: nil,
+            pIsFavorite: false, pCustomName: nil, pUsesDynamicName: true,
             pCreatedAt: "2025-03-15T10:00:00.000Z", pDeletedAt: nil,
             pPeriodUpdatedAt: "2025-03-15T10:00:00.000Z",
             pDateUpdatedAt: "2025-03-15T10:00:00.000Z",
             pStartDateUpdatedAt: "2025-03-15T10:00:00.000Z",
-            pEndDateUpdatedAt: "2025-03-15T10:00:00.000Z"
+            pEndDateUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pIsFavoriteUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pCustomNameUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pUsesDynamicNameUpdatedAt: "2025-03-15T10:00:00.000Z"
         )
 
         let data = try JSONEncoder().encode(params)
@@ -153,13 +157,18 @@ struct SyncSerializerTests {
     @Test func testMergeTaskParamsEncodesNilDeletedAtAsNull() throws {
         let params = MergeTaskParams(
             pId: UUID().uuidString, pUserId: UUID().uuidString,
-            pDeviceId: UUID().uuidString, pTitle: "Test", pDate: "2025-03-15",
+            pDeviceId: UUID().uuidString, pTitle: "Test",
+            pBody: nil, pPriority: "none", pDueDate: nil,
+            pDate: "2025-03-15",
             pPeriod: "day", pStatus: "open",
             pCreatedAt: "2025-03-15T10:00:00.000Z", pDeletedAt: nil,
             pTitleUpdatedAt: "2025-03-15T10:00:00.000Z",
             pDateUpdatedAt: "2025-03-15T10:00:00.000Z",
             pPeriodUpdatedAt: "2025-03-15T10:00:00.000Z",
-            pStatusUpdatedAt: "2025-03-15T10:00:00.000Z"
+            pStatusUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pBodyUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pPriorityUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pDueDateUpdatedAt: "2025-03-15T10:00:00.000Z"
         )
 
         let data = try JSONEncoder().encode(params)
@@ -176,7 +185,8 @@ struct SyncSerializerTests {
     @Test func testCreateTaskFromValidRow() {
         let id = UUID()
         let row = ServerTaskRow(
-            id: id, title: "Test task", date: "2025-03-15",
+            id: id, title: "Test task", body: "Details", priority: "medium",
+            dueDate: "2025-03-20", date: "2025-03-15",
             period: "day", status: "open",
             createdAt: "2025-03-15T10:00:00.000Z", deletedAt: nil, revision: 1
         )
@@ -186,8 +196,27 @@ struct SyncSerializerTests {
         #expect(task != nil)
         #expect(task?.id == id)
         #expect(task?.title == "Test task")
+        #expect(task?.body == "Details")
+        #expect(task?.priority == .medium)
+        #expect(task?.dueDate != nil)
+        #expect(task?.hasPreferredAssignment == true)
         #expect(task?.period == .day)
         #expect(task?.status == .open)
+    }
+
+    /// Conditions: Server task row has nil preferred date and period.
+    /// Expected: Created task should preserve nil-assignment state while keeping local fallback values.
+    @Test func testCreateTaskFromNilPreferredAssignmentRow() {
+        let row = ServerTaskRow(
+            id: UUID(), title: "Inbox task", date: nil, period: nil, status: "open",
+            createdAt: "2025-03-15T10:00:00.000Z", deletedAt: nil, revision: 1
+        )
+
+        let task = SyncSerializer.createTask(from: row)
+
+        #expect(task != nil)
+        #expect(task?.hasPreferredAssignment == false)
+        #expect(task?.period == .day)
     }
 
     /// Conditions: Server task row with deletedAt set.
@@ -364,7 +393,8 @@ struct SyncSerializerTests {
             date: .now, period: .day, status: .open
         )
         let row = ServerTaskRow(
-            id: task.id, title: "New title", date: "2025-06-01",
+            id: task.id, title: "New title", body: "New body", priority: "high",
+            dueDate: "2025-06-10", date: "2025-06-01",
             period: "month", status: "complete",
             createdAt: "2025-01-01T00:00:00.000Z", deletedAt: nil, revision: 5
         )
@@ -373,6 +403,10 @@ struct SyncSerializerTests {
 
         #expect(applied)
         #expect(task.title == "New title")
+        #expect(task.body == "New body")
+        #expect(task.priority == .high)
+        #expect(task.dueDate != nil)
+        #expect(task.hasPreferredAssignment)
         #expect(task.period == .month)
         #expect(task.status == .complete)
     }
@@ -425,10 +459,16 @@ struct SyncSerializerTests {
             "date": "2025-03-15",
             "created_at": ts,
             "deleted_at": NSNull(),
+            "is_favorite": false,
+            "custom_name": NSNull(),
+            "uses_dynamic_name": true,
             "period_updated_at": ts,
             "date_updated_at": ts,
             "start_date_updated_at": ts,
-            "end_date_updated_at": ts
+            "end_date_updated_at": ts,
+            "is_favorite_updated_at": ts,
+            "custom_name_updated_at": ts,
+            "uses_dynamic_name_updated_at": ts
         ]
         return try! JSONSerialization.data(withJSONObject: record)
     }
@@ -439,6 +479,9 @@ struct SyncSerializerTests {
             "id": UUID().uuidString,
             "device_id": UUID().uuidString,
             "title": "Test",
+            "body": NSNull(),
+            "priority": "none",
+            "due_date": NSNull(),
             "date": "2025-03-15",
             "period": "day",
             "status": "open",
@@ -447,7 +490,10 @@ struct SyncSerializerTests {
             "title_updated_at": ts,
             "date_updated_at": ts,
             "period_updated_at": ts,
-            "status_updated_at": ts
+            "status_updated_at": ts,
+            "body_updated_at": ts,
+            "priority_updated_at": ts,
+            "due_date_updated_at": ts
         ]
         return try! JSONSerialization.data(withJSONObject: record)
     }
