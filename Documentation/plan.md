@@ -197,6 +197,32 @@
   - Persistence/sync tests for favorite, custom name, and dynamic naming fields.
 - **Dependencies**: SPRD-168
 
+### [SPRD-172] UI: refine SpreadTitleNavigatorView label matrix for personalized naming - [ ] Pending
+- **Context**: `SPRD-169` already implemented explicit-spread favorites and naming. After implementation, the title navigator label requirements were refined so personalized names and canonical fallback labels have an explicit per-period layout matrix.
+- **Description**: Update `SpreadTitleNavigatorView` label rendering so canonical and personalized labels follow the finalized matrix for year, month, day, and multiday spreads.
+- **Implementation Details**:
+  - Treat custom overrides and qualifying dynamic names as the same personalized label source.
+  - Canonical labels:
+    - year: keep the existing stacked year layout
+    - month: show four-digit `YYYY` above uppercase `MMM`
+    - day: keep the existing `MMM` / day number / `EEE` layout
+    - multiday: keep the existing month or month-range / day-range / weekday-range layout
+  - Personalized labels:
+    - year: show `YYYY` above the personalized name with no footer
+    - month: show `MMM` above the personalized name above `YYYY`
+    - day: show `MMM d` above the personalized name above `EEE`
+    - multiday: show compact date range above the personalized name above weekday range
+  - Keep the `SPRD-169` naming source rules intact: custom override wins, dynamic naming is a fallback, and canonical labels are used when neither personalized source applies.
+- **Acceptance Criteria**:
+  - `SpreadTitleNavigatorView` renders the canonical month label as `YYYY` over `MMM`.
+  - Personalized labels use the same layout whether the source is a custom override or a qualifying dynamic name.
+  - Personalized year/month/day/multiday labels render with the finalized header/name/footer matrix.
+  - Existing canonical year/day/multiday behavior remains unchanged.
+- **Tests**:
+  - Unit tests for the `SpreadTitleNavigatorView` label matrix across canonical and personalized year/month/day/multiday spreads.
+  - Regression tests proving dynamic and custom personalized sources render identically for equivalent labels.
+- **Dependencies**: SPRD-169
+
 ### [SPRD-170] Feature: add richer task metadata with body, priority, optional Inbox assignment, and due dates - [x] Complete
 - **Context**: These task changes are still contained enough for a single branch, but they materially affect creation/edit flows, Inbox semantics, and overdue logic.
 - **Description**: Add task body, priority, optional nil preferred assignment, and due dates that are distinct from assignment targets.
@@ -258,6 +284,7 @@
   - Add regression scenarios for:
     - favorite toggle and year-scoped favorites menu behavior
     - explicit-spread custom/dynamic naming on year/month/day/multiday spreads
+    - SpreadTitleNavigatorView canonical and personalized label matrix
     - dynamic naming live derivation across previous/current/next periods
     - task body, priority, due date, and task-only nil assignment
     - sync conflict cases for independent new metadata fields
@@ -270,7 +297,7 @@
   - Targeted rebuild/reset validation.
   - Sync replay and conflict validation for each approved field.
   - Regression suite additions for approved `WKFLW-17` behaviors.
-- **Dependencies**: SPRD-169, SPRD-170
+- **Dependencies**: SPRD-169, SPRD-170, SPRD-172
 
 ## Story: Journal logic extraction and hardening
 
