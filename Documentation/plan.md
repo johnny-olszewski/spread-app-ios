@@ -8,6 +8,7 @@
 - Backup entitlement is removed from v1; authenticated users can sync without a purchase gate. [SPRD-104]
 - Sign in with Apple and Google are removed from v1 scope; auth is email/password only, with sign-up and forgot-password flows retained. [SPRD-104, SPRD-108]
 - Runtime environment switching is removed from v1. Debug keeps a non-persistent `localhost` mode for engineering only; QA remains dev-backed and Release remains prod-backed. [SPRD-105, SPRD-107]
+- `WKFLW-17` is a workflow branch for one bundled schema/sync pass across spread personalization and richer task metadata. The approved scope is explicit spread favorites, explicit spread custom/dynamic naming, task body, task priority, task due date, and task-only nil preferred assignment. Links, tags, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads, status expansion, and note nil-assignment parity are deferred. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171]
 
 ## Story Overview (v1)
 - Foundation and scaffolding (completed)
@@ -15,6 +16,7 @@
 - Supabase offline-first sync + auth migration (priority)
 - Simplification pass: auth, environments, debug tooling, and test cleanup
 - Journal core: creation, assignment, inbox, migration
+- Personalized spreads and richer task metadata (`WKFLW-17`)
 - Conventional MVP UI: create spreads and tasks
 - Debug and dev tools
 - Task lifecycle UI: edit and migration surfaces
@@ -67,6 +69,208 @@
 - Assignment engine and Inbox auto-resolve logic are implemented.
 - Migration logic and cancelled-task behavior are implemented.
 - Unit tests for creation, assignment, and migration pass.
+
+## Story: Personalized spreads and richer task metadata (`WKFLW-17`)
+
+### User Story
+- As a user, I want spread personalization and richer task planning data so the journal reflects how I actually organize ranges, deadlines, and Inbox-first work.
+
+### Definition of Done
+- The branch records the finalized keep/defer decision for every candidate in the `WKFLW-17` enhancement bundle.
+- Approved persisted fields land through one coordinated schema/sync migration pass across SwiftData and Supabase.
+- Spread personalization covers conventional explicit-spread favorites plus custom/dynamic naming for persisted explicit spreads across all period types.
+- Approved task metadata changes preserve offline-first sync, existing assignment/migration/overdue behavior, and the new task-only nil-assignment Inbox flow.
+- Durability tests cover local rebuild/sync paths for every approved persisted field.
+
+### [SPRD-167] Discovery: finalize keep/defer scope for the bundled spread/task enhancement pass - [x] Complete
+- **Context**: `WKFLW-17` was opened to avoid piecemeal schema churn, but the requested feature bundle mixes contained metadata work with graph-heavy features that would turn this branch into a much larger schema program.
+- **Description**: Audit the requested features, explicitly decide what this branch will implement vs defer, and reconcile `Documentation/spec.md` contradictions before schema work begins.
+- **Implementation Details**:
+  - Final approved keep set:
+    - explicit spread favorites in conventional mode
+    - custom name override for persisted explicit spreads across all period types
+    - dynamic naming boolean for persisted explicit spreads across all period types
+    - task body as one optional plain multiline text field
+    - task priority as non-null `none` / `low` / `medium` / `high`
+    - task-only true nil preferred assignment
+    - task due date as optional informational day-level metadata
+  - Final deferred set:
+    - links
+    - tags and tag filters
+    - assigned time
+    - subtasks
+    - sequential/blocking dependencies
+    - hidden-on-spreads
+    - status-model expansion beyond the existing task status model
+    - nil-assignment parity for notes
+  - Resolved spec contradictions:
+    - tags remain deferred even though task body participates in existing task search
+    - task preferred assignment is nullable for tasks only
+    - due date is informational and does not affect assignment, Inbox, migration, or overdue behavior
+    - note assignment behavior remains unchanged
+- **Acceptance Criteria**:
+  - Every requested item is explicitly marked keep or defer on `WKFLW-17`.
+  - `Documentation/spec.md` reflects the approved branch scope and no longer leaves the assignment/due-date/tagging/note-parity decisions ambiguous.
+  - Schema work does not begin until the branch scope is narrowed to the approved persisted bundle.
+- **Tests**:
+  - N/A beyond doc review.
+- **Dependencies**: None
+
+### [SPRD-168] Schema: land one additive schema/sync pass for the approved `WKFLW-17` bundle - [ ] Pending
+- **Context**: The current persisted model is minimal. Any approved spread/task enhancements must update SwiftData, Supabase tables, merge RPCs, serializers, repair/rebuild paths, and the committed local schema snapshot together.
+- **Description**: Implement one coordinated schema migration for the approved persisted fields from `SPRD-167`, keeping the pass additive and bounded.
+- **Implementation Details**:
+  - Add persisted spread fields for explicit spreads:
+    - `isFavorite`, default false
+    - optional `customName` / name override
+    - `usesDynamicName`, default on for newly created spreads and off for existing migrated spreads
+  - Add persisted task fields:
+    - optional plain text `body`
+    - non-null `priority` enum with `none`, `low`, `medium`, `high`, default `none`
+    - optional day-level `dueDate`
+    - nullable preferred assignment fields for tasks only
+  - Keep note preferred assignment non-null and defer note parity.
+  - Add per-field sync/conflict timestamps for every independently mergeable new metadata field.
+  - Do not move preferred assignment into the new independent metadata conflict system; keep assignment/status under existing sync behavior.
+  - Treat clearing optional fields to nil as first-class edits that update their per-field timestamps.
+  - Initialize new field timestamps during migration/backfill from each record's existing sync/update timestamp, not migration time.
+  - Update Supabase migrations, merge RPCs, RLS-safe table definitions, serializers, deserializers, repair/backfill paths, and `supabase/local/public_schema_from_dev.sql`.
+  - Keep delete semantics stable: delete wins over concurrent `WKFLW-17` metadata edits and does not resurrect records.
+  - Avoid introducing child-table graphs or persisted virtual-spread personalization.
+- **Acceptance Criteria**:
+  - All approved persisted fields from `SPRD-167` exist end-to-end in SwiftData and Supabase.
+  - All approved persisted fields sync across devices through existing offline-first sync flows.
+  - Independent new metadata fields merge independently; same-field conflicts use field-level last-write-wins.
+  - New task metadata is preserved against title edits, while assignment/status changes keep existing behavior.
+  - Local rebuild/reset flows succeed with the new schema.
+  - No deferred `WKFLW-17` candidates are partially persisted.
+- **Tests**:
+  - Unit/integration coverage for serializer round-trips and merge/apply behavior for each approved field.
+  - Conflict tests for independent-field merge, same-field last-write-wins, clears to nil, title-vs-metadata edits, assignment/status preservation, and delete-wins behavior.
+  - Local Supabase rebuild/reset verification.
+- **Dependencies**: SPRD-167
+
+### [SPRD-169] Feature: add explicit-spread personalization with favorites and naming - [ ] Pending
+- **Context**: Spread personalization is the lowest-risk user-facing portion of the bundle and can validate the bundled schema pass before task semantics become more complex.
+- **Description**: Add conventional explicit-spread favorites plus custom/dynamic naming for persisted explicit spreads across all period types.
+- **Implementation Details**:
+  - Favorite behavior:
+    - favorites apply only to conventional explicit spreads
+    - favorite/unfavorite from a star/favorite toggle in the spread header or nearby spread-level toolbar area
+    - toolbar favorites button appears in conventional mode and is hidden in traditional mode
+    - toolbar favorites menu lists only favorites from the currently selected year because `SpreadTitleNavigatorView` is year-scoped
+    - if the current year has no favorites, keep the button visible and show an explanatory empty menu
+    - favorite menu order uses the app's normal chronological spread ordering
+    - selecting a favorite navigates `SpreadTitleNavigatorView` to that spread
+    - favorites are tied to the spread record lifecycle; deleting and recreating the same period/date starts fresh
+  - Naming behavior:
+    - custom name override and dynamic naming apply to persisted explicit spreads across all period types
+    - custom override always wins over dynamic naming
+    - dynamic naming is a separate boolean fallback used only when no override exists
+    - dynamic naming defaults on for newly created explicit spreads and off for existing migrated spreads
+    - spread creation includes optional naming controls prefilled with dynamic naming on and no override
+    - existing spreads expose an `Edit Name` action in the spread header or nearby toolbar area
+    - `Edit Name` and favorites are hidden in traditional mode because virtual destinations are not persisted personalization targets
+    - dynamic naming remains independently editable while an override exists
+    - clearing an override falls back to dynamic naming only if dynamic naming is on; otherwise it falls back to the canonical date title
+    - custom overrides trim leading/trailing whitespace and store nil when empty; duplicate names are allowed
+  - Display behavior:
+    - personalized display name is the primary label, including in `SpreadTitleNavigatorView`
+    - canonical date title appears as secondary context where space allows
+    - favorites menu labels use the current live display name at render time
+  - Dynamic naming behavior:
+    - live derived at render time using each device's local calendar/timezone
+    - use existing app calendar, first-weekday, and multiday preset rules
+    - day/month/year dynamic names cover previous/current/next only
+    - multiday dynamic names are limited to standard week/weekend-style ranges in the previous/current/next window
+    - relative labels do not introduce a week period or week assignment granularity
+- **Acceptance Criteria**:
+  - Users can favorite/unfavorite conventional explicit spreads from the spread surface.
+  - The toolbar favorites menu is year-scoped, chronological, stable in empty years, hidden in traditional mode, and navigates the title navigator to the chosen spread.
+  - Explicit spreads can be named at creation and renamed/toggled later.
+  - Custom override, dynamic naming, canonical fallback, trimming, duplicates, and live label updates follow the spec.
+  - Personalized labels are primary in navigation surfaces; date context is secondary where available.
+- **Tests**:
+  - Unit tests for relative-label generation across previous/current/next day/month/year and week/weekend multiday cases.
+  - Unit tests for naming fallback priority, trimming/nil behavior, duplicate-name allowance, and device-local live derivation.
+  - UI/unit tests for favorite toggle, year-scoped menu contents, empty menu state, traditional-mode hiding, and title navigator navigation.
+  - Persistence/sync tests for favorite, custom name, and dynamic naming fields.
+- **Dependencies**: SPRD-168
+
+### [SPRD-170] Feature: add richer task metadata with body, priority, optional Inbox assignment, and due dates - [ ] Pending
+- **Context**: These task changes are still contained enough for a single branch, but they materially affect creation/edit flows, Inbox semantics, and overdue logic.
+- **Description**: Add task body, priority, optional nil preferred assignment, and due dates that are distinct from assignment targets.
+- **Implementation Details**:
+  - Task-level metadata:
+    - `body` is one optional plain multiline text field, distinct from standalone `Note` entries
+    - trim `body` on save and store nil when empty or whitespace-only
+    - `priority` is a non-null enum with `none`, `low`, `medium`, `high`, defaulting to `none`
+    - priority is display-only and does not change ordering
+    - `dueDate` is optional day-only informational metadata
+    - due date is fully independent from preferred assignment, can be any calendar day including the past, and has no validation relationship to assignment
+  - Task row presentation:
+    - show priority as text badges for `low`, `medium`, and `high`; omit `none`
+    - show due date inline when present
+    - show due-date today/past highlight only for open tasks and keep it visually distinct from assignment-overdue styling
+    - show due date neutrally on completed/cancelled rows
+    - show both assignment-overdue and due-date-highlight signals when both apply
+    - show one-line body preview when body is present
+  - Task create/edit UI:
+    - priority and due date are visible in the main form
+    - body is in an expandable/details area
+    - body, priority, and due date remain editable when a task is complete or cancelled even if assignment controls are disabled
+    - assignment is controlled by an explicit optional `Assign to spread` section
+    - creating from an explicit year/month/day spread defaults assignment on and prefilled to the selected spread
+    - creating from an explicit multiday spread defaults assignment on and prefilled to the multiday range start day at day granularity
+    - creating from a non-spread context defaults assignment off; turning assignment on prepopulates today at day granularity
+    - editing a true nil-assignment task and turning assignment on also prepopulates today at day granularity
+    - editing an Inbox task shows assignment on when it has a preferred assignment but no matching spread, and off only for true nil-assignment tasks
+  - Nil-assignment behavior:
+    - true nil preferred assignment is task-only; note parity is deferred
+    - true nil-assignment tasks are Inbox-first in both conventional and traditional modes
+    - true nil-assignment tasks stay in Inbox until explicitly assigned, are unaffected by spread creation, and are never overdue until assigned
+    - assigned tasks keep the existing most-granular-valid spread resolution and Inbox fallback logic
+    - Inbox rows explicitly distinguish `Unassigned` from `Assigned: ...` waiting-for-spread using row metadata, without splitting Inbox into separate groups
+    - clearing assignment from a task with a real current open spread assignment moves it to Inbox and converts the current open assignment to migrated history
+    - clearing an unmaterialized preferred assignment from an Inbox waiting-for-spread task simply sets preferred assignment to nil with no migrated-history entry
+  - Search behavior:
+    - global task browser search matches task title and body
+    - body-backed search results use the normal row and body preview, not a search-specific snippet layout
+- **Acceptance Criteria**:
+  - Tasks can be saved with body, priority, optional assignment, and optional due date.
+  - Task body/priority/due-date presentation works on spread rows and global task browser rows.
+  - Inbox-first tasks remain visible and stable until explicitly assigned in both conventional and traditional modes.
+  - Due dates remain informational only and never affect assignment, Inbox placement, migration, or overdue membership.
+  - Existing assignment, migration, and overdue behavior remains unchanged for tasks with preferred assignments.
+  - Note assignment behavior remains unchanged.
+- **Tests**:
+  - Unit tests for create/edit/reconcile flows with true nil assignment, waiting-for-spread assignment, spread-launched defaults, multiday-launched defaults, and non-spread assign-on defaults.
+  - Unit tests for clearing assignment from real current spread assignment vs unmaterialized preferred assignment.
+  - Regression tests for Inbox, migration, overdue, traditional-mode Inbox-only behavior, and affected spread surfaces.
+  - UI/model tests for priority badges, due-date neutral/highlight states, dual overdue/due-date signals, body preview, and body search.
+- **Dependencies**: SPRD-168
+
+### [SPRD-171] Validation: harden rebuild, sync, and regression coverage for the approved bundle - [ ] Pending
+- **Context**: A one-shot schema pass is only valuable if rebuild, repair, and sync paths remain trustworthy after the branch lands.
+- **Description**: Finish the bundle with durability validation covering local rebuilds, sync replay, and regression-prone journal scenarios.
+- **Implementation Details**:
+  - Validate local Supabase reset/rebuild workflows against the new schema.
+  - Add regression scenarios for:
+    - favorite toggle and year-scoped favorites menu behavior
+    - explicit-spread custom/dynamic naming on year/month/day/multiday spreads
+    - dynamic naming live derivation across previous/current/next periods
+    - task body, priority, due date, and task-only nil assignment
+    - sync conflict cases for independent new metadata fields
+  - Verify no deferred `WKFLW-17` candidates leaked partial behavior into the codebase.
+- **Acceptance Criteria**:
+  - Approved fields survive local reset/rebuild, sync pull, sync push, and repair/backfill flows.
+  - Journal surfaces remain correct for favorite/custom-named spreads, Inbox-first tasks, and due-dated tasks.
+  - The branch closes with explicit defers for links, tags, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads, status expansion, and note nil-assignment parity.
+- **Tests**:
+  - Targeted rebuild/reset validation.
+  - Sync replay and conflict validation for each approved field.
+  - Regression suite additions for approved `WKFLW-17` behaviors.
+- **Dependencies**: SPRD-169, SPRD-170
 
 ## Story: Journal logic extraction and hardening
 

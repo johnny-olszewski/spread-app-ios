@@ -3,6 +3,7 @@
 ## Status
 - Specification finalized for v1 implementation (tasks + notes only). [SPRD-1]
 - Events (including calendar integrations) are deferred to v2. [SPRD-69]
+- `WKFLW-17` is the active workflow branch for a bundled spread/task enhancement pass so schema-affecting decisions land together instead of through piecemeal migrations. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171]
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
@@ -28,11 +29,53 @@
 - Require authentication for all product usage in dev/prod environments, while preserving offline access for users with an existing cached session and local data. [SPRD-104, SPRD-106]
 - Preserve a debug-only `localhost` mode for engineering workflows; it uses mock auth, supports mock data loading, is selected per launch, and never persists across launches. [SPRD-105, SPRD-107]
 
+## Workflow Branch Bundle (`WKFLW-17`)
+- `WKFLW-17` owns a bundled implementation pass for persisted spread personalization plus richer task metadata. Approved persisted fields must land together through one schema/sync migration pass across SwiftData, Supabase tables/RPCs, serializers, and local schema snapshots. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171]
+- Approved spread personalization scope:
+  - Explicit persisted spreads can be favorited in conventional mode only. Favorites do not apply to traditional virtual destinations. [SPRD-169]
+  - Favoriting is tied to the specific spread record. Deleting and later recreating the same period/date starts with fresh personalization state. [SPRD-169]
+  - A favorite toggle appears in the current spread header or nearby spread-level toolbar area for conventional explicit spreads. [SPRD-169]
+  - A conventional-mode toolbar button presents a menu of favorited explicit spreads from the currently selected year only; selecting a favorite navigates the spread title navigator to that spread. [SPRD-169]
+  - The favorites toolbar button remains visible in conventional mode even when the current year has no favorites and presents an explanatory empty menu. The button is hidden in traditional mode. [SPRD-169]
+  - Favorites are ordered by the app's normal chronological spread ordering and use each spread's current display name at render time. [SPRD-169]
+- Approved spread naming scope:
+  - Custom name override and dynamic naming apply to persisted explicit spreads across all period types, not to traditional virtual destinations. [SPRD-169]
+  - Custom name override always wins. Dynamic naming is a separate persisted boolean fallback used only when no custom override exists. [SPRD-169]
+  - Dynamic naming defaults on for newly created explicit spreads and off for existing spreads after migration. [SPRD-168, SPRD-169]
+  - New explicit spread creation includes optional naming controls prefilled with dynamic naming on and no custom override. Existing explicit spreads expose a lightweight `Edit Name` action in the spread header or nearby spread-level toolbar area. `Edit Name` is hidden in traditional mode. [SPRD-169]
+  - Dynamic naming remains independently editable while a custom override exists. If a custom override is cleared and dynamic naming is off, the display falls back to the canonical date title. [SPRD-169]
+  - Custom name overrides are trimmed on save; empty or whitespace-only values are stored as nil. Duplicate custom names are allowed. [SPRD-169]
+  - The personalized display name is the primary spread label, including in `SpreadTitleNavigatorView`; canonical date context is shown as secondary context where space allows. [SPRD-169]
+  - Dynamic names are live derived using each device's current local calendar/timezone and the app's existing calendar/first-weekday/multiday preset rules. [SPRD-169]
+  - Day/month/year dynamic names cover previous, current, and next periods such as `Yesterday`, `Today`, `Tomorrow`, `Last month`, `This month`, `Next month`, `Last year`, `This year`, and `Next year`; other ranges use canonical date titles. [SPRD-169]
+  - Multiday dynamic names are limited to standard week/weekend-style ranges in the previous/current/next window, such as `Last week`, `This week`, `Next week`, `Last weekend`, `This weekend`, and `Next weekend`; arbitrary multiday ranges use canonical date titles unless a custom override exists. [SPRD-169]
+- Approved task scope:
+  - Tasks gain task-level plain multiline `body`, non-null display-only `priority`, and optional day-only `dueDate`. These fields are not assignment-level metadata. [SPRD-170]
+  - Priority values are `none`, `low`, `medium`, and `high`, defaulting to `none`; task rows show text badges for `low`, `medium`, and `high` and omit `none`. Priority does not affect ordering. [SPRD-170]
+  - Due date is informational only. It is fully independent from preferred assignment, may be any calendar day including the past, never drives assignment, Inbox placement, migration, or overdue behavior, and does not validate against preferred assignment. [SPRD-170]
+  - Task rows show due date inline when present. Open tasks whose due date is today or in the past show a distinct due-date highlight separate from assignment-overdue styling. Completed and cancelled tasks still show due date neutrally, without due-date urgency highlighting. If an open task is both assignment-overdue and due-date-highlighted, both signals are shown distinctly. [SPRD-170]
+  - Task body is plain multiline text only, trimmed on save, stored as nil when empty, displayed as a single-line row preview when present, and searched alongside task title in the global task browser. Body-backed search results use the normal row plus the body preview rather than a search-specific result layout. [SPRD-170]
+  - Task create/edit UI keeps priority and due date visible in the main form while body lives in an expandable/details area. Body, priority, and due date remain editable when a task is complete or cancelled even if assignment controls are disabled. [SPRD-170]
+  - Tasks can have a real nil preferred assignment. Nil assignment applies to tasks only; note parity is explicitly deferred. [SPRD-170]
+  - A true nil-assignment task is Inbox-first, remains in Inbox until explicitly assigned, never becomes overdue until it has a preferred assignment, and is unaffected by later spread creation. Due date can still highlight independently on open Inbox-first task rows. [SPRD-170]
+  - Assigned tasks keep existing most-granular-valid spread resolution and Inbox fallback behavior. Tasks with a preferred assignment but no matching explicit spread remain in Inbox as `assigned, waiting for spread`. [SPRD-170]
+  - The global Inbox keeps one list structure, but row metadata explicitly distinguishes true `Unassigned` tasks from `Assigned: ...` waiting-for-spread tasks. In traditional mode, true Inbox-first tasks appear only in the global task browser's Inbox until assigned. [SPRD-170]
+  - In task create/edit UI, assignment is controlled by an explicit optional `Assign to spread` section. Creating from an explicit year/month/day spread defaults assignment on and prefilled to that spread. Creating from an explicit multiday spread defaults assignment on and prefilled to the multiday range's start day at day granularity. Creating from a non-spread context defaults assignment off; if the user turns it on, it prepopulates today at day granularity. Editing a true nil-assignment task follows the same assign-on prefill. [SPRD-170]
+  - Editing an Inbox task shows `Assign to spread` on when it has a preferred assignment but no matching spread, and off only for true nil-assignment tasks. [SPRD-170]
+  - Clearing assignment from a task with a real current open spread assignment moves it to Inbox and converts the current open assignment into historical migrated state. Clearing assignment from a task that only had an unmaterialized preferred assignment clears preferred assignment to nil without creating migrated history. [SPRD-170]
+- Explicitly deferred from `WKFLW-17`: links, tags, assigned time, subtasks, sequential/blocking task dependencies, hidden-on-spreads, status-model expansion, and nil-assignment parity for notes. [SPRD-167, SPRD-171]
+- Sync/conflict scope:
+  - All approved persisted fields sync across devices in this branch. [SPRD-168]
+  - New independently mergeable metadata fields use per-field conflict timestamps. Independent new metadata edits merge; same-field conflicts use per-field last-write-wins. Clearing an optional field to nil is a first-class edit and updates that field's timestamp. [SPRD-168]
+  - Preferred assignment remains governed by existing assignment/status sync behavior rather than the new independent metadata conflict system. New task metadata is preserved against title edits, but assignment/status changes keep existing stronger behavior. [SPRD-168]
+  - During migration/backfill, new field timestamps initialize from each record's existing sync/update timestamp rather than migration time or nil. Delete wins over concurrent edits to new metadata and never resurrects a deleted task or spread. [SPRD-168]
+
 ## Non-Goals (v1)
-- Search, filters, or tagging. [SPRD-56]
+- Advanced search and filters remain out of scope for v1. Task body participates in the existing global task browser search, but tags and tag filters are deferred beyond `WKFLW-17`. [SPRD-56, SPRD-167, SPRD-170]
 - Week period in Period enum or week-based task assignment. [SPRD-8, SPRD-56]
 - Automated migration. [SPRD-15, SPRD-56]
 - Advanced collection types beyond plain text pages. [SPRD-39, SPRD-56]
+- Links, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads behavior, status-model expansion, and nil-assignment parity for notes are deferred beyond `WKFLW-17`. [SPRD-167, SPRD-171]
 - Events (manual creation or calendar integrations) are deferred to v2. [SPRD-69]
 - Localization - hardcoded English strings for v1. Revisit post-v1.
 - macOS support - planned for future versions.
@@ -74,6 +117,8 @@
 - A journaling page tied to a time period and normalized date. [SPRD-8]
 - Periods supported for creation: year, month, day, multiday. [SPRD-8, SPRD-12]
 - Week period is NOT supported (removed from Period enum). [SPRD-8, SPRD-56]
+- Persisted explicit spreads support user-scoped personalization metadata as part of `WKFLW-17`: favorite state, optional custom name override, and dynamic naming enabled state. These fields do not apply to traditional virtual destinations. [SPRD-169]
+- Custom name override is the highest-priority display label. When no override exists and dynamic naming is enabled, qualifying explicit spreads use live relative names; otherwise they use canonical date titles. Relative names never create a new period or assignment granularity. [SPRD-169]
 
 ### Spread Periods
 - Creatable periods: year, month, day, multiday. [SPRD-8]
@@ -86,7 +131,10 @@
 - Has status: open, complete, migrated, cancelled. [SPRD-10]
 - `migrated` is system-derived historical assignment state and is not user-editable in the task edit sheet. [SPRD-141]
 - Can be assigned to year, month, or day spreads. [SPRD-13]
-- Has a desired assignment defined by its preferred `date` and preferred `period`; this is the finest spread granularity the task should ultimately live on in conventional mode. [SPRD-24, SPRD-110]
+- A task may have a desired assignment defined by a preferred `date` and preferred `period`; when no preferred assignment exists, the task remains in Inbox until explicitly assigned. [SPRD-24, SPRD-110, SPRD-170]
+- A task's due date is distinct from its assignment target. Due date is informational display metadata only; it does not move the task between spreads, place it in Inbox, affect migration, or determine overdue membership. [SPRD-170]
+- `WKFLW-17` task metadata includes one optional plain multiline body field, one optional day-level due date, and one non-null display-only priority enum (`none`, `low`, `medium`, `high`). These are task-level properties, not assignment-level properties. [SPRD-170]
+- Links, tags, assigned time, subtasks, sequential/blocking relationships, hidden-on-spreads, and status expansion are deferred beyond `WKFLW-17`. [SPRD-167, SPRD-171]
 - Tracks migration history via TaskAssignment array. [SPRD-10]
 - Eligible for batch migration suggestions. [SPRD-15]
 - Symbol: solid circle (●). [SPRD-21]
