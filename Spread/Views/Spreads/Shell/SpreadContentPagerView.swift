@@ -153,6 +153,9 @@ private struct SpreadPageContentView: View {
                     configuration: SpreadHeaderConfiguration(
                         spread: spread,
                         calendar: journalManager.calendar,
+                        today: journalManager.today,
+                        firstWeekday: journalManager.firstWeekday,
+                        allowsPersonalization: true,
                         taskCount: conventionalSpreadDataModel(for: spread)?.tasks.count ?? 0,
                         noteCount: conventionalSpreadDataModel(for: spread)?.notes.count ?? 0
                     ),
@@ -162,6 +165,12 @@ private struct SpreadPageContentView: View {
                     onNavigatorSelect: { selection in
                         guard case .conventional(let selectedSpread) = selection else { return }
                         viewModel.selectedSelection = .conventional(selectedSpread)
+                    },
+                    onFavoriteToggle: {
+                        toggleFavorite(for: spread)
+                    },
+                    onEditName: {
+                        viewModel.showSpreadNameEdit(spread)
                     }
                 )
                 conventionalContentView(for: spread)
@@ -239,6 +248,9 @@ private struct SpreadPageContentView: View {
                     configuration: SpreadHeaderConfiguration(
                         spread: spread,
                         calendar: journalManager.calendar,
+                        today: journalManager.today,
+                        firstWeekday: journalManager.firstWeekday,
+                        allowsPersonalization: false,
                         taskCount: traditionalSpreadDataModel(for: item.selection).tasks.count,
                         noteCount: traditionalSpreadDataModel(for: item.selection).notes.count
                     ),
@@ -396,6 +408,13 @@ private struct SpreadPageContentView: View {
             for item in items {
                 try? await journalManager.migrateTask(item.task, from: item.source, to: destination)
             }
+            await syncEngine?.syncNow()
+        }
+    }
+
+    private func toggleFavorite(for spread: DataModel.Spread) {
+        Task { @MainActor in
+            try? await journalManager.updateSpreadFavorite(spread, isFavorite: !spread.isFavorite)
             await syncEngine?.syncNow()
         }
     }

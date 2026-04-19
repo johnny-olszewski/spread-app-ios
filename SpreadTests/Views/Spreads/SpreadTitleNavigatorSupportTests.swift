@@ -187,7 +187,9 @@ struct SpreadTitleNavigatorSupportTests {
         let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
         let items = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(dayTwentyNine))
 
-        #expect(items.map { $0.label } == ["2026", "Jan", "1", "2-5", "2", "Feb", "Mar", "10", "20-22", "29"])
+        #expect(items.map { $0.label } == [
+            "This year", "Jan", "1", "2-5", "2", "Last month", "This month", "10", "20-22", "Today"
+        ])
         #expect(items.map { $0.style } == [
             SpreadTitleNavigatorItemStyle.year,
             .month,
@@ -254,7 +256,7 @@ struct SpreadTitleNavigatorSupportTests {
 
         #expect(multidayIndex < dayIndex)
         #expect(items[multidayIndex].label == "20-22")
-        #expect(items[dayIndex].label == "20")
+        #expect(items[dayIndex].label == "Today")
     }
 
     /// Setup: overdue items exist on a visible day spread and on an inbox-only task.
@@ -421,7 +423,7 @@ struct SpreadTitleNavigatorSupportTests {
         let items2026 = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(day2026))
         let items2027 = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(day2027))
 
-        #expect(items2026.map { $0.label } == ["29"])
+        #expect(items2026.map { $0.label } == ["Today"])
         #expect(items2027.map { $0.label } == ["1"])
     }
 
@@ -468,7 +470,12 @@ struct SpreadTitleNavigatorSupportTests {
     }
 
     @Test func yearDisplayUsesStackedCenturyAndSuffix() {
-        let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let year = DataModel.Spread(
+            period: .year,
+            date: Self.makeDate(year: 2026, month: 1),
+            calendar: Self.calendar,
+            usesDynamicName: false
+        )
         let headerModel = SpreadHeaderNavigatorModel(
             mode: .conventional,
             calendar: Self.calendar,
@@ -486,7 +493,12 @@ struct SpreadTitleNavigatorSupportTests {
     }
 
     @Test func dayDisplayUsesMonthSmallcapsSourceAndDayNumber() {
-        let day = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 29), calendar: Self.calendar)
+        let day = DataModel.Spread(
+            period: .day,
+            date: Self.makeDate(year: 2026, month: 3, day: 29),
+            calendar: Self.calendar,
+            usesDynamicName: false
+        )
         let headerModel = SpreadHeaderNavigatorModel(
             mode: .conventional,
             calendar: Self.calendar,

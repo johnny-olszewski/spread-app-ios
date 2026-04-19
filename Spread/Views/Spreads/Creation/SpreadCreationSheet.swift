@@ -34,6 +34,8 @@ struct SpreadCreationSheet: View {
     @State private var selectedDate: Date = Date()
     @State private var multidayStartDate: Date = Date()
     @State private var multidayEndDate: Date = Date()
+    @State private var customName: String = ""
+    @State private var usesDynamicName: Bool = true
     @State private var isCreating = false
     @State private var showingError = false
     @State private var errorMessage = ""
@@ -97,6 +99,8 @@ struct SpreadCreationSheet: View {
                     periodSection
                     compactDivider
                     dateSection
+                    compactDivider
+                    nameSection
                     if let message = validationMessage {
                         compactDivider
                         validationSection(message: message)
@@ -247,6 +251,18 @@ struct SpreadCreationSheet: View {
         )
     }
 
+    private var nameSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Name")
+            TextField("Custom name", text: $customName)
+                .textInputAutocapitalization(.words)
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.customNameField)
+
+            Toggle("Use dynamic name when custom name is empty", isOn: $usesDynamicName)
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.dynamicNameToggle)
+        }
+    }
+
     private func validationSection(message: String) -> some View {
         HStack {
             Image(systemName: "exclamationmark.triangle")
@@ -279,6 +295,8 @@ struct SpreadCreationSheet: View {
         selectedDate = prefilledPeriod.normalizeDate(prefilledDate, calendar: journalManager.calendar)
         multidayStartDate = today
         multidayEndDate = journalManager.calendar.date(byAdding: .day, value: 6, to: today) ?? today
+        customName = ""
+        usesDynamicName = true
     }
 
     private func adjustDatesForPeriod(_ period: Period) {
@@ -321,7 +339,9 @@ struct SpreadCreationSheet: View {
                 if selectedPeriod == .multiday {
                     let spread = try await journalManager.addMultidaySpread(
                         startDate: multidayStartDate,
-                        endDate: multidayEndDate
+                        endDate: multidayEndDate,
+                        customName: customName,
+                        usesDynamicName: usesDynamicName
                     )
                     await MainActor.run {
                         onSpreadCreated(spread)
@@ -330,7 +350,9 @@ struct SpreadCreationSheet: View {
                 } else {
                     let spread = try await journalManager.addSpread(
                         period: selectedPeriod,
-                        date: selectedDate
+                        date: selectedDate,
+                        customName: customName,
+                        usesDynamicName: usesDynamicName
                     )
                     await MainActor.run {
                         onSpreadCreated(spread)

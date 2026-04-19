@@ -114,43 +114,61 @@ struct SpreadTitleNavigatorItemView: View {
 
     @ViewBuilder
     private var itemLabel: some View {
-        switch style {
-        case .year:
-            VStack(spacing: -2) {
-                if let top = display.top {
-                    Text(top)
-                        .font(.title3.weight(yearWeight(selected: isSelected, emphasized: isTodayEmphasized)))
-                        .foregroundStyle(foregroundColor(selected: isSelected))
-                }
-                Text(display.bottom)
-                    .font(.title3.weight(yearWeight(selected: isSelected, emphasized: isTodayEmphasized)))
-                    .foregroundStyle(foregroundColor(selected: isSelected))
-            }
-        case .month:
-            Text(display.bottom)
-                .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
-                .textCase(.uppercase)
-                .foregroundStyle(foregroundColor(selected: isSelected))
-                .lineLimit(1)
-        case .day, .multiday:
+        if display.isPersonalized {
             VStack(spacing: 0) {
-                if let top = display.top {
-                    Text(top)
-                        .font(.caption2.smallCaps())
-                        .fontWeight(captionWeight(emphasized: isTodayEmphasized))
-                        .foregroundStyle(foregroundColor(selected: isSelected))
-                        .lineLimit(1)
-                }
                 Text(display.bottom)
-                    .font(.body.weight(dayWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                    .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
                     .foregroundStyle(foregroundColor(selected: isSelected))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.78)
                 if let footer = display.footer {
                     Text(footer)
-                        .font(.caption2.smallCaps())
+                        .font(.caption2)
                         .fontWeight(footerWeight(emphasized: isTodayEmphasized))
                         .foregroundStyle(footerColor)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                }
+            }
+        } else {
+            switch style {
+            case .year:
+                VStack(spacing: -2) {
+                    if let top = display.top {
+                        Text(top)
+                            .font(.title3.weight(yearWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                            .foregroundStyle(foregroundColor(selected: isSelected))
+                    }
+                    Text(display.bottom)
+                        .font(.title3.weight(yearWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                        .foregroundStyle(foregroundColor(selected: isSelected))
+                }
+            case .month:
+                Text(display.bottom)
+                    .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                    .textCase(.uppercase)
+                    .foregroundStyle(foregroundColor(selected: isSelected))
+                    .lineLimit(1)
+            case .day, .multiday:
+                VStack(spacing: 0) {
+                    if let top = display.top {
+                        Text(top)
+                            .font(.caption2.smallCaps())
+                            .fontWeight(captionWeight(emphasized: isTodayEmphasized))
+                            .foregroundStyle(foregroundColor(selected: isSelected))
+                            .lineLimit(1)
+                    }
+                    Text(display.bottom)
+                        .font(.body.weight(dayWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                        .foregroundStyle(foregroundColor(selected: isSelected))
+                        .lineLimit(1)
+                    if let footer = display.footer {
+                        Text(footer)
+                            .font(.caption2.smallCaps())
+                            .fontWeight(footerWeight(emphasized: isTodayEmphasized))
+                            .foregroundStyle(footerColor)
+                            .lineLimit(1)
+                    }
                 }
             }
         }

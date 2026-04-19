@@ -15,6 +15,15 @@ struct SpreadHeaderConfiguration {
     /// The calendar for date formatting.
     let calendar: Calendar
 
+    /// The reference date for live dynamic naming.
+    let today: Date
+
+    /// The user's first day of week preference.
+    let firstWeekday: FirstWeekday
+
+    /// Whether persisted personalization should affect the displayed title.
+    let allowsPersonalization: Bool
+
     /// The number of tasks on this spread.
     let taskCount: Int
 
@@ -37,12 +46,18 @@ struct SpreadHeaderConfiguration {
     init(
         spread: DataModel.Spread,
         calendar: Calendar,
+        today: Date = .now,
+        firstWeekday: FirstWeekday = .systemDefault,
+        allowsPersonalization: Bool = false,
         taskCount: Int = 0,
         eventCount: Int = 0,
         noteCount: Int = 0
     ) {
         self.spread = spread
         self.calendar = calendar
+        self.today = today
+        self.firstWeekday = firstWeekday
+        self.allowsPersonalization = allowsPersonalization
         self.taskCount = taskCount
         self.eventCount = eventCount
         self.noteCount = noteCount
@@ -55,9 +70,18 @@ struct SpreadHeaderConfiguration {
     /// - Parameters:
     ///   - spreadDataModel: The spread data model containing entries.
     ///   - calendar: The calendar for date formatting.
-    init(spreadDataModel: SpreadDataModel, calendar: Calendar) {
+    init(
+        spreadDataModel: SpreadDataModel,
+        calendar: Calendar,
+        today: Date = .now,
+        firstWeekday: FirstWeekday = .systemDefault,
+        allowsPersonalization: Bool = false
+    ) {
         self.spread = spreadDataModel.spread
         self.calendar = calendar
+        self.today = today
+        self.firstWeekday = firstWeekday
+        self.allowsPersonalization = allowsPersonalization
         self.taskCount = spreadDataModel.tasks.count
         self.eventCount = spreadDataModel.events.count
         self.noteCount = spreadDataModel.notes.count
@@ -73,29 +97,11 @@ struct SpreadHeaderConfiguration {
     /// - Day: "January 5, 2026"
     /// - Multiday: "6 Jan - 12 Jan"
     var title: String {
-        switch spread.period {
-        case .year:
-            return formatYearTitle()
-        case .month:
-            return formatMonthTitle()
-        case .day:
-            return formatDayTitle()
-        case .multiday:
-            return formatMultidayTitle()
-        }
+        displayName.primary
     }
 
     var subtitle: String? {
-        switch spread.period {
-        case .year:
-            return nil
-        case .month:
-            return formatMonthSubtitle()
-        case .day:
-            return formatDaySubtitle()
-        case .multiday:
-            return formatMultidaySubtitle()
-        }
+        displayName.secondaryForHeader
     }
 
     // MARK: - Entry Counts
@@ -130,68 +136,14 @@ struct SpreadHeaderConfiguration {
         return parts.joined(separator: ", ")
     }
 
-    // MARK: - Private Formatting Methods
+    // MARK: - Private Formatting
 
-    private func formatYearTitle() -> String {
-        String(calendar.component(.year, from: spread.date))
-    }
-
-    private func formatMonthTitle() -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "MMMM"
-        return formatter.string(from: spread.date)
-    }
-
-    private func formatDayTitle() -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateStyle = .long
-        return formatter.string(from: spread.date)
-    }
-
-    private func formatMultidayTitle() -> String {
-        guard let startDate = spread.startDate, let endDate = spread.endDate else {
-            return "Multiday"
-        }
-
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "d MMM"
-
-        return "\(formatter.string(from: startDate)) - \(formatter.string(from: endDate))"
-    }
-
-    private func formatMonthSubtitle() -> String {
-        String(calendar.component(.year, from: spread.date))
-    }
-
-    private func formatDaySubtitle() -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "EEEE"
-        return formatter.string(from: spread.date)
-    }
-
-    private func formatMultidaySubtitle() -> String {
-        guard let startDate = spread.startDate, let endDate = spread.endDate else {
-            return ""
-        }
-
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "EEEE"
-
-        let startWeekday = formatter.string(from: startDate)
-        let endWeekday = formatter.string(from: endDate)
-        if startWeekday == endWeekday {
-            return startWeekday
-        }
-        return "\(startWeekday) - \(endWeekday)"
+    private var displayName: SpreadDisplayName {
+        SpreadDisplayNameFormatter(
+            calendar: calendar,
+            today: today,
+            firstWeekday: firstWeekday
+        )
+        .display(for: spread, allowsPersonalization: allowsPersonalization)
     }
 }

@@ -150,7 +150,7 @@
   - Local Supabase rebuild/reset verification.
 - **Dependencies**: SPRD-167
 
-### [SPRD-169] Feature: add explicit-spread personalization with favorites and naming - [ ] Pending
+### [SPRD-169] Feature: add explicit-spread personalization with favorites and naming - [x] Complete
 - **Context**: Spread personalization is the lowest-risk user-facing portion of the bundle and can validate the bundled schema pass before task semantics become more complex.
 - **Description**: Add conventional explicit-spread favorites plus custom/dynamic naming for persisted explicit spreads across all period types.
 - **Implementation Details**:

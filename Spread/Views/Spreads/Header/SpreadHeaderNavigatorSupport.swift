@@ -46,6 +46,7 @@ struct SpreadHeaderNavigatorModel {
     let mode: Mode
     let calendar: Calendar
     let today: Date
+    var firstWeekday: FirstWeekday = .systemDefault
     let spreads: [DataModel.Spread]
     let tasks: [DataModel.Task]
     let notes: [DataModel.Note]
@@ -216,7 +217,7 @@ struct SpreadHeaderNavigatorModel {
                     SelectionTarget(
                         id: "multiday-\(spread.id.uuidString.lowercased())-\(normalizedDate.timeIntervalSinceReferenceDate)",
                         selection: .conventional(spread),
-                        title: spread.displayLabel(calendar: calendar),
+                        title: displayName(for: spread),
                         isMultiday: true
                     )
                 }
@@ -302,6 +303,16 @@ struct SpreadHeaderNavigatorModel {
         let endDate = Period.day.normalizeDate(spread.endDate ?? spread.date, calendar: calendar)
         let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
         return normalizedDate >= startDate && normalizedDate <= endDate
+    }
+
+    private func displayName(for spread: DataModel.Spread) -> String {
+        SpreadDisplayNameFormatter(
+            calendar: calendar,
+            today: today,
+            firstWeekday: firstWeekday
+        )
+        .display(for: spread, allowsPersonalization: mode == .conventional)
+        .primary
     }
 
     private func earliestTraditionalYear() -> Int? {

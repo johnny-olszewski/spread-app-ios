@@ -19,6 +19,7 @@ final class SpreadsViewModel {
     /// All possible sheet presentations in the spreads view.
     enum SheetDestination: Identifiable {
         case spreadCreation(SpreadCreationPrefill?)
+        case spreadNameEdit(DataModel.Spread)
         case taskCreation
         case noteCreation
         case taskDetail(DataModel.Task)
@@ -32,6 +33,8 @@ final class SpreadsViewModel {
                     return "spreadCreation-\(prefill.period.rawValue)-\(prefill.date.timeIntervalSince1970)"
                 }
                 return "spreadCreation"
+            case .spreadNameEdit(let spread):
+                return "spreadNameEdit-\(spread.id)"
             case .taskCreation:
                 return "taskCreation"
             case .noteCreation:
@@ -62,6 +65,11 @@ final class SpreadsViewModel {
     /// Presents the spread creation sheet.
     func showSpreadCreation(prefill: SpreadCreationPrefill? = nil) {
         activeSheet = .spreadCreation(prefill)
+    }
+
+    /// Presents the spread naming editor.
+    func showSpreadNameEdit(_ spread: DataModel.Spread) {
+        activeSheet = .spreadNameEdit(spread)
     }
 
     /// Presents the task creation sheet.
