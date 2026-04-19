@@ -74,7 +74,7 @@
   - In task create/edit UI, assignment is controlled by an explicit optional `Assign to spread` section. Creating from an explicit year/month/day spread defaults assignment on and prefilled to that spread. Creating from an explicit multiday spread defaults assignment on and prefilled to the multiday range's start day at day granularity. Creating from a non-spread context defaults assignment off; if the user turns it on, it prepopulates today at day granularity. Editing a true nil-assignment task follows the same assign-on prefill. [SPRD-170]
   - Editing an Inbox task shows `Assign to spread` on when it has a preferred assignment but no matching spread, and off only for true nil-assignment tasks. [SPRD-170]
   - Clearing assignment from a task with a real current open spread assignment moves it to Inbox and converts the current open assignment into historical migrated state. Clearing assignment from a task that only had an unmaterialized preferred assignment clears preferred assignment to nil without creating migrated history. [SPRD-170]
-- Explicitly deferred from `WKFLW-17`: links, tags, assigned time, subtasks, sequential/blocking task dependencies, hidden-on-spreads, status-model expansion, and nil-assignment parity for notes. [SPRD-167, SPRD-171]
+- Explicitly deferred from `WKFLW-17`: links, tags, assigned time, subtasks, sequential/blocking task dependencies, hidden-on-spreads, status-model expansion, and nil-assignment parity for notes. These candidates are tracked for future prioritization in `Documentation/backlog.md`. [SPRD-167, SPRD-171]
 - Sync/conflict scope:
   - All approved persisted fields sync across devices in this branch. [SPRD-168]
   - New independently mergeable metadata fields use per-field conflict timestamps. Independent new metadata edits merge; same-field conflicts use per-field last-write-wins. Clearing an optional field to nil is a first-class edit and updates that field's timestamp. [SPRD-168]
@@ -86,7 +86,7 @@
 - Week period in Period enum or week-based task assignment. [SPRD-8, SPRD-56]
 - Automated migration. [SPRD-15, SPRD-56]
 - Advanced collection types beyond plain text pages. [SPRD-39, SPRD-56]
-- Links, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads behavior, status-model expansion, and nil-assignment parity for notes are deferred beyond `WKFLW-17`. [SPRD-167, SPRD-171]
+- Links, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads behavior, status-model expansion, and nil-assignment parity for notes are deferred beyond `WKFLW-17` and tracked in `Documentation/backlog.md`. [SPRD-167, SPRD-171]
 - Events (manual creation or calendar integrations) are deferred to v2. [SPRD-69]
 - Localization - hardcoded English strings for v1. Revisit post-v1.
 - macOS support - planned for future versions.
