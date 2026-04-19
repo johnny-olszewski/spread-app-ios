@@ -276,7 +276,7 @@
   - UI/model tests for priority badges, due-date neutral/highlight states, dual overdue/due-date signals, body preview, and body search.
 - **Dependencies**: SPRD-168
 
-### [SPRD-171] Validation: harden rebuild, sync, and regression coverage for the approved bundle - [ ] Pending
+### [SPRD-171] Validation: harden rebuild, sync, and regression coverage for the approved bundle - [x] Complete
 - **Context**: A one-shot schema pass is only valuable if rebuild, repair, and sync paths remain trustworthy after the branch lands.
 - **Description**: Finish the bundle with durability validation covering local rebuilds, sync replay, and regression-prone journal scenarios.
 - **Implementation Details**:

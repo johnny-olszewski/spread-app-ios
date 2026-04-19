@@ -179,11 +179,10 @@ struct SpreadsView: View {
     // MARK: - Favorites
 
     private var favoriteItemsForCurrentYear: [SpreadTitleNavigatorModel.Item] {
-        guard journalManager.bujoMode == .conventional else { return [] }
-        return items.filter { item in
-            guard case .conventional(let spread) = item.selection else { return false }
-            return spread.isFavorite
-        }
+        SpreadFavoritesMenuSupport.favoriteItemsForCurrentYear(
+            mode: journalManager.bujoMode,
+            items: items
+        )
     }
 
     private var favoriteNameFormatter: SpreadDisplayNameFormatter {
@@ -382,6 +381,19 @@ struct SpreadsView: View {
             await Task.yield()
             viewModel.showTaskDetail(task)
             navigationState.pendingRequest = nil
+        }
+    }
+}
+
+enum SpreadFavoritesMenuSupport {
+    static func favoriteItemsForCurrentYear(
+        mode: BujoMode,
+        items: [SpreadTitleNavigatorModel.Item]
+    ) -> [SpreadTitleNavigatorModel.Item] {
+        guard mode == .conventional else { return [] }
+        return items.filter { item in
+            guard case .conventional(let spread) = item.selection else { return false }
+            return spread.isFavorite
         }
     }
 }
