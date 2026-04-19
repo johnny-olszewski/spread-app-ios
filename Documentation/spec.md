@@ -30,7 +30,7 @@
 - Preserve a debug-only `localhost` mode for engineering workflows; it uses mock auth, supports mock data loading, is selected per launch, and never persists across launches. [SPRD-105, SPRD-107]
 
 ## Workflow Branch Bundle (`WKFLW-17`)
-- `WKFLW-17` owns a bundled implementation pass for persisted spread personalization plus richer task metadata. Approved persisted fields must land together through one schema/sync migration pass across SwiftData, Supabase tables/RPCs, serializers, and local schema snapshots. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171]
+- `WKFLW-17` owns a bundled implementation pass for persisted spread personalization plus richer task metadata. Approved persisted fields must land together through one schema/sync migration pass across SwiftData, Supabase tables/RPCs, serializers, and local schema snapshots. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-172]
 - Approved spread personalization scope:
   - Explicit persisted spreads can be favorited in conventional mode only. Favorites do not apply to traditional virtual destinations. [SPRD-169]
   - Favoriting is tied to the specific spread record. Deleting and later recreating the same period/date starts with fresh personalization state. [SPRD-169]
@@ -45,7 +45,18 @@
   - New explicit spread creation includes optional naming controls prefilled with dynamic naming on and no custom override. Existing explicit spreads expose a lightweight `Edit Name` action in the spread header or nearby spread-level toolbar area. `Edit Name` is hidden in traditional mode. [SPRD-169]
   - Dynamic naming remains independently editable while a custom override exists. If a custom override is cleared and dynamic naming is off, the display falls back to the canonical date title. [SPRD-169]
   - Custom name overrides are trimmed on save; empty or whitespace-only values are stored as nil. Duplicate custom names are allowed. [SPRD-169]
-  - The personalized display name is the primary spread label, including in `SpreadTitleNavigatorView`; canonical date context is shown as secondary context where space allows. [SPRD-169]
+  - The personalized display name is the primary spread label, including in `SpreadTitleNavigatorView`; canonical date context is shown as secondary context where space allows. [SPRD-169, SPRD-172]
+  - `SpreadTitleNavigatorView` label matrix: [SPRD-172]
+    - A personalized label means either a custom name override or a qualifying dynamic name.
+    - Personalized labels use the same layout rules whether their source is a custom override or dynamic naming.
+    - Canonical year labels keep the existing stacked year layout.
+    - Canonical month labels use a two-line layout: four-digit `YYYY` header over uppercase `MMM`.
+    - Canonical day labels keep the existing `MMM` / day number / `EEE` layout.
+    - Canonical multiday labels keep the existing month or month-range / day-range / weekday-range layout.
+    - Personalized year labels use `YYYY` as the top/header line and the personalized name as the middle line, with no footer.
+    - Personalized month labels use `MMM` as the top/header line, the personalized name as the middle line, and `YYYY` as the bottom/footer line.
+    - Personalized day labels use `MMM d` as the top/header line, the personalized name as the middle line, and `EEE` as the bottom/footer line.
+    - Personalized multiday labels use compact date range as the top/header line, the personalized name as the middle line, and weekday range as the bottom/footer line.
   - Dynamic names are live derived using each device's current local calendar/timezone and the app's existing calendar/first-weekday/multiday preset rules. [SPRD-169]
   - Day/month/year dynamic names cover previous, current, and next periods such as `Yesterday`, `Today`, `Tomorrow`, `Last month`, `This month`, `Next month`, `Last year`, `This year`, and `Next year`; other ranges use canonical date titles. [SPRD-169]
   - Multiday dynamic names are limited to standard week/weekend-style ranges in the previous/current/next window, such as `Last week`, `This week`, `Next week`, `Last weekend`, `This weekend`, and `Next weekend`; arbitrary multiday ranges use canonical date titles unless a custom override exists. [SPRD-169]
