@@ -43,6 +43,12 @@ struct SyncMetadataTests {
         #expect(fetched.dateUpdatedAt == nil)
         #expect(fetched.startDateUpdatedAt == nil)
         #expect(fetched.endDateUpdatedAt == nil)
+        #expect(!fetched.isFavorite)
+        #expect(fetched.customName == nil)
+        #expect(fetched.usesDynamicName)
+        #expect(fetched.isFavoriteUpdatedAt == nil)
+        #expect(fetched.customNameUpdatedAt == nil)
+        #expect(fetched.usesDynamicNameUpdatedAt == nil)
     }
 
     /// Conditions: Create a spread with explicit sync metadata values.
@@ -57,13 +63,19 @@ struct SyncMetadataTests {
             period: .month,
             date: referenceDate,
             calendar: testCalendar,
+            isFavorite: true,
+            customName: "Planning",
+            usesDynamicName: false,
             deletedAt: now,
             deviceId: deviceId,
             revision: 42,
             periodUpdatedAt: now,
             dateUpdatedAt: now,
             startDateUpdatedAt: now,
-            endDateUpdatedAt: now
+            endDateUpdatedAt: now,
+            isFavoriteUpdatedAt: now,
+            customNameUpdatedAt: now,
+            usesDynamicNameUpdatedAt: now
         )
         context.insert(spread)
         try context.save()
@@ -76,6 +88,12 @@ struct SyncMetadataTests {
         #expect(fetched.dateUpdatedAt != nil)
         #expect(fetched.startDateUpdatedAt != nil)
         #expect(fetched.endDateUpdatedAt != nil)
+        #expect(fetched.isFavorite)
+        #expect(fetched.customName == "Planning")
+        #expect(!fetched.usesDynamicName)
+        #expect(fetched.isFavoriteUpdatedAt != nil)
+        #expect(fetched.customNameUpdatedAt != nil)
+        #expect(fetched.usesDynamicNameUpdatedAt != nil)
     }
 
     // MARK: - Task Sync Metadata
@@ -100,6 +118,13 @@ struct SyncMetadataTests {
         #expect(fetched.dateUpdatedAt == nil)
         #expect(fetched.periodUpdatedAt == nil)
         #expect(fetched.statusUpdatedAt == nil)
+        #expect(fetched.body == nil)
+        #expect(fetched.priority == .none)
+        #expect(fetched.dueDate == nil)
+        #expect(fetched.hasPreferredAssignment)
+        #expect(fetched.bodyUpdatedAt == nil)
+        #expect(fetched.priorityUpdatedAt == nil)
+        #expect(fetched.dueDateUpdatedAt == nil)
     }
 
     /// Conditions: Create a task with explicit sync metadata values.
@@ -112,13 +137,20 @@ struct SyncMetadataTests {
 
         let task = DataModel.Task(
             title: "Test task",
+            body: "Details",
+            priority: .high,
+            dueDate: now,
+            hasPreferredAssignment: false,
             deletedAt: now,
             deviceId: deviceId,
             revision: 7,
             titleUpdatedAt: now,
             dateUpdatedAt: now,
             periodUpdatedAt: now,
-            statusUpdatedAt: now
+            statusUpdatedAt: now,
+            bodyUpdatedAt: now,
+            priorityUpdatedAt: now,
+            dueDateUpdatedAt: now
         )
         context.insert(task)
         try context.save()
@@ -131,6 +163,13 @@ struct SyncMetadataTests {
         #expect(fetched.dateUpdatedAt != nil)
         #expect(fetched.periodUpdatedAt != nil)
         #expect(fetched.statusUpdatedAt != nil)
+        #expect(fetched.body == "Details")
+        #expect(fetched.priority == .high)
+        #expect(fetched.dueDate != nil)
+        #expect(!fetched.hasPreferredAssignment)
+        #expect(fetched.bodyUpdatedAt != nil)
+        #expect(fetched.priorityUpdatedAt != nil)
+        #expect(fetched.dueDateUpdatedAt != nil)
     }
 
     // MARK: - Event Sync Metadata
@@ -386,7 +425,10 @@ struct SyncMetadataTests {
             periodUpdatedAt: modelTimestamp,
             dateUpdatedAt: modelTimestamp,
             startDateUpdatedAt: modelTimestamp,
-            endDateUpdatedAt: modelTimestamp
+            endDateUpdatedAt: modelTimestamp,
+            isFavoriteUpdatedAt: modelTimestamp,
+            customNameUpdatedAt: modelTimestamp,
+            usesDynamicNameUpdatedAt: modelTimestamp
         )
 
         let data = SyncSerializer.serializeSpread(spread, deviceId: deviceId, timestamp: fallbackTimestamp)
@@ -397,6 +439,9 @@ struct SyncMetadataTests {
         #expect(json["date_updated_at"] as? String == expectedTs)
         #expect(json["start_date_updated_at"] as? String == expectedTs)
         #expect(json["end_date_updated_at"] as? String == expectedTs)
+        #expect(json["is_favorite_updated_at"] as? String == expectedTs)
+        #expect(json["custom_name_updated_at"] as? String == expectedTs)
+        #expect(json["uses_dynamic_name_updated_at"] as? String == expectedTs)
     }
 
     /// Conditions: Serialize a spread that has no per-field LWW timestamps (all nil).
@@ -418,6 +463,9 @@ struct SyncMetadataTests {
         #expect(json["date_updated_at"] as? String == expectedTs)
         #expect(json["start_date_updated_at"] as? String == expectedTs)
         #expect(json["end_date_updated_at"] as? String == expectedTs)
+        #expect(json["is_favorite_updated_at"] as? String == expectedTs)
+        #expect(json["custom_name_updated_at"] as? String == expectedTs)
+        #expect(json["uses_dynamic_name_updated_at"] as? String == expectedTs)
     }
 
     /// Conditions: Serialize a task that has per-field LWW timestamps set.
@@ -431,7 +479,10 @@ struct SyncMetadataTests {
             titleUpdatedAt: modelTimestamp,
             dateUpdatedAt: modelTimestamp,
             periodUpdatedAt: modelTimestamp,
-            statusUpdatedAt: modelTimestamp
+            statusUpdatedAt: modelTimestamp,
+            bodyUpdatedAt: modelTimestamp,
+            priorityUpdatedAt: modelTimestamp,
+            dueDateUpdatedAt: modelTimestamp
         )
 
         let data = SyncSerializer.serializeTask(task, deviceId: deviceId, timestamp: fallbackTimestamp)
@@ -442,6 +493,9 @@ struct SyncMetadataTests {
         #expect(json["date_updated_at"] as? String == expectedTs)
         #expect(json["period_updated_at"] as? String == expectedTs)
         #expect(json["status_updated_at"] as? String == expectedTs)
+        #expect(json["body_updated_at"] as? String == expectedTs)
+        #expect(json["priority_updated_at"] as? String == expectedTs)
+        #expect(json["due_date_updated_at"] as? String == expectedTs)
     }
 
     /// Conditions: Serialize a task that has no per-field LWW timestamps (all nil).
@@ -459,6 +513,24 @@ struct SyncMetadataTests {
         #expect(json["date_updated_at"] as? String == expectedTs)
         #expect(json["period_updated_at"] as? String == expectedTs)
         #expect(json["status_updated_at"] as? String == expectedTs)
+        #expect(json["body_updated_at"] as? String == expectedTs)
+        #expect(json["priority_updated_at"] as? String == expectedTs)
+        #expect(json["due_date_updated_at"] as? String == expectedTs)
+    }
+
+    /// Conditions: Serialize a task whose preferred assignment has been cleared.
+    /// Expected: Date and period should be encoded as null while their timestamps remain present.
+    @Test func testSerializerEncodesClearedTaskPreferredAssignmentAsNull() throws {
+        let timestamp = SyncDateFormatting.parseTimestamp("2025-12-31T23:59:59.000Z")!
+        let task = DataModel.Task(title: "Unassigned", hasPreferredAssignment: false)
+
+        let data = SyncSerializer.serializeTask(task, deviceId: deviceId, timestamp: timestamp)
+        let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
+
+        #expect(json["date"] is NSNull)
+        #expect(json["period"] is NSNull)
+        #expect(json["date_updated_at"] as? String == SyncDateFormatting.formatTimestamp(timestamp))
+        #expect(json["period_updated_at"] as? String == SyncDateFormatting.formatTimestamp(timestamp))
     }
 
     /// Conditions: Serialize a note that has per-field LWW timestamps set.

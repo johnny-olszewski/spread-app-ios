@@ -83,7 +83,8 @@ struct TraditionalSpreadService {
         period: Period,
         normalizedDate: Date
     ) -> Bool {
-        entryBelongsOnSpread(
+        guard task.hasPreferredAssignment else { return false }
+        return entryBelongsOnSpread(
             preferredDate: task.date,
             preferredPeriod: task.period,
             spreadPeriod: period,
@@ -181,7 +182,7 @@ struct TraditionalSpreadService {
     ) -> [Date] {
         var years: Set<Date> = []
 
-        for task in tasks {
+        for task in tasks where task.hasPreferredAssignment {
             let yearDate = Period.year.normalizeDate(task.date, calendar: calendar)
             years.insert(yearDate)
         }
@@ -217,7 +218,7 @@ struct TraditionalSpreadService {
 
         let year = calendar.component(.year, from: yearDate)
 
-        for task in tasks {
+        for task in tasks where task.hasPreferredAssignment {
             let taskYear = calendar.component(.year, from: task.date)
             if taskYear == year {
                 let monthDate = Period.month.normalizeDate(task.date, calendar: calendar)
@@ -264,7 +265,7 @@ struct TraditionalSpreadService {
         let month = calendar.component(.month, from: monthDate)
 
         for task in tasks {
-            if task.period == .day {
+            if task.hasPreferredAssignment && task.period == .day {
                 let taskYear = calendar.component(.year, from: task.date)
                 let taskMonth = calendar.component(.month, from: task.date)
                 if taskYear == year && taskMonth == month {

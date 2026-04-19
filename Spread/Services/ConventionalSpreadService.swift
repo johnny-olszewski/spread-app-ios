@@ -25,7 +25,8 @@ struct ConventionalSpreadService {
     ///   - spreads: The available spreads to search.
     /// - Returns: The best matching spread, or `nil` if no spread matches (entry goes to Inbox).
     func findBestSpread(for task: DataModel.Task, in spreads: [DataModel.Spread]) -> DataModel.Spread? {
-        findBestSpread(preferredDate: task.date, preferredPeriod: task.period, in: spreads)
+        guard task.hasPreferredAssignment else { return nil }
+        return findBestSpread(preferredDate: task.date, preferredPeriod: task.period, in: spreads)
     }
 
     /// Finds the best spread for a note based on its preferred date and period.

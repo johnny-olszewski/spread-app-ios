@@ -54,6 +54,15 @@ enum DataModelSchemaV1: VersionedSchema {
         /// Only set when `period` is `.multiday`, otherwise `nil`.
         var endDate: Date?
 
+        /// Whether this explicit spread is marked as a user favorite.
+        var isFavorite: Bool = false
+
+        /// Optional user-provided display name override.
+        var customName: String?
+
+        /// Whether the spread should use live dynamic naming when no custom name exists.
+        var usesDynamicName: Bool = false
+
         /// The date this spread was created.
         var createdDate: Date
 
@@ -80,6 +89,15 @@ enum DataModelSchemaV1: VersionedSchema {
         /// LWW timestamp for the `endDate` field.
         var endDateUpdatedAt: Date?
 
+        /// LWW timestamp for the `isFavorite` field.
+        var isFavoriteUpdatedAt: Date?
+
+        /// LWW timestamp for the `customName` field.
+        var customNameUpdatedAt: Date?
+
+        /// LWW timestamp for the `usesDynamicName` field.
+        var usesDynamicNameUpdatedAt: Date?
+
         /// Creates a spread for a year, month, or day period.
         ///
         /// - Parameters:
@@ -94,19 +112,28 @@ enum DataModelSchemaV1: VersionedSchema {
             date: Date,
             calendar: Calendar,
             createdDate: Date = .now,
+            isFavorite: Bool = false,
+            customName: String? = nil,
+            usesDynamicName: Bool = true,
             deletedAt: Date? = nil,
             deviceId: UUID? = nil,
             revision: Int64 = 0,
             periodUpdatedAt: Date? = nil,
             dateUpdatedAt: Date? = nil,
             startDateUpdatedAt: Date? = nil,
-            endDateUpdatedAt: Date? = nil
+            endDateUpdatedAt: Date? = nil,
+            isFavoriteUpdatedAt: Date? = nil,
+            customNameUpdatedAt: Date? = nil,
+            usesDynamicNameUpdatedAt: Date? = nil
         ) {
             self.id = id
             self.period = period
             self.date = period.normalizeDate(date, calendar: calendar)
             self.startDate = nil
             self.endDate = nil
+            self.isFavorite = isFavorite
+            self.customName = customName
+            self.usesDynamicName = usesDynamicName
             self.createdDate = createdDate
             self.deletedAt = deletedAt
             self.deviceId = deviceId
@@ -115,6 +142,9 @@ enum DataModelSchemaV1: VersionedSchema {
             self.dateUpdatedAt = dateUpdatedAt
             self.startDateUpdatedAt = startDateUpdatedAt
             self.endDateUpdatedAt = endDateUpdatedAt
+            self.isFavoriteUpdatedAt = isFavoriteUpdatedAt
+            self.customNameUpdatedAt = customNameUpdatedAt
+            self.usesDynamicNameUpdatedAt = usesDynamicNameUpdatedAt
         }
 
         /// Creates a multiday spread with a custom date range.
@@ -131,19 +161,28 @@ enum DataModelSchemaV1: VersionedSchema {
             endDate: Date,
             calendar: Calendar,
             createdDate: Date = .now,
+            isFavorite: Bool = false,
+            customName: String? = nil,
+            usesDynamicName: Bool = true,
             deletedAt: Date? = nil,
             deviceId: UUID? = nil,
             revision: Int64 = 0,
             periodUpdatedAt: Date? = nil,
             dateUpdatedAt: Date? = nil,
             startDateUpdatedAt: Date? = nil,
-            endDateUpdatedAt: Date? = nil
+            endDateUpdatedAt: Date? = nil,
+            isFavoriteUpdatedAt: Date? = nil,
+            customNameUpdatedAt: Date? = nil,
+            usesDynamicNameUpdatedAt: Date? = nil
         ) {
             self.id = id
             self.period = .multiday
             self.date = startDate.startOfDay(calendar: calendar)
             self.startDate = startDate.startOfDay(calendar: calendar)
             self.endDate = endDate.startOfDay(calendar: calendar)
+            self.isFavorite = isFavorite
+            self.customName = customName
+            self.usesDynamicName = usesDynamicName
             self.createdDate = createdDate
             self.deletedAt = deletedAt
             self.deviceId = deviceId
@@ -152,6 +191,9 @@ enum DataModelSchemaV1: VersionedSchema {
             self.dateUpdatedAt = dateUpdatedAt
             self.startDateUpdatedAt = startDateUpdatedAt
             self.endDateUpdatedAt = endDateUpdatedAt
+            self.isFavoriteUpdatedAt = isFavoriteUpdatedAt
+            self.customNameUpdatedAt = customNameUpdatedAt
+            self.usesDynamicNameUpdatedAt = usesDynamicNameUpdatedAt
         }
 
         /// Creates a multiday spread from a preset.
@@ -171,13 +213,19 @@ enum DataModelSchemaV1: VersionedSchema {
             calendar: Calendar,
             firstWeekday: FirstWeekday,
             createdDate: Date = .now,
+            isFavorite: Bool = false,
+            customName: String? = nil,
+            usesDynamicName: Bool = true,
             deletedAt: Date? = nil,
             deviceId: UUID? = nil,
             revision: Int64 = 0,
             periodUpdatedAt: Date? = nil,
             dateUpdatedAt: Date? = nil,
             startDateUpdatedAt: Date? = nil,
-            endDateUpdatedAt: Date? = nil
+            endDateUpdatedAt: Date? = nil,
+            isFavoriteUpdatedAt: Date? = nil,
+            customNameUpdatedAt: Date? = nil,
+            usesDynamicNameUpdatedAt: Date? = nil
         ) {
             guard let range = preset.dateRange(from: today, calendar: calendar, firstWeekday: firstWeekday) else {
                 return nil
@@ -187,6 +235,9 @@ enum DataModelSchemaV1: VersionedSchema {
             self.date = range.startDate
             self.startDate = range.startDate
             self.endDate = range.endDate
+            self.isFavorite = isFavorite
+            self.customName = customName
+            self.usesDynamicName = usesDynamicName
             self.createdDate = createdDate
             self.deletedAt = deletedAt
             self.deviceId = deviceId
@@ -195,6 +246,9 @@ enum DataModelSchemaV1: VersionedSchema {
             self.dateUpdatedAt = dateUpdatedAt
             self.startDateUpdatedAt = startDateUpdatedAt
             self.endDateUpdatedAt = endDateUpdatedAt
+            self.isFavoriteUpdatedAt = isFavoriteUpdatedAt
+            self.customNameUpdatedAt = customNameUpdatedAt
+            self.usesDynamicNameUpdatedAt = usesDynamicNameUpdatedAt
         }
     }
 
@@ -221,11 +275,28 @@ enum DataModelSchemaV1: VersionedSchema {
             case cancelled
         }
 
+        /// Display-only task priority.
+        enum Priority: String, CaseIterable, Codable, Sendable {
+            case none
+            case low
+            case medium
+            case high
+        }
+
         /// Unique identifier for the task.
         @Attribute(.unique) var id: UUID
 
         /// The title of the task.
         var title: String
+
+        /// Optional plain text body.
+        var body: String?
+
+        /// Display-only task priority.
+        var priority: Priority = Priority.none
+
+        /// Optional informational day-level due date.
+        var dueDate: Date?
 
         /// The date this task was created.
         var createdDate: Date
@@ -235,6 +306,9 @@ enum DataModelSchemaV1: VersionedSchema {
 
         /// The preferred period for this task.
         var period: Period
+
+        /// Whether `date` and `period` represent an active preferred assignment.
+        var hasPreferredAssignment: Bool = true
 
         /// The current status of the task.
         var status: Status
@@ -268,6 +342,15 @@ enum DataModelSchemaV1: VersionedSchema {
         /// LWW timestamp for the `status` field.
         var statusUpdatedAt: Date?
 
+        /// LWW timestamp for the `body` field.
+        var bodyUpdatedAt: Date?
+
+        /// LWW timestamp for the `priority` field.
+        var priorityUpdatedAt: Date?
+
+        /// LWW timestamp for the `dueDate` field.
+        var dueDateUpdatedAt: Date?
+
         /// Creates a new task.
         ///
         /// - Parameters:
@@ -281,9 +364,13 @@ enum DataModelSchemaV1: VersionedSchema {
         init(
             id: UUID = UUID(),
             title: String = "",
+            body: String? = nil,
+            priority: Priority = .none,
+            dueDate: Date? = nil,
             createdDate: Date = .now,
             date: Date = .now,
             period: Period = .day,
+            hasPreferredAssignment: Bool = true,
             status: Status = .open,
             assignments: [TaskAssignment] = [],
             deletedAt: Date? = nil,
@@ -292,13 +379,20 @@ enum DataModelSchemaV1: VersionedSchema {
             titleUpdatedAt: Date? = nil,
             dateUpdatedAt: Date? = nil,
             periodUpdatedAt: Date? = nil,
-            statusUpdatedAt: Date? = nil
+            statusUpdatedAt: Date? = nil,
+            bodyUpdatedAt: Date? = nil,
+            priorityUpdatedAt: Date? = nil,
+            dueDateUpdatedAt: Date? = nil
         ) {
             self.id = id
             self.title = title
+            self.body = body
+            self.priority = priority
+            self.dueDate = dueDate
             self.createdDate = createdDate
             self.date = date
             self.period = period
+            self.hasPreferredAssignment = hasPreferredAssignment
             self.status = status
             self.assignments = assignments
             self.deletedAt = deletedAt
@@ -308,6 +402,9 @@ enum DataModelSchemaV1: VersionedSchema {
             self.dateUpdatedAt = dateUpdatedAt
             self.periodUpdatedAt = periodUpdatedAt
             self.statusUpdatedAt = statusUpdatedAt
+            self.bodyUpdatedAt = bodyUpdatedAt
+            self.priorityUpdatedAt = priorityUpdatedAt
+            self.dueDateUpdatedAt = dueDateUpdatedAt
         }
     }
 
