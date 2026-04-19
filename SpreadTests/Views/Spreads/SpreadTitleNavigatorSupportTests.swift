@@ -492,6 +492,24 @@ struct SpreadTitleNavigatorSupportTests {
         #expect(item?.display.bottom == "26")
     }
 
+    /// Setup: a canonical month spread has dynamic naming disabled.
+    /// Expected: the strip display keeps the canonical label and renders the year above uppercase month text.
+    @Test func monthDisplayUsesYearHeaderAndUppercaseMonth() {
+        let month = DataModel.Spread(
+            period: .month,
+            date: Self.makeDate(year: 2026, month: 4),
+            calendar: Self.calendar,
+            usesDynamicName: false
+        )
+        let item = titleNavigatorItem(for: month, today: Self.makeDate(year: 2026, month: 4, day: 18))
+
+        #expect(item?.label == "Apr")
+        #expect(item?.display.top == "2026")
+        #expect(item?.display.bottom == "APR")
+        #expect(item?.display.footer == nil)
+        #expect(item?.display.isPersonalized == false)
+    }
+
     @Test func dayDisplayUsesMonthSmallcapsSourceAndDayNumber() {
         let day = DataModel.Spread(
             period: .day,
@@ -558,5 +576,116 @@ struct SpreadTitleNavigatorSupportTests {
         #expect(item?.display.top == "MAR-APR")
         #expect(item?.display.bottom == "30-5")
         #expect(item?.display.footer == "MON-SUN")
+    }
+
+    /// Setup: explicit spreads use custom names for year/month/day/multiday periods.
+    /// Expected: each personalized display uses the finalized header, name, and footer matrix.
+    @Test func personalizedDisplaysUsePeriodSpecificHeaderNameFooterMatrix() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 18)
+        let year = DataModel.Spread(
+            period: .year,
+            date: Self.makeDate(year: 2026, month: 1),
+            calendar: Self.calendar,
+            customName: "Annual plan",
+            usesDynamicName: false
+        )
+        let month = DataModel.Spread(
+            period: .month,
+            date: Self.makeDate(year: 2026, month: 4),
+            calendar: Self.calendar,
+            customName: "Launch month",
+            usesDynamicName: false
+        )
+        let day = DataModel.Spread(
+            period: .day,
+            date: today,
+            calendar: Self.calendar,
+            customName: "Ship day",
+            usesDynamicName: false
+        )
+        let multiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 12),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 18),
+            calendar: Self.calendar,
+            customName: "Launch week",
+            usesDynamicName: false
+        )
+
+        let yearItem = titleNavigatorItem(for: year, today: today)
+        let monthItem = titleNavigatorItem(for: month, today: today)
+        let dayItem = titleNavigatorItem(for: day, today: today)
+        let multidayItem = titleNavigatorItem(for: multiday, today: today)
+
+        expectDisplay(yearItem?.display, top: "2026", bottom: "Annual plan", footer: nil, isPersonalized: true)
+        expectDisplay(monthItem?.display, top: "Apr", bottom: "Launch month", footer: "2026", isPersonalized: true)
+        expectDisplay(dayItem?.display, top: "Apr 18", bottom: "Ship day", footer: "Sat", isPersonalized: true)
+        expectDisplay(
+            multidayItem?.display,
+            top: "Apr 12-18",
+            bottom: "Launch week",
+            footer: "Sun-Sat",
+            isPersonalized: true
+        )
+    }
+
+    /// Setup: a custom override and a qualifying dynamic name produce the same visible personalized name.
+    /// Expected: both sources produce identical month display data and use the personalized layout path.
+    @Test func customAndDynamicPersonalizedSourcesUseSameDisplayLayout() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 18)
+        let customMonth = DataModel.Spread(
+            period: .month,
+            date: Self.makeDate(year: 2026, month: 4),
+            calendar: Self.calendar,
+            customName: "This month",
+            usesDynamicName: false
+        )
+        let dynamicMonth = DataModel.Spread(
+            period: .month,
+            date: Self.makeDate(year: 2026, month: 4),
+            calendar: Self.calendar,
+            usesDynamicName: true
+        )
+
+        let customDisplay = titleNavigatorItem(for: customMonth, today: today)?.display
+        let dynamicDisplay = titleNavigatorItem(for: dynamicMonth, today: today)?.display
+
+        expectDisplay(customDisplay, top: "Apr", bottom: "This month", footer: "2026", isPersonalized: true)
+        #expect(dynamicDisplay?.top == customDisplay?.top)
+        #expect(dynamicDisplay?.bottom == customDisplay?.bottom)
+        #expect(dynamicDisplay?.footer == customDisplay?.footer)
+        #expect(dynamicDisplay?.isPersonalized == customDisplay?.isPersonalized)
+    }
+
+    private func expectDisplay(
+        _ display: SpreadTitleNavigatorModel.Item.Display?,
+        top: String?,
+        bottom: String,
+        footer: String?,
+        isPersonalized: Bool
+    ) {
+        #expect(display?.top == top)
+        #expect(display?.bottom == bottom)
+        #expect(display?.footer == footer)
+        #expect(display?.isPersonalized == isPersonalized)
+    }
+
+    private func titleNavigatorItem(
+        for spread: DataModel.Spread,
+        today: Date
+    ) -> SpreadTitleNavigatorModel.Item? {
+        let headerModel = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: today,
+            firstWeekday: .sunday,
+            spreads: [spread],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+
+        return SpreadTitleNavigatorModel(headerModel: headerModel)
+            .items(for: .conventional(spread))
+            .first
     }
 }

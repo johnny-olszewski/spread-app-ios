@@ -197,7 +197,7 @@
   - Persistence/sync tests for favorite, custom name, and dynamic naming fields.
 - **Dependencies**: SPRD-168
 
-### [SPRD-172] UI: refine SpreadTitleNavigatorView label matrix for personalized naming - [ ] Pending
+### [SPRD-172] UI: refine SpreadTitleNavigatorView label matrix for personalized naming - [x] Complete
 - **Context**: `SPRD-169` already implemented explicit-spread favorites and naming. After implementation, the title navigator label requirements were refined so personalized names and canonical fallback labels have an explicit per-period layout matrix.
 - **Description**: Update `SpreadTitleNavigatorView` label rendering so canonical and personalized labels follow the finalized matrix for year, month, day, and multiday spreads.
 - **Implementation Details**:

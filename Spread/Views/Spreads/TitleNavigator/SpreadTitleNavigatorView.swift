@@ -344,7 +344,7 @@ struct SpreadTitleNavigatorView: View {
         case .year:
             return .preferredFont(forTextStyle: .title3)
         case .month:
-            return .preferredFont(forTextStyle: .subheadline)
+            return .preferredFont(forTextStyle: .caption2)
         case .day, .multiday:
             return .preferredFont(forTextStyle: .caption2)
         }
@@ -352,10 +352,10 @@ struct SpreadTitleNavigatorView: View {
 
     private func footerUIFont(for style: SpreadTitleNavigatorItemStyle) -> UIFont {
         switch style {
+        case .year, .month:
+            return .preferredFont(forTextStyle: .caption2)
         case .day, .multiday:
             return .preferredFont(forTextStyle: .caption2)
-        case .year, .month:
-            return .preferredFont(forTextStyle: .body)
         }
     }
 
