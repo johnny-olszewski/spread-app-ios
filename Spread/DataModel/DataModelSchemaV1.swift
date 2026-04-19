@@ -54,14 +54,29 @@ enum DataModelSchemaV1: VersionedSchema {
         /// Only set when `period` is `.multiday`, otherwise `nil`.
         var endDate: Date?
 
+        /// Optional persisted backing for `isFavorite`.
+        ///
+        /// Existing local stores may have nil for fields added after the original
+        /// V1 schema shipped, so app-facing accessors provide the approved defaults.
+        @Attribute(originalName: "isFavorite") private var storedIsFavorite: Bool?
+
         /// Whether this explicit spread is marked as a user favorite.
-        var isFavorite: Bool = false
+        var isFavorite: Bool {
+            get { storedIsFavorite ?? false }
+            set { storedIsFavorite = newValue }
+        }
 
         /// Optional user-provided display name override.
         var customName: String?
 
+        /// Optional persisted backing for `usesDynamicName`.
+        @Attribute(originalName: "usesDynamicName") private var storedUsesDynamicName: Bool?
+
         /// Whether the spread should use live dynamic naming when no custom name exists.
-        var usesDynamicName: Bool = false
+        var usesDynamicName: Bool {
+            get { storedUsesDynamicName ?? false }
+            set { storedUsesDynamicName = newValue }
+        }
 
         /// The date this spread was created.
         var createdDate: Date
@@ -131,9 +146,9 @@ enum DataModelSchemaV1: VersionedSchema {
             self.date = period.normalizeDate(date, calendar: calendar)
             self.startDate = nil
             self.endDate = nil
-            self.isFavorite = isFavorite
+            self.storedIsFavorite = isFavorite
             self.customName = customName
-            self.usesDynamicName = usesDynamicName
+            self.storedUsesDynamicName = usesDynamicName
             self.createdDate = createdDate
             self.deletedAt = deletedAt
             self.deviceId = deviceId
@@ -180,9 +195,9 @@ enum DataModelSchemaV1: VersionedSchema {
             self.date = startDate.startOfDay(calendar: calendar)
             self.startDate = startDate.startOfDay(calendar: calendar)
             self.endDate = endDate.startOfDay(calendar: calendar)
-            self.isFavorite = isFavorite
+            self.storedIsFavorite = isFavorite
             self.customName = customName
-            self.usesDynamicName = usesDynamicName
+            self.storedUsesDynamicName = usesDynamicName
             self.createdDate = createdDate
             self.deletedAt = deletedAt
             self.deviceId = deviceId
@@ -235,9 +250,9 @@ enum DataModelSchemaV1: VersionedSchema {
             self.date = range.startDate
             self.startDate = range.startDate
             self.endDate = range.endDate
-            self.isFavorite = isFavorite
+            self.storedIsFavorite = isFavorite
             self.customName = customName
-            self.usesDynamicName = usesDynamicName
+            self.storedUsesDynamicName = usesDynamicName
             self.createdDate = createdDate
             self.deletedAt = deletedAt
             self.deviceId = deviceId
@@ -292,8 +307,16 @@ enum DataModelSchemaV1: VersionedSchema {
         /// Optional plain text body.
         var body: String?
 
+        /// Optional persisted backing for `priority`.
+        ///
+        /// Existing local stores can materialize nil for this post-launch field.
+        @Attribute(originalName: "priority") private var storedPriority: Priority?
+
         /// Display-only task priority.
-        var priority: Priority = Priority.none
+        var priority: Priority {
+            get { storedPriority ?? .none }
+            set { storedPriority = newValue }
+        }
 
         /// Optional informational day-level due date.
         var dueDate: Date?
@@ -307,8 +330,14 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The preferred period for this task.
         var period: Period
 
+        /// Optional persisted backing for `hasPreferredAssignment`.
+        @Attribute(originalName: "hasPreferredAssignment") private var storedHasPreferredAssignment: Bool?
+
         /// Whether `date` and `period` represent an active preferred assignment.
-        var hasPreferredAssignment: Bool = true
+        var hasPreferredAssignment: Bool {
+            get { storedHasPreferredAssignment ?? true }
+            set { storedHasPreferredAssignment = newValue }
+        }
 
         /// The current status of the task.
         var status: Status
@@ -387,12 +416,12 @@ enum DataModelSchemaV1: VersionedSchema {
             self.id = id
             self.title = title
             self.body = body
-            self.priority = priority
+            self.storedPriority = priority
             self.dueDate = dueDate
             self.createdDate = createdDate
             self.date = date
             self.period = period
-            self.hasPreferredAssignment = hasPreferredAssignment
+            self.storedHasPreferredAssignment = hasPreferredAssignment
             self.status = status
             self.assignments = assignments
             self.deletedAt = deletedAt
