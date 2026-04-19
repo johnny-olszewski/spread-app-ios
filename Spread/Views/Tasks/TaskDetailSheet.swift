@@ -18,6 +18,7 @@ struct TaskDetailSheet: View {
     @State private var formModel: TaskEditorFormModel
     @State private var isSaving = false
     @State private var isShowingDeleteConfirmation = false
+    @State private var isShowingSpreadPicker = false
 
     private var titleBinding: Binding<String> {
         Binding(
@@ -30,6 +31,41 @@ struct TaskDetailSheet: View {
         Binding(
             get: { formModel.selectedDate },
             set: { formModel.selectedDate = $0 }
+        )
+    }
+
+    private var assignmentBinding: Binding<Bool> {
+        Binding(
+            get: { formModel.hasPreferredAssignment },
+            set: { formModel.setPreferredAssignmentEnabled($0) }
+        )
+    }
+
+    private var bodyBinding: Binding<String> {
+        Binding(
+            get: { formModel.body },
+            set: { formModel.body = $0 }
+        )
+    }
+
+    private var priorityBinding: Binding<DataModel.Task.Priority> {
+        Binding(
+            get: { formModel.priority },
+            set: { formModel.priority = $0 }
+        )
+    }
+
+    private var dueDateEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { formModel.hasDueDate },
+            set: { formModel.hasDueDate = $0 }
+        )
+    }
+
+    private var dueDateBinding: Binding<Date> {
+        Binding(
+            get: { formModel.dueDate },
+            set: { formModel.dueDate = $0.startOfDay(calendar: journalManager.calendar) }
         )
     }
 
@@ -68,9 +104,11 @@ struct TaskDetailSheet: View {
                 VStack(alignment: .leading, spacing: 12) {
                     titleSection
                     compactDivider
-                    periodSection
+                    metadataSection
                     compactDivider
-                    dateSection
+                    detailsSection
+                    compactDivider
+                    assignmentSection
 
                     if !task.assignments.isEmpty {
                         compactDivider
@@ -94,6 +132,17 @@ struct TaskDetailSheet: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
+            }
+            .sheet(isPresented: $isShowingSpreadPicker) {
+                SpreadPickerView(
+                    spreads: journalManager.spreads,
+                    calendar: journalManager.calendar,
+                    today: journalManager.today,
+                    onSpreadSelected: { period, date in
+                        formModel.applySpreadSelection(period: period, date: date)
+                    },
+                    onChooseCustomDate: {}
+                )
             }
             .navigationTitle("Edit Task")
             .navigationBarTitleDisplayMode(.inline)
@@ -137,6 +186,88 @@ struct TaskDetailSheet: View {
             }
         }
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.statusPicker)
+    }
+
+    private var metadataSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Metadata")
+
+            Picker("Priority", selection: priorityBinding) {
+                ForEach(DataModel.Task.Priority.allCases, id: \.self) { priority in
+                    Text(priority.displayName).tag(priority)
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.priorityPicker)
+
+            Toggle("Due date", isOn: dueDateEnabledBinding)
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.dueDateToggle)
+
+            if formModel.hasDueDate {
+                DatePicker(
+                    "Due",
+                    selection: dueDateBinding,
+                    displayedComponents: .date
+                )
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.dueDatePicker)
+            }
+        }
+    }
+
+    private var detailsSection: some View {
+        DisclosureGroup("Details", isExpanded: $formModel.isDetailsExpanded) {
+            TextEditor(text: bodyBinding)
+                .frame(minHeight: 96)
+                .scrollContentBackground(.hidden)
+                .background(Color(uiColor: .secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.bodyField)
+        }
+    }
+
+    private var assignmentSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Assignment")
+
+            Toggle("Assign to spread", isOn: assignmentBinding)
+                .disabled(!isAssignmentEditable)
+                .opacity(isAssignmentEditable ? 1 : 0.7)
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.assignmentToggle)
+
+            if formModel.hasPreferredAssignment {
+                spreadSelectionSection
+                periodSection
+                dateSection
+            } else {
+                Text(formModel.periodDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .opacity(isAssignmentEditable ? 1 : 0.7)
+            }
+        }
+    }
+
+    private var spreadSelectionSection: some View {
+        Button {
+            isShowingSpreadPicker = true
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Select from existing spreads")
+                    Text("Or choose a custom date below")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .foregroundStyle(.primary)
+        .disabled(!isAssignmentEditable)
+        .opacity(isAssignmentEditable ? 1 : 0.7)
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.spreadPickerButton)
     }
 
     private var periodSection: some View {
@@ -364,13 +495,34 @@ struct TaskDetailSheet: View {
                     try await journalManager.updateTaskStatus(task, newStatus: selectedStatus)
                 }
 
+                if formModel.sanitizedBody != task.body ||
+                   formModel.priority != task.priority ||
+                   formModel.effectiveDueDate != task.dueDate {
+                    try await journalManager.updateTaskMetadata(
+                        task,
+                        body: formModel.sanitizedBody,
+                        priority: formModel.priority,
+                        dueDate: formModel.effectiveDueDate
+                    )
+                }
+
                 if selectedStatus.allowsAssignmentEditingInTaskSheet {
-                    let effectiveDate = formModel.effectiveSelectedDate
-                    if effectiveDate != task.date || formModel.selectedPeriod != task.period {
-                        try await journalManager.updateTaskDateAndPeriod(
+                    if formModel.hasPreferredAssignment {
+                        let effectiveDate = formModel.effectiveSelectedDate
+                        if !task.hasPreferredAssignment ||
+                           effectiveDate != task.date ||
+                           formModel.selectedPeriod != task.period {
+                            try await journalManager.updateTaskDateAndPeriod(
+                                task,
+                                newDate: effectiveDate,
+                                newPeriod: formModel.selectedPeriod
+                            )
+                        }
+                    } else if task.hasPreferredAssignment {
+                        try await journalManager.clearTaskPreferredAssignment(
                             task,
-                            newDate: effectiveDate,
-                            newPeriod: formModel.selectedPeriod
+                            fallbackDate: formModel.effectiveSelectedDate,
+                            fallbackPeriod: formModel.selectedPeriod
                         )
                     }
                 }
