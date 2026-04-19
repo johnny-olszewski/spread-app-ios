@@ -72,6 +72,65 @@ final class SyncDurabilityIntegrationTests: XCTestCase {
         XCTAssertTrue(rebuilt.journalManager.inboxEntries.contains { $0.id == task.id })
     }
 
+    /// Setup: Create a personalized spread, one assigned metadata-rich task, and one true nil-assignment task;
+    /// sync them, wipe local state, and rebuild from local Supabase.
+    /// Expected: Approved WKFLW-17 fields and Inbox-first nil-assignment behavior survive the rebuild.
+    func testWKFLW17MetadataDurabilitySurvivesLocalWipeAndRebuild() async throws {
+        let harness = try await makeCleanHarness()
+        let april = TestDataBuilders.makeDate(year: 2026, month: 4, day: 1, calendar: calendar)
+        let dueDate = TestDataBuilders.makeDate(year: 2026, month: 4, day: 5, calendar: calendar)
+
+        let spread = try await harness.journalManager.addSpread(
+            period: .month,
+            date: april,
+            customName: "  Launch  ",
+            usesDynamicName: false
+        )
+        try await harness.journalManager.updateSpreadFavorite(spread, isFavorite: true)
+        let assignedTask = try await harness.journalManager.addTask(
+            title: "Assigned WKFLW task",
+            date: april,
+            period: .month,
+            hasPreferredAssignment: true,
+            body: "Assigned body",
+            priority: .high,
+            dueDate: dueDate
+        )
+        let inboxTask = try await harness.journalManager.addTask(
+            title: "Inbox WKFLW task",
+            date: april,
+            period: .month,
+            hasPreferredAssignment: false,
+            body: "Inbox body",
+            priority: .medium,
+            dueDate: dueDate
+        )
+
+        await harness.syncAndReload()
+        try await harness.wipeLocalAndRebuild()
+
+        let rebuiltSpread = try XCTUnwrap(harness.journalManager.spreads.first { $0.id == spread.id })
+        let rebuiltAssignedTask = try taskWithID(assignedTask.id, in: harness.journalManager)
+        let rebuiltInboxTask = try taskWithID(inboxTask.id, in: harness.journalManager)
+        let rebuiltMonth = try spreadModel(period: .month, date: april, in: harness.journalManager)
+
+        XCTAssertTrue(rebuiltSpread.isFavorite)
+        XCTAssertEqual(rebuiltSpread.customName, "Launch")
+        XCTAssertFalse(rebuiltSpread.usesDynamicName)
+        XCTAssertEqual(rebuiltAssignedTask.body, "Assigned body")
+        XCTAssertEqual(rebuiltAssignedTask.priority, .high)
+        XCTAssertEqual(rebuiltAssignedTask.dueDate, dueDate)
+        XCTAssertTrue(rebuiltAssignedTask.hasPreferredAssignment)
+        XCTAssertEqual(rebuiltAssignedTask.assignments.first?.status, .open)
+        XCTAssertTrue(rebuiltMonth.tasks.contains { $0.id == assignedTask.id })
+        XCTAssertEqual(rebuiltInboxTask.body, "Inbox body")
+        XCTAssertEqual(rebuiltInboxTask.priority, .medium)
+        XCTAssertEqual(rebuiltInboxTask.dueDate, dueDate)
+        XCTAssertFalse(rebuiltInboxTask.hasPreferredAssignment)
+        XCTAssertTrue(rebuiltInboxTask.assignments.isEmpty)
+        XCTAssertTrue(harness.journalManager.inboxEntries.contains { $0.id == inboxTask.id })
+    }
+
     /// Setup: Create a task on a year spread, migrate it to a month spread, sync, then rebuild a clean second client.
     /// Expected: The destination spread stays active and the source spread still carries migrated-history visibility.
     func testMigrationDurabilityRebuildsDestinationAndSourceHistory() async throws {

@@ -23,6 +23,80 @@ struct SyncEngineTests {
         ([], 0)
     }
 
+    private static let wkflw17SpreadID = UUID(uuidString: "00000000-0000-0000-0000-000000171001")!
+    private static let wkflw17AssignedTaskID = UUID(uuidString: "00000000-0000-0000-0000-000000171002")!
+    private static let wkflw17InboxTaskID = UUID(uuidString: "00000000-0000-0000-0000-000000171003")!
+    private static let wkflw17AssignmentID = UUID(uuidString: "00000000-0000-0000-0000-000000171004")!
+
+    private nonisolated static func wkflw17ServerRowsFetcher(
+        entityType: SyncEntityType,
+        _: Int64,
+        _: Int
+    ) async throws -> (rows: [[String: Any]], maxRevision: Int64) {
+        switch entityType {
+        case .spread:
+            return ([
+                [
+                    "id": wkflw17SpreadID.uuidString,
+                    "period": "month",
+                    "date": "2026-04-01",
+                    "start_date": NSNull(),
+                    "end_date": NSNull(),
+                    "is_favorite": true,
+                    "custom_name": "Launch",
+                    "uses_dynamic_name": false,
+                    "created_at": "2026-04-01T10:00:00.000Z",
+                    "deleted_at": NSNull(),
+                    "revision": 10
+                ]
+            ], 10)
+        case .task:
+            return ([
+                [
+                    "id": wkflw17AssignedTaskID.uuidString,
+                    "title": "Assigned metadata task",
+                    "body": "Ship checklist",
+                    "priority": "high",
+                    "due_date": "2026-04-03",
+                    "date": "2026-04-01",
+                    "period": "month",
+                    "status": "open",
+                    "created_at": "2026-04-01T10:05:00.000Z",
+                    "deleted_at": NSNull(),
+                    "revision": 11
+                ],
+                [
+                    "id": wkflw17InboxTaskID.uuidString,
+                    "title": "Unassigned metadata task",
+                    "body": "Inbox body",
+                    "priority": "medium",
+                    "due_date": "2026-04-02",
+                    "date": NSNull(),
+                    "period": NSNull(),
+                    "status": "open",
+                    "created_at": "2026-04-01T10:10:00.000Z",
+                    "deleted_at": NSNull(),
+                    "revision": 12
+                ]
+            ], 12)
+        case .taskAssignment:
+            return ([
+                [
+                    "id": wkflw17AssignmentID.uuidString,
+                    "task_id": wkflw17AssignedTaskID.uuidString,
+                    "period": "month",
+                    "date": "2026-04-01",
+                    "status": "open",
+                    "created_at": "2026-04-01T10:06:00.000Z",
+                    "deleted_at": NSNull(),
+                    "revision": 13
+                ]
+            ], 13)
+        case .settings, .note, .collection, .noteAssignment:
+            return ([], 0)
+        }
+    }
+
     // MARK: - Test Helpers
 
     /// Mock network monitor for controlling connectivity in tests.
@@ -259,6 +333,123 @@ struct SyncEngineTests {
         let cursorDescriptor = FetchDescriptor<DataModel.SyncCursor>()
         let cursors = try context.fetch(cursorDescriptor)
         #expect(cursors.isEmpty)
+    }
+
+    // MARK: - WKFLW-17 Sync Validation
+
+    /// Conditions: A clean local store pulls server rows containing approved spread personalization,
+    /// task metadata, an assigned task, and a true nil-assignment task.
+    /// Expected: Pull replay rebuilds the same fields and journal surfaces without phantom assignment rows.
+    @Test func pullReplayRebuildsWKFLW17FieldsIntoCleanStore() async throws {
+        let (engine, container, _, _) = try makeEngine(
+            serverRowsFetcher: Self.wkflw17ServerRowsFetcher,
+            mergeRPCCaller: { _, _ in },
+            assignmentPresenceChecker: { _, _ in true }
+        )
+
+        await engine.syncNow()
+
+        let spreadRepository = SwiftDataSpreadRepository(modelContainer: container)
+        let taskRepository = SwiftDataTaskRepository(modelContainer: container)
+        let manager = try await JournalManager.make(
+            calendar: TestDataBuilders.testCalendar,
+            today: TestDataBuilders.makeDate(year: 2026, month: 4, day: 2),
+            taskRepository: taskRepository,
+            spreadRepository: spreadRepository,
+            eventRepository: InMemoryEventRepository(),
+            noteRepository: InMemoryNoteRepository(),
+            collectionRepository: InMemoryCollectionRepository()
+        )
+
+        let spread = try #require(manager.spreads.first { $0.id == Self.wkflw17SpreadID })
+        let assignedTask = try #require(manager.tasks.first { $0.id == Self.wkflw17AssignedTaskID })
+        let inboxTask = try #require(manager.tasks.first { $0.id == Self.wkflw17InboxTaskID })
+        let monthDate = TestDataBuilders.makeDate(year: 2026, month: 4, day: 1)
+        let monthModel = try #require(manager.dataModel[.month]?[monthDate])
+
+        #expect(spread.isFavorite)
+        #expect(spread.customName == "Launch")
+        #expect(!spread.usesDynamicName)
+        #expect(assignedTask.body == "Ship checklist")
+        #expect(assignedTask.priority == .high)
+        #expect(assignedTask.dueDate.map(SyncDateFormatting.formatDate) == "2026-04-03")
+        #expect(assignedTask.hasPreferredAssignment)
+        #expect(assignedTask.assignments.first?.id == Self.wkflw17AssignmentID)
+        #expect(monthModel.tasks.contains { $0.id == assignedTask.id })
+        #expect(inboxTask.body == "Inbox body")
+        #expect(inboxTask.priority == .medium)
+        #expect(inboxTask.hasPreferredAssignment == false)
+        #expect(inboxTask.assignments.isEmpty)
+        #expect(manager.inboxEntries.contains { $0.id == inboxTask.id })
+    }
+
+    /// Conditions: Local repositories enqueue spread personalization and task metadata mutations,
+    /// including a task with true nil preferred assignment.
+    /// Expected: Push sends merge payloads with every approved field and represents nil assignment as null date/period.
+    @Test func pushSerializesWKFLW17FieldsForMergeRPCs() async throws {
+        var mergeCalls: [(String, Data)] = []
+        let deviceId = UUID()
+        let (engine, container, _, _) = try makeEngine(
+            serverRowsFetcher: Self.emptyServerRowsFetcher,
+            mergeRPCCaller: { name, params in
+                let data = try JSONEncoder().encode(params)
+                mergeCalls.append((name, data))
+            },
+            assignmentPresenceChecker: { _, _ in true }
+        )
+        let calendar = TestDataBuilders.testCalendar
+        let date = TestDataBuilders.makeDate(year: 2026, month: 4, day: 1, calendar: calendar)
+        let dueDate = TestDataBuilders.makeDate(year: 2026, month: 4, day: 5, calendar: calendar)
+        let spreadRepository = SwiftDataSpreadRepository(modelContainer: container, deviceId: deviceId)
+        let taskRepository = SwiftDataTaskRepository(modelContainer: container, deviceId: deviceId)
+        let spread = DataModel.Spread(
+            period: .month,
+            date: date,
+            calendar: calendar,
+            isFavorite: true,
+            customName: "Launch",
+            usesDynamicName: false
+        )
+        let task = DataModel.Task(
+            title: "Inbox metadata task",
+            body: "Body survives push",
+            priority: .low,
+            dueDate: dueDate,
+            date: date,
+            period: .month,
+            hasPreferredAssignment: false,
+            status: .open
+        )
+
+        try await spreadRepository.save(spread)
+        try await taskRepository.save(task)
+        await engine.syncNow()
+
+        let spreadJSON = try jsonPayload(for: SyncEntityType.spread.mergeRPCName, in: mergeCalls)
+        let taskJSON = try jsonPayload(for: SyncEntityType.task.mergeRPCName, in: mergeCalls)
+
+        #expect(spreadJSON["p_is_favorite"] as? Bool == true)
+        #expect(spreadJSON["p_custom_name"] as? String == "Launch")
+        #expect(spreadJSON["p_uses_dynamic_name"] as? Bool == false)
+        #expect(spreadJSON.keys.contains("p_is_favorite_updated_at"))
+        #expect(spreadJSON.keys.contains("p_custom_name_updated_at"))
+        #expect(spreadJSON.keys.contains("p_uses_dynamic_name_updated_at"))
+        #expect(taskJSON["p_body"] as? String == "Body survives push")
+        #expect(taskJSON["p_priority"] as? String == "low")
+        #expect(taskJSON["p_due_date"] as? String == SyncDateFormatting.formatDate(dueDate))
+        #expect(taskJSON["p_date"] is NSNull)
+        #expect(taskJSON["p_period"] is NSNull)
+        #expect(taskJSON.keys.contains("p_body_updated_at"))
+        #expect(taskJSON.keys.contains("p_priority_updated_at"))
+        #expect(taskJSON.keys.contains("p_due_date_updated_at"))
+    }
+
+    private func jsonPayload(
+        for rpcName: String,
+        in mergeCalls: [(String, Data)]
+    ) throws -> [String: Any] {
+        let data = try #require(mergeCalls.first { $0.0 == rpcName }?.1)
+        return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
 
     // MARK: - Sync Log
