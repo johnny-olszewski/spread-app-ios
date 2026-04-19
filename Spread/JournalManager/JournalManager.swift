@@ -991,10 +991,46 @@ final class JournalManager {
     /// - Returns: The newly created task.
     /// - Throws: Repository errors if persistence fails.
     func addTask(title: String, date: Date, period: Period) async throws -> DataModel.Task {
-        let result = try await taskMutationCoordinator.createTask(
+        try await addTask(
             title: title,
             date: date,
             period: period,
+            hasPreferredAssignment: true,
+            body: nil,
+            priority: .none,
+            dueDate: nil
+        )
+    }
+
+    /// Creates a new task with metadata and explicit preferred-assignment state.
+    ///
+    /// - Parameters:
+    ///   - title: The task title.
+    ///   - date: The preferred date for the task.
+    ///   - period: The preferred period for the task.
+    ///   - hasPreferredAssignment: Whether the task should resolve onto matching spreads.
+    ///   - body: Optional plain text body.
+    ///   - priority: Display-only priority.
+    ///   - dueDate: Optional informational day-level due date.
+    /// - Returns: The newly created task.
+    /// - Throws: Repository errors if persistence fails.
+    func addTask(
+        title: String,
+        date: Date,
+        period: Period,
+        hasPreferredAssignment: Bool,
+        body: String?,
+        priority: DataModel.Task.Priority,
+        dueDate: Date?
+    ) async throws -> DataModel.Task {
+        let result = try await taskMutationCoordinator.createTask(
+            title: title,
+            body: sanitizedTaskBody(body),
+            priority: priority,
+            dueDate: dueDate?.startOfDay(calendar: calendar),
+            date: date,
+            period: period,
+            hasPreferredAssignment: hasPreferredAssignment,
             calendar: calendar,
             spreads: spreads
         )
@@ -1084,6 +1120,69 @@ final class JournalManager {
         dataVersion += 1
     }
 
+    /// Updates independently mergeable task metadata.
+    ///
+    /// Clears to `nil` update that field's conflict timestamp just like non-nil edits.
+    func updateTaskMetadata(
+        _ task: DataModel.Task,
+        body: String?,
+        priority: DataModel.Task.Priority,
+        dueDate: Date?
+    ) async throws {
+        let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        let timestamp = Date.now
+        let normalizedBody = sanitizedTaskBody(body)
+        let normalizedDueDate = dueDate?.startOfDay(calendar: calendar)
+
+        if task.body != normalizedBody {
+            task.body = normalizedBody
+            task.bodyUpdatedAt = timestamp
+        }
+
+        if task.priority != priority {
+            task.priority = priority
+            task.priorityUpdatedAt = timestamp
+        }
+
+        if task.dueDate != normalizedDueDate {
+            task.dueDate = normalizedDueDate
+            task.dueDateUpdatedAt = timestamp
+        }
+
+        try await taskRepository.save(task)
+        tasks = await taskRepository.getTasks()
+
+        Self.logger.debug("Task metadata updated: \(task.id)")
+
+        refreshDataModel(for: scopeForTaskChange(previousKeys: previousKeys, task: task))
+        dataVersion += 1
+    }
+
+    /// Clears a task's preferred assignment, leaving it in Inbox until explicitly reassigned.
+    ///
+    /// Existing live assignments are migrated by the assignment reconciler. If the task was
+    /// only waiting for a future spread, no migrated-history row is created.
+    func clearTaskPreferredAssignment(
+        _ task: DataModel.Task,
+        fallbackDate: Date,
+        fallbackPeriod: Period
+    ) async throws {
+        let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        let result = try await taskMutationCoordinator.clearTaskPreferredAssignment(
+            task,
+            fallbackDate: fallbackDate,
+            fallbackPeriod: fallbackPeriod,
+            calendar: calendar,
+            spreads: spreads
+        )
+        tasks = result.tasks
+
+        Self.logger.debug("Task preferred assignment cleared: \(task.id)")
+
+        refreshDataModel(for: scopeForTaskChange(previousKeys: previousKeys, task: result.task))
+        dataVersion += 1
+    }
+
     /// Deletes a task from the repository and local state.
     ///
     /// - Parameter task: The task to delete.
@@ -1097,6 +1196,12 @@ final class JournalManager {
 
         refreshDataModel(for: scope)
         dataVersion += 1
+    }
+
+    private func sanitizedTaskBody(_ body: String?) -> String? {
+        let trimmed = body?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmed, !trimmed.isEmpty else { return nil }
+        return trimmed
     }
 
     // MARK: - Note CRUD

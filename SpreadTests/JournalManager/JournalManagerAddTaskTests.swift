@@ -211,6 +211,36 @@ struct JournalManagerAddTaskTests {
         #expect(journalManager.tasks.contains { $0.id == task.id })
     }
 
+    @Test("Adding an unassigned task keeps metadata and skips matching spread assignment")
+    func testAddTaskWithNilAssignmentAndMetadata() async throws {
+        let calendar = Self.makeCalendar()
+        let today = Self.makeDate(year: 2026, month: 1, day: 15)
+        let dueDate = calendar.date(from: DateComponents(year: 2025, month: 12, day: 31))!
+
+        let journalManager = try await JournalManager.make(
+            calendar: calendar,
+            today: today
+        )
+        _ = try await journalManager.addSpread(period: .day, date: today)
+
+        let task = try await journalManager.addTask(
+            title: "Draft launch notes",
+            date: today,
+            period: .day,
+            hasPreferredAssignment: false,
+            body: "  Write rollout checklist  ",
+            priority: .high,
+            dueDate: dueDate
+        )
+
+        #expect(task.hasPreferredAssignment == false)
+        #expect(task.assignments.isEmpty)
+        #expect(task.body == "Write rollout checklist")
+        #expect(task.priority == .high)
+        #expect(task.dueDate == dueDate)
+        #expect(journalManager.inboxEntries.contains { ($0 as? DataModel.Task)?.id == task.id })
+    }
+
     /// Tests that adding a task with year period normalizes correctly.
     ///
     /// Condition: Add a task with year period.

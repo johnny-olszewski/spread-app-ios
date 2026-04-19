@@ -404,7 +404,11 @@ struct EntryListView: View {
                 migrationDestination: isMigratedRow
                     ? destinationFormatter.destination(for: task, from: spreadDataModel.spread)
                     : nil,
-                contextualLabel: contextualLabel
+                contextualLabel: contextualLabel,
+                taskBodyPreview: bodyPreview(for: task),
+                taskPriority: task.priority,
+                taskDueDateLabel: dueDateLabel(for: task),
+                isTaskDueDateHighlighted: isDueDateHighlighted(for: task)
             ),
             iconConfiguration: StatusIconConfiguration(
                 entryType: .task,
@@ -761,6 +765,7 @@ struct EntryListView: View {
         section.entries.reduce(into: 0) { count, entry in
             guard let task = entry as? DataModel.Task,
                   task.status == .open,
+                  task.hasPreferredAssignment,
                   isOverdue(date: task.date, period: task.period) else {
                 return
             }
@@ -789,6 +794,31 @@ struct EntryListView: View {
         case .multiday:
             return false
         }
+    }
+
+    private func bodyPreview(for task: DataModel.Task) -> String? {
+        guard let body = task.body?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !body.isEmpty else {
+            return nil
+        }
+        return body
+    }
+
+    private func dueDateLabel(for task: DataModel.Task) -> String? {
+        guard let dueDate = task.dueDate else { return nil }
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.setLocalizedDateFormatFromTemplate("MMM d")
+        return "Due \(formatter.string(from: dueDate))"
+    }
+
+    private func isDueDateHighlighted(for task: DataModel.Task) -> Bool {
+        guard task.status == .open,
+              let dueDate = task.dueDate else {
+            return false
+        }
+        return dueDate.startOfDay(calendar: calendar) <= today.startOfDay(calendar: calendar)
     }
 }
 

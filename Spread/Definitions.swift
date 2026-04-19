@@ -224,6 +224,11 @@ struct Definitions {
             static let monthPicker = "tasks.create.month"
             static let monthYearPicker = "tasks.create.month.year"
             static let spreadPickerButton = "tasks.create.spreadpicker"
+            static let assignmentToggle = "tasks.create.assignment.toggle"
+            static let bodyField = "tasks.create.body"
+            static let priorityPicker = "tasks.create.priority"
+            static let dueDateToggle = "tasks.create.dueDate.toggle"
+            static let dueDatePicker = "tasks.create.dueDate"
 
             static func periodSegment(_ periodRawValue: String) -> String {
                 "tasks.create.period.\(periodRawValue)"
@@ -271,6 +276,12 @@ struct Definitions {
             static let yearPicker = "tasks.detail.year"
             static let monthPicker = "tasks.detail.month"
             static let monthYearPicker = "tasks.detail.month.year"
+            static let spreadPickerButton = "tasks.detail.spreadpicker"
+            static let assignmentToggle = "tasks.detail.assignment.toggle"
+            static let bodyField = "tasks.detail.body"
+            static let priorityPicker = "tasks.detail.priority"
+            static let dueDateToggle = "tasks.detail.dueDate.toggle"
+            static let dueDatePicker = "tasks.detail.dueDate"
             static let assignmentHistory = "tasks.detail.assignmentHistory"
 
             static func assignmentHistoryRow(_ index: Int) -> String {

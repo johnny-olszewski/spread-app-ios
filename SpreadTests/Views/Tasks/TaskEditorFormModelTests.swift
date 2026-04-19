@@ -73,4 +73,71 @@ struct TaskEditorFormModelTests {
 
         #expect(model.effectiveSelectedDate == today)
     }
+
+    @Test("Create-mode task editor defaults assignment off outside a spread")
+    func createModeDefaultsAssignmentOffWithoutSelectedSpread() {
+        let today = makeDate(year: 2026, month: 4, day: 6)
+        let model = TaskEditorFormModel(
+            configuration: TaskCreationConfiguration(calendar: calendar, today: today),
+            selectedSpread: nil
+        )
+
+        #expect(model.hasPreferredAssignment == false)
+        #expect(model.selectedPeriod == .day)
+        #expect(model.selectedDate == today)
+    }
+
+    @Test("Create-mode task editor defaults assignment on from a selected spread")
+    func createModeDefaultsAssignmentOnWithSelectedSpread() {
+        let today = makeDate(year: 2026, month: 4, day: 6)
+        let monthDate = makeDate(year: 2026, month: 4, day: 1)
+        let spread = DataModel.Spread(period: .month, date: monthDate, calendar: calendar)
+        let model = TaskEditorFormModel(
+            configuration: TaskCreationConfiguration(calendar: calendar, today: today),
+            selectedSpread: spread
+        )
+
+        #expect(model.hasPreferredAssignment == true)
+        #expect(model.selectedPeriod == .month)
+        #expect(model.selectedDate == monthDate)
+    }
+
+    @Test("Edit-mode nil assignment turns assignment on at today day")
+    func editModeNilAssignmentTurnsOnAtTodayDay() {
+        let today = makeDate(year: 2026, month: 4, day: 6)
+        let task = DataModel.Task(
+            title: "Inbox",
+            date: makeDate(year: 2026, month: 1, day: 1),
+            period: .year,
+            hasPreferredAssignment: false,
+            status: .open
+        )
+        var model = TaskEditorFormModel(
+            configuration: TaskCreationConfiguration(calendar: calendar, today: today),
+            task: task
+        )
+
+        model.setPreferredAssignmentEnabled(true)
+
+        #expect(model.hasPreferredAssignment == true)
+        #expect(model.selectedPeriod == .day)
+        #expect(model.selectedDate == today)
+    }
+
+    @Test("Task editor trims blank body to nil and due date to day")
+    func taskEditorNormalizesBodyAndDueDate() {
+        let today = makeDate(year: 2026, month: 4, day: 6)
+        var model = TaskEditorFormModel(
+            configuration: TaskCreationConfiguration(calendar: calendar, today: today),
+            selectedSpread: nil
+        )
+        let dueDate = calendar.date(from: DateComponents(year: 2026, month: 5, day: 2, hour: 15))!
+
+        model.body = "  \n  "
+        model.hasDueDate = true
+        model.dueDate = dueDate
+
+        #expect(model.sanitizedBody == nil)
+        #expect(model.effectiveDueDate == makeDate(year: 2026, month: 5, day: 2))
+    }
 }

@@ -197,7 +197,7 @@
   - Persistence/sync tests for favorite, custom name, and dynamic naming fields.
 - **Dependencies**: SPRD-168
 
-### [SPRD-170] Feature: add richer task metadata with body, priority, optional Inbox assignment, and due dates - [ ] Pending
+### [SPRD-170] Feature: add richer task metadata with body, priority, optional Inbox assignment, and due dates - [x] Complete
 - **Context**: These task changes are still contained enough for a single branch, but they materially affect creation/edit flows, Inbox semantics, and overdue logic.
 - **Description**: Add task body, priority, optional nil preferred assignment, and due dates that are distinct from assignment targets.
 - **Implementation Details**:

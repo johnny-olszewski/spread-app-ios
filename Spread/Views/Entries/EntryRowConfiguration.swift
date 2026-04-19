@@ -42,6 +42,18 @@ struct EntryRowConfiguration: Sendable {
     /// Optional small contextual label shown next to the title.
     let contextualLabel: String?
 
+    /// Optional one-line task body preview.
+    let taskBodyPreview: String?
+
+    /// Display-only task priority.
+    let taskPriority: DataModel.Task.Priority
+
+    /// Optional formatted task due-date label.
+    let taskDueDateLabel: String?
+
+    /// Whether the due-date label should use urgent styling.
+    let isTaskDueDateHighlighted: Bool
+
     /// Whether the event is past (only used for events).
     ///
     /// Computed by the caller based on spread context.
@@ -65,6 +77,10 @@ struct EntryRowConfiguration: Sendable {
         title: String = "",
         migrationDestination: String? = nil,
         contextualLabel: String? = nil,
+        taskBodyPreview: String? = nil,
+        taskPriority: DataModel.Task.Priority = .none,
+        taskDueDateLabel: String? = nil,
+        isTaskDueDateHighlighted: Bool = false,
         isEventPast: Bool = false
     ) {
         self.entryType = entryType
@@ -73,7 +89,17 @@ struct EntryRowConfiguration: Sendable {
         self.title = title
         self.migrationDestination = migrationDestination
         self.contextualLabel = contextualLabel
+        self.taskBodyPreview = taskBodyPreview
+        self.taskPriority = taskPriority
+        self.taskDueDateLabel = taskDueDateLabel
+        self.isTaskDueDateHighlighted = isTaskDueDateHighlighted
         self.isEventPast = isEventPast
+    }
+
+    var hasTaskMetadata: Bool {
+        taskBodyPreview != nil ||
+        taskPriority != .none ||
+        taskDueDateLabel != nil
     }
 
     // MARK: - Action Availability
