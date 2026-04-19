@@ -13,6 +13,7 @@ struct SpreadTitleNavigatorModel {
             let top: String?
             let bottom: String
             let footer: String?
+            var isPersonalized: Bool = false
         }
 
         let id: String
@@ -74,7 +75,7 @@ struct SpreadTitleNavigatorModel {
             date: recommendation.date,
             calendar: recommendation.calendar
         )
-        return item(for: spread)
+        return item(for: spread, allowsPersonalization: false)
     }
 
     private func conventionalYearItems(in year: Int) -> [Item] {
@@ -82,7 +83,7 @@ struct SpreadTitleNavigatorModel {
             .filter { spreadYear(for: $0) == year }
 
         return explicitSpreadsInYear
-            .map(item(for:))
+            .map { item(for: $0, allowsPersonalization: true) }
             .sorted(by: isEarlier)
     }
 
@@ -132,19 +133,24 @@ struct SpreadTitleNavigatorModel {
         return items.sorted(by: isEarlier)
     }
 
-    private func item(for spread: DataModel.Spread) -> Item {
+    private func item(for spread: DataModel.Spread, allowsPersonalization: Bool) -> Item {
         let selection = SpreadHeaderNavigatorModel.Selection.conventional(spread)
         return Item(
             id: selection.stableID(calendar: calendar),
-            label: label(for: spread),
+            label: label(for: spread, allowsPersonalization: allowsPersonalization),
             selection: selection,
             style: style(for: spread),
-            display: display(for: spread),
+            display: display(for: spread, allowsPersonalization: allowsPersonalization),
             overdueCount: overdueCount(for: selection)
         )
     }
 
-    private func label(for spread: DataModel.Spread) -> String {
+    private func label(for spread: DataModel.Spread, allowsPersonalization: Bool) -> String {
+        let displayName = displayName(for: spread, allowsPersonalization: allowsPersonalization)
+        if displayName.isPersonalized {
+            return displayName.primary
+        }
+
         switch spread.period {
         case .year:
             return String(calendar.component(.year, from: spread.date))
@@ -166,7 +172,17 @@ struct SpreadTitleNavigatorModel {
         }
     }
 
-    private func display(for spread: DataModel.Spread) -> Item.Display {
+    private func display(for spread: DataModel.Spread, allowsPersonalization: Bool) -> Item.Display {
+        let displayName = displayName(for: spread, allowsPersonalization: allowsPersonalization)
+        if displayName.isPersonalized {
+            return .init(
+                top: nil,
+                bottom: displayName.primary,
+                footer: compactCanonicalFooter(for: spread),
+                isPersonalized: true
+            )
+        }
+
         switch spread.period {
         case .year:
             return yearDisplay(for: calendar.component(.year, from: spread.date))
@@ -176,6 +192,30 @@ struct SpreadTitleNavigatorModel {
             return dayDisplay(for: spread.date)
         case .multiday:
             return multidayDisplay(for: spread)
+        }
+    }
+
+    private func displayName(for spread: DataModel.Spread, allowsPersonalization: Bool) -> SpreadDisplayName {
+        SpreadDisplayNameFormatter(
+            calendar: calendar,
+            today: today,
+            firstWeekday: headerModel.firstWeekday
+        )
+        .display(for: spread, allowsPersonalization: allowsPersonalization)
+    }
+
+    private func compactCanonicalFooter(for spread: DataModel.Spread) -> String? {
+        switch spread.period {
+        case .year:
+            return nil
+        case .month:
+            return String(calendar.component(.year, from: spread.date))
+        case .day:
+            return dayMonthFooter(for: spread.date)
+        case .multiday:
+            let startDate = spread.startDate ?? spread.date
+            let endDate = spread.endDate ?? spread.date
+            return "\(dayMonthFooter(for: startDate))-\(dayMonthFooter(for: endDate))"
         }
     }
 
@@ -224,6 +264,14 @@ struct SpreadTitleNavigatorModel {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = calendar.timeZone
         formatter.setLocalizedDateFormatFromTemplate("EEE")
+        return formatter.string(from: date)
+    }
+
+    private func dayMonthFooter(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.setLocalizedDateFormatFromTemplate("MMM d")
         return formatter.string(from: date)
     }
 

@@ -180,12 +180,17 @@ struct Definitions {
 
         struct SpreadToolbar {
             static let todayButton = "spreads.toolbar.today"
+            static let favoritesMenu = "spreads.toolbar.favorites"
+            static let favoriteToggle = "spreads.toolbar.favoriteToggle"
+            static let spreadActionsMenu = "spreads.toolbar.spreadActions"
         }
 
         struct SpreadCreationSheet {
             static let periodPicker = "spreads.create.period"
             static let createButton = "spreads.create.create"
             static let cancelButton = "spreads.create.cancel"
+            static let customNameField = "spreads.create.name.custom"
+            static let dynamicNameToggle = "spreads.create.name.dynamic"
             static let standardDatePicker = "spreads.create.date.standard"
             static let yearPicker = "spreads.create.year"
             static let monthPicker = "spreads.create.month"
@@ -200,6 +205,13 @@ struct Definitions {
             static func multidayPreset(_ presetRawValue: String) -> String {
                 "spreads.create.preset.\(presetRawValue)"
             }
+        }
+
+        struct SpreadNameEditSheet {
+            static let customNameField = "spreads.nameEdit.custom"
+            static let dynamicNameToggle = "spreads.nameEdit.dynamic"
+            static let saveButton = "spreads.nameEdit.save"
+            static let cancelButton = "spreads.nameEdit.cancel"
         }
 
         struct TaskCreationSheet {

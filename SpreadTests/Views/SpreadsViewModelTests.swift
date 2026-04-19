@@ -49,6 +49,22 @@ struct SpreadsViewModelTests {
         #expect(prefill?.date == date)
     }
 
+    @Test("showSpreadNameEdit sets spreadNameEdit destination")
+    func testShowSpreadNameEdit() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .init(identifier: "UTC")!
+        let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
+        let viewModel = SpreadsViewModel()
+
+        viewModel.showSpreadNameEdit(spread)
+
+        guard case .spreadNameEdit(let destinationSpread) = viewModel.activeSheet else {
+            Issue.record("Expected .spreadNameEdit, got \(String(describing: viewModel.activeSheet))")
+            return
+        }
+        #expect(destinationSpread.id == spread.id)
+    }
+
     /// Condition: Call showTaskCreation().
     /// Expected: Active sheet is .taskCreation.
     @Test("showTaskCreation sets taskCreation destination")
@@ -177,9 +193,11 @@ struct SpreadsViewModelTests {
             status: .open
         )
         let note = DataModel.Note(title: "Note", date: .now, period: .day)
+        let spread = DataModel.Spread(period: .day, date: .now, calendar: Calendar(identifier: .gregorian))
 
         let destinations: [SpreadsViewModel.SheetDestination] = [
             .spreadCreation(nil),
+            .spreadNameEdit(spread),
             .taskCreation,
             .noteCreation,
             .taskDetail(task),

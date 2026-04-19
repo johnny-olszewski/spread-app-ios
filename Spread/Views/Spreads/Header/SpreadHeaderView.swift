@@ -23,6 +23,12 @@ struct SpreadHeaderView: View {
     /// Callback when a navigator selection is made.
     var onNavigatorSelect: ((SpreadHeaderNavigatorModel.Selection) -> Void)? = nil
 
+    /// Callback for toggling the current explicit spread favorite state.
+    var onFavoriteToggle: (() -> Void)? = nil
+
+    /// Callback for presenting the current explicit spread naming editor.
+    var onEditName: (() -> Void)? = nil
+
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var centeredTitleWidth: CGFloat = 0
 
@@ -30,28 +36,39 @@ struct SpreadHeaderView: View {
 
     var body: some View {
         if let isShowingNavigator, let navigatorModel, let currentSpread, let onNavigatorSelect {
-            navigatorTitleButton(isShowingNavigator: isShowingNavigator)
-                .spreadNavigatorPresentation(
-                    isPresented: isShowingNavigator,
-                    presentsAsPopover: horizontalSizeClass == .regular,
-                    model: navigatorModel,
-                    currentSpread: currentSpread,
-                    onSelect: onNavigatorSelect
-                )
+            headerContainer {
+                navigatorTitleButton(isShowingNavigator: isShowingNavigator)
+            }
+            .spreadNavigatorPresentation(
+                isPresented: isShowingNavigator,
+                presentsAsPopover: horizontalSizeClass == .regular,
+                model: navigatorModel,
+                currentSpread: currentSpread,
+                onSelect: onNavigatorSelect
+            )
         } else {
-            ZStack {
-                HStack {
-                    entryCountLabel
-                    Spacer(minLength: 0)
-                }
-
+            headerContainer {
                 titleLabel
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal)
-            .padding(.vertical, 12)
         }
+    }
+
+    private func headerContainer<Content: View>(
+        @ViewBuilder titleContent: () -> Content
+    ) -> some View {
+        ZStack {
+            HStack {
+                entryCountLabel
+                Spacer(minLength: 0)
+                headerActions
+            }
+
+            titleContent()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal)
+        .padding(.vertical, 12)
     }
 
     private func navigatorTitleButton(isShowingNavigator: Binding<Bool>) -> some View {
@@ -59,22 +76,48 @@ struct SpreadHeaderView: View {
             isShowingNavigator.wrappedValue = true
         } label: {
             ZStack {
-                HStack {
-                    entryCountLabel
-                    Spacer(minLength: 0)
-                }
-
                 centeredTitleStack
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton)
 
                 chevronLabel
                     .offset(x: centeredTitleWidth / 2 + 10)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal)
-            .padding(.vertical, 12)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private var headerActions: some View {
+        HStack(spacing: 8) {
+            if let onFavoriteToggle {
+                Button(action: onFavoriteToggle) {
+                    Image(systemName: configuration.spread.isFavorite ? "star.fill" : "star")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(configuration.spread.isFavorite ? Color.yellow : Color.secondary)
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(configuration.spread.isFavorite ? "Unfavorite Spread" : "Favorite Spread")
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
+            }
+
+            if let onEditName {
+                Menu {
+                    Button {
+                        onEditName()
+                    } label: {
+                        Label("Edit Name", systemImage: "pencil")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Color.secondary)
+                        .frame(width: 32, height: 32)
+                }
+                .accessibilityLabel("Spread Actions")
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.spreadActionsMenu)
+            }
+        }
     }
 
     private var titleLabel: some View {
@@ -199,11 +242,17 @@ extension SpreadHeaderView {
         calendar: Calendar,
         taskCount: Int = 0,
         eventCount: Int = 0,
-        noteCount: Int = 0
+        noteCount: Int = 0,
+        today: Date = .now,
+        firstWeekday: FirstWeekday = .systemDefault,
+        allowsPersonalization: Bool = false
     ) {
         self.configuration = SpreadHeaderConfiguration(
             spread: spread,
             calendar: calendar,
+            today: today,
+            firstWeekday: firstWeekday,
+            allowsPersonalization: allowsPersonalization,
             taskCount: taskCount,
             eventCount: eventCount,
             noteCount: noteCount
@@ -215,10 +264,19 @@ extension SpreadHeaderView {
     /// - Parameters:
     ///   - spreadDataModel: The spread data model containing entries.
     ///   - calendar: The calendar for date formatting.
-    init(spreadDataModel: SpreadDataModel, calendar: Calendar) {
+    init(
+        spreadDataModel: SpreadDataModel,
+        calendar: Calendar,
+        today: Date = .now,
+        firstWeekday: FirstWeekday = .systemDefault,
+        allowsPersonalization: Bool = false
+    ) {
         self.configuration = SpreadHeaderConfiguration(
             spreadDataModel: spreadDataModel,
-            calendar: calendar
+            calendar: calendar,
+            today: today,
+            firstWeekday: firstWeekday,
+            allowsPersonalization: allowsPersonalization
         )
     }
 }

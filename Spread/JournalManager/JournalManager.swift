@@ -508,8 +508,19 @@ final class JournalManager {
     ///   - date: The date for the new spread.
     /// - Returns: The newly created spread.
     /// - Throws: Repository errors if persistence fails.
-    func addSpread(period: Period, date: Date) async throws -> DataModel.Spread {
-        let spread = DataModel.Spread(period: period, date: date, calendar: calendar)
+    func addSpread(
+        period: Period,
+        date: Date,
+        customName: String? = nil,
+        usesDynamicName: Bool = true
+    ) async throws -> DataModel.Spread {
+        let spread = DataModel.Spread(
+            period: period,
+            date: date,
+            calendar: calendar,
+            customName: SpreadDisplayNameFormatter.sanitizedCustomName(customName),
+            usesDynamicName: usesDynamicName
+        )
 
         try await spreadRepository.save(spread)
         spreads.append(spread)
@@ -540,12 +551,19 @@ final class JournalManager {
     ///   - endDate: The end date of the multiday range.
     /// - Returns: The newly created multiday spread.
     /// - Throws: Repository errors if persistence fails.
-    func addMultidaySpread(startDate: Date, endDate: Date) async throws -> DataModel.Spread {
+    func addMultidaySpread(
+        startDate: Date,
+        endDate: Date,
+        customName: String? = nil,
+        usesDynamicName: Bool = true
+    ) async throws -> DataModel.Spread {
         // Create the new multiday spread
         let spread = DataModel.Spread(
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            customName: SpreadDisplayNameFormatter.sanitizedCustomName(customName),
+            usesDynamicName: usesDynamicName
         )
 
         // Save spread and add to local list
@@ -566,6 +584,59 @@ final class JournalManager {
         dataVersion += 1
 
         return spread
+    }
+
+    /// Updates the explicit-spread favorite flag and field-level sync timestamp.
+    func updateSpreadFavorite(_ spread: DataModel.Spread, isFavorite: Bool) async throws {
+        guard let current = spreadForMutation(spread.id) else { return }
+        guard current.isFavorite != isFavorite else { return }
+
+        current.isFavorite = isFavorite
+        current.isFavoriteUpdatedAt = .now
+        try await spreadRepository.save(current)
+        replaceCachedSpread(current)
+        dataVersion += 1
+    }
+
+    /// Updates the explicit-spread custom and dynamic naming fields.
+    func updateSpreadName(
+        _ spread: DataModel.Spread,
+        customName: String?,
+        usesDynamicName: Bool
+    ) async throws {
+        guard let current = spreadForMutation(spread.id) else { return }
+
+        let sanitizedCustomName = SpreadDisplayNameFormatter.sanitizedCustomName(customName)
+        let timestamp = Date.now
+        var didChange = false
+
+        if current.customName != sanitizedCustomName {
+            current.customName = sanitizedCustomName
+            current.customNameUpdatedAt = timestamp
+            didChange = true
+        }
+
+        if current.usesDynamicName != usesDynamicName {
+            current.usesDynamicName = usesDynamicName
+            current.usesDynamicNameUpdatedAt = timestamp
+            didChange = true
+        }
+
+        guard didChange else { return }
+
+        try await spreadRepository.save(current)
+        replaceCachedSpread(current)
+        dataVersion += 1
+    }
+
+    private func spreadForMutation(_ id: UUID) -> DataModel.Spread? {
+        spreads.first { $0.id == id }
+    }
+
+    private func replaceCachedSpread(_ spread: DataModel.Spread) {
+        if let index = spreads.firstIndex(where: { $0.id == spread.id }) {
+            spreads[index] = spread
+        }
     }
 
     // MARK: - Task Migration
