@@ -183,6 +183,7 @@ struct Definitions {
             static let favoritesMenu = "spreads.toolbar.favorites"
             static let favoriteToggle = "spreads.toolbar.favoriteToggle"
             static let spreadActionsMenu = "spreads.toolbar.spreadActions"
+            static let deleteSpreadButton = "spreads.toolbar.deleteSpread"
         }
 
         struct SpreadCreationSheet {

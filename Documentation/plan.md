@@ -223,7 +223,7 @@
   - Regression tests proving dynamic and custom personalized sources render identically for equivalent labels.
 - **Dependencies**: SPRD-169
 
-### [SPRD-173] UI: add confirmed Delete Spread action to spread actions menu
+### [SPRD-173] UI: add confirmed Delete Spread action to spread actions menu - [x] Complete
 - **Context**: Spread deletion is implemented and tested through `JournalManager.deleteSpread(_:)`, but no user-facing affordance currently calls it. The existing spread actions menu only exposes `Edit Name`.
 - **Description**: Add a destructive `Delete Spread` action to the same spread actions menu as `Edit Name` for conventional explicit spreads.
 - **Implementation Details**:

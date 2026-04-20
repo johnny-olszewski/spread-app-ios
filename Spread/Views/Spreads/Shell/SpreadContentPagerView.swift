@@ -108,7 +108,40 @@ struct SpreadContentPagerView: View {
             guard let item = items.first(where: { $0.id == currentVisibleID }) else { return }
             selection = item.selection
         }
+        .alert(item: activeAlertBinding) { destination in
+            switch destination {
+            case .deleteSpreadConfirmation(let spread):
+                return Alert(
+                    title: Text("Delete Spread"),
+                    message: Text(
+                        "Only this spread will be deleted. Tasks and notes are preserved and moved to " +
+                        "the nearest parent spread or Inbox. This action cannot be undone."
+                    ),
+                    primaryButton: .destructive(Text("Delete Spread")) {
+                        deleteSpread(spread)
+                    },
+                    secondaryButton: .cancel {
+                        viewModel.dismissAlert()
+                    }
+                )
+            case .deleteSpreadFailed(let message):
+                return Alert(
+                    title: Text("Couldn't Delete Spread"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK")) {
+                        viewModel.dismissAlert()
+                    }
+                )
+            }
+        }
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.pager)
+    }
+
+    private var activeAlertBinding: Binding<SpreadsViewModel.AlertDestination?> {
+        Binding(
+            get: { viewModel.activeAlert },
+            set: { viewModel.activeAlert = $0 }
+        )
     }
 
     private func center(on id: String, animated: Bool) {
@@ -118,6 +151,20 @@ struct SpreadContentPagerView: View {
             }
         } else {
             pagerSettledTargetID = pagerID(for: id)
+        }
+    }
+
+    private func deleteSpread(_ spread: DataModel.Spread) {
+        viewModel.dismissAlert()
+        Task { @MainActor in
+            do {
+                try await journalManager.deleteSpread(spread)
+                await syncEngine?.syncNow()
+            } catch {
+                viewModel.showSpreadDeleteFailure(
+                    message: "Failed to delete spread: \(error.localizedDescription)"
+                )
+            }
         }
     }
 }
@@ -171,6 +218,9 @@ private struct SpreadPageContentView: View {
                     },
                     onEditName: {
                         viewModel.showSpreadNameEdit(spread)
+                    },
+                    onDeleteSpread: {
+                        viewModel.showSpreadDeleteConfirmation(spread)
                     }
                 )
                 conventionalContentView(for: spread)

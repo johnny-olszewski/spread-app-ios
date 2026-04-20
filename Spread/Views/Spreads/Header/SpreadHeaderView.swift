@@ -29,6 +29,9 @@ struct SpreadHeaderView: View {
     /// Callback for presenting the current explicit spread naming editor.
     var onEditName: (() -> Void)? = nil
 
+    /// Callback for presenting the current explicit spread deletion confirmation.
+    var onDeleteSpread: (() -> Void)? = nil
+
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var centeredTitleWidth: CGFloat = 0
 
@@ -101,12 +104,28 @@ struct SpreadHeaderView: View {
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
             }
 
-            if let onEditName {
+            let actions = SpreadHeaderActionSupport.actions(
+                allowsNameEditing: onEditName != nil,
+                allowsDeletion: onDeleteSpread != nil
+            )
+
+            if !actions.isEmpty {
                 Menu {
-                    Button {
-                        onEditName()
-                    } label: {
-                        Label("Edit Name", systemImage: "pencil")
+                    if actions.contains(.editName), let onEditName {
+                        Button {
+                            onEditName()
+                        } label: {
+                            Label("Edit Name", systemImage: "pencil")
+                        }
+                    }
+
+                    if actions.contains(.deleteSpread), let onDeleteSpread {
+                        Button(role: .destructive) {
+                            onDeleteSpread()
+                        } label: {
+                            Label("Delete Spread", systemImage: "trash")
+                        }
+                        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.deleteSpreadButton)
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -176,6 +195,27 @@ struct SpreadHeaderView: View {
             .foregroundStyle(.secondary)
             .padding(.leading, 8)
             .padding(.vertical, 4)
+    }
+}
+
+enum SpreadHeaderAction: Equatable {
+    case editName
+    case deleteSpread
+}
+
+enum SpreadHeaderActionSupport {
+    static func actions(
+        allowsNameEditing: Bool,
+        allowsDeletion: Bool
+    ) -> [SpreadHeaderAction] {
+        var actions: [SpreadHeaderAction] = []
+        if allowsNameEditing {
+            actions.append(.editName)
+        }
+        if allowsDeletion {
+            actions.append(.deleteSpread)
+        }
+        return actions
     }
 }
 
