@@ -30,11 +30,15 @@
 - Preserve a debug-only `localhost` mode for engineering workflows; it uses mock auth, supports mock data loading, is selected per launch, and never persists across launches. [SPRD-105, SPRD-107]
 
 ## Workflow Branch Bundle (`WKFLW-17`)
-- `WKFLW-17` owns a bundled implementation pass for persisted spread personalization plus richer task metadata. Approved persisted fields must land together through one schema/sync migration pass across SwiftData, Supabase tables/RPCs, serializers, and local schema snapshots. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-172]
+- `WKFLW-17` owns a bundled implementation pass for persisted spread personalization plus richer task metadata. Approved persisted fields must land together through one schema/sync migration pass across SwiftData, Supabase tables/RPCs, serializers, and local schema snapshots. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-172, SPRD-173]
 - Approved spread personalization scope:
   - Explicit persisted spreads can be favorited in conventional mode only. Favorites do not apply to traditional virtual destinations. [SPRD-169]
   - Favoriting is tied to the specific spread record. Deleting and later recreating the same period/date starts with fresh personalization state. [SPRD-169]
   - A favorite toggle appears in the current spread header or nearby spread-level toolbar area for conventional explicit spreads. [SPRD-169]
+  - Existing conventional explicit spreads expose a destructive `Delete Spread` action in the same spread actions menu as `Edit Name`. The action is hidden in traditional mode because traditional destinations are virtual, not persisted explicit spread records. [SPRD-173]
+  - `Delete Spread` is user-facing permanent deletion with no restore/trash flow. Implementation keeps the existing offline-first delete architecture: the local spread record is removed, while sync represents the deletion with a tombstone/`deleted_at` so other devices apply delete-wins behavior. [SPRD-173]
+  - Before deleting, the app presents a confirmation alert explaining that only the spread is deleted and tasks/notes are preserved by moving to the nearest parent spread or Inbox. Favorited spreads require no special confirmation beyond the normal delete alert; deleting the spread naturally removes its favorite shortcut. [SPRD-173]
+  - After successful deletion of the selected spread, the app automatically navigates to the existing best available fallback selection. If deletion fails, the app keeps the user on the spread and shows an error alert. [SPRD-173]
   - A conventional-mode toolbar button presents a menu of favorited explicit spreads from the currently selected year only; selecting a favorite navigates the spread title navigator to that spread. [SPRD-169]
   - The favorites toolbar button remains visible in conventional mode even when the current year has no favorites and presents an explanatory empty menu. The button is hidden in traditional mode. [SPRD-169]
   - Favorites are ordered by the app's normal chronological spread ordering and use each spread's current display name at render time. [SPRD-169]
@@ -130,6 +134,7 @@
 - Week period is NOT supported (removed from Period enum). [SPRD-8, SPRD-56]
 - Persisted explicit spreads support user-scoped personalization metadata as part of `WKFLW-17`: favorite state, optional custom name override, and dynamic naming enabled state. These fields do not apply to traditional virtual destinations. [SPRD-169]
 - Custom name override is the highest-priority display label. When no override exists and dynamic naming is enabled, qualifying explicit spreads use live relative names; otherwise they use canonical date titles. Relative names never create a new period or assignment granularity. [SPRD-169]
+- Persisted explicit spreads can be deleted from the conventional-mode spread actions menu. Deleting a spread does not delete tasks or notes; existing spread deletion rules migrate entry assignments to the nearest parent spread or Inbox. The user-facing behavior is permanent deletion with no restore/trash flow, backed by the existing local hard delete plus sync tombstone/delete-wins architecture. [SPRD-173]
 
 ### Spread Periods
 - Creatable periods: year, month, day, multiday. [SPRD-8]
