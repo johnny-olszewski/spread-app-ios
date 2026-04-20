@@ -223,6 +223,33 @@
   - Regression tests proving dynamic and custom personalized sources render identically for equivalent labels.
 - **Dependencies**: SPRD-169
 
+### [SPRD-173] UI: add confirmed Delete Spread action to spread actions menu
+- **Context**: Spread deletion is implemented and tested through `JournalManager.deleteSpread(_:)`, but no user-facing affordance currently calls it. The existing spread actions menu only exposes `Edit Name`.
+- **Description**: Add a destructive `Delete Spread` action to the same spread actions menu as `Edit Name` for conventional explicit spreads.
+- **Implementation Details**:
+  - Show `Delete Spread` in the current spread header actions menu for conventional explicit spreads only.
+  - Keep the action hidden in traditional mode because traditional destinations are virtual and not persisted explicit spread records.
+  - Present a destructive confirmation alert before deleting.
+  - Alert copy must explain that only the spread is deleted; tasks and notes are preserved and moved to the nearest parent spread or Inbox by the existing deletion coordinator.
+  - Treat the user-facing action as permanent deletion with no restore/trash flow.
+  - Preserve the current implementation semantics: local SwiftData spread row is deleted immediately and sync emits the existing tombstone/`deleted_at` delete mutation so other devices apply delete-wins behavior.
+  - Do not add special favorited-spread copy or a required unfavorite step; deleting the spread naturally removes its favorite shortcut.
+  - After successful deletion, rely on the existing best-available fallback selection behavior when the selected spread no longer exists.
+  - If deletion fails, keep the user on the spread and show an error alert.
+  - Trigger a sync after successful deletion when a sync engine is available, matching other spread/task/note mutation flows.
+- **Acceptance Criteria**:
+  - Users can open the spread actions menu and choose `Delete Spread` from the same menu as `Edit Name`.
+  - Confirming the alert deletes the spread and preserves contained tasks/notes according to existing parent-or-Inbox reassignment rules.
+  - Cancelling the alert leaves the spread, tasks, notes, favorites, and selection unchanged.
+  - Successful deletion removes the spread from the title navigator and navigates to a valid fallback selection.
+  - Deletion failure surfaces an error alert and leaves the user on the current spread.
+  - Traditional mode does not expose a delete-spread action.
+- **Tests**:
+  - Unit/view-model tests or view inspection where practical for menu visibility and action wiring.
+  - Journal/UI integration coverage for confirm, cancel, failure alert, and post-delete selection fallback.
+  - Regression coverage that deleting a favorited spread removes it from the favorites menu through normal spread removal.
+- **Dependencies**: SPRD-169, SPRD-172
+
 ### [SPRD-170] Feature: add richer task metadata with body, priority, optional Inbox assignment, and due dates - [x] Complete
 - **Context**: These task changes are still contained enough for a single branch, but they materially affect creation/edit flows, Inbox semantics, and overdue logic.
 - **Description**: Add task body, priority, optional nil preferred assignment, and due dates that are distinct from assignment targets.
