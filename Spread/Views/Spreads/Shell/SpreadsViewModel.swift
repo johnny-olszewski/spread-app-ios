@@ -49,6 +49,21 @@ final class SpreadsViewModel {
         }
     }
 
+    /// All possible alert presentations in the spreads view.
+    enum AlertDestination: Identifiable {
+        case deleteSpreadConfirmation(DataModel.Spread)
+        case deleteSpreadFailed(message: String)
+
+        var id: String {
+            switch self {
+            case .deleteSpreadConfirmation(let spread):
+                return "deleteSpreadConfirmation-\(spread.id)"
+            case .deleteSpreadFailed:
+                return "deleteSpreadFailed"
+            }
+        }
+    }
+
     // MARK: - Shell State
 
     /// The current navigator selection, nil until resolved on appear.
@@ -60,6 +75,9 @@ final class SpreadsViewModel {
     /// The currently active sheet, or nil if no sheet is presented.
     var activeSheet: SheetDestination?
 
+    /// The currently active alert, or nil if no alert is presented.
+    var activeAlert: AlertDestination?
+
     // MARK: - Actions
 
     /// Presents the spread creation sheet.
@@ -70,6 +88,16 @@ final class SpreadsViewModel {
     /// Presents the spread naming editor.
     func showSpreadNameEdit(_ spread: DataModel.Spread) {
         activeSheet = .spreadNameEdit(spread)
+    }
+
+    /// Presents spread deletion confirmation for a conventional explicit spread.
+    func showSpreadDeleteConfirmation(_ spread: DataModel.Spread) {
+        activeAlert = .deleteSpreadConfirmation(spread)
+    }
+
+    /// Presents a spread deletion failure alert.
+    func showSpreadDeleteFailure(message: String) {
+        activeAlert = .deleteSpreadFailed(message: message)
     }
 
     /// Presents the task creation sheet.
@@ -100,5 +128,10 @@ final class SpreadsViewModel {
     /// Dismisses the currently active sheet.
     func dismiss() {
         activeSheet = nil
+    }
+
+    /// Dismisses the currently active alert.
+    func dismissAlert() {
+        activeAlert = nil
     }
 }

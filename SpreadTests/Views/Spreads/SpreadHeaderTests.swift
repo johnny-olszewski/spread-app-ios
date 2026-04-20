@@ -23,6 +23,32 @@ struct SpreadHeaderTests {
         calendar.date(from: .init(year: year, month: month, day: day))!
     }
 
+    // MARK: - Action Menu Tests
+
+    /// Conditions: Conventional explicit spread header provides edit and delete callbacks.
+    /// Expected: The spread actions menu exposes Edit Name and destructive Delete Spread actions.
+    @Test("Conventional explicit spread actions include edit name and delete")
+    func conventionalExplicitSpreadActionsIncludeEditNameAndDelete() {
+        let actions = SpreadHeaderActionSupport.actions(
+            allowsNameEditing: true,
+            allowsDeletion: true
+        )
+
+        #expect(actions == [.editName, .deleteSpread])
+    }
+
+    /// Conditions: Traditional virtual spread header provides no persisted-spread callbacks.
+    /// Expected: The spread actions menu has no actions to expose.
+    @Test("Traditional spread actions are hidden")
+    func traditionalSpreadActionsAreHidden() {
+        let actions = SpreadHeaderActionSupport.actions(
+            allowsNameEditing: false,
+            allowsDeletion: false
+        )
+
+        #expect(actions.isEmpty)
+    }
+
     // MARK: - Year Title Formatting Tests
 
     /// Conditions: Year spread for 2026.

@@ -15,6 +15,7 @@ struct SpreadsViewModelTests {
     func testInitialState() {
         let viewModel = SpreadsViewModel()
         #expect(viewModel.activeSheet == nil)
+        #expect(viewModel.activeAlert == nil)
         #expect(viewModel.selectedSelection == nil)
         #expect(viewModel.recenterToken == 0)
     }
@@ -63,6 +64,75 @@ struct SpreadsViewModelTests {
             return
         }
         #expect(destinationSpread.id == spread.id)
+    }
+
+    /// Condition: Call showSpreadDeleteConfirmation with a selected spread.
+    /// Expected: Active alert is .deleteSpreadConfirmation and carries that spread without changing selection.
+    @Test("showSpreadDeleteConfirmation sets delete confirmation alert")
+    func testShowSpreadDeleteConfirmation() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .init(identifier: "UTC")!
+        let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
+        let viewModel = SpreadsViewModel()
+        viewModel.selectedSelection = .conventional(spread)
+
+        viewModel.showSpreadDeleteConfirmation(spread)
+
+        guard case .deleteSpreadConfirmation(let destinationSpread) = viewModel.activeAlert else {
+            Issue.record("Expected .deleteSpreadConfirmation, got \(String(describing: viewModel.activeAlert))")
+            return
+        }
+        #expect(destinationSpread.id == spread.id)
+        guard case .conventional(let selectedSpread) = viewModel.selectedSelection else {
+            Issue.record("Expected conventional selection")
+            return
+        }
+        #expect(selectedSpread.id == spread.id)
+    }
+
+    /// Condition: A delete confirmation alert is active, then dismissAlert() is called as the cancel path.
+    /// Expected: The alert clears and the current spread selection is unchanged.
+    @Test("dismissAlert clears delete confirmation without changing selection")
+    func testDismissAlertClearsDeleteConfirmationWithoutChangingSelection() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .init(identifier: "UTC")!
+        let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
+        let viewModel = SpreadsViewModel()
+        viewModel.selectedSelection = .conventional(spread)
+        viewModel.showSpreadDeleteConfirmation(spread)
+
+        viewModel.dismissAlert()
+
+        #expect(viewModel.activeAlert == nil)
+        guard case .conventional(let selectedSpread) = viewModel.selectedSelection else {
+            Issue.record("Expected conventional selection")
+            return
+        }
+        #expect(selectedSpread.id == spread.id)
+    }
+
+    /// Condition: A spread deletion attempt fails.
+    /// Expected: The failure alert stores the user-facing message without changing selection.
+    @Test("showSpreadDeleteFailure presents error without changing selection")
+    func testShowSpreadDeleteFailure() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .init(identifier: "UTC")!
+        let spread = DataModel.Spread(period: .month, date: Date(timeIntervalSince1970: 0), calendar: calendar)
+        let viewModel = SpreadsViewModel()
+        viewModel.selectedSelection = .conventional(spread)
+
+        viewModel.showSpreadDeleteFailure(message: "Failed to delete spread: forced failure")
+
+        guard case .deleteSpreadFailed(let message) = viewModel.activeAlert else {
+            Issue.record("Expected .deleteSpreadFailed, got \(String(describing: viewModel.activeAlert))")
+            return
+        }
+        #expect(message == "Failed to delete spread: forced failure")
+        guard case .conventional(let selectedSpread) = viewModel.selectedSelection else {
+            Issue.record("Expected conventional selection")
+            return
+        }
+        #expect(selectedSpread.id == spread.id)
     }
 
     /// Condition: Call showTaskCreation().
@@ -203,6 +273,21 @@ struct SpreadsViewModelTests {
             .taskDetail(task),
             .noteDetail(note),
             .auth
+        ]
+
+        let ids = destinations.map(\.id)
+        let uniqueIds = Set(ids)
+        #expect(uniqueIds.count == destinations.count)
+    }
+
+    /// Condition: Different alert destinations are created.
+    /// Expected: Alert destinations have stable unique identifiers.
+    @Test("Alert destinations have unique identifiers")
+    func testAlertDestinationsHaveUniqueIdentifiers() {
+        let spread = DataModel.Spread(period: .day, date: .now, calendar: Calendar(identifier: .gregorian))
+        let destinations: [SpreadsViewModel.AlertDestination] = [
+            .deleteSpreadConfirmation(spread),
+            .deleteSpreadFailed(message: "Failure")
         ]
 
         let ids = destinations.map(\.id)

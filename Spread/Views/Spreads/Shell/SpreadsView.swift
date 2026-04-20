@@ -255,25 +255,28 @@ struct SpreadsView: View {
     // MARK: - Conventional Helpers
 
     private func conventionalFallbackSpread() -> DataModel.Spread {
-        SpreadHierarchyOrganizer(
+        conventionalFallbackSpreadIfAvailable()
+            ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
+    }
+
+    private func conventionalFallbackSpreadIfAvailable() -> DataModel.Spread? {
+        SpreadSelectionFallbackSupport.fallbackSpread(
             spreads: journalManager.spreads,
-            calendar: journalManager.calendar
-        ).initialSelection(for: journalManager.today)
-        ?? journalManager.spreads.first
-        ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
+            calendar: journalManager.calendar,
+            today: journalManager.today
+        )
     }
 
     private func resetConventionalSelectionIfNeeded() {
         guard case .conventional(let spread) = viewModel.selectedSelection else { return }
         if journalManager.spreads.contains(where: { $0.id == spread.id }) { return }
 
-        let organizer = SpreadHierarchyOrganizer(
+        viewModel.selectedSelection = SpreadSelectionFallbackSupport.replacementSelection(
+            currentSelection: viewModel.selectedSelection,
             spreads: journalManager.spreads,
-            calendar: journalManager.calendar
+            calendar: journalManager.calendar,
+            today: journalManager.today
         )
-        if let newSelection = organizer.initialSelection(for: journalManager.today) {
-            viewModel.selectedSelection = .conventional(newSelection)
-        }
     }
 
     // MARK: - Sheet Content
@@ -395,6 +398,35 @@ enum SpreadFavoritesMenuSupport {
             guard case .conventional(let spread) = item.selection else { return false }
             return spread.isFavorite
         }
+    }
+}
+
+enum SpreadSelectionFallbackSupport {
+    static func fallbackSpread(
+        spreads: [DataModel.Spread],
+        calendar: Calendar,
+        today: Date
+    ) -> DataModel.Spread? {
+        SpreadHierarchyOrganizer(spreads: spreads, calendar: calendar).initialSelection(for: today)
+            ?? spreads.first
+    }
+
+    static func replacementSelection(
+        currentSelection: SpreadHeaderNavigatorModel.Selection?,
+        spreads: [DataModel.Spread],
+        calendar: Calendar,
+        today: Date
+    ) -> SpreadHeaderNavigatorModel.Selection? {
+        guard case .conventional(let spread) = currentSelection else {
+            return currentSelection
+        }
+        guard !spreads.contains(where: { $0.id == spread.id }) else {
+            return currentSelection
+        }
+        guard let fallback = fallbackSpread(spreads: spreads, calendar: calendar, today: today) else {
+            return nil
+        }
+        return .conventional(fallback)
     }
 }
 
