@@ -183,7 +183,8 @@ struct LocalSupabaseSyncHarness {
     static func make(
         configuration: LocalSupabaseTestConfiguration,
         email: String,
-        deviceId: UUID = UUID()
+        deviceId: UUID = UUID(),
+        calendar: Calendar = TestDataBuilders.testCalendar
     ) async throws -> LocalSupabaseSyncHarness {
         let modelContainer = try ModelContainerFactory.makeInMemory()
         let client = configuration.makeAnonClient()
@@ -196,7 +197,7 @@ struct LocalSupabaseSyncHarness {
         let collectionRepository = SwiftDataCollectionRepository(modelContainer: modelContainer, deviceId: deviceId)
 
         let journalManager = try await JournalManager.make(
-            calendar: TestDataBuilders.testCalendar,
+            calendar: calendar,
             today: TestDataBuilders.testDate,
             taskRepository: taskRepository,
             spreadRepository: spreadRepository,

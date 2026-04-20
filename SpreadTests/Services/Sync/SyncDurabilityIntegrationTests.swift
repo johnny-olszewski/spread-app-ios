@@ -7,7 +7,7 @@ import XCTest
 final class SyncDurabilityIntegrationTests: XCTestCase {
     private var configuration: LocalSupabaseTestConfiguration!
     private var admin: LocalSupabaseAdmin!
-    private let calendar = TestDataBuilders.testCalendar
+    private let calendar = Calendar.current
 
     override func setUp() async throws {
         try await super.setUp()
@@ -264,7 +264,8 @@ final class SyncDurabilityIntegrationTests: XCTestCase {
     private func makeCleanHarness(email: String? = nil) async throws -> LocalSupabaseSyncHarness {
         let harness = try await LocalSupabaseSyncHarness.make(
             configuration: configuration,
-            email: email ?? configuration.primaryEmail
+            email: email ?? configuration.primaryEmail,
+            calendar: calendar
         )
         let user = try await harness.signIn()
         try await admin.clearAllData(for: user.id)
@@ -275,7 +276,8 @@ final class SyncDurabilityIntegrationTests: XCTestCase {
     private func makeRebuiltHarness(from source: LocalSupabaseSyncHarness) async throws -> LocalSupabaseSyncHarness {
         let rebuilt = try await LocalSupabaseSyncHarness.make(
             configuration: configuration,
-            email: source.email
+            email: source.email,
+            calendar: calendar
         )
         _ = try await rebuilt.signIn()
         await rebuilt.syncAndReload()

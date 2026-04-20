@@ -213,9 +213,7 @@ reset_local_database() {
   require_local_schema_file
   require_psql_tools
 
-  log "Resetting local database containers..."
-  (cd "$PROJECT_ROOT" && supabase db reset --local --no-seed)
-
+  log "Resetting local public schema from bootstrap snapshot..."
   load_local_status_env
 
   log "Replacing local public schema with bootstrap snapshot..."
