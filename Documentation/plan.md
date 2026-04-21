@@ -8,7 +8,7 @@
 - Backup entitlement is removed from v1; authenticated users can sync without a purchase gate. [SPRD-104]
 - Sign in with Apple and Google are removed from v1 scope; auth is email/password only, with sign-up and forgot-password flows retained. [SPRD-104, SPRD-108]
 - Runtime environment switching is removed from v1. Debug keeps a non-persistent `localhost` mode for engineering only; QA remains dev-backed and Release remains prod-backed. [SPRD-105, SPRD-107]
-- `WKFLW-17` is a workflow branch for one bundled schema/sync pass across spread personalization and richer task metadata. The approved scope is explicit spread favorites, explicit spread custom/dynamic naming, task body, task priority, task due date, and task-only nil preferred assignment. Links, tags, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads, status expansion, and note nil-assignment parity are deferred and tracked in `Documentation/backlog.md`. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171]
+- `WKFLW-17` is a workflow branch for one bundled schema/sync pass across spread personalization and richer task metadata. The approved scope is explicit spread favorites, explicit spread custom/dynamic naming, multiday spread date editing, task body, task priority, task due date, and task-only nil preferred assignment. Links, tags, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads, status expansion, and note nil-assignment parity are deferred and tracked in `Documentation/backlog.md`. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-174, SPRD-175]
 
 ## Story Overview (v1)
 - Foundation and scaffolding (completed)
@@ -79,6 +79,7 @@
 - The branch records the finalized keep/defer decision for every candidate in the `WKFLW-17` enhancement bundle.
 - Approved persisted fields land through one coordinated schema/sync migration pass across SwiftData and Supabase.
 - Spread personalization covers conventional explicit-spread favorites plus custom/dynamic naming for persisted explicit spreads across all period types.
+- Multiday spread date editing is implemented through shared spread create/edit sheet architecture and updates existing multiday spread records without changing personalization or entry assignment semantics.
 - Approved task metadata changes preserve offline-first sync, existing assignment/migration/overdue behavior, and the new task-only nil-assignment Inbox flow.
 - Durability tests cover local rebuild/sync paths for every approved persisted field.
 
@@ -249,6 +250,88 @@
   - Journal/UI integration coverage for confirm, cancel, failure alert, and post-delete selection fallback.
   - Regression coverage that deleting a favorited spread removes it from the favorites menu through normal spread removal.
 - **Dependencies**: SPRD-169, SPRD-172
+
+### [SPRD-174] Refactor: consolidate spread create/edit sheet architecture
+- **Context**: Multiday spread date editing should reuse the existing spread creation sheet surface instead of creating a parallel edit form. The current creation sheet mixes form state, validation, view copy, and persistence callbacks around creation-only assumptions, which would make future spread add/edit changes easy to duplicate.
+- **Description**: Refactor the spread sheet flow so creation and focused edit modes share one form/state/validation architecture while preserving the current create-spread behavior.
+- **Spec**: Workflow Branch Bundle (`WKFLW-17`); Spread
+- **Implementation Details**:
+  - Introduce a shared spread sheet mode/model/configuration that can represent:
+    - create mode for year/month/day/multiday spreads
+    - edit-dates mode for an existing multiday spread
+  - Keep the existing create mode behavior and copy intact:
+    - title `New Spread`
+    - `Cancel` and `Create`
+    - spread type selection
+    - year/month/day date picker
+    - multiday presets and custom range controls
+    - custom name and dynamic-name controls
+  - Add edit-mode configuration support without yet requiring the actions-menu entry:
+    - title `Edit Dates`
+    - `Cancel` and `Save`
+    - multiday date-range controls and presets only
+    - no spread type picker
+    - no custom-name field
+    - no dynamic-name toggle
+    - no favorite controls
+  - Centralize validation so create and edit share the same multiday date rules, duplicate detection, and validation messages, with edit mode able to ignore the spread currently being edited.
+  - Expose an unchanged-range state so edit mode can disable `Save` when no date change has been made.
+  - Preserve existing accessibility identifiers where behavior is unchanged and add edit-mode identifiers only where tests need to distinguish save/cancel/date controls.
+  - Do not add new persisted fields or Supabase migrations in this refactor.
+- **Acceptance Criteria**:
+  - Existing spread creation behavior remains unchanged for year/month/day/multiday creation. (Spec: Workflow Branch Bundle (`WKFLW-17`); Spread)
+  - The shared sheet architecture can render a focused multiday edit-dates mode without duplicating create-sheet date-range logic. (Spec: Workflow Branch Bundle (`WKFLW-17`); Spread)
+  - Edit-mode validation can ignore the current spread for duplicate checks while still detecting exact duplicate ranges against other multiday spreads. (Spec: Workflow Branch Bundle (`WKFLW-17`); Edge Cases)
+  - Edit mode can detect unchanged ranges independently from invalid ranges. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+- **Tests**:
+  - Unit/support tests for the shared configuration/model covering create mode and edit-dates mode.
+  - Unit/support tests for multiday duplicate detection that ignores the edited spread but rejects another spread with the same range.
+  - Unit/support tests for unchanged-range detection and save-disabled state.
+  - Regression tests for existing create-spread validation and prefill behavior.
+- **Dependencies**: SPRD-169, SPRD-172, SPRD-173
+
+### [SPRD-175] UI: add Edit Dates for conventional multiday spreads
+- **Context**: Multiday spreads are views over existing days rather than assignment owners. Users should be able to correct or move a multiday view by editing its start/end dates while preserving the spread's identity, name, favorite state, and aggregation semantics.
+- **Description**: Add an `Edit Dates` action for conventional explicit multiday spreads and persist date-range edits on the existing spread record through the shared spread sheet architecture from `SPRD-174`.
+- **Spec**: Workflow Branch Bundle (`WKFLW-17`); Spread; Spread Periods; Edge Cases
+- **Implementation Details**:
+  - Add `Edit Dates` to the existing spread actions ellipsis menu for conventional explicit multiday spreads only.
+  - Place `Edit Dates` after `Edit Name` and before destructive `Delete Spread`.
+  - Keep `Edit Dates` hidden for year/month/day spreads and hidden in traditional mode.
+  - Open the shared spread sheet in edit-dates mode for the selected multiday spread.
+  - Edit mode shows only multiday date-range controls and presets, with title `Edit Dates`, `Cancel`, and `Save`.
+  - Do not expose or mutate spread type, custom name, dynamic-name setting, or favorite state from `Edit Dates`.
+  - Validate edits using the existing multiday creation date limits:
+    - start date uses the current multiday minimum-start rule
+    - end date uses the current multiday minimum-end rule
+    - maximum date remains the existing creation maximum
+    - end date must be on or after start date
+    - exact duplicate ranges with another multiday spread are invalid
+    - the edited spread is ignored for duplicate checking
+    - partial overlaps with other multiday spreads remain allowed
+  - Disable `Save` when the selected range is unchanged, invalid, or an exact duplicate of another multiday spread.
+  - Persist a successful edit by mutating the same spread record ID and updating the spread `date`, `startDate`, and `endDate` fields together from one user action.
+  - Preserve custom name, dynamic-name setting, and favorite state unchanged.
+  - Use existing field-level sync timestamps for `date`, `startDate`, and `endDate`; no Supabase schema/RPC migration is expected unless implementation finds the existing merge path cannot persist those fields.
+  - Keep delete-wins behavior over concurrent date edits.
+  - After successful save, dismiss the sheet, keep the edited spread selected by record identity, and rebuild/recenter the title navigator and content pager around the new range, including cross-year moves based on the updated start date.
+  - If local persistence fails, keep the edit sheet open, preserve the selected range, and show an error alert; later sync failures continue through existing sync status/error UI.
+- **Acceptance Criteria**:
+  - Conventional explicit multiday spreads show `Edit Dates` in the spread actions menu between `Edit Name` and `Delete Spread`. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+  - Year/month/day spreads and traditional-mode destinations do not expose `Edit Dates`. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+  - `Edit Dates` opens a date-only edit sheet with the agreed copy and without spread type, naming, dynamic-name, or favorite controls. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+  - Invalid ranges, unchanged ranges, and exact duplicate ranges with another multiday spread cannot be saved. (Spec: Edge Cases)
+  - Partial overlapping multiday ranges can be saved. (Spec: Edge Cases)
+  - Saving updates the same spread record and preserves custom name, dynamic-name setting, and favorite state. (Spec: Spread)
+  - After save, the app remains selected on the edited spread and the navigator/pager reflect the updated range. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+  - Save failure leaves the sheet open with the user's selected range and surfaces an error alert. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+- **Tests**:
+  - Unit/support tests for menu visibility/action availability by spread period and mode.
+  - Unit/support tests for edit-date validation, including exact duplicate rejection, edited-spread duplicate exemption, unchanged range, invalid range, and partial-overlap allowance.
+  - JournalManager tests proving date edits update the same spread record and preserve custom name, dynamic-name setting, and favorite state.
+  - Navigation/model tests proving post-save selection stays on the edited spread and rebuilds/recenters when the updated range changes its ordering or year scope.
+  - One UI flow test covering opening `Edit Dates` from a multiday actions menu, changing the range, saving, and seeing the updated selected spread.
+- **Dependencies**: SPRD-174
 
 ### [SPRD-170] Feature: add richer task metadata with body, priority, optional Inbox assignment, and due dates - [x] Complete
 - **Context**: These task changes are still contained enough for a single branch, but they materially affect creation/edit flows, Inbox semantics, and overdue logic.
