@@ -30,7 +30,7 @@
 - Preserve a debug-only `localhost` mode for engineering workflows; it uses mock auth, supports mock data loading, is selected per launch, and never persists across launches. [SPRD-105, SPRD-107]
 
 ## Workflow Branch Bundle (`WKFLW-17`)
-- `WKFLW-17` owns a bundled implementation pass for persisted spread personalization plus richer task metadata. Approved persisted fields must land together through one schema/sync migration pass across SwiftData, Supabase tables/RPCs, serializers, and local schema snapshots. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-172, SPRD-173]
+- `WKFLW-17` owns a bundled implementation pass for persisted spread personalization plus richer task metadata. Approved persisted fields must land together through one schema/sync migration pass across SwiftData, Supabase tables/RPCs, serializers, and local schema snapshots. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-172, SPRD-173, SPRD-174, SPRD-175]
 - Approved spread personalization scope:
   - Explicit persisted spreads can be favorited in conventional mode only. Favorites do not apply to traditional virtual destinations. [SPRD-169]
   - Favoriting is tied to the specific spread record. Deleting and later recreating the same period/date starts with fresh personalization state. [SPRD-169]
@@ -39,6 +39,12 @@
   - `Delete Spread` is user-facing permanent deletion with no restore/trash flow. Implementation keeps the existing offline-first delete architecture: the local spread record is removed, while sync represents the deletion with a tombstone/`deleted_at` so other devices apply delete-wins behavior. [SPRD-173]
   - Before deleting, the app presents a confirmation alert explaining that only the spread is deleted and tasks/notes are preserved by moving to the nearest parent spread or Inbox. Favorited spreads require no special confirmation beyond the normal delete alert; deleting the spread naturally removes its favorite shortcut. [SPRD-173]
   - After successful deletion of the selected spread, the app automatically navigates to the existing best available fallback selection. If deletion fails, the app keeps the user on the spread and shows an error alert. [SPRD-173]
+  - Conventional explicit multiday spreads expose an `Edit Dates` action in the same spread actions menu as `Edit Name` and `Delete Spread`. The action is hidden for year/month/day spreads and hidden in traditional mode because traditional destinations are virtual and traditional mode does not surface multiday destinations. [SPRD-175]
+  - `Edit Dates` opens the existing spread creation sheet in a focused edit mode for the selected multiday spread. Edit mode shows only multiday date-range controls and presets, uses title `Edit Dates`, keeps `Cancel` and `Save` toolbar actions, and does not expose spread type, custom name, dynamic naming, or favorite controls. [SPRD-174, SPRD-175]
+  - Editing a multiday spread date range preserves the same spread record identity and keeps custom name, dynamic-name setting, and favorite state unchanged. It never deletes and recreates the spread. [SPRD-175]
+  - Multiday date editing follows the existing multiday creation date limits, except duplicate detection ignores the spread being edited. Save is disabled when the range is unchanged, invalid, or exactly duplicates another multiday spread. Partial overlaps remain allowed because overlapping multiday spreads are independent views. [SPRD-175]
+  - A successful date edit dismisses the sheet, keeps the edited spread selected by record identity, and lets the title navigator and content pager rebuild/recenter around the updated start/end range, including cross-year moves based on the new range start. [SPRD-175]
+  - If local save fails, the edit sheet remains open, preserves the user's selected range, and shows an error alert. Later sync failures continue through the normal sync status/error surfaces. [SPRD-175]
   - A conventional-mode toolbar button presents a menu of favorited explicit spreads from the currently selected year only; selecting a favorite navigates the spread title navigator to that spread. [SPRD-169]
   - The favorites toolbar button remains visible in conventional mode even when the current year has no favorites and presents an explanatory empty menu. The button is hidden in traditional mode. [SPRD-169]
   - Favorites are ordered by the app's normal chronological spread ordering and use each spread's current display name at render time. [SPRD-169]
@@ -82,6 +88,7 @@
 - Sync/conflict scope:
   - All approved persisted fields sync across devices in this branch. [SPRD-168]
   - New independently mergeable metadata fields use per-field conflict timestamps. Independent new metadata edits merge; same-field conflicts use per-field last-write-wins. Clearing an optional field to nil is a first-class edit and updates that field's timestamp. [SPRD-168]
+  - Multiday `Edit Dates` is an existing-record update that mutates the spread `date`, `startDate`, and `endDate` fields together from one user action, using the existing per-field timestamps for those fields. Delete still wins over concurrent date edits. No additional Supabase schema or RPC migration is intended unless implementation discovers the current merge path cannot persist these existing fields. [SPRD-175]
   - Preferred assignment remains governed by existing assignment/status sync behavior rather than the new independent metadata conflict system. New task metadata is preserved against title edits, but assignment/status changes keep existing stronger behavior. [SPRD-168]
   - During migration/backfill, new field timestamps initialize from each record's existing sync/update timestamp rather than migration time or nil. Delete wins over concurrent edits to new metadata and never resurrects a deleted task or spread. [SPRD-168]
 
@@ -135,6 +142,7 @@
 - Persisted explicit spreads support user-scoped personalization metadata as part of `WKFLW-17`: favorite state, optional custom name override, and dynamic naming enabled state. These fields do not apply to traditional virtual destinations. [SPRD-169]
 - Custom name override is the highest-priority display label. When no override exists and dynamic naming is enabled, qualifying explicit spreads use live relative names; otherwise they use canonical date titles. Relative names never create a new period or assignment granularity. [SPRD-169]
 - Persisted explicit spreads can be deleted from the conventional-mode spread actions menu. Deleting a spread does not delete tasks or notes; existing spread deletion rules migrate entry assignments to the nearest parent spread or Inbox. The user-facing behavior is permanent deletion with no restore/trash flow, backed by the existing local hard delete plus sync tombstone/delete-wins architecture. [SPRD-173]
+- Persisted explicit multiday spreads can be date-edited from the conventional-mode spread actions menu. Editing a multiday range updates the same spread record's existing date/range fields, preserves personalization, and does not change task/note assignment because multiday spreads aggregate existing day ranges rather than owning direct entry assignments. [SPRD-175]
 
 ### Spread Periods
 - Creatable periods: year, month, day, multiday. [SPRD-8]
@@ -1055,6 +1063,7 @@
 - Deleting year/month/day spread with entries: Reassign all entries to parent or Inbox; never delete entries. [SPRD-15]
 - Deleting multiday spread: Simple delete with no reassignment (no direct assignments to multiday). [SPRD-18]
 - Overlapping multiday spreads: Each multiday is independent; entries appear on all applicable. [SPRD-8, SPRD-49]
+- Editing multiday spread dates: exact duplicate ranges with another multiday spread are blocked; partial overlaps remain allowed. Date edits keep the same spread selected after save and trigger a structural navigator/content rebuild if the range moves within or across years. [SPRD-175]
 - Past-dated entries: Blocked in v1; validation prevents creation. [SPRD-23, SPRD-56]
 - Entry date change: Old assignments marked migrated; new assignment on best spread or Inbox. [SPRD-24]
 - Entry period change: Same reassignment logic as date change; period is independently editable. [SPRD-24]
