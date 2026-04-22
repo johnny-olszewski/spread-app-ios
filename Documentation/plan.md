@@ -419,7 +419,7 @@
   - Snapshot/visual or targeted view tests for visible-selection indicator placement and hidden-selection chevron indicator placement where practical.
 - **Dependencies**: SPRD-176
 
-### [SPRD-178] UI: add prioritized title navigator badges for overdue and favorite state - [ ] Pending
+### [SPRD-178] UI: add prioritized title navigator badges for overdue and favorite state - [x] Complete
 - **Context**: `SPRD-176` can retain past spreads when they are favorited or contain overdue work, but the title strip does not always explain why a past spread remains visible. Multiday spreads are especially unclear because they aggregate contained days rather than owning direct task assignments.
 - **Description**: Replace the title-strip item badge inputs with a single prioritized badge enum that can render overdue task counts or favorite state in one top-right badge slot.
 - **Spec**: Workflow Branch Bundle (`WKFLW-17`); Navigation and UI; Spread title navigator badges

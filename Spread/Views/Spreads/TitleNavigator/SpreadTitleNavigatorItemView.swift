@@ -6,10 +6,10 @@ struct SpreadTitleNavigatorItemView: View {
     let semanticID: String
     let style: SpreadTitleNavigatorItemStyle
     let display: SpreadTitleNavigatorModel.Item.Display
-    let overdueCount: Int
+    let badge: SpreadTitleNavigatorBadge?
     let isSelected: Bool
     let accessibilityIdentifier: String
-    let overdueBadgeAccessibilityIdentifier: String
+    let badgeAccessibilityIdentifier: String?
     let selectionIndicatorNamespace: Namespace.ID
     let showsSelectionIndicator: Bool
     let borderColor: Color?
@@ -76,32 +76,52 @@ struct SpreadTitleNavigatorItemView: View {
             }
         )
         .overlay(alignment: .topTrailing) {
-            overdueBadge
+            titleBadge
         }
     }
 
     @ViewBuilder
-    private var overdueBadge: some View {
-        if overdueCount > 0 {
-            if overdueCount > 9 {
-                Text("\(overdueCount)")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.red, in: Capsule())
-                    .accessibilityLabel("\(overdueCount) overdue tasks")
-                    .accessibilityIdentifier(overdueBadgeAccessibilityIdentifier)
-            } else {
-                Text("\(overdueCount)")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 18, height: 18)
-                    .background(.red, in: Circle())
-                    .accessibilityLabel("\(overdueCount) overdue tasks")
-                    .accessibilityIdentifier(overdueBadgeAccessibilityIdentifier)
-            }
+    private var titleBadge: some View {
+        switch badge {
+        case .overdue(let count):
+            overdueBadge(count: count)
+        case .favorite:
+            favoriteBadge
+        case nil:
+            EmptyView()
         }
+    }
+
+    @ViewBuilder
+    private func overdueBadge(count: Int) -> some View {
+        if count > 9 {
+            Text("\(count)")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.red, in: Capsule())
+                .accessibilityLabel(badge?.accessibilityLabel(style: style) ?? "")
+                .accessibilityIdentifier(badgeAccessibilityIdentifier ?? "")
+        } else {
+            Text("\(count)")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 18, height: 18)
+                .background(.red, in: Circle())
+                .accessibilityLabel(badge?.accessibilityLabel(style: style) ?? "")
+                .accessibilityIdentifier(badgeAccessibilityIdentifier ?? "")
+        }
+    }
+
+    private var favoriteBadge: some View {
+        Image(systemName: "star.fill")
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(Color.yellow)
+            .frame(width: 18, height: 18)
+            .background(.regularMaterial, in: Circle())
+            .accessibilityLabel(badge?.accessibilityLabel(style: style) ?? "")
+            .accessibilityIdentifier(badgeAccessibilityIdentifier ?? "")
     }
 
     @ViewBuilder

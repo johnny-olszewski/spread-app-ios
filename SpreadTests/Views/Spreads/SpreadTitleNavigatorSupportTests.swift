@@ -692,8 +692,8 @@ struct SpreadTitleNavigatorSupportTests {
 
         let expectedDayID = SpreadHeaderNavigatorModel.Selection.conventional(visibleDay).stableID(calendar: Self.calendar)
         let dayItem = items.first(where: { $0.selection.stableID(calendar: Self.calendar) == expectedDayID })
-        #expect(dayItem?.overdueCount == 1)
-        #expect(items.filter { $0.overdueCount > 0 }.count == 1)
+        #expect(dayItem?.badge == .overdue(count: 1))
+        #expect(items.filter { $0.badge == .overdue(count: 1) }.count == 1)
     }
 
     /// Setup: two overdue tasks share the same visible day spread.
@@ -714,16 +714,241 @@ struct SpreadTitleNavigatorSupportTests {
                 events: []
             ),
             overdueItems: [
-                OverdueTaskItem(task: taskA, sourceKey: TaskReviewSourceKey(kind: .spread(id: day.id, period: .day, date: day.date))),
-                OverdueTaskItem(task: taskB, sourceKey: TaskReviewSourceKey(kind: .spread(id: day.id, period: .day, date: day.date))),
+                OverdueTaskItem(
+                    task: taskA,
+                    sourceKey: TaskReviewSourceKey(kind: .spread(id: day.id, period: .day, date: day.date))
+                ),
+                OverdueTaskItem(
+                    task: taskB,
+                    sourceKey: TaskReviewSourceKey(kind: .spread(id: day.id, period: .day, date: day.date))
+                ),
             ]
         )
         .items(for: .conventional(day))
 
         let yearItem = items.first(where: { $0.style == .year })
         let dayItem = items.first(where: { $0.style == .day })
-        #expect(yearItem?.overdueCount == 0)
-        #expect(dayItem?.overdueCount == 2)
+        #expect(yearItem?.badge == nil)
+        #expect(dayItem?.badge == .overdue(count: 2))
+    }
+
+    /// Setup: conventional year, month, and day spreads each have one overdue open task source.
+    /// Expected: each matching explicit spread receives an overdue badge through the badge enum path.
+    @Test func conventionalYearMonthAndDayItemsUseOverdueBadges() {
+        let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2025, month: 1), calendar: Self.calendar)
+        let month = DataModel.Spread(period: .month, date: Self.makeDate(year: 2025, month: 12), calendar: Self.calendar)
+        let day = DataModel.Spread(period: .day, date: Self.makeDate(year: 2025, month: 12, day: 30), calendar: Self.calendar)
+        let yearTask = DataModel.Task(title: "Year", date: year.date, period: .year, status: .open)
+        let monthTask = DataModel.Task(title: "Month", date: month.date, period: .month, status: .open)
+        let dayTask = DataModel.Task(title: "Day", date: day.date, period: .day, status: .open)
+
+        let items = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: Self.makeDate(year: 2026, month: 1, day: 2),
+                spreads: [year, month, day],
+                tasks: [],
+                notes: [],
+                events: []
+            ),
+            overdueItems: [
+                OverdueTaskItem(
+                    task: yearTask,
+                    sourceKey: TaskReviewSourceKey(kind: .spread(id: year.id, period: .year, date: year.date))
+                ),
+                OverdueTaskItem(
+                    task: monthTask,
+                    sourceKey: TaskReviewSourceKey(kind: .spread(id: month.id, period: .month, date: month.date))
+                ),
+                OverdueTaskItem(
+                    task: dayTask,
+                    sourceKey: TaskReviewSourceKey(kind: .spread(id: day.id, period: .day, date: day.date))
+                )
+            ]
+        )
+        .items(for: .conventional(day))
+
+        #expect(items.first(where: { $0.style == .year })?.badge == .overdue(count: 1))
+        #expect(items.first(where: { $0.style == .month })?.badge == .overdue(count: 1))
+        #expect(items.first(where: { $0.style == .day })?.badge == .overdue(count: 1))
+    }
+
+    /// Setup: a conventional explicit spread is favorited and also has overdue work.
+    /// Expected: the overdue badge wins priority and the favorite badge is hidden.
+    @Test func overdueBadgeTakesPriorityOverFavoriteBadge() {
+        let spread = DataModel.Spread(
+            period: .day,
+            date: Self.makeDate(year: 2026, month: 1, day: 10),
+            calendar: Self.calendar,
+            isFavorite: true
+        )
+        let task = DataModel.Task(title: "Overdue", date: spread.date, period: .day, status: .open)
+
+        let item = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: Self.makeDate(year: 2026, month: 1, day: 12),
+                spreads: [spread],
+                tasks: [],
+                notes: [],
+                events: []
+            ),
+            overdueItems: [
+                OverdueTaskItem(
+                    task: task,
+                    sourceKey: TaskReviewSourceKey(kind: .spread(id: spread.id, period: .day, date: spread.date))
+                )
+            ]
+        )
+        .items(for: .conventional(spread))
+        .first
+
+        #expect(item?.badge == .overdue(count: 1))
+    }
+
+    /// Setup: a conventional explicit spread is favorited and has no overdue work.
+    /// Expected: the item receives a favorite badge.
+    @Test func favoriteBadgeAppearsWhenNoOverdueBadgeExists() {
+        let spread = DataModel.Spread(
+            period: .month,
+            date: Self.makeDate(year: 2026, month: 1),
+            calendar: Self.calendar,
+            isFavorite: true
+        )
+
+        let item = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: Self.makeDate(year: 2026, month: 1, day: 12),
+                spreads: [spread],
+                tasks: [],
+                notes: [],
+                events: []
+            )
+        )
+        .items(for: .conventional(spread))
+        .first
+
+        #expect(item?.badge == .favorite)
+    }
+
+    /// Setup: both conventional title-strip display preferences include a favorite past spread.
+    /// Expected: the same favorite badge is present in Relevant Past Only and Show All Spreads modes.
+    @Test func favoriteBadgesApplyInBothConventionalDisplayModes() {
+        let spread = DataModel.Spread(
+            period: .day,
+            date: Self.makeDate(year: 2026, month: 1, day: 10),
+            calendar: Self.calendar,
+            isFavorite: true
+        )
+        let model = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: Self.makeDate(year: 2026, month: 1, day: 12),
+                spreads: [spread],
+                tasks: [],
+                notes: [],
+                events: []
+            )
+        )
+
+        let relevantItems = model.titleStripItems(for: .conventional(spread), displayPreference: .relevantPastOnly)
+        let allItems = model.titleStripItems(for: .conventional(spread), displayPreference: .showAllSpreads)
+
+        #expect(relevantItems.first?.badge == .favorite)
+        #expect(allItems.first?.badge == .favorite)
+    }
+
+    /// Setup: a conventional multiday spread contains overdue open preferred-assignment tasks, including Inbox tasks.
+    /// Expected: the multiday item shows the exact overdue count for tasks in the date range.
+    @Test func conventionalMultidayItemCountsOverduePreferredAssignmentsInsideRange() {
+        let multiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 1, day: 10),
+            endDate: Self.makeDate(year: 2026, month: 1, day: 12),
+            calendar: Self.calendar
+        )
+        let taskA = DataModel.Task(
+            title: "Inside A",
+            date: Self.makeDate(year: 2026, month: 1, day: 10),
+            period: .day,
+            status: .open
+        )
+        let taskB = DataModel.Task(
+            title: "Inside B",
+            date: Self.makeDate(year: 2026, month: 1, day: 12),
+            period: .day,
+            status: .open
+        )
+        let outsideTask = DataModel.Task(
+            title: "Outside",
+            date: Self.makeDate(year: 2026, month: 1, day: 9),
+            period: .day,
+            status: .open
+        )
+
+        let item = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: Self.makeDate(year: 2026, month: 1, day: 13),
+                spreads: [multiday],
+                tasks: [taskA, taskB, outsideTask],
+                notes: [],
+                events: []
+            )
+        )
+        .items(for: .conventional(multiday))
+        .first
+
+        #expect(item?.badge == .overdue(count: 2))
+    }
+
+    /// Setup: completed, cancelled, and migrated tasks fall inside an overdue conventional multiday range.
+    /// Expected: non-open tasks do not contribute to the multiday overdue badge.
+    @Test func conventionalMultidayBadgeExcludesCompletedCancelledAndMigratedTasks() {
+        let multiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 1, day: 10),
+            endDate: Self.makeDate(year: 2026, month: 1, day: 12),
+            calendar: Self.calendar
+        )
+        let completed = DataModel.Task(
+            title: "Completed",
+            date: Self.makeDate(year: 2026, month: 1, day: 10),
+            period: .day,
+            status: .complete
+        )
+        let cancelled = DataModel.Task(
+            title: "Cancelled",
+            date: Self.makeDate(year: 2026, month: 1, day: 11),
+            period: .day,
+            status: .cancelled
+        )
+        let migrated = DataModel.Task(
+            title: "Migrated",
+            date: Self.makeDate(year: 2026, month: 1, day: 12),
+            period: .day,
+            status: .migrated
+        )
+
+        let item = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: Self.makeDate(year: 2026, month: 1, day: 13),
+                spreads: [multiday],
+                tasks: [completed, cancelled, migrated],
+                notes: [],
+                events: []
+            )
+        )
+        .items(for: .conventional(multiday))
+        .first
+
+        #expect(item?.badge == nil)
     }
 
     /// Setup: a traditional strip with an overdue day assignment and a multiday overdue source.
@@ -763,8 +988,98 @@ struct SpreadTitleNavigatorSupportTests {
             .traditionalDay(Self.makeDate(year: 2026, month: 1, day: 10))
             .stableID(calendar: Self.calendar)
         let dayItem = items.first(where: { $0.selection.stableID(calendar: Self.calendar) == expectedDayID })
-        #expect(dayItem?.overdueCount == 1)
-        #expect(items.filter { $0.overdueCount > 0 }.count == 1)
+        #expect(dayItem?.badge == .overdue(count: 1))
+        #expect(items.filter { $0.badge == .overdue(count: 1) }.count == 1)
+    }
+
+    /// Setup: traditional mode has an explicit favorite spread in the same year but no overdue items.
+    /// Expected: virtual traditional title-strip items never receive favorite badges.
+    @Test func traditionalItemsNeverShowFavoriteBadges() {
+        let favorite = DataModel.Spread(
+            period: .day,
+            date: Self.makeDate(year: 2026, month: 1, day: 10),
+            calendar: Self.calendar,
+            isFavorite: true
+        )
+
+        let items = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .traditional,
+                calendar: Self.calendar,
+                today: Self.makeDate(year: 2026, month: 1, day: 12),
+                spreads: [favorite],
+                tasks: [],
+                notes: [],
+                events: []
+            )
+        )
+        .items(for: .traditionalDay(Self.makeDate(year: 2026, month: 1, day: 12)))
+
+        #expect(items.allSatisfy { $0.badge != .favorite })
+    }
+
+    /// Setup: the selected conventional item has an overdue badge.
+    /// Expected: selected state does not suppress the item's badge value.
+    @Test func selectedTitleStripItemKeepsBadge() {
+        let spread = DataModel.Spread(
+            period: .day,
+            date: Self.makeDate(year: 2026, month: 1, day: 10),
+            calendar: Self.calendar
+        )
+        let task = DataModel.Task(title: "Overdue", date: spread.date, period: .day, status: .open)
+
+        let items = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: Self.makeDate(year: 2026, month: 1, day: 12),
+                spreads: [spread],
+                tasks: [],
+                notes: [],
+                events: []
+            ),
+            overdueItems: [
+                OverdueTaskItem(
+                    task: task,
+                    sourceKey: TaskReviewSourceKey(kind: .spread(id: spread.id, period: .day, date: spread.date))
+                )
+            ]
+        )
+        .items(for: .conventional(spread))
+
+        let selectedID = SpreadHeaderNavigatorModel.Selection.conventional(spread).stableID(calendar: Self.calendar)
+        let selectedItem = items.first(where: { $0.id == selectedID })
+        #expect(selectedItem?.badge == .overdue(count: 1))
+    }
+
+    /// Setup: badge accessibility helpers format overdue and favorite badge metadata.
+    /// Expected: labels are semantic and identifiers include badge kind plus normalized spread date and period.
+    @Test func badgeAccessibilityLabelsAndIdentifiersAreSemantic() {
+        let day = DataModel.Spread(
+            period: .day,
+            date: Self.makeDate(year: 2026, month: 3, day: 1),
+            calendar: Self.calendar
+        )
+        let year = DataModel.Spread(
+            period: .year,
+            date: Self.makeDate(year: 2026, month: 1),
+            calendar: Self.calendar
+        )
+
+        let overdue = SpreadTitleNavigatorBadge.overdue(count: 3)
+        let favorite = SpreadTitleNavigatorBadge.favorite
+
+        #expect(overdue.accessibilityLabel(style: .day) == "3 overdue tasks")
+        #expect(overdue.accessibilityLabel(style: .multiday) == "3 overdue tasks in this date range")
+        #expect(favorite.accessibilityLabel(style: .year) == "Favorited spread")
+        #expect(
+            overdue.accessibilityIdentifier(for: .conventional(day), calendar: Self.calendar) ==
+                "overdue-2026-03-01-day"
+        )
+        #expect(
+            favorite.accessibilityIdentifier(for: .conventional(year), calendar: Self.calendar) ==
+                "favorite-2026-01-01-year"
+        )
     }
 
     @Test func traditionalSelectionUsesFullYearSequence() {

@@ -8,6 +8,78 @@ enum SpreadTitleNavigatorItemStyle: Equatable {
     case multiday
 }
 
+enum SpreadTitleNavigatorBadge: Equatable {
+    case overdue(count: Int)
+    case favorite
+
+    var accessibilityKind: String {
+        switch self {
+        case .overdue:
+            return "overdue"
+        case .favorite:
+            return "favorite"
+        }
+    }
+
+    func accessibilityLabel(style: SpreadTitleNavigatorItemStyle) -> String {
+        switch self {
+        case .overdue(let count):
+            let noun = count == 1 ? "task" : "tasks"
+            if style == .multiday {
+                return "\(count) overdue \(noun) in this date range"
+            }
+            return "\(count) overdue \(noun)"
+        case .favorite:
+            return "Favorited spread"
+        }
+    }
+
+    func accessibilityIdentifier(
+        for selection: SpreadHeaderNavigatorModel.Selection,
+        calendar: Calendar
+    ) -> String {
+        let components = accessibilityComponents(for: selection, calendar: calendar)
+        return "\(accessibilityKind)-\(components.date)-\(components.period.rawValue)"
+    }
+
+    private func accessibilityComponents(
+        for selection: SpreadHeaderNavigatorModel.Selection,
+        calendar: Calendar
+    ) -> (date: String, period: Period) {
+        switch selection {
+        case .conventional(let spread):
+            let date = switch spread.period {
+            case .multiday:
+                spread.startDate ?? spread.date
+            case .year, .month, .day:
+                spread.date
+            }
+            return (
+                Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: date, calendar: calendar),
+                spread.period
+            )
+        case .traditionalYear(let date):
+            let normalized = Period.year.normalizeDate(date, calendar: calendar)
+            return (
+                Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: normalized, calendar: calendar),
+                .year
+            )
+        case .traditionalMonth(let date):
+            let normalized = Period.month.normalizeDate(date, calendar: calendar)
+            return (
+                Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: normalized, calendar: calendar),
+                .month
+            )
+        case .traditionalDay(let date):
+            let normalized = Period.day.normalizeDate(date, calendar: calendar)
+            return (
+                Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: normalized, calendar: calendar),
+                .day
+            )
+        }
+    }
+}
+
 enum TitleStripDisplayPreference: String, CaseIterable, Identifiable {
     case relevantPastOnly
     case showAllSpreads
@@ -45,7 +117,7 @@ struct SpreadTitleNavigatorModel {
         let selection: SpreadHeaderNavigatorModel.Selection
         let style: SpreadTitleNavigatorItemStyle
         let display: Display
-        let overdueCount: Int
+        let badge: SpreadTitleNavigatorBadge?
     }
 
     let headerModel: SpreadHeaderNavigatorModel
@@ -134,7 +206,7 @@ struct SpreadTitleNavigatorModel {
                 selection: .traditionalYear(yearStart(year)),
                 style: .year,
                 display: yearDisplay(for: year),
-                overdueCount: overdueCount(for: .traditionalYear(yearStart(year)))
+                badge: badge(for: .traditionalYear(yearStart(year)))
             )
         ]
 
@@ -144,11 +216,16 @@ struct SpreadTitleNavigatorModel {
             items.append(
                 Item(
                     id: monthSelection.stableID(calendar: calendar),
-                    label: DataModel.Spread(period: .month, date: monthDate, calendar: calendar).displayLabel(calendar: calendar),
+                    label: DataModel.Spread(
+                        period: .month,
+                        date: monthDate,
+                        calendar: calendar
+                    )
+                    .displayLabel(calendar: calendar),
                     selection: monthSelection,
                     style: .month,
                     display: monthDisplay(for: monthDate),
-                    overdueCount: overdueCount(for: monthSelection)
+                    badge: badge(for: monthSelection)
                 )
             )
 
@@ -163,7 +240,7 @@ struct SpreadTitleNavigatorModel {
                         selection: daySelection,
                         style: .day,
                         display: dayDisplay(for: dayDate),
-                        overdueCount: overdueCount(for: daySelection)
+                        badge: badge(for: daySelection)
                     )
                 )
             }
@@ -180,7 +257,7 @@ struct SpreadTitleNavigatorModel {
             selection: selection,
             style: style(for: spread),
             display: display(for: spread, allowsPersonalization: allowsPersonalization),
-            overdueCount: overdueCount(for: selection)
+            badge: badge(for: spread, selection: selection)
         )
     }
 
@@ -375,14 +452,89 @@ struct SpreadTitleNavigatorModel {
         calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
     }
 
+    private func badge(
+        for spread: DataModel.Spread,
+        selection: SpreadHeaderNavigatorModel.Selection
+    ) -> SpreadTitleNavigatorBadge? {
+        let overdueCount = spread.period == .multiday
+            ? multidayOverdueCount(for: spread)
+            : overdueCount(for: selection)
+
+        if overdueCount > 0 {
+            return .overdue(count: overdueCount)
+        }
+        if spread.isFavorite {
+            return .favorite
+        }
+        return nil
+    }
+
+    private func badge(for selection: SpreadHeaderNavigatorModel.Selection) -> SpreadTitleNavigatorBadge? {
+        let count = overdueCount(for: selection)
+        guard count > 0 else { return nil }
+        return .overdue(count: count)
+    }
+
     private func overdueCount(for selection: SpreadHeaderNavigatorModel.Selection) -> Int {
         overdueCountsBySelectionID[selection.stableID(calendar: calendar), default: 0]
     }
 
     private var overdueCountsBySelectionID: [String: Int] {
         overdueItems.reduce(into: [:]) { counts, item in
+            guard item.task.status == .open else { return }
             guard let selectionID = selectionID(for: item.sourceKey) else { return }
             counts[selectionID, default: 0] += 1
+        }
+    }
+
+    private func multidayOverdueCount(for spread: DataModel.Spread) -> Int {
+        headerModel.tasks.reduce(into: 0) { count, task in
+            guard task.status == .open,
+                  task.hasPreferredAssignment,
+                  taskDateFallsWithinMultidayRange(task.date, spread: spread),
+                  isOverdue(date: task.date, period: task.period) else {
+                return
+            }
+            count += 1
+        }
+    }
+
+    private func taskDateFallsWithinMultidayRange(_ date: Date, spread: DataModel.Spread) -> Bool {
+        guard let range = multidayDateRange(for: spread) else { return false }
+        let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
+        return normalizedDate >= range.start && normalizedDate <= range.end
+    }
+
+    private func multidayDateRange(for spread: DataModel.Spread) -> (start: Date, end: Date)? {
+        guard spread.period == .multiday else { return nil }
+        let start = Period.day.normalizeDate(spread.startDate ?? spread.date, calendar: calendar)
+        let end = Period.day.normalizeDate(spread.endDate ?? spread.date, calendar: calendar)
+        if start <= end {
+            return (start, end)
+        }
+        return (end, start)
+    }
+
+    private func isOverdue(date: Date, period: Period) -> Bool {
+        let todayStart = today.startOfDay(calendar: calendar)
+
+        switch period {
+        case .day:
+            return todayStart > date.startOfDay(calendar: calendar)
+        case .month:
+            let startOfMonth = period.normalizeDate(date, calendar: calendar)
+            guard let startOfNextMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth) else {
+                return false
+            }
+            return todayStart >= startOfNextMonth
+        case .year:
+            let startOfYear = period.normalizeDate(date, calendar: calendar)
+            guard let startOfNextYear = calendar.date(byAdding: .year, value: 1, to: startOfYear) else {
+                return false
+            }
+            return todayStart >= startOfNextYear
+        case .multiday:
+            return false
         }
     }
 
@@ -510,7 +662,8 @@ enum SpreadTitleStripRelevanceFilter {
             guard task.status == .open else { return false }
 
             if spread.period == .multiday {
-                return task.hasPreferredAssignment && taskDateFallsWithinMultidayRange(task.date, spread: spread, calendar: calendar)
+                return task.hasPreferredAssignment &&
+                    taskDateFallsWithinMultidayRange(task.date, spread: spread, calendar: calendar)
             }
 
             return task.assignments.contains { assignment in
@@ -611,7 +764,11 @@ extension SpreadHeaderNavigatorModel.Selection {
             let components = calendar.dateComponents([.year, .month], from: date)
             return String(format: "traditional.month.%04d-%02d", components.year ?? 0, components.month ?? 0)
         case .traditionalDay(let date):
-            return "traditional.day.\(Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: date, calendar: calendar))"
+            let ymd = Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(
+                from: date,
+                calendar: calendar
+            )
+            return "traditional.day.\(ymd)"
         }
     }
 }
