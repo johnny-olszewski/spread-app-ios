@@ -477,6 +477,104 @@ struct SpreadTitleNavigatorSupportTests {
         ))
     }
 
+    /// Setup: Past multiday spreads have no open task relevance, completed/cancelled tasks, favorite state, or open tasks.
+    /// Expected: Fully past multiday ranges are hidden unless they are favorited or currently show an open task.
+    @Test func relevantPastOnlyHidesFullyPastMultidayRangesWithoutRelevance() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 15)
+        let hiddenPastMultiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 1),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 3),
+            calendar: Self.calendar
+        )
+        let completeOnlyMultiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 4),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 6),
+            calendar: Self.calendar
+        )
+        let favoritePastMultiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 7),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 9),
+            calendar: Self.calendar,
+            isFavorite: true
+        )
+        let openPastMultiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 10),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 12),
+            calendar: Self.calendar
+        )
+        let currentDay = DataModel.Spread(period: .day, date: today, calendar: Self.calendar)
+        let completeTask = DataModel.Task(
+            title: "Complete only",
+            date: Self.makeDate(year: 2026, month: 4, day: 5),
+            period: .day,
+            hasPreferredAssignment: true,
+            status: .complete
+        )
+        let cancelledTask = DataModel.Task(
+            title: "Cancelled only",
+            date: Self.makeDate(year: 2026, month: 4, day: 2),
+            period: .day,
+            hasPreferredAssignment: true,
+            status: .cancelled
+        )
+        let openTask = DataModel.Task(
+            title: "Open",
+            date: Self.makeDate(year: 2026, month: 4, day: 11),
+            period: .day,
+            hasPreferredAssignment: true,
+            status: .open
+        )
+        let stripModel = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: today,
+                spreads: [
+                    hiddenPastMultiday,
+                    completeOnlyMultiday,
+                    favoritePastMultiday,
+                    openPastMultiday,
+                    currentDay
+                ],
+                tasks: [completeTask, cancelledTask, openTask],
+                notes: [],
+                events: []
+            )
+        )
+
+        let filteredIDs = stripModel.titleStripItems(
+            for: .conventional(currentDay),
+            displayPreference: .relevantPastOnly
+        )
+        .map(\.id)
+
+        #expect(!filteredIDs.contains(stableID(for: hiddenPastMultiday)))
+        #expect(!filteredIDs.contains(stableID(for: completeOnlyMultiday)))
+        #expect(filteredIDs.contains(stableID(for: favoritePastMultiday)))
+        #expect(filteredIDs.contains(stableID(for: openPastMultiday)))
+    }
+
+    /// Setup: A multiday spread crosses a year boundary and ended before today.
+    /// Expected: Past detection uses the normalized end date rather than the start date's period.
+    @Test func relevantPastOnlyTreatsCrossYearMultidayPastByEndDate() {
+        let crossYearPastMultiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2025, month: 12, day: 29),
+            endDate: Self.makeDate(year: 2026, month: 1, day: 2),
+            calendar: Self.calendar
+        )
+
+        #expect(SpreadTitleStripRelevanceFilter.isPast(
+            crossYearPastMultiday,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 1, day: 3)
+        ))
+        #expect(!SpreadTitleStripRelevanceFilter.isPast(
+            crossYearPastMultiday,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 1, day: 2)
+        ))
+    }
+
     /// Setup: A past selected spread is hidden by the Relevant Past Only title-strip filter.
     /// Expected: Selection remains valid but visibility support reports that the leading chevron must act as proxy.
     @Test func hiddenFilteredSelectionActivatesLeadingNavigatorProxy() {

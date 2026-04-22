@@ -91,6 +91,8 @@ struct SpreadTitleNavigatorView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 itemRow
             }
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $stripCenteredTargetID, anchor: .center)
             .mask(mainStripMask)
             .frame(maxWidth: .infinity)
             if !recommendations.isEmpty {
@@ -99,8 +101,6 @@ struct SpreadTitleNavigatorView: View {
             }
         }
         .coordinateSpace(name: "SpreadTitleNavigatorScroll")
-        .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $stripCenteredTargetID, anchor: .center)
         .contentShape(Rectangle())
         .overlay {
             recommendationMeasurementRow
@@ -122,13 +122,16 @@ struct SpreadTitleNavigatorView: View {
         )
         .frame(maxWidth: .infinity)
         .task(id: items.map(\.id)) {
-            requestCenter(on: selectedSemanticID, animated: false)
+            requestCenterIfVisible(on: selectedSemanticID, animated: false)
+        }
+        .onChange(of: selectedSemanticID) { _, newValue in
+            requestCenterIfVisible(on: newValue, animated: true)
         }
         .onChange(of: recenterToken) { _, _ in
-            requestCenter(on: selectedSemanticID, animated: true)
+            requestCenterIfVisible(on: selectedSemanticID, animated: true)
         }
         .onChange(of: widthChangeCenterToken) { _, _ in
-            requestCenter(on: selectedSemanticID, animated: false)
+            requestCenterIfVisible(on: selectedSemanticID, animated: false)
         }
         .secondaryPaperBackground()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.container)
@@ -153,10 +156,7 @@ struct SpreadTitleNavigatorView: View {
                         Circle()
                             .fill(Color.accentColor)
                             .frame(width: 6, height: 6)
-                            .matchedGeometryEffect(
-                                id: Self.selectionIndicatorID,
-                                in: selectionIndicatorNamespace
-                            )
+                            .transition(.opacity)
                     }
                 }
                 .frame(height: 8)
@@ -398,8 +398,8 @@ struct SpreadTitleNavigatorView: View {
         ) else {
             return
         }
-        requestCenter(on: item.id, animated: true)
         selection = nextSelection
+        requestCenter(on: item.id, animated: true)
     }
 
     private func handleNavigatorSelection(_ nextSelection: SpreadHeaderNavigatorModel.Selection) {
@@ -515,6 +515,11 @@ struct SpreadTitleNavigatorView: View {
         } else {
             stripCenteredTargetID = targetID
         }
+    }
+
+    private func requestCenterIfVisible(on semanticID: String, animated: Bool) {
+        guard items.contains(where: { $0.id == semanticID }) else { return }
+        requestCenter(on: semanticID, animated: animated)
     }
 }
 
