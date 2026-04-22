@@ -8,7 +8,7 @@
 - Backup entitlement is removed from v1; authenticated users can sync without a purchase gate. [SPRD-104]
 - Sign in with Apple and Google are removed from v1 scope; auth is email/password only, with sign-up and forgot-password flows retained. [SPRD-104, SPRD-108]
 - Runtime environment switching is removed from v1. Debug keeps a non-persistent `localhost` mode for engineering only; QA remains dev-backed and Release remains prod-backed. [SPRD-105, SPRD-107]
-- `WKFLW-17` is a workflow branch for one bundled schema/sync pass across spread personalization and richer task metadata plus local-only title navigator refinements. The approved scope is explicit spread favorites, explicit spread custom/dynamic naming, multiday spread date editing, task body, task priority, task due date, task-only nil preferred assignment, conventional title-strip relevance filtering, and rooted navigator chevron consolidation. Links, tags, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads, status expansion, and note nil-assignment parity are deferred and tracked in `Documentation/backlog.md`. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-174, SPRD-175, SPRD-176, SPRD-177]
+- `WKFLW-17` is a workflow branch for one bundled schema/sync pass across spread personalization and richer task metadata plus local-only title navigator refinements. The approved scope is explicit spread favorites, explicit spread custom/dynamic naming, multiday spread date editing, task body, task priority, task due date, task-only nil preferred assignment, conventional title-strip relevance filtering, rooted navigator chevron consolidation, and derived title-strip badges. Links, tags, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads, status expansion, and note nil-assignment parity are deferred and tracked in `Documentation/backlog.md`. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-174, SPRD-175, SPRD-176, SPRD-177, SPRD-178]
 
 ## Story Overview (v1)
 - Foundation and scaffolding (completed)
@@ -83,6 +83,7 @@
 - Approved task metadata changes preserve offline-first sync, existing assignment/migration/overdue behavior, and the new task-only nil-assignment Inbox flow.
 - Conventional title-strip filtering reduces irrelevant past spreads by default through a local-only display preference while preserving complete navigation through the rooted navigator and content pager.
 - Rooted spread navigation is consolidated into a fixed leading title-strip affordance, including hidden-selection proxy behavior when a filtered spread remains selected.
+- Title-strip badges use a derived prioritized enum so overdue task counts and favorite state explain why relevant spreads remain visible without adding schema or sync state.
 - Durability tests cover local rebuild/sync paths for every approved persisted field.
 
 ### [SPRD-167] Discovery: finalize keep/defer scope for the bundled spread/task enhancement pass - [x] Complete
@@ -417,6 +418,56 @@
   - Regression tests proving hidden rooted-navigator selections and pager-driven hidden selections activate the leading proxy rather than changing selection.
   - Snapshot/visual or targeted view tests for visible-selection indicator placement and hidden-selection chevron indicator placement where practical.
 - **Dependencies**: SPRD-176
+
+### [SPRD-178] UI: add prioritized title navigator badges for overdue and favorite state - [ ] Pending
+- **Context**: `SPRD-176` can retain past spreads when they are favorited or contain overdue work, but the title strip does not always explain why a past spread remains visible. Multiday spreads are especially unclear because they aggregate contained days rather than owning direct task assignments.
+- **Description**: Replace the title-strip item badge inputs with a single prioritized badge enum that can render overdue task counts or favorite state in one top-right badge slot.
+- **Spec**: Workflow Branch Bundle (`WKFLW-17`); Navigation and UI; Spread title navigator badges
+- **Implementation Details**:
+  - Introduce a model-level title navigator badge enum/value object rather than adding parallel boolean/count fields.
+  - Supported badge cases for this task:
+    - `overdue(count)`
+    - `favorite`
+  - Render at most one badge per title-strip item.
+  - Badge priority is `overdue(count)` first, then `favorite`.
+  - Preserve the existing overdue visual language for `overdue(count)`:
+    - red numeric badge
+    - exact uncapped count
+    - selected spread still shows the badge
+  - Render `favorite` as a yellow `star.fill` badge in the same top-right badge slot.
+  - If a favorited spread also has overdue work, show only the overdue count badge.
+  - Apply the badge enum in both conventional title-strip display modes: `Relevant Past Only` and `Show All Spreads`.
+  - Conventional explicit year/month/day/multiday spreads can show overdue or favorite badges.
+  - Traditional virtual year/month/day items should use the same badge enum path for overdue counts only; favorite badges never apply in traditional mode.
+  - Overdue count semantics:
+    - count only open tasks whose preferred assignment date/period has passed under existing overdue threshold rules
+    - exclude completed, cancelled, and migrated-history-only tasks
+    - for conventional year/month/day spreads, preserve the existing current-spread/source assignment semantics and do not propagate child counts to ancestor spreads
+    - for conventional multiday spreads, count open tasks whose preferred assignment date falls inside the multiday range and whose preferred assignment period has passed
+    - overdue tasks still in `Inbox` because no spread assignment/source exists remain excluded from year/month/day spread badges, but can contribute to a multiday badge when their preferred assignment date falls inside that multiday range
+  - Do not add schema, Supabase, sync, or local persistence changes; badges are derived from existing spread/task state.
+  - Keep tapping a badged spread identical to tapping any other spread; badges do not open review flows.
+  - Accessibility:
+    - semantic labels should describe the badge meaning, such as `3 overdue tasks`, `3 overdue tasks in this date range`, or `Favorited spread`
+    - badge accessibility identifiers should include badge kind plus spread date/period, such as `overdue-2026-03-01-day` or `favorite-2026-01-01-year`, so tests can target a specific spread's badge
+- **Acceptance Criteria**:
+  - Title-strip items render at most one badge using the prioritized enum. (Spec: Navigation and UI)
+  - Overdue badges take priority over favorite badges. (Spec: Spread title navigator badges)
+  - Favorite conventional explicit spreads without overdue work show a yellow star badge in the title strip. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+  - Conventional multiday spreads show overdue counts for open overdue tasks whose preferred assignment date falls inside their range. (Spec: Spread title navigator badges)
+  - Existing year/month/day overdue count behavior is preserved except for moving through the new badge enum. (Spec: Spread title navigator badges)
+  - Traditional items can still show overdue badges through the enum path and never show favorite badges. (Spec: Modes)
+  - Badge behavior is the same in `Relevant Past Only` and `Show All Spreads`. (Spec: Settings)
+  - Badges use semantic accessibility labels and per-spread accessibility identifiers. (Spec: Accessibility)
+  - No schema, sync, or persistence migration is introduced. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+- **Tests**:
+  - Unit/support tests for badge priority: overdue beats favorite, favorite appears only when no overdue badge exists.
+  - Unit/support tests for conventional year/month/day overdue badge counts preserving existing assignment/source semantics.
+  - Unit/support tests for multiday overdue counts from open tasks inside the range whose preferred assignment period has passed.
+  - Unit/support tests proving completed, cancelled, and migrated-history-only tasks do not count.
+  - Unit/support tests proving traditional items use overdue badges only and never favorite badges.
+  - View/UI tests or snapshot tests for red count badge, yellow star badge, selected-item coexistence, and per-spread accessibility identifiers.
+- **Dependencies**: SPRD-169, SPRD-170, SPRD-176, SPRD-177
 
 ### [SPRD-170] Feature: add richer task metadata with body, priority, optional Inbox assignment, and due dates - [x] Complete
 - **Context**: These task changes are still contained enough for a single branch, but they materially affect creation/edit flows, Inbox semantics, and overdue logic.

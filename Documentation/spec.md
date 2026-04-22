@@ -3,11 +3,11 @@
 ## Status
 - Specification finalized for v1 implementation (tasks + notes only). [SPRD-1]
 - Events (including calendar integrations) are deferred to v2. [SPRD-69]
-- `WKFLW-17` is the active workflow branch for a bundled spread/task enhancement pass so schema-affecting decisions land together instead of through piecemeal migrations. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-176, SPRD-177]
+- `WKFLW-17` is the active workflow branch for a bundled spread/task enhancement pass so schema-affecting decisions land together instead of through piecemeal migrations. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-176, SPRD-177, SPRD-178]
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
-- Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and a fixed leading affordance in that navigator presents the complete rooted spread navigator as a popover on iPad and a sheet on iPhone. Conventional and traditional modes share the same navigator, rooted selector, swipe pager, and spread-surface architecture; mode differences are expressed through spread availability, title-strip filtering, and entry inclusion/assignment rules rather than separate navigation UIs. A dedicated top-level search-role tab replaces the old Inbox toolbar flow and hosts the global task browser. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-151, SPRD-176, SPRD-177]
+- Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and a fixed leading affordance in that navigator presents the complete rooted spread navigator as a popover on iPad and a sheet on iPhone. Conventional and traditional modes share the same navigator, rooted selector, swipe pager, and spread-surface architecture; mode differences are expressed through spread availability, title-strip filtering, title-strip badges, and entry inclusion/assignment rules rather than separate navigation UIs. A dedicated top-level search-role tab replaces the old Inbox toolbar flow and hosts the global task browser. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-151, SPRD-176, SPRD-177, SPRD-178]
 - Shared foundations package: the app may host reusable UI components and utilities in a local Swift Package named `johnnyo-foundation`, structured for later GitHub publication. App-facing product spec captures integration points and high-level contracts; detailed package API spec should live with the package. [SPRD-152, SPRD-153]
 - Core entities (v1): [SPRD-8, SPRD-9, SPRD-10]
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
@@ -30,7 +30,7 @@
 - Preserve a debug-only `localhost` mode for engineering workflows; it uses mock auth, supports mock data loading, is selected per launch, and never persists across launches. [SPRD-105, SPRD-107]
 
 ## Workflow Branch Bundle (`WKFLW-17`)
-- `WKFLW-17` owns a bundled implementation pass for persisted spread personalization plus richer task metadata. Approved persisted fields must land together through one schema/sync migration pass across SwiftData, Supabase tables/RPCs, serializers, and local schema snapshots. Local title-navigator display preferences added in this branch are not schema fields and do not participate in sync. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-172, SPRD-173, SPRD-174, SPRD-175, SPRD-176, SPRD-177]
+- `WKFLW-17` owns a bundled implementation pass for persisted spread personalization plus richer task metadata. Approved persisted fields must land together through one schema/sync migration pass across SwiftData, Supabase tables/RPCs, serializers, and local schema snapshots. Local title-navigator display preferences and derived title-strip badges added in this branch are not schema fields and do not participate in sync. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-172, SPRD-173, SPRD-174, SPRD-175, SPRD-176, SPRD-177, SPRD-178]
 - Approved spread personalization scope:
   - Explicit persisted spreads can be favorited in conventional mode only. Favorites do not apply to traditional virtual destinations. [SPRD-169]
   - Favoriting is tied to the specific spread record. Deleting and later recreating the same period/date starts with fresh personalization state. [SPRD-169]
@@ -466,6 +466,10 @@
   - Tapping a visible non-selected spread selects it, updates the main app spread content, and animates that spread into the centered selected position. Tapping the selected title-strip item does not open the rooted navigator; rooted navigation is owned by the fixed leading chevron affordance. [SPRD-126, SPRD-127, SPRD-177]
   - The selected spread always retains its selected-state indicator styling while browsing; browsing the strip does not hide selected-state styling. [SPRD-127]
   - The horizontal title strip provides a fixed leading chevron affordance that opens the rooted spread navigator. The affordance is outside the scrollable title content and remains visible while the strip scrolls. [SPRD-177]
+  - Each title-strip item can render at most one top-right badge from a prioritized badge enum. Priority is `overdue(count)` first, then `favorite`; lower-priority badges are hidden when a higher-priority badge exists. [SPRD-178]
+  - `overdue(count)` uses the existing red numeric count badge language, including exact uncapped counts. `favorite` uses a yellow `star.fill` icon badge in the same badge slot. [SPRD-147, SPRD-178]
+  - Conventional explicit year/month/day/multiday spreads can show either badge in both `Relevant Past Only` and `Show All Spreads`. Traditional virtual year/month/day items participate in the same badge enum for overdue counts only; favorite badges never apply to traditional virtual destinations. [SPRD-169, SPRD-176, SPRD-178]
+  - Badge accessibility labels are semantic, such as `3 overdue tasks`, `3 overdue tasks in this date range`, or `Favorited spread`. Badge accessibility identifiers include the badge kind plus the spread date/period, such as `overdue-2026-03-01-day` or `favorite-2026-01-01-year`, so tests can target a specific spread's badge. [SPRD-178]
   - The strip uses browse-only snapping while preserving the user's browse offset across layout-width changes when the strip is already browsed away from the selected spread. If the strip is currently centered on the selected spread, width changes keep it centered. This preserves browsing position, but may leave the selected spread visually off-center after some width changes and should be monitored as a potential UX bug. [SPRD-136]
   - The spread header no longer renders a duplicate spread title once this navigator is present. [SPRD-126]
   - A trailing "+" button remains always visible and opens a creation menu (spread or task). [SPRD-23, SPRD-26, SPRD-126]
@@ -676,14 +680,18 @@
   - Migrated task rows use a task-sized dot overlaid with a right arrow that extends beyond the dot bounds.
   - Tapping a cancelled row opens the task edit sheet.
   - Tapping a migrated row follows the migrated-task navigation rule to the task's current spread before opening edit. [SPRD-146]
-- Spread overdue badges: [SPRD-147]
+- Spread title navigator badges: [SPRD-147, SPRD-178]
   - Overdue spread signaling moves from a global toolbar button/sheet into per-spread badges in the spread title navigator.
-  - Each spread item can show a top-right overdue count badge.
-  - Badge counts include only currently open overdue tasks assigned to that spread.
-  - Overdue tasks still in `Inbox` are excluded from this navigator badge UI.
+  - Each spread item can show at most one top-right badge through a prioritized badge enum. `overdue(count)` takes priority over `favorite`.
+  - Overdue badge counts include only open tasks whose preferred assignment date/period has passed under the existing overdue threshold rules. Completed, cancelled, and migrated-history-only tasks do not count.
+  - For conventional year/month/day spreads, overdue counts follow the existing current-spread/source semantics for the task's open assignment. Ancestor spread badges do not receive propagated counts merely because a child spread is overdue.
+  - For conventional multiday spreads, overdue counts include open tasks whose preferred assignment date falls inside the multiday range and whose preferred assignment period has passed. This explains past multiday spreads retained by the relevance filter because overdue work exists in contained days.
+  - Overdue tasks still in `Inbox` because no spread assignment/source exists remain excluded from year/month/day spread overdue badges. They may still contribute to a conventional multiday badge when their preferred assignment date falls inside that multiday range, because multiday spreads aggregate date ranges rather than direct assignments.
+  - Traditional year/month/day items can use the same `overdue(count)` badge enum path for existing traditional overdue counts. Traditional virtual destinations never show favorite badges.
+  - Conventional explicit spreads with no overdue badge show a `favorite` star badge when favorited. If a favorited spread also has overdue work, only the overdue count badge is shown.
   - Badge counts are exact and uncapped.
-  - Selecting a spread does not suppress its overdue badge.
-  - Tapping a badged spread behaves the same as tapping any other spread; there is no separate overdue review action in v1.
+  - Selecting a spread does not suppress its badge.
+  - Tapping a badged spread behaves the same as tapping any other spread; there is no separate overdue or favorite review action in v1.
 - Collections are accessed from a top-level entry point (outside spread navigation). [SPRD-19, SPRD-40]
 - Settings accessible via gear icon in navigation header. [SPRD-20]
 - iPad multitasking: UI adapts gracefully to Split View and Slide Over. [SPRD-19]
