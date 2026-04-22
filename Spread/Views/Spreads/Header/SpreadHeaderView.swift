@@ -11,18 +11,6 @@ struct SpreadHeaderView: View {
     /// The configuration containing spread and count information.
     let configuration: SpreadHeaderConfiguration
 
-    /// Whether the header popover is presented.
-    var isShowingNavigator: Binding<Bool>? = nil
-
-    /// The navigator model used to build the rooted selector surface.
-    var navigatorModel: SpreadHeaderNavigatorModel? = nil
-
-    /// The current spread represented by this header.
-    var currentSpread: DataModel.Spread? = nil
-
-    /// Callback when a navigator selection is made.
-    var onNavigatorSelect: ((SpreadHeaderNavigatorModel.Selection) -> Void)? = nil
-
     /// Callback for toggling the current explicit spread favorite state.
     var onFavoriteToggle: (() -> Void)? = nil
 
@@ -35,28 +23,12 @@ struct SpreadHeaderView: View {
     /// Callback for presenting the current explicit spread deletion confirmation.
     var onDeleteSpread: (() -> Void)? = nil
 
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var centeredTitleWidth: CGFloat = 0
-
     // MARK: - Body
 
     var body: some View {
-        if let isShowingNavigator, let navigatorModel, let currentSpread, let onNavigatorSelect {
-            headerContainer {
-                navigatorTitleButton(isShowingNavigator: isShowingNavigator)
-            }
-            .spreadNavigatorPresentation(
-                isPresented: isShowingNavigator,
-                presentsAsPopover: horizontalSizeClass == .regular,
-                model: navigatorModel,
-                currentSpread: currentSpread,
-                onSelect: onNavigatorSelect
-            )
-        } else {
-            headerContainer {
-                titleLabel
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
-            }
+        headerContainer {
+            titleLabel
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
         }
     }
 
@@ -75,22 +47,6 @@ struct SpreadHeaderView: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal)
         .padding(.vertical, 12)
-    }
-
-    private func navigatorTitleButton(isShowingNavigator: Binding<Bool>) -> some View {
-        Button {
-            isShowingNavigator.wrappedValue = true
-        } label: {
-            ZStack {
-                centeredTitleStack
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNavigator.titleButton)
-
-                chevronLabel
-                    .offset(x: centeredTitleWidth / 2 + 10)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     private var headerActions: some View {
@@ -176,17 +132,6 @@ struct SpreadHeaderView: View {
             subtitleLabel
         }
         .fixedSize()
-        .background {
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear {
-                        centeredTitleWidth = proxy.size.width
-                    }
-                    .onChange(of: proxy.size.width) { _, newWidth in
-                        centeredTitleWidth = newWidth
-                    }
-            }
-        }
     }
 
     @ViewBuilder
@@ -202,13 +147,6 @@ struct SpreadHeaderView: View {
         }
     }
 
-    private var chevronLabel: some View {
-        Image(systemName: "chevron.down")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.secondary)
-            .padding(.leading, 8)
-            .padding(.vertical, 4)
-    }
 }
 
 enum SpreadHeaderAction: Equatable {

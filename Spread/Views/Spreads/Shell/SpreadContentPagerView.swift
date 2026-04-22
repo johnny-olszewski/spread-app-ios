@@ -179,8 +179,6 @@ private struct SpreadPageContentView: View {
     let syncEngine: SyncEngine?
     let model: SpreadTitleNavigatorModel
 
-    @State private var isShowingNavigator = false
-
     var body: some View {
         switch journalManager.bujoMode {
         case .conventional:
@@ -206,13 +204,6 @@ private struct SpreadPageContentView: View {
                         taskCount: conventionalSpreadDataModel(for: spread)?.tasks.count ?? 0,
                         noteCount: conventionalSpreadDataModel(for: spread)?.notes.count ?? 0
                     ),
-                    isShowingNavigator: $isShowingNavigator,
-                    navigatorModel: model.headerModel,
-                    currentSpread: spread,
-                    onNavigatorSelect: { selection in
-                        guard case .conventional(let selectedSpread) = selection else { return }
-                        viewModel.selectedSelection = .conventional(selectedSpread)
-                    },
                     onFavoriteToggle: {
                         toggleFavorite(for: spread)
                     },
@@ -306,18 +297,7 @@ private struct SpreadPageContentView: View {
                         allowsPersonalization: false,
                         taskCount: traditionalSpreadDataModel(for: item.selection).tasks.count,
                         noteCount: traditionalSpreadDataModel(for: item.selection).notes.count
-                    ),
-                    isShowingNavigator: $isShowingNavigator,
-                    navigatorModel: model.headerModel,
-                    currentSpread: spread,
-                    onNavigatorSelect: { selection in
-                        switch selection {
-                        case .traditionalYear, .traditionalMonth, .traditionalDay:
-                            viewModel.selectedSelection = selection
-                        case .conventional:
-                            break
-                        }
-                    }
+                    )
                 )
                 traditionalContentView(for: spread, selection: item.selection)
             }
