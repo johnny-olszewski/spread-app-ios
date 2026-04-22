@@ -8,7 +8,7 @@
 - Backup entitlement is removed from v1; authenticated users can sync without a purchase gate. [SPRD-104]
 - Sign in with Apple and Google are removed from v1 scope; auth is email/password only, with sign-up and forgot-password flows retained. [SPRD-104, SPRD-108]
 - Runtime environment switching is removed from v1. Debug keeps a non-persistent `localhost` mode for engineering only; QA remains dev-backed and Release remains prod-backed. [SPRD-105, SPRD-107]
-- `WKFLW-17` is a workflow branch for one bundled schema/sync pass across spread personalization and richer task metadata. The approved scope is explicit spread favorites, explicit spread custom/dynamic naming, multiday spread date editing, task body, task priority, task due date, and task-only nil preferred assignment. Links, tags, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads, status expansion, and note nil-assignment parity are deferred and tracked in `Documentation/backlog.md`. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-174, SPRD-175]
+- `WKFLW-17` is a workflow branch for one bundled schema/sync pass across spread personalization and richer task metadata plus local-only title navigator refinements. The approved scope is explicit spread favorites, explicit spread custom/dynamic naming, multiday spread date editing, task body, task priority, task due date, task-only nil preferred assignment, conventional title-strip relevance filtering, and rooted navigator chevron consolidation. Links, tags, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads, status expansion, and note nil-assignment parity are deferred and tracked in `Documentation/backlog.md`. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-174, SPRD-175, SPRD-176, SPRD-177]
 
 ## Story Overview (v1)
 - Foundation and scaffolding (completed)
@@ -73,7 +73,7 @@
 ## Story: Personalized spreads and richer task metadata (`WKFLW-17`)
 
 ### User Story
-- As a user, I want spread personalization and richer task planning data so the journal reflects how I actually organize ranges, deadlines, and Inbox-first work.
+- As a user, I want spread personalization, richer task planning data, and a less crowded spread navigator so the journal reflects how I organize ranges, deadlines, Inbox-first work, and long-lived years with many past spreads.
 
 ### Definition of Done
 - The branch records the finalized keep/defer decision for every candidate in the `WKFLW-17` enhancement bundle.
@@ -81,6 +81,8 @@
 - Spread personalization covers conventional explicit-spread favorites plus custom/dynamic naming for persisted explicit spreads across all period types.
 - Multiday spread date editing is implemented through shared spread create/edit sheet architecture and updates existing multiday spread records without changing personalization or entry assignment semantics.
 - Approved task metadata changes preserve offline-first sync, existing assignment/migration/overdue behavior, and the new task-only nil-assignment Inbox flow.
+- Conventional title-strip filtering reduces irrelevant past spreads by default through a local-only display preference while preserving complete navigation through the rooted navigator and content pager.
+- Rooted spread navigation is consolidated into a fixed leading title-strip affordance, including hidden-selection proxy behavior when a filtered spread remains selected.
 - Durability tests cover local rebuild/sync paths for every approved persisted field.
 
 ### [SPRD-167] Discovery: finalize keep/defer scope for the bundled spread/task enhancement pass - [x] Complete
@@ -332,6 +334,89 @@
   - Navigation/model tests proving post-save selection stays on the edited spread and rebuilds/recenters when the updated range changes its ordering or year scope.
   - One UI flow test covering opening `Edit Dates` from a multiday actions menu, changing the range, saving, and seeing the updated selected spread.
 - **Dependencies**: SPRD-174
+
+### [SPRD-176] Feature: filter conventional title strip past spreads by relevance - [ ] Pending
+- **Context**: `SpreadTitleNavigatorView` can become crowded and laggy when a selected year contains many explicit spreads. Old past spreads that no longer contain actionable work make relevant current/future spreads harder to reach, while users still need a way to access the complete navigation history.
+- **Description**: Add a local, per-device title-strip display preference that defaults the conventional horizontal title strip to showing only relevant past spreads while keeping current/future spreads and complete navigation available elsewhere.
+- **Spec**: Workflow Branch Bundle (`WKFLW-17`); Navigation and UI; Settings
+- **Implementation Details**:
+  - Add a local-only display preference with two values:
+    - `Relevant Past Only` (default)
+    - `Show All Spreads`
+  - Persist the preference outside synced schema using `UserDefaults`/`@AppStorage` or an equivalent local-only settings store.
+  - Do not add SwiftData, Supabase, RPC, serializer, snapshot, or migration changes for this preference.
+  - Expose the preference in Settings rather than in the spread toolbar/title strip.
+  - Settings copy should explain that filtered mode keeps current/future spreads plus favorited or open-task past spreads visible, and that the rooted chevron navigator remains available for complete navigation when a spread is not immediately visible.
+  - Apply filtering only in conventional mode. Traditional mode keeps the full virtual year/month/day strip unchanged.
+  - In `Show All Spreads`, keep the existing conventional selected-year strip: all explicit year/month/day/multiday spreads in normal chronological order.
+  - In `Relevant Past Only`, keep all current and future explicit spreads visible.
+  - In `Relevant Past Only`, hide a past explicit spread unless it is favorited or currently shows at least one `.open` task.
+  - Define past by period:
+    - day: past after that day has fully passed
+    - month: past after that month has fully passed
+    - year: past after that year has fully passed
+    - multiday: past after its end date has passed
+  - Use existing display/inclusion rules for open-task relevance:
+    - year/month/day spreads are relevant when they currently show at least one `.open` task under existing conventional spread-resolution rules
+    - multiday spreads are relevant when at least one `.open` task has a preferred assignment date inside the multiday range under existing multiday inclusion behavior
+  - Completed, cancelled, migrated-history-only tasks, notes, and events do not preserve past title-strip visibility.
+  - Perform filtering in the title navigator support/model layer before item rendering so hidden spreads do not incur normal item view cost.
+  - Decouple the filtered title-strip presentation sequence from complete navigation sequences: the content pager, rooted navigator, global task browser ordering, and current-year favorites menu must continue to have access to complete eligible navigation data.
+  - Because favorited past spreads remain visible by rule, the current-year favorites menu should remain functionally unaffected by filtered mode.
+- **Acceptance Criteria**:
+  - Conventional mode defaults to `Relevant Past Only` when no local preference exists. (Spec: Settings)
+  - Users can switch between `Relevant Past Only` and `Show All Spreads` in Settings without a schema or sync change. (Spec: Settings)
+  - `Show All Spreads` preserves the existing complete conventional title-strip behavior. (Spec: Navigation and UI)
+  - `Relevant Past Only` always shows current/future explicit spreads and hides only irrelevant past explicit spreads. (Spec: Navigation and UI)
+  - Past favorited spreads and past spreads with at least one open task remain visible. (Spec: Navigation and UI)
+  - Traditional mode title-strip contents are unchanged. (Spec: Modes)
+  - Global task browser sections and complete navigation surfaces are not filtered by the title-strip preference. (Spec: Navigation and UI)
+- **Tests**:
+  - Unit/support tests for display-preference defaulting and local persistence.
+  - Unit/support tests for past/current/future classification by year, month, day, and multiday range.
+  - Unit/support tests proving favorite and open-task relevance retain past conventional spreads.
+  - Unit/support tests proving completed/cancelled/migrated-only tasks and notes do not retain past spreads.
+  - Unit/support tests proving traditional strip generation ignores the preference.
+  - Regression tests proving `Show All Spreads` matches the pre-filter conventional item set and ordering.
+  - Regression tests proving global task browser ordering and favorites menu data are not accidentally reduced by the filtered presentation sequence.
+- **Dependencies**: SPRD-169, SPRD-170, SPRD-172, SPRD-175
+
+### [SPRD-177] UI: move rooted navigator trigger into fixed title-strip leading inset - [ ] Pending
+- **Context**: The selected spread item is no longer the rooted navigator opener; selection is now represented by dot indicator and typography. Filtering the horizontal strip also needs a complete, always-visible navigation escape hatch when the selected spread is hidden from the filtered presentation.
+- **Description**: Move the rooted spread navigator trigger out of `SpreadHeaderView` and into a fixed leading inset of `SpreadTitleNavigatorView`, and use that affordance as the selected-state proxy when the selected spread is hidden by the conventional relevance filter.
+- **Spec**: Workflow Branch Bundle (`WKFLW-17`); Navigation and UI; Header Spread Navigator
+- **Implementation Details**:
+  - Add a fixed leading chevron/rooted-navigator affordance to `SpreadTitleNavigatorView`.
+  - Keep the affordance outside the scrollable title content so it remains visible while the strip scrolls.
+  - Present the existing rooted spread navigator from this affordance:
+    - iPad: popover rooted on the leading affordance
+    - iPhone: large sheet with the same rooted navigator content
+  - Remove rooted-navigator ownership from `SpreadHeaderView`; the spread header should not duplicate the chevron trigger.
+  - Preserve the rooted navigator as a complete, unfiltered navigation surface.
+  - Tapping the selected spread item in the title strip should not open the rooted navigator.
+  - When the selected spread is visible in the title strip, keep the existing selected dot indicator under the selected item.
+  - When the selected spread is hidden by `Relevant Past Only`, keep the selected spread valid and render the leading chevron as the selected-state proxy:
+    - use selected styling on the chevron affordance
+    - draw the selected indicator dot underneath the chevron affordance
+    - animate the dot smoothly between visible strip items and the leading affordance using the same matched/coordinate-space-aware indicator system
+  - If the user selects a hidden spread from the rooted navigator or by swiping the content pager, do not force a fallback selection or mutate the filter; show the hidden-selection proxy.
+  - If the user switches to `Show All Spreads` or otherwise makes the selected spread visible, return the indicator to the selected strip item.
+  - Accessibility should identify the chevron as the complete spread navigator and indicate when it is representing a hidden selected spread.
+- **Acceptance Criteria**:
+  - The rooted spread navigator opens from the fixed leading title-strip chevron on iPad and iPhone. (Spec: Spread Navigator Surface)
+  - `SpreadHeaderView` no longer shows or owns a duplicate rooted-navigator chevron. (Spec: Shared Spread Surface Architecture)
+  - The rooted navigator remains complete and unfiltered even when the title strip is in `Relevant Past Only`. (Spec: Navigation and UI)
+  - Selected visible spreads keep the normal title-strip selected styling and indicator. (Spec: Navigation and UI)
+  - Selected hidden spreads keep valid selection, show selected styling on the leading chevron, and move the indicator dot under the chevron. (Spec: Navigation and UI)
+  - Rooted-navigator selection and content-pager swiping can select a hidden spread without forcing navigation to a visible fallback. (Spec: Navigation and UI)
+  - Accessibility labels/hints distinguish the complete navigator affordance and hidden-selected proxy state. (Spec: Accessibility)
+- **Tests**:
+  - Unit/support tests for hidden-selected-proxy state derivation.
+  - View/UI tests or focused interaction tests proving the leading chevron opens the rooted navigator on compact and regular presentations where practical.
+  - Regression tests proving selected title-strip items no longer open the rooted navigator.
+  - Regression tests proving hidden rooted-navigator selections and pager-driven hidden selections activate the leading proxy rather than changing selection.
+  - Snapshot/visual or targeted view tests for visible-selection indicator placement and hidden-selection chevron indicator placement where practical.
+- **Dependencies**: SPRD-176
 
 ### [SPRD-170] Feature: add richer task metadata with body, priority, optional Inbox assignment, and due dates - [x] Complete
 - **Context**: These task changes are still contained enough for a single branch, but they materially affect creation/edit flows, Inbox semantics, and overdue logic.
