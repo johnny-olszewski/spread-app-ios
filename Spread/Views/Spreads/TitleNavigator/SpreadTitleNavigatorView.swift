@@ -205,10 +205,13 @@ struct SpreadTitleNavigatorView: View {
             semanticID: item.id,
             style: item.style,
             display: item.display,
-            overdueCount: item.overdueCount,
+            badge: item.badge,
             isSelected: item.id == selectedSemanticID,
             accessibilityIdentifier: itemIdentifier,
-            overdueBadgeAccessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadStrip.overdueBadge(itemIdentifier),
+            badgeAccessibilityIdentifier: item.badge?.accessibilityIdentifier(
+                for: item.selection,
+                calendar: stripModel.calendar
+            ),
             selectionIndicatorNamespace: selectionIndicatorNamespace,
             showsSelectionIndicator: true,
             borderColor: nil,
@@ -316,14 +319,12 @@ struct SpreadTitleNavigatorView: View {
             semanticID: item.id,
             style: item.style,
             display: item.display,
-            overdueCount: 0,
+            badge: nil,
             isSelected: false,
             accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadStrip.recommendation(
                 recommendation.period.rawValue
             ),
-            overdueBadgeAccessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadStrip.overdueBadge(
-                Definitions.AccessibilityIdentifiers.SpreadStrip.recommendation(recommendation.period.rawValue)
-            ),
+            badgeAccessibilityIdentifier: nil,
             selectionIndicatorNamespace: selectionIndicatorNamespace,
             showsSelectionIndicator: false,
             borderColor: nil,

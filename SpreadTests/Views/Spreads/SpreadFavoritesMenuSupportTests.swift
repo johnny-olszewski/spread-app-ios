@@ -68,7 +68,7 @@ struct SpreadFavoritesMenuSupportTests {
             selection: .conventional(spread),
             style: .month,
             display: .init(top: nil, bottom: "Favorite", footer: nil),
-            overdueCount: 0
+            badge: .favorite
         )
 
         let favorites = SpreadFavoritesMenuSupport.favoriteItemsForCurrentYear(
