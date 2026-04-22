@@ -629,6 +629,40 @@ final class JournalManager {
         dataVersion += 1
     }
 
+    /// Updates an explicit multiday spread's date range while preserving its identity and personalization.
+    func updateMultidaySpreadDates(
+        _ spread: DataModel.Spread,
+        startDate: Date,
+        endDate: Date
+    ) async throws -> DataModel.Spread {
+        guard let current = spreadForMutation(spread.id), current.period == .multiday else {
+            return spread
+        }
+
+        let normalizedStart = startDate.startOfDay(calendar: calendar)
+        let normalizedEnd = endDate.startOfDay(calendar: calendar)
+        guard current.date != normalizedStart ||
+                current.startDate != normalizedStart ||
+                current.endDate != normalizedEnd else {
+            return current
+        }
+
+        let timestamp = Date.now
+        current.date = normalizedStart
+        current.startDate = normalizedStart
+        current.endDate = normalizedEnd
+        current.dateUpdatedAt = timestamp
+        current.startDateUpdatedAt = timestamp
+        current.endDateUpdatedAt = timestamp
+
+        try await spreadRepository.save(current)
+        replaceCachedSpread(current)
+        refreshDataModel(for: .structural)
+        dataVersion += 1
+
+        return current
+    }
+
     private func spreadForMutation(_ id: UUID) -> DataModel.Spread? {
         spreads.first { $0.id == id }
     }

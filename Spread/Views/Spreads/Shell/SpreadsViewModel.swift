@@ -20,6 +20,7 @@ final class SpreadsViewModel {
     enum SheetDestination: Identifiable {
         case spreadCreation(SpreadCreationPrefill?)
         case spreadNameEdit(DataModel.Spread)
+        case spreadDateEdit(DataModel.Spread)
         case taskCreation
         case noteCreation
         case taskDetail(DataModel.Task)
@@ -35,6 +36,8 @@ final class SpreadsViewModel {
                 return "spreadCreation"
             case .spreadNameEdit(let spread):
                 return "spreadNameEdit-\(spread.id)"
+            case .spreadDateEdit(let spread):
+                return "spreadDateEdit-\(spread.id)"
             case .taskCreation:
                 return "taskCreation"
             case .noteCreation:
@@ -88,6 +91,17 @@ final class SpreadsViewModel {
     /// Presents the spread naming editor.
     func showSpreadNameEdit(_ spread: DataModel.Spread) {
         activeSheet = .spreadNameEdit(spread)
+    }
+
+    /// Presents the multiday spread date-range editor.
+    func showSpreadDateEdit(_ spread: DataModel.Spread) {
+        activeSheet = .spreadDateEdit(spread)
+    }
+
+    /// Updates selection after a multiday date edit and asks navigator/pager surfaces to recenter.
+    func finishSpreadDateEdit(_ spread: DataModel.Spread) {
+        selectedSelection = .conventional(spread)
+        recenterToken += 1
     }
 
     /// Presents spread deletion confirmation for a conventional explicit spread.

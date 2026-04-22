@@ -183,12 +183,14 @@ struct Definitions {
             static let favoritesMenu = "spreads.toolbar.favorites"
             static let favoriteToggle = "spreads.toolbar.favoriteToggle"
             static let spreadActionsMenu = "spreads.toolbar.spreadActions"
+            static let editDatesButton = "spreads.toolbar.editDates"
             static let deleteSpreadButton = "spreads.toolbar.deleteSpread"
         }
 
         struct SpreadCreationSheet {
             static let periodPicker = "spreads.create.period"
             static let createButton = "spreads.create.create"
+            static let saveButton = "spreads.create.save"
             static let cancelButton = "spreads.create.cancel"
             static let customNameField = "spreads.create.name.custom"
             static let dynamicNameToggle = "spreads.create.name.dynamic"

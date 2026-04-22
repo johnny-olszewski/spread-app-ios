@@ -31,10 +31,37 @@ struct SpreadHeaderTests {
     func conventionalExplicitSpreadActionsIncludeEditNameAndDelete() {
         let actions = SpreadHeaderActionSupport.actions(
             allowsNameEditing: true,
+            allowsDateEditing: false,
             allowsDeletion: true
         )
 
         #expect(actions == [.editName, .deleteSpread])
+    }
+
+    /// Conditions: Conventional explicit multiday spread header provides name, date, and delete callbacks.
+    /// Expected: The spread actions menu exposes Edit Dates after Edit Name and before Delete Spread.
+    @Test("Conventional multiday actions include edit dates before delete")
+    func conventionalMultidayActionsIncludeEditDatesBeforeDelete() {
+        let actions = SpreadHeaderActionSupport.actions(
+            allowsNameEditing: true,
+            allowsDateEditing: true,
+            allowsDeletion: true
+        )
+
+        #expect(actions == [.editName, .editDates, .deleteSpread])
+    }
+
+    /// Conditions: Conventional year/month/day spread header has no date-edit callback.
+    /// Expected: The spread actions menu omits Edit Dates.
+    @Test("Non-multiday conventional actions omit edit dates")
+    func nonMultidayConventionalActionsOmitEditDates() {
+        let actions = SpreadHeaderActionSupport.actions(
+            allowsNameEditing: true,
+            allowsDateEditing: false,
+            allowsDeletion: true
+        )
+
+        #expect(!actions.contains(.editDates))
     }
 
     /// Conditions: Traditional virtual spread header provides no persisted-spread callbacks.
@@ -43,6 +70,7 @@ struct SpreadHeaderTests {
     func traditionalSpreadActionsAreHidden() {
         let actions = SpreadHeaderActionSupport.actions(
             allowsNameEditing: false,
+            allowsDateEditing: false,
             allowsDeletion: false
         )
 

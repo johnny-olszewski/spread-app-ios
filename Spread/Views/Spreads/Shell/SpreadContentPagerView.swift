@@ -219,6 +219,9 @@ private struct SpreadPageContentView: View {
                     onEditName: {
                         viewModel.showSpreadNameEdit(spread)
                     },
+                    onEditDates: spread.period == .multiday ? {
+                        viewModel.showSpreadDateEdit(spread)
+                    } : nil,
                     onDeleteSpread: {
                         viewModel.showSpreadDeleteConfirmation(spread)
                     }
