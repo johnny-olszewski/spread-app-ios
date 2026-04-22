@@ -479,7 +479,7 @@ enum SpreadTitleStripRelevanceFilter {
         calendar: Calendar,
         today: Date
     ) -> Bool {
-        let todayStart = Period.day.normalizeDate(today, calendar: calendar)
+        let todayStart = today.startOfDay(calendar: calendar)
         let periodEndBoundary: Date?
 
         switch spread.period {
@@ -493,7 +493,7 @@ enum SpreadTitleStripRelevanceFilter {
             let start = Period.day.normalizeDate(spread.date, calendar: calendar)
             periodEndBoundary = calendar.date(byAdding: .day, value: 1, to: start)
         case .multiday:
-            let end = Period.day.normalizeDate(spread.endDate ?? spread.date, calendar: calendar)
+            let end = multidayEffectiveEndDate(for: spread, calendar: calendar)
             periodEndBoundary = calendar.date(byAdding: .day, value: 1, to: end)
         }
 
@@ -525,13 +525,36 @@ enum SpreadTitleStripRelevanceFilter {
         spread: DataModel.Spread,
         calendar: Calendar
     ) -> Bool {
-        guard let startDate = spread.startDate,
-              let endDate = spread.endDate else {
+        guard let range = multidayDateRange(for: spread, calendar: calendar) else {
             return false
         }
         let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
-        return normalizedDate >= Period.day.normalizeDate(startDate, calendar: calendar) &&
-            normalizedDate <= Period.day.normalizeDate(endDate, calendar: calendar)
+        return normalizedDate >= range.start && normalizedDate <= range.end
+    }
+
+    private static func multidayEffectiveEndDate(
+        for spread: DataModel.Spread,
+        calendar: Calendar
+    ) -> Date {
+        guard let range = multidayDateRange(for: spread, calendar: calendar) else {
+            return Period.day.normalizeDate(spread.date, calendar: calendar)
+        }
+        return range.end
+    }
+
+    private static func multidayDateRange(
+        for spread: DataModel.Spread,
+        calendar: Calendar
+    ) -> (start: Date, end: Date)? {
+        guard spread.period == .multiday else { return nil }
+
+        let start = Period.day.normalizeDate(spread.startDate ?? spread.date, calendar: calendar)
+        let end = Period.day.normalizeDate(spread.endDate ?? spread.date, calendar: calendar)
+
+        if start <= end {
+            return (start, end)
+        }
+        return (end, start)
     }
 }
 
