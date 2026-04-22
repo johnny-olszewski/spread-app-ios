@@ -335,7 +335,7 @@
   - One UI flow test covering opening `Edit Dates` from a multiday actions menu, changing the range, saving, and seeing the updated selected spread.
 - **Dependencies**: SPRD-174
 
-### [SPRD-176] Feature: filter conventional title strip past spreads by relevance - [ ] Pending
+### [SPRD-176] Feature: filter conventional title strip past spreads by relevance - [x] Complete
 - **Context**: `SpreadTitleNavigatorView` can become crowded and laggy when a selected year contains many explicit spreads. Old past spreads that no longer contain actionable work make relevant current/future spreads harder to reach, while users still need a way to access the complete navigation history.
 - **Description**: Add a local, per-device title-strip display preference that defaults the conventional horizontal title strip to showing only relevant past spreads while keeping current/future spreads and complete navigation available elsewhere.
 - **Spec**: Workflow Branch Bundle (`WKFLW-17`); Navigation and UI; Settings

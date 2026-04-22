@@ -3,8 +3,8 @@ import Foundation
 extension JournalManager: SpreadTitleNavigatorProviding {
     /// Returns the strip model for the current BuJo mode.
     ///
-    /// - Conventional: header model carries only spreads (no tasks/notes/events),
-    ///   matching the conventional strip's explicit-spread-only display.
+    /// - Conventional: header model carries explicit spreads and tasks so local
+    ///   title-strip filtering can preserve past spreads with open work.
     /// - Traditional: header model carries all entries so the strip can reflect
     ///   virtual spread content across the full calendar.
     var titleNavigatorModel: SpreadTitleNavigatorModel {
@@ -17,7 +17,7 @@ extension JournalManager: SpreadTitleNavigatorProviding {
                     today: today,
                     firstWeekday: firstWeekday,
                     spreads: spreads,
-                    tasks: [],
+                    tasks: tasks,
                     notes: [],
                     events: []
                 ),

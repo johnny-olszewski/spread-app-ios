@@ -259,6 +259,224 @@ struct SpreadTitleNavigatorSupportTests {
         #expect(items[dayIndex].label == "Today")
     }
 
+    /// Setup: The selected year contains hidden-eligible past spreads plus current, future, favorite, and open-task spreads.
+    /// Expected: Relevant Past Only hides only irrelevant past spreads before title item rendering.
+    @Test func relevantPastOnlyFiltersConventionalPastSpreadsByFavoriteOrOpenTask() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 15)
+        let hiddenPastDay = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 4, day: 8), calendar: Self.calendar)
+        let favoritePastDay = DataModel.Spread(
+            period: .day,
+            date: Self.makeDate(year: 2026, month: 4, day: 9),
+            calendar: Self.calendar,
+            isFavorite: true
+        )
+        let openPastDay = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 4, day: 10), calendar: Self.calendar)
+        let migratedOnlyPastDay = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 4, day: 11), calendar: Self.calendar)
+        let completePastDay = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 4, day: 12), calendar: Self.calendar)
+        let currentDay = DataModel.Spread(period: .day, date: today, calendar: Self.calendar)
+        let futureMonth = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 5), calendar: Self.calendar)
+        let openPastMonth = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 3), calendar: Self.calendar)
+        let hiddenPastMultiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 1),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 3),
+            calendar: Self.calendar
+        )
+        let openPastMultiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 4),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 6),
+            calendar: Self.calendar
+        )
+        let futureMultiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 20),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 22),
+            calendar: Self.calendar
+        )
+        let openDayTask = DataModel.Task(
+            title: "Open day",
+            date: openPastDay.date,
+            period: .day,
+            status: .open,
+            assignments: [TaskAssignment(period: .day, date: openPastDay.date, status: .open)]
+        )
+        let migratedOnlyTask = DataModel.Task(
+            title: "Migrated source",
+            date: migratedOnlyPastDay.date,
+            period: .day,
+            status: .open,
+            assignments: [TaskAssignment(period: .day, date: migratedOnlyPastDay.date, status: .migrated)]
+        )
+        let completeTask = DataModel.Task(
+            title: "Complete",
+            date: completePastDay.date,
+            period: .day,
+            status: .complete,
+            assignments: [TaskAssignment(period: .day, date: completePastDay.date, status: .open)]
+        )
+        let openMonthTask = DataModel.Task(
+            title: "Open month",
+            date: openPastMonth.date,
+            period: .month,
+            status: .open,
+            assignments: [TaskAssignment(period: .month, date: openPastMonth.date, status: .open)]
+        )
+        let openMultidayTask = DataModel.Task(
+            title: "Open multiday",
+            date: Self.makeDate(year: 2026, month: 4, day: 5),
+            period: .day,
+            hasPreferredAssignment: true,
+            status: .open
+        )
+        let stripModel = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: today,
+                spreads: [
+                    hiddenPastDay,
+                    favoritePastDay,
+                    openPastDay,
+                    migratedOnlyPastDay,
+                    completePastDay,
+                    currentDay,
+                    futureMonth,
+                    openPastMonth,
+                    hiddenPastMultiday,
+                    openPastMultiday,
+                    futureMultiday
+                ],
+                tasks: [openDayTask, migratedOnlyTask, completeTask, openMonthTask, openMultidayTask],
+                notes: [],
+                events: []
+            )
+        )
+
+        let filteredIDs = stripModel.titleStripItems(
+            for: .conventional(currentDay),
+            displayPreference: .relevantPastOnly
+        )
+        .map(\.id)
+
+        #expect(filteredIDs.contains(stableID(for: favoritePastDay)))
+        #expect(filteredIDs.contains(stableID(for: openPastDay)))
+        #expect(filteredIDs.contains(stableID(for: openPastMonth)))
+        #expect(filteredIDs.contains(stableID(for: openPastMultiday)))
+        #expect(filteredIDs.contains(stableID(for: currentDay)))
+        #expect(filteredIDs.contains(stableID(for: futureMonth)))
+        #expect(filteredIDs.contains(stableID(for: futureMultiday)))
+        #expect(!filteredIDs.contains(stableID(for: hiddenPastDay)))
+        #expect(!filteredIDs.contains(stableID(for: migratedOnlyPastDay)))
+        #expect(!filteredIDs.contains(stableID(for: completePastDay)))
+        #expect(!filteredIDs.contains(stableID(for: hiddenPastMultiday)))
+    }
+
+    /// Setup: Conventional strip filtering is switched to Show All Spreads.
+    /// Expected: The presentation sequence exactly matches the existing complete conventional item sequence.
+    @Test func showAllSpreadsPreservesCompleteConventionalTitleStripSequence() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 15)
+        let pastDay = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 4, day: 8), calendar: Self.calendar)
+        let currentDay = DataModel.Spread(period: .day, date: today, calendar: Self.calendar)
+        let futureMonth = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 5), calendar: Self.calendar)
+        let stripModel = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: today,
+                spreads: [futureMonth, currentDay, pastDay],
+                tasks: [],
+                notes: [],
+                events: []
+            )
+        )
+
+        let completeItems = stripModel.items(for: .conventional(currentDay))
+        let showAllItems = stripModel.titleStripItems(
+            for: .conventional(currentDay),
+            displayPreference: .showAllSpreads
+        )
+
+        #expect(showAllItems.map(\.id) == completeItems.map(\.id))
+    }
+
+    /// Setup: Traditional title strip uses the Relevant Past Only preference.
+    /// Expected: Traditional mode remains unfiltered and keeps its full year sequence.
+    @Test func relevantPastOnlyDoesNotFilterTraditionalTitleStrip() {
+        let selection = SpreadHeaderNavigatorModel.Selection.traditionalDay(Self.makeDate(year: 2026, month: 4, day: 15))
+        let stripModel = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .traditional,
+                calendar: Self.calendar,
+                today: Self.makeDate(year: 2026, month: 4, day: 15),
+                spreads: [],
+                tasks: [],
+                notes: [],
+                events: []
+            )
+        )
+
+        let completeItems = stripModel.items(for: selection)
+        let filteredItems = stripModel.titleStripItems(
+            for: selection,
+            displayPreference: .relevantPastOnly
+        )
+
+        #expect(filteredItems.map(\.id) == completeItems.map(\.id))
+    }
+
+    /// Setup: Day, month, year, and multiday spreads sit just before or on today's boundary.
+    /// Expected: A spread becomes past only after its full period has passed.
+    @Test func relevantPastOnlyUsesPeriodSpecificPastBoundaries() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 15)
+
+        #expect(SpreadTitleStripRelevanceFilter.isPast(
+            DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 4, day: 14), calendar: Self.calendar),
+            calendar: Self.calendar,
+            today: today
+        ))
+        #expect(!SpreadTitleStripRelevanceFilter.isPast(
+            DataModel.Spread(period: .day, date: today, calendar: Self.calendar),
+            calendar: Self.calendar,
+            today: today
+        ))
+        #expect(SpreadTitleStripRelevanceFilter.isPast(
+            DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 3), calendar: Self.calendar),
+            calendar: Self.calendar,
+            today: today
+        ))
+        #expect(!SpreadTitleStripRelevanceFilter.isPast(
+            DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 4), calendar: Self.calendar),
+            calendar: Self.calendar,
+            today: today
+        ))
+        #expect(SpreadTitleStripRelevanceFilter.isPast(
+            DataModel.Spread(period: .year, date: Self.makeDate(year: 2025, month: 1), calendar: Self.calendar),
+            calendar: Self.calendar,
+            today: today
+        ))
+        #expect(!SpreadTitleStripRelevanceFilter.isPast(
+            DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar),
+            calendar: Self.calendar,
+            today: today
+        ))
+        #expect(SpreadTitleStripRelevanceFilter.isPast(
+            DataModel.Spread(
+                startDate: Self.makeDate(year: 2026, month: 4, day: 10),
+                endDate: Self.makeDate(year: 2026, month: 4, day: 14),
+                calendar: Self.calendar
+            ),
+            calendar: Self.calendar,
+            today: today
+        ))
+        #expect(!SpreadTitleStripRelevanceFilter.isPast(
+            DataModel.Spread(
+                startDate: Self.makeDate(year: 2026, month: 4, day: 10),
+                endDate: today,
+                calendar: Self.calendar
+            ),
+            calendar: Self.calendar,
+            today: today
+        ))
+    }
+
     /// Setup: overdue items exist on a visible day spread and on an inbox-only task.
     /// Expected: only the assigned spread item gets a badge count in the conventional strip.
     @Test func conventionalItemsIncludeOverdueCountsForAssignedSpreadsOnly() {
@@ -687,5 +905,9 @@ struct SpreadTitleNavigatorSupportTests {
         return SpreadTitleNavigatorModel(headerModel: headerModel)
             .items(for: .conventional(spread))
             .first
+    }
+
+    private func stableID(for spread: DataModel.Spread) -> String {
+        SpreadHeaderNavigatorModel.Selection.conventional(spread).stableID(calendar: Self.calendar)
     }
 }

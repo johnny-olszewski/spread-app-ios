@@ -7,6 +7,7 @@ struct SpreadTitleNavigatorView: View {
     private static let recommendationCornerRadius: CGFloat = 10
 
     let stripModel: SpreadTitleNavigatorModel
+    let items: [SpreadTitleNavigatorModel.Item]
     let recenterToken: Int
     let onRecommendedSpreadTapped: ((SpreadTitleNavigatorRecommendation) -> Void)?
     let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding
@@ -21,10 +22,6 @@ struct SpreadTitleNavigatorView: View {
     @State private var stripCenteredTargetID: String?
     @State private var widthChangeCenterToken = 0
     @Namespace private var selectionIndicatorNamespace
-
-    private var items: [SpreadTitleNavigatorModel.Item] {
-        stripModel.items(for: selection)
-    }
 
     private var selectedSemanticID: String {
         selection.stableID(calendar: stripModel.calendar)
