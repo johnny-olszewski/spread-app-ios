@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum SpreadTitleNavigatorItemStyle: Equatable {
     case year
@@ -531,6 +532,32 @@ enum SpreadTitleStripRelevanceFilter {
         let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
         return normalizedDate >= Period.day.normalizeDate(startDate, calendar: calendar) &&
             normalizedDate <= Period.day.normalizeDate(endDate, calendar: calendar)
+    }
+}
+
+enum SpreadTitleNavigatorSelectionVisibility {
+    static func isSelectionVisible(
+        _ selection: SpreadHeaderNavigatorModel.Selection,
+        in items: [SpreadTitleNavigatorModel.Item],
+        calendar: Calendar
+    ) -> Bool {
+        let selectionID = selection.stableID(calendar: calendar)
+        return items.contains { $0.id == selectionID }
+    }
+}
+
+enum SpreadTitleNavigatorTapSupport {
+    static func selectionChange(
+        for item: SpreadTitleNavigatorModel.Item,
+        selectedSemanticID: String
+    ) -> SpreadHeaderNavigatorModel.Selection? {
+        item.id == selectedSemanticID ? nil : item.selection
+    }
+}
+
+enum SpreadNavigatorPresentationSupport {
+    static func presentsAsPopover(horizontalSizeClass: UserInterfaceSizeClass?) -> Bool {
+        horizontalSizeClass == .regular
     }
 }
 

@@ -477,6 +477,77 @@ struct SpreadTitleNavigatorSupportTests {
         ))
     }
 
+    /// Setup: A past selected spread is hidden by the Relevant Past Only title-strip filter.
+    /// Expected: Selection remains valid but visibility support reports that the leading chevron must act as proxy.
+    @Test func hiddenFilteredSelectionActivatesLeadingNavigatorProxy() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 15)
+        let hiddenPastDay = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 4, day: 8), calendar: Self.calendar)
+        let visibleCurrentDay = DataModel.Spread(period: .day, date: today, calendar: Self.calendar)
+        let selection = SpreadHeaderNavigatorModel.Selection.conventional(hiddenPastDay)
+        let stripModel = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: today,
+                spreads: [hiddenPastDay, visibleCurrentDay],
+                tasks: [],
+                notes: [],
+                events: []
+            )
+        )
+
+        let filteredItems = stripModel.titleStripItems(
+            for: selection,
+            displayPreference: .relevantPastOnly
+        )
+
+        #expect(!SpreadTitleNavigatorSelectionVisibility.isSelectionVisible(
+            selection,
+            in: filteredItems,
+            calendar: Self.calendar
+        ))
+        #expect(stripModel.items(for: selection).contains { $0.id == stableID(for: hiddenPastDay) })
+    }
+
+    /// Setup: The user taps either the selected strip item or a different visible strip item.
+    /// Expected: Selected item taps are a no-op; only non-selected items return a selection change.
+    @Test func selectedTitleStripItemTapDoesNotOpenOrChangeNavigatorSelection() {
+        let selected = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 4, day: 15), calendar: Self.calendar)
+        let other = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 4, day: 16), calendar: Self.calendar)
+        let stripModel = SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: selected.date,
+                spreads: [selected, other],
+                tasks: [],
+                notes: [],
+                events: []
+            )
+        )
+        let items = stripModel.items(for: .conventional(selected))
+        let selectedID = stableID(for: selected)
+        let selectedItem = items.first { $0.id == selectedID }!
+        let otherItem = items.first { $0.id == stableID(for: other) }!
+
+        #expect(SpreadTitleNavigatorTapSupport.selectionChange(
+            for: selectedItem,
+            selectedSemanticID: selectedID
+        ) == nil)
+        #expect(SpreadTitleNavigatorTapSupport.selectionChange(
+            for: otherItem,
+            selectedSemanticID: selectedID
+        )?.stableID(calendar: Self.calendar) == Optional(stableID(for: other)))
+    }
+
+    /// Setup: The rooted navigator trigger runs under compact and regular horizontal size classes.
+    /// Expected: Regular width presents as a popover; compact width presents as a large sheet.
+    @Test func rootedNavigatorTriggerUsesAdaptivePresentationSurface() {
+        #expect(SpreadNavigatorPresentationSupport.presentsAsPopover(horizontalSizeClass: .regular))
+        #expect(!SpreadNavigatorPresentationSupport.presentsAsPopover(horizontalSizeClass: .compact))
+        #expect(!SpreadNavigatorPresentationSupport.presentsAsPopover(horizontalSizeClass: nil))
+    }
+
     /// Setup: overdue items exist on a visible day spread and on an inbox-only task.
     /// Expected: only the assigned spread item gets a badge count in the conventional strip.
     @Test func conventionalItemsIncludeOverdueCountsForAssignedSpreadsOnly() {

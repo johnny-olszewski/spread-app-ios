@@ -381,7 +381,7 @@
   - Regression tests proving global task browser ordering and favorites menu data are not accidentally reduced by the filtered presentation sequence.
 - **Dependencies**: SPRD-169, SPRD-170, SPRD-172, SPRD-175
 
-### [SPRD-177] UI: move rooted navigator trigger into fixed title-strip leading inset - [ ] Pending
+### [SPRD-177] UI: move rooted navigator trigger into fixed title-strip leading inset - [x] Complete
 - **Context**: The selected spread item is no longer the rooted navigator opener; selection is now represented by dot indicator and typography. Filtering the horizontal strip also needs a complete, always-visible navigation escape hatch when the selected spread is hidden from the filtered presentation.
 - **Description**: Move the rooted spread navigator trigger out of `SpreadHeaderView` and into a fixed leading inset of `SpreadTitleNavigatorView`, and use that affordance as the selected-state proxy when the selected spread is hidden by the conventional relevance filter.
 - **Spec**: Workflow Branch Bundle (`WKFLW-17`); Navigation and UI; Header Spread Navigator
