@@ -311,6 +311,20 @@ struct SpreadsView: View {
             } else {
                 Color.clear
             }
+        case .spreadDateEdit(let spread):
+            if journalManager.bujoMode == .conventional, spread.period == .multiday {
+                SpreadCreationSheet(
+                    journalManager: journalManager,
+                    firstWeekday: journalManager.firstWeekday,
+                    editingMultidaySpread: spread,
+                    onSpreadDatesSaved: { updatedSpread in
+                        viewModel.finishSpreadDateEdit(updatedSpread)
+                        Task { @MainActor in await syncEngine?.syncNow() }
+                    }
+                )
+            } else {
+                Color.clear
+            }
         case .taskCreation:
             TaskCreationSheet(
                 journalManager: journalManager,

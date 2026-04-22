@@ -251,7 +251,7 @@
   - Regression coverage that deleting a favorited spread removes it from the favorites menu through normal spread removal.
 - **Dependencies**: SPRD-169, SPRD-172
 
-### [SPRD-174] Refactor: consolidate spread create/edit sheet architecture
+### [SPRD-174] Refactor: consolidate spread create/edit sheet architecture - [x] Complete
 - **Context**: Multiday spread date editing should reuse the existing spread creation sheet surface instead of creating a parallel edit form. The current creation sheet mixes form state, validation, view copy, and persistence callbacks around creation-only assumptions, which would make future spread add/edit changes easy to duplicate.
 - **Description**: Refactor the spread sheet flow so creation and focused edit modes share one form/state/validation architecture while preserving the current create-spread behavior.
 - **Spec**: Workflow Branch Bundle (`WKFLW-17`); Spread
@@ -290,7 +290,7 @@
   - Regression tests for existing create-spread validation and prefill behavior.
 - **Dependencies**: SPRD-169, SPRD-172, SPRD-173
 
-### [SPRD-175] UI: add Edit Dates for conventional multiday spreads
+### [SPRD-175] UI: add Edit Dates for conventional multiday spreads - [x] Complete
 - **Context**: Multiday spreads are views over existing days rather than assignment owners. Users should be able to correct or move a multiday view by editing its start/end dates while preserving the spread's identity, name, favorite state, and aggregation semantics.
 - **Description**: Add an `Edit Dates` action for conventional explicit multiday spreads and persist date-range edits on the existing spread record through the shared spread sheet architecture from `SPRD-174`.
 - **Spec**: Workflow Branch Bundle (`WKFLW-17`); Spread; Spread Periods; Edge Cases

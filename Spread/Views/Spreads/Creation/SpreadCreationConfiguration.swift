@@ -1,6 +1,6 @@
 import Foundation
 
-/// Validation errors for spread creation.
+/// Validation errors for spread creation and date editing.
 enum SpreadCreationError: Equatable {
     /// The selected date is in the past.
     case pastDate
@@ -24,7 +24,7 @@ enum SpreadCreationError: Equatable {
     }
 }
 
-/// Result of spread creation validation.
+/// Result of spread creation and date-editing validation.
 struct SpreadCreationResult {
     /// Whether creation is allowed.
     let isValid: Bool
@@ -40,6 +40,56 @@ struct SpreadCreationResult {
     /// Creates an invalid result with the given error.
     static func invalid(_ error: SpreadCreationError) -> SpreadCreationResult {
         SpreadCreationResult(isValid: false, error: error)
+    }
+}
+
+/// Shared presentation mode for the spread create/edit sheet.
+enum SpreadCreationSheetMode: Equatable {
+    case create
+    case editDates(spreadID: UUID, originalStartDate: Date, originalEndDate: Date)
+
+    var title: String {
+        switch self {
+        case .create:
+            return "New Spread"
+        case .editDates:
+            return "Edit Dates"
+        }
+    }
+
+    var confirmationTitle: String {
+        switch self {
+        case .create:
+            return "Create"
+        case .editDates:
+            return "Save"
+        }
+    }
+
+    var showsPeriodPicker: Bool {
+        self == .create
+    }
+
+    var showsNameControls: Bool {
+        self == .create
+    }
+
+    var restrictsToMultidayRange: Bool {
+        switch self {
+        case .create:
+            return false
+        case .editDates:
+            return true
+        }
+    }
+
+    var editingSpreadID: UUID? {
+        switch self {
+        case .create:
+            return nil
+        case .editDates(let spreadID, _, _):
+            return spreadID
+        }
     }
 }
 
@@ -94,12 +144,17 @@ struct SpreadCreationConfiguration {
     ///   - period: The period for the spread.
     ///   - date: The date for the spread.
     /// - Returns: A result indicating whether creation is valid.
-    func canCreate(period: Period, date: Date) -> SpreadCreationResult {
+    func canCreate(
+        period: Period,
+        date: Date,
+        ignoringSpreadID: UUID? = nil
+    ) -> SpreadCreationResult {
         // Check for duplicates first
         let normalizedDate = period.normalizeDate(date, calendar: calendar)
         let spreadExists = existingSpreads.contains { spread in
-            spread.period == period &&
-            period.normalizeDate(spread.date, calendar: calendar) == normalizedDate
+            guard spread.id != ignoringSpreadID else { return false }
+            return spread.period == period &&
+                   period.normalizeDate(spread.date, calendar: calendar) == normalizedDate
         }
 
         if spreadExists {
@@ -127,7 +182,11 @@ struct SpreadCreationConfiguration {
     ///   - startDate: The start date of the range.
     ///   - endDate: The end date of the range.
     /// - Returns: A result indicating whether creation is valid.
-    func canCreateMultiday(startDate: Date, endDate: Date) -> SpreadCreationResult {
+    func canCreateMultiday(
+        startDate: Date,
+        endDate: Date,
+        ignoringSpreadID: UUID? = nil
+    ) -> SpreadCreationResult {
         let normalizedStart = startDate.startOfDay(calendar: calendar)
         let normalizedEnd = endDate.startOfDay(calendar: calendar)
 
@@ -138,6 +197,7 @@ struct SpreadCreationConfiguration {
 
         // Check for duplicates
         let spreadExists = existingSpreads.contains { spread in
+            guard spread.id != ignoringSpreadID else { return false }
             guard spread.period == .multiday,
                   let existingStart = spread.startDate,
                   let existingEnd = spread.endDate else {
@@ -164,6 +224,17 @@ struct SpreadCreationConfiguration {
         }
 
         return .valid
+    }
+
+    /// Returns whether the edited multiday range matches the original persisted range.
+    func isUnchangedMultidayRange(
+        startDate: Date,
+        endDate: Date,
+        originalStartDate: Date,
+        originalEndDate: Date
+    ) -> Bool {
+        startDate.startOfDay(calendar: calendar) == originalStartDate.startOfDay(calendar: calendar) &&
+        endDate.startOfDay(calendar: calendar) == originalEndDate.startOfDay(calendar: calendar)
     }
 
     // MARK: - Date Ranges

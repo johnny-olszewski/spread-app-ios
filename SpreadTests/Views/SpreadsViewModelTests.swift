@@ -66,6 +66,48 @@ struct SpreadsViewModelTests {
         #expect(destinationSpread.id == spread.id)
     }
 
+    /// Condition: Call showSpreadDateEdit() with a persisted multiday spread.
+    /// Expected: Active sheet is .spreadDateEdit carrying the same spread identity.
+    @Test("showSpreadDateEdit sets spreadDateEdit destination")
+    func testShowSpreadDateEdit() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .init(identifier: "UTC")!
+        let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 18))!
+        let endDate = calendar.date(from: .init(year: 2026, month: 1, day: 24))!
+        let spread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
+        let viewModel = SpreadsViewModel()
+
+        viewModel.showSpreadDateEdit(spread)
+
+        guard case .spreadDateEdit(let destinationSpread) = viewModel.activeSheet else {
+            Issue.record("Expected .spreadDateEdit, got \(String(describing: viewModel.activeSheet))")
+            return
+        }
+        #expect(destinationSpread.id == spread.id)
+    }
+
+    /// Condition: A multiday date edit saves with an updated spread instance.
+    /// Expected: Selection stays on that spread identity and recenterToken increments.
+    @Test("finishSpreadDateEdit keeps edited spread selected and recenters")
+    func testFinishSpreadDateEditKeepsSelectionAndRecenters() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .init(identifier: "UTC")!
+        let startDate = calendar.date(from: .init(year: 2026, month: 12, day: 28))!
+        let endDate = calendar.date(from: .init(year: 2027, month: 1, day: 3))!
+        let spread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
+        let viewModel = SpreadsViewModel()
+        viewModel.recenterToken = 2
+
+        viewModel.finishSpreadDateEdit(spread)
+
+        guard case .conventional(let selectedSpread) = viewModel.selectedSelection else {
+            Issue.record("Expected conventional selection")
+            return
+        }
+        #expect(selectedSpread.id == spread.id)
+        #expect(viewModel.recenterToken == 3)
+    }
+
     /// Condition: Call showSpreadDeleteConfirmation with a selected spread.
     /// Expected: Active alert is .deleteSpreadConfirmation and carries that spread without changing selection.
     @Test("showSpreadDeleteConfirmation sets delete confirmation alert")

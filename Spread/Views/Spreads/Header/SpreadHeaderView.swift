@@ -29,6 +29,9 @@ struct SpreadHeaderView: View {
     /// Callback for presenting the current explicit spread naming editor.
     var onEditName: (() -> Void)? = nil
 
+    /// Callback for presenting the current explicit multiday spread date editor.
+    var onEditDates: (() -> Void)? = nil
+
     /// Callback for presenting the current explicit spread deletion confirmation.
     var onDeleteSpread: (() -> Void)? = nil
 
@@ -106,6 +109,7 @@ struct SpreadHeaderView: View {
 
             let actions = SpreadHeaderActionSupport.actions(
                 allowsNameEditing: onEditName != nil,
+                allowsDateEditing: onEditDates != nil,
                 allowsDeletion: onDeleteSpread != nil
             )
 
@@ -117,6 +121,15 @@ struct SpreadHeaderView: View {
                         } label: {
                             Label("Edit Name", systemImage: "pencil")
                         }
+                    }
+
+                    if actions.contains(.editDates), let onEditDates {
+                        Button {
+                            onEditDates()
+                        } label: {
+                            Label("Edit Dates", systemImage: "calendar")
+                        }
+                        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.editDatesButton)
                     }
 
                     if actions.contains(.deleteSpread), let onDeleteSpread {
@@ -200,17 +213,22 @@ struct SpreadHeaderView: View {
 
 enum SpreadHeaderAction: Equatable {
     case editName
+    case editDates
     case deleteSpread
 }
 
 enum SpreadHeaderActionSupport {
     static func actions(
         allowsNameEditing: Bool,
+        allowsDateEditing: Bool = false,
         allowsDeletion: Bool
     ) -> [SpreadHeaderAction] {
         var actions: [SpreadHeaderAction] = []
         if allowsNameEditing {
             actions.append(.editName)
+        }
+        if allowsDateEditing {
+            actions.append(.editDates)
         }
         if allowsDeletion {
             actions.append(.deleteSpread)
