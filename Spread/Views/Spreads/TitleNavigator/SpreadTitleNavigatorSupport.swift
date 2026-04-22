@@ -7,6 +7,29 @@ enum SpreadTitleNavigatorItemStyle: Equatable {
     case multiday
 }
 
+enum TitleStripDisplayPreference: String, CaseIterable, Identifiable {
+    case relevantPastOnly
+    case showAllSpreads
+
+    static let storageKey = "spreads.titleStripDisplayPreference"
+    static let defaultValue: TitleStripDisplayPreference = .relevantPastOnly
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .relevantPastOnly:
+            return "Relevant Past Only"
+        case .showAllSpreads:
+            return "Show All Spreads"
+        }
+    }
+
+    init(storedRawValue: String) {
+        self = Self(rawValue: storedRawValue) ?? Self.defaultValue
+    }
+}
+
 struct SpreadTitleNavigatorModel {
     struct Item: Identifiable {
         struct Display: Equatable {
@@ -67,6 +90,21 @@ struct SpreadTitleNavigatorModel {
         case .traditionalDay(let dayDate):
             return traditionalYearItems(in: calendar.component(.year, from: dayDate))
         }
+    }
+
+    func titleStripItems(
+        for currentSelection: SpreadHeaderNavigatorModel.Selection,
+        displayPreference: TitleStripDisplayPreference
+    ) -> [Item] {
+        let completeItems = items(for: currentSelection)
+        return SpreadTitleStripRelevanceFilter.filteredItems(
+            completeItems,
+            mode: headerModel.mode,
+            displayPreference: displayPreference,
+            tasks: headerModel.tasks,
+            calendar: calendar,
+            today: today
+        )
     }
 
     func item(for recommendation: SpreadTitleNavigatorRecommendation) -> Item {
@@ -405,6 +443,94 @@ struct SpreadTitleNavigatorModel {
         case .traditionalDay(let date):
             return (Period.day.normalizeDate(date, calendar: calendar), 2)
         }
+    }
+}
+
+enum SpreadTitleStripRelevanceFilter {
+    static func filteredItems(
+        _ items: [SpreadTitleNavigatorModel.Item],
+        mode: SpreadHeaderNavigatorModel.Mode,
+        displayPreference: TitleStripDisplayPreference,
+        tasks: [DataModel.Task],
+        calendar: Calendar,
+        today: Date
+    ) -> [SpreadTitleNavigatorModel.Item] {
+        guard case .conventional = mode,
+              displayPreference == .relevantPastOnly else {
+            return items
+        }
+
+        return items.filter { item in
+            guard case .conventional(let spread) = item.selection else {
+                return true
+            }
+
+            guard isPast(spread, calendar: calendar, today: today) else {
+                return true
+            }
+
+            return spread.isFavorite || hasOpenTask(on: spread, tasks: tasks, calendar: calendar)
+        }
+    }
+
+    static func isPast(
+        _ spread: DataModel.Spread,
+        calendar: Calendar,
+        today: Date
+    ) -> Bool {
+        let todayStart = Period.day.normalizeDate(today, calendar: calendar)
+        let periodEndBoundary: Date?
+
+        switch spread.period {
+        case .year:
+            let start = Period.year.normalizeDate(spread.date, calendar: calendar)
+            periodEndBoundary = calendar.date(byAdding: .year, value: 1, to: start)
+        case .month:
+            let start = Period.month.normalizeDate(spread.date, calendar: calendar)
+            periodEndBoundary = calendar.date(byAdding: .month, value: 1, to: start)
+        case .day:
+            let start = Period.day.normalizeDate(spread.date, calendar: calendar)
+            periodEndBoundary = calendar.date(byAdding: .day, value: 1, to: start)
+        case .multiday:
+            let end = Period.day.normalizeDate(spread.endDate ?? spread.date, calendar: calendar)
+            periodEndBoundary = calendar.date(byAdding: .day, value: 1, to: end)
+        }
+
+        guard let periodEndBoundary else { return false }
+        return periodEndBoundary <= todayStart
+    }
+
+    static func hasOpenTask(
+        on spread: DataModel.Spread,
+        tasks: [DataModel.Task],
+        calendar: Calendar
+    ) -> Bool {
+        tasks.contains { task in
+            guard task.status == .open else { return false }
+
+            if spread.period == .multiday {
+                return task.hasPreferredAssignment && taskDateFallsWithinMultidayRange(task.date, spread: spread, calendar: calendar)
+            }
+
+            return task.assignments.contains { assignment in
+                assignment.status == .open &&
+                assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
+            }
+        }
+    }
+
+    private static func taskDateFallsWithinMultidayRange(
+        _ date: Date,
+        spread: DataModel.Spread,
+        calendar: Calendar
+    ) -> Bool {
+        guard let startDate = spread.startDate,
+              let endDate = spread.endDate else {
+            return false
+        }
+        let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
+        return normalizedDate >= Period.day.normalizeDate(startDate, calendar: calendar) &&
+            normalizedDate <= Period.day.normalizeDate(endDate, calendar: calendar)
     }
 }
 

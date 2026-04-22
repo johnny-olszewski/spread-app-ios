@@ -330,6 +330,8 @@ struct Definitions {
             static func modeOption(_ rawValue: String) -> String {
                 "settings.mode.\(rawValue)"
             }
+
+            static let titleStripDisplayPicker = "settings.titleStripDisplay.picker"
         }
 
         struct Navigation {

@@ -7,6 +7,8 @@ struct SpreadsView: View {
     let navigationState: SpreadsNavigationState
 
     @State private var viewModel = SpreadsViewModel()
+    @AppStorage(TitleStripDisplayPreference.storageKey)
+    private var titleStripDisplayPreferenceRaw = TitleStripDisplayPreference.defaultValue.rawValue
 
     private let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding =
         TodayMissingSpreadRecommendationProvider()
@@ -15,14 +17,22 @@ struct SpreadsView: View {
         journalManager.titleNavigatorModel
     }
 
-    private var items: [SpreadTitleNavigatorModel.Item] {
+    private var completeItems: [SpreadTitleNavigatorModel.Item] {
         stripModel.items(for: currentSelection)
+    }
+
+    private var titleStripItems: [SpreadTitleNavigatorModel.Item] {
+        stripModel.titleStripItems(
+            for: currentSelection,
+            displayPreference: TitleStripDisplayPreference(storedRawValue: titleStripDisplayPreferenceRaw)
+        )
     }
 
     var body: some View {
         VStack(spacing: 0) {
             SpreadTitleNavigatorView(
                 stripModel: stripModel,
+                items: titleStripItems,
                 recenterToken: viewModel.recenterToken,
                 onRecommendedSpreadTapped: onRecommendedSpreadTapped,
                 recommendationProvider: recommendationProvider,
@@ -73,13 +83,13 @@ struct SpreadsView: View {
 
     @ViewBuilder
     private var contentArea: some View {
-        if !items.isEmpty {
+        if !completeItems.isEmpty {
             SpreadContentPagerView(
                 journalManager: journalManager,
                 viewModel: viewModel,
                 syncEngine: syncEngine,
                 model: stripModel,
-                items: items,
+                items: completeItems,
                 recenterToken: viewModel.recenterToken,
                 selection: selectionBinding
             )
@@ -181,7 +191,7 @@ struct SpreadsView: View {
     private var favoriteItemsForCurrentYear: [SpreadTitleNavigatorModel.Item] {
         SpreadFavoritesMenuSupport.favoriteItemsForCurrentYear(
             mode: journalManager.bujoMode,
-            items: items
+            items: completeItems
         )
     }
 
