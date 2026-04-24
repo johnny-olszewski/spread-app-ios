@@ -60,7 +60,8 @@ final class SpreadTitleNavigatorUITests: LocalhostScenarioUITestCase {
             identifier: Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
         )
         waitForElement(selectedIndicator)
-        XCTAssertEqual(selectedIndicator.label, "Jan")
+        XCTAssertTrue(selectedIndicator.label.contains("2026"))
+        XCTAssertTrue(selectedIndicator.label.localizedCaseInsensitiveContains("jan"))
     }
 
     func testConventionalTodayButtonReturnsSelectionToToday() throws {

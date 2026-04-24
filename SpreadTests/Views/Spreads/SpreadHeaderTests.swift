@@ -23,6 +23,60 @@ struct SpreadHeaderTests {
         calendar.date(from: .init(year: year, month: month, day: day))!
     }
 
+    // MARK: - Action Menu Tests
+
+    /// Conditions: Conventional explicit spread header provides edit and delete callbacks.
+    /// Expected: The spread actions menu exposes Edit Name and destructive Delete Spread actions.
+    @Test("Conventional explicit spread actions include edit name and delete")
+    func conventionalExplicitSpreadActionsIncludeEditNameAndDelete() {
+        let actions = SpreadHeaderActionSupport.actions(
+            allowsNameEditing: true,
+            allowsDateEditing: false,
+            allowsDeletion: true
+        )
+
+        #expect(actions == [.editName, .deleteSpread])
+    }
+
+    /// Conditions: Conventional explicit multiday spread header provides name, date, and delete callbacks.
+    /// Expected: The spread actions menu exposes Edit Dates after Edit Name and before Delete Spread.
+    @Test("Conventional multiday actions include edit dates before delete")
+    func conventionalMultidayActionsIncludeEditDatesBeforeDelete() {
+        let actions = SpreadHeaderActionSupport.actions(
+            allowsNameEditing: true,
+            allowsDateEditing: true,
+            allowsDeletion: true
+        )
+
+        #expect(actions == [.editName, .editDates, .deleteSpread])
+    }
+
+    /// Conditions: Conventional year/month/day spread header has no date-edit callback.
+    /// Expected: The spread actions menu omits Edit Dates.
+    @Test("Non-multiday conventional actions omit edit dates")
+    func nonMultidayConventionalActionsOmitEditDates() {
+        let actions = SpreadHeaderActionSupport.actions(
+            allowsNameEditing: true,
+            allowsDateEditing: false,
+            allowsDeletion: true
+        )
+
+        #expect(!actions.contains(.editDates))
+    }
+
+    /// Conditions: Traditional virtual spread header provides no persisted-spread callbacks.
+    /// Expected: The spread actions menu has no actions to expose.
+    @Test("Traditional spread actions are hidden")
+    func traditionalSpreadActionsAreHidden() {
+        let actions = SpreadHeaderActionSupport.actions(
+            allowsNameEditing: false,
+            allowsDateEditing: false,
+            allowsDeletion: false
+        )
+
+        #expect(actions.isEmpty)
+    }
+
     // MARK: - Year Title Formatting Tests
 
     /// Conditions: Year spread for 2026.

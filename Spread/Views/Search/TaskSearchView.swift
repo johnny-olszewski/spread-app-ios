@@ -22,6 +22,10 @@ struct TaskSearchView: View {
                         } label: {
                             TaskSearchRowContent(
                                 title: row.title,
+                                bodyPreview: row.bodyPreview,
+                                priority: row.priority,
+                                dueDateLabel: dueDateLabel(for: row),
+                                isDueDateHighlighted: isDueDateHighlighted(for: row),
                                 status: row.status,
                                 subtitle: subtitle(for: row)
                             )
@@ -67,12 +71,38 @@ struct TaskSearchView: View {
         formatter.calendar = journalManager.calendar
         formatter.timeZone = journalManager.calendar.timeZone
         formatter.dateStyle = .medium
-        return "\(row.period.displayName): \(formatter.string(from: row.date))"
+        let assignment = "\(row.period.displayName): \(formatter.string(from: row.date))"
+        if row.selection == nil {
+            return row.hasPreferredAssignment ? "Assigned: \(assignment)" : "Unassigned"
+        }
+        return assignment
+    }
+
+    private func dueDateLabel(for row: TaskSearchSection.Row) -> String? {
+        guard let dueDate = row.dueDate else { return nil }
+        let formatter = DateFormatter()
+        formatter.calendar = journalManager.calendar
+        formatter.timeZone = journalManager.calendar.timeZone
+        formatter.setLocalizedDateFormatFromTemplate("MMM d")
+        return "Due \(formatter.string(from: dueDate))"
+    }
+
+    private func isDueDateHighlighted(for row: TaskSearchSection.Row) -> Bool {
+        guard row.status == .open,
+              let dueDate = row.dueDate else {
+            return false
+        }
+        return dueDate.startOfDay(calendar: journalManager.calendar) <=
+            journalManager.today.startOfDay(calendar: journalManager.calendar)
     }
 }
 
 private struct TaskSearchRowContent: View {
     let title: String
+    let bodyPreview: String?
+    let priority: DataModel.Task.Priority
+    let dueDateLabel: String?
+    let isDueDateHighlighted: Bool
     let status: DataModel.Task.Status
     let subtitle: String
 
@@ -88,6 +118,35 @@ private struct TaskSearchRowContent: View {
                 Text(subtitle)
                     .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
+
+                if priority != .none || dueDateLabel != nil {
+                    HStack(spacing: 6) {
+                        if let badgeTitle = priority.badgeTitle {
+                            Text(badgeTitle)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(priority.badgeColor)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                        .stroke(priority.badgeColor.opacity(0.35), lineWidth: 1)
+                                }
+                        }
+
+                        if let dueDateLabel {
+                            Text(dueDateLabel)
+                                .font(SpreadTheme.Typography.caption)
+                                .foregroundStyle(isDueDateHighlighted ? Color.orange : Color.secondary)
+                        }
+                    }
+                }
+
+                if let bodyPreview {
+                    Text(bodyPreview)
+                        .font(SpreadTheme.Typography.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer()

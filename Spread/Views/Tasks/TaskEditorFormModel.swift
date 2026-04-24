@@ -5,9 +5,15 @@ struct TaskEditorFormModel {
     let configuration: TaskCreationConfiguration
 
     var title: String
+    var body: String
+    var priority: DataModel.Task.Priority
+    var hasDueDate: Bool
+    var dueDate: Date
+    var hasPreferredAssignment: Bool
     var selectedPeriod: Period
     var selectedDate: Date
     var hasEditedTitle: Bool
+    var isDetailsExpanded = false
     var showValidationErrors = false
     var titleError: TaskCreationError?
     var dateError: TaskCreationError?
@@ -19,6 +25,11 @@ struct TaskEditorFormModel {
         self.configuration = configuration
         let defaults = configuration.defaultSelection(from: selectedSpread)
         self.title = ""
+        self.body = ""
+        self.priority = .none
+        self.hasDueDate = false
+        self.dueDate = configuration.today.startOfDay(calendar: configuration.calendar)
+        self.hasPreferredAssignment = selectedSpread != nil
         self.selectedPeriod = defaults.period
         self.selectedDate = configuration.adjustedDate(defaults.date, for: defaults.period)
         self.hasEditedTitle = false
@@ -30,12 +41,21 @@ struct TaskEditorFormModel {
     ) {
         self.configuration = configuration
         self.title = task.title
-        self.selectedPeriod = task.period
-        self.selectedDate = task.date
+        self.body = task.body ?? ""
+        self.priority = task.priority
+        self.hasDueDate = task.dueDate != nil
+        self.dueDate = (task.dueDate ?? configuration.today).startOfDay(calendar: configuration.calendar)
+        self.hasPreferredAssignment = task.hasPreferredAssignment
+        self.selectedPeriod = task.hasPreferredAssignment ? task.period : .day
+        self.selectedDate = task.hasPreferredAssignment ? task.date : configuration.today.startOfDay(calendar: configuration.calendar)
         self.hasEditedTitle = true
     }
 
     var periodDescription: String {
+        guard hasPreferredAssignment else {
+            return "Task will stay in Inbox until assigned"
+        }
+
         switch selectedPeriod {
         case .year:
             return "Task will be assigned to a year spread"
@@ -52,6 +72,16 @@ struct TaskEditorFormModel {
 
     var effectiveSelectedDate: Date {
         configuration.adjustedDate(selectedDate, for: selectedPeriod)
+    }
+
+    var sanitizedBody: String? {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    var effectiveDueDate: Date? {
+        guard hasDueDate else { return nil }
+        return dueDate.startOfDay(calendar: configuration.calendar)
     }
 
     mutating func handleTitleChange() {
@@ -72,8 +102,19 @@ struct TaskEditorFormModel {
     }
 
     mutating func applySpreadSelection(period: Period, date: Date) {
+        hasPreferredAssignment = true
         selectedDate = configuration.adjustedDate(date, for: period)
         selectedPeriod = period
+        clearDateError()
+    }
+
+    mutating func setPreferredAssignmentEnabled(_ isEnabled: Bool) {
+        guard hasPreferredAssignment != isEnabled else { return }
+        hasPreferredAssignment = isEnabled
+        if isEnabled {
+            selectedPeriod = .day
+            selectedDate = configuration.today.startOfDay(calendar: configuration.calendar)
+        }
         clearDateError()
     }
 
@@ -91,7 +132,9 @@ struct TaskEditorFormModel {
 
     mutating func validateForSubmission() -> Bool {
         let titleResult = configuration.validateTitle(title)
-        let dateResult = configuration.validateDate(period: selectedPeriod, date: selectedDate)
+        let dateResult = hasPreferredAssignment
+            ? configuration.validateDate(period: selectedPeriod, date: selectedDate)
+            : .valid
 
         if !titleResult.isValid || !dateResult.isValid {
             showValidationErrors = true

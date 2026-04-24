@@ -269,10 +269,10 @@ $$;
 
 
 --
--- Name: merge_spread(uuid, uuid, uuid, text, date, date, date, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+-- Name: merge_spread(uuid, uuid, uuid, text, date, date, date, boolean, text, boolean, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.merge_spread(p_id uuid, p_user_id uuid, p_device_id uuid, p_period text, p_date date, p_start_date date, p_end_date date, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_start_date_updated_at timestamp with time zone, p_end_date_updated_at timestamp with time zone) RETURNS jsonb
+CREATE FUNCTION public.merge_spread(p_id uuid, p_user_id uuid, p_device_id uuid, p_period text, p_date date, p_start_date date, p_end_date date, p_is_favorite boolean, p_custom_name text, p_uses_dynamic_name boolean, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_start_date_updated_at timestamp with time zone, p_end_date_updated_at timestamp with time zone, p_is_favorite_updated_at timestamp with time zone, p_custom_name_updated_at timestamp with time zone, p_uses_dynamic_name_updated_at timestamp with time zone) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -291,12 +291,16 @@ BEGIN
         -- Insert new record
         INSERT INTO spreads (
             id, user_id, device_id, period, date, start_date, end_date,
+            is_favorite, custom_name, uses_dynamic_name,
             created_at, deleted_at,
-            period_updated_at, date_updated_at, start_date_updated_at, end_date_updated_at
+            period_updated_at, date_updated_at, start_date_updated_at, end_date_updated_at,
+            is_favorite_updated_at, custom_name_updated_at, uses_dynamic_name_updated_at
         ) VALUES (
             p_id, p_user_id, p_device_id, p_period, p_date, p_start_date, p_end_date,
+            p_is_favorite, p_custom_name, p_uses_dynamic_name,
             p_created_at, p_deleted_at,
-            p_period_updated_at, p_date_updated_at, p_start_date_updated_at, p_end_date_updated_at
+            p_period_updated_at, p_date_updated_at, p_start_date_updated_at, p_end_date_updated_at,
+            p_is_favorite_updated_at, p_custom_name_updated_at, p_uses_dynamic_name_updated_at
         )
         RETURNING * INTO v_result;
     ELSE
@@ -318,7 +322,13 @@ BEGIN
                 start_date = CASE WHEN p_start_date_updated_at > v_existing.start_date_updated_at THEN p_start_date ELSE v_existing.start_date END,
                 start_date_updated_at = GREATEST(p_start_date_updated_at, v_existing.start_date_updated_at),
                 end_date = CASE WHEN p_end_date_updated_at > v_existing.end_date_updated_at THEN p_end_date ELSE v_existing.end_date END,
-                end_date_updated_at = GREATEST(p_end_date_updated_at, v_existing.end_date_updated_at)
+                end_date_updated_at = GREATEST(p_end_date_updated_at, v_existing.end_date_updated_at),
+                is_favorite = CASE WHEN p_is_favorite_updated_at > v_existing.is_favorite_updated_at THEN p_is_favorite ELSE v_existing.is_favorite END,
+                is_favorite_updated_at = GREATEST(p_is_favorite_updated_at, v_existing.is_favorite_updated_at),
+                custom_name = CASE WHEN p_custom_name_updated_at > v_existing.custom_name_updated_at THEN p_custom_name ELSE v_existing.custom_name END,
+                custom_name_updated_at = GREATEST(p_custom_name_updated_at, v_existing.custom_name_updated_at),
+                uses_dynamic_name = CASE WHEN p_uses_dynamic_name_updated_at > v_existing.uses_dynamic_name_updated_at THEN p_uses_dynamic_name ELSE v_existing.uses_dynamic_name END,
+                uses_dynamic_name_updated_at = GREATEST(p_uses_dynamic_name_updated_at, v_existing.uses_dynamic_name_updated_at)
             WHERE id = p_id
             RETURNING * INTO v_result;
         END IF;
@@ -330,10 +340,10 @@ $$;
 
 
 --
--- Name: merge_task(uuid, uuid, uuid, text, date, text, text, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+-- Name: merge_task(uuid, uuid, uuid, text, text, text, date, date, text, text, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone) RETURNS jsonb
+CREATE FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -348,13 +358,15 @@ BEGIN
     
     IF NOT FOUND THEN
         INSERT INTO tasks (
-            id, user_id, device_id, title, date, period, status,
+            id, user_id, device_id, title, body, priority, due_date, date, period, status,
             created_at, deleted_at,
-            title_updated_at, date_updated_at, period_updated_at, status_updated_at
+            title_updated_at, date_updated_at, period_updated_at, status_updated_at,
+            body_updated_at, priority_updated_at, due_date_updated_at
         ) VALUES (
-            p_id, p_user_id, p_device_id, p_title, p_date, p_period, p_status,
+            p_id, p_user_id, p_device_id, p_title, p_body, p_priority, p_due_date, p_date, p_period, p_status,
             p_created_at, p_deleted_at,
-            p_title_updated_at, p_date_updated_at, p_period_updated_at, p_status_updated_at
+            p_title_updated_at, p_date_updated_at, p_period_updated_at, p_status_updated_at,
+            p_body_updated_at, p_priority_updated_at, p_due_date_updated_at
         )
         RETURNING * INTO v_result;
     ELSE
@@ -371,7 +383,13 @@ BEGIN
                 period = CASE WHEN p_period_updated_at > v_existing.period_updated_at THEN p_period ELSE v_existing.period END,
                 period_updated_at = GREATEST(p_period_updated_at, v_existing.period_updated_at),
                 status = CASE WHEN p_status_updated_at > v_existing.status_updated_at THEN p_status ELSE v_existing.status END,
-                status_updated_at = GREATEST(p_status_updated_at, v_existing.status_updated_at)
+                status_updated_at = GREATEST(p_status_updated_at, v_existing.status_updated_at),
+                body = CASE WHEN p_body_updated_at > v_existing.body_updated_at THEN p_body ELSE v_existing.body END,
+                body_updated_at = GREATEST(p_body_updated_at, v_existing.body_updated_at),
+                priority = CASE WHEN p_priority_updated_at > v_existing.priority_updated_at THEN p_priority ELSE v_existing.priority END,
+                priority_updated_at = GREATEST(p_priority_updated_at, v_existing.priority_updated_at),
+                due_date = CASE WHEN p_due_date_updated_at > v_existing.due_date_updated_at THEN p_due_date ELSE v_existing.due_date END,
+                due_date_updated_at = GREATEST(p_due_date_updated_at, v_existing.due_date_updated_at)
             WHERE id = p_id RETURNING * INTO v_result;
         END IF;
     END IF;
@@ -546,6 +564,9 @@ BEGIN
         NEW.date_updated_at := COALESCE(NEW.date_updated_at, now());
         NEW.start_date_updated_at := COALESCE(NEW.start_date_updated_at, now());
         NEW.end_date_updated_at := COALESCE(NEW.end_date_updated_at, now());
+        NEW.is_favorite_updated_at := COALESCE(NEW.is_favorite_updated_at, now());
+        NEW.custom_name_updated_at := COALESCE(NEW.custom_name_updated_at, now());
+        NEW.uses_dynamic_name_updated_at := COALESCE(NEW.uses_dynamic_name_updated_at, now());
     ELSIF TG_OP = 'UPDATE' THEN
         -- On update, only update timestamps for changed fields
         IF NEW.period IS DISTINCT FROM OLD.period THEN
@@ -559,6 +580,15 @@ BEGIN
         END IF;
         IF NEW.end_date IS DISTINCT FROM OLD.end_date THEN
             NEW.end_date_updated_at := now();
+        END IF;
+        IF NEW.is_favorite IS DISTINCT FROM OLD.is_favorite THEN
+            NEW.is_favorite_updated_at := now();
+        END IF;
+        IF NEW.custom_name IS DISTINCT FROM OLD.custom_name THEN
+            NEW.custom_name_updated_at := now();
+        END IF;
+        IF NEW.uses_dynamic_name IS DISTINCT FROM OLD.uses_dynamic_name THEN
+            NEW.uses_dynamic_name_updated_at := now();
         END IF;
     END IF;
     
@@ -607,6 +637,9 @@ BEGIN
         NEW.date_updated_at := COALESCE(NEW.date_updated_at, now());
         NEW.period_updated_at := COALESCE(NEW.period_updated_at, now());
         NEW.status_updated_at := COALESCE(NEW.status_updated_at, now());
+        NEW.body_updated_at := COALESCE(NEW.body_updated_at, now());
+        NEW.priority_updated_at := COALESCE(NEW.priority_updated_at, now());
+        NEW.due_date_updated_at := COALESCE(NEW.due_date_updated_at, now());
     ELSIF TG_OP = 'UPDATE' THEN
         IF NEW.title IS DISTINCT FROM OLD.title THEN
             NEW.title_updated_at := now();
@@ -619,6 +652,15 @@ BEGIN
         END IF;
         IF NEW.status IS DISTINCT FROM OLD.status THEN
             NEW.status_updated_at := now();
+        END IF;
+        IF NEW.body IS DISTINCT FROM OLD.body THEN
+            NEW.body_updated_at := now();
+        END IF;
+        IF NEW.priority IS DISTINCT FROM OLD.priority THEN
+            NEW.priority_updated_at := now();
+        END IF;
+        IF NEW.due_date IS DISTINCT FROM OLD.due_date THEN
+            NEW.due_date_updated_at := now();
         END IF;
     END IF;
     
@@ -730,6 +772,9 @@ CREATE TABLE public.spreads (
     date date NOT NULL,
     start_date date,
     end_date date,
+    is_favorite boolean DEFAULT false NOT NULL,
+    custom_name text,
+    uses_dynamic_name boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
@@ -738,6 +783,9 @@ CREATE TABLE public.spreads (
     date_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     start_date_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     end_date_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    is_favorite_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    custom_name_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    uses_dynamic_name_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT spreads_multiday_dates_check CHECK ((((period = 'multiday'::text) AND (start_date IS NOT NULL) AND (end_date IS NOT NULL)) OR ((period <> 'multiday'::text) AND (start_date IS NULL) AND (end_date IS NULL)))),
     CONSTRAINT spreads_period_check CHECK ((period = ANY (ARRAY['year'::text, 'month'::text, 'day'::text, 'multiday'::text])))
 );
@@ -786,8 +834,11 @@ CREATE TABLE public.tasks (
     user_id uuid NOT NULL,
     device_id uuid NOT NULL,
     title text DEFAULT ''::text NOT NULL,
-    date date NOT NULL,
-    period text NOT NULL,
+    body text,
+    priority text DEFAULT 'none'::text NOT NULL,
+    due_date date,
+    date date,
+    period text,
     status text DEFAULT 'open'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -797,7 +848,11 @@ CREATE TABLE public.tasks (
     date_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     period_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     status_updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT tasks_period_check CHECK ((period = ANY (ARRAY['year'::text, 'month'::text, 'day'::text, 'multiday'::text]))),
+    body_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    priority_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    due_date_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT tasks_period_check CHECK (((period IS NULL) OR (period = ANY (ARRAY['year'::text, 'month'::text, 'day'::text, 'multiday'::text])))),
+    CONSTRAINT tasks_priority_check CHECK ((priority = ANY (ARRAY['none'::text, 'low'::text, 'medium'::text, 'high'::text]))),
     CONSTRAINT tasks_status_check CHECK ((status = ANY (ARRAY['open'::text, 'complete'::text, 'migrated'::text, 'cancelled'::text])))
 );
 
@@ -1375,21 +1430,21 @@ GRANT ALL ON FUNCTION public.merge_settings(p_id uuid, p_user_id uuid, p_device_
 
 
 --
--- Name: FUNCTION merge_spread(p_id uuid, p_user_id uuid, p_device_id uuid, p_period text, p_date date, p_start_date date, p_end_date date, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_start_date_updated_at timestamp with time zone, p_end_date_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
+-- Name: FUNCTION merge_spread(p_id uuid, p_user_id uuid, p_device_id uuid, p_period text, p_date date, p_start_date date, p_end_date date, p_is_favorite boolean, p_custom_name text, p_uses_dynamic_name boolean, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_start_date_updated_at timestamp with time zone, p_end_date_updated_at timestamp with time zone, p_is_favorite_updated_at timestamp with time zone, p_custom_name_updated_at timestamp with time zone, p_uses_dynamic_name_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON FUNCTION public.merge_spread(p_id uuid, p_user_id uuid, p_device_id uuid, p_period text, p_date date, p_start_date date, p_end_date date, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_start_date_updated_at timestamp with time zone, p_end_date_updated_at timestamp with time zone) TO anon;
-GRANT ALL ON FUNCTION public.merge_spread(p_id uuid, p_user_id uuid, p_device_id uuid, p_period text, p_date date, p_start_date date, p_end_date date, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_start_date_updated_at timestamp with time zone, p_end_date_updated_at timestamp with time zone) TO authenticated;
-GRANT ALL ON FUNCTION public.merge_spread(p_id uuid, p_user_id uuid, p_device_id uuid, p_period text, p_date date, p_start_date date, p_end_date date, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_start_date_updated_at timestamp with time zone, p_end_date_updated_at timestamp with time zone) TO service_role;
+GRANT ALL ON FUNCTION public.merge_spread(p_id uuid, p_user_id uuid, p_device_id uuid, p_period text, p_date date, p_start_date date, p_end_date date, p_is_favorite boolean, p_custom_name text, p_uses_dynamic_name boolean, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_start_date_updated_at timestamp with time zone, p_end_date_updated_at timestamp with time zone, p_is_favorite_updated_at timestamp with time zone, p_custom_name_updated_at timestamp with time zone, p_uses_dynamic_name_updated_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_spread(p_id uuid, p_user_id uuid, p_device_id uuid, p_period text, p_date date, p_start_date date, p_end_date date, p_is_favorite boolean, p_custom_name text, p_uses_dynamic_name boolean, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_start_date_updated_at timestamp with time zone, p_end_date_updated_at timestamp with time zone, p_is_favorite_updated_at timestamp with time zone, p_custom_name_updated_at timestamp with time zone, p_uses_dynamic_name_updated_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_spread(p_id uuid, p_user_id uuid, p_device_id uuid, p_period text, p_date date, p_start_date date, p_end_date date, p_is_favorite boolean, p_custom_name text, p_uses_dynamic_name boolean, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_start_date_updated_at timestamp with time zone, p_end_date_updated_at timestamp with time zone, p_is_favorite_updated_at timestamp with time zone, p_custom_name_updated_at timestamp with time zone, p_uses_dynamic_name_updated_at timestamp with time zone) TO service_role;
 
 
 --
--- Name: FUNCTION merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
+-- Name: FUNCTION merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO anon;
-GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO authenticated;
-GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO service_role;
+GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone) TO service_role;
 
 
 --
@@ -1539,5 +1594,3 @@ GRANT ALL ON TABLE public.tasks TO service_role;
 --
 -- PostgreSQL database dump complete
 --
-
-

@@ -4,6 +4,30 @@ import Testing
 
 @Suite(.serialized)
 struct SpreadDeletionTests {
+    private enum ForcedSpreadDeletionError: Error {
+        case deleteFailed
+    }
+
+    @MainActor
+    private final class FailingDeleteSpreadRepository: SpreadRepository {
+        private var spreads: [UUID: DataModel.Spread]
+
+        init(spreads: [DataModel.Spread]) {
+            self.spreads = Dictionary(uniqueKeysWithValues: spreads.map { ($0.id, $0) })
+        }
+
+        func getSpreads() async -> [DataModel.Spread] {
+            Array(spreads.values)
+        }
+
+        func save(_ spread: DataModel.Spread) async throws {
+            spreads[spread.id] = spread
+        }
+
+        func delete(_ spread: DataModel.Spread) async throws {
+            throw ForcedSpreadDeletionError.deleteFailed
+        }
+    }
 
     // MARK: - Test Helpers
 
@@ -333,6 +357,30 @@ struct SpreadDeletionTests {
         try await manager.deleteSpread(daySpread)
 
         #expect(manager.dataVersion > initialVersion)
+    }
+
+    /// Conditions: The spread repository throws while deleting the selected spread.
+    /// Expected: JournalManager rethrows, keeps the spread in memory, and does not advance dataVersion.
+    @Test @MainActor func testDeleteSpreadFailureKeepsSpreadInMemory() async throws {
+        let calendar = Self.testCalendar
+        let taskDate = Self.testDate
+
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
+        let spreadRepo = FailingDeleteSpreadRepository(spreads: [daySpread])
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: taskDate,
+            spreadRepository: spreadRepo
+        )
+        let initialVersion = manager.dataVersion
+
+        await #expect(throws: ForcedSpreadDeletionError.self) {
+            try await manager.deleteSpread(daySpread)
+        }
+
+        #expect(manager.spreads.contains { $0.id == daySpread.id })
+        #expect(manager.dataVersion == initialVersion)
     }
 
     // MARK: - Parent Spread Selection Tests

@@ -383,6 +383,134 @@ struct JournalManagerTaskCRUDTests {
         #expect(januaryDayModel.tasks.contains { $0.id == updatedTask.id } == false)
     }
 
+    // MARK: - Task Metadata Tests
+
+    @Test("Updating task metadata trims body, normalizes due date, and timestamps changed fields")
+    @MainActor
+    func testUpdateTaskMetadataPersistsNormalizedFields() async throws {
+        let calendar = Self.testCalendar
+        let dueDate = calendar.date(from: DateComponents(year: 2026, month: 2, day: 2, hour: 15))!
+        let expectedDueDate = calendar.date(from: DateComponents(year: 2026, month: 2, day: 2))!
+        let existingTask = DataModel.Task(
+            title: "Metadata",
+            createdDate: Self.testDate,
+            date: Self.testDate,
+            period: .day,
+            status: .open
+        )
+        let manager = try await makeManager(tasks: [existingTask])
+
+        try await manager.updateTaskMetadata(
+            existingTask,
+            body: "  Draft details  ",
+            priority: .medium,
+            dueDate: dueDate
+        )
+
+        #expect(existingTask.body == "Draft details")
+        #expect(existingTask.priority == .medium)
+        #expect(existingTask.dueDate == expectedDueDate)
+        #expect(existingTask.bodyUpdatedAt != nil)
+        #expect(existingTask.priorityUpdatedAt != nil)
+        #expect(existingTask.dueDateUpdatedAt != nil)
+    }
+
+    @Test("Clearing task metadata to nil updates nil-able field timestamps")
+    @MainActor
+    func testUpdateTaskMetadataClearsNilFieldsWithTimestamps() async throws {
+        let existingDueDate = Self.testCalendar.date(from: DateComponents(year: 2026, month: 2, day: 2))!
+        let existingTask = DataModel.Task(
+            title: "Metadata clear",
+            body: "Details",
+            priority: .high,
+            dueDate: existingDueDate,
+            createdDate: Self.testDate,
+            date: Self.testDate,
+            period: .day,
+            status: .open
+        )
+        let manager = try await makeManager(tasks: [existingTask])
+
+        try await manager.updateTaskMetadata(
+            existingTask,
+            body: " \n ",
+            priority: .none,
+            dueDate: nil
+        )
+
+        #expect(existingTask.body == nil)
+        #expect(existingTask.priority == .none)
+        #expect(existingTask.dueDate == nil)
+        #expect(existingTask.bodyUpdatedAt != nil)
+        #expect(existingTask.priorityUpdatedAt != nil)
+        #expect(existingTask.dueDateUpdatedAt != nil)
+    }
+
+    @Test("Clearing preferred assignment migrates active assignment history")
+    @MainActor
+    func testClearPreferredAssignmentMigratesActiveAssignment() async throws {
+        let calendar = Self.testCalendar
+        let sourceDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 12))!
+        let sourceSpread = DataModel.Spread(period: .day, date: sourceDate, calendar: calendar)
+        let existingTask = DataModel.Task(
+            title: "Clear assignment",
+            createdDate: sourceDate,
+            date: sourceDate,
+            period: .day,
+            status: .open,
+            assignments: [TaskAssignment(period: .day, date: sourceDate, status: .open)]
+        )
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: sourceDate,
+            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
+            spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread])
+        )
+
+        try await manager.clearTaskPreferredAssignment(
+            existingTask,
+            fallbackDate: sourceDate,
+            fallbackPeriod: .day
+        )
+
+        #expect(existingTask.hasPreferredAssignment == false)
+        #expect(existingTask.assignments.count == 1)
+        #expect(existingTask.assignments.first?.status == .migrated)
+        #expect(manager.inboxEntries.contains { ($0 as? DataModel.Task)?.id == existingTask.id })
+    }
+
+    @Test("Clearing unmaterialized preferred assignment creates no migrated history")
+    @MainActor
+    func testClearUnmaterializedPreferredAssignmentCreatesNoHistory() async throws {
+        let calendar = Self.testCalendar
+        let today = calendar.date(from: DateComponents(year: 2026, month: 1, day: 12))!
+        let existingTask = DataModel.Task(
+            title: "Waiting assignment",
+            createdDate: today,
+            date: today,
+            period: .day,
+            hasPreferredAssignment: true,
+            status: .open,
+            assignments: []
+        )
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: today,
+            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
+            spreadRepository: InMemorySpreadRepository(spreads: [])
+        )
+
+        try await manager.clearTaskPreferredAssignment(
+            existingTask,
+            fallbackDate: today,
+            fallbackPeriod: .day
+        )
+
+        #expect(existingTask.hasPreferredAssignment == false)
+        #expect(existingTask.assignments.isEmpty)
+        #expect(manager.inboxEntries.contains { ($0 as? DataModel.Task)?.id == existingTask.id })
+    }
+
     // MARK: - deleteTask Tests
 
     /// Condition: Delete an existing task.

@@ -150,6 +150,21 @@ struct SettingsViewTests {
         #expect(settings.firstWeekday == 2)
     }
 
+    // MARK: - Local Title Strip Preference Tests
+
+    /// Conditions: The local title-strip preference has no stored value or has an invalid stored value.
+    /// Expected: It defaults to Relevant Past Only without touching synced Settings.
+    @Test func testTitleStripDisplayPreferenceDefaultsToRelevantPastOnly() {
+        #expect(TitleStripDisplayPreference.defaultValue == .relevantPastOnly)
+        #expect(TitleStripDisplayPreference(storedRawValue: "unknown") == .relevantPastOnly)
+    }
+
+    /// Conditions: The local title-strip preference stores the Show All Spreads raw value.
+    /// Expected: It restores the matching enum value from UserDefaults-compatible storage.
+    @Test func testTitleStripDisplayPreferenceRestoresShowAllSpreads() {
+        #expect(TitleStripDisplayPreference(storedRawValue: TitleStripDisplayPreference.showAllSpreads.rawValue) == .showAllSpreads)
+    }
+
     // MARK: - FirstWeekday Affects Multiday Preset Tests
 
     /// Conditions: Create SpreadCreationConfiguration with .sunday firstWeekday.

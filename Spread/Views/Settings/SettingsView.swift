@@ -25,12 +25,17 @@ struct SettingsView: View {
     /// Error message to display if save fails.
     @State private var saveError: String?
 
+    /// Local-only title-strip display preference. This intentionally does not sync.
+    @AppStorage(TitleStripDisplayPreference.storageKey)
+    private var titleStripDisplayPreferenceRaw = TitleStripDisplayPreference.defaultValue.rawValue
+
     // MARK: - Body
 
     var body: some View {
         Form {
             modeSection
             calendarSection
+            titleStripSection
             aboutSection
         }
     }
@@ -77,6 +82,32 @@ struct SettingsView: View {
                 journalManager.firstWeekday = newValue
                 Task { await saveSettings() }
             }
+        )
+    }
+
+    // MARK: - Title Strip Section
+
+    private var titleStripSection: some View {
+        Section {
+            Picker("Display", selection: titleStripDisplayPreferenceBinding) {
+                ForEach(TitleStripDisplayPreference.allCases) { preference in
+                    Text(preference.displayName).tag(preference)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Settings.titleStripDisplayPicker)
+        } header: {
+            Text("Title Strip")
+        } footer: {
+            Text("Filtered mode keeps current and future spreads plus favorited or open-task past spreads visible. Use the chevron navigator for complete spread navigation.")
+        }
+    }
+
+    /// Binding that persists only to UserDefaults via AppStorage.
+    private var titleStripDisplayPreferenceBinding: Binding<TitleStripDisplayPreference> {
+        Binding(
+            get: { TitleStripDisplayPreference(storedRawValue: titleStripDisplayPreferenceRaw) },
+            set: { titleStripDisplayPreferenceRaw = $0.rawValue }
         )
     }
 

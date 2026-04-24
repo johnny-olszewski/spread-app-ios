@@ -176,7 +176,7 @@ struct TraditionalJournalDataModelBuilder: JournalDataModelBuilder {
         for task: DataModel.Task,
         spreads: [DataModel.Spread]
     ) -> Set<SpreadDataModelKey> {
-        guard task.period != .multiday else { return [] }
+        guard task.hasPreferredAssignment, task.period != .multiday else { return [] }
         return [SpreadDataModelKey(period: task.period, date: task.date, calendar: calendar)]
     }
 

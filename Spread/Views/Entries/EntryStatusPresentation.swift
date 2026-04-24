@@ -107,6 +107,47 @@ extension DataModel.Task.Status {
     }
 }
 
+extension DataModel.Task.Priority {
+    var displayName: String {
+        switch self {
+        case .none:
+            return "None"
+        case .low:
+            return "Low"
+        case .medium:
+            return "Medium"
+        case .high:
+            return "High"
+        }
+    }
+
+    var badgeTitle: String? {
+        switch self {
+        case .none:
+            return nil
+        case .low:
+            return "Low"
+        case .medium:
+            return "Medium"
+        case .high:
+            return "High"
+        }
+    }
+
+    var badgeColor: Color {
+        switch self {
+        case .none:
+            return .secondary
+        case .low:
+            return .blue
+        case .medium:
+            return .orange
+        case .high:
+            return .red
+        }
+    }
+}
+
 extension DataModel.Note.Status {
     var displayName: String {
         switch self {

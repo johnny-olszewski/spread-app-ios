@@ -180,12 +180,20 @@ struct Definitions {
 
         struct SpreadToolbar {
             static let todayButton = "spreads.toolbar.today"
+            static let favoritesMenu = "spreads.toolbar.favorites"
+            static let favoriteToggle = "spreads.toolbar.favoriteToggle"
+            static let spreadActionsMenu = "spreads.toolbar.spreadActions"
+            static let editDatesButton = "spreads.toolbar.editDates"
+            static let deleteSpreadButton = "spreads.toolbar.deleteSpread"
         }
 
         struct SpreadCreationSheet {
             static let periodPicker = "spreads.create.period"
             static let createButton = "spreads.create.create"
+            static let saveButton = "spreads.create.save"
             static let cancelButton = "spreads.create.cancel"
+            static let customNameField = "spreads.create.name.custom"
+            static let dynamicNameToggle = "spreads.create.name.dynamic"
             static let standardDatePicker = "spreads.create.date.standard"
             static let yearPicker = "spreads.create.year"
             static let monthPicker = "spreads.create.month"
@@ -202,6 +210,13 @@ struct Definitions {
             }
         }
 
+        struct SpreadNameEditSheet {
+            static let customNameField = "spreads.nameEdit.custom"
+            static let dynamicNameToggle = "spreads.nameEdit.dynamic"
+            static let saveButton = "spreads.nameEdit.save"
+            static let cancelButton = "spreads.nameEdit.cancel"
+        }
+
         struct TaskCreationSheet {
             static let titleField = "tasks.create.title"
             static let periodPicker = "tasks.create.period"
@@ -212,6 +227,11 @@ struct Definitions {
             static let monthPicker = "tasks.create.month"
             static let monthYearPicker = "tasks.create.month.year"
             static let spreadPickerButton = "tasks.create.spreadpicker"
+            static let assignmentToggle = "tasks.create.assignment.toggle"
+            static let bodyField = "tasks.create.body"
+            static let priorityPicker = "tasks.create.priority"
+            static let dueDateToggle = "tasks.create.dueDate.toggle"
+            static let dueDatePicker = "tasks.create.dueDate"
 
             static func periodSegment(_ periodRawValue: String) -> String {
                 "tasks.create.period.\(periodRawValue)"
@@ -259,6 +279,12 @@ struct Definitions {
             static let yearPicker = "tasks.detail.year"
             static let monthPicker = "tasks.detail.month"
             static let monthYearPicker = "tasks.detail.month.year"
+            static let spreadPickerButton = "tasks.detail.spreadpicker"
+            static let assignmentToggle = "tasks.detail.assignment.toggle"
+            static let bodyField = "tasks.detail.body"
+            static let priorityPicker = "tasks.detail.priority"
+            static let dueDateToggle = "tasks.detail.dueDate.toggle"
+            static let dueDatePicker = "tasks.detail.dueDate"
             static let assignmentHistory = "tasks.detail.assignmentHistory"
 
             static func assignmentHistoryRow(_ index: Int) -> String {
@@ -304,6 +330,8 @@ struct Definitions {
             static func modeOption(_ rawValue: String) -> String {
                 "settings.mode.\(rawValue)"
             }
+
+            static let titleStripDisplayPicker = "settings.titleStripDisplay.picker"
         }
 
         struct Navigation {

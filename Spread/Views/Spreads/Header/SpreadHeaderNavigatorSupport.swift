@@ -46,6 +46,7 @@ struct SpreadHeaderNavigatorModel {
     let mode: Mode
     let calendar: Calendar
     let today: Date
+    var firstWeekday: FirstWeekday = .systemDefault
     let spreads: [DataModel.Spread]
     let tasks: [DataModel.Task]
     let notes: [DataModel.Note]
@@ -216,7 +217,7 @@ struct SpreadHeaderNavigatorModel {
                     SelectionTarget(
                         id: "multiday-\(spread.id.uuidString.lowercased())-\(normalizedDate.timeIntervalSinceReferenceDate)",
                         selection: .conventional(spread),
-                        title: spread.displayLabel(calendar: calendar),
+                        title: displayName(for: spread),
                         isMultiday: true
                     )
                 }
@@ -304,11 +305,23 @@ struct SpreadHeaderNavigatorModel {
         return normalizedDate >= startDate && normalizedDate <= endDate
     }
 
+    private func displayName(for spread: DataModel.Spread) -> String {
+        SpreadDisplayNameFormatter(
+            calendar: calendar,
+            today: today,
+            firstWeekday: firstWeekday
+        )
+        .display(for: spread, allowsPersonalization: mode == .conventional)
+        .primary
+    }
+
     private func earliestTraditionalYear() -> Int? {
         var years: [Int] = []
 
         years.append(contentsOf: spreads.flatMap { Array(yearsTouched(by: $0)) })
-        years.append(contentsOf: tasks.map { calendar.component(.year, from: $0.date) })
+        years.append(contentsOf: tasks.compactMap {
+            $0.hasPreferredAssignment ? calendar.component(.year, from: $0.date) : nil
+        })
         years.append(contentsOf: notes.map { calendar.component(.year, from: $0.date) })
         years.append(contentsOf: events.flatMap { event in
             [event.startDate, event.endDate].map { calendar.component(.year, from: $0) }

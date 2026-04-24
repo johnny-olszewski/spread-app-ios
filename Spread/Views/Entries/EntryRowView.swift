@@ -100,7 +100,9 @@ struct EntryRowView: View {
             taskStatus: task.status,
             title: task.title,
             migrationDestination: migrationDestination,
-            contextualLabel: contextualLabel
+            contextualLabel: contextualLabel,
+            taskBodyPreview: task.body?.trimmingCharacters(in: .whitespacesAndNewlines),
+            taskPriority: task.priority
         )
         self.iconConfiguration = StatusIconConfiguration(
             entryType: .task,
@@ -267,7 +269,10 @@ struct EntryRowView: View {
     private var rowMainContent: some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
             leadingAccessory
-            titleArea
+            VStack(alignment: .leading, spacing: 3) {
+                titleArea
+                taskMetadataArea
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(alignment: .leading) {
@@ -278,6 +283,44 @@ struct EntryRowView: View {
                     .padding(.trailing, -4)
                     .offset(y: 1)
                     .accessibilityHidden(true)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var taskMetadataArea: some View {
+        if configuration.hasTaskMetadata {
+            VStack(alignment: .leading, spacing: 2) {
+                if configuration.taskPriority != .none || configuration.taskDueDateLabel != nil {
+                    HStack(spacing: 6) {
+                        if let badgeTitle = configuration.taskPriority.badgeTitle {
+                            Text(badgeTitle)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(configuration.taskPriority.badgeColor)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                        .stroke(configuration.taskPriority.badgeColor.opacity(0.35), lineWidth: 1)
+                                }
+                        }
+
+                        if let dueDateLabel = configuration.taskDueDateLabel {
+                            Text(dueDateLabel)
+                                .font(.caption)
+                                .foregroundStyle(
+                                    configuration.isTaskDueDateHighlighted ? Color.orange : Color.secondary
+                                )
+                        }
+                    }
+                }
+
+                if let bodyPreview = configuration.taskBodyPreview {
+                    Text(bodyPreview)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
         }
     }

@@ -4,9 +4,13 @@ struct TaskSearchSection: Identifiable {
     struct Row: Identifiable {
         let taskID: UUID
         let title: String
+        let bodyPreview: String?
+        let priority: DataModel.Task.Priority
+        let dueDate: Date?
         let status: DataModel.Task.Status
         let period: Period
         let date: Date
+        let hasPreferredAssignment: Bool
         let selection: SpreadHeaderNavigatorModel.Selection?
 
         var id: UUID { taskID }
@@ -29,7 +33,7 @@ struct TaskSearchSectionBuilder {
         var selectionByID: [String: SpreadHeaderNavigatorModel.Selection] = [:]
 
         for task in journalManager.tasks where task.status != .cancelled {
-            guard normalizedQuery.isEmpty || task.title.localizedCaseInsensitiveContains(normalizedQuery) else {
+            guard matches(task, query: normalizedQuery) else {
                 continue
             }
 
@@ -70,6 +74,8 @@ struct TaskSearchSectionBuilder {
     }
 
     private func selection(for task: DataModel.Task) -> SpreadHeaderNavigatorModel.Selection? {
+        guard task.hasPreferredAssignment else { return nil }
+
         switch journalManager.bujoMode {
         case .conventional:
             guard let spread = journalManager.currentDisplayedSpread(for: task) else { return nil }
@@ -92,9 +98,13 @@ struct TaskSearchSectionBuilder {
         TaskSearchSection.Row(
             taskID: task.id,
             title: task.title,
+            bodyPreview: bodyPreview(for: task),
+            priority: task.priority,
+            dueDate: task.dueDate,
             status: task.status,
             period: task.period,
             date: task.date,
+            hasPreferredAssignment: task.hasPreferredAssignment,
             selection: nil
         )
     }
@@ -106,11 +116,31 @@ struct TaskSearchSectionBuilder {
         TaskSearchSection.Row(
             taskID: task.id,
             title: task.title,
+            bodyPreview: bodyPreview(for: task),
+            priority: task.priority,
+            dueDate: task.dueDate,
             status: task.status,
             period: task.period,
             date: task.date,
+            hasPreferredAssignment: task.hasPreferredAssignment,
             selection: Optional(selection)
         )
+    }
+
+    private func matches(_ task: DataModel.Task, query: String) -> Bool {
+        guard !query.isEmpty else { return true }
+        if task.title.localizedCaseInsensitiveContains(query) {
+            return true
+        }
+        return task.body?.localizedCaseInsensitiveContains(query) == true
+    }
+
+    private func bodyPreview(for task: DataModel.Task) -> String? {
+        guard let body = task.body?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !body.isEmpty else {
+            return nil
+        }
+        return body
     }
 
     private func sectionTitle(for selection: SpreadHeaderNavigatorModel.Selection) -> String {
