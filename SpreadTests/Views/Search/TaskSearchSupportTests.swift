@@ -113,6 +113,71 @@ struct TaskSearchSupportTests {
         #expect(sections.first?.rows.map(\.title) == ["Migrated task"])
     }
 
+    @Test func testSearchMatchesTaskBodyAndCarriesMetadata() async throws {
+        let calendar = Self.utcCalendar
+        let dayDate = Self.makeDate(year: 2026, month: 4, day: 6, calendar: calendar)
+        let dueDate = Self.makeDate(year: 2026, month: 4, day: 7, calendar: calendar)
+        let task = DataModel.Task(
+            title: "Launch",
+            body: "Prepare rollout checklist",
+            priority: .high,
+            dueDate: dueDate,
+            date: dayDate,
+            period: .day,
+            hasPreferredAssignment: false,
+            status: .open
+        )
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: dayDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            spreadRepository: InMemorySpreadRepository(),
+            bujoMode: .conventional
+        )
+
+        let sections = TaskSearchSectionBuilder(journalManager: manager).build(searchText: "rollout")
+        let row = try #require(sections.first?.rows.first)
+
+        #expect(sections.map(\.title) == ["Inbox"])
+        #expect(row.title == "Launch")
+        #expect(row.bodyPreview == "Prepare rollout checklist")
+        #expect(row.priority == .high)
+        #expect(row.dueDate == dueDate)
+        #expect(row.hasPreferredAssignment == false)
+    }
+
+    @Test func testTraditionalNilAssignmentTasksStayInboxFirst() async throws {
+        let calendar = Self.utcCalendar
+        let dayDate = Self.makeDate(year: 2026, month: 4, day: 6, calendar: calendar)
+        let unassignedTask = DataModel.Task(
+            title: "Unassigned",
+            date: dayDate,
+            period: .day,
+            hasPreferredAssignment: false,
+            status: .open
+        )
+        let assignedTask = DataModel.Task(
+            title: "Assigned",
+            date: dayDate,
+            period: .day,
+            status: .open
+        )
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: dayDate,
+            taskRepository: InMemoryTaskRepository(tasks: [assignedTask, unassignedTask]),
+            spreadRepository: InMemorySpreadRepository(),
+            bujoMode: .traditional
+        )
+
+        let sections = TaskSearchSectionBuilder(journalManager: manager).build(searchText: "")
+
+        #expect(sections.map(\.title) == ["Inbox", "April 6, 2026"])
+        #expect(sections.first?.rows.map(\.title) == ["Unassigned"])
+        #expect(sections.first?.rows.first?.selection == nil)
+        #expect(sections.first?.rows.first?.hasPreferredAssignment == false)
+    }
+
     private static var utcCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!

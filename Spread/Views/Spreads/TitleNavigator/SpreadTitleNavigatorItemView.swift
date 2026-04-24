@@ -6,10 +6,10 @@ struct SpreadTitleNavigatorItemView: View {
     let semanticID: String
     let style: SpreadTitleNavigatorItemStyle
     let display: SpreadTitleNavigatorModel.Item.Display
-    let overdueCount: Int
+    let badge: SpreadTitleNavigatorBadge?
     let isSelected: Bool
     let accessibilityIdentifier: String
-    let overdueBadgeAccessibilityIdentifier: String
+    let badgeAccessibilityIdentifier: String?
     let selectionIndicatorNamespace: Namespace.ID
     let showsSelectionIndicator: Bool
     let borderColor: Color?
@@ -76,32 +76,52 @@ struct SpreadTitleNavigatorItemView: View {
             }
         )
         .overlay(alignment: .topTrailing) {
-            overdueBadge
+            titleBadge
         }
     }
 
     @ViewBuilder
-    private var overdueBadge: some View {
-        if overdueCount > 0 {
-            if overdueCount > 9 {
-                Text("\(overdueCount)")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.red, in: Capsule())
-                    .accessibilityLabel("\(overdueCount) overdue tasks")
-                    .accessibilityIdentifier(overdueBadgeAccessibilityIdentifier)
-            } else {
-                Text("\(overdueCount)")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 18, height: 18)
-                    .background(.red, in: Circle())
-                    .accessibilityLabel("\(overdueCount) overdue tasks")
-                    .accessibilityIdentifier(overdueBadgeAccessibilityIdentifier)
-            }
+    private var titleBadge: some View {
+        switch badge {
+        case .overdue(let count):
+            overdueBadge(count: count)
+        case .favorite:
+            favoriteBadge
+        case nil:
+            EmptyView()
         }
+    }
+
+    @ViewBuilder
+    private func overdueBadge(count: Int) -> some View {
+        if count > 9 {
+            Text("\(count)")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.red, in: Capsule())
+                .accessibilityLabel(badge?.accessibilityLabel(style: style) ?? "")
+                .accessibilityIdentifier(badgeAccessibilityIdentifier ?? "")
+        } else {
+            Text("\(count)")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 18, height: 18)
+                .background(.red, in: Circle())
+                .accessibilityLabel(badge?.accessibilityLabel(style: style) ?? "")
+                .accessibilityIdentifier(badgeAccessibilityIdentifier ?? "")
+        }
+    }
+
+    private var favoriteBadge: some View {
+        Image(systemName: "star.fill")
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(Color.yellow)
+            .frame(width: 18, height: 18)
+            .background(.regularMaterial, in: Circle())
+            .accessibilityLabel(badge?.accessibilityLabel(style: style) ?? "")
+            .accessibilityIdentifier(badgeAccessibilityIdentifier ?? "")
     }
 
     @ViewBuilder
@@ -114,44 +134,89 @@ struct SpreadTitleNavigatorItemView: View {
 
     @ViewBuilder
     private var itemLabel: some View {
-        switch style {
-        case .year:
-            VStack(spacing: -2) {
-                if let top = display.top {
-                    Text(top)
+        if display.isPersonalized {
+            personalizedLabel
+        } else {
+            switch style {
+            case .year:
+                VStack(spacing: -2) {
+                    if let top = display.top {
+                        Text(top)
+                            .font(.title3.weight(yearWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                            .foregroundStyle(foregroundColor(selected: isSelected))
+                    }
+                    Text(display.bottom)
                         .font(.title3.weight(yearWeight(selected: isSelected, emphasized: isTodayEmphasized)))
                         .foregroundStyle(foregroundColor(selected: isSelected))
                 }
-                Text(display.bottom)
-                    .font(.title3.weight(yearWeight(selected: isSelected, emphasized: isTodayEmphasized)))
-                    .foregroundStyle(foregroundColor(selected: isSelected))
-            }
-        case .month:
-            Text(display.bottom)
-                .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
-                .textCase(.uppercase)
-                .foregroundStyle(foregroundColor(selected: isSelected))
-                .lineLimit(1)
-        case .day, .multiday:
-            VStack(spacing: 0) {
+            case .month:
                 if let top = display.top {
-                    Text(top)
-                        .font(.caption2.smallCaps())
-                        .fontWeight(captionWeight(emphasized: isTodayEmphasized))
+                    VStack(spacing: 0) {
+                        Text(top)
+                            .font(.caption2.smallCaps())
+                            .fontWeight(captionWeight(emphasized: isTodayEmphasized))
+                            .foregroundStyle(foregroundColor(selected: isSelected))
+                            .lineLimit(1)
+                        Text(display.bottom)
+                            .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                            .textCase(.uppercase)
+                            .foregroundStyle(foregroundColor(selected: isSelected))
+                            .lineLimit(1)
+                    }
+                } else {
+                    Text(display.bottom)
+                        .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                        .textCase(.uppercase)
                         .foregroundStyle(foregroundColor(selected: isSelected))
                         .lineLimit(1)
                 }
-                Text(display.bottom)
-                    .font(.body.weight(dayWeight(selected: isSelected, emphasized: isTodayEmphasized)))
-                    .foregroundStyle(foregroundColor(selected: isSelected))
-                    .lineLimit(1)
-                if let footer = display.footer {
-                    Text(footer)
-                        .font(.caption2.smallCaps())
-                        .fontWeight(footerWeight(emphasized: isTodayEmphasized))
-                        .foregroundStyle(footerColor)
+            case .day, .multiday:
+                VStack(spacing: 0) {
+                    if let top = display.top {
+                        Text(top)
+                            .font(.caption2.smallCaps())
+                            .fontWeight(captionWeight(emphasized: isTodayEmphasized))
+                            .foregroundStyle(foregroundColor(selected: isSelected))
+                            .lineLimit(1)
+                    }
+                    Text(display.bottom)
+                        .font(.body.weight(dayWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                        .foregroundStyle(foregroundColor(selected: isSelected))
                         .lineLimit(1)
+                    if let footer = display.footer {
+                        Text(footer)
+                            .font(.caption2.smallCaps())
+                            .fontWeight(footerWeight(emphasized: isTodayEmphasized))
+                            .foregroundStyle(footerColor)
+                            .lineLimit(1)
+                    }
                 }
+            }
+        }
+    }
+
+    private var personalizedLabel: some View {
+        VStack(spacing: 0) {
+            if let top = display.top {
+                Text(top)
+                    .font(.caption2.smallCaps())
+                    .fontWeight(captionWeight(emphasized: isTodayEmphasized))
+                    .foregroundStyle(footerColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+            }
+            Text(display.bottom)
+                .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                .foregroundStyle(foregroundColor(selected: isSelected))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+            if let footer = display.footer {
+                Text(footer)
+                    .font(.caption2.smallCaps())
+                    .fontWeight(footerWeight(emphasized: isTodayEmphasized))
+                    .foregroundStyle(footerColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
             }
         }
     }

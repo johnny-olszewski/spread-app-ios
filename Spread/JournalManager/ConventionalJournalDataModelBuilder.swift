@@ -95,8 +95,10 @@ struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
             SpreadDataModelKey(period: $0.period, date: $0.date, calendar: calendar)
         })
 
-        for spread in spreads where spread.period == .multiday && entryDateFallsWithinMultidayRange(task.date, spread: spread) {
-            keys.insert(SpreadDataModelKey(spread: spread, calendar: calendar))
+        if task.hasPreferredAssignment {
+            for spread in spreads where spread.period == .multiday && entryDateFallsWithinMultidayRange(task.date, spread: spread) {
+                keys.insert(SpreadDataModelKey(spread: spread, calendar: calendar))
+            }
         }
 
         return keys
@@ -139,7 +141,7 @@ struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
     /// spread's period and date.
     private func tasksForSpread(_ spread: DataModel.Spread, tasks: [DataModel.Task]) -> [DataModel.Task] {
         if spread.period == .multiday {
-            return tasks.filter { entryDateFallsWithinMultidayRange($0.date, spread: spread) }
+            return tasks.filter { $0.hasPreferredAssignment && entryDateFallsWithinMultidayRange($0.date, spread: spread) }
         }
         return tasks.filter { hasSpreadAssociation($0, for: spread) }
     }

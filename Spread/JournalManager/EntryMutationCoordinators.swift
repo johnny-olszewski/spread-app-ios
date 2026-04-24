@@ -23,8 +23,12 @@ protocol TaskMutationCoordinator {
     /// - Throws: Repository errors if persistence fails.
     func createTask(
         title: String,
+        body: String?,
+        priority: DataModel.Task.Priority,
+        dueDate: Date?,
         date: Date,
         period: Period,
+        hasPreferredAssignment: Bool,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> TaskListMutationResult
@@ -46,6 +50,15 @@ protocol TaskMutationCoordinator {
         _ task: DataModel.Task,
         newDate: Date,
         newPeriod: Period,
+        calendar: Calendar,
+        spreads: [DataModel.Spread]
+    ) async throws -> TaskListMutationResult
+
+    /// Clears a task's preferred assignment and migrates any live assignment history.
+    func clearTaskPreferredAssignment(
+        _ task: DataModel.Task,
+        fallbackDate: Date,
+        fallbackPeriod: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> TaskListMutationResult
@@ -165,22 +178,32 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
 
     func createTask(
         title: String,
+        body: String? = nil,
+        priority: DataModel.Task.Priority = .none,
+        dueDate: Date? = nil,
         date: Date,
         period: Period,
+        hasPreferredAssignment: Bool = true,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> TaskListMutationResult {
         let normalizedDate = period.normalizeDate(date, calendar: calendar)
         let task = DataModel.Task(
             title: title,
+            body: body,
+            priority: priority,
+            dueDate: dueDate?.startOfDay(calendar: calendar),
             createdDate: .now,
             date: normalizedDate,
             period: period,
+            hasPreferredAssignment: hasPreferredAssignment,
             status: .open,
             assignments: []
         )
 
-        taskAssignmentReconciler.reconcilePreferredAssignment(for: task, in: spreads)
+        if hasPreferredAssignment {
+            taskAssignmentReconciler.reconcilePreferredAssignment(for: task, in: spreads)
+        }
         try await taskRepository.save(task)
         return TaskListMutationResult(
             task: task,
@@ -202,6 +225,29 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
         task.date = normalizedDate
         task.period = newPeriod
+        task.hasPreferredAssignment = true
+        taskAssignmentReconciler.reconcilePreferredAssignment(for: task, in: spreads)
+        try await taskRepository.save(task)
+        return TaskListMutationResult(
+            task: task,
+            tasks: await taskRepository.getTasks(),
+            mutation: JournalMutationResult(
+                kind: .taskChanged(id: task.id),
+                scope: .structural
+            )
+        )
+    }
+
+    func clearTaskPreferredAssignment(
+        _ task: DataModel.Task,
+        fallbackDate: Date,
+        fallbackPeriod: Period,
+        calendar: Calendar,
+        spreads: [DataModel.Spread]
+    ) async throws -> TaskListMutationResult {
+        task.date = fallbackPeriod.normalizeDate(fallbackDate, calendar: calendar)
+        task.period = fallbackPeriod
+        task.hasPreferredAssignment = false
         taskAssignmentReconciler.reconcilePreferredAssignment(for: task, in: spreads)
         try await taskRepository.save(task)
         return TaskListMutationResult(
@@ -228,6 +274,7 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
         task.date = normalizedDate
         task.period = newPeriod
+        task.hasPreferredAssignment = true
         task.assignments.removeAll()
 
         if let bestSpread = traditionalSpreadService.findConventionalSpread(

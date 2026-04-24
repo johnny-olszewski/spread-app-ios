@@ -5,8 +5,10 @@ struct SpreadTitleNavigatorView: View {
     private static let itemSpacing: CGFloat = 12
     private static let recommendationFadeWidth: CGFloat = 50
     private static let recommendationCornerRadius: CGFloat = 10
+    private static let selectionIndicatorID = "spread-title-selection-indicator"
 
     let stripModel: SpreadTitleNavigatorModel
+    let items: [SpreadTitleNavigatorModel.Item]
     let recenterToken: Int
     let onRecommendedSpreadTapped: ((SpreadTitleNavigatorRecommendation) -> Void)?
     let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding
@@ -20,11 +22,8 @@ struct SpreadTitleNavigatorView: View {
     @State private var scrollViewportWidth: CGFloat = 0
     @State private var stripCenteredTargetID: String?
     @State private var widthChangeCenterToken = 0
+    @State private var isShowingNavigator = false
     @Namespace private var selectionIndicatorNamespace
-
-    private var items: [SpreadTitleNavigatorModel.Item] {
-        stripModel.items(for: selection)
-    }
 
     private var selectedSemanticID: String {
         selection.stableID(calendar: stripModel.calendar)
@@ -40,6 +39,27 @@ struct SpreadTitleNavigatorView: View {
 
     private var selectedFrame: CGRect? {
         itemFrames[selectedSemanticID]
+    }
+
+    private var isSelectedHiddenFromTitleStrip: Bool {
+        !SpreadTitleNavigatorSelectionVisibility.isSelectionVisible(
+            selection,
+            in: items,
+            calendar: stripModel.calendar
+        )
+    }
+
+    private var currentNavigatorSpread: DataModel.Spread {
+        switch selection {
+        case .conventional(let spread):
+            return spread
+        case .traditionalYear(let date):
+            return DataModel.Spread(period: .year, date: date, calendar: stripModel.calendar)
+        case .traditionalMonth(let date):
+            return DataModel.Spread(period: .month, date: date, calendar: stripModel.calendar)
+        case .traditionalDay(let date):
+            return DataModel.Spread(period: .day, date: date, calendar: stripModel.calendar)
+        }
     }
 
     private var recommendationCardSize: CGSize? {
@@ -64,9 +84,15 @@ struct SpreadTitleNavigatorView: View {
 
     var body: some View {
         HStack(spacing: 0) {
+            navigatorTrigger
+                .padding(.leading, 12)
+                .padding(.trailing, 8)
+
             ScrollView(.horizontal, showsIndicators: false) {
                 itemRow
             }
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $stripCenteredTargetID, anchor: .center)
             .mask(mainStripMask)
             .frame(maxWidth: .infinity)
             if !recommendations.isEmpty {
@@ -75,8 +101,6 @@ struct SpreadTitleNavigatorView: View {
             }
         }
         .coordinateSpace(name: "SpreadTitleNavigatorScroll")
-        .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $stripCenteredTargetID, anchor: .center)
         .contentShape(Rectangle())
         .overlay {
             recommendationMeasurementRow
@@ -98,16 +122,63 @@ struct SpreadTitleNavigatorView: View {
         )
         .frame(maxWidth: .infinity)
         .task(id: items.map(\.id)) {
-            requestCenter(on: selectedSemanticID, animated: false)
+            requestCenterIfVisible(on: selectedSemanticID, animated: false)
+        }
+        .onChange(of: selectedSemanticID) { _, newValue in
+            requestCenterIfVisible(on: newValue, animated: true)
         }
         .onChange(of: recenterToken) { _, _ in
-            requestCenter(on: selectedSemanticID, animated: true)
+            requestCenterIfVisible(on: selectedSemanticID, animated: true)
         }
         .onChange(of: widthChangeCenterToken) { _, _ in
-            requestCenter(on: selectedSemanticID, animated: false)
+            requestCenterIfVisible(on: selectedSemanticID, animated: false)
         }
         .secondaryPaperBackground()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.container)
+    }
+
+    private var navigatorTrigger: some View {
+        Button {
+            isShowingNavigator = true
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 15, weight: isSelectedHiddenFromTitleStrip ? .bold : .semibold))
+                    .foregroundStyle(isSelectedHiddenFromTitleStrip ? Color.primary : Color.secondary)
+                    .frame(width: 32, height: 38)
+
+                ZStack {
+                    Circle()
+                        .fill(Color.clear)
+                        .frame(width: 6, height: 6)
+
+                    if isSelectedHiddenFromTitleStrip {
+                        Circle()
+                            .fill(Color.accentColor)
+                            .frame(width: 6, height: 6)
+                            .transition(.opacity)
+                    }
+                }
+                .frame(height: 8)
+            }
+            .frame(minHeight: 48)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open Spread Navigator")
+        .accessibilityHint(
+            isSelectedHiddenFromTitleStrip
+                ? "Selected spread is hidden from the title strip. Shows all spreads in the rooted navigator."
+                : "Shows all spreads in the rooted navigator."
+        )
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.selectSpreadButton)
+        .spreadNavigatorPresentation(
+            isPresented: $isShowingNavigator,
+            presentsAsPopover: SpreadNavigatorPresentationSupport.presentsAsPopover(horizontalSizeClass: horizontalSizeClass),
+            model: stripModel.headerModel,
+            currentSpread: currentNavigatorSpread,
+            onSelect: handleNavigatorSelection
+        )
     }
 
     private var itemRow: some View {
@@ -134,10 +205,13 @@ struct SpreadTitleNavigatorView: View {
             semanticID: item.id,
             style: item.style,
             display: item.display,
-            overdueCount: item.overdueCount,
+            badge: item.badge,
             isSelected: item.id == selectedSemanticID,
             accessibilityIdentifier: itemIdentifier,
-            overdueBadgeAccessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadStrip.overdueBadge(itemIdentifier),
+            badgeAccessibilityIdentifier: item.badge?.accessibilityIdentifier(
+                for: item.selection,
+                calendar: stripModel.calendar
+            ),
             selectionIndicatorNamespace: selectionIndicatorNamespace,
             showsSelectionIndicator: true,
             borderColor: nil,
@@ -245,14 +319,12 @@ struct SpreadTitleNavigatorView: View {
             semanticID: item.id,
             style: item.style,
             display: item.display,
-            overdueCount: 0,
+            badge: nil,
             isSelected: false,
             accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadStrip.recommendation(
                 recommendation.period.rawValue
             ),
-            overdueBadgeAccessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadStrip.overdueBadge(
-                Definitions.AccessibilityIdentifiers.SpreadStrip.recommendation(recommendation.period.rawValue)
-            ),
+            badgeAccessibilityIdentifier: nil,
             selectionIndicatorNamespace: selectionIndicatorNamespace,
             showsSelectionIndicator: false,
             borderColor: nil,
@@ -321,10 +393,21 @@ struct SpreadTitleNavigatorView: View {
     }
 
     private func handleItemTap(_ item: SpreadTitleNavigatorModel.Item) {
-        let isSelected = item.id == selectedSemanticID
-        if !isSelected {
-            requestCenter(on: item.id, animated: true)
-            selection = item.selection
+        guard let nextSelection = SpreadTitleNavigatorTapSupport.selectionChange(
+            for: item,
+            selectedSemanticID: selectedSemanticID
+        ) else {
+            return
+        }
+        selection = nextSelection
+        requestCenter(on: item.id, animated: true)
+    }
+
+    private func handleNavigatorSelection(_ nextSelection: SpreadHeaderNavigatorModel.Selection) {
+        selection = nextSelection
+        let nextID = nextSelection.stableID(calendar: stripModel.calendar)
+        if items.contains(where: { $0.id == nextID }) {
+            requestCenter(on: nextID, animated: true)
         }
     }
 
@@ -344,7 +427,7 @@ struct SpreadTitleNavigatorView: View {
         case .year:
             return .preferredFont(forTextStyle: .title3)
         case .month:
-            return .preferredFont(forTextStyle: .subheadline)
+            return .preferredFont(forTextStyle: .caption2)
         case .day, .multiday:
             return .preferredFont(forTextStyle: .caption2)
         }
@@ -352,10 +435,10 @@ struct SpreadTitleNavigatorView: View {
 
     private func footerUIFont(for style: SpreadTitleNavigatorItemStyle) -> UIFont {
         switch style {
+        case .year, .month:
+            return .preferredFont(forTextStyle: .caption2)
         case .day, .multiday:
             return .preferredFont(forTextStyle: .caption2)
-        case .year, .month:
-            return .preferredFont(forTextStyle: .body)
         }
     }
 
@@ -433,6 +516,11 @@ struct SpreadTitleNavigatorView: View {
         } else {
             stripCenteredTargetID = targetID
         }
+    }
+
+    private func requestCenterIfVisible(on semanticID: String, animated: Bool) {
+        guard items.contains(where: { $0.id == semanticID }) else { return }
+        requestCenter(on: semanticID, animated: animated)
     }
 }
 

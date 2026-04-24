@@ -78,6 +78,41 @@ struct TaskCreationSheet: View {
         )
     }
 
+    private var assignmentBinding: Binding<Bool> {
+        Binding(
+            get: { formModel.hasPreferredAssignment },
+            set: { formModel.setPreferredAssignmentEnabled($0) }
+        )
+    }
+
+    private var bodyBinding: Binding<String> {
+        Binding(
+            get: { formModel.body },
+            set: { formModel.body = $0 }
+        )
+    }
+
+    private var priorityBinding: Binding<DataModel.Task.Priority> {
+        Binding(
+            get: { formModel.priority },
+            set: { formModel.priority = $0 }
+        )
+    }
+
+    private var dueDateEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { formModel.hasDueDate },
+            set: { formModel.hasDueDate = $0 }
+        )
+    }
+
+    private var dueDateBinding: Binding<Date> {
+        Binding(
+            get: { formModel.dueDate },
+            set: { formModel.dueDate = $0.startOfDay(calendar: journalManager.calendar) }
+        )
+    }
+
     /// Whether the Create button should be visible.
     ///
     /// Hidden until title is edited once; then always visible.
@@ -87,12 +122,14 @@ struct TaskCreationSheet: View {
 
     /// Whether the form has any validation errors.
     private var hasValidationErrors: Bool {
-        let result = configuration.validate(
-            title: formModel.title,
-            period: formModel.selectedPeriod,
-            date: formModel.effectiveSelectedDate
+        !configuration.validateTitle(formModel.title).isValid ||
+        (
+            formModel.hasPreferredAssignment &&
+            !configuration.validateDate(
+                period: formModel.selectedPeriod,
+                date: formModel.effectiveSelectedDate
+            ).isValid
         )
-        return !result.isValid
     }
 
     // MARK: - Body
@@ -103,11 +140,11 @@ struct TaskCreationSheet: View {
                 VStack(alignment: .leading, spacing: 12) {
                     titleSection
                     compactDivider
-                    spreadSelectionSection
+                    metadataSection
                     compactDivider
-                    periodSection
+                    detailsSection
                     compactDivider
-                    dateSection
+                    assignmentSection
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -192,6 +229,60 @@ struct TaskCreationSheet: View {
         }
     }
 
+    private var metadataSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Metadata")
+
+            Picker("Priority", selection: priorityBinding) {
+                ForEach(DataModel.Task.Priority.allCases, id: \.self) { priority in
+                    Text(priority.displayName).tag(priority)
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.priorityPicker)
+
+            Toggle("Due date", isOn: dueDateEnabledBinding)
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.dueDateToggle)
+
+            if formModel.hasDueDate {
+                DatePicker(
+                    "Due",
+                    selection: dueDateBinding,
+                    displayedComponents: .date
+                )
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.dueDatePicker)
+            }
+        }
+    }
+
+    private var detailsSection: some View {
+        DisclosureGroup("Details", isExpanded: $formModel.isDetailsExpanded) {
+            TextEditor(text: bodyBinding)
+                .frame(minHeight: 96)
+                .scrollContentBackground(.hidden)
+                .background(Color(uiColor: .secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.bodyField)
+        }
+    }
+
+    private var assignmentSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Assign to spread", isOn: assignmentBinding)
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.assignmentToggle)
+
+            if formModel.hasPreferredAssignment {
+                spreadSelectionSection
+                periodSection
+                dateSection
+            } else {
+                Text(formModel.periodDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var periodSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Period")
@@ -272,7 +363,11 @@ struct TaskCreationSheet: View {
                 let task = try await journalManager.addTask(
                     title: formModel.title,
                     date: formModel.effectiveSelectedDate,
-                    period: formModel.selectedPeriod
+                    period: formModel.selectedPeriod,
+                    hasPreferredAssignment: formModel.hasPreferredAssignment,
+                    body: formModel.sanitizedBody,
+                    priority: formModel.priority,
+                    dueDate: formModel.effectiveDueDate
                 )
                 await MainActor.run {
                     onTaskCreated(task)

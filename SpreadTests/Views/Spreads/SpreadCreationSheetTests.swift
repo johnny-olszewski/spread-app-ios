@@ -31,6 +31,42 @@ struct SpreadCreationSheetTests {
         )
     }
 
+    // MARK: - Sheet Mode Tests
+
+    /// Conditions: Sheet mode is create.
+    /// Expected: Create copy and all create-only controls are enabled by configuration.
+    @Test func testCreateModeShowsFullCreateControls() {
+        let mode = SpreadCreationSheetMode.create
+
+        #expect(mode.title == "New Spread")
+        #expect(mode.confirmationTitle == "Create")
+        #expect(mode.showsPeriodPicker)
+        #expect(mode.showsNameControls)
+        #expect(!mode.restrictsToMultidayRange)
+        #expect(mode.editingSpreadID == nil)
+    }
+
+    /// Conditions: Sheet mode is editDates for a persisted multiday spread.
+    /// Expected: Edit copy is used and create-only controls are hidden.
+    @Test func testEditDatesModeShowsOnlyMultidayDateControls() {
+        let spreadID = UUID()
+        let startDate = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 18))!
+        let endDate = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 24))!
+
+        let mode = SpreadCreationSheetMode.editDates(
+            spreadID: spreadID,
+            originalStartDate: startDate,
+            originalEndDate: endDate
+        )
+
+        #expect(mode.title == "Edit Dates")
+        #expect(mode.confirmationTitle == "Save")
+        #expect(!mode.showsPeriodPicker)
+        #expect(!mode.showsNameControls)
+        #expect(mode.restrictsToMultidayRange)
+        #expect(mode.editingSpreadID == spreadID)
+    }
+
     // MARK: - Period Description Tests
 
     /// Conditions: Period is year.
@@ -334,6 +370,83 @@ struct SpreadCreationSheetTests {
 
         #expect(!result.isValid)
         #expect(result.error == .duplicate)
+    }
+
+    /// Conditions: Editing a multiday spread keeps the same range while duplicate detection ignores that spread ID.
+    /// Expected: Validation succeeds for the edited spread's own exact range.
+    @Test func testEditDatesIgnoresEditedSpreadForDuplicateDetection() {
+        let startDate = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 18))!
+        let endDate = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 24))!
+        let editedSpread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: Self.testCalendar)
+        let config = Self.makeConfiguration(existingSpreads: [editedSpread])
+
+        let result = config.canCreateMultiday(
+            startDate: startDate,
+            endDate: endDate,
+            ignoringSpreadID: editedSpread.id
+        )
+
+        #expect(result.isValid)
+    }
+
+    /// Conditions: Editing one multiday spread to exactly match a different multiday spread.
+    /// Expected: Validation rejects the other spread's exact range as a duplicate.
+    @Test func testEditDatesRejectsOtherExactDuplicateRange() {
+        let editedStart = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 18))!
+        let editedEnd = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 24))!
+        let duplicateStart = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 25))!
+        let duplicateEnd = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 31))!
+        let editedSpread = DataModel.Spread(startDate: editedStart, endDate: editedEnd, calendar: Self.testCalendar)
+        let duplicateSpread = DataModel.Spread(startDate: duplicateStart, endDate: duplicateEnd, calendar: Self.testCalendar)
+        let config = Self.makeConfiguration(existingSpreads: [editedSpread, duplicateSpread])
+
+        let result = config.canCreateMultiday(
+            startDate: duplicateStart,
+            endDate: duplicateEnd,
+            ignoringSpreadID: editedSpread.id
+        )
+
+        #expect(!result.isValid)
+        #expect(result.error == .duplicate)
+    }
+
+    /// Conditions: Editing one multiday spread to partially overlap another spread without exact range equality.
+    /// Expected: Validation allows the partial overlap.
+    @Test func testEditDatesAllowsPartialOverlap() {
+        let editedStart = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 18))!
+        let editedEnd = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 24))!
+        let otherStart = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 25))!
+        let otherEnd = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 31))!
+        let overlapStart = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 24))!
+        let overlapEnd = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 28))!
+        let editedSpread = DataModel.Spread(startDate: editedStart, endDate: editedEnd, calendar: Self.testCalendar)
+        let otherSpread = DataModel.Spread(startDate: otherStart, endDate: otherEnd, calendar: Self.testCalendar)
+        let config = Self.makeConfiguration(existingSpreads: [editedSpread, otherSpread])
+
+        let result = config.canCreateMultiday(
+            startDate: overlapStart,
+            endDate: overlapEnd,
+            ignoringSpreadID: editedSpread.id
+        )
+
+        #expect(result.isValid)
+    }
+
+    /// Conditions: Edited start/end dates match the original multiday range after day normalization.
+    /// Expected: Unchanged detection returns true so edit mode can disable Save.
+    @Test func testEditDatesDetectsUnchangedRange() {
+        let startDate = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 18, hour: 10))!
+        let endDate = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 24, hour: 16))!
+        let config = Self.makeConfiguration()
+
+        let unchanged = config.isUnchangedMultidayRange(
+            startDate: startDate,
+            endDate: endDate,
+            originalStartDate: startDate.startOfDay(calendar: Self.testCalendar),
+            originalEndDate: endDate.startOfDay(calendar: Self.testCalendar)
+        )
+
+        #expect(unchanged)
     }
 
     // MARK: - Date Range Tests

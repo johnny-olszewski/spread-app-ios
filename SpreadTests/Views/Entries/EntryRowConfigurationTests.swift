@@ -210,6 +210,23 @@ struct EntryRowConfigurationTests {
         #expect(config.title == "Test Task")
     }
 
+    @Test func testTaskMetadataPresentationFieldsAreAccessible() {
+        let config = EntryRowConfiguration(
+            entryType: .task,
+            taskStatus: .open,
+            taskBodyPreview: "Body preview",
+            taskPriority: .medium,
+            taskDueDateLabel: "Due Apr 6",
+            isTaskDueDateHighlighted: true
+        )
+
+        #expect(config.hasTaskMetadata == true)
+        #expect(config.taskBodyPreview == "Body preview")
+        #expect(config.taskPriority == .medium)
+        #expect(config.taskDueDateLabel == "Due Apr 6")
+        #expect(config.isTaskDueDateHighlighted == true)
+    }
+
     /// Conditions: Task with migrated status and destination info.
     /// Expected: Migration badge shows destination.
     @Test func testMigratedTaskShowsMigrationBadge() {

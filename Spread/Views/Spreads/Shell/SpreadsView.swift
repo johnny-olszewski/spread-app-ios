@@ -7,6 +7,8 @@ struct SpreadsView: View {
     let navigationState: SpreadsNavigationState
 
     @State private var viewModel = SpreadsViewModel()
+    @AppStorage(TitleStripDisplayPreference.storageKey)
+    private var titleStripDisplayPreferenceRaw = TitleStripDisplayPreference.defaultValue.rawValue
 
     private let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding =
         TodayMissingSpreadRecommendationProvider()
@@ -15,14 +17,22 @@ struct SpreadsView: View {
         journalManager.titleNavigatorModel
     }
 
-    private var items: [SpreadTitleNavigatorModel.Item] {
+    private var completeItems: [SpreadTitleNavigatorModel.Item] {
         stripModel.items(for: currentSelection)
+    }
+
+    private var titleStripItems: [SpreadTitleNavigatorModel.Item] {
+        stripModel.titleStripItems(
+            for: currentSelection,
+            displayPreference: TitleStripDisplayPreference(storedRawValue: titleStripDisplayPreferenceRaw)
+        )
     }
 
     var body: some View {
         VStack(spacing: 0) {
             SpreadTitleNavigatorView(
                 stripModel: stripModel,
+                items: titleStripItems,
                 recenterToken: viewModel.recenterToken,
                 onRecommendedSpreadTapped: onRecommendedSpreadTapped,
                 recommendationProvider: recommendationProvider,
@@ -38,6 +48,11 @@ struct SpreadsView: View {
             contentArea
         }
         .toolbar {
+            if journalManager.bujoMode == .conventional {
+                ToolbarItem(placement: .primaryAction) {
+                    favoritesMenu
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 AuthButton(isSignedIn: authManager.state.isSignedIn, action: { viewModel.showAuth() })
             }
@@ -68,13 +83,13 @@ struct SpreadsView: View {
 
     @ViewBuilder
     private var contentArea: some View {
-        if !items.isEmpty {
+        if !completeItems.isEmpty {
             SpreadContentPagerView(
                 journalManager: journalManager,
                 viewModel: viewModel,
                 syncEngine: syncEngine,
                 model: stripModel,
-                items: items,
+                items: completeItems,
                 recenterToken: viewModel.recenterToken,
                 selection: selectionBinding
             )
@@ -171,6 +186,53 @@ struct SpreadsView: View {
         }
     }
 
+    // MARK: - Favorites
+
+    private var favoriteItemsForCurrentYear: [SpreadTitleNavigatorModel.Item] {
+        SpreadFavoritesMenuSupport.favoriteItemsForCurrentYear(
+            mode: journalManager.bujoMode,
+            items: completeItems
+        )
+    }
+
+    private var favoriteNameFormatter: SpreadDisplayNameFormatter {
+        SpreadDisplayNameFormatter(
+            calendar: journalManager.calendar,
+            today: journalManager.today,
+            firstWeekday: journalManager.firstWeekday
+        )
+    }
+
+    private var favoritesMenu: some View {
+        Menu {
+            if favoriteItemsForCurrentYear.isEmpty {
+                Text("No favorites this year")
+            } else {
+                ForEach(favoriteItemsForCurrentYear) { item in
+                    if case .conventional(let spread) = item.selection {
+                        Button {
+                            selectFavorite(item)
+                        } label: {
+                            Label(
+                                favoriteNameFormatter.display(for: spread).primary,
+                                systemImage: "star.fill"
+                            )
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "star.circle")
+        }
+        .accessibilityLabel("Favorite Spreads")
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoritesMenu)
+    }
+
+    private func selectFavorite(_ item: SpreadTitleNavigatorModel.Item) {
+        viewModel.selectedSelection = item.selection
+        viewModel.recenterToken += 1
+    }
+
     // MARK: - Navigation
 
     private func navigateToToday() {
@@ -203,25 +265,28 @@ struct SpreadsView: View {
     // MARK: - Conventional Helpers
 
     private func conventionalFallbackSpread() -> DataModel.Spread {
-        SpreadHierarchyOrganizer(
+        conventionalFallbackSpreadIfAvailable()
+            ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
+    }
+
+    private func conventionalFallbackSpreadIfAvailable() -> DataModel.Spread? {
+        SpreadSelectionFallbackSupport.fallbackSpread(
             spreads: journalManager.spreads,
-            calendar: journalManager.calendar
-        ).initialSelection(for: journalManager.today)
-        ?? journalManager.spreads.first
-        ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
+            calendar: journalManager.calendar,
+            today: journalManager.today
+        )
     }
 
     private func resetConventionalSelectionIfNeeded() {
         guard case .conventional(let spread) = viewModel.selectedSelection else { return }
         if journalManager.spreads.contains(where: { $0.id == spread.id }) { return }
 
-        let organizer = SpreadHierarchyOrganizer(
+        viewModel.selectedSelection = SpreadSelectionFallbackSupport.replacementSelection(
+            currentSelection: viewModel.selectedSelection,
             spreads: journalManager.spreads,
-            calendar: journalManager.calendar
+            calendar: journalManager.calendar,
+            today: journalManager.today
         )
-        if let newSelection = organizer.initialSelection(for: journalManager.today) {
-            viewModel.selectedSelection = .conventional(newSelection)
-        }
     }
 
     // MARK: - Sheet Content
@@ -238,6 +303,32 @@ struct SpreadsView: View {
                     initialDate: prefill?.date,
                     onSpreadCreated: { spread in
                         viewModel.selectedSelection = .conventional(spread)
+                        Task { @MainActor in await syncEngine?.syncNow() }
+                    }
+                )
+            } else {
+                Color.clear
+            }
+        case .spreadNameEdit(let spread):
+            if journalManager.bujoMode == .conventional {
+                SpreadNameEditSheet(
+                    journalManager: journalManager,
+                    spread: spread,
+                    onSaved: {
+                        Task { @MainActor in await syncEngine?.syncNow() }
+                    }
+                )
+            } else {
+                Color.clear
+            }
+        case .spreadDateEdit(let spread):
+            if journalManager.bujoMode == .conventional, spread.period == .multiday {
+                SpreadCreationSheet(
+                    journalManager: journalManager,
+                    firstWeekday: journalManager.firstWeekday,
+                    editingMultidaySpread: spread,
+                    onSpreadDatesSaved: { updatedSpread in
+                        viewModel.finishSpreadDateEdit(updatedSpread)
                         Task { @MainActor in await syncEngine?.syncNow() }
                     }
                 )
@@ -318,6 +409,48 @@ struct SpreadsView: View {
             viewModel.showTaskDetail(task)
             navigationState.pendingRequest = nil
         }
+    }
+}
+
+enum SpreadFavoritesMenuSupport {
+    static func favoriteItemsForCurrentYear(
+        mode: BujoMode,
+        items: [SpreadTitleNavigatorModel.Item]
+    ) -> [SpreadTitleNavigatorModel.Item] {
+        guard mode == .conventional else { return [] }
+        return items.filter { item in
+            guard case .conventional(let spread) = item.selection else { return false }
+            return spread.isFavorite
+        }
+    }
+}
+
+enum SpreadSelectionFallbackSupport {
+    static func fallbackSpread(
+        spreads: [DataModel.Spread],
+        calendar: Calendar,
+        today: Date
+    ) -> DataModel.Spread? {
+        SpreadHierarchyOrganizer(spreads: spreads, calendar: calendar).initialSelection(for: today)
+            ?? spreads.first
+    }
+
+    static func replacementSelection(
+        currentSelection: SpreadHeaderNavigatorModel.Selection?,
+        spreads: [DataModel.Spread],
+        calendar: Calendar,
+        today: Date
+    ) -> SpreadHeaderNavigatorModel.Selection? {
+        guard case .conventional(let spread) = currentSelection else {
+            return currentSelection
+        }
+        guard !spreads.contains(where: { $0.id == spread.id }) else {
+            return currentSelection
+        }
+        guard let fallback = fallbackSpread(spreads: spreads, calendar: calendar, today: today) else {
+            return nil
+        }
+        return .conventional(fallback)
     }
 }
 

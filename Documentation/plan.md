@@ -8,6 +8,7 @@
 - Backup entitlement is removed from v1; authenticated users can sync without a purchase gate. [SPRD-104]
 - Sign in with Apple and Google are removed from v1 scope; auth is email/password only, with sign-up and forgot-password flows retained. [SPRD-104, SPRD-108]
 - Runtime environment switching is removed from v1. Debug keeps a non-persistent `localhost` mode for engineering only; QA remains dev-backed and Release remains prod-backed. [SPRD-105, SPRD-107]
+- `WKFLW-17` is a workflow branch for one bundled schema/sync pass across spread personalization and richer task metadata plus local-only title navigator refinements. The approved scope is explicit spread favorites, explicit spread custom/dynamic naming, multiday spread date editing, task body, task priority, task due date, task-only nil preferred assignment, conventional title-strip relevance filtering, rooted navigator chevron consolidation, and derived title-strip badges. Links, tags, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads, status expansion, and note nil-assignment parity are deferred and tracked in `Documentation/backlog.md`. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-174, SPRD-175, SPRD-176, SPRD-177, SPRD-178]
 
 ## Story Overview (v1)
 - Foundation and scaffolding (completed)
@@ -15,6 +16,7 @@
 - Supabase offline-first sync + auth migration (priority)
 - Simplification pass: auth, environments, debug tooling, and test cleanup
 - Journal core: creation, assignment, inbox, migration
+- Personalized spreads and richer task metadata (`WKFLW-17`)
 - Conventional MVP UI: create spreads and tasks
 - Debug and dev tools
 - Task lifecycle UI: edit and migration surfaces
@@ -67,6 +69,481 @@
 - Assignment engine and Inbox auto-resolve logic are implemented.
 - Migration logic and cancelled-task behavior are implemented.
 - Unit tests for creation, assignment, and migration pass.
+
+## Story: Personalized spreads and richer task metadata (`WKFLW-17`)
+
+### User Story
+- As a user, I want spread personalization, richer task planning data, and a less crowded spread navigator so the journal reflects how I organize ranges, deadlines, Inbox-first work, and long-lived years with many past spreads.
+
+### Definition of Done
+- The branch records the finalized keep/defer decision for every candidate in the `WKFLW-17` enhancement bundle.
+- Approved persisted fields land through one coordinated schema/sync migration pass across SwiftData and Supabase.
+- Spread personalization covers conventional explicit-spread favorites plus custom/dynamic naming for persisted explicit spreads across all period types.
+- Multiday spread date editing is implemented through shared spread create/edit sheet architecture and updates existing multiday spread records without changing personalization or entry assignment semantics.
+- Approved task metadata changes preserve offline-first sync, existing assignment/migration/overdue behavior, and the new task-only nil-assignment Inbox flow.
+- Conventional title-strip filtering reduces irrelevant past spreads by default through a local-only display preference while preserving complete navigation through the rooted navigator and content pager.
+- Rooted spread navigation is consolidated into a fixed leading title-strip affordance, including hidden-selection proxy behavior when a filtered spread remains selected.
+- Title-strip badges use a derived prioritized enum so overdue task counts and favorite state explain why relevant spreads remain visible without adding schema or sync state.
+- Durability tests cover local rebuild/sync paths for every approved persisted field.
+
+### [SPRD-167] Discovery: finalize keep/defer scope for the bundled spread/task enhancement pass - [x] Complete
+- **Context**: `WKFLW-17` was opened to avoid piecemeal schema churn, but the requested feature bundle mixes contained metadata work with graph-heavy features that would turn this branch into a much larger schema program.
+- **Description**: Audit the requested features, explicitly decide what this branch will implement vs defer, and reconcile `Documentation/spec.md` contradictions before schema work begins.
+- **Implementation Details**:
+  - Final approved keep set:
+    - explicit spread favorites in conventional mode
+    - custom name override for persisted explicit spreads across all period types
+    - dynamic naming boolean for persisted explicit spreads across all period types
+    - task body as one optional plain multiline text field
+    - task priority as non-null `none` / `low` / `medium` / `high`
+    - task-only true nil preferred assignment
+    - task due date as optional informational day-level metadata
+  - Final deferred set:
+    - links
+    - tags and tag filters
+    - assigned time
+    - subtasks
+    - sequential/blocking dependencies
+    - hidden-on-spreads
+    - status-model expansion beyond the existing task status model
+    - nil-assignment parity for notes
+  - Resolved spec contradictions:
+    - tags remain deferred even though task body participates in existing task search
+    - task preferred assignment is nullable for tasks only
+    - due date is informational and does not affect assignment, Inbox, migration, or overdue behavior
+    - note assignment behavior remains unchanged
+- **Acceptance Criteria**:
+  - Every requested item is explicitly marked keep or defer on `WKFLW-17`.
+  - `Documentation/spec.md` reflects the approved branch scope and no longer leaves the assignment/due-date/tagging/note-parity decisions ambiguous.
+  - Schema work does not begin until the branch scope is narrowed to the approved persisted bundle.
+- **Tests**:
+  - N/A beyond doc review.
+- **Dependencies**: None
+
+### [SPRD-168] Schema: land one additive schema/sync pass for the approved `WKFLW-17` bundle - [x] Complete
+- **Context**: The current persisted model is minimal. Any approved spread/task enhancements must update SwiftData, Supabase tables, merge RPCs, serializers, repair/rebuild paths, and the committed local schema snapshot together.
+- **Description**: Implement one coordinated schema migration for the approved persisted fields from `SPRD-167`, keeping the pass additive and bounded.
+- **Implementation Details**:
+  - Add persisted spread fields for explicit spreads:
+    - `isFavorite`, default false
+    - optional `customName` / name override
+    - `usesDynamicName`, default on for newly created spreads and off for existing migrated spreads
+  - Add persisted task fields:
+    - optional plain text `body`
+    - non-null `priority` enum with `none`, `low`, `medium`, `high`, default `none`
+    - optional day-level `dueDate`
+    - nullable preferred assignment fields for tasks only
+  - Keep note preferred assignment non-null and defer note parity.
+  - Add per-field sync/conflict timestamps for every independently mergeable new metadata field.
+  - Do not move preferred assignment into the new independent metadata conflict system; keep assignment/status under existing sync behavior.
+  - Treat clearing optional fields to nil as first-class edits that update their per-field timestamps.
+  - Initialize new field timestamps during migration/backfill from each record's existing sync/update timestamp, not migration time.
+  - Update Supabase migrations, merge RPCs, RLS-safe table definitions, serializers, deserializers, repair/backfill paths, and `supabase/local/public_schema_from_dev.sql`.
+  - Keep delete semantics stable: delete wins over concurrent `WKFLW-17` metadata edits and does not resurrect records.
+  - Avoid introducing child-table graphs or persisted virtual-spread personalization.
+- **Acceptance Criteria**:
+  - All approved persisted fields from `SPRD-167` exist end-to-end in SwiftData and Supabase.
+  - All approved persisted fields sync across devices through existing offline-first sync flows.
+  - Independent new metadata fields merge independently; same-field conflicts use field-level last-write-wins.
+  - New task metadata is preserved against title edits, while assignment/status changes keep existing behavior.
+  - Local rebuild/reset flows succeed with the new schema.
+  - No deferred `WKFLW-17` candidates are partially persisted.
+- **Tests**:
+  - Unit/integration coverage for serializer round-trips and merge/apply behavior for each approved field.
+  - Conflict tests for independent-field merge, same-field last-write-wins, clears to nil, title-vs-metadata edits, assignment/status preservation, and delete-wins behavior.
+  - Local Supabase rebuild/reset verification.
+- **Dependencies**: SPRD-167
+
+### [SPRD-169] Feature: add explicit-spread personalization with favorites and naming - [x] Complete
+- **Context**: Spread personalization is the lowest-risk user-facing portion of the bundle and can validate the bundled schema pass before task semantics become more complex.
+- **Description**: Add conventional explicit-spread favorites plus custom/dynamic naming for persisted explicit spreads across all period types.
+- **Implementation Details**:
+  - Favorite behavior:
+    - favorites apply only to conventional explicit spreads
+    - favorite/unfavorite from a star/favorite toggle in the spread header or nearby spread-level toolbar area
+    - toolbar favorites button appears in conventional mode and is hidden in traditional mode
+    - toolbar favorites menu lists only favorites from the currently selected year because `SpreadTitleNavigatorView` is year-scoped
+    - if the current year has no favorites, keep the button visible and show an explanatory empty menu
+    - favorite menu order uses the app's normal chronological spread ordering
+    - selecting a favorite navigates `SpreadTitleNavigatorView` to that spread
+    - favorites are tied to the spread record lifecycle; deleting and recreating the same period/date starts fresh
+  - Naming behavior:
+    - custom name override and dynamic naming apply to persisted explicit spreads across all period types
+    - custom override always wins over dynamic naming
+    - dynamic naming is a separate boolean fallback used only when no override exists
+    - dynamic naming defaults on for newly created explicit spreads and off for existing migrated spreads
+    - spread creation includes optional naming controls prefilled with dynamic naming on and no override
+    - existing spreads expose an `Edit Name` action in the spread header or nearby toolbar area
+    - `Edit Name` and favorites are hidden in traditional mode because virtual destinations are not persisted personalization targets
+    - dynamic naming remains independently editable while an override exists
+    - clearing an override falls back to dynamic naming only if dynamic naming is on; otherwise it falls back to the canonical date title
+    - custom overrides trim leading/trailing whitespace and store nil when empty; duplicate names are allowed
+  - Display behavior:
+    - personalized display name is the primary label, including in `SpreadTitleNavigatorView`
+    - canonical date title appears as secondary context where space allows
+    - favorites menu labels use the current live display name at render time
+  - Dynamic naming behavior:
+    - live derived at render time using each device's local calendar/timezone
+    - use existing app calendar, first-weekday, and multiday preset rules
+    - day/month/year dynamic names cover previous/current/next only
+    - multiday dynamic names are limited to standard week/weekend-style ranges in the previous/current/next window
+    - relative labels do not introduce a week period or week assignment granularity
+- **Acceptance Criteria**:
+  - Users can favorite/unfavorite conventional explicit spreads from the spread surface.
+  - The toolbar favorites menu is year-scoped, chronological, stable in empty years, hidden in traditional mode, and navigates the title navigator to the chosen spread.
+  - Explicit spreads can be named at creation and renamed/toggled later.
+  - Custom override, dynamic naming, canonical fallback, trimming, duplicates, and live label updates follow the spec.
+  - Personalized labels are primary in navigation surfaces; date context is secondary where available.
+- **Tests**:
+  - Unit tests for relative-label generation across previous/current/next day/month/year and week/weekend multiday cases.
+  - Unit tests for naming fallback priority, trimming/nil behavior, duplicate-name allowance, and device-local live derivation.
+  - UI/unit tests for favorite toggle, year-scoped menu contents, empty menu state, traditional-mode hiding, and title navigator navigation.
+  - Persistence/sync tests for favorite, custom name, and dynamic naming fields.
+- **Dependencies**: SPRD-168
+
+### [SPRD-172] UI: refine SpreadTitleNavigatorView label matrix for personalized naming - [x] Complete
+- **Context**: `SPRD-169` already implemented explicit-spread favorites and naming. After implementation, the title navigator label requirements were refined so personalized names and canonical fallback labels have an explicit per-period layout matrix.
+- **Description**: Update `SpreadTitleNavigatorView` label rendering so canonical and personalized labels follow the finalized matrix for year, month, day, and multiday spreads.
+- **Implementation Details**:
+  - Treat custom overrides and qualifying dynamic names as the same personalized label source.
+  - Canonical labels:
+    - year: keep the existing stacked year layout
+    - month: show four-digit `YYYY` above uppercase `MMM`
+    - day: keep the existing `MMM` / day number / `EEE` layout
+    - multiday: keep the existing month or month-range / day-range / weekday-range layout
+  - Personalized labels:
+    - year: show `YYYY` above the personalized name with no footer
+    - month: show `MMM` above the personalized name above `YYYY`
+    - day: show `MMM d` above the personalized name above `EEE`
+    - multiday: show compact date range above the personalized name above weekday range
+  - Keep the `SPRD-169` naming source rules intact: custom override wins, dynamic naming is a fallback, and canonical labels are used when neither personalized source applies.
+- **Acceptance Criteria**:
+  - `SpreadTitleNavigatorView` renders the canonical month label as `YYYY` over `MMM`.
+  - Personalized labels use the same layout whether the source is a custom override or a qualifying dynamic name.
+  - Personalized year/month/day/multiday labels render with the finalized header/name/footer matrix.
+  - Existing canonical year/day/multiday behavior remains unchanged.
+- **Tests**:
+  - Unit tests for the `SpreadTitleNavigatorView` label matrix across canonical and personalized year/month/day/multiday spreads.
+  - Regression tests proving dynamic and custom personalized sources render identically for equivalent labels.
+- **Dependencies**: SPRD-169
+
+### [SPRD-173] UI: add confirmed Delete Spread action to spread actions menu - [x] Complete
+- **Context**: Spread deletion is implemented and tested through `JournalManager.deleteSpread(_:)`, but no user-facing affordance currently calls it. The existing spread actions menu only exposes `Edit Name`.
+- **Description**: Add a destructive `Delete Spread` action to the same spread actions menu as `Edit Name` for conventional explicit spreads.
+- **Implementation Details**:
+  - Show `Delete Spread` in the current spread header actions menu for conventional explicit spreads only.
+  - Keep the action hidden in traditional mode because traditional destinations are virtual and not persisted explicit spread records.
+  - Present a destructive confirmation alert before deleting.
+  - Alert copy must explain that only the spread is deleted; tasks and notes are preserved and moved to the nearest parent spread or Inbox by the existing deletion coordinator.
+  - Treat the user-facing action as permanent deletion with no restore/trash flow.
+  - Preserve the current implementation semantics: local SwiftData spread row is deleted immediately and sync emits the existing tombstone/`deleted_at` delete mutation so other devices apply delete-wins behavior.
+  - Do not add special favorited-spread copy or a required unfavorite step; deleting the spread naturally removes its favorite shortcut.
+  - After successful deletion, rely on the existing best-available fallback selection behavior when the selected spread no longer exists.
+  - If deletion fails, keep the user on the spread and show an error alert.
+  - Trigger a sync after successful deletion when a sync engine is available, matching other spread/task/note mutation flows.
+- **Acceptance Criteria**:
+  - Users can open the spread actions menu and choose `Delete Spread` from the same menu as `Edit Name`.
+  - Confirming the alert deletes the spread and preserves contained tasks/notes according to existing parent-or-Inbox reassignment rules.
+  - Cancelling the alert leaves the spread, tasks, notes, favorites, and selection unchanged.
+  - Successful deletion removes the spread from the title navigator and navigates to a valid fallback selection.
+  - Deletion failure surfaces an error alert and leaves the user on the current spread.
+  - Traditional mode does not expose a delete-spread action.
+- **Tests**:
+  - Unit/view-model tests or view inspection where practical for menu visibility and action wiring.
+  - Journal/UI integration coverage for confirm, cancel, failure alert, and post-delete selection fallback.
+  - Regression coverage that deleting a favorited spread removes it from the favorites menu through normal spread removal.
+- **Dependencies**: SPRD-169, SPRD-172
+
+### [SPRD-174] Refactor: consolidate spread create/edit sheet architecture - [x] Complete
+- **Context**: Multiday spread date editing should reuse the existing spread creation sheet surface instead of creating a parallel edit form. The current creation sheet mixes form state, validation, view copy, and persistence callbacks around creation-only assumptions, which would make future spread add/edit changes easy to duplicate.
+- **Description**: Refactor the spread sheet flow so creation and focused edit modes share one form/state/validation architecture while preserving the current create-spread behavior.
+- **Spec**: Workflow Branch Bundle (`WKFLW-17`); Spread
+- **Implementation Details**:
+  - Introduce a shared spread sheet mode/model/configuration that can represent:
+    - create mode for year/month/day/multiday spreads
+    - edit-dates mode for an existing multiday spread
+  - Keep the existing create mode behavior and copy intact:
+    - title `New Spread`
+    - `Cancel` and `Create`
+    - spread type selection
+    - year/month/day date picker
+    - multiday presets and custom range controls
+    - custom name and dynamic-name controls
+  - Add edit-mode configuration support without yet requiring the actions-menu entry:
+    - title `Edit Dates`
+    - `Cancel` and `Save`
+    - multiday date-range controls and presets only
+    - no spread type picker
+    - no custom-name field
+    - no dynamic-name toggle
+    - no favorite controls
+  - Centralize validation so create and edit share the same multiday date rules, duplicate detection, and validation messages, with edit mode able to ignore the spread currently being edited.
+  - Expose an unchanged-range state so edit mode can disable `Save` when no date change has been made.
+  - Preserve existing accessibility identifiers where behavior is unchanged and add edit-mode identifiers only where tests need to distinguish save/cancel/date controls.
+  - Do not add new persisted fields or Supabase migrations in this refactor.
+- **Acceptance Criteria**:
+  - Existing spread creation behavior remains unchanged for year/month/day/multiday creation. (Spec: Workflow Branch Bundle (`WKFLW-17`); Spread)
+  - The shared sheet architecture can render a focused multiday edit-dates mode without duplicating create-sheet date-range logic. (Spec: Workflow Branch Bundle (`WKFLW-17`); Spread)
+  - Edit-mode validation can ignore the current spread for duplicate checks while still detecting exact duplicate ranges against other multiday spreads. (Spec: Workflow Branch Bundle (`WKFLW-17`); Edge Cases)
+  - Edit mode can detect unchanged ranges independently from invalid ranges. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+- **Tests**:
+  - Unit/support tests for the shared configuration/model covering create mode and edit-dates mode.
+  - Unit/support tests for multiday duplicate detection that ignores the edited spread but rejects another spread with the same range.
+  - Unit/support tests for unchanged-range detection and save-disabled state.
+  - Regression tests for existing create-spread validation and prefill behavior.
+- **Dependencies**: SPRD-169, SPRD-172, SPRD-173
+
+### [SPRD-175] UI: add Edit Dates for conventional multiday spreads - [x] Complete
+- **Context**: Multiday spreads are views over existing days rather than assignment owners. Users should be able to correct or move a multiday view by editing its start/end dates while preserving the spread's identity, name, favorite state, and aggregation semantics.
+- **Description**: Add an `Edit Dates` action for conventional explicit multiday spreads and persist date-range edits on the existing spread record through the shared spread sheet architecture from `SPRD-174`.
+- **Spec**: Workflow Branch Bundle (`WKFLW-17`); Spread; Spread Periods; Edge Cases
+- **Implementation Details**:
+  - Add `Edit Dates` to the existing spread actions ellipsis menu for conventional explicit multiday spreads only.
+  - Place `Edit Dates` after `Edit Name` and before destructive `Delete Spread`.
+  - Keep `Edit Dates` hidden for year/month/day spreads and hidden in traditional mode.
+  - Open the shared spread sheet in edit-dates mode for the selected multiday spread.
+  - Edit mode shows only multiday date-range controls and presets, with title `Edit Dates`, `Cancel`, and `Save`.
+  - Do not expose or mutate spread type, custom name, dynamic-name setting, or favorite state from `Edit Dates`.
+  - Validate edits using the existing multiday creation date limits:
+    - start date uses the current multiday minimum-start rule
+    - end date uses the current multiday minimum-end rule
+    - maximum date remains the existing creation maximum
+    - end date must be on or after start date
+    - exact duplicate ranges with another multiday spread are invalid
+    - the edited spread is ignored for duplicate checking
+    - partial overlaps with other multiday spreads remain allowed
+  - Disable `Save` when the selected range is unchanged, invalid, or an exact duplicate of another multiday spread.
+  - Persist a successful edit by mutating the same spread record ID and updating the spread `date`, `startDate`, and `endDate` fields together from one user action.
+  - Preserve custom name, dynamic-name setting, and favorite state unchanged.
+  - Use existing field-level sync timestamps for `date`, `startDate`, and `endDate`; no Supabase schema/RPC migration is expected unless implementation finds the existing merge path cannot persist those fields.
+  - Keep delete-wins behavior over concurrent date edits.
+  - After successful save, dismiss the sheet, keep the edited spread selected by record identity, and rebuild/recenter the title navigator and content pager around the new range, including cross-year moves based on the updated start date.
+  - If local persistence fails, keep the edit sheet open, preserve the selected range, and show an error alert; later sync failures continue through existing sync status/error UI.
+- **Acceptance Criteria**:
+  - Conventional explicit multiday spreads show `Edit Dates` in the spread actions menu between `Edit Name` and `Delete Spread`. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+  - Year/month/day spreads and traditional-mode destinations do not expose `Edit Dates`. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+  - `Edit Dates` opens a date-only edit sheet with the agreed copy and without spread type, naming, dynamic-name, or favorite controls. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+  - Invalid ranges, unchanged ranges, and exact duplicate ranges with another multiday spread cannot be saved. (Spec: Edge Cases)
+  - Partial overlapping multiday ranges can be saved. (Spec: Edge Cases)
+  - Saving updates the same spread record and preserves custom name, dynamic-name setting, and favorite state. (Spec: Spread)
+  - After save, the app remains selected on the edited spread and the navigator/pager reflect the updated range. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+  - Save failure leaves the sheet open with the user's selected range and surfaces an error alert. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+- **Tests**:
+  - Unit/support tests for menu visibility/action availability by spread period and mode.
+  - Unit/support tests for edit-date validation, including exact duplicate rejection, edited-spread duplicate exemption, unchanged range, invalid range, and partial-overlap allowance.
+  - JournalManager tests proving date edits update the same spread record and preserve custom name, dynamic-name setting, and favorite state.
+  - Navigation/model tests proving post-save selection stays on the edited spread and rebuilds/recenters when the updated range changes its ordering or year scope.
+  - One UI flow test covering opening `Edit Dates` from a multiday actions menu, changing the range, saving, and seeing the updated selected spread.
+- **Dependencies**: SPRD-174
+
+### [SPRD-176] Feature: filter conventional title strip past spreads by relevance - [x] Complete
+- **Context**: `SpreadTitleNavigatorView` can become crowded and laggy when a selected year contains many explicit spreads. Old past spreads that no longer contain actionable work make relevant current/future spreads harder to reach, while users still need a way to access the complete navigation history.
+- **Description**: Add a local, per-device title-strip display preference that defaults the conventional horizontal title strip to showing only relevant past spreads while keeping current/future spreads and complete navigation available elsewhere.
+- **Spec**: Workflow Branch Bundle (`WKFLW-17`); Navigation and UI; Settings
+- **Implementation Details**:
+  - Add a local-only display preference with two values:
+    - `Relevant Past Only` (default)
+    - `Show All Spreads`
+  - Persist the preference outside synced schema using `UserDefaults`/`@AppStorage` or an equivalent local-only settings store.
+  - Do not add SwiftData, Supabase, RPC, serializer, snapshot, or migration changes for this preference.
+  - Expose the preference in Settings rather than in the spread toolbar/title strip.
+  - Settings copy should explain that filtered mode keeps current/future spreads plus favorited or open-task past spreads visible, and that the rooted chevron navigator remains available for complete navigation when a spread is not immediately visible.
+  - Apply filtering only in conventional mode. Traditional mode keeps the full virtual year/month/day strip unchanged.
+  - In `Show All Spreads`, keep the existing conventional selected-year strip: all explicit year/month/day/multiday spreads in normal chronological order.
+  - In `Relevant Past Only`, keep all current and future explicit spreads visible.
+  - In `Relevant Past Only`, hide a past explicit spread unless it is favorited or currently shows at least one `.open` task.
+  - Define past by period:
+    - day: past after that day has fully passed
+    - month: past after that month has fully passed
+    - year: past after that year has fully passed
+    - multiday: past after its end date has passed
+  - Use existing display/inclusion rules for open-task relevance:
+    - year/month/day spreads are relevant when they currently show at least one `.open` task under existing conventional spread-resolution rules
+    - multiday spreads are relevant when at least one `.open` task has a preferred assignment date inside the multiday range under existing multiday inclusion behavior
+  - Completed, cancelled, migrated-history-only tasks, notes, and events do not preserve past title-strip visibility.
+  - Perform filtering in the title navigator support/model layer before item rendering so hidden spreads do not incur normal item view cost.
+  - Decouple the filtered title-strip presentation sequence from complete navigation sequences: the content pager, rooted navigator, global task browser ordering, and current-year favorites menu must continue to have access to complete eligible navigation data.
+  - Because favorited past spreads remain visible by rule, the current-year favorites menu should remain functionally unaffected by filtered mode.
+- **Acceptance Criteria**:
+  - Conventional mode defaults to `Relevant Past Only` when no local preference exists. (Spec: Settings)
+  - Users can switch between `Relevant Past Only` and `Show All Spreads` in Settings without a schema or sync change. (Spec: Settings)
+  - `Show All Spreads` preserves the existing complete conventional title-strip behavior. (Spec: Navigation and UI)
+  - `Relevant Past Only` always shows current/future explicit spreads and hides only irrelevant past explicit spreads. (Spec: Navigation and UI)
+  - Past favorited spreads and past spreads with at least one open task remain visible. (Spec: Navigation and UI)
+  - Traditional mode title-strip contents are unchanged. (Spec: Modes)
+  - Global task browser sections and complete navigation surfaces are not filtered by the title-strip preference. (Spec: Navigation and UI)
+- **Tests**:
+  - Unit/support tests for display-preference defaulting and local persistence.
+  - Unit/support tests for past/current/future classification by year, month, day, and multiday range.
+  - Unit/support tests proving favorite and open-task relevance retain past conventional spreads.
+  - Unit/support tests proving completed/cancelled/migrated-only tasks and notes do not retain past spreads.
+  - Unit/support tests proving traditional strip generation ignores the preference.
+  - Regression tests proving `Show All Spreads` matches the pre-filter conventional item set and ordering.
+  - Regression tests proving global task browser ordering and favorites menu data are not accidentally reduced by the filtered presentation sequence.
+- **Dependencies**: SPRD-169, SPRD-170, SPRD-172, SPRD-175
+
+### [SPRD-177] UI: move rooted navigator trigger into fixed title-strip leading inset - [x] Complete
+- **Context**: The selected spread item is no longer the rooted navigator opener; selection is now represented by dot indicator and typography. Filtering the horizontal strip also needs a complete, always-visible navigation escape hatch when the selected spread is hidden from the filtered presentation.
+- **Description**: Move the rooted spread navigator trigger out of `SpreadHeaderView` and into a fixed leading inset of `SpreadTitleNavigatorView`, and use that affordance as the selected-state proxy when the selected spread is hidden by the conventional relevance filter.
+- **Spec**: Workflow Branch Bundle (`WKFLW-17`); Navigation and UI; Header Spread Navigator
+- **Implementation Details**:
+  - Add a fixed leading chevron/rooted-navigator affordance to `SpreadTitleNavigatorView`.
+  - Keep the affordance outside the scrollable title content so it remains visible while the strip scrolls.
+  - Present the existing rooted spread navigator from this affordance:
+    - iPad: popover rooted on the leading affordance
+    - iPhone: large sheet with the same rooted navigator content
+  - Remove rooted-navigator ownership from `SpreadHeaderView`; the spread header should not duplicate the chevron trigger.
+  - Preserve the rooted navigator as a complete, unfiltered navigation surface.
+  - Tapping the selected spread item in the title strip should not open the rooted navigator.
+  - When the selected spread is visible in the title strip, keep the existing selected dot indicator under the selected item.
+  - When the selected spread is hidden by `Relevant Past Only`, keep the selected spread valid and render the leading chevron as the selected-state proxy:
+    - use selected styling on the chevron affordance
+    - draw the selected indicator dot underneath the chevron affordance
+    - animate the dot smoothly between visible strip items and the leading affordance using the same matched/coordinate-space-aware indicator system
+  - If the user selects a hidden spread from the rooted navigator or by swiping the content pager, do not force a fallback selection or mutate the filter; show the hidden-selection proxy.
+  - If the user switches to `Show All Spreads` or otherwise makes the selected spread visible, return the indicator to the selected strip item.
+  - Accessibility should identify the chevron as the complete spread navigator and indicate when it is representing a hidden selected spread.
+- **Acceptance Criteria**:
+  - The rooted spread navigator opens from the fixed leading title-strip chevron on iPad and iPhone. (Spec: Spread Navigator Surface)
+  - `SpreadHeaderView` no longer shows or owns a duplicate rooted-navigator chevron. (Spec: Shared Spread Surface Architecture)
+  - The rooted navigator remains complete and unfiltered even when the title strip is in `Relevant Past Only`. (Spec: Navigation and UI)
+  - Selected visible spreads keep the normal title-strip selected styling and indicator. (Spec: Navigation and UI)
+  - Selected hidden spreads keep valid selection, show selected styling on the leading chevron, and move the indicator dot under the chevron. (Spec: Navigation and UI)
+  - Rooted-navigator selection and content-pager swiping can select a hidden spread without forcing navigation to a visible fallback. (Spec: Navigation and UI)
+  - Accessibility labels/hints distinguish the complete navigator affordance and hidden-selected proxy state. (Spec: Accessibility)
+- **Tests**:
+  - Unit/support tests for hidden-selected-proxy state derivation.
+  - View/UI tests or focused interaction tests proving the leading chevron opens the rooted navigator on compact and regular presentations where practical.
+  - Regression tests proving selected title-strip items no longer open the rooted navigator.
+  - Regression tests proving hidden rooted-navigator selections and pager-driven hidden selections activate the leading proxy rather than changing selection.
+  - Snapshot/visual or targeted view tests for visible-selection indicator placement and hidden-selection chevron indicator placement where practical.
+- **Dependencies**: SPRD-176
+
+### [SPRD-178] UI: add prioritized title navigator badges for overdue and favorite state - [x] Complete
+- **Context**: `SPRD-176` can retain past spreads when they are favorited or contain overdue work, but the title strip does not always explain why a past spread remains visible. Multiday spreads are especially unclear because they aggregate contained days rather than owning direct task assignments.
+- **Description**: Replace the title-strip item badge inputs with a single prioritized badge enum that can render overdue task counts or favorite state in one top-right badge slot.
+- **Spec**: Workflow Branch Bundle (`WKFLW-17`); Navigation and UI; Spread title navigator badges
+- **Implementation Details**:
+  - Introduce a model-level title navigator badge enum/value object rather than adding parallel boolean/count fields.
+  - Supported badge cases for this task:
+    - `overdue(count)`
+    - `favorite`
+  - Render at most one badge per title-strip item.
+  - Badge priority is `overdue(count)` first, then `favorite`.
+  - Preserve the existing overdue visual language for `overdue(count)`:
+    - red numeric badge
+    - exact uncapped count
+    - selected spread still shows the badge
+  - Render `favorite` as a yellow `star.fill` badge in the same top-right badge slot.
+  - If a favorited spread also has overdue work, show only the overdue count badge.
+  - Apply the badge enum in both conventional title-strip display modes: `Relevant Past Only` and `Show All Spreads`.
+  - Conventional explicit year/month/day/multiday spreads can show overdue or favorite badges.
+  - Traditional virtual year/month/day items should use the same badge enum path for overdue counts only; favorite badges never apply in traditional mode.
+  - Overdue count semantics:
+    - count only open tasks whose preferred assignment date/period has passed under existing overdue threshold rules
+    - exclude completed, cancelled, and migrated-history-only tasks
+    - for conventional year/month/day spreads, preserve the existing current-spread/source assignment semantics and do not propagate child counts to ancestor spreads
+    - for conventional multiday spreads, count open tasks whose preferred assignment date falls inside the multiday range and whose preferred assignment period has passed
+    - overdue tasks still in `Inbox` because no spread assignment/source exists remain excluded from year/month/day spread badges, but can contribute to a multiday badge when their preferred assignment date falls inside that multiday range
+  - Do not add schema, Supabase, sync, or local persistence changes; badges are derived from existing spread/task state.
+  - Keep tapping a badged spread identical to tapping any other spread; badges do not open review flows.
+  - Accessibility:
+    - semantic labels should describe the badge meaning, such as `3 overdue tasks`, `3 overdue tasks in this date range`, or `Favorited spread`
+    - badge accessibility identifiers should include badge kind plus spread date/period, such as `overdue-2026-03-01-day` or `favorite-2026-01-01-year`, so tests can target a specific spread's badge
+- **Acceptance Criteria**:
+  - Title-strip items render at most one badge using the prioritized enum. (Spec: Navigation and UI)
+  - Overdue badges take priority over favorite badges. (Spec: Spread title navigator badges)
+  - Favorite conventional explicit spreads without overdue work show a yellow star badge in the title strip. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+  - Conventional multiday spreads show overdue counts for open overdue tasks whose preferred assignment date falls inside their range. (Spec: Spread title navigator badges)
+  - Existing year/month/day overdue count behavior is preserved except for moving through the new badge enum. (Spec: Spread title navigator badges)
+  - Traditional items can still show overdue badges through the enum path and never show favorite badges. (Spec: Modes)
+  - Badge behavior is the same in `Relevant Past Only` and `Show All Spreads`. (Spec: Settings)
+  - Badges use semantic accessibility labels and per-spread accessibility identifiers. (Spec: Accessibility)
+  - No schema, sync, or persistence migration is introduced. (Spec: Workflow Branch Bundle (`WKFLW-17`))
+- **Tests**:
+  - Unit/support tests for badge priority: overdue beats favorite, favorite appears only when no overdue badge exists.
+  - Unit/support tests for conventional year/month/day overdue badge counts preserving existing assignment/source semantics.
+  - Unit/support tests for multiday overdue counts from open tasks inside the range whose preferred assignment period has passed.
+  - Unit/support tests proving completed, cancelled, and migrated-history-only tasks do not count.
+  - Unit/support tests proving traditional items use overdue badges only and never favorite badges.
+  - View/UI tests or snapshot tests for red count badge, yellow star badge, selected-item coexistence, and per-spread accessibility identifiers.
+- **Dependencies**: SPRD-169, SPRD-170, SPRD-176, SPRD-177
+
+### [SPRD-170] Feature: add richer task metadata with body, priority, optional Inbox assignment, and due dates - [x] Complete
+- **Context**: These task changes are still contained enough for a single branch, but they materially affect creation/edit flows, Inbox semantics, and overdue logic.
+- **Description**: Add task body, priority, optional nil preferred assignment, and due dates that are distinct from assignment targets.
+- **Implementation Details**:
+  - Task-level metadata:
+    - `body` is one optional plain multiline text field, distinct from standalone `Note` entries
+    - trim `body` on save and store nil when empty or whitespace-only
+    - `priority` is a non-null enum with `none`, `low`, `medium`, `high`, defaulting to `none`
+    - priority is display-only and does not change ordering
+    - `dueDate` is optional day-only informational metadata
+    - due date is fully independent from preferred assignment, can be any calendar day including the past, and has no validation relationship to assignment
+  - Task row presentation:
+    - show priority as text badges for `low`, `medium`, and `high`; omit `none`
+    - show due date inline when present
+    - show due-date today/past highlight only for open tasks and keep it visually distinct from assignment-overdue styling
+    - show due date neutrally on completed/cancelled rows
+    - show both assignment-overdue and due-date-highlight signals when both apply
+    - show one-line body preview when body is present
+  - Task create/edit UI:
+    - priority and due date are visible in the main form
+    - body is in an expandable/details area
+    - body, priority, and due date remain editable when a task is complete or cancelled even if assignment controls are disabled
+    - assignment is controlled by an explicit optional `Assign to spread` section
+    - creating from an explicit year/month/day spread defaults assignment on and prefilled to the selected spread
+    - creating from an explicit multiday spread defaults assignment on and prefilled to the multiday range start day at day granularity
+    - creating from a non-spread context defaults assignment off; turning assignment on prepopulates today at day granularity
+    - editing a true nil-assignment task and turning assignment on also prepopulates today at day granularity
+    - editing an Inbox task shows assignment on when it has a preferred assignment but no matching spread, and off only for true nil-assignment tasks
+  - Nil-assignment behavior:
+    - true nil preferred assignment is task-only; note parity is deferred
+    - true nil-assignment tasks are Inbox-first in both conventional and traditional modes
+    - true nil-assignment tasks stay in Inbox until explicitly assigned, are unaffected by spread creation, and are never overdue until assigned
+    - assigned tasks keep the existing most-granular-valid spread resolution and Inbox fallback logic
+    - Inbox rows explicitly distinguish `Unassigned` from `Assigned: ...` waiting-for-spread using row metadata, without splitting Inbox into separate groups
+    - clearing assignment from a task with a real current open spread assignment moves it to Inbox and converts the current open assignment to migrated history
+    - clearing an unmaterialized preferred assignment from an Inbox waiting-for-spread task simply sets preferred assignment to nil with no migrated-history entry
+  - Search behavior:
+    - global task browser search matches task title and body
+    - body-backed search results use the normal row and body preview, not a search-specific snippet layout
+- **Acceptance Criteria**:
+  - Tasks can be saved with body, priority, optional assignment, and optional due date.
+  - Task body/priority/due-date presentation works on spread rows and global task browser rows.
+  - Inbox-first tasks remain visible and stable until explicitly assigned in both conventional and traditional modes.
+  - Due dates remain informational only and never affect assignment, Inbox placement, migration, or overdue membership.
+  - Existing assignment, migration, and overdue behavior remains unchanged for tasks with preferred assignments.
+  - Note assignment behavior remains unchanged.
+- **Tests**:
+  - Unit tests for create/edit/reconcile flows with true nil assignment, waiting-for-spread assignment, spread-launched defaults, multiday-launched defaults, and non-spread assign-on defaults.
+  - Unit tests for clearing assignment from real current spread assignment vs unmaterialized preferred assignment.
+  - Regression tests for Inbox, migration, overdue, traditional-mode Inbox-only behavior, and affected spread surfaces.
+  - UI/model tests for priority badges, due-date neutral/highlight states, dual overdue/due-date signals, body preview, and body search.
+- **Dependencies**: SPRD-168
+
+### [SPRD-171] Validation: harden rebuild, sync, and regression coverage for the approved bundle - [x] Complete
+- **Context**: A one-shot schema pass is only valuable if rebuild, repair, and sync paths remain trustworthy after the branch lands.
+- **Description**: Finish the bundle with durability validation covering local rebuilds, sync replay, and regression-prone journal scenarios.
+- **Implementation Details**:
+  - Validate local Supabase reset/rebuild workflows against the new schema.
+  - Add regression scenarios for:
+    - favorite toggle and year-scoped favorites menu behavior
+    - explicit-spread custom/dynamic naming on year/month/day/multiday spreads
+    - SpreadTitleNavigatorView canonical and personalized label matrix
+    - dynamic naming live derivation across previous/current/next periods
+    - task body, priority, due date, and task-only nil assignment
+    - sync conflict cases for independent new metadata fields
+  - Verify no deferred `WKFLW-17` candidates leaked partial behavior into the codebase.
+- **Acceptance Criteria**:
+  - Approved fields survive local reset/rebuild, sync pull, sync push, and repair/backfill flows.
+  - Journal surfaces remain correct for favorite/custom-named spreads, Inbox-first tasks, and due-dated tasks.
+  - The branch closes with explicit defers for links, tags, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads, status expansion, and note nil-assignment parity.
+- **Tests**:
+  - Targeted rebuild/reset validation.
+  - Sync replay and conflict validation for each approved field.
+  - Regression suite additions for approved `WKFLW-17` behaviors.
+- **Dependencies**: SPRD-169, SPRD-170, SPRD-172
 
 ## Story: Journal logic extraction and hardening
 

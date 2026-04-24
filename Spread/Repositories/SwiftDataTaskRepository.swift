@@ -80,7 +80,10 @@ final class SwiftDataTaskRepository: TaskRepository {
     // MARK: - Outbox
 
     private enum Constants {
-        static let changedFields = ["title", "date", "period", "status"]
+        static let changedFields = [
+            "title", "body", "priority", "due_date",
+            "date", "period", "status"
+        ]
         static let assignmentChangedFields = ["period", "date", "status"]
     }
 

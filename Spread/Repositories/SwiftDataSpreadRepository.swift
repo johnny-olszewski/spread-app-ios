@@ -78,7 +78,10 @@ final class SwiftDataSpreadRepository: SpreadRepository {
     // MARK: - Outbox
 
     private enum Constants {
-        static let changedFields = ["period", "date", "start_date", "end_date"]
+        static let changedFields = [
+            "period", "date", "start_date", "end_date",
+            "is_favorite", "custom_name", "uses_dynamic_name"
+        ]
     }
 
     private func enqueueSpreadMutation(_ spread: DataModel.Spread, operation: SyncOperation) {

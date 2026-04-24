@@ -19,6 +19,8 @@ final class SpreadsViewModel {
     /// All possible sheet presentations in the spreads view.
     enum SheetDestination: Identifiable {
         case spreadCreation(SpreadCreationPrefill?)
+        case spreadNameEdit(DataModel.Spread)
+        case spreadDateEdit(DataModel.Spread)
         case taskCreation
         case noteCreation
         case taskDetail(DataModel.Task)
@@ -32,6 +34,10 @@ final class SpreadsViewModel {
                     return "spreadCreation-\(prefill.period.rawValue)-\(prefill.date.timeIntervalSince1970)"
                 }
                 return "spreadCreation"
+            case .spreadNameEdit(let spread):
+                return "spreadNameEdit-\(spread.id)"
+            case .spreadDateEdit(let spread):
+                return "spreadDateEdit-\(spread.id)"
             case .taskCreation:
                 return "taskCreation"
             case .noteCreation:
@@ -42,6 +48,21 @@ final class SpreadsViewModel {
                 return "noteDetail-\(note.id)"
             case .auth:
                 return "auth"
+            }
+        }
+    }
+
+    /// All possible alert presentations in the spreads view.
+    enum AlertDestination: Identifiable {
+        case deleteSpreadConfirmation(DataModel.Spread)
+        case deleteSpreadFailed(message: String)
+
+        var id: String {
+            switch self {
+            case .deleteSpreadConfirmation(let spread):
+                return "deleteSpreadConfirmation-\(spread.id)"
+            case .deleteSpreadFailed:
+                return "deleteSpreadFailed"
             }
         }
     }
@@ -57,11 +78,40 @@ final class SpreadsViewModel {
     /// The currently active sheet, or nil if no sheet is presented.
     var activeSheet: SheetDestination?
 
+    /// The currently active alert, or nil if no alert is presented.
+    var activeAlert: AlertDestination?
+
     // MARK: - Actions
 
     /// Presents the spread creation sheet.
     func showSpreadCreation(prefill: SpreadCreationPrefill? = nil) {
         activeSheet = .spreadCreation(prefill)
+    }
+
+    /// Presents the spread naming editor.
+    func showSpreadNameEdit(_ spread: DataModel.Spread) {
+        activeSheet = .spreadNameEdit(spread)
+    }
+
+    /// Presents the multiday spread date-range editor.
+    func showSpreadDateEdit(_ spread: DataModel.Spread) {
+        activeSheet = .spreadDateEdit(spread)
+    }
+
+    /// Updates selection after a multiday date edit and asks navigator/pager surfaces to recenter.
+    func finishSpreadDateEdit(_ spread: DataModel.Spread) {
+        selectedSelection = .conventional(spread)
+        recenterToken += 1
+    }
+
+    /// Presents spread deletion confirmation for a conventional explicit spread.
+    func showSpreadDeleteConfirmation(_ spread: DataModel.Spread) {
+        activeAlert = .deleteSpreadConfirmation(spread)
+    }
+
+    /// Presents a spread deletion failure alert.
+    func showSpreadDeleteFailure(message: String) {
+        activeAlert = .deleteSpreadFailed(message: message)
     }
 
     /// Presents the task creation sheet.
@@ -92,5 +142,10 @@ final class SpreadsViewModel {
     /// Dismisses the currently active sheet.
     func dismiss() {
         activeSheet = nil
+    }
+
+    /// Dismisses the currently active alert.
+    func dismissAlert() {
+        activeAlert = nil
     }
 }

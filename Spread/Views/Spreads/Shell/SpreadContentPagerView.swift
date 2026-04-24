@@ -108,7 +108,40 @@ struct SpreadContentPagerView: View {
             guard let item = items.first(where: { $0.id == currentVisibleID }) else { return }
             selection = item.selection
         }
+        .alert(item: activeAlertBinding) { destination in
+            switch destination {
+            case .deleteSpreadConfirmation(let spread):
+                return Alert(
+                    title: Text("Delete Spread"),
+                    message: Text(
+                        "Only this spread will be deleted. Tasks and notes are preserved and moved to " +
+                        "the nearest parent spread or Inbox. This action cannot be undone."
+                    ),
+                    primaryButton: .destructive(Text("Delete Spread")) {
+                        deleteSpread(spread)
+                    },
+                    secondaryButton: .cancel {
+                        viewModel.dismissAlert()
+                    }
+                )
+            case .deleteSpreadFailed(let message):
+                return Alert(
+                    title: Text("Couldn't Delete Spread"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK")) {
+                        viewModel.dismissAlert()
+                    }
+                )
+            }
+        }
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.pager)
+    }
+
+    private var activeAlertBinding: Binding<SpreadsViewModel.AlertDestination?> {
+        Binding(
+            get: { viewModel.activeAlert },
+            set: { viewModel.activeAlert = $0 }
+        )
     }
 
     private func center(on id: String, animated: Bool) {
@@ -118,6 +151,20 @@ struct SpreadContentPagerView: View {
             }
         } else {
             pagerSettledTargetID = pagerID(for: id)
+        }
+    }
+
+    private func deleteSpread(_ spread: DataModel.Spread) {
+        viewModel.dismissAlert()
+        Task { @MainActor in
+            do {
+                try await journalManager.deleteSpread(spread)
+                await syncEngine?.syncNow()
+            } catch {
+                viewModel.showSpreadDeleteFailure(
+                    message: "Failed to delete spread: \(error.localizedDescription)"
+                )
+            }
         }
     }
 }
@@ -131,8 +178,6 @@ private struct SpreadPageContentView: View {
     let viewModel: SpreadsViewModel
     let syncEngine: SyncEngine?
     let model: SpreadTitleNavigatorModel
-
-    @State private var isShowingNavigator = false
 
     var body: some View {
         switch journalManager.bujoMode {
@@ -153,15 +198,23 @@ private struct SpreadPageContentView: View {
                     configuration: SpreadHeaderConfiguration(
                         spread: spread,
                         calendar: journalManager.calendar,
+                        today: journalManager.today,
+                        firstWeekday: journalManager.firstWeekday,
+                        allowsPersonalization: true,
                         taskCount: conventionalSpreadDataModel(for: spread)?.tasks.count ?? 0,
                         noteCount: conventionalSpreadDataModel(for: spread)?.notes.count ?? 0
                     ),
-                    isShowingNavigator: $isShowingNavigator,
-                    navigatorModel: model.headerModel,
-                    currentSpread: spread,
-                    onNavigatorSelect: { selection in
-                        guard case .conventional(let selectedSpread) = selection else { return }
-                        viewModel.selectedSelection = .conventional(selectedSpread)
+                    onFavoriteToggle: {
+                        toggleFavorite(for: spread)
+                    },
+                    onEditName: {
+                        viewModel.showSpreadNameEdit(spread)
+                    },
+                    onEditDates: spread.period == .multiday ? {
+                        viewModel.showSpreadDateEdit(spread)
+                    } : nil,
+                    onDeleteSpread: {
+                        viewModel.showSpreadDeleteConfirmation(spread)
                     }
                 )
                 conventionalContentView(for: spread)
@@ -239,20 +292,12 @@ private struct SpreadPageContentView: View {
                     configuration: SpreadHeaderConfiguration(
                         spread: spread,
                         calendar: journalManager.calendar,
+                        today: journalManager.today,
+                        firstWeekday: journalManager.firstWeekday,
+                        allowsPersonalization: false,
                         taskCount: traditionalSpreadDataModel(for: item.selection).tasks.count,
                         noteCount: traditionalSpreadDataModel(for: item.selection).notes.count
-                    ),
-                    isShowingNavigator: $isShowingNavigator,
-                    navigatorModel: model.headerModel,
-                    currentSpread: spread,
-                    onNavigatorSelect: { selection in
-                        switch selection {
-                        case .traditionalYear, .traditionalMonth, .traditionalDay:
-                            viewModel.selectedSelection = selection
-                        case .conventional:
-                            break
-                        }
-                    }
+                    )
                 )
                 traditionalContentView(for: spread, selection: item.selection)
             }
@@ -396,6 +441,13 @@ private struct SpreadPageContentView: View {
             for item in items {
                 try? await journalManager.migrateTask(item.task, from: item.source, to: destination)
             }
+            await syncEngine?.syncNow()
+        }
+    }
+
+    private func toggleFavorite(for spread: DataModel.Spread) {
+        Task { @MainActor in
+            try? await journalManager.updateSpreadFavorite(spread, isFavorite: !spread.isFavorite)
             await syncEngine?.syncNow()
         }
     }

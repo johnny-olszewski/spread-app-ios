@@ -508,8 +508,19 @@ final class JournalManager {
     ///   - date: The date for the new spread.
     /// - Returns: The newly created spread.
     /// - Throws: Repository errors if persistence fails.
-    func addSpread(period: Period, date: Date) async throws -> DataModel.Spread {
-        let spread = DataModel.Spread(period: period, date: date, calendar: calendar)
+    func addSpread(
+        period: Period,
+        date: Date,
+        customName: String? = nil,
+        usesDynamicName: Bool = true
+    ) async throws -> DataModel.Spread {
+        let spread = DataModel.Spread(
+            period: period,
+            date: date,
+            calendar: calendar,
+            customName: SpreadDisplayNameFormatter.sanitizedCustomName(customName),
+            usesDynamicName: usesDynamicName
+        )
 
         try await spreadRepository.save(spread)
         spreads.append(spread)
@@ -540,12 +551,19 @@ final class JournalManager {
     ///   - endDate: The end date of the multiday range.
     /// - Returns: The newly created multiday spread.
     /// - Throws: Repository errors if persistence fails.
-    func addMultidaySpread(startDate: Date, endDate: Date) async throws -> DataModel.Spread {
+    func addMultidaySpread(
+        startDate: Date,
+        endDate: Date,
+        customName: String? = nil,
+        usesDynamicName: Bool = true
+    ) async throws -> DataModel.Spread {
         // Create the new multiday spread
         let spread = DataModel.Spread(
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            customName: SpreadDisplayNameFormatter.sanitizedCustomName(customName),
+            usesDynamicName: usesDynamicName
         )
 
         // Save spread and add to local list
@@ -566,6 +584,93 @@ final class JournalManager {
         dataVersion += 1
 
         return spread
+    }
+
+    /// Updates the explicit-spread favorite flag and field-level sync timestamp.
+    func updateSpreadFavorite(_ spread: DataModel.Spread, isFavorite: Bool) async throws {
+        guard let current = spreadForMutation(spread.id) else { return }
+        guard current.isFavorite != isFavorite else { return }
+
+        current.isFavorite = isFavorite
+        current.isFavoriteUpdatedAt = .now
+        try await spreadRepository.save(current)
+        replaceCachedSpread(current)
+        dataVersion += 1
+    }
+
+    /// Updates the explicit-spread custom and dynamic naming fields.
+    func updateSpreadName(
+        _ spread: DataModel.Spread,
+        customName: String?,
+        usesDynamicName: Bool
+    ) async throws {
+        guard let current = spreadForMutation(spread.id) else { return }
+
+        let sanitizedCustomName = SpreadDisplayNameFormatter.sanitizedCustomName(customName)
+        let timestamp = Date.now
+        var didChange = false
+
+        if current.customName != sanitizedCustomName {
+            current.customName = sanitizedCustomName
+            current.customNameUpdatedAt = timestamp
+            didChange = true
+        }
+
+        if current.usesDynamicName != usesDynamicName {
+            current.usesDynamicName = usesDynamicName
+            current.usesDynamicNameUpdatedAt = timestamp
+            didChange = true
+        }
+
+        guard didChange else { return }
+
+        try await spreadRepository.save(current)
+        replaceCachedSpread(current)
+        dataVersion += 1
+    }
+
+    /// Updates an explicit multiday spread's date range while preserving its identity and personalization.
+    func updateMultidaySpreadDates(
+        _ spread: DataModel.Spread,
+        startDate: Date,
+        endDate: Date
+    ) async throws -> DataModel.Spread {
+        guard let current = spreadForMutation(spread.id), current.period == .multiday else {
+            return spread
+        }
+
+        let normalizedStart = startDate.startOfDay(calendar: calendar)
+        let normalizedEnd = endDate.startOfDay(calendar: calendar)
+        guard current.date != normalizedStart ||
+                current.startDate != normalizedStart ||
+                current.endDate != normalizedEnd else {
+            return current
+        }
+
+        let timestamp = Date.now
+        current.date = normalizedStart
+        current.startDate = normalizedStart
+        current.endDate = normalizedEnd
+        current.dateUpdatedAt = timestamp
+        current.startDateUpdatedAt = timestamp
+        current.endDateUpdatedAt = timestamp
+
+        try await spreadRepository.save(current)
+        replaceCachedSpread(current)
+        refreshDataModel(for: .structural)
+        dataVersion += 1
+
+        return current
+    }
+
+    private func spreadForMutation(_ id: UUID) -> DataModel.Spread? {
+        spreads.first { $0.id == id }
+    }
+
+    private func replaceCachedSpread(_ spread: DataModel.Spread) {
+        if let index = spreads.firstIndex(where: { $0.id == spread.id }) {
+            spreads[index] = spread
+        }
     }
 
     // MARK: - Task Migration
@@ -920,10 +1025,46 @@ final class JournalManager {
     /// - Returns: The newly created task.
     /// - Throws: Repository errors if persistence fails.
     func addTask(title: String, date: Date, period: Period) async throws -> DataModel.Task {
-        let result = try await taskMutationCoordinator.createTask(
+        try await addTask(
             title: title,
             date: date,
             period: period,
+            hasPreferredAssignment: true,
+            body: nil,
+            priority: .none,
+            dueDate: nil
+        )
+    }
+
+    /// Creates a new task with metadata and explicit preferred-assignment state.
+    ///
+    /// - Parameters:
+    ///   - title: The task title.
+    ///   - date: The preferred date for the task.
+    ///   - period: The preferred period for the task.
+    ///   - hasPreferredAssignment: Whether the task should resolve onto matching spreads.
+    ///   - body: Optional plain text body.
+    ///   - priority: Display-only priority.
+    ///   - dueDate: Optional informational day-level due date.
+    /// - Returns: The newly created task.
+    /// - Throws: Repository errors if persistence fails.
+    func addTask(
+        title: String,
+        date: Date,
+        period: Period,
+        hasPreferredAssignment: Bool,
+        body: String?,
+        priority: DataModel.Task.Priority,
+        dueDate: Date?
+    ) async throws -> DataModel.Task {
+        let result = try await taskMutationCoordinator.createTask(
+            title: title,
+            body: sanitizedTaskBody(body),
+            priority: priority,
+            dueDate: dueDate?.startOfDay(calendar: calendar),
+            date: date,
+            period: period,
+            hasPreferredAssignment: hasPreferredAssignment,
             calendar: calendar,
             spreads: spreads
         )
@@ -1013,6 +1154,69 @@ final class JournalManager {
         dataVersion += 1
     }
 
+    /// Updates independently mergeable task metadata.
+    ///
+    /// Clears to `nil` update that field's conflict timestamp just like non-nil edits.
+    func updateTaskMetadata(
+        _ task: DataModel.Task,
+        body: String?,
+        priority: DataModel.Task.Priority,
+        dueDate: Date?
+    ) async throws {
+        let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        let timestamp = Date.now
+        let normalizedBody = sanitizedTaskBody(body)
+        let normalizedDueDate = dueDate?.startOfDay(calendar: calendar)
+
+        if task.body != normalizedBody {
+            task.body = normalizedBody
+            task.bodyUpdatedAt = timestamp
+        }
+
+        if task.priority != priority {
+            task.priority = priority
+            task.priorityUpdatedAt = timestamp
+        }
+
+        if task.dueDate != normalizedDueDate {
+            task.dueDate = normalizedDueDate
+            task.dueDateUpdatedAt = timestamp
+        }
+
+        try await taskRepository.save(task)
+        tasks = await taskRepository.getTasks()
+
+        Self.logger.debug("Task metadata updated: \(task.id)")
+
+        refreshDataModel(for: scopeForTaskChange(previousKeys: previousKeys, task: task))
+        dataVersion += 1
+    }
+
+    /// Clears a task's preferred assignment, leaving it in Inbox until explicitly reassigned.
+    ///
+    /// Existing live assignments are migrated by the assignment reconciler. If the task was
+    /// only waiting for a future spread, no migrated-history row is created.
+    func clearTaskPreferredAssignment(
+        _ task: DataModel.Task,
+        fallbackDate: Date,
+        fallbackPeriod: Period
+    ) async throws {
+        let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        let result = try await taskMutationCoordinator.clearTaskPreferredAssignment(
+            task,
+            fallbackDate: fallbackDate,
+            fallbackPeriod: fallbackPeriod,
+            calendar: calendar,
+            spreads: spreads
+        )
+        tasks = result.tasks
+
+        Self.logger.debug("Task preferred assignment cleared: \(task.id)")
+
+        refreshDataModel(for: scopeForTaskChange(previousKeys: previousKeys, task: result.task))
+        dataVersion += 1
+    }
+
     /// Deletes a task from the repository and local state.
     ///
     /// - Parameter task: The task to delete.
@@ -1026,6 +1230,12 @@ final class JournalManager {
 
         refreshDataModel(for: scope)
         dataVersion += 1
+    }
+
+    private func sanitizedTaskBody(_ body: String?) -> String? {
+        let trimmed = body?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let trimmed, !trimmed.isEmpty else { return nil }
+        return trimmed
     }
 
     // MARK: - Note CRUD
