@@ -9,6 +9,7 @@
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
 - Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and a fixed leading affordance in that navigator presents the complete rooted spread navigator as a popover on iPad and a sheet on iPhone. Conventional and traditional modes share the same navigator, rooted selector, swipe pager, and spread-surface architecture; mode differences are expressed through spread availability, title-strip filtering, title-strip badges, and entry inclusion/assignment rules rather than separate navigation UIs. A dedicated top-level search-role tab replaces the old Inbox toolbar flow and hosts the global task browser. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-151, SPRD-176, SPRD-177, SPRD-178]
 - Shared foundations package: the app may host reusable UI components and utilities in a local Swift Package named `johnnyo-foundation`, structured for later GitHub publication. App-facing product spec captures integration points and high-level contracts; detailed package API spec should live with the package. [SPRD-152, SPRD-153]
+- AppClock is the app-wide temporal-context infrastructure for current time, system calendar, time zone, and locale. It keeps time-sensitive product behavior correct while the app remains open across foregrounding, midnight, DST, travel, and other significant time changes. It is infrastructure only: product policy remains in JournalManager collaborators, view models, and view-local renderers. [SPRD-179]
 - Core entities (v1): [SPRD-8, SPRD-9, SPRD-10]
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
   - Entry: protocol for task and note with type-specific behaviors. [SPRD-9]
@@ -148,6 +149,46 @@
 - Custom name override is the highest-priority display label. When no override exists and dynamic naming is enabled, qualifying explicit spreads use live relative names; otherwise they use canonical date titles. Relative names never create a new period or assignment granularity. [SPRD-169]
 - Persisted explicit spreads can be deleted from the conventional-mode spread actions menu. Deleting a spread does not delete tasks or notes; existing spread deletion rules migrate entry assignments to the nearest parent spread or Inbox. The user-facing behavior is permanent deletion with no restore/trash flow, backed by the existing local hard delete plus sync tombstone/delete-wins architecture. [SPRD-173]
 - Persisted explicit multiday spreads can be date-edited from the conventional-mode spread actions menu. Editing a multiday range updates the same spread record's existing date/range fields, preserves personalization, and does not change task/note assignment because multiday spreads aggregate existing day ranges rather than owning direct entry assignments. [SPRD-175]
+
+### AppClock and Temporal Context
+- The app must not treat `today` or equivalent temporal context as launch-time-only state for product semantics that are defined relative to the current date, calendar, time zone, or locale. [SPRD-179]
+- `AppClock` is a single app-wide temporal-context service with scene lifecycle inputs. The service is shared across windows/scenes, while scene activation/foreground events may trigger refreshes into that shared instance. [SPRD-179]
+- `AppClock` owns only system temporal context and derived semantic change metadata:
+  - current reference time (`now`)
+  - current system `Calendar`
+  - current system `TimeZone`
+  - current system `Locale`
+  - semantic change facts such as whether a refresh crossed a day boundary or was triggered by a significant time change [SPRD-179]
+- `AppClock` does not own app product settings such as BuJo mode or first-weekday preference. Consumers compose those settings with clock state when needed. [SPRD-179]
+- `AppClock` is infrastructure only. It observes and publishes temporal reality, but it does not decide product behavior such as whether a spread should remain selected, how overdue is evaluated, or how the title strip is filtered. That policy remains in injected business-rule services, JournalManager orchestration, and view-local rendering code. [SPRD-179]
+- `AppClock` should be implemented as a concrete observable service with injectable low-level collaborators such as current-time providers and notification/lifecycle bridges rather than as a top-level protocol-backed service abstraction. [SPRD-179]
+- View-layer access to `AppClock` should be provided through the SwiftUI environment so descendant views can read temporal context without prop drilling. Non-view infrastructure such as `JournalManager`, coordinators, and rule engines must still receive explicit constructor-injected access to the same shared instance or to explicit temporal inputs; the app must not rely on view-only environment lookup inside core services. [SPRD-179]
+- Time-sensitive pure logic should receive explicit temporal input values from higher layers where practical rather than reaching into shared mutable state directly. `JournalManager` and view models may read from `AppClock`, but evaluators, builders, formatters, and support-layer helpers should prefer explicit reference-date and temporal-context parameters when feasible so tests remain deterministic. [SPRD-180]
+- `AppClock` must react automatically to all temporal-context changes that can alter app semantics or date rendering:
+  - scene/app activation and foreground return
+  - significant time change notifications
+  - calendar-day-changed notifications
+  - system time-zone changes
+  - current locale changes
+  - current system calendar changes where the underlying Foundation notifications/messages indicate a change in user date preferences [SPRD-179]
+- Automatic temporal refresh is passive with respect to spread selection. When temporal context changes, the app must refresh semantics such as labels, recommendations, badges, overdue state, and `Today` behavior without automatically navigating away from the currently selected spread. [SPRD-179]
+- Open create/edit sessions freeze their user-editable draft state and defaulted form inputs at presentation time. Temporal changes may refresh display-only labels around those forms, but they must not silently rewrite the user's current draft values or defaulted assignment/date choices while the form remains open. [SPRD-179]
+- The app uses a hybrid recomputation model:
+  - shared app semantics that are broadly reused may refresh eagerly on coarse `AppClock` changes
+  - pure formatting and view-local checks should remain lazy and derive from current temporal input at render/use time [SPRD-180]
+- `AppClock` must not become a global minute ticker for the whole app. Minute-level rendering is view-local:
+  - app-wide semantic changes are driven by coarse temporal refreshes only
+  - views that truly need minute-aligned updates, such as a future current-time line on a day calendar or minute-relative labels, must use local timeline-based rendering such as `TimelineView(.everyMinute)` or an equivalent local schedule [SPRD-179]
+- The spec-defined time-sensitive behaviors that must become correct under `AppClock` include:
+  - dynamic spread names such as `Today`, `Yesterday`, `This month`, `Next week`
+  - `Today` button target resolution and passive today emphasis
+  - overdue evaluation and overdue badge visibility
+  - today-based spread recommendations
+  - day/month/year/multiday visual today states
+  - future day-calendar current-time indicators and similar local live-time surfaces [SPRD-179, SPRD-180]
+- Debug and test infrastructure must support both:
+  - startup-fixed temporal context for deterministic scenario seeding
+  - runtime-controllable temporal context so tests can advance time, cross midnight, simulate significant time changes, and change time zone/locale/calendar context without relaunching the app [SPRD-181]
 
 ### Spread Periods
 - Creatable periods: year, month, day, multiday. [SPRD-8]
@@ -887,12 +928,13 @@
 
 ### Testing
 - Automated testing is split between deterministic unit tests for isolated logic and localhost-backed UI scenario tests for user-visible flows. [SPRD-113, SPRD-114]
-- Logic-heavy user scenarios must be exercised through Debug `localhost` launches with seeded mock data and a fixed `today` date so results remain deterministic. [SPRD-114]
+- Logic-heavy user scenarios must be exercised through Debug `localhost` launches with seeded mock data and deterministic temporal context. The shared harness must support both startup-fixed temporal context and runtime-controlled AppClock changes so scenarios can verify behavior before and after day/time/context transitions without relaunching. [SPRD-114, SPRD-181]
 - UI scenario tests are additive to existing unit coverage; they do not replace unit tests for JournalManager, assignment logic, migration revalidation, or overdue computation. [SPRD-114]
 - Scenario UI tests focus on conventional-mode logic-heavy flows first: assignment fallback, Inbox resolution, migration prompting/review, overdue badge visibility, and edit-time reassignment. [SPRD-114]
 - UI scenario fixtures may seed the starting state, but the user action under test must still be performed through the UI. [SPRD-114]
 - A shared localhost scenario harness is required for UI tests. It must centralize:
-  - app launch with `localhost`, scenario dataset selection, and fixed `today`
+  - app launch with `localhost`, scenario dataset selection, and startup-fixed temporal context
+  - runtime AppClock controls for advancing time and changing time zone/locale/calendar context during a running scenario
   - spread navigation
   - migration banner/review interactions
   - overdue badge interactions
@@ -905,6 +947,12 @@
   - any supporting source/destination labels needed to assert assignment and migration outcomes
 - UI scenario assertions should prefer user-visible outcomes. Localhost-only debug inspection may be used only when the UI cannot distinguish a required state clearly enough. [SPRD-114]
 - Focused unit tests still backstop exclusion-only and revalidation-heavy rules where UI coverage would otherwise become brittle, but user-visible scenario coverage remains the primary integration signal for assignment, migration, reassignment, and overdue.
+- AppClock coverage is required at multiple levels:
+  - unit tests for temporal-context refresh classification, day-boundary detection, and notification/lifecycle bridging
+  - unit tests for pure rule helpers receiving explicit temporal input
+  - JournalManager/view-model tests proving temporal refresh updates shared semantics without mutating user selection unexpectedly
+  - localhost UI scenarios where the app remains open while time crosses midnight or temporal context changes
+  - regression tests proving open forms keep their draft/default state stable while surrounding display semantics update [SPRD-179, SPRD-180, SPRD-181]
 - Scenario coverage matrix required for v1: [SPRD-114, SPRD-115, SPRD-116, SPRD-117, SPRD-118]
 
 | Scenario area | Required localhost UI coverage | Key assertion |

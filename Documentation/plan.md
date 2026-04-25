@@ -13,6 +13,7 @@
 ## Story Overview (v1)
 - Foundation and scaffolding (completed)
 - Core time and data models
+- Temporal context and AppClock
 - Supabase offline-first sync + auth migration (priority)
 - Simplification pass: auth, environments, debug tooling, and test cleanup
 - Journal core: creation, assignment, inbox, migration
@@ -49,6 +50,149 @@
 - Date utilities and period normalization support first-weekday settings.
 - Spread/Entry/Assignment models exist with multiday support.
 - Date and multiday preset tests pass.
+
+## Story: Temporal context and AppClock
+
+### User Story
+- As a user, I want the app's time-sensitive behavior to stay correct while the app remains open across midnight, foreground returns, DST/time-zone shifts, and locale/calendar changes, without the app unexpectedly navigating away from what I am viewing.
+
+### Definition of Done
+- A single app-wide `AppClock` owns system temporal context (`now`, `Calendar`, `TimeZone`, `Locale`) and refresh semantics, with scene lifecycle inputs feeding that shared instance.
+- SwiftUI views can access the shared clock through the environment, while non-view infrastructure receives explicit injected access or explicit temporal inputs.
+- `JournalManager` and related helpers no longer depend on a frozen launch-time `today` for live product semantics.
+- Time-sensitive product semantics refresh correctly without automatic selection jumps.
+- Draft/edit sessions keep user-entered state stable across temporal changes.
+- Debug and test infrastructure support both startup-fixed and runtime-controllable temporal context.
+- Unit, integration, and localhost UI scenario coverage prove correctness and protect against stale-time regressions.
+
+### [SPRD-179] Infra: introduce AppClock and temporal-context refresh pipeline
+- **Context**: The app currently captures `today` at runtime creation and threads that snapshot through navigation, overdue logic, dynamic naming, and other date-sensitive surfaces. This causes stale semantics when the app stays open across day/time/context changes.
+- **Description**: Add a concrete app-wide `AppClock` service that observes system temporal-context changes and publishes refreshed temporal state into the app runtime.
+- **Spec**: AppClock and Temporal Context; Testing
+- **Implementation Details**:
+  - Add a concrete observable `AppClock` type that owns:
+    - current reference time
+    - current system `Calendar`
+    - current system `TimeZone`
+    - current system `Locale`
+    - semantic refresh metadata describing why the clock refreshed and whether a day boundary was crossed
+  - Keep `AppClock` infrastructure-only; do not move product policy into it.
+  - Use injectable low-level collaborators rather than a top-level `AppClock` protocol:
+    - current-time provider
+    - notification bridge/observer
+    - lifecycle bridge or scene activation hook support
+  - Create one shared `AppClock` per app runtime.
+  - Feed scene/app activation into the shared clock rather than creating per-scene clocks.
+  - Wire refresh triggers for:
+    - foreground/active transitions
+    - significant time change
+    - calendar day changed
+    - time-zone change
+    - locale change
+    - current-calendar/preference change notifications/messages where applicable
+  - Inject the clock into the view layer through the SwiftUI environment so descendants can read it without prop drilling.
+  - Inject the same shared clock explicitly into non-view infrastructure that needs it; do not let core services depend on environment lookup.
+  - Do not add a global minute ticker to `AppClock`.
+- **Acceptance Criteria**:
+  - The app runtime owns one shared `AppClock` instance.
+  - Foreground and significant temporal-context changes refresh the shared clock without rebuilding the entire app runtime.
+  - Descendant SwiftUI views can access the clock through the environment.
+  - Core services do not depend on a view-only environment lookup for clock access.
+  - `AppClock` publishes enough semantic refresh metadata for consumers to react without encoding product behavior in the clock itself.
+  - No app-wide minute cadence is introduced.
+- **Tests**:
+  - Unit tests for clock refresh classification and day-boundary detection.
+  - Unit tests for notification/lifecycle bridge wiring.
+  - Unit tests proving locale/time-zone/calendar changes refresh the clock state.
+  - Integration-style tests proving a single shared clock instance is reused across the runtime.
+- **Dependencies**: SPRD-49
+
+### [SPRD-180] Refactor: route journal semantics through AppClock and explicit temporal inputs
+- **Context**: A clock service alone does not fix stale semantics unless the journal layer and support helpers stop treating launch-time `today` as authoritative runtime state.
+- **Description**: Refactor journal and view-support code so shared semantics refresh from AppClock while pure helpers consume explicit temporal inputs.
+- **Spec**: AppClock and Temporal Context; Inbox; Modes; Navigation and UI
+- **Implementation Details**:
+  - Remove frozen launch-time `today` assumptions from `JournalManager`-owned live semantics.
+  - Keep the hybrid recomputation model explicit:
+    - shared broadly reused semantics may refresh eagerly on coarse clock changes
+    - pure formatting and local checks stay lazy and accept explicit temporal input parameters
+  - Pass explicit temporal inputs where practical into:
+    - overdue evaluation
+    - dynamic spread naming
+    - today-target resolution
+    - spread recommendation derivation
+    - title-strip today emphasis support
+    - other support/model helpers that are pure rule code
+  - Refresh shared manager/view-model semantics on coarse AppClock changes without automatically changing the currently selected spread.
+  - Preserve user selection across temporal refreshes unless existing non-clock logic already requires a fallback due to deleted/invalid data.
+  - Distinguish live display semantics from draft state:
+    - open create/edit sheets may refresh surrounding display-only labels
+    - form defaults and user-entered draft state stay frozen after presentation
+  - Ensure app-owned settings such as `firstWeekday` remain outside `AppClock` and are composed by consumers with temporal context.
+  - Add implementation notes or local comments where needed so developers do not accidentally reintroduce frozen-time seams.
+- **Acceptance Criteria**:
+  - Dynamic names, `Today` behavior, overdue semantics, recommendations, and today emphasis update correctly after coarse clock changes.
+  - Temporal refresh does not auto-navigate the user to a new spread.
+  - Open create/edit sessions keep draft/default state stable while surrounding semantics update.
+  - Pure rule helpers that remain time-sensitive accept explicit temporal input where practical instead of reaching into hidden global state.
+  - Existing product behavior unrelated to time refresh remains unchanged.
+- **Tests**:
+  - Unit tests for explicit-input helpers across before/after temporal boundaries.
+  - JournalManager/view-model tests proving shared semantic refresh without selection jumps.
+  - Regression tests for dynamic names, overdue thresholds, recommendations, and today emphasis after clock changes.
+  - Regression tests proving open sheets/forms do not silently rewrite draft state on temporal refresh.
+- **Dependencies**: SPRD-179, SPRD-155, SPRD-157, SPRD-158
+
+### [SPRD-181] Test/Debug: add deterministic and runtime-controllable AppClock infrastructure
+- **Context**: The existing localhost testing strategy relies on fixed `today` injection at launch, but AppClock behavior also needs same-session transition coverage such as midnight rollover and context changes while the app remains open.
+- **Description**: Extend debug and test infrastructure so temporal context can be fixed at startup or controlled at runtime in localhost, previews, unit tests, and UI scenarios.
+- **Spec**: AppClock and Temporal Context; Testing
+- **Implementation Details**:
+  - Preserve startup-fixed temporal context support for deterministic datasets and scenario seeding.
+  - Add a controllable test/debug clock path that can:
+    - advance or set the reference date/time
+    - cross midnight without relaunch
+    - simulate significant time change refreshes
+    - change time zone
+    - change locale
+    - change current calendar context where applicable
+  - Make the controllable clock drive the same AppClock refresh pipeline as production rather than bypassing core behavior.
+  - Expose only the minimum debug/test affordances needed for engineering and automated tests.
+  - Update the shared localhost scenario harness to support both startup-fixed and runtime-controlled temporal scenarios.
+  - Keep debug-only wiring isolated from production files where practical.
+- **Acceptance Criteria**:
+  - Localhost and tests can launch with a fixed temporal context.
+  - Localhost and tests can change temporal context during a running session without relaunching the app.
+  - Runtime-controlled temporal changes exercise the same update path as production AppClock refreshes.
+  - Existing deterministic scenario seeding remains available.
+  - Release builds expose no debug-only temporal controls.
+- **Tests**:
+  - Unit tests for controllable clock operations and emitted refresh semantics.
+  - Preview/test harness tests verifying startup-fixed and runtime-controlled configuration paths.
+  - Localhost UI scenario coverage for:
+    - app remains open across midnight and labels/badges update
+    - foreground return after time changed while suspended
+    - time-zone or locale change affecting date-sensitive UI
+    - open form draft stability during temporal refresh
+- **Dependencies**: SPRD-179
+
+### [SPRD-182] Infra/UI: codify local minute-based rendering for live calendar surfaces
+- **Context**: The app needs a clear boundary between coarse semantic clock refreshes and future minute-level live rendering such as a current-time line on a day calendar. Without an explicit seam, developers may incorrectly turn AppClock into a global timer.
+- **Description**: Add the architectural guardrails and initial support layer for minute-sensitive view-local rendering while keeping AppClock coarse-grained.
+- **Spec**: AppClock and Temporal Context
+- **Implementation Details**:
+  - Document and enforce that minute-sensitive surfaces use local timeline-based rendering such as `TimelineView(.everyMinute)` or an equivalent local schedule.
+  - Do not add a global minute revision to AppClock.
+  - Add a small support seam or local pattern for live calendar/day-schedule surfaces so future work such as a current-time line can plug into minute updates without redesigning the temporal architecture.
+  - Keep minute rendering view-local and display-only unless a future approved spec explicitly introduces minute-based business semantics.
+- **Acceptance Criteria**:
+  - The codebase contains no app-wide minute ticker inside AppClock.
+  - The implementation/docs make the preferred local-minute rendering path explicit enough that future developers are not misled into using AppClock for minute polling.
+  - The architectural seam is sufficient for a future day-calendar current-time line to be implemented without revisiting the coarse clock design.
+- **Tests**:
+  - Focused unit/view tests for any new support seam or helper introduced for local timeline usage.
+  - Regression tests proving coarse AppClock refresh logic remains independent from minute-local rendering.
+- **Dependencies**: SPRD-179
 
 ### [SPRD-49] Feature: Unit tests for date + multiday presets - [x] Complete
 - **Context**: Date logic is error-prone.
