@@ -18,6 +18,15 @@ struct SettingsViewTests {
         testCalendar.date(from: DateComponents(year: 2026, month: 3, day: 15))!
     }
 
+    private static var testAppClock: AppClock {
+        AppClock.fixed(
+            now: testToday,
+            calendar: testCalendar,
+            timeZone: testCalendar.timeZone,
+            locale: testCalendar.locale ?? Locale(identifier: "en_US_POSIX")
+        )
+    }
+
     // MARK: - Mode Toggle Tests
 
     /// Conditions: JournalManager created with conventional mode.
@@ -217,7 +226,7 @@ struct SettingsViewTests {
         )
 
         let manager = try await dependencies.makeJournalManager(
-            today: Self.testToday,
+            appClock: Self.testAppClock,
             bujoMode: .traditional,
             firstWeekday: .monday
         )

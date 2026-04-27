@@ -65,7 +65,7 @@
 - Debug and test infrastructure support both startup-fixed and runtime-controllable temporal context.
 - Unit, integration, and localhost UI scenario coverage prove correctness and protect against stale-time regressions.
 
-### [SPRD-179] Infra: introduce AppClock and temporal-context refresh pipeline
+### [SPRD-179] Infra: introduce AppClock and temporal-context refresh pipeline - [x] Complete
 - **Context**: The app currently captures `today` at runtime creation and threads that snapshot through navigation, overdue logic, dynamic naming, and other date-sensitive surfaces. This causes stale semantics when the app stays open across day/time/context changes.
 - **Description**: Add a concrete app-wide `AppClock` service that observes system temporal-context changes and publishes refreshed temporal state into the app runtime.
 - **Spec**: AppClock and Temporal Context; Testing

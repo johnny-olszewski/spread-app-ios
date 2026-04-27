@@ -2,6 +2,25 @@
 import SwiftUI
 
 extension AppRuntimeConfiguration {
+    @MainActor
+    private static func launchAppClock() -> AppClock {
+        guard let today = AppLaunchConfiguration.current.today else {
+            return .live()
+        }
+
+        var calendar = Calendar.autoupdatingCurrent
+        let timeZone = calendar.timeZone
+        let locale = calendar.locale ?? .autoupdatingCurrent
+        calendar.locale = locale
+
+        return .fixed(
+            now: today,
+            calendar: calendar,
+            timeZone: timeZone,
+            locale: locale
+        )
+    }
+
     static func mockDataSetToLoad(
         environment: DataEnvironment,
         launchConfiguration: AppLaunchConfiguration
@@ -27,8 +46,8 @@ extension AppRuntimeConfiguration {
             makeSyncPolicy: {
                 DebugSyncPolicy()
             },
-            resolveToday: {
-                AppLaunchConfiguration.current.today ?? .now
+            makeAppClock: {
+                launchAppClock()
             },
             loadMockDataSet: { journalManager in
                 if let dataSet = mockDataSetToLoad(

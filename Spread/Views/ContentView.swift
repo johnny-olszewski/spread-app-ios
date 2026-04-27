@@ -7,29 +7,30 @@ import SwiftUI
 /// navigation shell once ready. Shows a loading state during initialization.
 /// Auth lifecycle logic is delegated to `AuthLifecycleCoordinator`.
 struct ContentView: View {
-    @State private var runtime: AppRuntime?
     @State private var hasCompletedOnboarding: Bool
+    @State private var runtimeStore: AppRuntimeStore
+    @Environment(\.scenePhase) private var scenePhase
 
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "ContentView")
 
-    private let dependenciesOverride: AppDependencies?
     private let dataEnvironmentOverride: DataEnvironment?
     private let onboardingStore: any OnboardingStateStoring
 
     init(
         dependencies: AppDependencies? = nil,
+        runtimeStore: AppRuntimeStore? = nil,
         dataEnvironment: DataEnvironment? = nil,
         onboardingStore: any OnboardingStateStoring = OnboardingStateStore()
     ) {
-        self.dependenciesOverride = dependencies
         self.dataEnvironmentOverride = dataEnvironment
         self.onboardingStore = onboardingStore
         _hasCompletedOnboarding = State(initialValue: onboardingStore.hasCompletedOnboarding)
+        _runtimeStore = State(initialValue: runtimeStore ?? AppRuntimeStore(dependencies: dependencies))
     }
 
     var body: some View {
         Group {
-            if let runtime {
+            if let runtime = runtimeStore.runtime {
                 RootNavigationView(
                     journalManager: runtime.journalManager,
                     authManager: runtime.authManager,
@@ -37,6 +38,7 @@ struct ContentView: View {
                     syncEngine: runtime.syncEngine,
                     makeDebugMenuView: runtime.makeDebugMenuView
                 )
+                .environment(\.appClock, runtime.appClock)
             } else {
                 loadingView
             }
@@ -44,8 +46,12 @@ struct ContentView: View {
         .task {
             await initializeApp()
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            runtimeStore.runtime?.appClock.sceneDidBecomeActive()
+        }
         .sheet(isPresented: blockingAuthGateBinding) {
-            if let runtime {
+            if let runtime = runtimeStore.runtime {
                 AuthEntrySheet(
                     authManager: runtime.authManager,
                     isBlocking: true
@@ -72,7 +78,7 @@ struct ContentView: View {
     }
 
     private var activeOverlay: AppLaunchOverlay {
-        guard let runtime else { return .none }
+        guard let runtime = runtimeStore.runtime else { return .none }
         return AppLaunchOverlayPolicy.overlay(
             environment: currentDataEnvironment,
             isSignedIn: runtime.authManager.state.isSignedIn,
@@ -97,14 +103,9 @@ struct ContentView: View {
     // MARK: - Initialization
 
     private func initializeApp() async {
-        do {
-            if let dependenciesOverride {
-                runtime = try await AppRuntimeBootstrapFactory.make(dependencies: dependenciesOverride)
-            } else {
-                runtime = try await AppRuntimeBootstrapFactory.makeLive()
-            }
-        } catch {
-            // TODO: SPRD-45 - Add error handling UI for initialization failures
+        await runtimeStore.initializeIfNeeded()
+
+        if let error = runtimeStore.initializationError {
             fatalError("Failed to initialize app runtime: \(error)")
         }
     }

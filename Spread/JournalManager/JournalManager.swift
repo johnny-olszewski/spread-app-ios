@@ -17,11 +17,14 @@ final class JournalManager {
 
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "JournalManager")
 
+    /// The shared app clock that publishes temporal-context changes.
+    let appClock: AppClock
+
     /// The calendar used for date calculations.
-    let calendar: Calendar
+    private(set) var calendar: Calendar
 
     /// The current date for determining present/future logic.
-    let today: Date
+    private(set) var today: Date
 
     /// Repository for task persistence.
     let taskRepository: any TaskRepository
@@ -48,43 +51,45 @@ final class JournalManager {
     var firstWeekday: FirstWeekday
 
     /// Policy for validating spread creation.
-    let creationPolicy: SpreadCreationPolicy
+    var creationPolicy: SpreadCreationPolicy
 
     /// Builds conventional-mode spread data models from explicit spreads and entries.
-    let conventionalDataModelBuilder: any JournalDataModelBuilder
+    var conventionalDataModelBuilder: any JournalDataModelBuilder
 
     /// Builds traditional-mode virtual spread data models from entry preference data.
-    let traditionalDataModelBuilder: any JournalDataModelBuilder
+    var traditionalDataModelBuilder: any JournalDataModelBuilder
 
     /// Resolves Inbox membership from the current spreads and entries.
-    let inboxResolver: any InboxResolver
+    var inboxResolver: any InboxResolver
 
     /// Plans migration sources, destinations, and source-spread resolution.
-    let migrationPlanner: any MigrationPlanner
+    var migrationPlanner: any MigrationPlanner
 
     /// Evaluates overdue open-task review items.
-    let overdueEvaluator: any OverdueEvaluator
+    var overdueEvaluator: any OverdueEvaluator
 
     /// Reconciles task preferred assignments against the current created spreads.
-    let taskAssignmentReconciler: any TaskAssignmentReconciler
+    var taskAssignmentReconciler: any TaskAssignmentReconciler
 
     /// Reconciles note preferred assignments against the current created spreads.
-    let noteAssignmentReconciler: any NoteAssignmentReconciler
+    var noteAssignmentReconciler: any NoteAssignmentReconciler
 
     /// Coordinates task mutation workflows that combine assignment rules and persistence.
-    let taskMutationCoordinator: any TaskMutationCoordinator
+    var taskMutationCoordinator: any TaskMutationCoordinator
 
     /// Coordinates note mutation workflows that combine assignment rules and persistence.
-    let noteMutationCoordinator: any NoteMutationCoordinator
+    var noteMutationCoordinator: any NoteMutationCoordinator
 
     /// Plans and persists spread deletion reassignment workflows.
-    let spreadDeletionCoordinator: any SpreadDeletionCoordinator
+    var spreadDeletionCoordinator: any SpreadDeletionCoordinator
 
     /// Coordinates explicit task migration workflows and batch migration persistence.
-    let taskMigrationCoordinator: any TaskMigrationCoordinator
+    var taskMigrationCoordinator: any TaskMigrationCoordinator
 
     /// Coordinates explicit note migration workflows.
-    let noteMigrationCoordinator: any NoteMigrationCoordinator
+    var noteMigrationCoordinator: any NoteMigrationCoordinator
+
+    private var appClockObserverID: UUID?
 
     /// Version counter that increments on data mutations.
     ///
@@ -203,8 +208,7 @@ final class JournalManager {
     ///   - firstWeekday: The user's first day of week preference.
     ///   - creationPolicy: Policy for validating spread creation.
     init(
-        calendar: Calendar,
-        today: Date,
+        appClock: AppClock,
         taskRepository: any TaskRepository,
         spreadRepository: any SpreadRepository,
         eventRepository: any EventRepository,
@@ -227,8 +231,48 @@ final class JournalManager {
         taskMigrationCoordinator: (any TaskMigrationCoordinator)? = nil,
         noteMigrationCoordinator: (any NoteMigrationCoordinator)? = nil
     ) {
-        self.calendar = calendar
-        self.today = today
+        let resolvedConventionalDataModelBuilder = conventionalDataModelBuilder ?? ConventionalJournalDataModelBuilder(
+            calendar: appClock.calendar
+        )
+        let resolvedTraditionalDataModelBuilder = traditionalDataModelBuilder ?? TraditionalJournalDataModelBuilder(
+            calendar: appClock.calendar
+        )
+        let resolvedInboxResolver = inboxResolver ?? StandardInboxResolver(calendar: appClock.calendar)
+        let resolvedMigrationPlanner = migrationPlanner ?? StandardMigrationPlanner(calendar: appClock.calendar)
+        let resolvedOverdueEvaluator = overdueEvaluator ?? StandardOverdueEvaluator(
+            calendar: appClock.calendar,
+            today: appClock.now,
+            migrationPlanner: resolvedMigrationPlanner
+        )
+        let resolvedTaskAssignmentReconciler = taskAssignmentReconciler ?? StandardTaskAssignmentReconciler(
+            calendar: appClock.calendar
+        )
+        let resolvedNoteAssignmentReconciler = noteAssignmentReconciler ?? StandardNoteAssignmentReconciler(
+            calendar: appClock.calendar
+        )
+        let resolvedTaskMutationCoordinator = taskMutationCoordinator ?? StandardTaskMutationCoordinator(
+            taskRepository: taskRepository,
+            taskAssignmentReconciler: resolvedTaskAssignmentReconciler,
+            logger: LoggerAdapter(info: { message in
+                Self.logger.info("\(message, privacy: .public)")
+            }),
+            calendar: appClock.calendar
+        )
+        let resolvedNoteMutationCoordinator = noteMutationCoordinator ?? StandardNoteMutationCoordinator(
+            noteRepository: noteRepository,
+            noteAssignmentReconciler: resolvedNoteAssignmentReconciler,
+            logger: LoggerAdapter(info: { message in
+                Self.logger.info("\(message, privacy: .public)")
+            }),
+            calendar: appClock.calendar
+        )
+        let resolvedSpreadDeletionPlanner = spreadDeletionPlanner ?? StandardSpreadDeletionPlanner(
+            calendar: appClock.calendar
+        )
+
+        self.appClock = appClock
+        self.calendar = appClock.calendar
+        self.today = appClock.now
         self.taskRepository = taskRepository
         self.spreadRepository = spreadRepository
         self.eventRepository = eventRepository
@@ -237,45 +281,15 @@ final class JournalManager {
         self.bujoMode = bujoMode
         self.firstWeekday = firstWeekday
         self.creationPolicy = creationPolicy
-        self.conventionalDataModelBuilder = conventionalDataModelBuilder ?? ConventionalJournalDataModelBuilder(
-            calendar: calendar
-        )
-        self.traditionalDataModelBuilder = traditionalDataModelBuilder ?? TraditionalJournalDataModelBuilder(
-            calendar: calendar
-        )
-        let resolvedMigrationPlanner = migrationPlanner ?? StandardMigrationPlanner(calendar: calendar)
-        let resolvedTaskAssignmentReconciler = taskAssignmentReconciler ?? StandardTaskAssignmentReconciler(
-            calendar: calendar
-        )
-        let resolvedNoteAssignmentReconciler = noteAssignmentReconciler ?? StandardNoteAssignmentReconciler(
-            calendar: calendar
-        )
-        let resolvedSpreadDeletionPlanner = spreadDeletionPlanner ?? StandardSpreadDeletionPlanner(calendar: calendar)
-        self.inboxResolver = inboxResolver ?? StandardInboxResolver(calendar: calendar)
+        self.conventionalDataModelBuilder = resolvedConventionalDataModelBuilder
+        self.traditionalDataModelBuilder = resolvedTraditionalDataModelBuilder
+        self.inboxResolver = resolvedInboxResolver
         self.migrationPlanner = resolvedMigrationPlanner
-        self.overdueEvaluator = overdueEvaluator ?? StandardOverdueEvaluator(
-            calendar: calendar,
-            today: today,
-            migrationPlanner: resolvedMigrationPlanner
-        )
+        self.overdueEvaluator = resolvedOverdueEvaluator
         self.taskAssignmentReconciler = resolvedTaskAssignmentReconciler
         self.noteAssignmentReconciler = resolvedNoteAssignmentReconciler
-        self.taskMutationCoordinator = taskMutationCoordinator ?? StandardTaskMutationCoordinator(
-            taskRepository: taskRepository,
-            taskAssignmentReconciler: resolvedTaskAssignmentReconciler,
-            logger: LoggerAdapter(info: { message in
-                Self.logger.info("\(message, privacy: .public)")
-            }),
-            calendar: calendar
-        )
-        self.noteMutationCoordinator = noteMutationCoordinator ?? StandardNoteMutationCoordinator(
-            noteRepository: noteRepository,
-            noteAssignmentReconciler: resolvedNoteAssignmentReconciler,
-            logger: LoggerAdapter(info: { message in
-                Self.logger.info("\(message, privacy: .public)")
-            }),
-            calendar: calendar
-        )
+        self.taskMutationCoordinator = resolvedTaskMutationCoordinator
+        self.noteMutationCoordinator = resolvedNoteMutationCoordinator
         self.spreadDeletionCoordinator = spreadDeletionCoordinator ?? StandardSpreadDeletionCoordinator(
             planner: resolvedSpreadDeletionPlanner,
             spreadRepository: spreadRepository,
@@ -297,6 +311,7 @@ final class JournalManager {
                 Self.logger.info("\(message, privacy: .public)")
             })
         )
+        wireAppClock()
     }
 
     // MARK: - Factory Methods
@@ -315,6 +330,7 @@ final class JournalManager {
     ///   - creationPolicy: Policy for spread creation (defaults to standard policy).
     /// - Returns: A configured JournalManager with data loaded.
     static func make(
+        appClock: AppClock? = nil,
         calendar: Calendar? = nil,
         today: Date? = nil,
         taskRepository: (any TaskRepository)? = nil,
@@ -332,12 +348,18 @@ final class JournalManager {
             return cal
         }
 
+        let resolvedCalendar = calendar ?? testCalendar
         let resolvedToday = today ?? .now
         let defaultPolicy = StandardCreationPolicy(today: resolvedToday, firstWeekday: firstWeekday)
+        let resolvedClock = appClock ?? AppClock.fixed(
+            now: resolvedToday,
+            calendar: resolvedCalendar,
+            timeZone: resolvedCalendar.timeZone,
+            locale: resolvedCalendar.locale ?? Locale(identifier: "en_US_POSIX")
+        )
 
         let manager = JournalManager(
-            calendar: calendar ?? testCalendar,
-            today: resolvedToday,
+            appClock: resolvedClock,
             taskRepository: taskRepository ?? InMemoryTaskRepository(),
             spreadRepository: spreadRepository ?? InMemorySpreadRepository(),
             eventRepository: eventRepository ?? InMemoryEventRepository(),
@@ -421,6 +443,87 @@ final class JournalManager {
         case .traditional:
             traditionalDataModelBuilder
         }
+    }
+
+    private func wireAppClock() {
+        appClockObserverID = appClock.addObserver { [weak self] snapshot in
+            self?.apply(snapshot: snapshot)
+        }
+    }
+
+    private func apply(snapshot: AppClockSnapshot) {
+        let previousToday = today
+
+        calendar = snapshot.calendar
+        today = snapshot.now
+
+        guard previousToday != today ||
+                snapshot.refreshMetadata.calendarChanged ||
+                snapshot.refreshMetadata.timeZoneChanged ||
+                snapshot.refreshMetadata.localeChanged else {
+            return
+        }
+
+        rebuildTemporalCollaborators()
+        buildDataModel()
+    }
+
+    private func rebuildTemporalCollaborators() {
+        creationPolicy = StandardCreationPolicy(today: today, firstWeekday: firstWeekday)
+        conventionalDataModelBuilder = ConventionalJournalDataModelBuilder(calendar: calendar)
+        traditionalDataModelBuilder = TraditionalJournalDataModelBuilder(calendar: calendar)
+
+        let resolvedMigrationPlanner = StandardMigrationPlanner(calendar: calendar)
+        let resolvedTaskAssignmentReconciler = StandardTaskAssignmentReconciler(calendar: calendar)
+        let resolvedNoteAssignmentReconciler = StandardNoteAssignmentReconciler(calendar: calendar)
+        let resolvedSpreadDeletionPlanner = StandardSpreadDeletionPlanner(calendar: calendar)
+
+        inboxResolver = StandardInboxResolver(calendar: calendar)
+        migrationPlanner = resolvedMigrationPlanner
+        overdueEvaluator = StandardOverdueEvaluator(
+            calendar: calendar,
+            today: today,
+            migrationPlanner: resolvedMigrationPlanner
+        )
+        taskAssignmentReconciler = resolvedTaskAssignmentReconciler
+        noteAssignmentReconciler = resolvedNoteAssignmentReconciler
+        taskMutationCoordinator = StandardTaskMutationCoordinator(
+            taskRepository: taskRepository,
+            taskAssignmentReconciler: resolvedTaskAssignmentReconciler,
+            logger: LoggerAdapter(info: { message in
+                Self.logger.info("\(message, privacy: .public)")
+            }),
+            calendar: calendar
+        )
+        noteMutationCoordinator = StandardNoteMutationCoordinator(
+            noteRepository: noteRepository,
+            noteAssignmentReconciler: resolvedNoteAssignmentReconciler,
+            logger: LoggerAdapter(info: { message in
+                Self.logger.info("\(message, privacy: .public)")
+            }),
+            calendar: calendar
+        )
+        spreadDeletionCoordinator = StandardSpreadDeletionCoordinator(
+            planner: resolvedSpreadDeletionPlanner,
+            spreadRepository: spreadRepository,
+            taskRepository: taskRepository,
+            noteRepository: noteRepository,
+            logger: LoggerAdapter(info: { message in
+                Self.logger.info("\(message, privacy: .public)")
+            })
+        )
+        taskMigrationCoordinator = StandardTaskMigrationCoordinator(
+            taskRepository: taskRepository,
+            logger: LoggerAdapter(info: { message in
+                Self.logger.info("\(message, privacy: .public)")
+            })
+        )
+        noteMigrationCoordinator = StandardNoteMigrationCoordinator(
+            noteRepository: noteRepository,
+            logger: LoggerAdapter(info: { message in
+                Self.logger.info("\(message, privacy: .public)")
+            })
+        )
     }
 
     /// Refreshes derived journal state for the supplied invalidation scope.
