@@ -14,6 +14,15 @@ struct TargetedJournalMutationTests {
         calendar.date(from: DateComponents(year: 2026, month: 1, day: 15))!
     }
 
+    private static var appClock: AppClock {
+        AppClock.fixed(
+            now: today,
+            calendar: calendar,
+            timeZone: calendar.timeZone,
+            locale: calendar.locale ?? Locale(identifier: "en_US_POSIX")
+        )
+    }
+
     @Test func updateTaskTitleUsesScopedRefreshWithoutReloadingTaskRepository() async throws {
         let dayDate = Self.today
         let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: Self.calendar)
@@ -28,8 +37,7 @@ struct TargetedJournalMutationTests {
         let builderTracker = DataModelBuilderTracker()
         let builder = TrackingConventionalBuilder(calendar: Self.calendar, tracker: builderTracker)
         let manager = JournalManager(
-            calendar: Self.calendar,
-            today: Self.today,
+            appClock: Self.appClock,
             taskRepository: taskRepository,
             spreadRepository: InMemorySpreadRepository(spreads: [daySpread]),
             eventRepository: InMemoryEventRepository(),
@@ -66,8 +74,7 @@ struct TargetedJournalMutationTests {
         let builderTracker = DataModelBuilderTracker()
         let builder = TrackingConventionalBuilder(calendar: Self.calendar, tracker: builderTracker)
         let manager = JournalManager(
-            calendar: Self.calendar,
-            today: Self.today,
+            appClock: Self.appClock,
             taskRepository: InMemoryTaskRepository(),
             spreadRepository: InMemorySpreadRepository(spreads: [daySpread]),
             eventRepository: InMemoryEventRepository(),
@@ -105,8 +112,7 @@ struct TargetedJournalMutationTests {
         let builderTracker = DataModelBuilderTracker()
         let builder = TrackingConventionalBuilder(calendar: Self.calendar, tracker: builderTracker)
         let manager = JournalManager(
-            calendar: Self.calendar,
-            today: Self.today,
+            appClock: Self.appClock,
             taskRepository: InMemoryTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [daySpread, monthSpread]),
             eventRepository: InMemoryEventRepository(),
@@ -143,8 +149,7 @@ struct TargetedJournalMutationTests {
         let builderTracker = DataModelBuilderTracker()
         let builder = TrackingConventionalBuilder(calendar: Self.calendar, tracker: builderTracker)
         let manager = JournalManager(
-            calendar: Self.calendar,
-            today: Self.today,
+            appClock: Self.appClock,
             taskRepository: InMemoryTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [daySpread, monthSpread]),
             eventRepository: InMemoryEventRepository(),

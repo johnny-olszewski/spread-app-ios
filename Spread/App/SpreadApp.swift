@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct SpreadApp: App {
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "App")
+    @State private var runtimeStore = AppRuntimeStore()
 
     init() {
         SpreadApp.logSupabaseConfiguration()
@@ -11,7 +12,7 @@ struct SpreadApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(runtimeStore: runtimeStore)
         }
     }
 

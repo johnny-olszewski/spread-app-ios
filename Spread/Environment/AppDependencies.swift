@@ -136,20 +136,18 @@ struct AppDependencies: @unchecked Sendable {
     /// Creates a JournalManager configured with these dependencies' repositories.
     ///
     /// - Parameters:
-    ///   - calendar: The calendar for date calculations (defaults to current).
-    ///   - today: The current date (defaults to now).
+    ///   - appClock: The shared app clock for temporal context and refreshes.
     ///   - bujoMode: The initial BuJo mode (defaults to conventional).
     ///   - firstWeekday: The user's first day of week preference (defaults to system default).
     /// - Returns: A configured JournalManager with data loaded.
+    @MainActor
     func makeJournalManager(
-        calendar: Calendar = .current,
-        today: Date = .now,
+        appClock: AppClock? = nil,
         bujoMode: BujoMode = .conventional,
         firstWeekday: FirstWeekday = .systemDefault
     ) async throws -> JournalManager {
         try await JournalManager.make(
-            calendar: calendar,
-            today: today,
+            appClock: appClock ?? AppClock.live(),
             taskRepository: taskRepository,
             spreadRepository: spreadRepository,
             eventRepository: eventRepository,

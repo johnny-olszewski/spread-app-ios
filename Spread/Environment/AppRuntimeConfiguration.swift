@@ -12,8 +12,8 @@ struct AppRuntimeConfiguration {
     /// Override sync policy selection (e.g., DebugSyncPolicy).
     var makeSyncPolicy: (() -> SyncPolicy)?
 
-    /// Override the "today" date used for journal initialization.
-    var resolveToday: (() -> Date)?
+    /// Override the shared app clock for debug, preview, and tests.
+    var makeAppClock: (() -> AppClock)?
 
     /// Optional hook to load mock data after JournalManager initialization.
     var loadMockDataSet: ((JournalManager) async throws -> Void)?

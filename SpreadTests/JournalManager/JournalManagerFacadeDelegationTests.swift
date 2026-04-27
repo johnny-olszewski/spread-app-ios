@@ -14,6 +14,15 @@ struct JournalManagerFacadeDelegationTests {
         calendar.date(from: DateComponents(year: 2026, month: 1, day: 15))!
     }
 
+    private static var appClock: AppClock {
+        AppClock.fixed(
+            now: today,
+            calendar: calendar,
+            timeZone: calendar.timeZone,
+            locale: calendar.locale ?? Locale(identifier: "en_US_POSIX")
+        )
+    }
+
     @Test func reloadUsesInjectedConventionalBuilder() async throws {
         let spread = DataModel.Spread(period: .day, date: Self.today, calendar: Self.calendar)
         let expected = SpreadDataModel(spread: spread)
@@ -24,8 +33,7 @@ struct JournalManagerFacadeDelegationTests {
         )
 
         let manager = JournalManager(
-            calendar: Self.calendar,
-            today: Self.today,
+            appClock: Self.appClock,
             taskRepository: InMemoryTaskRepository(),
             spreadRepository: InMemorySpreadRepository(spreads: [spread]),
             eventRepository: InMemoryEventRepository(),
@@ -46,8 +54,7 @@ struct JournalManagerFacadeDelegationTests {
         let task = DataModel.Task(title: "task", date: Self.today, period: .day, status: .open)
         let migrationTracker = MigrationTracker()
         let manager = JournalManager(
-            calendar: Self.calendar,
-            today: Self.today,
+            appClock: Self.appClock,
             taskRepository: InMemoryTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [spread]),
             eventRepository: InMemoryEventRepository(),
@@ -74,8 +81,7 @@ struct JournalManagerFacadeDelegationTests {
         let replacementSpread = DataModel.Spread(period: .month, date: Self.today, calendar: Self.calendar)
         let deletionTracker = DeletionTracker()
         let manager = JournalManager(
-            calendar: Self.calendar,
-            today: Self.today,
+            appClock: Self.appClock,
             taskRepository: InMemoryTaskRepository(),
             spreadRepository: InMemorySpreadRepository(spreads: [spread]),
             eventRepository: InMemoryEventRepository(),
