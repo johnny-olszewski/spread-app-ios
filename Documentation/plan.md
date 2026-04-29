@@ -56,7 +56,7 @@
 - Overlays render between the week background and day cells and remain decorative-only.
 - Package-level logic tests and focused `Spread` integration tests protect the contract.
 
-### [SPRD-183] Feature: add row-bounded overlay seam to MonthCalendarView
+### [SPRD-183] Feature: add row-bounded overlay seam to MonthCalendarView - [x] Complete
 - **Context**: `MonthCalendarView` currently supports only single-slot content plus a week background seam. The rooted spread navigator now needs multiday coverage cues, and future calendar consumers may need other same-row date-driven decorations. Cross-row continuation was considered and explicitly deferred to keep the shell simpler and more predictable.
 - **Description**: Extend `johnnyo-foundation` with a separate optional row-overlay seam for `MonthCalendarView` that supports decorative same-row overlay segments across visible day cells.
 - **Spec**: Shared Month Calendar Component; Month Calendar Row Overlays
