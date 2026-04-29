@@ -207,16 +207,60 @@ class LocalhostScenarioUITestCase: XCTestCase {
         waitForElement(searchField)
     }
 
-    func openDebug(in app: XCUIApplication) {
-        let debugTab = app.tabBars.buttons["Debug"].firstMatch
-        waitForElement(debugTab)
-        debugTab.tap()
-
-        let nowLabel = anyElement(
+    func waitForTemporalHarness(in app: XCUIApplication) {
+        let harness = anyElement(
             in: app,
-            identifier: Definitions.AccessibilityIdentifiers.Debug.temporalNow
+            identifier: Definitions.AccessibilityIdentifiers.Debug.temporalHarness
         )
-        waitForElement(nowLabel)
+        waitForElement(harness)
+    }
+
+    func temporalDiagnosticLabel(
+        in app: XCUIApplication,
+        identifier: String
+    ) -> String {
+        let element = anyElement(in: app, identifier: identifier)
+        waitForElement(element)
+        return element.label
+    }
+
+    func waitForTemporalDiagnostic(
+        identifier: String,
+        in app: XCUIApplication,
+        satisfying predicate: (String) -> Bool,
+        timeout: TimeInterval = 5,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let label = temporalDiagnosticLabel(in: app, identifier: identifier)
+            if predicate(label) {
+                return
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+
+        let label = temporalDiagnosticLabel(in: app, identifier: identifier)
+        XCTAssertTrue(predicate(label), file: file, line: line)
+    }
+
+    func waitForTemporalDiagnosticChange(
+        identifier: String,
+        from previousLabel: String,
+        in app: XCUIApplication,
+        timeout: TimeInterval = 5,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        waitForTemporalDiagnostic(
+            identifier: identifier,
+            in: app,
+            satisfying: { $0 != previousLabel },
+            timeout: timeout,
+            file: file,
+            line: line
+        )
     }
 
     func openSpreads(in app: XCUIApplication) {
@@ -232,7 +276,7 @@ class LocalhostScenarioUITestCase: XCTestCase {
     }
 
     func advanceClockByOneDay(in app: XCUIApplication) {
-        openDebug(in: app)
+        waitForTemporalHarness(in: app)
 
         let advanceButton = anyElement(
             in: app,

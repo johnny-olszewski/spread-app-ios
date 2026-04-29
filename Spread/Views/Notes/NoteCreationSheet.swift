@@ -24,10 +24,10 @@ struct NoteCreationSheet: View {
 
     /// Callback when a note is created.
     let onNoteCreated: (DataModel.Note) -> Void
-    private let presentedTemporalContext: PresentedTemporalContext
 
     // MARK: - State
 
+    @State private var presentedTemporalContext: PresentedTemporalContext
     @State private var title: String = ""
     @State private var content: String = ""
     @State private var selectedPeriod: Period = .day
@@ -48,7 +48,8 @@ struct NoteCreationSheet: View {
         self.journalManager = journalManager
         self.selectedSpread = selectedSpread
         self.onNoteCreated = onNoteCreated
-        self.presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        let presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        _presentedTemporalContext = State(initialValue: presentedTemporalContext)
 
         let configuration = NoteCreationConfiguration(
             calendar: presentedTemporalContext.calendar,

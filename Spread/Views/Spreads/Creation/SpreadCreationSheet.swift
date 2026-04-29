@@ -36,10 +36,10 @@ struct SpreadCreationSheet: View {
 
     /// Callback when an existing multiday spread date range is saved.
     let onSpreadDatesSaved: (DataModel.Spread) -> Void
-    private let presentedTemporalContext: PresentedTemporalContext
 
     // MARK: - State
 
+    @State private var presentedTemporalContext: PresentedTemporalContext
     @State private var selectedPeriod: Period = .day
     @State private var selectedDate: Date = Date()
     @State private var multidayStartDate: Date = Date()
@@ -63,7 +63,8 @@ struct SpreadCreationSheet: View {
         self.firstWeekday = firstWeekday
         self.initialPeriod = initialPeriod
         self.initialDate = initialDate
-        self.presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        let presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        _presentedTemporalContext = State(initialValue: presentedTemporalContext)
         self.mode = .create
         self.editingSpread = nil
         self.onSpreadCreated = onSpreadCreated
@@ -95,7 +96,8 @@ struct SpreadCreationSheet: View {
         self.firstWeekday = firstWeekday
         self.initialPeriod = .multiday
         self.initialDate = spread.startDate ?? spread.date
-        self.presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        let presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        _presentedTemporalContext = State(initialValue: presentedTemporalContext)
         self.mode = .editDates(
             spreadID: spread.id,
             originalStartDate: spread.startDate ?? spread.date,

@@ -24,10 +24,10 @@ struct NoteDetailSheet: View {
 
     /// Callback when the note is deleted.
     let onDelete: () -> Void
-    private let presentedTemporalContext: PresentedTemporalContext
 
     // MARK: - State
 
+    @State private var presentedTemporalContext: PresentedTemporalContext
     @State private var title: String = ""
     @State private var content: String = ""
     @State private var selectedPeriod: Period = .day
@@ -42,7 +42,8 @@ struct NoteDetailSheet: View {
         self.note = note
         self.journalManager = journalManager
         self.onDelete = onDelete
-        self.presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        let presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        _presentedTemporalContext = State(initialValue: presentedTemporalContext)
         _title = State(initialValue: note.title)
         _content = State(initialValue: note.content)
         _selectedPeriod = State(initialValue: note.period)
