@@ -7,6 +7,26 @@ struct AppClockContext {
     let calendar: Calendar
     let timeZone: TimeZone
     let locale: Locale
+
+    func updating(
+        now: Date? = nil,
+        calendar: Calendar? = nil,
+        timeZone: TimeZone? = nil,
+        locale: Locale? = nil
+    ) -> AppClockContext {
+        let resolvedTimeZone = timeZone ?? self.timeZone
+        let resolvedLocale = locale ?? self.locale
+        var resolvedCalendar = calendar ?? self.calendar
+        resolvedCalendar.timeZone = resolvedTimeZone
+        resolvedCalendar.locale = resolvedLocale
+
+        return AppClockContext(
+            now: now ?? self.now,
+            calendar: resolvedCalendar,
+            timeZone: resolvedTimeZone,
+            locale: resolvedLocale
+        )
+    }
 }
 
 struct AppClockSnapshot {
@@ -26,6 +46,7 @@ struct AppClockRefreshMetadata {
         case calendarDayChanged
         case systemTimeZoneChanged
         case currentLocaleChanged
+        case currentCalendarChanged
         case manual
     }
 
@@ -89,12 +110,13 @@ final class AppClockSource {
         self.fixedContext = fixedContext
     }
 
-    static func live() -> AppClockSource {
+    static func live(fixedContext: AppClockContext? = nil) -> AppClockSource {
         AppClockSource(
             now: { .now },
             calendar: { .autoupdatingCurrent },
             timeZone: { .autoupdatingCurrent },
-            locale: { .autoupdatingCurrent }
+            locale: { .autoupdatingCurrent },
+            fixedContext: fixedContext
         )
     }
 
@@ -120,6 +142,10 @@ final class AppClockSource {
 
     func setFixedContext(_ context: AppClockContext?) {
         fixedContext = context
+    }
+
+    var isUsingFixedContext: Bool {
+        fixedContext != nil
     }
 }
 
@@ -221,8 +247,20 @@ final class AppClock {
         observers[id] = nil
     }
 
+    var isUsingFixedContext: Bool {
+        source.isUsingFixedContext
+    }
+
     func sceneDidBecomeActive() {
         refresh(reason: .sceneDidBecomeActive)
+    }
+
+    func setContextOverride(
+        _ context: AppClockContext?,
+        reason: AppClockRefreshMetadata.Reason
+    ) {
+        source.setFixedContext(context)
+        refresh(reason: reason)
     }
 
     func refresh(reason: AppClockRefreshMetadata.Reason) {

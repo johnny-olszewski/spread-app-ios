@@ -143,7 +143,7 @@
   - Regression tests proving open sheets/forms do not silently rewrite draft state on temporal refresh.
 - **Dependencies**: SPRD-179, SPRD-155, SPRD-157, SPRD-158
 
-### [SPRD-181] Test/Debug: add deterministic and runtime-controllable AppClock infrastructure
+### [SPRD-181] Test/Debug: add deterministic and runtime-controllable AppClock infrastructure - [x] Complete
 - **Context**: The existing localhost testing strategy relies on fixed `today` injection at launch, but AppClock behavior also needs same-session transition coverage such as midnight rollover and context changes while the app remains open.
 - **Description**: Extend debug and test infrastructure so temporal context can be fixed at startup or controlled at runtime in localhost, previews, unit tests, and UI scenarios.
 - **Spec**: AppClock and Temporal Context; Testing

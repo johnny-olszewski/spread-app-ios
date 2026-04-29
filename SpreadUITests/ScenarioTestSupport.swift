@@ -207,6 +207,41 @@ class LocalhostScenarioUITestCase: XCTestCase {
         waitForElement(searchField)
     }
 
+    func openDebug(in app: XCUIApplication) {
+        let debugTab = app.tabBars.buttons["Debug"].firstMatch
+        waitForElement(debugTab)
+        debugTab.tap()
+
+        let nowLabel = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.Debug.temporalNow
+        )
+        waitForElement(nowLabel)
+    }
+
+    func openSpreads(in app: XCUIApplication) {
+        let spreadsTab = app.tabBars.buttons["Spreads"].firstMatch
+        waitForElement(spreadsTab)
+        spreadsTab.tap()
+
+        let title = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.SpreadContent.title
+        )
+        waitForElement(title)
+    }
+
+    func advanceClockByOneDay(in app: XCUIApplication) {
+        openDebug(in: app)
+
+        let advanceButton = anyElement(
+            in: app,
+            identifier: Definitions.AccessibilityIdentifiers.Debug.temporalAdvanceDay
+        )
+        waitForElement(advanceButton)
+        advanceButton.tap()
+    }
+
     func openTaskForEditing(title: String, in app: XCUIApplication) {
         let taskRow = anyElement(
             in: app,

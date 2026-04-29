@@ -3,21 +3,14 @@ import SwiftUI
 
 extension AppRuntimeConfiguration {
     @MainActor
-    private static func launchAppClock() -> AppClock {
-        guard let today = AppLaunchConfiguration.current.today else {
+    static func appClock(for launchConfiguration: AppLaunchConfiguration) -> AppClock {
+        guard let startupClockContext = launchConfiguration.startupClockContext else {
             return .live()
         }
 
-        var calendar = Calendar.autoupdatingCurrent
-        let timeZone = calendar.timeZone
-        let locale = calendar.locale ?? .autoupdatingCurrent
-        calendar.locale = locale
-
-        return .fixed(
-            now: today,
-            calendar: calendar,
-            timeZone: timeZone,
-            locale: locale
+        return AppClock(
+            source: .live(fixedContext: startupClockContext),
+            notificationBridge: AppClockNotificationBridge.live()
         )
     }
 
@@ -47,7 +40,7 @@ extension AppRuntimeConfiguration {
                 DebugSyncPolicy()
             },
             makeAppClock: {
-                launchAppClock()
+                appClock(for: AppLaunchConfiguration.current)
             },
             loadMockDataSet: { journalManager in
                 if let dataSet = mockDataSetToLoad(
@@ -60,13 +53,14 @@ extension AppRuntimeConfiguration {
                     journalManager.bujoMode = bujoMode
                 }
             },
-            makeDebugMenuView: { dependencies, journalManager, authManager, syncEngine in
+            makeDebugMenuView: { dependencies, journalManager, authManager, syncEngine, appClock in
                 AnyView(
                     DebugMenuView(
                         dependencies: dependencies,
                         journalManager: journalManager,
                         authManager: authManager,
-                        syncEngine: syncEngine
+                        syncEngine: syncEngine,
+                        appClock: appClock
                     )
                 )
             },

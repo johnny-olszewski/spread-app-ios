@@ -10,6 +10,7 @@ struct RootNavigationView: View {
     let authManager: AuthManager
     let dependencies: AppDependencies
     let syncEngine: SyncEngine?
+    let appClock: AppClock
     let makeDebugMenuView: DebugMenuViewFactory?
 
     @State private var selectedTab: NavigationTab = .spreads
@@ -21,12 +22,14 @@ struct RootNavigationView: View {
         authManager: AuthManager,
         dependencies: AppDependencies,
         syncEngine: SyncEngine? = nil,
+        appClock: AppClock,
         makeDebugMenuView: DebugMenuViewFactory? = nil
     ) {
         self.journalManager = journalManager
         self.authManager = authManager
         self.dependencies = dependencies
         self.syncEngine = syncEngine
+        self.appClock = appClock
         self.makeDebugMenuView = makeDebugMenuView
     }
 
@@ -148,7 +151,7 @@ struct RootNavigationView: View {
     @ViewBuilder
     private var debugMenuView: some View {
         if let view = makeDebugMenuView?(
-            dependencies, journalManager, authManager, syncEngine
+            dependencies, journalManager, authManager, syncEngine, appClock
         ) {
             view
         } else {
@@ -175,7 +178,8 @@ private struct NonSpreadNavigationTitleModifier: ViewModifier {
     RootNavigationView(
         journalManager: .previewInstance,
         authManager: .makeForPreview(),
-        dependencies: try! .makeForPreview()
+        dependencies: try! .makeForPreview(),
+        appClock: .live()
     )
 }
 
@@ -183,6 +187,7 @@ private struct NonSpreadNavigationTitleModifier: ViewModifier {
     RootNavigationView(
         journalManager: .previewInstance,
         authManager: .makeForPreview(),
-        dependencies: try! .makeForPreview()
+        dependencies: try! .makeForPreview(),
+        appClock: .live()
     )
 }

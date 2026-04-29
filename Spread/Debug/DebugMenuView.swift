@@ -27,6 +27,9 @@ struct DebugMenuView: View {
     /// The sync engine for inspecting sync state.
     let syncEngine: SyncEngine?
 
+    /// Shared app clock for temporal-context inspection and localhost controls.
+    let appClock: AppClock
+
     @State private var isLoading = false
     @State private var loadingDataSet: MockDataSet?
     @State private var showError = false
@@ -60,6 +63,7 @@ struct DebugMenuView: View {
         List {
             buildInfoSection
             appearanceSection
+            temporalContextSection
             supabaseSection
             authSection
             syncSection
@@ -165,6 +169,79 @@ struct DebugMenuView: View {
             Label("Supabase", systemImage: "cloud")
         } footer: {
             Text("Supabase configuration is driven by the resolved Data Environment. Debug localhost bypasses Supabase entirely.")
+        }
+    }
+
+    // MARK: - Temporal Context Section
+
+    @ViewBuilder
+    private var temporalContextSection: some View {
+        Section {
+            LabeledContent("Now", value: temporalNowLabel)
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Debug.temporalNow)
+            LabeledContent("Time Zone", value: appClock.timeZone.identifier)
+            LabeledContent("Locale", value: appClock.locale.identifier)
+            LabeledContent("Calendar", value: appClock.calendar.identifier.debugName)
+            LabeledContent("Override", value: appClock.isUsingFixedContext ? "Fixed" : "System")
+
+            if DataEnvironment.current == .localhost {
+                Button("Advance +1 Hour") {
+                    appClock.advanceDebugClock(
+                        by: DateComponents(hour: 1),
+                        reason: .significantTimeChange
+                    )
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Debug.temporalAdvanceHour)
+
+                Button("Advance +1 Day") {
+                    appClock.advanceDebugClock(
+                        by: DateComponents(day: 1),
+                        reason: .calendarDayChanged
+                    )
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Debug.temporalAdvanceDay)
+
+                Button("Use UTC Time Zone") {
+                    guard let timeZone = TimeZone(identifier: "UTC") else { return }
+                    appClock.setDebugTimeZone(timeZone)
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Debug.temporalSetUTC)
+
+                Button("Use New York Time Zone") {
+                    guard let timeZone = TimeZone(identifier: "America/New_York") else { return }
+                    appClock.setDebugTimeZone(timeZone)
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Debug.temporalSetNewYork)
+
+                Button("Use French Locale") {
+                    appClock.setDebugLocale(Locale(identifier: "fr_FR"))
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Debug.temporalSetFrenchLocale)
+
+                Button("Use POSIX English Locale") {
+                    appClock.setDebugLocale(Locale(identifier: "en_US_POSIX"))
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Debug.temporalSetEnglishLocale)
+
+                Button("Use Gregorian Calendar") {
+                    appClock.setDebugCalendarIdentifier(.gregorian)
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Debug.temporalSetGregorianCalendar)
+
+                Button("Use Buddhist Calendar") {
+                    appClock.setDebugCalendarIdentifier(.buddhist)
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Debug.temporalSetBuddhistCalendar)
+
+                Button("Resume Live System Clock", role: .destructive) {
+                    appClock.clearDebugOverride(reason: .sceneDidBecomeActive)
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Debug.temporalResumeLive)
+            }
+        } header: {
+            Label("Temporal Context", systemImage: "clock")
+        } footer: {
+            Text("Localhost can freeze or mutate AppClock at runtime without rebuilding the app runtime. Production builds expose no temporal controls.")
         }
     }
 
@@ -531,6 +608,55 @@ struct DebugMenuView: View {
             }
         }
     }
+
+    private var temporalNowLabel: String {
+        appClock.now.formatted(date: .abbreviated, time: .shortened)
+    }
+}
+
+private extension Calendar.Identifier {
+    var debugName: String {
+        switch self {
+        case .gregorian:
+            return "gregorian"
+        case .bangla:
+            return "bangla"
+        case .buddhist:
+            return "buddhist"
+        case .chinese:
+            return "chinese"
+        case .coptic:
+            return "coptic"
+        case .ethiopicAmeteAlem:
+            return "ethiopicAmeteAlem"
+        case .ethiopicAmeteMihret:
+            return "ethiopicAmeteMihret"
+        case .gujarati:
+            return "gujarati"
+        case .hebrew:
+            return "hebrew"
+        case .indian:
+            return "indian"
+        case .islamic:
+            return "islamic"
+        case .islamicCivil:
+            return "islamicCivil"
+        case .islamicTabular:
+            return "islamicTabular"
+        case .islamicUmmAlQura:
+            return "islamicUmmAlQura"
+        case .iso8601:
+            return "iso8601"
+        case .japanese:
+            return "japanese"
+        case .persian:
+            return "persian"
+        case .republicOfChina:
+            return "republicOfChina"
+        @unknown default:
+            return "unknown"
+        }
+    }
 }
 
 #Preview {
@@ -539,7 +665,8 @@ struct DebugMenuView: View {
             dependencies: try! .makeForPreview(),
             journalManager: .previewInstance,
             authManager: .makeForPreview(),
-            syncEngine: nil
+            syncEngine: nil,
+            appClock: .live()
         )
     }
 }
