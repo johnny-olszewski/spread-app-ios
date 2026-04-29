@@ -176,7 +176,7 @@
     - open form draft stability during temporal refresh
 - **Dependencies**: SPRD-179
 
-### [SPRD-182] Infra/UI: codify local minute-based rendering for live calendar surfaces
+### [SPRD-182] Infra/UI: codify local minute-based rendering for live calendar surfaces - [x] Complete
 - **Context**: The app needs a clear boundary between coarse semantic clock refreshes and future minute-level live rendering such as a current-time line on a day calendar. Without an explicit seam, developers may incorrectly turn AppClock into a global timer.
 - **Description**: Add the architectural guardrails and initial support layer for minute-sensitive view-local rendering while keeping AppClock coarse-grained.
 - **Spec**: AppClock and Temporal Context
