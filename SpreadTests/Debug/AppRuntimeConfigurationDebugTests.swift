@@ -3,6 +3,7 @@ import Foundation
 import Testing
 @testable import Spread
 
+@MainActor
 struct AppRuntimeConfigurationDebugTests {
 
     /// Conditions: Debug launch config selects a mock data set in localhost mode.
@@ -33,6 +34,27 @@ struct AppRuntimeConfigurationDebugTests {
         )
 
         #expect(dataSet == nil)
+    }
+
+    /// Conditions: A localhost launch fixes multiple temporal inputs at startup.
+    /// Expected: The debug runtime builds an AppClock with the specified date, time zone, locale, and calendar.
+    @Test func launchConfigurationBuildsFixedStartupClockContext() {
+        let launchConfiguration = AppLaunchConfiguration.resolve(
+            launchArguments: [
+                "-Today", "2026-01-12",
+                "-TimeZone", "UTC",
+                "-Locale", "fr_FR",
+                "-Calendar", "buddhist"
+            ]
+        )
+
+        let appClock = AppRuntimeConfiguration.appClock(for: launchConfiguration)
+
+        #expect(appClock.isUsingFixedContext)
+        #expect(appClock.timeZone.secondsFromGMT() == 0)
+        #expect(appClock.locale.identifier == "fr_FR")
+        #expect(appClock.calendar.identifier == .buddhist)
+        #expect(appClock.now == launchConfiguration.today)
     }
 }
 #endif

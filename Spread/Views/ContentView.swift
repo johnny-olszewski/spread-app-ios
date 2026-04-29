@@ -36,6 +36,7 @@ struct ContentView: View {
                     authManager: runtime.authManager,
                     dependencies: runtime.dependencies,
                     syncEngine: runtime.syncEngine,
+                    appClock: runtime.appClock,
                     makeDebugMenuView: runtime.makeDebugMenuView
                 )
                 .environment(\.appClock, runtime.appClock)

@@ -368,5 +368,18 @@ struct Definitions {
                 "tasks.spreadpicker.multiday.\(spreadId).date.\(date)"
             }
         }
+
+        struct Debug {
+            static let temporalNow = "debug.temporal.now"
+            static let temporalAdvanceHour = "debug.temporal.advanceHour"
+            static let temporalAdvanceDay = "debug.temporal.advanceDay"
+            static let temporalSetUTC = "debug.temporal.timeZone.utc"
+            static let temporalSetNewYork = "debug.temporal.timeZone.newYork"
+            static let temporalSetFrenchLocale = "debug.temporal.locale.frFR"
+            static let temporalSetEnglishLocale = "debug.temporal.locale.enUSPOSIX"
+            static let temporalSetGregorianCalendar = "debug.temporal.calendar.gregorian"
+            static let temporalSetBuddhistCalendar = "debug.temporal.calendar.buddhist"
+            static let temporalResumeLive = "debug.temporal.resumeLive"
+        }
     }
 }
