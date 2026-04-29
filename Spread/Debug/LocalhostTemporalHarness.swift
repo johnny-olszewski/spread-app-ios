@@ -151,12 +151,44 @@ private struct LocalhostTemporalHarnessView: View {
                         identifier: Definitions.AccessibilityIdentifiers.Debug.temporalOverride
                     )
 
+                    diagnosticValue(
+                        title: "Reason",
+                        value: refreshReasonLabel(appClock.refreshMetadata.reason),
+                        identifier: Definitions.AccessibilityIdentifiers.Debug.temporalRefreshReason
+                    )
+
+                    diagnosticValue(
+                        title: "Refresh",
+                        value: "\(appClock.refreshRevision)",
+                        identifier: Definitions.AccessibilityIdentifiers.Debug.temporalRefreshRevision
+                    )
+
+                    diagnosticValue(
+                        title: "Semantic",
+                        value: "\(appClock.semanticRefreshRevision)",
+                        identifier: Definitions.AccessibilityIdentifiers.Debug.temporalSemanticRevision
+                    )
+
                     if let spreadDiagnostics {
                         diagnosticValue(
                             title: "Selection",
                             value: spreadDiagnostics.selectionID,
                             identifier: Definitions.AccessibilityIdentifiers.Debug.temporalSelectedSpreadID
                         )
+
+                        diagnosticValue(
+                            title: "Spread",
+                            value: spreadDiagnostics.title,
+                            identifier: Definitions.AccessibilityIdentifiers.Debug.temporalSelectedSpreadTitle
+                        )
+
+                        if let subtitle = spreadDiagnostics.subtitle {
+                            diagnosticValue(
+                                title: "Subtitle",
+                                value: subtitle,
+                                identifier: Definitions.AccessibilityIdentifiers.Debug.temporalSelectedSpreadSubtitle
+                            )
+                        }
                     }
 
                     if let presentedDiagnostics {
@@ -167,6 +199,12 @@ private struct LocalhostTemporalHarnessView: View {
                                 calendar: appClock.calendar
                             ),
                             identifier: Definitions.AccessibilityIdentifiers.Debug.temporalPresentedToday
+                        )
+
+                        diagnosticValue(
+                            title: "Frozen Calendar",
+                            value: calendarDebugName(presentedDiagnostics.calendarIdentifier),
+                            identifier: Definitions.AccessibilityIdentifiers.Debug.temporalPresentedCalendar
                         )
                     }
                 }
@@ -205,6 +243,27 @@ private struct LocalhostTemporalHarnessView: View {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: date)
+    }
+
+    private func refreshReasonLabel(_ reason: AppClockRefreshMetadata.Reason) -> String {
+        switch reason {
+        case .initial:
+            return "initial"
+        case .sceneDidBecomeActive:
+            return "sceneDidBecomeActive"
+        case .significantTimeChange:
+            return "significantTimeChange"
+        case .calendarDayChanged:
+            return "calendarDayChanged"
+        case .systemTimeZoneChanged:
+            return "systemTimeZoneChanged"
+        case .currentLocaleChanged:
+            return "currentLocaleChanged"
+        case .currentCalendarChanged:
+            return "currentCalendarChanged"
+        case .manual:
+            return "manual"
+        }
     }
 
     private func calendarDebugName(_ identifier: Calendar.Identifier) -> String {

@@ -35,6 +35,7 @@ struct AppClockSnapshot {
     let timeZone: TimeZone
     let locale: Locale
     let refreshMetadata: AppClockRefreshMetadata
+    let refreshRevision: Int
     let semanticRefreshRevision: Int
 }
 
@@ -163,6 +164,7 @@ final class AppClock {
     private(set) var timeZone: TimeZone
     private(set) var locale: Locale
     private(set) var refreshMetadata: AppClockRefreshMetadata
+    private(set) var refreshRevision = 0
     private(set) var semanticRefreshRevision = 0
 
     init(
@@ -232,6 +234,7 @@ final class AppClock {
             timeZone: timeZone,
             locale: locale,
             refreshMetadata: refreshMetadata,
+            refreshRevision: refreshRevision,
             semanticRefreshRevision: semanticRefreshRevision
         )
     }
@@ -275,10 +278,11 @@ final class AppClock {
         calendar = nextContext.calendar
         timeZone = nextContext.timeZone
         locale = nextContext.locale
+        refreshRevision += 1
         semanticRefreshRevision += 1
 
         Self.logger.debug(
-            "Refreshed app clock. reason=\(String(describing: reason), privacy: .public) revision=\(self.semanticRefreshRevision)"
+            "Refreshed app clock. reason=\(String(describing: reason), privacy: .public) revision=\(self.refreshRevision) semanticRevision=\(self.semanticRefreshRevision)"
         )
 
         let latestSnapshot = snapshot
