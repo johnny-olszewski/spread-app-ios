@@ -13,8 +13,8 @@ struct TaskDetailSheet: View {
     let task: DataModel.Task
     @Bindable var journalManager: JournalManager
     let onDelete: () -> Void
-    private let presentedTemporalContext: PresentedTemporalContext
 
+    @State private var presentedTemporalContext: PresentedTemporalContext
     @State private var selectedStatus: DataModel.Task.Status = .open
     @State private var formModel: TaskEditorFormModel
     @State private var isSaving = false
@@ -86,7 +86,8 @@ struct TaskDetailSheet: View {
         self.task = task
         self.journalManager = journalManager
         self.onDelete = onDelete
-        self.presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        let presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        _presentedTemporalContext = State(initialValue: presentedTemporalContext)
         _selectedStatus = State(initialValue: task.status)
         let configuration = TaskCreationConfiguration(
             calendar: presentedTemporalContext.calendar,

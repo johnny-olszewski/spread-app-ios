@@ -23,10 +23,10 @@ struct TaskCreationSheet: View {
 
     /// Callback when a task is created.
     let onTaskCreated: (DataModel.Task) -> Void
-    private let presentedTemporalContext: PresentedTemporalContext
 
     // MARK: - State
 
+    @State private var presentedTemporalContext: PresentedTemporalContext
     @State private var formModel: TaskEditorFormModel
     @State private var isCreating = false
     @State private var isShowingSpreadPicker = false
@@ -40,7 +40,8 @@ struct TaskCreationSheet: View {
         self.journalManager = journalManager
         self.selectedSpread = selectedSpread
         self.onTaskCreated = onTaskCreated
-        self.presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        let presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        _presentedTemporalContext = State(initialValue: presentedTemporalContext)
         let configuration = TaskCreationConfiguration(
             calendar: presentedTemporalContext.calendar,
             today: presentedTemporalContext.today
