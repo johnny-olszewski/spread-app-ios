@@ -32,6 +32,7 @@ struct AppClockDebugTests {
 
         let expectedDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 13, hour: 9))!
         #expect(clock.now == expectedDate)
+        #expect(clock.refreshRevision == 1)
         #expect(clock.semanticRefreshRevision == 1)
         #expect(clock.refreshMetadata.reason == .calendarDayChanged)
         #expect(clock.refreshMetadata.crossedDayBoundary)
@@ -71,6 +72,7 @@ struct AppClockDebugTests {
         clock.setDebugCalendarIdentifier(.buddhist)
         #expect(clock.refreshMetadata.reason == .currentCalendarChanged)
         #expect(clock.calendar.identifier == .buddhist)
+        #expect(clock.refreshRevision == 3)
         #expect(clock.semanticRefreshRevision == 3)
     }
 }

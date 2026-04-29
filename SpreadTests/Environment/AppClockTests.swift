@@ -46,6 +46,7 @@ struct AppClockTests {
         #expect(clock.now == updatedDate)
         #expect(clock.calendar.timeZone.identifier == updatedTimeZone.identifier)
         #expect(clock.locale.identifier == updatedLocale.identifier)
+        #expect(clock.refreshRevision == 1)
         #expect(clock.semanticRefreshRevision == 1)
         #expect(clock.refreshMetadata.reason == .manual)
         #expect(clock.refreshMetadata.crossedDayBoundary)
@@ -94,6 +95,7 @@ struct AppClockTests {
 
         #expect(observedSnapshot?.now == updatedDate)
         #expect(observedSnapshot?.refreshMetadata.reason == .sceneDidBecomeActive)
+        #expect(observedSnapshot?.refreshRevision == 1)
         #expect(observedSnapshot?.semanticRefreshRevision == 1)
     }
 
@@ -118,6 +120,7 @@ struct AppClockTests {
         currentDate = oneMinuteLater
 
         #expect(clock.now == initialDate)
+        #expect(clock.refreshRevision == 0)
         #expect(clock.semanticRefreshRevision == 0)
     }
 }
