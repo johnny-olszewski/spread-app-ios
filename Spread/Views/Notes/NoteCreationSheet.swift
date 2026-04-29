@@ -146,6 +146,12 @@ struct NoteCreationSheet: View {
                 clearDateError()
             }
         }
+        .localhostTemporalHarness(
+            presentedDiagnostics: LocalhostTemporalHarnessPresentedDiagnostics(
+                calendarIdentifier: presentedTemporalContext.calendar.identifier,
+                today: presentedTemporalContext.today
+            )
+        )
     }
 
     // MARK: - Sections

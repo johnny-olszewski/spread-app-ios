@@ -211,6 +211,12 @@ struct SpreadCreationSheet: View {
                 adjustDatesForPeriod(newPeriod)
             }
         }
+        .localhostTemporalHarness(
+            presentedDiagnostics: LocalhostTemporalHarnessPresentedDiagnostics(
+                calendarIdentifier: presentedTemporalContext.calendar.identifier,
+                today: presentedTemporalContext.today
+            )
+        )
     }
 
     // MARK: - Sections

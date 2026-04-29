@@ -172,6 +172,12 @@ struct TaskDetailSheet: View {
                 Text("Are you sure you want to delete this task? This action cannot be undone.")
             }
         }
+        .localhostTemporalHarness(
+            presentedDiagnostics: LocalhostTemporalHarnessPresentedDiagnostics(
+                calendarIdentifier: presentedTemporalContext.calendar.identifier,
+                today: presentedTemporalContext.today
+            )
+        )
     }
 
     private var titleSection: some View {

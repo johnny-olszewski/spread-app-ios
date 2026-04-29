@@ -28,6 +28,34 @@ struct SpreadsView: View {
         )
     }
 
+    private var currentSpreadDiagnostics: LocalhostTemporalHarnessSpreadDiagnostics {
+        let spread: DataModel.Spread
+        switch currentSelection {
+        case .conventional(let currentSpread):
+            spread = currentSpread
+        case .traditionalYear(let date):
+            spread = DataModel.Spread(period: .year, date: date, calendar: journalManager.calendar)
+        case .traditionalMonth(let date):
+            spread = DataModel.Spread(period: .month, date: date, calendar: journalManager.calendar)
+        case .traditionalDay(let date):
+            spread = DataModel.Spread(period: .day, date: date, calendar: journalManager.calendar)
+        }
+
+        let headerConfiguration = SpreadHeaderConfiguration(
+            spread: spread,
+            calendar: journalManager.calendar,
+            today: journalManager.today,
+            firstWeekday: journalManager.firstWeekday,
+            allowsPersonalization: true
+        )
+
+        return LocalhostTemporalHarnessSpreadDiagnostics(
+            selectionID: currentSelection.stableID(calendar: journalManager.calendar),
+            title: headerConfiguration.title,
+            subtitle: headerConfiguration.subtitle
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             SpreadTitleNavigatorView(
@@ -47,6 +75,7 @@ struct SpreadsView: View {
 
             contentArea
         }
+        .localhostTemporalHarness(spreadDiagnostics: currentSpreadDiagnostics)
         .toolbar {
             if journalManager.bujoMode == .conventional {
                 ToolbarItem(placement: .primaryAction) {
