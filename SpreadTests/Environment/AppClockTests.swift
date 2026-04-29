@@ -96,4 +96,28 @@ struct AppClockTests {
         #expect(observedSnapshot?.refreshMetadata.reason == .sceneDidBecomeActive)
         #expect(observedSnapshot?.semanticRefreshRevision == 1)
     }
+
+    @Test("AppClock does not poll minute changes without an explicit refresh")
+    func clockDoesNotIntroduceMinuteTicker() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+
+        let initialDate = calendar.date(from: DateComponents(year: 2026, month: 1, day: 15, hour: 10, minute: 0))!
+        let oneMinuteLater = calendar.date(from: DateComponents(year: 2026, month: 1, day: 15, hour: 10, minute: 1))!
+        var currentDate = initialDate
+
+        let source = AppClockSource(
+            now: { currentDate },
+            calendar: { calendar },
+            timeZone: { calendar.timeZone },
+            locale: { calendar.locale! }
+        )
+        let clock = AppClock(source: source, notificationBridge: nil)
+
+        currentDate = oneMinuteLater
+
+        #expect(clock.now == initialDate)
+        #expect(clock.semanticRefreshRevision == 0)
+    }
 }
