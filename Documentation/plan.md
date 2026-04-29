@@ -12,6 +12,7 @@
 
 ## Story Overview (v1)
 - Foundation and scaffolding (completed)
+- Month calendar row overlays
 - Core time and data models
 - Temporal context and AppClock
 - Supabase offline-first sync + auth migration (priority)
@@ -40,6 +41,102 @@
 - AppEnvironment and DependencyContainer are configured with debug overlay support.
 - SwiftData schema and task/spread repositories (plus mocks) are in place.
 - Baseline environment/container/repository tests pass.
+
+## Story: Month calendar row overlays
+
+### User Story
+- As a user, I want month-calendar surfaces to show spanning row-bounded decorations, such as multiday coverage in the rooted navigator, so I can recognize date ranges without opening each day individually.
+
+### Definition of Done
+- `MonthCalendarView` exposes a separate optional row-overlay seam distinct from `CalendarContentGenerator`.
+- Overlay coverage is date-driven in v1 and may include visible peripheral day cells when they are rendered.
+- The shell automatically segments overlays by visible week row, packs colliding segments into lanes, and enforces a configurable visible-lane limit.
+- Over-limit packed overlays surface overflow metadata so the app can render an explicit overflow indicator lane instead of silently dropping information.
+- Overlay visuals remain app-owned; foundation owns structural math, layout context, and packing behavior only.
+- Overlays render between the week background and day cells and remain decorative-only.
+- Package-level logic tests and focused `Spread` integration tests protect the contract.
+
+### [SPRD-183] Feature: add row-bounded overlay seam to MonthCalendarView
+- **Context**: `MonthCalendarView` currently supports only single-slot content plus a week background seam. The rooted spread navigator now needs multiday coverage cues, and future calendar consumers may need other same-row date-driven decorations. Cross-row continuation was considered and explicitly deferred to keep the shell simpler and more predictable.
+- **Description**: Extend `johnnyo-foundation` with a separate optional row-overlay seam for `MonthCalendarView` that supports decorative same-row overlay segments across visible day cells.
+- **Spec**: Shared Month Calendar Component; Month Calendar Row Overlays
+- **Implementation Details**:
+  - Add a separate optional row-overlay generator protocol instead of expanding `CalendarContentGenerator`.
+  - Keep the v1 overlay contract date-driven:
+    - callers declare logical overlay coverage against dates
+    - the shell resolves only visible day cells
+    - hidden placeholders never participate
+  - Allow visible peripheral dates to participate when `showsPeripheralDates == true`.
+  - Split logical overlay coverage into visible row-bounded segments at week boundaries.
+  - Render overlay content between `weekBackgroundView` and the day/placeholder cells.
+  - Keep overlays decorative-only; do not add overlay hit testing or overlay-driven delegate actions.
+  - Let consumers configure the maximum number of visible overlay lanes per week row.
+  - Implement foundation-owned automatic lane packing for colliding row segments.
+  - Derive overflow metadata when packed lanes exceed the visible-lane limit instead of silently discarding overflowed segments.
+  - Expose a packed row-segment render context to the app that includes semantic coverage, lane assignment, row metadata, continuation flags, overflow metadata, and row-scoped layout information sufficient for app-owned rendering.
+- **Acceptance Criteria**:
+  - `MonthCalendarView` accepts an optional separate row-overlay seam.
+  - Row overlays can span multiple visible day cells within one week row.
+  - Logical overlays that cross week boundaries are split into separate row segments.
+  - Visible peripheral dates participate when rendered; hidden placeholders do not.
+  - Colliding segments are automatically packed into lanes by foundation.
+  - The visible-lane count is consumer-configurable.
+  - Overflow metadata is surfaced whenever packed segments exceed the visible-lane limit.
+  - Overlay rendering does not intercept existing day/week interactions.
+- **Tests**:
+  - Package-unit tests for visible-date participation and placeholder exclusion.
+  - Package-unit tests for row segmentation across week boundaries.
+  - Package-unit tests for automatic lane packing and stable ordering of colliding segments.
+  - Package-unit tests for visible-lane limiting and overflow metadata derivation.
+  - Package-view tests proving overlays render between week background and day cells without altering existing cell invocation behavior.
+- **Dependencies**: SPRD-153
+
+### [SPRD-184] Feature: render multiday spread row overlays in the rooted navigator
+- **Context**: The first concrete consumer of the new row-overlay seam is the rooted spread navigator's expanded month grid. Conventional mode already reasons about explicit day and multiday targets there, but the grid does not yet show spanning multiday coverage.
+- **Description**: Add a `Spread` overlay generator and renderer for the rooted navigator so multiday spreads appear as row-bounded spanning decorations in expanded month grids.
+- **Spec**: Rooted spread navigator behavior; Month Calendar Row Overlays
+- **Implementation Details**:
+  - Add a `Spread`-side overlay generator for the rooted navigator month grid that derives overlay coverage from conventional multiday spread ranges.
+  - Keep the first consumer decorative-only; continue to route selection through day-cell taps and existing multi-target dialogs.
+  - Ensure overlay coverage reflects visible day cells, including visible peripheral dates if a future navigator configuration enables them.
+  - Render app-owned overlay visuals from the packed row-segment context supplied by foundation.
+  - Render app-owned overflow indicator treatment using the overflow metadata supplied by foundation.
+  - Preserve existing rooted-navigator created/uncreated/today cell treatment and existing day-target selection semantics.
+  - Keep traditional-mode behavior unchanged unless a concrete overlay use case is later approved there.
+- **Acceptance Criteria**:
+  - Conventional rooted-navigator month grids show row-bounded multiday coverage overlays for explicit multiday spreads.
+  - Day-cell taps and multi-target dialogs continue to work as before.
+  - Multiple overlapping multiday overlays are packed into visible lanes automatically.
+  - Overflow conditions render an explicit app-owned overflow indication rather than silently hiding extra overlays.
+  - Traditional-mode navigator behavior is unchanged unless explicitly covered by overlay data.
+- **Tests**:
+  - App-level model tests for multiday spread overlay coverage derivation in the rooted navigator.
+  - App-level integration/view tests proving packed row-segment context renders the expected multiday overlay visuals.
+  - Regression tests proving existing navigator selection behavior remains unchanged when overlays are present.
+  - Focused UI tests for representative overlapping and overflow scenarios in the expanded month navigator.
+- **Dependencies**: SPRD-183, SPRD-166, SPRD-177
+
+### [SPRD-185] Test/Docs: codify row-overlay guarantees and edge cases
+- **Context**: The new seam splits responsibility between foundation-owned structural math and app-owned visuals. Without explicit documentation and edge-case coverage, future work can easily reintroduce geometry leakage or broaden the seam inconsistently.
+- **Description**: Add the remaining documentation, test fixtures, and edge-case coverage needed so row overlays remain predictable and extensible.
+- **Spec**: Shared Foundations Package; Month Calendar Row Overlays; Testing
+- **Implementation Details**:
+  - Update package-local documentation so the overlay contract is documented alongside the month shell API.
+  - Add explicit guidance that cross-row continuation is out of scope for this version.
+  - Add fixture coverage for:
+    - week-boundary splitting
+    - visible peripheral participation
+    - dense overlap packing
+    - visible-lane overflow
+  - Ensure the app-side tests document that overflow visuals are app-owned even though overflow metadata is foundation-owned.
+- **Acceptance Criteria**:
+  - Package-local docs describe the overlay seam, ownership split, and current row-bounded limitation.
+  - Edge-case tests cover the accepted behaviors called out in the spec.
+  - The implementation guidance is clear enough that future work does not need to rediscover the lane/overflow contract.
+- **Tests**:
+  - Additional package fixtures for pathological overlap/overflow cases.
+  - App-level regression coverage for overflow rendering and non-interactive overlay behavior.
+- **Dependencies**: SPRD-183, SPRD-184
 
 ## Story: Core time and data models
 
