@@ -107,7 +107,7 @@
   - Integration-style tests proving a single shared clock instance is reused across the runtime.
 - **Dependencies**: SPRD-49
 
-### [SPRD-180] Refactor: route journal semantics through AppClock and explicit temporal inputs
+### [SPRD-180] Refactor: route journal semantics through AppClock and explicit temporal inputs - [x] Complete
 - **Context**: A clock service alone does not fix stale semantics unless the journal layer and support helpers stop treating launch-time `today` as authoritative runtime state.
 - **Description**: Refactor journal and view-support code so shared semantics refresh from AppClock while pure helpers consume explicit temporal inputs.
 - **Spec**: AppClock and Temporal Context; Inbox; Modes; Navigation and UI

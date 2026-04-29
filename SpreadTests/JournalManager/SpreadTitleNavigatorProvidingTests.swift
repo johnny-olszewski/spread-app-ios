@@ -38,10 +38,10 @@ struct SpreadTitleNavigatorProvidingTests {
         #expect(model.headerModel.mode == .conventional)
     }
 
-    /// Condition: JournalManager is in conventional mode.
-    /// Expected: titleNavigatorModel header model carries no tasks or notes (strip shows explicit spreads only).
-    @Test("Conventional mode: header model carries no tasks or notes")
-    func testConventionalModeEmptyTasksAndNotes() async throws {
+    /// Condition: JournalManager is in conventional mode with an existing task.
+    /// Expected: titleNavigatorModel carries tasks for title-strip relevance logic, while notes/events remain excluded.
+    @Test("Conventional mode: header model carries tasks but excludes notes and events")
+    func testConventionalModeCarriesTasksOnly() async throws {
         let manager = try await JournalManager.make(
             calendar: Self.calendar,
             today: Self.today,
@@ -51,7 +51,7 @@ struct SpreadTitleNavigatorProvidingTests {
 
         let model = manager.titleNavigatorModel
 
-        #expect(model.headerModel.tasks.isEmpty)
+        #expect(model.headerModel.tasks.count == 1)
         #expect(model.headerModel.notes.isEmpty)
         #expect(model.headerModel.events.isEmpty)
     }

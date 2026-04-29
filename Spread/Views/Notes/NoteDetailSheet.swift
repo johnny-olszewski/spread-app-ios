@@ -24,6 +24,7 @@ struct NoteDetailSheet: View {
 
     /// Callback when the note is deleted.
     let onDelete: () -> Void
+    private let presentedTemporalContext: PresentedTemporalContext
 
     // MARK: - State
 
@@ -32,6 +33,21 @@ struct NoteDetailSheet: View {
     @State private var selectedPeriod: Period = .day
     @State private var selectedDate: Date = Date()
     @State private var isSaving = false
+
+    init(
+        note: DataModel.Note,
+        journalManager: JournalManager,
+        onDelete: @escaping () -> Void
+    ) {
+        self.note = note
+        self.journalManager = journalManager
+        self.onDelete = onDelete
+        self.presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        _title = State(initialValue: note.title)
+        _content = State(initialValue: note.content)
+        _selectedPeriod = State(initialValue: note.period)
+        _selectedDate = State(initialValue: note.date)
+    }
 
     // MARK: - Body
 
@@ -74,12 +90,6 @@ struct NoteDetailSheet: View {
                     .disabled(isSaving || title.isEmpty || title.allSatisfy(\.isWhitespace))
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteDetailSheet.saveButton)
                 }
-            }
-            .onAppear {
-                title = note.title
-                content = note.content
-                selectedPeriod = note.period
-                selectedDate = note.date
             }
         }
     }
@@ -125,14 +135,14 @@ struct NoteDetailSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Date")
             let configuration = NoteCreationConfiguration(
-                calendar: journalManager.calendar,
-                today: journalManager.today
+                calendar: presentedTemporalContext.calendar,
+                today: presentedTemporalContext.today
             )
             PeriodDatePicker(
                 period: selectedPeriod,
                 selectedDate: $selectedDate,
-                calendar: journalManager.calendar,
-                today: journalManager.today,
+                calendar: presentedTemporalContext.calendar,
+                today: presentedTemporalContext.today,
                 minimumDate: configuration.minimumDate(for: .day),
                 maximumDate: configuration.maximumDate,
                 accessibilityIdentifiers: nil

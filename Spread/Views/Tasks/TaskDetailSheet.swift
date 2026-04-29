@@ -13,6 +13,7 @@ struct TaskDetailSheet: View {
     let task: DataModel.Task
     @Bindable var journalManager: JournalManager
     let onDelete: () -> Void
+    private let presentedTemporalContext: PresentedTemporalContext
 
     @State private var selectedStatus: DataModel.Task.Status = .open
     @State private var formModel: TaskEditorFormModel
@@ -65,7 +66,7 @@ struct TaskDetailSheet: View {
     private var dueDateBinding: Binding<Date> {
         Binding(
             get: { formModel.dueDate },
-            set: { formModel.dueDate = $0.startOfDay(calendar: journalManager.calendar) }
+            set: { formModel.dueDate = $0.startOfDay(calendar: presentedTemporalContext.calendar) }
         )
     }
 
@@ -85,10 +86,11 @@ struct TaskDetailSheet: View {
         self.task = task
         self.journalManager = journalManager
         self.onDelete = onDelete
+        self.presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
         _selectedStatus = State(initialValue: task.status)
         let configuration = TaskCreationConfiguration(
-            calendar: journalManager.calendar,
-            today: journalManager.today
+            calendar: presentedTemporalContext.calendar,
+            today: presentedTemporalContext.today
         )
         _formModel = State(
             initialValue: TaskEditorFormModel(
@@ -136,8 +138,8 @@ struct TaskDetailSheet: View {
             .sheet(isPresented: $isShowingSpreadPicker) {
                 SpreadPickerView(
                     spreads: journalManager.spreads,
-                    calendar: journalManager.calendar,
-                    today: journalManager.today,
+                    calendar: presentedTemporalContext.calendar,
+                    today: presentedTemporalContext.today,
                     onSpreadSelected: { period, date in
                         formModel.applySpreadSelection(period: period, date: date)
                     },
@@ -321,8 +323,8 @@ struct TaskDetailSheet: View {
             PeriodDatePicker(
                 period: formModel.selectedPeriod,
                 selectedDate: dateBinding,
-                calendar: journalManager.calendar,
-                today: journalManager.today,
+                calendar: presentedTemporalContext.calendar,
+                today: presentedTemporalContext.today,
                 minimumDate: configuration.minimumDate(for: .day),
                 maximumDate: configuration.maximumDate,
                 accessibilityIdentifiers: .init(

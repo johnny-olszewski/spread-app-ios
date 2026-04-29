@@ -452,12 +452,10 @@ final class JournalManager {
     }
 
     private func apply(snapshot: AppClockSnapshot) {
-        let previousToday = today
-
         calendar = snapshot.calendar
         today = snapshot.now
 
-        guard previousToday != today ||
+        guard snapshot.refreshMetadata.crossedDayBoundary ||
                 snapshot.refreshMetadata.calendarChanged ||
                 snapshot.refreshMetadata.timeZoneChanged ||
                 snapshot.refreshMetadata.localeChanged else {

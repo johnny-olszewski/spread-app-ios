@@ -23,6 +23,7 @@ struct TaskCreationSheet: View {
 
     /// Callback when a task is created.
     let onTaskCreated: (DataModel.Task) -> Void
+    private let presentedTemporalContext: PresentedTemporalContext
 
     // MARK: - State
 
@@ -39,9 +40,10 @@ struct TaskCreationSheet: View {
         self.journalManager = journalManager
         self.selectedSpread = selectedSpread
         self.onTaskCreated = onTaskCreated
+        self.presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
         let configuration = TaskCreationConfiguration(
-            calendar: journalManager.calendar,
-            today: journalManager.today
+            calendar: presentedTemporalContext.calendar,
+            today: presentedTemporalContext.today
         )
         _formModel = State(
             initialValue: TaskEditorFormModel(
@@ -109,7 +111,7 @@ struct TaskCreationSheet: View {
     private var dueDateBinding: Binding<Date> {
         Binding(
             get: { formModel.dueDate },
-            set: { formModel.dueDate = $0.startOfDay(calendar: journalManager.calendar) }
+            set: { formModel.dueDate = $0.startOfDay(calendar: presentedTemporalContext.calendar) }
         )
     }
 
@@ -152,8 +154,8 @@ struct TaskCreationSheet: View {
             .sheet(isPresented: $isShowingSpreadPicker) {
                     SpreadPickerView(
                         spreads: journalManager.spreads,
-                        calendar: journalManager.calendar,
-                        today: journalManager.today,
+                        calendar: presentedTemporalContext.calendar,
+                        today: presentedTemporalContext.today,
                         onSpreadSelected: { period, date in
                             formModel.applySpreadSelection(period: period, date: date)
                         },
@@ -306,8 +308,8 @@ struct TaskCreationSheet: View {
             PeriodDatePicker(
                 period: formModel.selectedPeriod,
                 selectedDate: dateBinding,
-                calendar: journalManager.calendar,
-                today: journalManager.today,
+                calendar: presentedTemporalContext.calendar,
+                today: presentedTemporalContext.today,
                 minimumDate: configuration.minimumDate(for: .day),
                 maximumDate: configuration.maximumDate,
                 accessibilityIdentifiers: .init(
