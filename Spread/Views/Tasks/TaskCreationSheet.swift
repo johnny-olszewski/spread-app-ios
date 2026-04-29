@@ -187,6 +187,12 @@ struct TaskCreationSheet: View {
                 isTitleFocused = true
             }
         }
+        .localhostTemporalHarness(
+            presentedDiagnostics: LocalhostTemporalHarnessPresentedDiagnostics(
+                calendarIdentifier: presentedTemporalContext.calendar.identifier,
+                today: presentedTemporalContext.today
+            )
+        )
     }
 
     // MARK: - Sections

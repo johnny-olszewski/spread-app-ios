@@ -56,5 +56,13 @@ struct AppRuntimeConfigurationDebugTests {
         #expect(appClock.calendar.identifier == .buddhist)
         #expect(appClock.now == launchConfiguration.today)
     }
+
+    @Test func launchConfigurationCanEnableTemporalHarness() {
+        let launchConfiguration = AppLaunchConfiguration.resolve(
+            launchArguments: ["-ShowTemporalHarness", "YES"]
+        )
+
+        #expect(launchConfiguration.showsTemporalHarness)
+    }
 }
 #endif

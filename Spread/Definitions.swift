@@ -370,7 +370,13 @@ struct Definitions {
         }
 
         struct Debug {
+            static let temporalHarness = "debug.temporal.harness"
             static let temporalNow = "debug.temporal.now"
+            static let temporalToday = "debug.temporal.today"
+            static let temporalTimeZone = "debug.temporal.timeZone"
+            static let temporalLocale = "debug.temporal.locale"
+            static let temporalCalendar = "debug.temporal.calendar"
+            static let temporalOverride = "debug.temporal.override"
             static let temporalAdvanceHour = "debug.temporal.advanceHour"
             static let temporalAdvanceDay = "debug.temporal.advanceDay"
             static let temporalSetUTC = "debug.temporal.timeZone.utc"
@@ -380,6 +386,8 @@ struct Definitions {
             static let temporalSetGregorianCalendar = "debug.temporal.calendar.gregorian"
             static let temporalSetBuddhistCalendar = "debug.temporal.calendar.buddhist"
             static let temporalResumeLive = "debug.temporal.resumeLive"
+            static let temporalSelectedSpreadID = "debug.temporal.selectedSpread.id"
+            static let temporalPresentedToday = "debug.temporal.presented.today"
         }
     }
 }

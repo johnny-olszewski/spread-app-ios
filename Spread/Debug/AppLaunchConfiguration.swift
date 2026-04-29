@@ -9,6 +9,7 @@ struct AppLaunchConfiguration {
     let locale: Locale?
     let calendarIdentifier: Calendar.Identifier?
     let bujoMode: BujoMode?
+    let showsTemporalHarness: Bool
 
     static var current: AppLaunchConfiguration {
         resolve(launchArguments: ProcessInfo.processInfo.arguments)
@@ -22,6 +23,7 @@ struct AppLaunchConfiguration {
         let locale = localeValue(from: launchArguments)
         let calendarIdentifier = calendarIdentifierValue(from: launchArguments)
         let bujoMode = bujoModeValue(from: launchArguments)
+        let showsTemporalHarness = boolValue(for: "-ShowTemporalHarness", in: launchArguments)
         return AppLaunchConfiguration(
             mockDataSet: mockDataSet,
             today: today,
@@ -29,7 +31,8 @@ struct AppLaunchConfiguration {
             timeZone: timeZone,
             locale: locale,
             calendarIdentifier: calendarIdentifier,
-            bujoMode: bujoMode
+            bujoMode: bujoMode,
+            showsTemporalHarness: showsTemporalHarness
         )
     }
 
@@ -158,6 +161,28 @@ struct AppLaunchConfiguration {
             return nil
         }
         return launchArguments[index + 1]
+    }
+
+    private static func boolValue(for key: String, in launchArguments: [String]) -> Bool {
+        guard let index = launchArguments.firstIndex(of: key) else {
+            return false
+        }
+
+        guard index + 1 < launchArguments.count else {
+            return true
+        }
+
+        let candidate = launchArguments[index + 1]
+        if candidate.hasPrefix("-") {
+            return true
+        }
+
+        switch candidate.lowercased() {
+        case "1", "true", "yes", "y", "on":
+            return true
+        default:
+            return false
+        }
     }
 
     private static func dateFromYMD(_ string: String, timeZone: TimeZone) -> Date? {
