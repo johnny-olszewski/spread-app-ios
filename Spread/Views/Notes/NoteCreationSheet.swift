@@ -24,6 +24,7 @@ struct NoteCreationSheet: View {
 
     /// Callback when a note is created.
     let onNoteCreated: (DataModel.Note) -> Void
+    private let presentedTemporalContext: PresentedTemporalContext
 
     // MARK: - State
 
@@ -39,12 +40,33 @@ struct NoteCreationSheet: View {
     @State private var isShowingSpreadPicker = false
     @FocusState private var isTitleFocused: Bool
 
+    init(
+        journalManager: JournalManager,
+        selectedSpread: DataModel.Spread?,
+        onNoteCreated: @escaping (DataModel.Note) -> Void
+    ) {
+        self.journalManager = journalManager
+        self.selectedSpread = selectedSpread
+        self.onNoteCreated = onNoteCreated
+        self.presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+
+        let configuration = NoteCreationConfiguration(
+            calendar: presentedTemporalContext.calendar,
+            today: presentedTemporalContext.today
+        )
+        let defaults = configuration.defaultSelection(from: selectedSpread)
+        let minimumDate = configuration.minimumDate(for: defaults.period)
+        let normalizedDate = defaults.period.normalizeDate(defaults.date, calendar: presentedTemporalContext.calendar)
+        _selectedPeriod = State(initialValue: defaults.period)
+        _selectedDate = State(initialValue: normalizedDate < minimumDate ? minimumDate : normalizedDate)
+    }
+
     // MARK: - Computed Properties
 
     private var configuration: NoteCreationConfiguration {
         NoteCreationConfiguration(
-            calendar: journalManager.calendar,
-            today: journalManager.today
+            calendar: presentedTemporalContext.calendar,
+            today: presentedTemporalContext.today
         )
     }
 
@@ -87,8 +109,8 @@ struct NoteCreationSheet: View {
             .sheet(isPresented: $isShowingSpreadPicker) {
                 SpreadPickerView(
                     spreads: journalManager.spreads,
-                    calendar: journalManager.calendar,
-                    today: journalManager.today,
+                    calendar: presentedTemporalContext.calendar,
+                    today: presentedTemporalContext.today,
                     onSpreadSelected: { period, date in
                         selectedPeriod = period
                         selectedDate = date
@@ -118,10 +140,7 @@ struct NoteCreationSheet: View {
                     }
                 }
             }
-            .onAppear {
-                initializeDefaults()
-                isTitleFocused = true
-            }
+            .onAppear { isTitleFocused = true }
             .onChange(of: selectedPeriod) { _, newPeriod in
                 adjustDateForPeriod(newPeriod)
                 clearDateError()
@@ -220,8 +239,8 @@ struct NoteCreationSheet: View {
             PeriodDatePicker(
                 period: selectedPeriod,
                 selectedDate: $selectedDate,
-                calendar: journalManager.calendar,
-                today: journalManager.today,
+                calendar: presentedTemporalContext.calendar,
+                today: presentedTemporalContext.today,
                 minimumDate: configuration.minimumDate(for: .day),
                 maximumDate: configuration.maximumDate,
                 accessibilityIdentifiers: .init(
@@ -276,17 +295,9 @@ struct NoteCreationSheet: View {
 
     // MARK: - Actions
 
-    private func initializeDefaults() {
-        let defaults = configuration.defaultSelection(from: selectedSpread)
-        selectedPeriod = defaults.period
-        selectedDate = defaults.date
-
-        adjustDateForPeriod(selectedPeriod)
-    }
-
     private func adjustDateForPeriod(_ period: Period) {
         let minDate = configuration.minimumDate(for: period)
-        let normalizedSelected = period.normalizeDate(selectedDate, calendar: journalManager.calendar)
+        let normalizedSelected = period.normalizeDate(selectedDate, calendar: presentedTemporalContext.calendar)
 
         if normalizedSelected < minDate {
             selectedDate = minDate
