@@ -340,4 +340,61 @@ struct MonthCalendarModelBuilderTests {
         #expect(overflow.frame.topFraction == 0.5)
         #expect(overflow.frame.heightFraction == 0.5)
     }
+
+    /// When overlapping segments begin in the same column, packing should prefer the longest visible span first.
+    /// Expected: same-start segments sort by descending end column before source order so wider segments keep the earlier visible lanes.
+    @Test func testRowOverlayPackingPrefersWiderSegmentsWhenStartsCollide() throws {
+        let model = MonthCalendarModelBuilder.makeModel(
+            displayedMonth: Self.makeDate(year: 2026, month: 3, calendar: Self.sundayFirstCalendar),
+            calendar: Self.sundayFirstCalendar,
+            configuration: .init(showsPeripheralDates: true)
+        )
+        let overlays = [
+            Self.makeOverlay(
+                id: "short",
+                startYear: 2026,
+                startMonth: 3,
+                startDay: 20,
+                endYear: 2026,
+                endMonth: 3,
+                endDay: 24,
+                calendar: Self.sundayFirstCalendar
+            ),
+            Self.makeOverlay(
+                id: "medium",
+                startYear: 2026,
+                startMonth: 3,
+                startDay: 21,
+                endYear: 2026,
+                endMonth: 3,
+                endDay: 25,
+                calendar: Self.sundayFirstCalendar
+            ),
+            Self.makeOverlay(
+                id: "long",
+                startYear: 2026,
+                startMonth: 3,
+                startDay: 22,
+                endYear: 2026,
+                endMonth: 3,
+                endDay: 26,
+                calendar: Self.sundayFirstCalendar
+            ),
+        ]
+
+        let layouts = MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts(
+            overlays: overlays,
+            model: model,
+            calendar: Self.sundayFirstCalendar,
+            maximumVisibleLaneCount: 2
+        )
+
+        let overflowWeek = try #require(layouts.first(where: { $0.overflow != nil }))
+        let overflow = try #require(overflowWeek.overflow)
+
+        #expect(overflowWeek.visibleSegments.map(\.overlay.id) == ["long", "medium"])
+        #expect(overflowWeek.visibleSegments.map(\.laneIndex) == [0, 1])
+        #expect(overflow.hiddenSegments.map(\.overlay.id) == ["short"])
+        #expect(overflow.hiddenSegments.map(\.packedLaneIndex) == [2])
+    }
 }

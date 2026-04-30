@@ -1,6 +1,10 @@
 import SwiftUI
 import JohnnyOFoundationCore
 
+/// A month calendar shell with an optional decorative row-overlay seam.
+///
+/// Row overlays are rendered between each week's background view and the day cells so
+/// hit testing and selection continue to belong to the day and placeholder slots.
 public struct MonthCalendarView<
     Generator: CalendarContentGenerator,
     OverlayGenerator: MonthCalendarRowOverlayGenerator
@@ -30,6 +34,10 @@ public struct MonthCalendarView<
         )
     }
 
+    /// Creates a month shell with an explicit row-overlay generator.
+    ///
+    /// The overlay generator receives packed row-segment contexts that are already split
+    /// by visible week row. Foundation does not provide cross-row continuation visuals.
     public init(
         displayedMonth: Date,
         calendar: Calendar,
@@ -141,6 +149,7 @@ public struct MonthCalendarView<
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .clipped()
             }
+            // Overlay visuals are decorative only; day and placeholder cells keep interaction ownership.
             .allowsHitTesting(false)
             .accessibilityHidden(true)
         }

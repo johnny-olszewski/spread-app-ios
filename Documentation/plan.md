@@ -116,7 +116,7 @@
   - Focused UI tests for representative overlapping and overflow scenarios in the expanded month navigator.
 - **Dependencies**: SPRD-183, SPRD-166, SPRD-177
 
-### [SPRD-185] Test/Docs: codify row-overlay guarantees and edge cases
+### [SPRD-185] Test/Docs: codify row-overlay guarantees and edge cases - [x] Complete
 - **Context**: The new seam splits responsibility between foundation-owned structural math and app-owned visuals. Without explicit documentation and edge-case coverage, future work can easily reintroduce geometry leakage or broaden the seam inconsistently.
 - **Description**: Add the remaining documentation, test fixtures, and edge-case coverage needed so row overlays remain predictable and extensible.
 - **Spec**: Shared Foundations Package; Month Calendar Row Overlays; Testing

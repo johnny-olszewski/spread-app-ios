@@ -11,6 +11,10 @@ struct SpreadHeaderNavigatorRowOverlayPayload: Sendable, Equatable {
 struct SpreadHeaderNavigatorRowOverlayGenerator: MonthCalendarRowOverlayGenerator {
     static let defaultVisibleLaneCount = 2
 
+    static func overflowLabel(hiddenSegmentCount: Int) -> String {
+        "+\(hiddenSegmentCount)"
+    }
+
     let overlays: [MonthCalendarLogicalRowOverlay<UUID, SpreadHeaderNavigatorRowOverlayPayload>]
     let maximumVisibleLaneCount: Int
 
@@ -105,7 +109,7 @@ struct SpreadHeaderNavigatorRowOverlayGenerator: MonthCalendarRowOverlayGenerato
     func overflowView(
         context: MonthCalendarRowOverlayOverflowRenderContext<UUID, SpreadHeaderNavigatorRowOverlayPayload>
     ) -> some View {
-        Text("+\(context.hiddenSegmentCount)")
+        Text(Self.overflowLabel(hiddenSegmentCount: context.hiddenSegmentCount))
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(.white)
             .padding(.horizontal, 6)
