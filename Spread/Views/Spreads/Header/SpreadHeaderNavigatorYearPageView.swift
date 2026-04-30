@@ -1,5 +1,6 @@
 import SwiftUI
 import JohnnyOFoundationUI
+import JohnnyOFoundationCore
 
 struct SpreadHeaderNavigatorYearPageView: View {
     let page: SpreadHeaderNavigatorModel.YearPage
@@ -117,6 +118,11 @@ struct SpreadHeaderNavigatorYearPageView: View {
             today: model.today,
             configuration: .init(showsPeripheralDates: false),
             contentGenerator: SpreadHeaderNavigatorCalendarGenerator(
+                model: model,
+                monthRow: monthRow,
+                currentSpread: currentSpread
+            ),
+            rowOverlayGenerator: SpreadHeaderNavigatorRowOverlayGenerator(
                 model: model,
                 monthRow: monthRow,
                 currentSpread: currentSpread
