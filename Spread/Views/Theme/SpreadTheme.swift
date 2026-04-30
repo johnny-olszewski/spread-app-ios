@@ -89,6 +89,24 @@ enum SpreadTheme {
             todaySelectedEmphasis.opacity(0.34)
         }
 
+        /// Warm highlight used for current selection surfaces so they remain distinct from blue today emphasis.
+        static let selectedSurface = Color(
+            uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 247/255, green: 234/255, blue: 164/255, alpha: 1)
+                    : UIColor(red: 255/255, green: 248/255, blue: 208/255, alpha: 1)
+            }
+        )
+
+        /// Stronger border tint paired with the warm current-selection surface.
+        static let selectedSurfaceBorder = Color(
+            uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 255/255, green: 243/255, blue: 190/255, alpha: 1)
+                    : UIColor(red: 212/255, green: 189/255, blue: 94/255, alpha: 1)
+            }
+        )
+
     }
 
     /// Dot grid colors.

@@ -173,8 +173,8 @@ struct MultidaySpreadUITests {
         #expect(state == .uncreated)
     }
 
-    @Test("Multiday day card uses today state even when explicit day is missing")
-    func multidayDayCardTodayOverridesUncreatedState() {
+    @Test("Multiday day card uses today uncreated state when explicit day is missing")
+    func multidayDayCardTodayWithoutDaySpreadKeepsDashedState() {
         let date = makeDate(year: 2026, month: 1, day: 10)
 
         let state = MultidayDayCardSupport.visualState(
@@ -184,7 +184,22 @@ struct MultidaySpreadUITests {
             calendar: calendar
         )
 
-        #expect(state == .today)
+        #expect(state == .todayUncreated)
+    }
+
+    @Test("Multiday day card uses today created state when explicit day exists")
+    func multidayDayCardTodayWithDaySpreadUsesCreatedTodayState() {
+        let date = makeDate(year: 2026, month: 1, day: 10)
+        let daySpread = DataModel.Spread(period: .day, date: date, calendar: calendar)
+
+        let state = MultidayDayCardSupport.visualState(
+            for: date,
+            today: date,
+            explicitDaySpread: daySpread,
+            calendar: calendar
+        )
+
+        #expect(state == .todayCreated)
     }
 
     @Test("Multiday footer action navigates when explicit day exists")

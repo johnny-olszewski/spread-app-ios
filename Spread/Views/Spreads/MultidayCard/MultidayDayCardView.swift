@@ -47,7 +47,7 @@ struct MultidayDayCardView<Content: View>: View {
     private var header: some View {
         VStack(spacing: 0) {
             HStack(alignment: .lastTextBaseline) {
-                if visualState == .today {
+                if visualState.isToday {
                     Text("Today")
                         .font(SpreadTheme.Typography.caption.smallCaps())
                         .fontWeight(.semibold)
@@ -133,26 +133,7 @@ struct MultidayDayCardView<Content: View>: View {
     private var cardFill: Color { visualState.fill }
     private var cardBorder: Color { visualState.borderColor }
     private var cardBorderStyle: StrokeStyle { visualState.borderStyle }
-
-    private var primaryHeaderColor: Color {
-        switch visualState {
-        case .today:
-            return SpreadTheme.Accent.todayEmphasis
-        case .uncreated, .created:
-            return .primary
-        }
-    }
-
-    private var secondaryHeaderColor: Color {
-        switch visualState {
-        case .today:
-            return SpreadTheme.Accent.todayEmphasis.opacity(0.9)
-        case .uncreated, .created:
-            return .secondary
-        }
-    }
-
-    private var headerWeight: Font.Weight {
-        visualState == .today ? .semibold : .regular
-    }
+    private var primaryHeaderColor: Color { visualState.primaryHeaderColor }
+    private var secondaryHeaderColor: Color { visualState.secondaryHeaderColor }
+    private var headerWeight: Font.Weight { visualState.headerWeight }
 }

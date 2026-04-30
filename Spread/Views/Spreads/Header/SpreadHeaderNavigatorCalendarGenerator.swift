@@ -7,6 +7,16 @@ import JohnnyOFoundationUI
 /// constants shared with the multiday day card via `MultidayDayCardVisualState`. Peripheral
 /// (out-of-month) dates are hidden by the caller via `showsPeripheralDates: false`.
 struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
+    private enum Layout {
+        static let cellAspectRatio: CGFloat = 0.82
+        static let cellCornerRadius: CGFloat = 8
+        static let cellPadding: CGFloat = 3
+        static let cellTopPadding: CGFloat = 6
+        static let cellHorizontalPadding: CGFloat = 7
+        static let laneReservationHeight: CGFloat = 16
+        static let minimumCellHeight: CGFloat = 52
+    }
+
     let model: SpreadHeaderNavigatorModel
     let monthRow: SpreadHeaderNavigatorModel.MonthRow
     let currentSpread: DataModel.Spread
@@ -27,26 +37,41 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
 
     func dayCellView(context: MonthCalendarDayContext) -> some View {
         let targets = monthRow.targets(for: context.date, calendar: model.calendar)
-        let visualState = dayVisualState(for: context, targets: targets)
-        let isCurrent = model.isCurrent(date: context.date, currentSpread: currentSpread)
+        let visualState = Self.visualState(
+            isToday: context.isToday,
+            mode: model.mode,
+            hasExplicitDayTarget: Self.hasExplicitDayTarget(targets)
+        )
+        let isSelected = model.isCurrent(date: context.date, currentSpread: currentSpread)
 
-        return Text("\(model.calendar.component(.day, from: context.date))")
-            .font(SpreadTheme.Typography.body)
-            .foregroundStyle(foregroundColor(targets: targets, visualState: visualState))
-            .frame(maxWidth: .infinity, minHeight: 40)
+        return VStack(alignment: .leading, spacing: 0) {
+            Text("\(model.calendar.component(.day, from: context.date))")
+                .font(SpreadTheme.Typography.body)
+                .foregroundStyle(foregroundColor(targets: targets, visualState: visualState))
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer(minLength: Layout.laneReservationHeight)
+        }
+            .padding(.horizontal, Layout.cellHorizontalPadding)
+            .padding(.top, Layout.cellTopPadding)
+            .frame(maxWidth: .infinity, minHeight: Layout.minimumCellHeight, alignment: .topLeading)
+            .aspectRatio(Layout.cellAspectRatio, contentMode: .fit)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(cellFill(isCurrent: isCurrent, visualState: visualState))
+                RoundedRectangle(cornerRadius: Layout.cellCornerRadius, style: .continuous)
+                    .fill(cellFill(isSelected: isSelected, visualState: visualState))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: Layout.cellCornerRadius, style: .continuous)
                     .strokeBorder(visualState.borderColor, style: visualState.borderStyle)
             )
-            .padding(3)
+            .padding(Layout.cellPadding)
     }
 
     func placeholderCellView(context: MonthCalendarPlaceholderContext) -> some View {
-        Color.clear.frame(height: 40)
+        Color.clear
+            .frame(maxWidth: .infinity, minHeight: Layout.minimumCellHeight)
+            .aspectRatio(Layout.cellAspectRatio, contentMode: .fit)
+            .padding(Layout.cellPadding)
     }
 
     func weekBackgroundView(context: MonthCalendarWeekContext) -> some View {
@@ -55,18 +80,26 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
 
     // MARK: - Helpers
 
-    private func dayVisualState(
-        for context: MonthCalendarDayContext,
-        targets: [SpreadHeaderNavigatorModel.SelectionTarget]
-    ) -> MultidayDayCardVisualState {
-        if context.isToday { return .today }
-        if model.mode == .traditional || !targets.isEmpty { return .created }
-        return .uncreated
+    static func hasExplicitDayTarget(
+        _ targets: [SpreadHeaderNavigatorModel.SelectionTarget]
+    ) -> Bool {
+        targets.contains(where: { !$0.isMultiday })
     }
 
-    private func cellFill(isCurrent: Bool, visualState: MultidayDayCardVisualState) -> Color {
-        if isCurrent { return Color.accentColor.opacity(0.16) }
-        if visualState == .today { return visualState.fill }
+    static func visualState(
+        isToday: Bool,
+        mode: SpreadHeaderNavigatorModel.Mode,
+        hasExplicitDayTarget: Bool
+    ) -> MultidayDayCardVisualState {
+        MultidayDayCardSupport.visualState(
+            isToday: isToday,
+            isCreated: mode == .traditional || hasExplicitDayTarget
+        )
+    }
+
+    private func cellFill(isSelected: Bool, visualState: MultidayDayCardVisualState) -> Color {
+        if isSelected { return SpreadSelectionVisualStyle.surfaceFill }
+        if visualState.isToday { return visualState.fill }
         return Color.clear
     }
 
@@ -74,7 +107,7 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
         targets: [SpreadHeaderNavigatorModel.SelectionTarget],
         visualState: MultidayDayCardVisualState
     ) -> Color {
-        if visualState == .today { return SpreadTheme.Accent.todayEmphasis }
+        if visualState.isToday { return SpreadTheme.Accent.todayEmphasis }
         return targets.isEmpty ? .secondary : .primary
     }
 }

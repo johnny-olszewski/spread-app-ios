@@ -332,6 +332,7 @@ struct MonthCalendarModelBuilderTests {
         #expect(firstWeek.displayLaneCount == 2)
         #expect(firstWeek.visibleSegments.count == 1)
         #expect(firstWeek.visibleSegments.first?.overlay.id == "a")
+        #expect(firstWeek.visibleSegments.first?.frame.topFraction == 0)
 
         #expect(overflow.hiddenSegmentCount == 2)
         #expect(overflow.hiddenPackedLaneCount == 2)

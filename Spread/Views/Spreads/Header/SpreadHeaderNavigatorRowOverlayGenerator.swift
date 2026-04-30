@@ -9,7 +9,18 @@ struct SpreadHeaderNavigatorRowOverlayPayload: Sendable, Equatable {
 }
 
 struct SpreadHeaderNavigatorRowOverlayGenerator: MonthCalendarRowOverlayGenerator {
+    enum ContinuationEdgeTreatment: Equatable {
+        case none
+        case marker
+        case fade
+    }
+
     static let defaultVisibleLaneCount = 2
+    private static let laneHeight: CGFloat = 3
+    private static let laneHorizontalPadding: CGFloat = 4
+    private static let laneBottomPadding: CGFloat = 6
+    private static let continuationMarkerWidth: CGFloat = 2
+    private static let continuationMarkerVerticalPadding: CGFloat = 0.5
 
     static func overflowLabel(hiddenSegmentCount: Int) -> String {
         "+\(hiddenSegmentCount)"
@@ -17,6 +28,8 @@ struct SpreadHeaderNavigatorRowOverlayGenerator: MonthCalendarRowOverlayGenerato
 
     let overlays: [MonthCalendarLogicalRowOverlay<UUID, SpreadHeaderNavigatorRowOverlayPayload>]
     let maximumVisibleLaneCount: Int
+    let displayedMonth: Date
+    let calendar: Calendar
 
     init(
         model: SpreadHeaderNavigatorModel,
@@ -30,6 +43,8 @@ struct SpreadHeaderNavigatorRowOverlayGenerator: MonthCalendarRowOverlayGenerato
             currentSpread: currentSpread
         )
         self.maximumVisibleLaneCount = maximumVisibleLaneCount
+        self.displayedMonth = monthRow.date
+        self.calendar = model.calendar
     }
 
     static func makeOverlays(
@@ -80,6 +95,16 @@ struct SpreadHeaderNavigatorRowOverlayGenerator: MonthCalendarRowOverlayGenerato
         context: MonthCalendarPackedRowOverlayRenderContext<UUID, SpreadHeaderNavigatorRowOverlayPayload>
     ) -> some View {
         let isCurrent = context.overlay.payload.isCurrent
+        let leadingTreatment = Self.leadingEdgeTreatment(
+            context: context,
+            displayedMonth: displayedMonth,
+            calendar: calendar
+        )
+        let trailingTreatment = Self.trailingEdgeTreatment(
+            context: context,
+            displayedMonth: displayedMonth,
+            calendar: calendar
+        )
 
         return ZStack(alignment: .leading) {
             Capsule(style: .circular)
@@ -88,35 +113,42 @@ struct SpreadHeaderNavigatorRowOverlayGenerator: MonthCalendarRowOverlayGenerato
                     Capsule(style: .circular)
                         .strokeBorder(overlayBorder(isCurrent: isCurrent), lineWidth: isCurrent ? 1.0 : 0.8)
                 }
+                .frame(height: Self.laneHeight)
 
-            if context.continuesBeforeWeek {
-                continuationMarker
-                    .frame(maxHeight: .infinity, alignment: .center)
+            if leadingTreatment == .marker {
+                continuationMarker(isCurrent: isCurrent)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
             }
 
-            if context.continuesAfterWeek {
-                continuationMarker
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            if trailingTreatment == .marker {
+                continuationMarker(isCurrent: isCurrent)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }
         }
+        .mask(
+            edgeFadeMask(
+                leadingFade: leadingTreatment == .fade,
+                trailingFade: trailingTreatment == .fade
+            )
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-        .padding(.horizontal, 2)
-        .padding(.top, 3)
-        .padding(.bottom, 4)
+        .padding(.horizontal, Self.laneHorizontalPadding)
+        .padding(.bottom, Self.laneBottomPadding)
         .accessibilityHidden(true)
     }
 
     func overflowView(
         context: MonthCalendarRowOverlayOverflowRenderContext<UUID, SpreadHeaderNavigatorRowOverlayPayload>
     ) -> some View {
+        let isCurrent = overflowContainsCurrentOverlay(context)
         Text(Self.overflowLabel(hiddenSegmentCount: context.hiddenSegmentCount))
             .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(overflowForeground(isCurrent: isCurrent))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(
                 Capsule(style: .circular)
-                    .fill(SpreadTheme.Accent.todaySelectedEmphasis.opacity(0.72))
+                    .fill(overflowFill(isCurrent: isCurrent))
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             .padding(.horizontal, 4)
@@ -125,17 +157,84 @@ struct SpreadHeaderNavigatorRowOverlayGenerator: MonthCalendarRowOverlayGenerato
     }
 
     private func overlayFill(isCurrent: Bool) -> Color {
-        SpreadTheme.Accent.todaySelectedEmphasis.opacity(isCurrent ? 0.24 : 0.14)
+        isCurrent
+            ? SpreadSelectionVisualStyle.overlayFill
+            : SpreadTheme.Accent.todaySelectedEmphasis.opacity(0.14)
     }
 
     private func overlayBorder(isCurrent: Bool) -> Color {
-        SpreadTheme.Accent.todaySelectedEmphasis.opacity(isCurrent ? 0.48 : 0.28)
+        isCurrent
+            ? SpreadSelectionVisualStyle.overlayBorder
+            : SpreadTheme.Accent.todaySelectedEmphasis.opacity(0.28)
     }
 
-    private var continuationMarker: some View {
+    private func continuationMarker(isCurrent: Bool) -> some View {
         RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-            .fill(SpreadTheme.Accent.todaySelectedEmphasis.opacity(0.42))
-            .frame(width: 3)
-            .padding(.vertical, 1)
+            .fill(
+                isCurrent
+                    ? SpreadSelectionVisualStyle.overlayMarker
+                    : SpreadTheme.Accent.todaySelectedEmphasis.opacity(0.42)
+            )
+            .frame(width: Self.continuationMarkerWidth, height: Self.laneHeight + 1)
+            .padding(.vertical, Self.continuationMarkerVerticalPadding)
+    }
+
+    private func overflowContainsCurrentOverlay(
+        _ context: MonthCalendarRowOverlayOverflowRenderContext<UUID, SpreadHeaderNavigatorRowOverlayPayload>
+    ) -> Bool {
+        context.hiddenSegments.contains(where: { $0.overlay.payload.isCurrent })
+    }
+
+    private func overflowFill(isCurrent: Bool) -> Color {
+        isCurrent
+            ? SpreadSelectionVisualStyle.overflowFill
+            : SpreadTheme.Accent.todaySelectedEmphasis.opacity(0.72)
+    }
+
+    private func overflowForeground(isCurrent: Bool) -> Color {
+        isCurrent
+            ? SpreadSelectionVisualStyle.overflowForeground
+            : .white
+    }
+
+    private func edgeFadeMask(
+        leadingFade: Bool,
+        trailingFade: Bool
+    ) -> some View {
+        let fadeFraction = 0.12
+        return LinearGradient(
+            stops: [
+                .init(color: .white.opacity(leadingFade ? 0 : 1), location: 0),
+                .init(color: .white, location: leadingFade ? fadeFraction : 0),
+                .init(color: .white, location: trailingFade ? 1 - fadeFraction : 1),
+                .init(color: .white.opacity(trailingFade ? 0 : 1), location: 1),
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    static func leadingEdgeTreatment(
+        context: MonthCalendarPackedRowOverlayRenderContext<UUID, SpreadHeaderNavigatorRowOverlayPayload>,
+        displayedMonth: Date,
+        calendar: Calendar
+    ) -> ContinuationEdgeTreatment {
+        guard context.continuesBeforeWeek else { return .none }
+        if context.startColumn > 0 {
+            return .fade
+        }
+        return .marker
+    }
+
+    static func trailingEdgeTreatment(
+        context: MonthCalendarPackedRowOverlayRenderContext<UUID, SpreadHeaderNavigatorRowOverlayPayload>,
+        displayedMonth: Date,
+        calendar: Calendar
+    ) -> ContinuationEdgeTreatment {
+        guard context.continuesAfterWeek else { return .none }
+        if context.endColumn < 6 {
+            return .fade
+        }
+        return .marker
     }
 }

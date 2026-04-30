@@ -215,6 +215,34 @@ struct MockDataSetTests {
         #expect(multidaySpreads.count >= 2, "Multiday should include at least 2 multiday spreads")
     }
 
+    /// Verifies that the spread-navigator fixture includes overlapping March multiday spreads.
+    ///
+    /// Setup: scenarioSpreadNavigator with the March 2026 navigator fixture date.
+    /// Expected: at least two March multiday spreads overlap so navigator lanes are immediately visible.
+    @Test("Scenario spread navigator seeds overlapping March multiday spreads")
+    func scenarioSpreadNavigatorSeedsOverlappingMarchMultidaySpreads() {
+        let calendar = makeTestCalendar()
+        let today = makeTestDate(year: 2026, month: 3, day: 29, calendar: calendar)
+        let data = MockDataSet.scenarioSpreadNavigator.generateData(calendar: calendar, today: today)
+
+        let marchMultidaySpreads = data.spreads.filter { spread in
+            guard spread.period == .multiday else { return false }
+            let startDate = spread.startDate ?? spread.date
+            return calendar.component(.year, from: startDate) == 2026
+                && calendar.component(.month, from: startDate) == 3
+        }
+
+        #expect(marchMultidaySpreads.count >= 2)
+        #expect(marchMultidaySpreads.contains { spread in
+            spread.startDate == makeTestDate(year: 2026, month: 3, day: 20, calendar: calendar)
+                && spread.endDate == makeTestDate(year: 2026, month: 3, day: 24, calendar: calendar)
+        })
+        #expect(marchMultidaySpreads.contains { spread in
+            spread.startDate == makeTestDate(year: 2026, month: 3, day: 22, calendar: calendar)
+                && spread.endDate == makeTestDate(year: 2026, month: 3, day: 26, calendar: calendar)
+        })
+    }
+
     // MARK: - Boundary Data Set
 
     /// Verifies that boundary data set includes spreads across month boundary.

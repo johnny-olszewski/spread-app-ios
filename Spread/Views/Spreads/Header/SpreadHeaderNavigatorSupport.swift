@@ -98,11 +98,6 @@ struct SpreadHeaderNavigatorModel {
         switch currentSpread.period {
         case .day:
             return calendar.isDate(currentSpread.date, inSameDayAs: date)
-        case .multiday:
-            let startDate = Period.day.normalizeDate(currentSpread.startDate ?? currentSpread.date, calendar: calendar)
-            let endDate = Period.day.normalizeDate(currentSpread.endDate ?? currentSpread.date, calendar: calendar)
-            let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
-            return normalizedDate >= startDate && normalizedDate <= endDate
         default:
             return false
         }
