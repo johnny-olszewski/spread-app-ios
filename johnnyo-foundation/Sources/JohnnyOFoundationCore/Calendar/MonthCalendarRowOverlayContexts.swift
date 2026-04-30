@@ -1,5 +1,9 @@
 import Foundation
 
+/// An app-owned logical overlay request for a month shell.
+///
+/// Foundation splits each logical overlay into week-row-bounded render contexts.
+/// Cross-row continuation is intentionally out of scope for this version of the seam.
 public struct MonthCalendarLogicalRowOverlay<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>: Identifiable, Sendable {
     public let id: OverlayID
     public let startDate: Date
@@ -19,6 +23,7 @@ public struct MonthCalendarLogicalRowOverlay<OverlayID: Hashable & Sendable, Ove
     }
 }
 
+/// Fractional geometry for one row-bounded overlay segment inside a week row.
 public struct MonthCalendarRowOverlayFrame: Sendable {
     public let leadingFraction: Double
     public let widthFraction: Double
@@ -38,6 +43,7 @@ public struct MonthCalendarRowOverlayFrame: Sendable {
     }
 }
 
+/// A packed render context for one visible overlay segment within a single week row.
 public struct MonthCalendarPackedRowOverlayRenderContext<
     OverlayID: Hashable & Sendable,
     OverlayPayload: Sendable
@@ -88,6 +94,7 @@ public struct MonthCalendarPackedRowOverlayRenderContext<
     }
 }
 
+/// Foundation-owned metadata for a packed segment that was clipped by the visible-lane limit.
 public struct MonthCalendarOverflowedRowOverlaySegment<
     OverlayID: Hashable & Sendable,
     OverlayPayload: Sendable
@@ -132,6 +139,7 @@ public struct MonthCalendarOverflowedRowOverlaySegment<
     }
 }
 
+/// Overflow metadata that foundation computes while the app remains responsible for rendering the overflow affordance.
 public struct MonthCalendarRowOverlayOverflowRenderContext<
     OverlayID: Hashable & Sendable,
     OverlayPayload: Sendable
@@ -168,6 +176,7 @@ public struct MonthCalendarRowOverlayOverflowRenderContext<
     }
 }
 
+/// The packed row-overlay result for one visible week row in the month shell.
 public struct MonthCalendarPackedRowOverlayWeekLayout<
     OverlayID: Hashable & Sendable,
     OverlayPayload: Sendable

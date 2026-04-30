@@ -1,6 +1,10 @@
 import SwiftUI
 import JohnnyOFoundationCore
 
+/// Decorative-only overlay seam for `MonthCalendarView`.
+///
+/// `CalendarContentGenerator` continues to own headers, week backgrounds, and day cells.
+/// This separate protocol owns only row-bounded overlay visuals plus any app-owned overflow UI.
 public protocol MonthCalendarRowOverlayGenerator {
     associatedtype OverlayID: Hashable & Sendable
     associatedtype OverlayPayload: Sendable
@@ -25,6 +29,7 @@ public struct MonthCalendarEmptyRowOverlayPayload: Sendable {
     public init() {}
 }
 
+/// Default no-op overlay generator used when a month shell has no row overlays.
 public struct EmptyMonthCalendarRowOverlayGenerator: MonthCalendarRowOverlayGenerator {
     public init() {}
 

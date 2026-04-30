@@ -172,4 +172,10 @@ struct SpreadHeaderNavigatorRowOverlayTests {
 
         #expect(generator.maximumVisibleLaneCount == 2)
     }
+
+    /// Overflow visuals belong to the app layer even though foundation computes the hidden-segment metadata.
+    /// Expected: the rooted navigator generator formats the visible overflow label from the foundation-provided hidden count.
+    @Test func overflowLabelIsAppOwned() {
+        #expect(SpreadHeaderNavigatorRowOverlayGenerator.overflowLabel(hiddenSegmentCount: 3) == "+3")
+    }
 }

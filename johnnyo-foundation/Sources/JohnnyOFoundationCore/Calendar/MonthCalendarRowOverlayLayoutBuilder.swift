@@ -1,6 +1,11 @@
 import Foundation
 
 public enum MonthCalendarRowOverlayLayoutBuilder {
+    /// Builds packed week-row layouts for logical overlays in a month shell.
+    ///
+    /// Foundation owns row segmentation, same-row lane packing, visible-lane limiting,
+    /// and overflow metadata derivation. Visible peripheral dates participate when they
+    /// are rendered as day cells; hidden placeholder slots do not.
     public static func makeWeekLayouts<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>(
         overlays: [MonthCalendarLogicalRowOverlay<OverlayID, OverlayPayload>],
         model: MonthCalendarModel,
