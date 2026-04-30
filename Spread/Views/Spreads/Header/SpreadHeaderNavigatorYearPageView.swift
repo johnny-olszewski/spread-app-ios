@@ -91,7 +91,11 @@ struct SpreadHeaderNavigatorYearPageView: View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(model.isCurrent(monthRow: monthRow, currentSpread: currentSpread) ? Color.accentColor.opacity(0.16) : Color.clear)
+                    .fill(
+                        model.isCurrent(monthRow: monthRow, currentSpread: currentSpread)
+                            ? SpreadSelectionVisualStyle.surfaceFill
+                            : Color.clear
+                    )
             )
             .contentShape(Rectangle())
             .onTapGesture {
@@ -149,3 +153,221 @@ struct SpreadHeaderNavigatorYearPageView: View {
         )
     }
 }
+
+#if DEBUG
+private enum SpreadHeaderNavigatorPreviewMode: String, CaseIterable, Identifiable {
+    case conventional
+    case traditional
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .conventional:
+            return "Conventional"
+        case .traditional:
+            return "Traditional"
+        }
+    }
+
+    var navigatorMode: SpreadHeaderNavigatorModel.Mode {
+        switch self {
+        case .conventional:
+            return .conventional
+        case .traditional:
+            return .traditional
+        }
+    }
+}
+
+private struct SpreadHeaderNavigatorPreviewSurface: View {
+    private static let previewDataSets: [MockDataSet] = [
+        .scenarioSpreadNavigator,
+        .multiday,
+        .baseline,
+        .boundary,
+        .empty,
+    ]
+
+    @State private var selectedDataSet: MockDataSet = .scenarioSpreadNavigator
+    @State private var selectedMode: SpreadHeaderNavigatorPreviewMode = .conventional
+    @State private var selectedSpreadID: UUID?
+    @State private var expandedMonth: Date?
+
+    private var previewCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        calendar.firstWeekday = 1
+        return calendar
+    }
+
+    private var previewToday: Date {
+        previewCalendar.date(from: DateComponents(year: 2026, month: 3, day: 29))!
+    }
+
+    private var generatedData: MockDataSet.GeneratedData {
+        selectedDataSet.generateData(calendar: previewCalendar, today: previewToday)
+    }
+
+    private var availableSpreads: [DataModel.Spread] {
+        generatedData.spreads.sorted(by: previewSpreadSortOrder)
+    }
+
+    private var selectedSpread: DataModel.Spread? {
+        if let selectedSpreadID,
+           let matchedSpread = availableSpreads.first(where: { $0.id == selectedSpreadID }) {
+            return matchedSpread
+        }
+
+        return availableSpreads.first(where: { $0.period == .multiday })
+            ?? availableSpreads.first(where: { $0.period == .day })
+            ?? availableSpreads.first
+    }
+
+    private var model: SpreadHeaderNavigatorModel {
+        SpreadHeaderNavigatorModel(
+            mode: selectedMode.navigatorMode,
+            calendar: previewCalendar,
+            today: previewToday,
+            spreads: generatedData.spreads,
+            tasks: generatedData.tasks,
+            notes: generatedData.notes,
+            events: generatedData.events
+        )
+    }
+
+    private var selectedPage: SpreadHeaderNavigatorModel.YearPage? {
+        guard let selectedSpread else { return nil }
+        let initialYear = model.initialYear(for: selectedSpread)
+        return model.yearPages().first(where: { $0.year == initialYear }) ?? model.yearPages().first
+    }
+
+    private var expandedMonthBinding: Binding<Date?> {
+        Binding(
+            get: { expandedMonth },
+            set: { expandedMonth = $0 }
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            previewControls
+
+            if let selectedPage, let selectedSpread {
+                SpreadHeaderNavigatorYearPageView(
+                    page: selectedPage,
+                    model: model,
+                    currentSpread: selectedSpread,
+                    expandedMonth: expandedMonthBinding,
+                    onSelect: { _ in },
+                    onDismiss: {}
+                )
+                .frame(width: 340, height: 560)
+                .background(SpreadTheme.Paper.primary)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            } else {
+                ContentUnavailableView(
+                    "No Spreads",
+                    systemImage: "calendar.badge.exclamationmark",
+                    description: Text("The selected data set does not contain any spreads to preview.")
+                )
+                .frame(width: 340, height: 560)
+                .background(SpreadTheme.Paper.primary)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            }
+        }
+        .padding()
+        .frame(width: 380, height: 700, alignment: .topLeading)
+        .background(Color.black)
+        .preferredColorScheme(.dark)
+        .onAppear(perform: synchronizeSelectedSpread)
+        .onChange(of: selectedDataSet) { _, _ in
+            synchronizeSelectedSpread()
+        }
+        .onChange(of: selectedMode) { _, _ in
+            synchronizeSelectedSpread()
+        }
+    }
+
+    private var previewControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Navigator Overlay Preview")
+                .font(.headline)
+                .foregroundStyle(.white)
+
+            Picker("Data Set", selection: $selectedDataSet) {
+                ForEach(Self.previewDataSets, id: \.rawValue) { dataSet in
+                    Text(dataSet.displayName).tag(dataSet)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Picker("Mode", selection: $selectedMode) {
+                ForEach(SpreadHeaderNavigatorPreviewMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Picker("Current Spread", selection: currentSpreadSelectionBinding) {
+                ForEach(availableSpreads, id: \.id) { spread in
+                    Text(previewSpreadTitle(for: spread)).tag(Optional(spread.id))
+                }
+            }
+            .pickerStyle(.menu)
+            .disabled(availableSpreads.isEmpty)
+        }
+    }
+
+    private var currentSpreadSelectionBinding: Binding<UUID?> {
+        Binding(
+            get: { selectedSpread?.id },
+            set: { selectedSpreadID = $0 }
+        )
+    }
+
+    private func synchronizeSelectedSpread() {
+        let resolvedSpread = selectedSpread
+        selectedSpreadID = resolvedSpread?.id
+        expandedMonth = resolvedSpread.map { model.initialExpandedMonth(for: $0) }
+            ?? previewCalendar.date(from: DateComponents(year: 2026, month: 3, day: 1))
+    }
+
+    private func previewSpreadTitle(for spread: DataModel.Spread) -> String {
+        "\(spread.period.displayName): \(spread.displayLabel(calendar: previewCalendar))"
+    }
+
+    private func previewSpreadSortOrder(_ lhs: DataModel.Spread, _ rhs: DataModel.Spread) -> Bool {
+        let lhsPriority = previewSpreadPriority(lhs.period)
+        let rhsPriority = previewSpreadPriority(rhs.period)
+        if lhsPriority != rhsPriority {
+            return lhsPriority < rhsPriority
+        }
+
+        let lhsStart = Period.day.normalizeDate(lhs.startDate ?? lhs.date, calendar: previewCalendar)
+        let rhsStart = Period.day.normalizeDate(rhs.startDate ?? rhs.date, calendar: previewCalendar)
+        if lhsStart != rhsStart {
+            return lhsStart < rhsStart
+        }
+
+        return lhs.displayLabel(calendar: previewCalendar) < rhs.displayLabel(calendar: previewCalendar)
+    }
+
+    private func previewSpreadPriority(_ period: Period) -> Int {
+        switch period {
+        case .multiday:
+            return 0
+        case .day:
+            return 1
+        case .month:
+            return 2
+        case .year:
+            return 3
+        }
+    }
+}
+
+#Preview("Navigator Overlay Surface") {
+    SpreadHeaderNavigatorPreviewSurface()
+}
+#endif

@@ -106,4 +106,24 @@ struct SpreadHeaderNavigatorSupportTests {
         #expect(model.initialYear(for: currentSpread) == 2027)
         #expect(model.initialExpandedMonth(for: currentSpread) == Self.makeDate(year: 2027, month: 5))
     }
+
+    /// A selected multiday spread should highlight its swimlane, not every covered day cell.
+    @Test func multidayCurrentSpreadDoesNotMarkCoveredDatesAsCurrentDaySelection() {
+        let currentSpread = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 3, day: 20),
+            endDate: Self.makeDate(year: 2026, month: 3, day: 24),
+            calendar: Self.calendar
+        )
+        let model = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 29),
+            spreads: [currentSpread],
+            tasks: [],
+            notes: [],
+            events: []
+        )
+
+        #expect(!model.isCurrent(date: Self.makeDate(year: 2026, month: 3, day: 21), currentSpread: currentSpread))
+    }
 }

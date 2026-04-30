@@ -650,8 +650,8 @@
     - In traditional mode, a year page shows all months.
     - Expanding a month shows that month's calendar grid.
     - Calendar grids in the rooted navigator are rendered using `MonthCalendarView` from `johnnyo-foundation` with a dedicated `CalendarContentGenerator`; out-of-month (peripheral) dates are not shown. [SPRD-166]
-    - Day cells use a three-state visual treatment that matches the multiday day card: today (accent fill + solid accent border), created/selectable (solid secondary border, transparent fill), uncreated/no targets (dashed secondary border, transparent fill). The fill, border color, and stroke style for each state are defined as shared properties on `MultidayDayCardVisualState` and referenced by both the multiday card and the navigator calendar generator. [SPRD-166]
-    - In conventional mode, a day cell is "created" if it has at least one selection target; otherwise it is "uncreated". In traditional mode, every day cell is always "created" since all days are navigable. [SPRD-166]
+    - Day cells use a shared visual treatment that matches the multiday day card: created dates use a solid border, uncreated dates use a dashed border, and today emphasis is layered on top of that created/uncreated state rather than replacing it. As a result, an uncreated today date still uses a dashed border while retaining today emphasis. The fill, border color, and stroke style for each state are defined as shared properties on `MultidayDayCardVisualState` and referenced by both the multiday card and the navigator calendar generator. [SPRD-166]
+    - In conventional mode, a day cell is "created" only when that exact date has an explicit day spread target; multiday coverage alone does not make the day cell appear created. In traditional mode, every day cell is always "created" since all days are navigable. [SPRD-166]
     - Calendar days with no selectable target are disabled and not tappable.
     - A day with exactly one target selects that spread immediately and dismisses the rooted navigator.
     - A day with multiple targets presents a native confirmation dialog so the user can choose among the day spread and any covering multiday spread targets.
@@ -687,12 +687,12 @@
     - year sections rendered as table-style rows
     - month sections rendered as table-style rows nested under expanded years
     - day tiles rendered in a grid nested under expanded months
-    - explicit multiday tiles rendered in the same month grid in conventional mode only
+    - decorative multiday overlay lanes rendered across the conventional-mode month grid only
   - The presented navigator opens with the relevant current context already revealed inside that rooted hierarchy:
     - from a year spread, expand the current year
     - from a month spread, expand the current year and current month
     - from a day spread, expand the current year and current month and visibly select the current day tile
-    - from a multiday spread, expand the current year and current month and visibly select the current multiday tile
+    - from a multiday spread, expand the current year and current month and visibly highlight the covered dates plus the decorative multiday overlay lanes
   - Accordion behavior applies at each hierarchy level:
     - only one year section is expanded at a time
     - within the expanded year, only one month section is expanded at a time
@@ -701,18 +701,20 @@
     - tapping the row body navigates immediately when the row represents a valid destination
     - a trailing disclosure control expands or collapses that section
     - derived conventional year/month rows that do not exist as explicit spreads are disclosure-only and do not attempt direct app navigation
-  - Month detail renders a single mixed grid ordered strictly by spread start date.
-  - In conventional mode, day and multiday tiles share the same grid, and multiday tiles use a subtle alternate tint or border plus a date-range label to distinguish them.
-  - In traditional mode, month grids show every calendar day in the month and do not include multiday tiles in v1.
+  - Month detail renders a calendar-style day grid for the visible month.
+  - In conventional mode, the grid always shows the month's day cells, while explicit multiday spreads render as decorative row-bounded overlay lanes across those day cells.
+  - In traditional mode, month grids show every calendar day in the month and do not include multiday overlays in v1.
   - Selecting a spread row/tile immediately navigates the main app to that spread and dismisses the current navigator surface. If the selected spread is visible under the current title-strip display preference, the horizontal spread-title navigator recenters on it; if it is hidden by `Relevant Past Only`, the leading chevron shows selected styling and the selected indicator dot as the proxy location.
   - The current spread is indicated with a light shape background; no checkmark badge is used.
   - Conventional-mode availability rules:
     - derived years and derived months use subtle styling to indicate they are not explicitly created at that level
-    - month grids show only explicit created day and multiday spreads
+    - a conventional day cell uses created styling only when an explicit day spread exists for that date; multiday coverage alone keeps the day cell in the uncreated dotted-outline state
+    - when peripheral dates are hidden, multiday overlay lanes fade at the month boundary instead of rendering hidden peripheral date cells
+    - when the current spread is a multiday spread, the selected styling belongs to the multiday overlay lane itself rather than to every covered day cell
   - Traditional-mode availability rules:
     - year/month/day navigation follows the full calendar structure implied by traditional mode rather than created-spread existence
     - the root year list starts at the earliest year that has either entry data or an explicitly created conventional spread
-    - month grids show every calendar day in the month and do not show multiday tiles in v1
+    - month grids show every calendar day in the month and do not show multiday overlays in v1
 - Spread content view shows active entries and migrated entries section (conventional). [SPRD-27, SPRD-29]
   - Year and month spreads use spread-specific task sectioning rather than generic source-based sectioning. [SPRD-138]
   - On a year spread:
@@ -1102,10 +1104,10 @@
 - Years and months are presented as collapsible table rows; month contents are presented as grid tiles within the expanded month section. [SPRD-125]
 - Year and month rows use split interaction: row-body tap navigates when the row is a valid destination, while a trailing disclosure expands or collapses that section. Derived conventional rows use disclosure-only behavior. [SPRD-125]
 - The hierarchy uses accordion behavior: only one year is expanded at a time, and only one month is expanded within that year. [SPRD-125]
-- The month grid mixes day and multiday tiles chronologically in conventional mode, visually distinguishing multiday tiles with a subtle alternate treatment; traditional-mode month grids show all calendar days and no multiday tiles in v1. [SPRD-125]
+- The month grid always shows calendar day cells. In conventional mode, explicit multiday spreads are shown as decorative row-bounded overlay lanes rather than as separate tiles; traditional-mode month grids show all calendar days and no multiday overlays in v1. [SPRD-125]
 - The current spread opens with its year/month context already expanded and is highlighted with a light shape background. [SPRD-125]
-- Conventional mode derives root years and month rows when child spreads make them navigable, but day/multiday tiles remain explicit-created-spread only. [SPRD-125]
-- Traditional mode uses the full calendar structure, with the root year list spanning from the first year with entry data or created spreads through current year plus ten years, and month grids showing all calendar days with no multiday tiles in v1. [SPRD-125]
+- Conventional mode derives root years and month rows when child spreads make them navigable, but explicit day spread existence alone controls whether a day cell appears created; multiday coverage is decorative and does not make a day cell appear created by itself. [SPRD-125]
+- Traditional mode uses the full calendar structure, with the root year list spanning from the first year with entry data or created spreads through current year plus ten years, and month grids showing all calendar days with no multiday overlays in v1. [SPRD-125]
 - Keyboard/trackpad-specific navigation enhancements are deferred from the initial implementation. [SPRD-125]
 - The rooted navigator surface should be implemented with a separable model/support layer so hierarchy derivation, expansion state, and current-context opening rules can be unit tested independently from the popover/sheet view. [SPRD-125]
 - The horizontal spread-title navigator should also use a separable support/model layer so ordered spread sequencing, selection state, adaptive visible-slot behavior, browse-state rules, offscreen-selected detection, and recenter rules can be unit tested independently from the scrolling view. [SPRD-126, SPRD-127]

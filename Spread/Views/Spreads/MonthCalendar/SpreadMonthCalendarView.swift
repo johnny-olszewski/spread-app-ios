@@ -86,8 +86,10 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
         for context: MonthCalendarDayContext,
         entryCount: Int
     ) -> MultidayDayCardVisualState {
-        if context.isToday { return .today }
-        return entryCount > 0 ? .created : .uncreated
+        MultidayDayCardSupport.visualState(
+            isToday: context.isToday,
+            isCreated: entryCount > 0
+        )
     }
 
     private func cellFill(
@@ -95,11 +97,8 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
         isPeripheral: Bool
     ) -> Color {
         if isPeripheral { return Color.clear }
-        switch visualState {
-        case .today: return visualState.fill
-        case .created: return Color.primary.opacity(0.04)
-        case .uncreated: return Color.clear
-        }
+        if visualState.isToday { return visualState.fill }
+        return visualState.isCreated ? Color.primary.opacity(0.04) : Color.clear
     }
 
     func placeholderCellView(context: MonthCalendarPlaceholderContext) -> AnyView {

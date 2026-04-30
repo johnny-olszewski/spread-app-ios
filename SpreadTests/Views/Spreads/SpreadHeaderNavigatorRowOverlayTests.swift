@@ -178,4 +178,96 @@ struct SpreadHeaderNavigatorRowOverlayTests {
     @Test func overflowLabelIsAppOwned() {
         #expect(SpreadHeaderNavigatorRowOverlayGenerator.overflowLabel(hiddenSegmentCount: 3) == "+3")
     }
+
+    /// Hidden peripheral dates should not render as explicit day cells when a multiday range crosses the month boundary.
+    /// Expected: the visible segment uses a leading fade treatment instead of a continuation marker when the hidden portion belongs to the previous month.
+    @Test func hiddenLeadingPeripheralContinuationUsesFadeTreatment() throws {
+        let multiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 3, day: 30),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 2),
+            calendar: Self.calendar
+        )
+        let model = Self.makeModel(spreads: [multiday], today: Self.makeDate(year: 2026, month: 4, day: 2))
+        let april = try #require(model.months(in: 2026).first(where: { Self.calendar.component(.month, from: $0.date) == 4 }))
+        let overlays = SpreadHeaderNavigatorRowOverlayGenerator.makeOverlays(
+            model: model,
+            monthRow: april,
+            currentSpread: multiday
+        )
+        let monthCalendarModel = MonthCalendarModelBuilder.makeModel(
+            displayedMonth: april.date,
+            calendar: Self.calendar,
+            configuration: .init(showsPeripheralDates: false),
+            today: model.today
+        )
+        let firstSegment = try #require(
+            MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts(
+                overlays: overlays,
+                model: monthCalendarModel,
+                calendar: Self.calendar,
+                maximumVisibleLaneCount: 2
+            ).first?.visibleSegments.first
+        )
+
+        #expect(
+            SpreadHeaderNavigatorRowOverlayGenerator.leadingEdgeTreatment(
+                context: firstSegment,
+                displayedMonth: april.date,
+                calendar: Self.calendar
+            ) == .fade
+        )
+        #expect(
+            SpreadHeaderNavigatorRowOverlayGenerator.trailingEdgeTreatment(
+                context: firstSegment,
+                displayedMonth: april.date,
+                calendar: Self.calendar
+            ) == .none
+        )
+    }
+
+    /// Hidden trailing peripheral dates should fade the multiday lane at the month edge rather than imply a visible next-month day tile.
+    /// Expected: the last visible April segment uses a trailing fade treatment instead of a continuation marker.
+    @Test func hiddenTrailingPeripheralContinuationUsesFadeTreatment() throws {
+        let multiday = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 29),
+            endDate: Self.makeDate(year: 2026, month: 5, day: 2),
+            calendar: Self.calendar
+        )
+        let model = Self.makeModel(spreads: [multiday], today: Self.makeDate(year: 2026, month: 4, day: 29))
+        let april = try #require(model.months(in: 2026).first(where: { Self.calendar.component(.month, from: $0.date) == 4 }))
+        let overlays = SpreadHeaderNavigatorRowOverlayGenerator.makeOverlays(
+            model: model,
+            monthRow: april,
+            currentSpread: multiday
+        )
+        let monthCalendarModel = MonthCalendarModelBuilder.makeModel(
+            displayedMonth: april.date,
+            calendar: Self.calendar,
+            configuration: .init(showsPeripheralDates: false),
+            today: model.today
+        )
+        let lastVisibleWeekSegment = try #require(
+            MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts(
+                overlays: overlays,
+                model: monthCalendarModel,
+                calendar: Self.calendar,
+                maximumVisibleLaneCount: 2
+            ).last(where: { !$0.visibleSegments.isEmpty })?.visibleSegments.first
+        )
+
+        #expect(
+            SpreadHeaderNavigatorRowOverlayGenerator.leadingEdgeTreatment(
+                context: lastVisibleWeekSegment,
+                displayedMonth: april.date,
+                calendar: Self.calendar
+            ) == .none
+        )
+        #expect(
+            SpreadHeaderNavigatorRowOverlayGenerator.trailingEdgeTreatment(
+                context: lastVisibleWeekSegment,
+                displayedMonth: april.date,
+                calendar: Self.calendar
+            ) == .fade
+        )
+    }
 }

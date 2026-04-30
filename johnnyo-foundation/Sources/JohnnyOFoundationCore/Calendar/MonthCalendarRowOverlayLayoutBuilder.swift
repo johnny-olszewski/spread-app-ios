@@ -81,7 +81,9 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
                     frame: frame(
                         startColumn: segment.startColumn,
                         endColumn: segment.endColumn,
-                        laneIndex: segment.packedLaneIndex,
+                        slotIndexFromBottom: overflowedSegments.isEmpty
+                            ? segment.packedLaneIndex
+                            : segment.packedLaneIndex + 1,
                         displayLaneCount: displayLaneCount
                     )
                 )
@@ -185,7 +187,7 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
                 frame: frame(
                     startColumn: segment.startColumn,
                     endColumn: segment.endColumn,
-                    laneIndex: segment.packedLaneIndex,
+                    slotIndexFromBottom: 0,
                     displayLaneCount: max(displayLaneCount, 1)
                 )
             )
@@ -209,13 +211,15 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
     private static func frame(
         startColumn: Int,
         endColumn: Int,
-        laneIndex: Int,
+        slotIndexFromBottom: Int,
         displayLaneCount: Int
     ) -> MonthCalendarRowOverlayFrame {
         MonthCalendarRowOverlayFrame(
             leadingFraction: Double(startColumn) / 7,
             widthFraction: Double(endColumn - startColumn + 1) / 7,
-            topFraction: displayLaneCount > 0 ? Double(laneIndex) / Double(displayLaneCount) : 0,
+            topFraction: displayLaneCount > 0
+                ? Double(displayLaneCount - slotIndexFromBottom - 1) / Double(displayLaneCount)
+                : 0,
             heightFraction: displayLaneCount > 0 ? 1 / Double(displayLaneCount) : 0
         )
     }
