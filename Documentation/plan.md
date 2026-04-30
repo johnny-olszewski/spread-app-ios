@@ -91,7 +91,7 @@
   - Package-view tests proving overlays render between week background and day cells without altering existing cell invocation behavior.
 - **Dependencies**: SPRD-153
 
-### [SPRD-184] Feature: render multiday spread row overlays in the rooted navigator
+### [SPRD-184] Feature: render multiday spread row overlays in the rooted navigator - [x] Complete
 - **Context**: The first concrete consumer of the new row-overlay seam is the rooted spread navigator's expanded month grid. Conventional mode already reasons about explicit day and multiday targets there, but the grid does not yet show spanning multiday coverage.
 - **Description**: Add a `Spread` overlay generator and renderer for the rooted navigator so multiday spreads appear as row-bounded spanning decorations in expanded month grids.
 - **Spec**: Rooted spread navigator behavior; Month Calendar Row Overlays
