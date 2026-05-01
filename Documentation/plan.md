@@ -162,36 +162,199 @@
 - **Context**: The data model and builders currently retain source-history visibility and require manual movement in cases the new system wants to resolve automatically.
 - **Description**: Refactor spread builders, assignment visibility, and spread-creation side effects so eligible tasks and notes automatically move into newly created more-granular explicit year/month/day spreads and disappear from their old spread content immediately afterward.
 - **Spec**: Spread Visual System Refresh
+- **Implementation Details**:
+  - Update conventional spread-data building so explicit year/month/day spread membership is driven only by current non-migrated assignments.
+  - Ensure targeted derived-model rebuild scope uses only current explicit-assignment keys plus multiday aggregation keys, so source-history assignments no longer keep obsolete surfaces alive.
+  - Keep assignment history persistence intact on `TaskAssignment` and `NoteAssignment`; only spread-content visibility changes.
+  - Add a shared conventional-mode spread-creation reconciliation path for explicit `year`, `month`, and `day` spreads:
+    - append/save the new spread
+    - recompute eligible task and note destinations using the existing preferred-date/preferred-period hierarchy rules
+    - persist only entries whose current assignment path actually changes
+  - Apply automatic migration only within the explicit year/month/day hierarchy.
+  - Do not auto-migrate into multiday spreads and do not change traditional-mode virtual spread derivation.
+  - Preserve preferred-assignment ceilings:
+    - year-preferred entries do not move below year
+    - month-preferred entries do not move to day
+    - day-preferred entries may move year → month → day as finer explicit spreads appear
+  - Preserve Inbox behavior for entries with no preferred assignment and for preferred assignments that still have no valid explicit destination after spread creation.
+  - Keep migration/history state available for dedicated migration flows, deletion fallback, sync durability, and future feedback work under `SPRD-192`.
+- **Acceptance Criteria**:
+  - Conventional explicit spread content excludes migrated-history-only task and note rows.
+  - Reassignment or manual migration removes the entry from the old spread's content immediately while preserving migrated assignment history.
+  - Creating an explicit year spread auto-assigns eligible preferred year entries from Inbox only.
+  - Creating an explicit month spread auto-assigns eligible preferred month/day entries from Inbox or year spreads, without exceeding the preferred assignment period.
+  - Creating an explicit day spread auto-assigns eligible preferred day entries from Inbox, year, or month spreads.
+  - Month-preferred entries do not auto-migrate into day spreads.
+  - Explicit spread creation auto-reconciles notes using the same destination hierarchy rules, while multiday spread creation remains aggregation-only.
+  - Traditional-mode derived spread behavior is unchanged.
+- **Tests**:
+  - Builder tests for excluding migrated-history-only explicit assignments from spread content.
+  - Builder/patch-scope tests for dropping migrated explicit spread keys while preserving multiday aggregation keys.
+  - JournalManager tests for year/month/day spread creation auto-assigning eligible Inbox tasks and notes.
+  - JournalManager tests for parent-to-child auto-migration across year → month and month → day creation.
+  - JournalManager tests proving preferred-period ceilings block invalid finer auto-migration.
+  - JournalManager tests proving unmatched or nil-preference entries remain in Inbox.
+  - Regression tests proving multiday spread creation does not trigger direct assignment auto-migration.
 - **Dependencies**: SPRD-186
 
 ### [SPRD-188] UI: redesign year spread into year section plus adaptive month cards
 - **Context**: The year spread needs to shift from a generic sectioned list toward a vertical month-card surface that still truthfully reflects current assignment.
 - **Description**: Implement the new year spread layout with a top year-period section, adaptive month cards, month-grid previews, existence/current-month state styling, and year-assigned task/note previews inside month cards.
 - **Spec**: Spread Visual System Refresh
+- **Implementation Details**:
+  - Replace the generic year-spread sectioning with a dedicated year surface composed of:
+    - one top year-period entry section for entries currently assigned to the year with preferred period `year`
+    - a vertically stacked month-card list beneath it
+  - Build month cards from calendar order rather than from the old source-assignment grouping.
+  - Render each month card with:
+    - month title/header
+    - read-only mini month grid with weekday headers and date numbers
+    - no interactive cells inside the mini grid
+    - explicit month-spread existence styling via solid vs dashed border
+    - distinct current-month emphasis layered independently from created/uncreated state
+    - a bottom `View Spread` or `Create Spread` action based on explicit month-spread existence
+  - Surface year-assigned entries with dates in that month inside the corresponding card, without old migrated/source subsections.
+  - Keep month-card entry previews unsectioned; when an entry has a concrete day date, render a small day-number context label.
+  - Implement adaptive density rules so sparse months stay compact while dense months switch to preview-threshold plus overflow treatment instead of unbounded height.
+  - Reuse shared entry-row styling and shared spread visual tokens introduced by this refreshed system instead of creating a year-only row language.
+- **Acceptance Criteria**:
+  - Year spreads render a top year-entry section plus one month card per calendar month.
+  - Month cards visually distinguish explicit month spreads from missing month spreads using the specified border-state semantics.
+  - Current-month emphasis does not replace the explicit existence styling.
+  - Month cards show currently year-assigned month/day-dated entries only; migrated/source-history entries are absent.
+  - Month card actions open the existing month spread when it exists and the create-spread flow when it does not.
+  - Mini month grids are read-only and do not introduce cell-level navigation.
+  - Dense month cards use preview limiting/overflow instead of growing without bound.
+- **Tests**:
+  - View-model/support tests for month-card grouping and day-number context labeling.
+  - View tests for solid/dashed/current-month card state combinations.
+  - View tests for `View Spread` vs `Create Spread` action routing.
+  - View tests for preview-threshold and overflow behavior on dense months.
+  - Integration tests proving migrated/source-history rows are absent from year surfaces while current assigned entries appear in the correct cards.
 - **Dependencies**: SPRD-186, SPRD-187
 
 ### [SPRD-189] UI: redesign month spread into calendar, month section, and day-section list
 - **Context**: The month spread needs to become a structural calendar surface with distinct month-level and day-level current-assignment presentation.
 - **Description**: Implement the new month spread layout with a structural month calendar, dedicated month-period section, and plain day-section list including explicit empty day-spread destinations.
 - **Spec**: Shared Month Calendar Component; Spread Visual System Refresh
+- **Implementation Details**:
+  - Restructure month spreads around three fixed zones:
+    - top structural month calendar
+    - month-entry section for entries currently assigned to that month with preferred period `month`
+    - day-section list beneath for day-preferred entries currently assigned to the month
+  - Use `MonthCalendarView` as a structural/navigation surface rather than as a row-list replacement.
+  - Keep explicit day-spread existence and current assignment content as separate signals in the calendar:
+    - borders communicate explicit day-spread existence
+    - secondary indicators communicate currently assigned content
+  - Remove old generic source-based grouping and migrated-history subsections from month spread content.
+  - Render non-empty day sections by default for current month-assigned day entries.
+  - Preserve explicit day-spread destinations even when no current entries remain there by rendering an empty section for created day spreads.
+  - Make the day-section header the clickthrough/navigation affordance to the explicit day spread.
+  - Keep day-section entry content plain and list-first rather than card-composed.
+- **Acceptance Criteria**:
+  - Month spreads render a month calendar, a dedicated month-entry section, and a day-section list in that order.
+  - Month-entry content contains only month-assigned entries whose preferred period is `month`.
+  - Day sections contain only currently assigned day-period entries or explicit empty day-spread destinations.
+  - A created day spread still renders its day section even when its current entry list is empty.
+  - Calendar existence styling and content indicators remain distinct.
+  - Month spread content no longer shows migrated-history/source sections.
+- **Tests**:
+  - View/support tests for separating month-period entries from day-period sections.
+  - View tests for explicit empty day-spread destination rendering.
+  - View tests for day-section header navigation behavior.
+  - Month-calendar integration tests for distinct created/uncreated borders versus current-content indicators.
+  - Integration tests proving current-assignment-only month content after auto-migration and manual migration.
 - **Dependencies**: SPRD-186, SPRD-187
 
 ### [SPRD-190] UI: align day and multiday spreads with the refreshed system
 - **Context**: Day and multiday surfaces should preserve their strengths while adopting the new assignment-only and visual-state rules.
 - **Description**: Keep day spreads list-first, update multiday to show only currently assigned entries with lighter empty days, and align shared styling/state semantics across spread surfaces.
 - **Spec**: Spread Visual System Refresh
+- **Implementation Details**:
+  - Keep day spreads primarily list-first and avoid reworking them into the year/month card architecture.
+  - Refresh day spread styling to match the shared visual system:
+    - shared header semantics
+    - shared section styling
+    - no migrated/source-history subsection
+  - Update multiday spreads so every covered day remains visible regardless of whether that day currently has entries.
+  - Render only currently assigned entries inside each multiday day section.
+  - Introduce a lighter empty-day treatment for multiday sections instead of removing empty dates.
+  - Preserve existing multiday footer actions, created/uncreated/today card semantics, and related day-spread creation/navigation affordances while aligning the surrounding content styling with the refreshed system.
+  - Ensure cancelled-task visibility rules continue to apply where task rows remain visible, while migrated-history-only rows do not reappear in spread content.
+- **Acceptance Criteria**:
+  - Day spreads remain list-first and adopt the refreshed shared styling without introducing year/month card behavior.
+  - Day spread content is current-assignment-only.
+  - Multiday spreads show every day in range, including empty days.
+  - Multiday day sections render only currently assigned entries for that date.
+  - Empty multiday days use a lighter empty-state treatment instead of disappearing.
+  - Migrated-history/source sections are absent from both day and multiday spread content.
+- **Tests**:
+  - View tests for day spread list-first structure under the refreshed styling.
+  - Integration tests for day spreads dropping migrated/source-history rows after reassignment.
+  - Multiday support/view tests for preserving all covered dates, including empty days.
+  - Multiday integration tests proving only current entries render in each day section.
+  - Regression tests for cancelled-row visibility and existing multiday footer action behavior.
 - **Dependencies**: SPRD-186, SPRD-187
 
 ### [SPRD-191] UI: align rooted navigator and related navigation surfaces
 - **Context**: The new spread system also applies to related navigation surfaces, but those surfaces should remain lighter-density than full spread pages.
 - **Description**: Update the rooted navigator and related spread-preview/navigation surfaces to use the new existence/content semantics, lighter shared visual language, and refreshed month/day cues.
 - **Spec**: Rooted spread navigator behavior; Spread Visual System Refresh
+- **Implementation Details**:
+  - Refresh rooted navigator month grids and related preview/navigation surfaces to match the new existence/content semantics:
+    - explicit year/month/day spread existence remains the created/uncreated signal
+    - current assignment content is communicated through lighter secondary cues
+  - Keep these surfaces lighter-density than the full spread pages; do not duplicate full spread-entry previews everywhere.
+  - In conventional mode, preserve the rule that multiday coverage is a decorative overlay lane and does not make day cells appear as created day spreads.
+  - Align year-page month rows, expanded month grids, and related preview surfaces with the refreshed day/month visual grammar introduced by `SPRD-188` and `SPRD-189`.
+  - Ensure today/current-period emphasis layers on top of created/uncreated state instead of replacing it.
+  - Preserve rooted navigator selection rules, month filtering rules, and multi-target confirmation flows while refreshing the visual semantics.
+  - Update any auxiliary spread-preview surfaces tied to the title navigator, month/day previews, or rooted selector so they no longer imply source-history content.
+- **Acceptance Criteria**:
+  - Rooted navigator day cells use distinct created/uncreated existence state plus separate current-content indication.
+  - Multiday overlay lanes remain decorative and do not mark covered day cells as explicitly created.
+  - Today/current-period emphasis layers correctly over created/uncreated day-cell state.
+  - Conventional and traditional rooted navigator availability rules remain intact while sharing the refreshed visual language.
+  - Related spread-preview/navigation surfaces no longer imply migrated/source-history content.
+- **Tests**:
+  - Navigator support/view tests for day-cell created/uncreated/content-state combinations.
+  - Integration tests proving multiday overlay lanes remain separate from explicit day-spread existence.
+  - View tests for today/current-period emphasis layering over existence state.
+  - Rooted navigator interaction regression tests for month visibility, expansion, and multi-target day selection.
+  - Preview/navigation surface tests for lighter shared semantics without full spread-density regressions.
 - **Dependencies**: SPRD-183, SPRD-184, SPRD-186, SPRD-188, SPRD-189, SPRD-190
 
 ### [SPRD-192] UX/Test: implement migration feedback and full regression coverage
 - **Context**: Automatic migration is a major behavioral change and needs strong user feedback plus tests that prevent subtle regressions.
 - **Description**: Add structural migration feedback, anchored cues, context-dependent reveal behavior, and comprehensive unit/integration/UI coverage for the refreshed spread system.
 - **Spec**: Spread Visual System Refresh; Testing
+- **Implementation Details**:
+  - Add automatic migration feedback for explicit year/month/day spread creation using structural motion plus a lightweight anchored cue.
+  - Define reveal behavior by context:
+    - when the destination is already visible in the current surface, reveal/highlight it locally
+    - otherwise update selection/navigation so the destination spread becomes visible
+  - Ensure automatic migration feedback handles both task and note moves without reintroducing persistent source-history sections.
+  - Keep feedback scoped to the automatic-migration transition itself rather than broad permanent badge/state additions.
+  - Add comprehensive regression coverage spanning:
+    - current-assignment-only spread content
+    - auto-migration on explicit spread creation
+    - year/month/day refreshed layouts
+    - multiday current-assignment rendering
+    - rooted navigator and preview semantic alignment
+    - feedback/reveal behavior
+  - Cover sync/rebuild durability for preserved assignment history without resurrecting source-spread content.
+- **Acceptance Criteria**:
+  - Automatic migration produces visible feedback rather than silently moving content.
+  - Feedback reveals/highlights the destination locally when possible and otherwise changes selection to show the destination spread.
+  - Automatic migration feedback works for both tasks and notes.
+  - Full regression coverage protects current-assignment-only spread content across year, month, day, multiday, and navigation surfaces.
+  - Sync/rebuild scenarios preserve assignment history while keeping source-spread content absent after reassignment.
+- **Tests**:
+  - Unit tests for auto-migration feedback decision logic and destination-reveal routing.
+  - Integration tests for year/month/day spread creation auto-migration plus destination highlight/selection behavior.
+  - UI tests for refreshed year/month/day/multiday surfaces and rooted navigator semantics.
+  - Sync-enabled durability tests for auto-migrated and manually migrated entries rebuilding with preserved history but no resurrected source content.
+  - Regression tests covering tasks vs notes, Inbox-origin entries, parent-origin entries, and preferred-period ceiling edge cases.
 - **Dependencies**: SPRD-187, SPRD-188, SPRD-189, SPRD-190, SPRD-191
 
 ## Story: Core time and data models
