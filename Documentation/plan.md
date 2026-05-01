@@ -13,6 +13,7 @@
 ## Story Overview (v1)
 - Foundation and scaffolding (completed)
 - Month calendar row overlays
+- Spread visual system refresh
 - Core time and data models
 - Temporal context and AppClock
 - Supabase offline-first sync + auth migration (priority)
@@ -135,8 +136,63 @@
   - The implementation guidance is clear enough that future work does not need to rediscover the lane/overflow contract.
 - **Tests**:
   - Additional package fixtures for pathological overlap/overflow cases.
-  - App-level regression coverage for overflow rendering and non-interactive overlay behavior.
+- App-level regression coverage for overflow rendering and non-interactive overlay behavior.
 - **Dependencies**: SPRD-183, SPRD-184
+
+## Story: Spread visual system refresh
+
+### User Story
+- As a user, I want every spread type and its related navigation surfaces to use a clearer, more calendar-structured visual system, so I can understand what exists, what is assigned where, and where work moved when more granular spreads are created.
+
+### Definition of Done
+- Spread content is current-assignment-only and no longer shows migrated-history rows.
+- Year/month/day spread creation auto-migrates eligible tasks and notes within the explicit year/month/day hierarchy using existing preferred-date/preferred-period rules.
+- Year, month, day, and multiday spreads follow the confirmed new layout system.
+- Navigation surfaces adopt the same semantics and lighter matching visuals.
+- Automatic migration feedback uses structural motion plus anchored cues with context-dependent destination reveal.
+- Unit, integration, and UI coverage protect the new visibility, migration, and layout rules.
+
+### [SPRD-186] Spec/Model: rewrite spread visibility and assignment semantics
+- **Context**: Current conventional spread builders and spread content surfaces still include migrated/source-history content and older sectioning rules. The new visual system requires spread content to be driven by current live assignment only, with migration becoming a distinct flow rather than persistent clutter.
+- **Description**: Update the product spec and core assignment/visibility model so spread content becomes current-assignment-only and automatic migration is defined for explicit year/month/day spread creation.
+- **Spec**: Shared Spread Surface Architecture; Spread Visual System Refresh
+- **Dependencies**: SPRD-140, SPRD-151
+
+### [SPRD-187] Core refactor: implement current-assignment-only builders and automatic year/month/day migration
+- **Context**: The data model and builders currently retain source-history visibility and require manual movement in cases the new system wants to resolve automatically.
+- **Description**: Refactor spread builders, assignment visibility, and spread-creation side effects so eligible tasks and notes automatically move into newly created more-granular explicit year/month/day spreads and disappear from their old spread content immediately afterward.
+- **Spec**: Spread Visual System Refresh
+- **Dependencies**: SPRD-186
+
+### [SPRD-188] UI: redesign year spread into year section plus adaptive month cards
+- **Context**: The year spread needs to shift from a generic sectioned list toward a vertical month-card surface that still truthfully reflects current assignment.
+- **Description**: Implement the new year spread layout with a top year-period section, adaptive month cards, month-grid previews, existence/current-month state styling, and year-assigned task/note previews inside month cards.
+- **Spec**: Spread Visual System Refresh
+- **Dependencies**: SPRD-186, SPRD-187
+
+### [SPRD-189] UI: redesign month spread into calendar, month section, and day-section list
+- **Context**: The month spread needs to become a structural calendar surface with distinct month-level and day-level current-assignment presentation.
+- **Description**: Implement the new month spread layout with a structural month calendar, dedicated month-period section, and plain day-section list including explicit empty day-spread destinations.
+- **Spec**: Shared Month Calendar Component; Spread Visual System Refresh
+- **Dependencies**: SPRD-186, SPRD-187
+
+### [SPRD-190] UI: align day and multiday spreads with the refreshed system
+- **Context**: Day and multiday surfaces should preserve their strengths while adopting the new assignment-only and visual-state rules.
+- **Description**: Keep day spreads list-first, update multiday to show only currently assigned entries with lighter empty days, and align shared styling/state semantics across spread surfaces.
+- **Spec**: Spread Visual System Refresh
+- **Dependencies**: SPRD-186, SPRD-187
+
+### [SPRD-191] UI: align rooted navigator and related navigation surfaces
+- **Context**: The new spread system also applies to related navigation surfaces, but those surfaces should remain lighter-density than full spread pages.
+- **Description**: Update the rooted navigator and related spread-preview/navigation surfaces to use the new existence/content semantics, lighter shared visual language, and refreshed month/day cues.
+- **Spec**: Rooted spread navigator behavior; Spread Visual System Refresh
+- **Dependencies**: SPRD-183, SPRD-184, SPRD-186, SPRD-188, SPRD-189, SPRD-190
+
+### [SPRD-192] UX/Test: implement migration feedback and full regression coverage
+- **Context**: Automatic migration is a major behavioral change and needs strong user feedback plus tests that prevent subtle regressions.
+- **Description**: Add structural migration feedback, anchored cues, context-dependent reveal behavior, and comprehensive unit/integration/UI coverage for the refreshed spread system.
+- **Spec**: Spread Visual System Refresh; Testing
+- **Dependencies**: SPRD-187, SPRD-188, SPRD-189, SPRD-190, SPRD-191
 
 ## Story: Core time and data models
 
