@@ -266,7 +266,7 @@
   - Integration tests proving current-assignment-only month content after auto-migration and manual migration.
 - **Dependencies**: SPRD-186, SPRD-187
 
-### [SPRD-190] UI: align day and multiday spreads with the refreshed system
+### [SPRD-190] UI: align day and multiday spreads with the refreshed system - [x] Complete
 - **Context**: Day and multiday surfaces should preserve their strengths while adopting the new assignment-only and visual-state rules.
 - **Description**: Keep day spreads list-first, update multiday to show only currently assigned entries with lighter empty days, and align shared styling/state semantics across spread surfaces.
 - **Spec**: Spread Visual System Refresh
