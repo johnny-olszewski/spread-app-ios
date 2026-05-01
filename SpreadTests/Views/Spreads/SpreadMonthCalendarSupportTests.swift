@@ -14,6 +14,9 @@ struct SpreadMonthCalendarSupportTests {
         Self.calendar.date(from: DateComponents(year: year, month: month, day: day))!
     }
 
+    /// The month helper should enumerate every calendar day in the displayed month.
+    /// Setup: February 2026 in a Gregorian UTC calendar.
+    /// Expected: 28 dates spanning Feb 1 through Feb 28.
     @Test func testMonthDayDatesReturnsEveryDayInMonth() {
         let dates = SpreadMonthCalendarSupport.monthDayDates(
             monthDate: Self.makeDate(year: 2026, month: 2),
@@ -25,41 +28,81 @@ struct SpreadMonthCalendarSupportTests {
         #expect(Self.calendar.component(.day, from: dates.last!) == 28)
     }
 
-    @Test func testConventionalEntryCountsOnlyIncludeExplicitDaySpreads() {
+    /// Conventional month calendars should separate explicit day-spread existence from fallback month-hosted day content.
+    /// Setup: Jan 12 has current day content on the month spread, while Jan 13 has an explicit empty day spread.
+    /// Expected: Jan 12 is uncreated with content, and Jan 13 is created with no content.
+    @Test func testConventionalDayStateSeparatesExplicitSpreadExistenceFromCurrentContent() {
         let monthDate = Self.makeDate(year: 2026, month: 1)
-        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
-        let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: Self.calendar)
-        let otherDay = Self.makeDate(year: 2026, month: 1, day: 13)
-        let otherSpread = DataModel.Spread(period: .day, date: otherDay, calendar: Self.calendar)
+        let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: Self.calendar)
+        let fallbackDay = Self.makeDate(year: 2026, month: 1, day: 12)
+        let explicitEmptyDay = Self.makeDate(year: 2026, month: 1, day: 13)
+        let explicitDaySpread = DataModel.Spread(period: .day, date: explicitEmptyDay, calendar: Self.calendar)
 
-        var january12Model = SpreadDataModel(spread: daySpread)
-        january12Model.tasks = [DataModel.Task(title: "Task", date: dayDate, period: .day)]
-        january12Model.notes = [DataModel.Note(title: "Note", date: dayDate, period: .day)]
+        var monthModel = SpreadDataModel(spread: monthSpread)
+        monthModel.tasks = [DataModel.Task(title: "Fallback", date: fallbackDay, period: .day)]
 
-        var january13Model = SpreadDataModel(spread: otherSpread)
-        january13Model.tasks = [DataModel.Task(title: "Other", date: otherDay, period: .day)]
-
-        let counts = SpreadMonthCalendarSupport.conventionalEntryCountsByDate(
+        let states = SpreadMonthCalendarSupport.conventionalDayStateByDate(
             monthDate: monthDate,
-            spreads: [daySpread, otherSpread],
+            spreads: [explicitDaySpread],
             dataModel: [
                 .day: [
-                    Period.day.normalizeDate(dayDate, calendar: Self.calendar): january12Model,
-                    Period.day.normalizeDate(otherDay, calendar: Self.calendar): january13Model,
+                    Period.day.normalizeDate(explicitEmptyDay, calendar: Self.calendar): SpreadDataModel(
+                        spread: explicitDaySpread
+                    )
                 ]
             ],
+            monthSpreadDataModel: monthModel,
             calendar: Self.calendar
         )
 
-        #expect(counts[Period.day.normalizeDate(dayDate, calendar: Self.calendar)] == 2)
-        #expect(counts[Period.day.normalizeDate(otherDay, calendar: Self.calendar)] == 1)
+        #expect(
+            states[Period.day.normalizeDate(fallbackDay, calendar: Self.calendar)] ==
+                SpreadMonthCalendarDayState(hasExplicitDaySpread: false, contentCount: 1)
+        )
+        #expect(
+            states[Period.day.normalizeDate(explicitEmptyDay, calendar: Self.calendar)] ==
+                SpreadMonthCalendarDayState(hasExplicitDaySpread: true, contentCount: 0)
+        )
     }
 
-    @Test func testTraditionalEntryCountsUseVirtualDayData() {
+    /// Conventional month calendars should also show content indicators for explicit day spreads when they hold current entries.
+    /// Setup: Jan 12 has an explicit day spread whose own spread data model contains one task and one note.
+    /// Expected: The day is created and reports two content items.
+    @Test func testConventionalDayStateIncludesExplicitDaySpreadContent() {
+        let monthDate = Self.makeDate(year: 2026, month: 1)
+        let explicitDay = Self.makeDate(year: 2026, month: 1, day: 12)
+        let explicitDaySpread = DataModel.Spread(period: .day, date: explicitDay, calendar: Self.calendar)
+
+        var explicitDayModel = SpreadDataModel(spread: explicitDaySpread)
+        explicitDayModel.tasks = [DataModel.Task(title: "Task", date: explicitDay, period: .day)]
+        explicitDayModel.notes = [DataModel.Note(title: "Note", date: explicitDay, period: .day)]
+
+        let states = SpreadMonthCalendarSupport.conventionalDayStateByDate(
+            monthDate: monthDate,
+            spreads: [explicitDaySpread],
+            dataModel: [
+                .day: [
+                    Period.day.normalizeDate(explicitDay, calendar: Self.calendar): explicitDayModel
+                ]
+            ],
+            monthSpreadDataModel: nil,
+            calendar: Self.calendar
+        )
+
+        #expect(
+            states[Period.day.normalizeDate(explicitDay, calendar: Self.calendar)] ==
+                SpreadMonthCalendarDayState(hasExplicitDaySpread: true, contentCount: 2)
+        )
+    }
+
+    /// Traditional month calendars should treat every day as navigable while still reporting current content counts.
+    /// Setup: Jan 12 has two day tasks and one note in traditional mode.
+    /// Expected: The day is created and reports three content items.
+    @Test func testTraditionalDayStateUsesVirtualDayData() {
         let monthDate = Self.makeDate(year: 2026, month: 1)
         let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
 
-        let counts = SpreadMonthCalendarSupport.traditionalEntryCountsByDate(
+        let states = SpreadMonthCalendarSupport.traditionalDayStateByDate(
             monthDate: monthDate,
             tasks: [
                 DataModel.Task(title: "Task 1", date: dayDate, period: .day),
@@ -72,6 +115,9 @@ struct SpreadMonthCalendarSupportTests {
             calendar: Self.calendar
         )
 
-        #expect(counts[Period.day.normalizeDate(dayDate, calendar: Self.calendar)] == 3)
+        #expect(
+            states[Period.day.normalizeDate(dayDate, calendar: Self.calendar)] ==
+                SpreadMonthCalendarDayState(hasExplicitDaySpread: true, contentCount: 3)
+        )
     }
 }
