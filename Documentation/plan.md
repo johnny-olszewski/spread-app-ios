@@ -197,7 +197,7 @@
   - Regression tests proving multiday spread creation does not trigger direct assignment auto-migration.
 - **Dependencies**: SPRD-186
 
-### [SPRD-188] UI: redesign year spread into year section plus adaptive month cards
+### [SPRD-188] UI: redesign year spread into year section plus adaptive month cards - [x] Complete
 - **Context**: The year spread needs to shift from a generic sectioned list toward a vertical month-card surface that still truthfully reflects current assignment.
 - **Description**: Implement the new year spread layout with a top year-period section, adaptive month cards, month-grid previews, existence/current-month state styling, and year-assigned task/note previews inside month cards.
 - **Spec**: Spread Visual System Refresh
