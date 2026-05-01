@@ -14,6 +14,7 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
         static let cellTopPadding: CGFloat = 6
         static let cellHorizontalPadding: CGFloat = 7
         static let laneReservationHeight: CGFloat = 16
+        static let contentDotSize: CGFloat = 4
         static let minimumCellHeight: CGFloat = 52
     }
 
@@ -37,10 +38,11 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
 
     func dayCellView(context: MonthCalendarDayContext) -> some View {
         let targets = monthRow.targets(for: context.date, calendar: model.calendar)
+        let dayState = monthRow.dayState(for: context.date, calendar: model.calendar)
         let visualState = Self.visualState(
             isToday: context.isToday,
             mode: model.mode,
-            hasExplicitDayTarget: Self.hasExplicitDayTarget(targets)
+            hasExplicitDayTarget: dayState.hasExplicitDaySpread
         )
         let isSelected = model.isCurrent(date: context.date, currentSpread: currentSpread)
 
@@ -50,7 +52,15 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
                 .foregroundStyle(foregroundColor(targets: targets, visualState: visualState))
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: Layout.laneReservationHeight)
+            Spacer(minLength: 4)
+
+            contentIndicators(
+                count: dayState.contentCount,
+                isSelected: isSelected
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer(minLength: Layout.laneReservationHeight - 8)
         }
             .padding(.horizontal, Layout.cellHorizontalPadding)
             .padding(.top, Layout.cellTopPadding)
@@ -109,5 +119,33 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
     ) -> Color {
         if visualState.isToday { return SpreadTheme.Accent.todayEmphasis }
         return targets.isEmpty ? .secondary : .primary
+    }
+
+    @ViewBuilder
+    private func contentIndicators(
+        count: Int,
+        isSelected: Bool
+    ) -> some View {
+        if count > 0 {
+            HStack(spacing: 3) {
+                ForEach(0..<min(count, 3), id: \.self) { _ in
+                    Circle()
+                        .fill(
+                            isSelected
+                                ? SpreadSelectionVisualStyle.overlayBorder
+                                : SpreadTheme.Accent.todaySelectedEmphasis
+                        )
+                        .frame(width: Layout.contentDotSize, height: Layout.contentDotSize)
+                }
+                if count > 3 {
+                    Text("+")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(height: 8)
+        } else {
+            Color.clear.frame(height: 8)
+        }
     }
 }

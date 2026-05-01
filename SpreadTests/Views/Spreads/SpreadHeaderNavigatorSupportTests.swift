@@ -126,4 +126,125 @@ struct SpreadHeaderNavigatorSupportTests {
 
         #expect(!model.isCurrent(date: Self.makeDate(year: 2026, month: 3, day: 21), currentSpread: currentSpread))
     }
+
+    /// Day-cell content cues should remain separate from explicit day-spread creation.
+    /// A day-preferred task assigned to the month still surfaces content on that date without turning the day into a created target.
+    @Test func conventionalDayStateSeparatesMonthAssignedContentFromExplicitDayCreation() throws {
+        let marchMonth = DataModel.Spread(
+            period: .month,
+            date: Self.makeDate(year: 2026, month: 3),
+            calendar: Self.calendar
+        )
+        let marchDay = DataModel.Spread(
+            period: .day,
+            date: Self.makeDate(year: 2026, month: 3, day: 11),
+            calendar: Self.calendar
+        )
+        let monthAssignedTask = DataModel.Task(
+            title: "Month fallback",
+            createdDate: Self.makeDate(year: 2026, month: 3, day: 1),
+            date: Self.makeDate(year: 2026, month: 3, day: 10),
+            period: .day,
+            assignments: [
+                TaskAssignment(
+                    period: .month,
+                    date: Self.makeDate(year: 2026, month: 3),
+                    status: .open
+                )
+            ]
+        )
+        let explicitDayTask = DataModel.Task(
+            title: "Direct day assignment",
+            createdDate: Self.makeDate(year: 2026, month: 3, day: 1),
+            date: Self.makeDate(year: 2026, month: 3, day: 11),
+            period: .month,
+            assignments: [
+                TaskAssignment(
+                    period: .day,
+                    date: Self.makeDate(year: 2026, month: 3, day: 11),
+                    status: .open
+                )
+            ]
+        )
+
+        let model = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 29),
+            spreads: [marchMonth, marchDay],
+            tasks: [monthAssignedTask, explicitDayTask],
+            notes: [],
+            events: []
+        )
+
+        let march = try #require(model.months(in: 2026).first)
+        let monthFallbackState = march.dayState(
+            for: Self.makeDate(year: 2026, month: 3, day: 10),
+            calendar: Self.calendar
+        )
+        let explicitDayState = march.dayState(
+            for: Self.makeDate(year: 2026, month: 3, day: 11),
+            calendar: Self.calendar
+        )
+
+        #expect(!monthFallbackState.hasExplicitDaySpread)
+        #expect(monthFallbackState.contentCount == 1)
+        #expect(march.targets(for: Self.makeDate(year: 2026, month: 3, day: 10), calendar: Self.calendar).isEmpty)
+
+        #expect(explicitDayState.hasExplicitDaySpread)
+        #expect(explicitDayState.contentCount == 1)
+        #expect(march.targets(for: Self.makeDate(year: 2026, month: 3, day: 11), calendar: Self.calendar).count == 1)
+    }
+
+    /// Rooted navigator content cues should ignore migrated-history rows.
+    /// Only the current non-migrated assignment contributes content to the visible day cell.
+    @Test func conventionalDayStateIgnoresMigratedHistoryAssignments() throws {
+        let yearSpread = DataModel.Spread(
+            period: .year,
+            date: Self.makeDate(year: 2026, month: 1),
+            calendar: Self.calendar
+        )
+        let marchMonth = DataModel.Spread(
+            period: .month,
+            date: Self.makeDate(year: 2026, month: 3),
+            calendar: Self.calendar
+        )
+        let task = DataModel.Task(
+            title: "Migrated history",
+            createdDate: Self.makeDate(year: 2026, month: 3, day: 1),
+            date: Self.makeDate(year: 2026, month: 3, day: 14),
+            period: .day,
+            assignments: [
+                TaskAssignment(
+                    period: .month,
+                    date: Self.makeDate(year: 2026, month: 3),
+                    status: .migrated
+                ),
+                TaskAssignment(
+                    period: .year,
+                    date: Self.makeDate(year: 2026, month: 1),
+                    status: .open
+                )
+            ]
+        )
+
+        let model = SpreadHeaderNavigatorModel(
+            mode: .conventional,
+            calendar: Self.calendar,
+            today: Self.makeDate(year: 2026, month: 3, day: 29),
+            spreads: [yearSpread, marchMonth],
+            tasks: [task],
+            notes: [],
+            events: []
+        )
+
+        let march = try #require(model.months(in: 2026).first)
+        let state = march.dayState(
+            for: Self.makeDate(year: 2026, month: 3, day: 14),
+            calendar: Self.calendar
+        )
+
+        #expect(!state.hasExplicitDaySpread)
+        #expect(state.contentCount == 1)
+    }
 }

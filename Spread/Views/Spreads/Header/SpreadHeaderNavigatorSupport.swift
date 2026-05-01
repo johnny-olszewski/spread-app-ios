@@ -27,12 +27,20 @@ struct SpreadHeaderNavigatorModel {
         let isDerived: Bool
         let monthSelection: Selection?
         let dayTargetsByDate: [Date: [SelectionTarget]]
+        let dayStateByDate: [Date: SpreadMonthCalendarDayState]
 
         var id: Date { date }
         var canViewMonth: Bool { monthSelection != nil }
 
         func targets(for date: Date, calendar: Calendar) -> [SelectionTarget] {
             dayTargetsByDate[Period.day.normalizeDate(date, calendar: calendar), default: []]
+        }
+
+        func dayState(for date: Date, calendar: Calendar) -> SpreadMonthCalendarDayState {
+            dayStateByDate[
+                Period.day.normalizeDate(date, calendar: calendar),
+                default: .init(hasExplicitDaySpread: false, contentCount: 0)
+            ]
         }
     }
 
@@ -149,7 +157,8 @@ struct SpreadHeaderNavigatorModel {
                 explicitSpread: explicitMonths[month],
                 isDerived: explicitMonths[month] == nil,
                 monthSelection: explicitMonths[month].map(Selection.conventional),
-                dayTargetsByDate: conventionalDayTargetsByDate(year: year, month: month)
+                dayTargetsByDate: conventionalDayTargetsByDate(year: year, month: month),
+                dayStateByDate: conventionalDayStateByDate(year: year, month: month)
             )
         }
     }
@@ -165,7 +174,46 @@ struct SpreadHeaderNavigatorModel {
                 explicitSpread: nil,
                 isDerived: false,
                 monthSelection: .traditionalMonth(date),
-                dayTargetsByDate: traditionalDayTargetsByDate(year: year, month: month)
+                dayTargetsByDate: traditionalDayTargetsByDate(year: year, month: month),
+                dayStateByDate: traditionalDayStateByDate(year: year, month: month)
+            )
+        }
+    }
+
+    private func conventionalDayStateByDate(year: Int, month: Int) -> [Date: SpreadMonthCalendarDayState] {
+        guard let monthDate = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
+              let dayRange = calendar.range(of: .day, in: .month, for: monthDate) else {
+            return [:]
+        }
+
+        let monthStart = Period.month.normalizeDate(monthDate, calendar: calendar)
+        let yearStart = Period.year.normalizeDate(monthDate, calendar: calendar)
+        let explicitDayDates = Set(
+            spreads
+                .filter {
+                    $0.period == .day &&
+                    Period.month.normalizeDate($0.date, calendar: calendar) == monthStart
+                }
+                .map { Period.day.normalizeDate($0.date, calendar: calendar) }
+        )
+
+        let contentCounts = conventionalDayContentCounts(
+            yearStart: yearStart,
+            monthStart: monthStart
+        )
+
+        return dayRange.reduce(into: [:]) { result, day in
+            guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day)) else {
+                return
+            }
+            let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
+            let contentCount = contentCounts[normalizedDate, default: 0]
+            let hasExplicitDaySpread = explicitDayDates.contains(normalizedDate)
+
+            guard hasExplicitDaySpread || contentCount > 0 else { return }
+            result[normalizedDate] = SpreadMonthCalendarDayState(
+                hasExplicitDaySpread: hasExplicitDaySpread,
+                contentCount: contentCount
             )
         }
     }
@@ -224,6 +272,20 @@ struct SpreadHeaderNavigatorModel {
         }
 
         return result
+    }
+
+    private func traditionalDayStateByDate(year: Int, month: Int) -> [Date: SpreadMonthCalendarDayState] {
+        guard let monthDate = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else {
+            return [:]
+        }
+
+        return SpreadMonthCalendarSupport.traditionalDayStateByDate(
+            monthDate: monthDate,
+            tasks: tasks,
+            notes: notes,
+            events: events,
+            calendar: calendar
+        )
     }
 
     private func traditionalDayTargetsByDate(year: Int, month: Int) -> [Date: [SelectionTarget]] {
@@ -308,6 +370,87 @@ struct SpreadHeaderNavigatorModel {
         )
         .display(for: spread, allowsPersonalization: mode == .conventional)
         .primary
+    }
+
+    private func conventionalDayContentCounts(
+        yearStart: Date,
+        monthStart: Date
+    ) -> [Date: Int] {
+        var counts: [Date: Int] = [:]
+
+        for task in tasks {
+            guard let assignment = currentAssignment(for: task) else { continue }
+            countCurrentContent(
+                entryDate: task.date,
+                preferredPeriod: task.period,
+                assignmentPeriod: assignment.period,
+                assignmentDate: assignment.date,
+                yearStart: yearStart,
+                monthStart: monthStart,
+                into: &counts
+            )
+        }
+
+        for note in notes {
+            guard let assignment = currentAssignment(for: note) else { continue }
+            countCurrentContent(
+                entryDate: note.date,
+                preferredPeriod: note.period,
+                assignmentPeriod: assignment.period,
+                assignmentDate: assignment.date,
+                yearStart: yearStart,
+                monthStart: monthStart,
+                into: &counts
+            )
+        }
+
+        return counts
+    }
+
+    private func currentAssignment(for task: DataModel.Task) -> TaskAssignment? {
+        task.assignments.first(where: { $0.status != .migrated })
+    }
+
+    private func currentAssignment(for note: DataModel.Note) -> NoteAssignment? {
+        note.assignments.first(where: { $0.status != .migrated })
+    }
+
+    private func countCurrentContent(
+        entryDate: Date,
+        preferredPeriod: Period,
+        assignmentPeriod: Period,
+        assignmentDate: Date,
+        yearStart: Date,
+        monthStart: Date,
+        into counts: inout [Date: Int]
+    ) {
+        let normalizedEntryDay = Period.day.normalizeDate(entryDate, calendar: calendar)
+
+        switch assignmentPeriod {
+        case .day:
+            guard Period.month.normalizeDate(assignmentDate, calendar: calendar) == monthStart else { return }
+            let normalizedAssignmentDay = Period.day.normalizeDate(assignmentDate, calendar: calendar)
+            counts[normalizedAssignmentDay, default: 0] += 1
+
+        case .month:
+            guard Period.month.normalizeDate(assignmentDate, calendar: calendar) == monthStart,
+                  preferredPeriod == .day,
+                  Period.month.normalizeDate(normalizedEntryDay, calendar: calendar) == monthStart else {
+                return
+            }
+            counts[normalizedEntryDay, default: 0] += 1
+
+        case .year:
+            guard Period.year.normalizeDate(assignmentDate, calendar: calendar) == yearStart,
+                  preferredPeriod == .day,
+                  Period.month.normalizeDate(normalizedEntryDay, calendar: calendar) == monthStart else {
+                return
+            }
+            counts[normalizedEntryDay, default: 0] += 1
+
+        case .multiday:
+            break
+        }
     }
 
     private func earliestTraditionalYear() -> Int? {
