@@ -21,10 +21,20 @@ struct BuildInfoTests {
 
     // MARK: - configurationName
 
-    /// Conditions: Tests run under the QA scheme.
-    /// Expected: configurationName should reflect the QA build configuration.
-    @Test func testConfigurationNameMatchesQAScheme() {
-        #expect(BuildInfo.configurationName == "QA")
+    /// Conditions: Tests run under any shared app scheme.
+    /// Expected: configurationName reflects the active Debug, QA, or Release build configuration.
+    @Test func testConfigurationNameMatchesActiveBuildConfiguration() {
+        let expectedConfigurationName: String
+
+        #if DEBUG
+        expectedConfigurationName = "Debug"
+        #else
+        expectedConfigurationName = BuildInfo.defaultDataEnvironment == .production
+            ? "Release"
+            : "QA"
+        #endif
+
+        #expect(BuildInfo.configurationName == expectedConfigurationName)
     }
 
     // MARK: - Consistency
