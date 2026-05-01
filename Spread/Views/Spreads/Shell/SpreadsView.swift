@@ -330,8 +330,12 @@ struct SpreadsView: View {
                     firstWeekday: journalManager.firstWeekday,
                     initialPeriod: prefill?.period,
                     initialDate: prefill?.date,
-                    onSpreadCreated: { spread in
-                        viewModel.selectedSelection = .conventional(spread)
+                    onSpreadCreated: { result in
+                        viewModel.finishSpreadCreation(
+                            result,
+                            currentSelection: currentSelection,
+                            calendar: journalManager.calendar
+                        )
                         Task { @MainActor in await syncEngine?.syncNow() }
                     }
                 )

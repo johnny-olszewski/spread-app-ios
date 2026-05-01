@@ -296,7 +296,7 @@
   - Regression tests for cancelled-row visibility and existing multiday footer action behavior.
 - **Dependencies**: SPRD-186, SPRD-187
 
-### [SPRD-191] UI: align rooted navigator and related navigation surfaces
+### [SPRD-191] UI: align rooted navigator and related navigation surfaces - [x] Complete
 - **Context**: The new spread system also applies to related navigation surfaces, but those surfaces should remain lighter-density than full spread pages.
 - **Description**: Update the rooted navigator and related spread-preview/navigation surfaces to use the new existence/content semantics, lighter shared visual language, and refreshed month/day cues.
 - **Spec**: Rooted spread navigator behavior; Spread Visual System Refresh
@@ -324,7 +324,7 @@
   - Preview/navigation surface tests for lighter shared semantics without full spread-density regressions.
 - **Dependencies**: SPRD-183, SPRD-184, SPRD-186, SPRD-188, SPRD-189, SPRD-190
 
-### [SPRD-192] UX/Test: implement migration feedback and full regression coverage
+### [SPRD-192] UX/Test: implement migration feedback and full regression coverage - [x] Complete
 - **Context**: Automatic migration is a major behavioral change and needs strong user feedback plus tests that prevent subtle regressions.
 - **Description**: Add structural migration feedback, anchored cues, context-dependent reveal behavior, and comprehensive unit/integration/UI coverage for the refreshed spread system.
 - **Spec**: Spread Visual System Refresh; Testing
