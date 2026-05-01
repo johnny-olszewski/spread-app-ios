@@ -547,7 +547,9 @@
   - `SpreadDataModel` remains the core domain input
   - mode-specific builders/adapters translate domain state into shared UI configuration
 - Mode-specific inclusion rules remain explicit even when visual components are shared. [SPRD-151]
-  - Example: in conventional mode, a month surface may include day-assigned tasks that have not yet been taken over by explicit day spreads; in traditional mode, the month surface includes only month-assigned tasks because day-assigned tasks belong on day surfaces.
+  - Conventional spread content is driven by current live assignment only. Spread content does not retain migrated-history rows or source-history sections after an entry has been reassigned elsewhere. [SPRD-186]
+  - Parent spreads may still organize currently assigned entries into calendar-derived presentation sections. For example, year spreads may organize year-assigned entries under month cards, and month spreads may organize month-assigned day-period entries under day sections, without changing the underlying current assignment. [SPRD-186]
+  - In traditional mode, shared surface layouts remain aligned with the same visual system, but availability and navigation semantics continue to follow the traditional calendar hierarchy rather than explicit-spread existence. [SPRD-186]
 
 ### Shared Foundations Package
 - The repository may contain a local Swift Package named `johnnyo-foundation` for reusable components and utilities intended to be publishable independently later. [SPRD-152]
@@ -558,8 +560,8 @@
 
 ### Shared Month Calendar Component
 - `johnnyo-foundation` should provide a reusable month-based calendar shell component intended for embedding inside spread surfaces rather than replacing the month spread surface entirely. [SPRD-153]
-- In `Spread`, both conventional and traditional month spreads should embed the shared month calendar above the existing entry list content. The calendar is view-only for this first integration and must not change list filtering or month-spread selection behavior yet. [SPRD-153]
-- The month spread calendar uses the same three-state day cell visual treatment as the rooted navigator and the multiday day card: today (accent fill + solid accent border), created (day has at least one entry — solid secondary border), uncreated (day has no entries — dashed secondary border, transparent fill). Entry count dot indicators are retained below the day number. [SPRD-166]
+- In `Spread`, both conventional and traditional month spreads should embed the shared month calendar above the month-level and day-section content areas. The calendar is structural and navigational rather than the primary entry-list container. [SPRD-153, SPRD-186]
+- In the redesigned spread system, month-calendar borders communicate explicit spread existence, while secondary indicators communicate currently assigned content. Existence and content must not be conflated into one visual signal. [SPRD-186]
 - The month calendar shell owns month structure and calendar math, including: [SPRD-153]
   - header placement
   - weekday header row placement
@@ -610,6 +612,43 @@
   - visible-lane limiting
   - overflow metadata derivation [SPRD-183]
 - App-level integration tests must verify that `Spread` converts multiday spread semantics into the new overlay contract and renders the intended row-bounded overlay visuals in the rooted navigator without regressing existing month-grid interactions. [SPRD-184]
+
+### Spread Visual System Refresh
+- Spread content and related navigation surfaces share one visual language, but navigation surfaces remain lighter-density than the main spread pages. [SPRD-186]
+- Conventional spread content is current-assignment-only. Tasks and notes appear only on the spread they are currently assigned to; migrated-history rows and source-history sections do not remain in spread content after reassignment. Migration visibility belongs only to dedicated migration flows and migration feedback interactions. [SPRD-186]
+- Creating a more granular explicit year/month/day spread automatically migrates eligible currently assigned tasks and notes using existing preferred-date and preferred-period rules only. This automatic migration applies within the explicit year/month/day hierarchy and does not apply to multiday spreads. [SPRD-186]
+- Automatic migration feedback uses structural motion plus a lightweight anchored cue. When possible, the current surface reveals and highlights the destination locally; otherwise the app changes selection to reveal the destination spread. [SPRD-186]
+- Year spread layout: [SPRD-186]
+  - A year spread is a vertical surface composed of:
+    - a top section for entries currently assigned to that year whose preferred period is `year`
+    - a vertical list of month cards beneath it
+  - Each month card contains:
+    - month title/header
+    - a simple read-only month grid with weekday headers and date numbers
+    - no tap targets inside the mini calendar
+    - solid border when an explicit month spread exists, dashed border when it does not
+    - current-month emphasis distinct from ordinary created/uncreated styling
+    - a bottom action of `View Spread` when the explicit month spread exists or `Create Spread` when it does not
+  - Month cards may also render tasks and notes currently assigned to the year whose dates belong to that month because a more granular explicit spread is not yet available.
+  - Entries inside a month card are not sectioned. When an entry has a concrete day date, the row shows a small day number beside it.
+  - Month card density is adaptive: sparse cards stay compact, while dense cards use a preview threshold plus overflow treatment instead of forcing unbounded card height. [SPRD-186]
+- Month spread layout: [SPRD-186]
+  - A month spread contains:
+    - the month calendar at the top
+    - a dedicated month-entry section for entries currently assigned to that month whose preferred period is `month`
+    - a plain list of day sections beneath it
+  - Day sections show non-empty currently assigned day content by default.
+  - If an explicit day spread exists for a date, that date still renders a section even when no currently assigned entries remain there.
+  - The day-section header itself is the clickthrough to the explicit day spread.
+- Day spread layout: [SPRD-186]
+  - Day spreads remain primarily list-first surfaces with a stronger shared visual treatment, rather than becoming card-composed pages. [SPRD-186]
+- Multiday spread layout: [SPRD-186]
+  - Multiday spreads keep every day in their covered range visible.
+  - Only currently assigned entries render inside each day section.
+  - Empty days remain visible but use a lighter empty state rather than disappearing.
+- Navigation surface alignment: [SPRD-186]
+  - Rooted navigator and related spread-preview surfaces adopt the same existence/content semantics and broader visual grammar as the main spread pages, but with lighter information density.
+  - Conventional navigator month grids continue to use explicit day-spread existence for created/uncreated borders, while multiday coverage remains a decorative overlay lane rather than turning day cells into created day spreads.
   - Recommended spread inset behavior: [SPRD-137]
     - In conventional mode only, the title navigator shows a separate fixed trailing inset area for recommended spreads to create.
     - Recommendations are based on `today`, not on the currently selected spread.
@@ -650,7 +689,7 @@
     - In traditional mode, a year page shows all months.
     - Expanding a month shows that month's calendar grid.
     - Calendar grids in the rooted navigator are rendered using `MonthCalendarView` from `johnnyo-foundation` with a dedicated `CalendarContentGenerator`; out-of-month (peripheral) dates are not shown. [SPRD-166]
-    - Day cells use a shared visual treatment that matches the multiday day card: created dates use a solid border, uncreated dates use a dashed border, and today emphasis is layered on top of that created/uncreated state rather than replacing it. As a result, an uncreated today date still uses a dashed border while retaining today emphasis. The fill, border color, and stroke style for each state are defined as shared properties on `MultidayDayCardVisualState` and referenced by both the multiday card and the navigator calendar generator. [SPRD-166]
+    - Day cells use shared existence/content semantics that match the refreshed spread system: explicit day-spread existence determines created/uncreated border state, while secondary indicators communicate currently assigned content. Today/current-period emphasis layers on top of the created/uncreated state rather than replacing it. [SPRD-166, SPRD-186]
     - In conventional mode, a day cell is "created" only when that exact date has an explicit day spread target; multiday coverage alone does not make the day cell appear created. In traditional mode, every day cell is always "created" since all days are navigable. [SPRD-166]
     - Calendar days with no selectable target are disabled and not tappable.
     - A day with exactly one target selects that spread immediately and dismisses the rooted navigator.
@@ -715,16 +754,17 @@
     - year/month/day navigation follows the full calendar structure implied by traditional mode rather than created-spread existence
     - the root year list starts at the earliest year that has either entry data or an explicitly created conventional spread
     - month grids show every calendar day in the month and do not show multiday overlays in v1
-- Spread content view shows active entries and migrated entries section (conventional). [SPRD-27, SPRD-29]
-  - Year and month spreads use spread-specific task sectioning rather than generic source-based sectioning. [SPRD-138]
+- Spread content view shows only currently assigned entries for the selected spread. Conventional spread content no longer includes a migrated entries subsection or source-history rows. [SPRD-186]
+  - Year and month spreads use spread-specific current-assignment presentation rather than generic source-based sectioning. [SPRD-186]
   - On a year spread:
-    - tasks assigned directly to that year appear in an untitled top section because they belong to the current spread
-    - tasks assigned to months appear under titled month sections
-    - tasks assigned to days also appear inside their containing month sections and show the day number next to the task
+    - entries currently assigned to that year with preferred period `year` appear in the top year section
+    - entries currently assigned to that year whose dates belong to a month appear inside that month's card
+    - tasks and notes both follow this rule
   - On a month spread:
-    - tasks assigned directly to that month appear in an untitled top section because they belong to the current spread
-    - tasks assigned to days in that month appear in the same list and show the day number next to the task
-  - Day and multiday spreads do not use this year/month sectioning rule; they continue to show their normal flat task presentation for the current spread. [SPRD-138]
+    - entries currently assigned to that month with preferred period `month` appear in the dedicated month-entry section
+    - entries currently assigned to that month with preferred period `day` appear under their day sections
+    - if a more granular explicit day spread is later created, eligible day-period tasks and notes auto-migrate there and no longer remain on the month spread
+  - Day and multiday spreads remain current-assignment surfaces for their own destination. [SPRD-186]
   - Multiday day cards support normal created, uncreated, and today visual states; the fill, border color, and stroke style for each state are defined as shared properties on `MultidayDayCardVisualState` and reused by the rooted navigator calendar grid. [SPRD-149, SPRD-166]
   - If a multiday card's date is today, it shows a `Today` label above the weekday, left-aligned with the weekday and matching the structural style role of the short month label above the date. [SPRD-149]
   - If a multiday card's corresponding explicit day spread does not exist, the card uses an uncreated treatment via a dashed outline rather than a distinct grey text or fill color treatment. [SPRD-149]
@@ -735,10 +775,12 @@
   - Both footer button states share the same filled circular treatment with a white-tinted background and blue iconography, with the create-day state using `calendar.badge.plus` and the open-day state using a navigation icon. [SPRD-149]
   - After creating a day spread from that multiday footer flow, the app immediately navigates into the newly created day spread. [SPRD-149]
   - Multiday day cards can show an overdue count badge at the top-right, using the same count-badge language as the spread title navigator. [SPRD-149]
-- Conventional-mode inline migration UI: [SPRD-140]
-  - Year, month, and day spreads may show the bottom `Migrate tasks` section when at least one task is eligible to move into that spread.
-  - Multiday spreads never show migration UI.
-  - Traditional mode never shows migration UI because all calendar spreads are navigable without created conventional spread records.
+- Conventional-mode inline migration UI: [SPRD-140, SPRD-186]
+  - Spread content itself no longer retains migrated-history presentation.
+  - Migration affordances remain dedicated workflow controls rather than spread-content history sections.
+  - Year, month, and day spread creation may auto-migrate eligible tasks and notes into the newly created explicit spread under the year/month/day hierarchy rules above.
+  - Multiday spreads never participate in auto-migration as a destination under this rule.
+  - Traditional mode does not expose conventional migration history sections in spread content.
 - Source spreads expose per-task trailing-arrow migration actions with destination-naming confirmation alerts.
 - Destination spreads expose per-task tap-to-migrate rows plus a header-level `Migrate All` action scoped to that destination spread.
 - The inline migration UI lists only tasks, never notes.
