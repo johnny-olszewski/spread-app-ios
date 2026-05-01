@@ -158,4 +158,33 @@ struct ConventionalJournalDataModelBuilderTests {
         #expect(keys.contains(SpreadDataModelKey(spread: multidaySpread, calendar: Self.calendar)))
         #expect(!keys.contains(SpreadDataModelKey(period: .year, date: taskDate, calendar: Self.calendar)))
     }
+
+    /// Setup: a note has a current month assignment, a migrated year-history assignment, and a matching multiday spread.
+    /// Expected: targeted rebuild keys include only the live explicit assignment plus matching multiday aggregation.
+    @Test func testSpreadKeysForNoteExcludeMigratedHistoryAssignments() {
+        let noteDate = Self.makeDate(year: 2026, month: 1, day: 11)
+        let monthSpread = DataModel.Spread(period: .month, date: noteDate, calendar: Self.calendar)
+        let multidaySpread = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 1, day: 10),
+            endDate: Self.makeDate(year: 2026, month: 1, day: 12),
+            calendar: Self.calendar
+        )
+        let note = DataModel.Note(
+            title: "Scoped Note",
+            date: noteDate,
+            period: .day,
+            assignments: [
+                NoteAssignment(period: .year, date: noteDate, status: .migrated),
+                NoteAssignment(period: .month, date: noteDate, status: .active)
+            ]
+        )
+
+        let builder = ConventionalJournalDataModelBuilder(calendar: Self.calendar)
+        let keys = builder.spreadKeys(for: note, spreads: [monthSpread, multidaySpread])
+
+        #expect(keys.count == 2)
+        #expect(keys.contains(SpreadDataModelKey(spread: monthSpread, calendar: Self.calendar)))
+        #expect(keys.contains(SpreadDataModelKey(spread: multidaySpread, calendar: Self.calendar)))
+        #expect(!keys.contains(SpreadDataModelKey(period: .year, date: noteDate, calendar: Self.calendar)))
+    }
 }

@@ -158,7 +158,7 @@
 - **Spec**: Shared Spread Surface Architecture; Spread Visual System Refresh
 - **Dependencies**: SPRD-140, SPRD-151
 
-### [SPRD-187] Core refactor: implement current-assignment-only builders and automatic year/month/day migration
+### [SPRD-187] Core refactor: implement current-assignment-only builders and automatic year/month/day migration - [x] Complete
 - **Context**: The data model and builders currently retain source-history visibility and require manual movement in cases the new system wants to resolve automatically.
 - **Description**: Refactor spread builders, assignment visibility, and spread-creation side effects so eligible tasks and notes automatically move into newly created more-granular explicit year/month/day spreads and disappear from their old spread content immediately afterward.
 - **Spec**: Spread Visual System Refresh
@@ -181,7 +181,7 @@
 - **Acceptance Criteria**:
   - Conventional explicit spread content excludes migrated-history-only task and note rows.
   - Reassignment or manual migration removes the entry from the old spread's content immediately while preserving migrated assignment history.
-  - Creating an explicit year spread auto-assigns eligible preferred year entries from Inbox only.
+  - Creating an explicit year spread auto-assigns eligible Inbox entries whose best available explicit destination is that year spread, including month/day-preferred entries when no finer explicit spread exists yet.
   - Creating an explicit month spread auto-assigns eligible preferred month/day entries from Inbox or year spreads, without exceeding the preferred assignment period.
   - Creating an explicit day spread auto-assigns eligible preferred day entries from Inbox, year, or month spreads.
   - Month-preferred entries do not auto-migrate into day spreads.
