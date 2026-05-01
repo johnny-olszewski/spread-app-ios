@@ -601,8 +601,9 @@ final class JournalManager {
 
     /// Creates a new spread.
     ///
-    /// Inbox entries are not auto-assigned on spread creation. Tasks remain in Inbox
-    /// until the user explicitly migrates them, and notes remain explicit-only.
+    /// In conventional mode, creating an explicit year/month/day spread immediately
+    /// reconciles current task and note assignments against the newly available
+    /// hierarchy using the existing preferred-date/preferred-period rules.
     ///
     /// - Parameters:
     ///   - period: The period for the new spread.
@@ -626,7 +627,11 @@ final class JournalManager {
         try await spreadRepository.save(spread)
         spreads.append(spread)
 
-        if let key = activeDataModelBuilder.spreadKey(
+        let autoMigratedEntries = try await reconcileEntriesForNewExplicitSpreadIfNeeded(spread)
+
+        if autoMigratedEntries {
+            refreshDataModel(for: .structural)
+        } else if let key = activeDataModelBuilder.spreadKey(
             for: spread,
             spreads: spreads,
             tasks: tasks,
@@ -772,6 +777,38 @@ final class JournalManager {
         if let index = spreads.firstIndex(where: { $0.id == spread.id }) {
             spreads[index] = spread
         }
+    }
+
+    private func reconcileEntriesForNewExplicitSpreadIfNeeded(_ spread: DataModel.Spread) async throws -> Bool {
+        guard bujoMode == .conventional, spread.period.canHaveTasksAssigned else {
+            return false
+        }
+
+        var didChange = false
+
+        for task in tasks where task.hasPreferredAssignment && task.status != .cancelled && task.status != .migrated {
+            let previousAssignments = task.assignments
+            taskAssignmentReconciler.reconcilePreferredAssignment(for: task, in: spreads)
+
+            guard task.assignments != previousAssignments else { continue }
+            try await taskRepository.save(task)
+            didChange = true
+        }
+
+        for note in notes where note.status != .migrated {
+            let previousAssignments = note.assignments
+            noteAssignmentReconciler.reconcilePreferredAssignment(for: note, in: spreads)
+
+            guard note.assignments != previousAssignments else { continue }
+            try await noteRepository.save(note)
+            didChange = true
+        }
+
+        guard didChange else { return false }
+
+        tasks = await taskRepository.getTasks()
+        notes = await noteRepository.getNotes()
+        return true
     }
 
     // MARK: - Task Migration

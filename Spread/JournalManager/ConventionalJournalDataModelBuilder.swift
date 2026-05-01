@@ -11,7 +11,7 @@ import Foundation
 /// Builds a `JournalDataModel` from explicitly created spreads in conventional mode.
 ///
 /// For each existing spread, the builder collects:
-/// - Tasks/notes that have an assignment matching the spread's period and date.
+/// - Tasks/notes whose current non-migrated assignment matches the spread's period and date.
 /// - Events whose date range overlaps the spread (via `ConventionalSpreadService`).
 /// - Multiday spreads collect tasks and notes whose preferred date falls within the date range.
 struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
@@ -85,15 +85,17 @@ struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
 
     /// Returns all conventional surfaces that can display the task.
     ///
-    /// This includes explicit assignment-backed spreads plus any multiday spreads whose
-    /// date range contains the task's preferred date.
+    /// This includes explicit spreads backed by the task's current non-migrated assignments
+    /// plus any multiday spreads whose date range contains the task's preferred date.
     func spreadKeys(
         for task: DataModel.Task,
         spreads: [DataModel.Spread]
     ) -> Set<SpreadDataModelKey> {
-        var keys = Set(task.assignments.map {
-            SpreadDataModelKey(period: $0.period, date: $0.date, calendar: calendar)
-        })
+        let explicitKeys: [SpreadDataModelKey] = task.assignments.compactMap { assignment in
+            guard assignment.status != .migrated else { return nil }
+            return SpreadDataModelKey(period: assignment.period, date: assignment.date, calendar: calendar)
+        }
+        var keys = Set(explicitKeys)
 
         if task.hasPreferredAssignment {
             for spread in spreads where spread.period == .multiday && entryDateFallsWithinMultidayRange(task.date, spread: spread) {
@@ -106,15 +108,17 @@ struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
 
     /// Returns all conventional surfaces that can display the note.
     ///
-    /// This includes explicit assignment-backed spreads plus any multiday spreads whose
-    /// date range contains the note's preferred date.
+    /// This includes explicit spreads backed by the note's current non-migrated assignments
+    /// plus any multiday spreads whose date range contains the note's preferred date.
     func spreadKeys(
         for note: DataModel.Note,
         spreads: [DataModel.Spread]
     ) -> Set<SpreadDataModelKey> {
-        var keys = Set(note.assignments.map {
-            SpreadDataModelKey(period: $0.period, date: $0.date, calendar: calendar)
-        })
+        let explicitKeys: [SpreadDataModelKey] = note.assignments.compactMap { assignment in
+            guard assignment.status != .migrated else { return nil }
+            return SpreadDataModelKey(period: assignment.period, date: assignment.date, calendar: calendar)
+        }
+        var keys = Set(explicitKeys)
 
         for spread in spreads where spread.period == .multiday && entryDateFallsWithinMultidayRange(note.date, spread: spread) {
             keys.insert(SpreadDataModelKey(spread: spread, calendar: calendar))
@@ -137,8 +141,8 @@ struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
     /// Returns the tasks that belong on the given spread.
     ///
     /// Multiday spreads match tasks whose preferred date falls within the spread's
-    /// start/end range. All other periods match tasks that have an assignment for the
-    /// spread's period and date.
+    /// start/end range. All other periods match tasks that have a current non-migrated
+    /// assignment for the spread's period and date.
     private func tasksForSpread(_ spread: DataModel.Spread, tasks: [DataModel.Task]) -> [DataModel.Task] {
         if spread.period == .multiday {
             return tasks.filter { $0.hasPreferredAssignment && entryDateFallsWithinMultidayRange($0.date, spread: spread) }
@@ -149,8 +153,8 @@ struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
     /// Returns the notes that belong on the given spread.
     ///
     /// Multiday spreads match notes whose preferred date falls within the spread's
-    /// start/end range. All other periods match notes that have an assignment for the
-    /// spread's period and date.
+    /// start/end range. All other periods match notes that have a current non-migrated
+    /// assignment for the spread's period and date.
     private func notesForSpread(_ spread: DataModel.Spread, notes: [DataModel.Note]) -> [DataModel.Note] {
         if spread.period == .multiday {
             return notes.filter { entryDateFallsWithinMultidayRange($0.date, spread: spread) }
@@ -173,16 +177,18 @@ struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
         return normalizedDate >= startDate && normalizedDate <= endDate
     }
 
-    /// Returns `true` if the task has an assignment matching the spread's period and date.
+    /// Returns `true` if the task has a current non-migrated assignment matching the spread.
     private func hasSpreadAssociation(_ task: DataModel.Task, for spread: DataModel.Spread) -> Bool {
         task.assignments.contains { assignment in
+            assignment.status != .migrated &&
             assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
         }
     }
 
-    /// Returns `true` if the note has an assignment matching the spread's period and date.
+    /// Returns `true` if the note has a current non-migrated assignment matching the spread.
     private func hasSpreadAssociation(_ note: DataModel.Note, for spread: DataModel.Spread) -> Bool {
         note.assignments.contains { assignment in
+            assignment.status != .migrated &&
             assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
         }
     }

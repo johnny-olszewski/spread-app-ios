@@ -56,8 +56,8 @@ struct LifecycleLoggingTests {
     }
 
     /// Conditions: A new spread is created that matches an inbox task.
-    /// Expected: The task remains in Inbox and becomes a migration candidate from Inbox.
-    @Test func spreadCreationLeavesInboxTaskForExplicitMigration() async throws {
+    /// Expected: The task auto-assigns to the new spread and leaves Inbox.
+    @Test func spreadCreationAutoAssignsMatchingInboxTask() async throws {
         let calendar = Self.testCalendar
         let today = Self.testDate
         let task = DataModel.Task(
@@ -74,10 +74,9 @@ struct LifecycleLoggingTests {
 
         let spread = try await manager.addSpread(period: .day, date: today)
 
-        #expect(manager.inboxEntries.count == 1)
-        let candidates = manager.migrationCandidates(to: spread)
-        #expect(candidates.count == 1)
-        #expect(candidates.first?.sourceKey.kind == .inbox)
+        #expect(manager.inboxEntries.isEmpty)
+        #expect(task.assignments.count == 1)
+        #expect(task.assignments.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
     }
 
     // MARK: - Migration Performed

@@ -132,7 +132,7 @@ struct TargetedJournalMutationTests {
         ])
         #expect(builderTracker.fullBuildCallCount == fullBuildsAfterLoad)
         #expect(Set(builderTracker.targetedBuildKeys) == expectedKeys)
-        #expect(manager.dataModel[key: SpreadDataModelKey(spread: daySpread, calendar: Self.calendar)]?.tasks.map { $0.id } == [task.id])
+        #expect(manager.dataModel[key: SpreadDataModelKey(spread: daySpread, calendar: Self.calendar)]?.tasks.isEmpty == true)
         #expect(manager.dataModel[key: SpreadDataModelKey(spread: monthSpread, calendar: Self.calendar)]?.tasks.map { $0.id } == [task.id])
     }
 

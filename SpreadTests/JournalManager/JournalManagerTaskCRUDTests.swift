@@ -305,7 +305,7 @@ struct JournalManagerTaskCRUDTests {
 
         let sourceModel = try #require(manager.dataModel[.day]?[sourceDate])
         let destinationModel = try #require(manager.dataModel[.day]?[destinationDate])
-        #expect(sourceModel.tasks.contains { $0.id == updatedTask.id })
+        #expect(sourceModel.tasks.contains { $0.id == updatedTask.id } == false)
         #expect(destinationModel.tasks.contains { $0.id == updatedTask.id })
     }
 
