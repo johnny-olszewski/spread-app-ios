@@ -7,7 +7,7 @@ struct DaySpreadContentView: View {
     let journalManager: JournalManager
     let viewModel: SpreadsViewModel
     let syncEngine: SyncEngine?
-    var entryListConfiguration: EntryListConfiguration = .init()
+    var entryListConfiguration: EntryListConfiguration = .init(showsMigrationHistory: false)
     var migrationConfiguration: EntryListMigrationConfiguration? = nil
     var onOpenMigratedTask: ((DataModel.Task) -> Void)? = nil
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil

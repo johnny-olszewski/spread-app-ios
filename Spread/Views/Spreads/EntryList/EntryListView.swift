@@ -126,16 +126,11 @@ struct EntryListView: View {
 
     /// Entries combined from the spread data model for normal list rendering.
     private var displayedEntries: [any Entry] {
-        if isMultidaySpread {
-            var entries: [any Entry] = []
-            entries.append(contentsOf: displayedTasks)
-            return entries
-        }
-
-        var entries: [any Entry] = []
-        entries.append(contentsOf: displayedTasks)
-        entries.append(contentsOf: displayedNotes)
-        return entries
+        EntryListDisplaySupport.displayedEntries(
+            for: spreadDataModel,
+            configuration: configuration,
+            calendar: calendar
+        )
     }
 
     /// Tasks rendered in the normal list, including cancelled and migrated rows.
@@ -145,25 +140,20 @@ struct EntryListView: View {
 
     /// Notes that are not migrated on this spread.
     private var displayedNotes: [DataModel.Note] {
-        if isMultidaySpread {
-            return []
-        }
-        guard configuration.showsMigrationHistory else {
-            return spreadDataModel.notes
-        }
-        return spreadDataModel.notes.filter { note in
-            !isMigratedOnSpread(note)
-        }
+        EntryListDisplaySupport.displayedNotes(
+            for: spreadDataModel,
+            configuration: configuration,
+            calendar: calendar
+        )
     }
 
     /// Notes migrated from this spread (have a migrated assignment on this spread).
     private var migratedNotes: [DataModel.Note] {
-        if isMultidaySpread || !configuration.showsMigrationHistory {
-            return []
-        }
-        return spreadDataModel.notes.filter { note in
-            isMigratedOnSpread(note)
-        }
+        EntryListDisplaySupport.migratedNotes(
+            for: spreadDataModel,
+            configuration: configuration,
+            calendar: calendar
+        )
     }
 
     /// Formatter for computing migration destination labels.
@@ -521,7 +511,7 @@ struct EntryListView: View {
                             Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID)
                         )
                 } else if section.entries.isEmpty {
-                    Text("No tasks for this day.")
+                    Text("No entries for this day.")
                         .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier(
@@ -712,18 +702,6 @@ struct EntryListView: View {
     /// Whether a task has a migrated assignment on this spread.
     private func isMigratedOnSpread(_ task: DataModel.Task) -> Bool {
         task.assignments.contains { assignment in
-            assignment.status == .migrated &&
-            assignment.matches(
-                period: spreadDataModel.spread.period,
-                date: spreadDataModel.spread.date,
-                calendar: calendar
-            )
-        }
-    }
-
-    /// Whether a note has a migrated assignment on this spread.
-    private func isMigratedOnSpread(_ note: DataModel.Note) -> Bool {
-        note.assignments.contains { assignment in
             assignment.status == .migrated &&
             assignment.matches(
                 period: spreadDataModel.spread.period,

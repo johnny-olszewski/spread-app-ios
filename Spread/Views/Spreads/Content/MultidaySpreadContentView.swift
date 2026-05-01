@@ -7,7 +7,7 @@ struct MultidaySpreadContentView: View {
     let journalManager: JournalManager
     let viewModel: SpreadsViewModel
     let syncEngine: SyncEngine?
-    var entryListConfiguration: EntryListConfiguration = .init()
+    var entryListConfiguration: EntryListConfiguration = .init(showsMigrationHistory: false)
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
 
     var body: some View {
