@@ -233,7 +233,7 @@
   - Integration tests proving migrated/source-history rows are absent from year surfaces while current assigned entries appear in the correct cards.
 - **Dependencies**: SPRD-186, SPRD-187
 
-### [SPRD-189] UI: redesign month spread into calendar, month section, and day-section list
+### [SPRD-189] UI: redesign month spread into calendar, month section, and day-section list - [x] Complete
 - **Context**: The month spread needs to become a structural calendar surface with distinct month-level and day-level current-assignment presentation.
 - **Description**: Implement the new month spread layout with a structural month calendar, dedicated month-period section, and plain day-section list including explicit empty day-spread destinations.
 - **Spec**: Shared Month Calendar Component; Spread Visual System Refresh

@@ -9,7 +9,8 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
     typealias WeekBackgroundContent = AnyView
 
     let calendar: Calendar
-    let entryCountsByDate: [Date: Int]
+    let dayStateByDate: [Date: SpreadMonthCalendarDayState]
+    let mode: SpreadMonthCalendarView.Mode
 
     func headerView(context: MonthCalendarHeaderContext) -> AnyView {
         AnyView(EmptyView().frame(height: 0))
@@ -27,8 +28,8 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
 
     func dayCellView(context: MonthCalendarDayContext) -> AnyView {
         let normalizedDate = Period.day.normalizeDate(context.date, calendar: calendar)
-        let entryCount = entryCountsByDate[normalizedDate] ?? 0
-        let visualState = dayVisualState(for: context, entryCount: entryCount)
+        let dayState = dayStateByDate[normalizedDate] ?? .init(hasExplicitDaySpread: false, contentCount: 0)
+        let visualState = dayVisualState(for: context, dayState: dayState)
         let foreground: Color = context.isPeripheral ? .secondary : .primary
 
         return AnyView(
@@ -47,14 +48,14 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
                     .fontWeight(context.isToday ? .semibold : .regular)
                     .foregroundStyle(context.isToday ? SpreadTheme.Accent.todayEmphasis : foreground)
 
-                if entryCount > 0 {
+                if dayState.contentCount > 0 {
                     HStack(spacing: 3) {
-                        ForEach(0..<min(entryCount, 3), id: \.self) { _ in
+                        ForEach(0..<min(dayState.contentCount, 3), id: \.self) { _ in
                             Circle()
                                 .fill(SpreadTheme.Accent.todaySelectedEmphasis)
                                 .frame(width: 4, height: 4)
                         }
-                        if entryCount > 3 {
+                        if dayState.contentCount > 3 {
                             Text("+")
                                 .font(.system(size: 8, weight: .semibold))
                                 .foregroundStyle(.secondary)
@@ -84,12 +85,20 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
 
     private func dayVisualState(
         for context: MonthCalendarDayContext,
-        entryCount: Int
+        dayState: SpreadMonthCalendarDayState
     ) -> MultidayDayCardVisualState {
-        MultidayDayCardSupport.visualState(
-            isToday: context.isToday,
-            isCreated: entryCount > 0
-        )
+        switch mode {
+        case .conventional:
+            return MultidayDayCardSupport.visualState(
+                isToday: context.isToday,
+                isCreated: dayState.hasExplicitDaySpread
+            )
+        case .traditional:
+            return MultidayDayCardSupport.visualState(
+                isToday: context.isToday,
+                isCreated: true
+            )
+        }
     }
 
     private func cellFill(
@@ -135,17 +144,19 @@ struct SpreadMonthCalendarView: View {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
     }
 
-    private var entryCountsByDate: [Date: Int] {
+    private var dayStateByDate: [Date: SpreadMonthCalendarDayState] {
         switch mode {
         case .conventional:
-            return SpreadMonthCalendarSupport.conventionalEntryCountsByDate(
+            let monthStart = Period.month.normalizeDate(monthDate, calendar: calendar)
+            return SpreadMonthCalendarSupport.conventionalDayStateByDate(
                 monthDate: monthDate,
                 spreads: journalManager.spreads,
                 dataModel: journalManager.dataModel,
+                monthSpreadDataModel: journalManager.dataModel[.month]?[monthStart],
                 calendar: calendar
             )
         case .traditional:
-            return SpreadMonthCalendarSupport.traditionalEntryCountsByDate(
+            return SpreadMonthCalendarSupport.traditionalDayStateByDate(
                 monthDate: monthDate,
                 tasks: journalManager.tasks,
                 notes: journalManager.notes,
@@ -163,7 +174,8 @@ struct SpreadMonthCalendarView: View {
             configuration: .init(showsPeripheralDates: true),
             contentGenerator: SpreadMonthCalendarContentGenerator(
                 calendar: calendar,
-                entryCountsByDate: entryCountsByDate
+                dayStateByDate: dayStateByDate,
+                mode: mode
             )
         )
         .padding(.horizontal, 16)
