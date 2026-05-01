@@ -2,6 +2,20 @@ import Foundation
 import OSLog
 import Observation
 
+struct SpreadAutoMigrationSummary: Equatable {
+    let taskCount: Int
+    let noteCount: Int
+
+    var totalCount: Int {
+        taskCount + noteCount
+    }
+}
+
+struct SpreadCreationOperationResult {
+    let spread: DataModel.Spread
+    let autoMigrationSummary: SpreadAutoMigrationSummary?
+}
+
 /// Central coordinator for journal data and operations.
 ///
 /// JournalManager owns the in-memory data model, handles data loading from
@@ -616,6 +630,23 @@ final class JournalManager {
         customName: String? = nil,
         usesDynamicName: Bool = true
     ) async throws -> DataModel.Spread {
+        try await createSpread(
+            period: period,
+            date: date,
+            customName: customName,
+            usesDynamicName: usesDynamicName
+        )
+        .spread
+    }
+
+    /// Creates a new explicit spread and returns any auto-migration summary produced
+    /// by the conventional year/month/day reconciliation pass.
+    func createSpread(
+        period: Period,
+        date: Date,
+        customName: String? = nil,
+        usesDynamicName: Bool = true
+    ) async throws -> SpreadCreationOperationResult {
         let spread = DataModel.Spread(
             period: period,
             date: date,
@@ -627,9 +658,9 @@ final class JournalManager {
         try await spreadRepository.save(spread)
         spreads.append(spread)
 
-        let autoMigratedEntries = try await reconcileEntriesForNewExplicitSpreadIfNeeded(spread)
+        let autoMigrationSummary = try await reconcileEntriesForNewExplicitSpreadIfNeeded(spread)
 
-        if autoMigratedEntries {
+        if autoMigrationSummary != nil {
             refreshDataModel(for: .structural)
         } else if let key = activeDataModelBuilder.spreadKey(
             for: spread,
@@ -644,7 +675,10 @@ final class JournalManager {
         }
         dataVersion += 1
 
-        return spread
+        return SpreadCreationOperationResult(
+            spread: spread,
+            autoMigrationSummary: autoMigrationSummary
+        )
     }
 
     /// Creates a new multiday spread.
@@ -779,12 +813,15 @@ final class JournalManager {
         }
     }
 
-    private func reconcileEntriesForNewExplicitSpreadIfNeeded(_ spread: DataModel.Spread) async throws -> Bool {
+    private func reconcileEntriesForNewExplicitSpreadIfNeeded(
+        _ spread: DataModel.Spread
+    ) async throws -> SpreadAutoMigrationSummary? {
         guard bujoMode == .conventional, spread.period.canHaveTasksAssigned else {
-            return false
+            return nil
         }
 
-        var didChange = false
+        var migratedTaskCount = 0
+        var migratedNoteCount = 0
 
         for task in tasks where task.hasPreferredAssignment && task.status != .cancelled && task.status != .migrated {
             let previousAssignments = task.assignments
@@ -792,7 +829,7 @@ final class JournalManager {
 
             guard task.assignments != previousAssignments else { continue }
             try await taskRepository.save(task)
-            didChange = true
+            migratedTaskCount += 1
         }
 
         for note in notes where note.status != .migrated {
@@ -801,14 +838,17 @@ final class JournalManager {
 
             guard note.assignments != previousAssignments else { continue }
             try await noteRepository.save(note)
-            didChange = true
+            migratedNoteCount += 1
         }
 
-        guard didChange else { return false }
+        guard migratedTaskCount > 0 || migratedNoteCount > 0 else { return nil }
 
         tasks = await taskRepository.getTasks()
         notes = await noteRepository.getNotes()
-        return true
+        return SpreadAutoMigrationSummary(
+            taskCount: migratedTaskCount,
+            noteCount: migratedNoteCount
+        )
     }
 
     // MARK: - Task Migration

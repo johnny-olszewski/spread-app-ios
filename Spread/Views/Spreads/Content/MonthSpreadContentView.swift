@@ -21,6 +21,14 @@ struct MonthSpreadContentView: View {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
     }
 
+    private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
+        guard let feedback = viewModel.autoMigrationFeedback,
+              feedback.surfaceSpreadID == spread.id else {
+            return nil
+        }
+        return feedback
+    }
+
     var body: some View {
         if let dataModel = spreadDataModel {
             let contentModel = MonthSpreadContentSupport.model(
@@ -32,6 +40,11 @@ struct MonthSpreadContentView: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: MonthSpreadContentLayout.sectionSpacing) {
+                    if autoMigrationFeedback?.anchor == .spreadHeader,
+                       let message = autoMigrationFeedback?.message {
+                        SpreadAutoMigrationCueView(message: message)
+                    }
+
                     SpreadMonthCalendarView(
                         monthDate: spread.date,
                         mode: journalManager.bujoMode == .conventional ? .conventional : .traditional,
@@ -76,8 +89,19 @@ struct MonthSpreadContentView: View {
 
     @ViewBuilder
     private func daySection(_ section: MonthSpreadDaySectionModel) -> some View {
+        let isAutoMigrationDestination = autoMigrationFeedback.map {
+            if case .monthDay(let date) = $0.anchor {
+                return date == section.date
+            }
+            return false
+        } ?? false
+
         VStack(alignment: .leading, spacing: MonthSpreadContentLayout.sectionRowSpacing) {
             daySectionHeader(section)
+
+            if isAutoMigrationDestination, let message = autoMigrationFeedback?.message {
+                SpreadAutoMigrationCueView(message: message)
+            }
 
             if section.entries.isEmpty {
                 Text("No day-level entries.")
@@ -93,6 +117,16 @@ struct MonthSpreadContentView: View {
                 entryRows(section.entries, contextualLabels: contextualLabels)
             }
         }
+        .padding(.horizontal, isAutoMigrationDestination ? 12 : 0)
+        .padding(.vertical, isAutoMigrationDestination ? 10 : 0)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    isAutoMigrationDestination
+                        ? SpreadTheme.Accent.todaySelectedEmphasis.opacity(0.08)
+                        : Color.clear
+                )
+        )
     }
 
     @ViewBuilder

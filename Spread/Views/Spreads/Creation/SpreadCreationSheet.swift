@@ -32,7 +32,7 @@ struct SpreadCreationSheet: View {
     let editingSpread: DataModel.Spread?
 
     /// Callback when a spread is created.
-    let onSpreadCreated: (DataModel.Spread) -> Void
+    let onSpreadCreated: (SpreadCreationOperationResult) -> Void
 
     /// Callback when an existing multiday spread date range is saved.
     let onSpreadDatesSaved: (DataModel.Spread) -> Void
@@ -57,7 +57,7 @@ struct SpreadCreationSheet: View {
         firstWeekday: FirstWeekday,
         initialPeriod: Period? = nil,
         initialDate: Date? = nil,
-        onSpreadCreated: @escaping (DataModel.Spread) -> Void
+        onSpreadCreated: @escaping (SpreadCreationOperationResult) -> Void
     ) {
         self.journalManager = journalManager
         self.firstWeekday = firstWeekday
@@ -468,18 +468,23 @@ struct SpreadCreationSheet: View {
                 usesDynamicName: usesDynamicName
             )
             await MainActor.run {
-                onSpreadCreated(spread)
+                onSpreadCreated(
+                    SpreadCreationOperationResult(
+                        spread: spread,
+                        autoMigrationSummary: nil
+                    )
+                )
                 dismiss()
             }
         } else {
-            let spread = try await journalManager.addSpread(
+            let result = try await journalManager.createSpread(
                 period: selectedPeriod,
                 date: selectedDate,
                 customName: customName,
                 usesDynamicName: usesDynamicName
             )
             await MainActor.run {
-                onSpreadCreated(spread)
+                onSpreadCreated(result)
                 dismiss()
             }
         }
@@ -510,8 +515,8 @@ struct SpreadCreationSheet: View {
         SpreadCreationSheet(
             journalManager: .previewInstance,
             firstWeekday: .sunday,
-            onSpreadCreated: { spread in
-                print("Created spread: \(spread.period)")
+            onSpreadCreated: { result in
+                print("Created spread: \(result.spread.period)")
             }
         )
     }

@@ -499,6 +499,51 @@ struct InboxTests {
         #expect(manager.dataModel[key: dayKey]?.notes.map(\.id) == [note.id])
     }
 
+    /// Conditions: Explicit spread creation resolves both a task and a note onto the new destination.
+    /// Expected: The creation result reports exact auto-migration counts for feedback routing.
+    @Test @MainActor func testCreateSpreadReturnsAutoMigrationSummary() async throws {
+        let calendar = Self.testCalendar
+        let entryDate = Self.testDate
+        let task = DataModel.Task(
+            title: "Inbox Task",
+            date: entryDate,
+            period: .day,
+            assignments: []
+        )
+        let note = DataModel.Note(
+            title: "Inbox Note",
+            date: entryDate,
+            period: .day,
+            assignments: []
+        )
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: Self.testDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            noteRepository: InMemoryNoteRepository(notes: [note])
+        )
+
+        let result = try await manager.createSpread(period: .day, date: entryDate)
+
+        #expect(result.spread.period == .day)
+        #expect(result.autoMigrationSummary?.taskCount == 1)
+        #expect(result.autoMigrationSummary?.noteCount == 1)
+    }
+
+    /// Conditions: Explicit spread creation adds a destination but no eligible entries move.
+    /// Expected: The creation result reports no auto-migration summary.
+    @Test @MainActor func testCreateSpreadReturnsNilSummaryWhenNoEntriesMove() async throws {
+        let calendar = Self.testCalendar
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: Self.testDate
+        )
+
+        let result = try await manager.createSpread(period: .day, date: Self.testDate)
+
+        #expect(result.autoMigrationSummary == nil)
+    }
+
     /// Conditions: A month-preferred task is currently assigned to a month spread and a matching day spread is added.
     /// Expected: The task stays on the month spread because the new day spread would exceed its preferred-period ceiling.
     @Test @MainActor func testAddDaySpreadDoesNotAutoMigrateMonthPreferredTask() async throws {

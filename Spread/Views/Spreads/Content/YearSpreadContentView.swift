@@ -36,6 +36,14 @@ struct YearSpreadContentView: View {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
     }
 
+    private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
+        guard let feedback = viewModel.autoMigrationFeedback,
+              feedback.surfaceSpreadID == spread.id else {
+            return nil
+        }
+        return feedback
+    }
+
     var body: some View {
         if let dataModel = spreadDataModel {
             let contentModel = YearSpreadContentSupport.model(
@@ -48,6 +56,11 @@ struct YearSpreadContentView: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+                    if autoMigrationFeedback?.anchor == .spreadHeader,
+                       let message = autoMigrationFeedback?.message {
+                        SpreadAutoMigrationCueView(message: message)
+                    }
+
                     topYearSection(entries: contentModel.yearEntries)
 
                     ForEach(contentModel.monthCards) { card in
@@ -106,6 +119,13 @@ struct YearSpreadContentView: View {
 
     @ViewBuilder
     private func monthCard(_ card: YearSpreadMonthCardModel) -> some View {
+        let isAutoMigrationDestination = autoMigrationFeedback.map {
+            if case .yearMonth(let date) = $0.anchor {
+                return date == card.monthDate
+            }
+            return false
+        } ?? false
+
         VStack(alignment: .leading, spacing: Layout.cardSpacing) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(card.monthDate.formatted(.dateTime.month(.wide)))
@@ -126,6 +146,10 @@ struct YearSpreadContentView: View {
                                 .fill(SpreadTheme.Accent.todayEmphasis.opacity(0.1))
                         )
                 }
+            }
+
+            if isAutoMigrationDestination, let message = autoMigrationFeedback?.message {
+                SpreadAutoMigrationCueView(message: message)
             }
 
             MiniMonthGridView(
@@ -171,7 +195,12 @@ struct YearSpreadContentView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: Layout.cardCornerRadius, style: .continuous)
-                .strokeBorder(card.visualState.borderColor, style: card.visualState.borderStyle)
+                .strokeBorder(
+                    isAutoMigrationDestination
+                        ? SpreadTheme.Accent.todaySelectedEmphasis
+                        : card.visualState.borderColor,
+                    style: card.visualState.borderStyle
+                )
         )
     }
 

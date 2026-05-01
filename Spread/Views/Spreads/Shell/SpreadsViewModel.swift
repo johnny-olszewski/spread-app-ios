@@ -81,6 +81,11 @@ final class SpreadsViewModel {
     /// The currently active alert, or nil if no alert is presented.
     var activeAlert: AlertDestination?
 
+    /// Transient feedback for automatic explicit-spread migration.
+    var autoMigrationFeedback: SpreadAutoMigrationFeedback?
+
+    private var autoMigrationFeedbackDismissTask: Task<Void, Never>?
+
     // MARK: - Actions
 
     /// Presents the spread creation sheet.
@@ -102,6 +107,36 @@ final class SpreadsViewModel {
     func finishSpreadDateEdit(_ spread: DataModel.Spread) {
         selectedSelection = .conventional(spread)
         recenterToken += 1
+    }
+
+    /// Applies explicit spread-creation behavior, including auto-migration reveal routing.
+    func finishSpreadCreation(
+        _ result: SpreadCreationOperationResult,
+        currentSelection: SpreadHeaderNavigatorModel.Selection,
+        calendar: Calendar
+    ) {
+        let destinationSelection = SpreadHeaderNavigatorModel.Selection.conventional(result.spread)
+
+        if let feedback = SpreadAutoMigrationFeedbackSupport.feedback(
+            currentSelection: currentSelection,
+            creationResult: result,
+            calendar: calendar
+        ) {
+            switch SpreadAutoMigrationFeedbackSupport.revealBehavior(
+                currentSelection: currentSelection,
+                creationResult: result,
+                calendar: calendar
+            ) {
+            case .local:
+                break
+            case .navigate:
+                selectedSelection = destinationSelection
+            }
+            presentAutoMigrationFeedback(feedback)
+            return
+        }
+
+        selectedSelection = destinationSelection
     }
 
     /// Presents spread deletion confirmation for a conventional explicit spread.
@@ -147,5 +182,22 @@ final class SpreadsViewModel {
     /// Dismisses the currently active alert.
     func dismissAlert() {
         activeAlert = nil
+    }
+
+    func clearAutoMigrationFeedback() {
+        autoMigrationFeedbackDismissTask?.cancel()
+        autoMigrationFeedbackDismissTask = nil
+        autoMigrationFeedback = nil
+    }
+
+    private func presentAutoMigrationFeedback(_ feedback: SpreadAutoMigrationFeedback) {
+        autoMigrationFeedbackDismissTask?.cancel()
+        autoMigrationFeedback = feedback
+        autoMigrationFeedbackDismissTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            self?.autoMigrationFeedback = nil
+            self?.autoMigrationFeedbackDismissTask = nil
+        }
     }
 }
