@@ -74,6 +74,42 @@ struct TraditionalModeIntegrationTests {
         #expect(manager.spreads.count == spreadCountBefore)
     }
 
+    /// Traditional explicit spread creation must not auto-reconcile inbox entries.
+    /// Setup: JournalManager in traditional mode with inbox task and note, then create a matching day spread.
+    /// Expected: Explicit spread is saved, but task and note remain unassigned because automatic migration is conventional-only.
+    @Test @MainActor func testTraditionalAddSpreadDoesNotAutoReconcileInboxEntries() async throws {
+        let dayDate = Self.makeDate(year: 2026, month: 1, day: 15)
+        let task = DataModel.Task(
+            title: "Inbox Task",
+            date: dayDate,
+            period: .day,
+            hasPreferredAssignment: true,
+            assignments: []
+        )
+        let note = DataModel.Note(
+            title: "Inbox Note",
+            date: dayDate,
+            period: .day,
+            assignments: []
+        )
+
+        let manager = try await JournalManager.make(
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            noteRepository: InMemoryNoteRepository(notes: [note]),
+            bujoMode: .traditional
+        )
+
+        let spread = try await manager.addSpread(period: Period.day, date: dayDate)
+
+        #expect(manager.spreads.count == 1)
+        #expect(manager.spreads.first?.id == spread.id)
+        let updatedTask = try #require(manager.tasks.first { $0.id == task.id })
+        let updatedNote = try #require(manager.notes.first { $0.id == note.id })
+        #expect(updatedTask.assignments.isEmpty)
+        #expect(updatedNote.assignments.isEmpty)
+        #expect(manager.inboxEntries.count == 2)
+    }
+
     /// Traditional migration must not modify existing spread records.
     /// Setup: One month spread. Migrate a task to a date within that month.
     /// Expected: Spread's period, date, and id remain unchanged.

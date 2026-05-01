@@ -615,7 +615,7 @@
 ### Spread Visual System Refresh
 - Spread content and related navigation surfaces share one visual language, but navigation surfaces remain lighter-density than the main spread pages. [SPRD-186]
 - Conventional spread content is current-assignment-only. Tasks and notes appear only on the spread they are currently assigned to; migrated-history rows and source-history sections do not remain in spread content after reassignment. Migration visibility belongs only to dedicated migration flows and migration feedback interactions. [SPRD-186]
-- Creating a more granular explicit year/month/day spread automatically migrates eligible currently assigned tasks and notes using existing preferred-date and preferred-period rules only. This automatic migration applies within the explicit year/month/day hierarchy and does not apply to multiday spreads. [SPRD-186]
+- Creating an explicit year/month/day spread automatically migrates eligible currently assigned tasks and notes to the best available explicit destination in that hierarchy using existing preferred-date and preferred-period rules only. This includes temporary fallback onto a year or month spread for month/day-preferred entries when no finer explicit spread exists yet, while still respecting preferred-period ceilings. Automatic migration applies only within the explicit year/month/day hierarchy and does not apply to multiday spreads. [SPRD-186]
 - Automatic migration feedback uses structural motion plus a lightweight anchored cue. When possible, the current surface reveals and highlights the destination locally; otherwise the app changes selection to reveal the destination spread. [SPRD-186]
 - Year spread layout: [SPRD-186]
   - A year spread is a vertical surface composed of:
