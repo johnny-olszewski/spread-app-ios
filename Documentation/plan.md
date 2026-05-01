@@ -152,7 +152,7 @@
 - Automatic migration feedback uses structural motion plus anchored cues with context-dependent destination reveal.
 - Unit, integration, and UI coverage protect the new visibility, migration, and layout rules.
 
-### [SPRD-186] Spec/Model: rewrite spread visibility and assignment semantics
+### [SPRD-186] Spec/Model: rewrite spread visibility and assignment semantics - [x] Complete
 - **Context**: Current conventional spread builders and spread content surfaces still include migrated/source-history content and older sectioning rules. The new visual system requires spread content to be driven by current live assignment only, with migration becoming a distinct flow rather than persistent clutter.
 - **Description**: Update the product spec and core assignment/visibility model so spread content becomes current-assignment-only and automatic migration is defined for explicit year/month/day spread creation.
 - **Spec**: Shared Spread Surface Architecture; Spread Visual System Refresh

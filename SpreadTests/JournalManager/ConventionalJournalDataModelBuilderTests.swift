@@ -14,8 +14,8 @@ struct ConventionalJournalDataModelBuilderTests {
     }
 
     /// Setup: a day spread has one directly assigned task and one migrated-history task.
-    /// Expected: the conventional builder includes both because spread history remains visible on explicit spreads.
-    @Test func testBuilderIncludesAssociatedTasksIncludingMigratedHistory() {
+    /// Expected: the conventional builder includes only the current non-migrated assignment.
+    @Test func testBuilderExcludesMigratedHistoryFromExplicitSpreadContent() {
         let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
         let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: Self.calendar)
 
@@ -41,7 +41,7 @@ struct ConventionalJournalDataModelBuilderTests {
         )
 
         let dayModel = model[.day]?[Period.day.normalizeDate(dayDate, calendar: Self.calendar)]
-        #expect(dayModel?.tasks.map(\.id) == [openTask.id, migratedTask.id])
+        #expect(dayModel?.tasks.map(\.id) == [openTask.id])
     }
 
     /// Setup: a multiday spread spans January 10 through January 12 with entries inside and outside the range.
@@ -130,7 +130,9 @@ struct ConventionalJournalDataModelBuilderTests {
         #expect(targeted?.tasks.map(\.id) == fullModel[key: key]?.tasks.map(\.id))
     }
 
-    @Test func testSpreadKeysForTaskIncludeAssignmentsAndMatchingMultidaySurfaces() {
+    /// Setup: a task has a current day assignment, a migrated year-history assignment, and a matching multiday spread.
+    /// Expected: targeted rebuild keys include only the live explicit assignment plus matching multiday aggregation.
+    @Test func testSpreadKeysForTaskExcludeMigratedHistoryAssignments() {
         let taskDate = Self.makeDate(year: 2026, month: 1, day: 11)
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
         let multidaySpread = DataModel.Spread(
@@ -142,13 +144,18 @@ struct ConventionalJournalDataModelBuilderTests {
             title: "Scoped",
             date: taskDate,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: taskDate, status: .open)]
+            assignments: [
+                TaskAssignment(period: .year, date: taskDate, status: .migrated),
+                TaskAssignment(period: .day, date: taskDate, status: .open)
+            ]
         )
 
         let builder = ConventionalJournalDataModelBuilder(calendar: Self.calendar)
         let keys = builder.spreadKeys(for: task, spreads: [daySpread, multidaySpread])
 
+        #expect(keys.count == 2)
         #expect(keys.contains(SpreadDataModelKey(spread: daySpread, calendar: Self.calendar)))
         #expect(keys.contains(SpreadDataModelKey(spread: multidaySpread, calendar: Self.calendar)))
+        #expect(!keys.contains(SpreadDataModelKey(period: .year, date: taskDate, calendar: Self.calendar)))
     }
 }

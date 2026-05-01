@@ -14,17 +14,17 @@
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
   - Entry: protocol for task and note with type-specific behaviors. [SPRD-9]
   - Task: assignable entry with status and migration history. [SPRD-9, SPRD-10]
-  - Note: assignable entry with explicit-only migration. [SPRD-9, SPRD-34]
+  - Note: assignable entry with assignment history and no batch-migration prompts. [SPRD-9, SPRD-34, SPRD-186]
   - TaskAssignment/NoteAssignment: period/date/status for migration tracking. [SPRD-10, SPRD-15]
 - Events are a v2 integration (calendar-backed date-range entries), not part of v1 UI/flows. [SPRD-57]
 - JournalManager is the app's central journal facade and in-memory state owner. It owns repository coordination, cached journal state, data-model refresh, and app-facing mutation/query APIs, but business-rule engines should be extracted behind injected protocols so they can be unit tested independently and swapped when needed. [SPRD-11, SPRD-13, SPRD-15, SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
 - Two mode-specific spread rule sets over a shared UI architecture: [SPRD-25, SPRD-35, SPRD-38, SPRD-151]
-  - Conventional mode exposes only explicitly created spreads, including explicit multiday spreads, and shows migration/history affordances. [SPRD-25, SPRD-27, SPRD-30, SPRD-140, SPRD-151]
+  - Conventional mode exposes only explicitly created spreads, including explicit multiday spreads. Spread content is current-assignment-only; migration history is retained in assignments and surfaced only through dedicated migration affordances/feedback. [SPRD-25, SPRD-27, SPRD-30, SPRD-140, SPRD-151, SPRD-186]
   - Traditional mode exposes year/month/day destinations through the same shared spread navigation and surface components, but applies traditional spread-availability and entry-inclusion rules and does not surface multiday destinations. [SPRD-35, SPRD-38, SPRD-151]
-- BuJo modes: "conventional" (explicit-spread-driven, migration history visible) and "traditional" (full year/month/day hierarchy, preferred-assignment driven). [SPRD-20, SPRD-17, SPRD-151]
+- BuJo modes: "conventional" (explicit-spread-driven, current-assignment content with dedicated migration flows) and "traditional" (full year/month/day hierarchy, preferred-assignment driven). [SPRD-20, SPRD-17, SPRD-151, SPRD-186]
 
 ## Goals
-- Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with an in-view horizontal spread navigator, a selected-spread navigator surface presented as an iPad popover and iPhone sheet, manual migration, and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29, SPRD-125, SPRD-126]
+- Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with an in-view horizontal spread navigator, a selected-spread navigator surface presented as an iPad popover and iPhone sheet, and conventional-mode migration flows that preserve assignment history without leaving historical rows in spread content. [SPRD-25, SPRD-15, SPRD-29, SPRD-125, SPRD-126, SPRD-186]
 - Provide a unified spread-surface architecture where traditional mode reuses the same navigator, pager, header, section, and list components as conventional mode while preserving traditional spread availability and assignment semantics. [SPRD-17, SPRD-35, SPRD-38, SPRD-151]
 - Support offline-first usage with SwiftData local storage and Supabase sync. [SPRD-80, SPRD-85]
 - Require authentication for all product usage in dev/prod environments, while preserving offline access for users with an existing cached session and local data. [SPRD-104, SPRD-106]
@@ -218,7 +218,7 @@
 - Inherits Entry protocol. [SPRD-9]
 - Has status: active, migrated. [SPRD-9]
 - Behaves like tasks for spread assignment (date, period, assignments). [SPRD-9, SPRD-34]
-- Can migrate only when user explicitly requests (never suggested in batch migration). [SPRD-15, SPRD-34]
+- Uses the same preferred-date/preferred-period assignment resolution as tasks. Notes are never suggested in batch migration UI, but explicit year/month/day spread creation may automatically move them to the best newly available destination. [SPRD-15, SPRD-34, SPRD-186]
 - May have longer content field for extended notes. [SPRD-9]
 - Symbol: dash (—). [SPRD-21]
 - Status visual treatment: [SPRD-22, SPRD-64]
@@ -228,8 +228,8 @@
 ### Migration
 - Moving a task/note from a parent spread to a child spread. [SPRD-15]
 - Source assignment status becomes migrated; destination assignment becomes open/active. [SPRD-15]
-- Manual only - user must trigger migration. [SPRD-15]
-- Notes migrate only via explicit action (not in batch suggestions). [SPRD-15, SPRD-34]
+- Manual migration remains available through explicit user actions. In addition, creating an explicit year/month/day spread automatically reconciles eligible current tasks and notes to the best available destination in that hierarchy using preferred-date/preferred-period rules. Multiday spread creation never auto-migrates direct assignments. [SPRD-15, SPRD-34, SPRD-186]
+- Notes are never suggested in batch migration UI, even though spread creation can automatically reconcile them. [SPRD-15, SPRD-34, SPRD-186]
 - Migration prompt logic in v1 applies to tasks only and only in conventional mode. [SPRD-110, SPRD-140]
 - A task is eligible to migrate into a spread only when all of the following are true: [SPRD-110]
   - The task has a current open assignment on a coarser source (`Inbox`, year, or month/day parent) aligned to the destination's date hierarchy.
@@ -253,15 +253,14 @@
   - The section lists one row per migratable task; tapping a row migrates that task into the current destination spread without additional confirmation.
   - The old migration banner and migration review sheet are removed from this flow.
 - Post-migration source behavior: [SPRD-140]
-  - A migrated task leaves the source spread's active task list.
+  - A migrated task leaves the source spread's content entirely.
   - The source assignment remains in history with migrated status.
-  - The source spread shows migrated tasks in a disabled `Migrated tasks` subsection.
-  - This migrated subsection behavior applies on all spread types that can host tasks.
+  - Spread content does not retain migrated rows or a `Migrated tasks` subsection after reassignment. [SPRD-186]
 - Migration prompting examples: [SPRD-110]
-  - Example A: `2026` and `January 2026` exist. A task desired for `January 1, 2026` day is currently open on `January 2026`. When `January 1, 2026` day is created, that day spread prompts migration.
-  - Example B: `2026` exists. A task desired for `January 2026` month is open on `2026`. When `January 2026` is created, the month spread prompts migration. If `January 10, 2026` is later created, that day spread does not prompt for this task because day is more granular than the task's desired assignment.
-  - Example C: A task desired for `January 10, 2026` day is in `Inbox`. If `2026`, `January 2026`, and `January 10, 2026` all exist, only `January 10, 2026` prompts it because that is the most granular valid existing destination.
-  - Example D: A task desired for `January 10, 2026` day is open on `2026`. If `January 2026` exists and `January 10, 2026` does not, the month spread prompts it. Once the day spread exists, the month prompt disappears and only the day spread prompts it.
+  - Example A: `2026` and `January 2026` exist. A task desired for `January 1, 2026` day is currently open on `January 2026`. When `January 1, 2026` day is created, the task automatically moves to that day spread.
+  - Example B: `2026` exists. A task desired for `January 2026` month is open on `2026`. When `January 2026` is created, the task automatically moves to the month spread. If `January 10, 2026` is later created, that day spread does not move this task because day is more granular than the task's desired assignment.
+  - Example C: A task desired for `January 10, 2026` day is in `Inbox`. If `2026`, `January 2026`, and `January 10, 2026` all exist, only `January 10, 2026` receives it because that is the most granular valid existing destination.
+  - Example D: A task desired for `January 10, 2026` day is open on `2026`. If `January 2026` exists and `January 10, 2026` does not, the task resolves to the month spread. Once the day spread exists, it automatically moves again to the day spread.
 - Migration scenario table (absolute-date reference cases): [SPRD-113]
 
 | Scenario date context | Task desired assignment | Current source | Existing valid spreads | Prompted destination | Why |
@@ -273,7 +272,7 @@
 | `January 12, 2026` | `January 10, 2026` day | `Inbox` | `2026`, `January 2026`, `January 10, 2026` | `January 10, 2026` | Inbox follows the same most-granular-valid-existing-destination rule as spread-assigned tasks. |
 
 ### BuJo Mode
-- Conventional: show migration history across spreads, tasks appear on multiple spreads. [SPRD-29]
+- Conventional: show only current assignments in spread content while preserving assignment history for migration logic and feedback. [SPRD-29, SPRD-186]
 - Traditional: show entries only on their preferred assignment, no migration history visible, and expose the full year/month/day hierarchy through the same shared spread navigation and surface components used by conventional mode. [SPRD-17, SPRD-35, SPRD-151]
 
 ### Journal Logic Architecture
@@ -785,17 +784,15 @@
 - Destination spreads expose per-task tap-to-migrate rows plus a header-level `Migrate All` action scoped to that destination spread.
 - The inline migration UI lists only tasks, never notes.
 - A task may be both overdue on its current spread and eligible for conventional inline migration into a finer spread at the same time.
-- On a source spread, tapping a task in the disabled `Migrated tasks` subsection first navigates to that task's most granular current open destination spread and then immediately opens the task edit sheet there. If no valid destination spread can be resolved, it falls back to opening the edit sheet on the current spread. [SPRD-146]
 - Inline task-row state presentation and reassignment: [SPRD-150]
   - The inline reassignment menu shown from task rows ends with a `Custom...` option.
   - Selecting `Custom...` exits inline editing and opens the full task edit sheet.
-  - Cancelled and migrated tasks remain visible in normal task lists everywhere task rows render, including multiday day sections.
-  - Existing list ordering is preserved; cancelled and migrated rows remain in-place rather than being regrouped.
-  - Cancelled and migrated rows are visually greyed out and do not use inline row editing.
+  - Cancelled tasks remain visible in normal task lists everywhere task rows render, including multiday day sections.
+  - Migrated-history tasks do not remain visible in spread content once their current assignment has moved elsewhere. Migration follow-up belongs to dedicated migration feedback and edit-navigation flows instead of ordinary spread rows. [SPRD-186]
+  - Existing list ordering is preserved for visible rows; cancelled rows remain in-place rather than being regrouped.
+  - Cancelled rows are visually greyed out and do not use inline row editing.
   - Cancelled task rows use a continuous strike line that visually runs from the status icon through the title text.
-  - Migrated task rows use a task-sized dot overlaid with a right arrow that extends beyond the dot bounds.
   - Tapping a cancelled row opens the task edit sheet.
-  - Tapping a migrated row follows the migrated-task navigation rule to the task's current spread before opening edit. [SPRD-146]
 - Spread title navigator badges: [SPRD-147, SPRD-178]
   - Overdue spread signaling moves from a global toolbar button/sheet into per-spread badges in the spread title navigator.
   - Each spread item can show at most one top-right badge through a prioritized badge enum. `overdue(count)` takes priority over `favorite`.
@@ -1058,10 +1055,10 @@
 | --- | --- | --- |
 | Direct assignment durability | Create a task/note on an existing spread, sync, wipe local state, rebuild from server. | The entry returns on the same spread with the same assignment status/history. |
 | Inbox fallback durability | Create a task/note with no matching spread so it lands in Inbox, sync, wipe local state, rebuild from server. | The entry returns in Inbox with the same desired assignment and no phantom spread assignment. |
-| Migration durability | Migrate a task/note, sync, wipe local state, rebuild from server. | The destination remains active and the source spread still shows migrated history after rebuild. |
-| Reassignment durability | Edit preferred date/period to trigger reassignment, sync, wipe local state, rebuild from server. | The entry appears on the same destination, disappears from the old active list, and the old source history remains visible after rebuild. |
+| Migration durability | Migrate a task/note, sync, wipe local state, rebuild from server. | The destination remains active, the old spread no longer shows the entry in spread content, and assignment history survives rebuild. |
+| Reassignment durability | Edit preferred date/period to trigger reassignment, sync, wipe local state, rebuild from server. | The entry appears on the same destination, disappears from the old spread content, and assignment history survives rebuild. |
 | Spread deletion durability | Delete a spread that causes reassignment to parent or Inbox, sync, wipe local state, rebuild from server. | Reassigned destinations and preserved histories match the pre-wipe state exactly. |
-| Cross-device parity | Apply assignment-changing actions on one signed-in client, then rebuild a second clean client from server data. | The second client reproduces the same visible placement and source-history UI. |
+| Cross-device parity | Apply assignment-changing actions on one signed-in client, then rebuild a second clean client from server data. | The second client reproduces the same visible placement and preserved assignment history without resurrecting source-spread content. |
 | Assignment tombstone durability | Delete an entry or remove/supersede an assignment path, sync, wipe local state, rebuild from server. | Removed assignments do not reappear and surviving history remains intact. |
 | Safe backfill recovery | Start from an entry with local assignment history and zero server assignment rows, run repair, then rebuild from server. | Full assignment history is backfilled once and survives subsequent rebuilds. |
 | Note parity | Repeat durability/rebuild scenarios for notes where assignment behavior exists. | `note_assignments` round-trip with the same guarantees as `task_assignments`. |

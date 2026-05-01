@@ -295,9 +295,9 @@ struct CancelledTaskTests {
         #expect(spreadData?.tasks.first?.id == completedTask.id)
     }
 
-    /// Conditions: A migrated task has an assignment matching an existing spread.
-    /// Expected: The migrated task appears in the spread's task list.
-    @Test @MainActor func testSpreadEntryListIncludesMigratedTasks() async throws {
+    /// Conditions: A migrated-only task has a historical assignment matching an existing spread.
+    /// Expected: The migrated task does not appear because spread content is current-assignment-only.
+    @Test @MainActor func testSpreadEntryListExcludesMigratedOnlyTasks() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
 
@@ -328,7 +328,6 @@ struct CancelledTaskTests {
         let normalizedDate = spread.period.normalizeDate(spread.date, calendar: calendar)
         let spreadData = manager.dataModel[spread.period]?[normalizedDate]
 
-        #expect(spreadData?.tasks.count == 1)
-        #expect(spreadData?.tasks.first?.id == migratedTask.id)
+        #expect(spreadData?.tasks.isEmpty == true)
     }
 }
