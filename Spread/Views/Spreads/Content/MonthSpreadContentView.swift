@@ -38,27 +38,39 @@ struct MonthSpreadContentView: View {
                 calendar: calendar
             )
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: MonthSpreadContentLayout.sectionSpacing) {
-                    if autoMigrationFeedback?.anchor == .spreadHeader,
-                       let message = autoMigrationFeedback?.message {
-                        SpreadAutoMigrationCueView(message: message)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: MonthSpreadContentLayout.sectionSpacing) {
+                        if autoMigrationFeedback?.anchor == .spreadHeader,
+                           let message = autoMigrationFeedback?.message {
+                            SpreadAutoMigrationCueView(message: message)
+                        }
+
+                        SpreadMonthCalendarView(
+                            monthDate: spread.date,
+                            mode: journalManager.bujoMode == .conventional ? .conventional : .traditional,
+                            journalManager: journalManager,
+                            calendarActionsByDate: contentModel.calendarActionsByDate,
+                            onViewDaySpread: { explicitDaySpread in
+                                viewModel.selectedSelection = .conventional(explicitDaySpread)
+                            },
+                            onRevealMonthDaySection: { date in
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    proxy.scrollTo(date, anchor: .top)
+                                }
+                            }
+                        )
+
+                        monthSection(entries: contentModel.monthEntries)
+
+                        ForEach(contentModel.daySections) { section in
+                            daySection(section)
+                                .id(section.id)
+                        }
                     }
-
-                    SpreadMonthCalendarView(
-                        monthDate: spread.date,
-                        mode: journalManager.bujoMode == .conventional ? .conventional : .traditional,
-                        journalManager: journalManager
-                    )
-
-                    monthSection(entries: contentModel.monthEntries)
-
-                    ForEach(contentModel.daySections) { section in
-                        daySection(section)
-                    }
+                    .padding(.horizontal, MonthSpreadContentLayout.contentPadding)
+                    .padding(.bottom, MonthSpreadContentLayout.sectionSpacing)
                 }
-                .padding(.horizontal, MonthSpreadContentLayout.contentPadding)
-                .padding(.bottom, MonthSpreadContentLayout.sectionSpacing)
             }
         } else {
             ContentUnavailableView {
@@ -131,30 +143,9 @@ struct MonthSpreadContentView: View {
 
     @ViewBuilder
     private func daySectionHeader(_ section: MonthSpreadDaySectionModel) -> some View {
-        if journalManager.bujoMode == .conventional,
-           case .view(let explicitDaySpread) = section.action {
-            Button {
-                viewModel.selectedSelection = .conventional(explicitDaySpread)
-            } label: {
-                HStack(spacing: 8) {
-                    Text(daySectionTitle(for: section.date))
-                        .font(SpreadTheme.Typography.title3)
-                        .foregroundStyle(.primary)
-
-                    Spacer(minLength: 8)
-
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        } else {
-            Text(daySectionTitle(for: section.date))
-                .font(SpreadTheme.Typography.title3)
-                .foregroundStyle(.primary)
-        }
+        Text(daySectionTitle(for: section.date))
+            .font(SpreadTheme.Typography.title3)
+            .foregroundStyle(.primary)
     }
 
     @ViewBuilder

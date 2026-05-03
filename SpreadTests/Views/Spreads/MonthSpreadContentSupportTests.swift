@@ -42,14 +42,15 @@ struct MonthSpreadContentSupportTests {
 
         #expect(model.monthEntries.map(\.title) == ["Month Task"])
         #expect(model.daySections.map(\.entries).map { $0.map(\.title) } == [["Day Task"], ["Day Note"]])
-        #expect(model.daySections.map(\.action) == [nil, nil])
+        #expect(model.calendarActionsByDate[Self.makeDate(year: 2026, month: 1, day: 5)] == .revealSection(Self.makeDate(year: 2026, month: 1, day: 5)))
+        #expect(model.calendarActionsByDate[Self.makeDate(year: 2026, month: 1, day: 10)] == .revealSection(Self.makeDate(year: 2026, month: 1, day: 10)))
     }
 
-    /// Explicit empty day spreads should still appear in the day-section list.
+    /// Explicit day spreads should be reachable from the calendar, not repeated in the month-hosted list.
     /// Setup: a month spread has no day entries, but Jan 12 has an explicit day spread.
-    /// Expected: Jan 12 renders as an empty section with a view action.
-    @Test("Explicit empty day spread still renders its section")
-    func explicitEmptyDaySpreadStillRendersSection() {
+    /// Expected: the list omits Jan 12 while the calendar action opens the explicit spread.
+    @Test("Explicit day spread is excluded from the fallback section list")
+    func explicitDaySpreadIsExcludedFromFallbackSectionList() {
         let monthDate = Self.makeDate(year: 2026, month: 1)
         let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: Self.calendar)
         let daySpreadDate = Self.makeDate(year: 2026, month: 1, day: 12)
@@ -62,24 +63,23 @@ struct MonthSpreadContentSupportTests {
             calendar: Self.calendar
         )
 
-        #expect(model.daySections.count == 1)
-        #expect(model.daySections[0].date == daySpreadDate)
-        #expect(model.daySections[0].entries.isEmpty)
-        #expect(model.daySections[0].action == .view(daySpread))
+        #expect(model.daySections.isEmpty)
+        #expect(model.calendarActionsByDate[daySpreadDate] == .view(daySpread))
     }
 
-    /// Day-section navigation should only exist when an explicit day spread exists.
+    /// Month-hosted day sections should exist only for uncreated days, while explicit days stay calendar-only.
     /// Setup: one date has only month-hosted day content and another has an explicit day spread.
-    /// Expected: only the explicit day spread section exposes a navigation action.
-    @Test("Day section navigation only exists for explicit day spreads")
-    func daySectionNavigationOnlyExistsForExplicitDaySpreads() {
+    /// Expected: only the uncreated date renders a section, and the calendar distinguishes reveal vs view actions.
+    @Test("Month list only renders uncreated day-assignment sections")
+    func monthListOnlyRendersUncreatedDayAssignmentSections() {
         let monthDate = Self.makeDate(year: 2026, month: 1)
         let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: Self.calendar)
+        let fallbackDate = Self.makeDate(year: 2026, month: 1, day: 6)
         let explicitDate = Self.makeDate(year: 2026, month: 1, day: 20)
         let explicitDaySpread = DataModel.Spread(period: .day, date: explicitDate, calendar: Self.calendar)
 
         var spreadDataModel = SpreadDataModel(spread: monthSpread)
-        spreadDataModel.tasks = [DataModel.Task(title: "Fallback Day Task", date: Self.makeDate(year: 2026, month: 1, day: 6), period: .day)]
+        spreadDataModel.tasks = [DataModel.Task(title: "Fallback Day Task", date: fallbackDate, period: .day)]
 
         let model = MonthSpreadContentSupport.model(
             for: monthSpread,
@@ -88,14 +88,38 @@ struct MonthSpreadContentSupportTests {
             calendar: Self.calendar
         )
 
-        #expect(model.daySections.count == 2)
-        #expect(model.daySections[0].action == nil)
-        #expect(model.daySections[1].action == .view(explicitDaySpread))
+        #expect(model.daySections.map(\.date) == [fallbackDate])
+        #expect(model.calendarActionsByDate[fallbackDate] == .revealSection(fallbackDate))
+        #expect(model.calendarActionsByDate[explicitDate] == .view(explicitDaySpread))
+    }
+
+    /// Empty uncreated days should not produce a list section or a tappable calendar action.
+    /// Setup: a month spread has only one fallback day assignment on Jan 6.
+    /// Expected: Jan 7 remains absent from the month list and from the calendar action map.
+    @Test("Empty uncreated days have no month action")
+    func emptyUncreatedDaysHaveNoMonthAction() {
+        let monthDate = Self.makeDate(year: 2026, month: 1)
+        let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: Self.calendar)
+        let populatedDate = Self.makeDate(year: 2026, month: 1, day: 6)
+        let emptyDate = Self.makeDate(year: 2026, month: 1, day: 7)
+
+        var spreadDataModel = SpreadDataModel(spread: monthSpread)
+        spreadDataModel.notes = [DataModel.Note(title: "Fallback Day Note", date: populatedDate, period: .day)]
+
+        let model = MonthSpreadContentSupport.model(
+            for: monthSpread,
+            spreadDataModel: spreadDataModel,
+            spreads: [],
+            calendar: Self.calendar
+        )
+
+        #expect(model.daySections.map(\.date) == [populatedDate])
+        #expect(model.calendarActionsByDate[emptyDate] == nil)
     }
 
     /// Migrated source-history rows should not stay visible on the month spread once a more granular day spread owns them.
     /// Setup: a month task remains open on the month spread while a day task has a migrated month assignment and an open day assignment.
-    /// Expected: the month content keeps only the month task, and the explicit day section stays present but empty on the month surface.
+    /// Expected: the month content keeps only the month task, and the created day remains calendar-only.
     @Test("Current-assignment-only month content excludes migrated source rows")
     func currentAssignmentOnlyMonthContentExcludesMigratedSourceRows() async throws {
         let monthDate = Self.makeDate(year: 2026, month: 1)
@@ -138,8 +162,7 @@ struct MonthSpreadContentSupportTests {
         )
 
         #expect(model.monthEntries.map(\.title) == ["Current Month Task"])
-        #expect(model.daySections.count == 1)
-        #expect(model.daySections[0].entries.isEmpty)
-        #expect(model.daySections[0].action == .view(daySpread))
+        #expect(model.daySections.isEmpty)
+        #expect(model.calendarActionsByDate[dayDate] == .view(daySpread))
     }
 }
