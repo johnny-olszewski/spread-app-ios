@@ -3,17 +3,17 @@ import Foundation
 struct MonthSpreadContentModel {
     let monthEntries: [any Entry]
     let daySections: [MonthSpreadDaySectionModel]
+    let calendarActionsByDate: [Date: MonthSpreadCalendarDayAction]
 }
 
-enum MonthSpreadDaySectionAction: Equatable {
+enum MonthSpreadCalendarDayAction: Equatable {
     case view(DataModel.Spread)
+    case revealSection(Date)
 }
 
 struct MonthSpreadDaySectionModel: Identifiable {
     let date: Date
-    let explicitDaySpread: DataModel.Spread?
     let entries: [any Entry]
-    let action: MonthSpreadDaySectionAction?
 
     var id: Date { date }
 }
@@ -48,29 +48,36 @@ enum MonthSpreadContentSupport {
                     Period.day.normalizeDate(rhs.date, calendar: calendar)
             }
 
-        let sectionDates = Set(groupedDayEntries.keys).union(
-            explicitDaySpreads.map { Period.day.normalizeDate($0.date, calendar: calendar) }
-        )
-        .sorted()
+        let explicitDaySpreadsByDate = explicitDaySpreads.reduce(into: [Date: DataModel.Spread]()) { result, spread in
+            let normalizedDate = Period.day.normalizeDate(spread.date, calendar: calendar)
+            result[normalizedDate] = spread
+        }
+
+        let sectionDates = groupedDayEntries.keys
+            .filter { explicitDaySpreadsByDate[$0] == nil }
+            .sorted()
 
         let daySections = sectionDates.map { date in
-            let explicitDaySpread = explicitDaySpreads.first { spread in
-                Period.day.normalizeDate(spread.date, calendar: calendar) == date
-            }
-
             return MonthSpreadDaySectionModel(
                 date: date,
-                explicitDaySpread: explicitDaySpread,
                 entries: (groupedDayEntries[date] ?? []).sorted { lhs, rhs in
                     sortKey(for: lhs, calendar: calendar) < sortKey(for: rhs, calendar: calendar)
-                },
-                action: explicitDaySpread.map(MonthSpreadDaySectionAction.view)
+                }
             )
+        }
+
+        var calendarActionsByDate = sectionDates.reduce(into: [Date: MonthSpreadCalendarDayAction]()) { result, date in
+            result[date] = .revealSection(date)
+        }
+
+        for (date, spread) in explicitDaySpreadsByDate {
+            calendarActionsByDate[date] = .view(spread)
         }
 
         return MonthSpreadContentModel(
             monthEntries: monthEntries,
-            daySections: daySections
+            daySections: daySections,
+            calendarActionsByDate: calendarActionsByDate
         )
     }
 
