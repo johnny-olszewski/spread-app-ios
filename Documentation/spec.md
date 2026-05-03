@@ -15,11 +15,11 @@
   - Entry: protocol for task and note with type-specific behaviors. [SPRD-9]
   - Task: assignable entry with status and migration history. [SPRD-9, SPRD-10]
   - Note: assignable entry with assignment history and no batch-migration prompts. [SPRD-9, SPRD-34, SPRD-186]
-  - TaskAssignment/NoteAssignment: period/date/status for migration tracking. [SPRD-10, SPRD-15]
+  - TaskAssignment/NoteAssignment: preferred period/date plus current-destination/status history for migration tracking. Direct multiday assignments must identify the explicit multiday spread record rather than infer ownership only from `period + date`, because multiday spread uniqueness is range-based and legacy overlapping multiday records may still exist in synced data. [SPRD-10, SPRD-15, SPRD-193]
 - Events are a v2 integration (calendar-backed date-range entries), not part of v1 UI/flows. [SPRD-57]
 - JournalManager is the app's central journal facade and in-memory state owner. It owns repository coordination, cached journal state, data-model refresh, and app-facing mutation/query APIs, but business-rule engines should be extracted behind injected protocols so they can be unit tested independently and swapped when needed. [SPRD-11, SPRD-13, SPRD-15, SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
 - Two mode-specific spread rule sets over a shared UI architecture: [SPRD-25, SPRD-35, SPRD-38, SPRD-151]
-  - Conventional mode exposes only explicitly created spreads, including explicit multiday spreads. Spread content is current-assignment-only; migration history is retained in assignments and surfaced only through dedicated migration affordances/feedback. [SPRD-25, SPRD-27, SPRD-30, SPRD-140, SPRD-151, SPRD-186]
+  - Conventional mode exposes only explicitly created spreads, including explicit multiday spreads. Spread content is current-assignment-only; migration history is retained in assignments and surfaced only through dedicated migration affordances/feedback. Multiday is a first-class assignable period in conventional mode, but it remains an optional tool rather than a recommended or assumed spread type. [SPRD-25, SPRD-27, SPRD-30, SPRD-140, SPRD-151, SPRD-186, SPRD-193]
   - Traditional mode exposes year/month/day destinations through the same shared spread navigation and surface components, but applies traditional spread-availability and entry-inclusion rules and does not surface multiday destinations. [SPRD-35, SPRD-38, SPRD-151]
 - BuJo modes: "conventional" (explicit-spread-driven, current-assignment content with dedicated migration flows) and "traditional" (full year/month/day hierarchy, preferred-assignment driven). [SPRD-20, SPRD-17, SPRD-151, SPRD-186]
 
@@ -43,7 +43,7 @@
   - Conventional explicit multiday spreads expose an `Edit Dates` action in the same spread actions menu as `Edit Name` and `Delete Spread`. The action is hidden for year/month/day spreads and hidden in traditional mode because traditional destinations are virtual and traditional mode does not surface multiday destinations. [SPRD-175]
   - `Edit Dates` opens the existing spread creation sheet in a focused edit mode for the selected multiday spread. Edit mode shows only multiday date-range controls and presets, uses title `Edit Dates`, keeps `Cancel` and `Save` toolbar actions, and does not expose spread type, custom name, dynamic naming, or favorite controls. [SPRD-174, SPRD-175]
   - Editing a multiday spread date range preserves the same spread record identity and keeps custom name, dynamic-name setting, and favorite state unchanged. It never deletes and recreates the spread. [SPRD-175]
-  - Multiday date editing follows the existing multiday creation date limits, except duplicate detection ignores the spread being edited. Save is disabled when the range is unchanged, invalid, or exactly duplicates another multiday spread. Partial overlaps remain allowed because overlapping multiday spreads are independent views. [SPRD-175]
+  - Multiday date editing follows the existing multiday creation date limits, except duplicate detection ignores the spread being edited. Save is disabled when the range is unchanged, invalid, or overlaps another multiday spread. Pre-existing overlapping multiday spreads already present in local or synced data are grandfathered legacy data, but new saves must reject overlaps rather than only exact duplicates. [SPRD-175, SPRD-193]
   - A successful date edit dismisses the sheet, keeps the edited spread selected by record identity, and lets the title navigator and content pager rebuild/recenter around the updated start/end range, including cross-year moves based on the new range start. [SPRD-175]
   - If local save fails, the edit sheet remains open, preserves the user's selected range, and shows an error alert. Later sync failures continue through the normal sync status/error surfaces. [SPRD-175]
   - A conventional-mode toolbar button presents a menu of favorited explicit spreads from the currently selected year only; selecting a favorite navigates the spread title navigator to that spread. [SPRD-169]
@@ -82,14 +82,14 @@
   - A true nil-assignment task is Inbox-first, remains in Inbox until explicitly assigned, never becomes overdue until it has a preferred assignment, and is unaffected by later spread creation. Due date can still highlight independently on open Inbox-first task rows. [SPRD-170]
   - Assigned tasks keep existing most-granular-valid spread resolution and Inbox fallback behavior. Tasks with a preferred assignment but no matching explicit spread remain in Inbox as `assigned, waiting for spread`. [SPRD-170]
   - The global Inbox keeps one list structure, but row metadata explicitly distinguishes true `Unassigned` tasks from `Assigned: ...` waiting-for-spread tasks. In traditional mode, true Inbox-first tasks appear only in the global task browser's Inbox until assigned. [SPRD-170]
-  - In task create/edit UI, assignment is controlled by an explicit optional `Assign to spread` section. Creating from an explicit year/month/day spread defaults assignment on and prefilled to that spread. Creating from an explicit multiday spread defaults assignment on and prefilled to the multiday range's start day at day granularity. Creating from a non-spread context defaults assignment off; if the user turns it on, it prepopulates today at day granularity. Editing a true nil-assignment task follows the same assign-on prefill. [SPRD-170]
+  - In task create/edit UI, assignment is controlled by an explicit optional `Assign to spread` section. Creating from an explicit year/month/day spread defaults assignment on and prefilled to that spread. Creating from an explicit multiday spread defaults assignment on and prefilled to that multiday spread as a true multiday assignment. Creating from a non-spread context defaults assignment off; if the user turns it on, it prepopulates today at day granularity. Editing a true nil-assignment task follows the same assign-on prefill. [SPRD-170, SPRD-193]
   - Editing an Inbox task shows `Assign to spread` on when it has a preferred assignment but no matching spread, and off only for true nil-assignment tasks. [SPRD-170]
   - Clearing assignment from a task with a real current open spread assignment moves it to Inbox and converts the current open assignment into historical migrated state. Clearing assignment from a task that only had an unmaterialized preferred assignment clears preferred assignment to nil without creating migrated history. [SPRD-170]
 - Explicitly deferred from `WKFLW-17`: links, tags, assigned time, subtasks, sequential/blocking task dependencies, hidden-on-spreads, status-model expansion, and nil-assignment parity for notes. These candidates are tracked for future prioritization in `Documentation/backlog.md`. [SPRD-167, SPRD-171]
 - Sync/conflict scope:
   - All approved persisted fields sync across devices in this branch. [SPRD-168]
   - New independently mergeable metadata fields use per-field conflict timestamps. Independent new metadata edits merge; same-field conflicts use per-field last-write-wins. Clearing an optional field to nil is a first-class edit and updates that field's timestamp. [SPRD-168]
-  - Multiday `Edit Dates` is an existing-record update that mutates the spread `date`, `startDate`, and `endDate` fields together from one user action, using the existing per-field timestamps for those fields. Delete still wins over concurrent date edits. No additional Supabase schema or RPC migration is intended unless implementation discovers the current merge path cannot persist these existing fields. [SPRD-175]
+  - Multiday `Edit Dates` is an existing-record update that mutates the spread `date`, `startDate`, and `endDate` fields together from one user action, using the existing per-field timestamps for those fields. Delete still wins over concurrent date edits. Because multiday can now own direct assignments, the sync model must preserve stable multiday spread identity across date edits and serialize direct multiday assignment ownership against that identity. [SPRD-175, SPRD-193]
   - Preferred assignment remains governed by existing assignment/status sync behavior rather than the new independent metadata conflict system. New task metadata is preserved against title edits, but assignment/status changes keep existing stronger behavior. [SPRD-168]
   - During migration/backfill, new field timestamps initialize from each record's existing sync/update timestamp rather than migration time or nil. Delete wins over concurrent edits to new metadata and never resurrects a deleted task or spread. [SPRD-168]
 - Local navigation display scope:
@@ -101,7 +101,7 @@
 ## Non-Goals (v1)
 - Advanced search and filters remain out of scope for v1. Task body participates in the existing global task browser search, but tags and tag filters are deferred beyond `WKFLW-17`. [SPRD-56, SPRD-167, SPRD-170]
 - Week period in Period enum or week-based task assignment. [SPRD-8, SPRD-56]
-- Automated migration. [SPRD-15, SPRD-56]
+- Fully automatic spread creation or recommendation of multiday spreads. Multiday remains an optional explicit tool rather than an assumed product workflow. [SPRD-56, SPRD-193]
 - Advanced collection types beyond plain text pages. [SPRD-39, SPRD-56]
 - Links, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads behavior, status-model expansion, and nil-assignment parity for notes are deferred beyond `WKFLW-17` and tracked in `Documentation/backlog.md`. [SPRD-167, SPRD-171]
 - Events (manual creation or calendar integrations) are deferred to v2. [SPRD-69]
@@ -148,7 +148,8 @@
 - Persisted explicit spreads support user-scoped personalization metadata as part of `WKFLW-17`: favorite state, optional custom name override, and dynamic naming enabled state. These fields do not apply to traditional virtual destinations. [SPRD-169]
 - Custom name override is the highest-priority display label. When no override exists and dynamic naming is enabled, qualifying explicit spreads use live relative names; otherwise they use canonical date titles. Relative names never create a new period or assignment granularity. [SPRD-169]
 - Persisted explicit spreads can be deleted from the conventional-mode spread actions menu. Deleting a spread does not delete tasks or notes; existing spread deletion rules migrate entry assignments to the nearest parent spread or Inbox. The user-facing behavior is permanent deletion with no restore/trash flow, backed by the existing local hard delete plus sync tombstone/delete-wins architecture. [SPRD-173]
-- Persisted explicit multiday spreads can be date-edited from the conventional-mode spread actions menu. Editing a multiday range updates the same spread record's existing date/range fields, preserves personalization, and does not change task/note assignment because multiday spreads aggregate existing day ranges rather than owning direct entry assignments. [SPRD-175]
+- Persisted explicit multiday spreads can be date-edited from the conventional-mode spread actions menu. Editing a multiday range updates the same spread record's existing date/range fields, preserves personalization, and keeps existing direct multiday assignments attached to that spread record identity. [SPRD-175, SPRD-193]
+- New multiday spreads must not overlap other multiday spreads. Existing overlapping multiday spreads already present in local or synced data are grandfathered as legacy data, but create/edit validation for newly saved multiday ranges must reject any overlap. [SPRD-193]
 
 ### AppClock and Temporal Context
 - The app must not treat `today` or equivalent temporal context as launch-time-only state for product semantics that are defined relative to the current date, calendar, time zone, or locale. [SPRD-179]
@@ -192,15 +193,20 @@
 
 ### Spread Periods
 - Creatable periods: year, month, day, multiday. [SPRD-8]
-- Task/Note assignable periods: year, month, day only. [SPRD-13]
-- Multiday spreads aggregate entries by date range; no direct entry assignment to multiday. [SPRD-18]
-- Period hierarchy: year → month → day (for migration and assignment). [SPRD-8]
+- Task/Note assignable periods: year, month, multiday, day. [SPRD-13, SPRD-193]
+- Multiday is a first-class preferred period and current assignment destination when the user explicitly assigns to an existing multiday spread or when waterfall reassignment resolves a finer preferred date into an existing multiday spread. Multiday is still optional product behavior: recommendations and default spread expectations never assume users will create multiday spreads. [SPRD-18, SPRD-193]
+- Period hierarchy for explicit-spread resolution is year → month → multiday → day. Resolution still respects the entry's preferred-period ceiling:
+  - year-preferred entries resolve only across year
+  - month-preferred entries resolve across month → year
+  - multiday-preferred entries resolve across explicit multiday → month → year
+  - day-preferred entries resolve across day → containing multiday → month → year [SPRD-8, SPRD-13, SPRD-193]
+- For grandfathered legacy overlap data only, when multiple existing multiday spreads contain the same date and automatic resolution must choose among them, the resolver prefers the narrowest containing multiday range and breaks ties using the app's existing chronological spread ordering. [SPRD-193]
 
 ### Task
 - Inherits Entry protocol. [SPRD-9]
 - Has status: open, complete, migrated, cancelled. [SPRD-10]
 - `migrated` is system-derived historical assignment state and is not user-editable in the task edit sheet. [SPRD-141]
-- Can be assigned to year, month, or day spreads. [SPRD-13]
+- Can be assigned to year, month, multiday, or day spreads. [SPRD-13, SPRD-193]
 - A task may have a desired assignment defined by a preferred `date` and preferred `period`; when no preferred assignment exists, the task remains in Inbox until explicitly assigned. [SPRD-24, SPRD-110, SPRD-170]
 - A task's due date is distinct from its assignment target. Due date is informational display metadata only; it does not move the task between spreads, place it in Inbox, affect migration, or determine overdue membership. [SPRD-170]
 - `WKFLW-17` task metadata includes one optional plain multiline body field, one optional day-level due date, and one non-null display-only priority enum (`none`, `low`, `medium`, `high`). These are task-level properties, not assignment-level properties. [SPRD-170]
@@ -218,7 +224,7 @@
 - Inherits Entry protocol. [SPRD-9]
 - Has status: active, migrated. [SPRD-9]
 - Behaves like tasks for spread assignment (date, period, assignments). [SPRD-9, SPRD-34]
-- Uses the same preferred-date/preferred-period assignment resolution as tasks. Notes are never suggested in batch migration UI, but explicit year/month/day spread creation may automatically move them to the best newly available destination. [SPRD-15, SPRD-34, SPRD-186]
+- Uses the same preferred-date/preferred-period assignment resolution as tasks, including first-class multiday assignment semantics. Notes are never suggested in batch migration UI, but explicit spread creation may automatically move them to the best newly available destination under the same hierarchy rules as tasks. [SPRD-15, SPRD-34, SPRD-186, SPRD-193]
 - May have longer content field for extended notes. [SPRD-9]
 - Symbol: dash (—). [SPRD-21]
 - Status visual treatment: [SPRD-22, SPRD-64]
@@ -228,7 +234,7 @@
 ### Migration
 - Moving a task/note from a parent spread to a child spread. [SPRD-15]
 - Source assignment status becomes migrated; destination assignment becomes open/active. [SPRD-15]
-- Manual migration remains available through explicit user actions. In addition, creating an explicit year/month/day spread automatically reconciles eligible current tasks and notes to the best available destination in that hierarchy using preferred-date/preferred-period rules. Multiday spread creation never auto-migrates direct assignments. [SPRD-15, SPRD-34, SPRD-186]
+- Manual migration remains available through explicit user actions. In addition, creating an explicit year/month/day/multiday spread automatically reconciles eligible current tasks and notes to the best available destination in that hierarchy using preferred-date/preferred-period rules. Multiday participation is optional rather than recommendation-driven: the system never recommends creating multiday spreads, but once an explicit multiday spread exists it participates in waterfall assignment and auto-migration. [SPRD-15, SPRD-34, SPRD-186, SPRD-193]
 - Notes are never suggested in batch migration UI, even though spread creation can automatically reconcile them. [SPRD-15, SPRD-34, SPRD-186]
 - Migration prompt logic in v1 applies to tasks only and only in conventional mode. [SPRD-110, SPRD-140]
 - A task is eligible to migrate into a spread only when all of the following are true: [SPRD-110]
@@ -240,8 +246,9 @@
 - Migration prompt source rules: [SPRD-110]
   - A year spread may pull from `Inbox` only.
   - A month spread may pull from `Inbox` and year spreads.
-  - A day spread may pull from `Inbox`, month spreads, and year spreads.
-  - Multiday spreads never show migration prompts and never receive direct assignment migrations.
+  - A multiday spread may pull eligible day-preferred and multiday-preferred entries from `Inbox`, year spreads, and month spreads when the entry's preferred date falls inside the multiday range and no finer explicit destination already exists.
+  - A day spread may pull from `Inbox`, multiday spreads, month spreads, and year spreads.
+  - Multiday spreads never appear in spread recommendations and are never treated as expected-created spreads, but they may receive direct assignments and automatic waterfall migration once they exist. [SPRD-193]
 - Source-spread migration affordance: [SPRD-140]
   - In conventional mode, an active task row shows a trailing right-arrow button only when that task has a smaller valid existing destination spread.
   - Tapping the arrow presents a confirmation alert that explicitly names the destination spread the task will be moved to.
@@ -363,29 +370,33 @@
 - Multiday creation can start in the past if it is within the current week. [SPRD-12, SPRD-50]
 - Multiday presets follow user's first day of week setting; allow override in creation UI. [SPRD-8, SPRD-26, SPRD-49]
 - Multiday spreads are creatable (range can be custom start/end or presets like "this week"/"next week"). [SPRD-8, SPRD-26]
-- Multiday spreads aggregate entries by date range; entries are not assigned directly to multiday. [SPRD-18, SPRD-13]
+- New multiday spreads must not overlap existing multiday spreads; create/edit validation blocks overlaps while grandfathering pre-existing legacy overlaps in synced data. [SPRD-193]
+- Multiday spreads are directly assignable destinations. The app never recommends creating them, but once they exist they participate in conventional assignment resolution and migration as explicit optional tools. [SPRD-18, SPRD-13, SPRD-193]
 
 ### Spread Deletion
 - Deleting a year/month/day spread reassigns all entries (open, completed, migrated) to the parent spread. [SPRD-15]
 - If no parent spread exists, entries go to Inbox. [SPRD-14, SPRD-15]
 - Entries are NEVER deleted when a spread is deleted; history is preserved. [SPRD-15]
 - Deletion is blocked if it would orphan entries with no valid destination. [SPRD-15]
-- Multiday spread deletion is a simple delete with no reassignment needed (multiday spreads aggregate entries by date range and have no direct assignments). [SPRD-18]
+- Deleting a multiday spread reassigns its entries through the normal non-multiday fallback hierarchy based on each entry's preferred date and preferred period, or Inbox when no valid explicit destination exists. Entries are never deleted. [SPRD-18, SPRD-193]
 
 ### Entries (Tasks/Notes)
 - Create entries with title, preferred date, preferred period, and type. [SPRD-9, SPRD-23]
 - Tasks support status (open/complete/migrated/cancelled). [SPRD-9, SPRD-24]
 - Notes support status (active/migrated). [SPRD-9]
-- Tasks and notes can be assigned to year, month, or day spreads. [SPRD-13]
+- Tasks and notes can be assigned to year, month, multiday, or day spreads. [SPRD-13, SPRD-193]
 - Notes are not suggested for batch migration but can be migrated explicitly. [SPRD-15, SPRD-34]
 - Creating entries for past dates is not allowed in v1. [SPRD-23, SPRD-56]
 - Task creation UI (v1): [SPRD-23, SPRD-71]
-  - Task creation uses a sheet with title + period (year/month/day) + period-appropriate date controls.
+  - Task creation uses a sheet with title + period (year/month/multiday/day) + period-appropriate controls.
   - Defaults to the selected spread's period/date; if none selected, uses initial selection logic. [SPRD-25]
   - Date validation uses period-normalized comparison (current month/year allowed). [SPRD-23]
   - Inline validation with Create button shown after first edit; whitespace-only titles are invalid. [SPRD-23]
   - Optional picker to choose from existing spreads or select a custom date; choosing a date without a matching spread is allowed (Inbox fallback). [SPRD-71, SPRD-14]
-  - Spread picker lists created spreads chronologically with period filter toggles; multiday items expand to show contained dates (day selections appear on multiday). [SPRD-71]
+  - A unified assignment picker replaces the old split between period/date pickers and `select from existing spread`:
+    - `year`, `month`, and `day` show all valid assignment destinations for the chosen preference, with already-created explicit spreads visually distinguished from uncreated implicit destinations
+    - `multiday` shows only already-created explicit multiday spreads
+    - choosing an uncreated `year`, `month`, or `day` destination is allowed and follows the existing fallback behavior until that explicit spread is created [SPRD-71, SPRD-14, SPRD-193]
 - Task edit UI (v1): [SPRD-24, SPRD-141]
   - Task edit uses the same shared period/date normalization path as task creation.
   - The edit sheet does not expose `migrated` as a selectable status.
@@ -407,7 +418,11 @@
 - In the edit sheet, reassignment is the user-facing way to migrate a task; changing preferred date and/or period updates the preferred assignment, and the previous assignment becomes migrated history if reassignment occurs. [SPRD-141]
 - Old assignments (on old date/period's spreads) are marked as migrated to preserve history. [SPRD-24]
 - New assignment is created on the best matching spread for the new date/period: [SPRD-24, SPRD-13]
-  - Search from finest to coarsest: day → month → year.
+  - Search from finest to coarsest within the preferred-period ceiling:
+    - day-preferred: day → containing multiday → month → year
+    - multiday-preferred: explicit multiday → month → year
+    - month-preferred: month → year
+    - year-preferred: year [SPRD-24, SPRD-13, SPRD-193]
   - If a matching spread exists, create/update assignment with open/active status.
   - If no matching spread exists, entry goes to Inbox.
 - If destination spread already has an assignment, update its status (don't duplicate). [SPRD-52]
@@ -425,6 +440,7 @@
 - Only tasks whose current actionable state is `open` can be overdue. Completed, migrated-history-only, and cancelled tasks are not overdue. [SPRD-112]
 - Overdue is determined by the task's current open assignment when one exists. [SPRD-112]
   - Day-assigned task: overdue after that assigned day has passed.
+  - Multiday-assigned task: overdue after that assigned multiday spread's end date has passed.
   - Month-assigned task: overdue only after the assigned month has fully passed.
   - Year-assigned task: overdue only after the assigned year has fully passed.
 - If a task is still in `Inbox`, overdue falls back to the task's desired assignment period/date. [SPRD-112]
@@ -487,7 +503,7 @@
   - Conventional mode title-strip visibility depends on the local title-strip display preference. `Show All Spreads` shows all explicit spreads that exist in the selected year, in chronological order, including explicit year, month, day, and multiday spreads. `Relevant Past Only` uses the same chronological ordering but filters irrelevant past explicit spreads before rendering. [SPRD-127, SPRD-176]
   - In `Relevant Past Only`, current and future conventional explicit spreads always remain visible. A past conventional explicit spread remains visible only when it is favorited or currently shows at least one open task. Completed, cancelled, migrated-history-only tasks, notes, and events do not preserve past spread visibility. [SPRD-176]
   - Past is period-specific: a day spread is past after that day has fully passed; a month spread is past after that month has fully passed; a year spread is past after that year has fully passed; a multiday spread is past after its end date has passed. [SPRD-176]
-  - Open-task relevance uses existing display/inclusion rules. Year/month/day spreads are relevant when they currently show at least one `.open` task under existing conventional spread-resolution rules. Multiday spreads are relevant when at least one `.open` task has a preferred assignment date inside the multiday range under existing multiday inclusion behavior. [SPRD-176]
+  - Open-task relevance uses existing display/inclusion rules. Year/month/day spreads are relevant when they currently show at least one `.open` task under existing conventional spread-resolution rules. Multiday spreads are relevant when they currently show at least one `.open` task assigned to that multiday spread. [SPRD-176, SPRD-193]
   - When a conventional-mode day spread and multiday spread share the same start date, the multiday item appears before the day item in the strip ordering. [SPRD-127]
   - Traditional mode is not affected by the title-strip display preference. It continues to show the full selected calendar year inline as a single chronological sequence: the year item, each month item, and every day in that year; traditional mode does not include multiday items in the strip. [SPRD-127, SPRD-176]
   - When selection moves to a spread in a different year, the strip rebuilds to that new year's sequence. [SPRD-127]
@@ -615,7 +631,11 @@
 ### Spread Visual System Refresh
 - Spread content and related navigation surfaces share one visual language, but navigation surfaces remain lighter-density than the main spread pages. [SPRD-186]
 - Conventional spread content is current-assignment-only. Tasks and notes appear only on the spread they are currently assigned to; migrated-history rows and source-history sections do not remain in spread content after reassignment. Migration visibility belongs only to dedicated migration flows and migration feedback interactions. [SPRD-186]
-- Creating an explicit year/month/day spread automatically migrates eligible currently assigned tasks and notes to the best available explicit destination in that hierarchy using existing preferred-date and preferred-period rules only. This includes temporary fallback onto a year or month spread for month/day-preferred entries when no finer explicit spread exists yet, while still respecting preferred-period ceilings. Automatic migration applies only within the explicit year/month/day hierarchy and does not apply to multiday spreads. [SPRD-186]
+- Creating an explicit year/month/day spread automatically migrates eligible currently assigned tasks and notes to the best available explicit destination in that hierarchy using existing preferred-date and preferred-period rules only. This includes temporary fallback onto a year or month spread for month/day-preferred entries when no finer explicit spread exists yet, while still respecting preferred-period ceilings. [SPRD-186]
+- Creating an explicit multiday spread automatically migrates eligible currently assigned tasks and notes into that multiday spread when:
+  - the entry's preferred period is `multiday`, or
+  - the entry is day-preferred, its preferred date falls inside the multiday range, and no explicit day spread currently exists for that date
+  - month-preferred and year-preferred entries do not auto-migrate into multiday spreads [SPRD-193]
 - Automatic migration feedback uses structural motion plus a lightweight anchored cue. When possible, the current surface reveals and highlights the destination locally; otherwise the app changes selection to reveal the destination spread. [SPRD-186]
 - Year spread layout: [SPRD-186]
   - A year spread is a vertical surface composed of:
@@ -643,7 +663,8 @@
   - Day spreads remain primarily list-first surfaces with a stronger shared visual treatment, rather than becoming card-composed pages. [SPRD-186]
 - Multiday spread layout: [SPRD-186]
   - Multiday spreads keep every day in their covered range visible.
-  - Only currently assigned entries render inside each day section.
+  - Entries currently assigned to the multiday spread with preferred period `multiday` render in a dedicated spread-level section above the day sections.
+  - Day-preferred entries currently assigned to the multiday spread render only in the section for their preferred day.
   - Empty days remain visible but use a lighter empty state rather than disappearing.
 - Navigation surface alignment: [SPRD-186]
   - Rooted navigator and related spread-preview surfaces adopt the same existence/content semantics and broader visual grammar as the main spread pages, but with lighter information density.
@@ -654,6 +675,7 @@
     - The recommendation engine is defined by an injected protocol so recommendation derivation can be unit tested independently of the view.
     - The protocol returns semantic recommendations only; the navigator view continues to derive label presentation using the existing spread-title formatting system.
     - Recommendations cover missing explicit `year`, `month`, and `day` spreads for today's current year, month, and day.
+    - Recommendations never include multiday spreads.
     - A multiday spread containing today does not satisfy the `day` recommendation; only an explicit day spread does.
     - When multiple recommendations are present, they are shown in `year`, `month`, `day` order.
     - The recommendation inset is not part of the scrollable strip content; it stays fixed on the trailing side while the existing spread strip continues to scroll independently.
@@ -798,8 +820,8 @@
   - Each spread item can show at most one top-right badge through a prioritized badge enum. `overdue(count)` takes priority over `favorite`.
   - Overdue badge counts include only open tasks whose preferred assignment date/period has passed under the existing overdue threshold rules. Completed, cancelled, and migrated-history-only tasks do not count.
   - For conventional year/month/day spreads, overdue counts follow the existing current-spread/source semantics for the task's open assignment. Ancestor spread badges do not receive propagated counts merely because a child spread is overdue.
-  - For conventional multiday spreads, overdue counts include open tasks whose preferred assignment date falls inside the multiday range and whose preferred assignment period has passed. This explains past multiday spreads retained by the relevance filter because overdue work exists in contained days.
-  - Overdue tasks still in `Inbox` because no spread assignment/source exists remain excluded from year/month/day spread overdue badges. They may still contribute to a conventional multiday badge when their preferred assignment date falls inside that multiday range, because multiday spreads aggregate date ranges rather than direct assignments.
+  - For conventional multiday spreads, overdue counts include only open tasks whose current assignment is that multiday spread and whose multiday end date has passed.
+  - Overdue tasks still in `Inbox` because no spread assignment/source exists remain excluded from year/month/day/multiday spread overdue badges.
   - Traditional year/month/day items can use the same `overdue(count)` badge enum path for existing traditional overdue counts. Traditional virtual destinations never show favorite badges.
   - Conventional explicit spreads with no overdue badge show a `favorite` star badge when favorited. If a favorited spread also has overdue work, only the overdue count badge is shown.
   - Badge counts are exact and uncapped.
@@ -1204,9 +1226,9 @@
 - Entries with no matching spread: Go to Inbox; auto-resolve on spread creation. [SPRD-13, SPRD-14]
 - Migration when destination has assignment: Update existing assignment status. [SPRD-15, SPRD-52]
 - Deleting year/month/day spread with entries: Reassign all entries to parent or Inbox; never delete entries. [SPRD-15]
-- Deleting multiday spread: Simple delete with no reassignment (no direct assignments to multiday). [SPRD-18]
-- Overlapping multiday spreads: Each multiday is independent; entries appear on all applicable. [SPRD-8, SPRD-49]
-- Editing multiday spread dates: exact duplicate ranges with another multiday spread are blocked; partial overlaps remain allowed. Date edits keep the same spread selected after save and trigger a structural navigator/content rebuild if the range moves within or across years. [SPRD-175]
+- Deleting multiday spread: Reassign all entries using the normal non-multiday fallback hierarchy; never delete entries. [SPRD-18, SPRD-193]
+- Overlapping multiday spreads: New overlaps are blocked. Pre-existing overlapping multiday spreads in legacy local/synced data remain readable, and automatic resolution among those legacy overlaps prefers the narrowest containing range then chronological ordering. [SPRD-8, SPRD-49, SPRD-193]
+- Editing multiday spread dates: overlap with another multiday spread is blocked for newly saved ranges. Date edits keep the same spread selected after save, preserve direct multiday assignments by spread identity, and trigger a structural navigator/content rebuild if the range moves within or across years. [SPRD-175, SPRD-193]
 - Past-dated entries: Blocked in v1; validation prevents creation. [SPRD-23, SPRD-56]
 - Entry date change: Old assignments marked migrated; new assignment on best spread or Inbox. [SPRD-24]
 - Entry period change: Same reassignment logic as date change; period is independently editable. [SPRD-24]
