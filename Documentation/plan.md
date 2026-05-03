@@ -14,6 +14,7 @@
 - Foundation and scaffolding (completed)
 - Month calendar row overlays
 - Spread visual system refresh
+- First-class multiday assignment
 - Core time and data models
 - Temporal context and AppClock
 - Supabase offline-first sync + auth migration (priority)
@@ -356,6 +357,70 @@
   - Sync-enabled durability tests for auto-migrated and manually migrated entries rebuilding with preserved history but no resurrected source content.
   - Regression tests covering tasks vs notes, Inbox-origin entries, parent-origin entries, and preferred-period ceiling edge cases.
 - **Dependencies**: SPRD-187, SPRD-188, SPRD-189, SPRD-190, SPRD-191
+
+## Story: First-class multiday assignment
+
+### User Story
+- As a user, I want multiday spreads to be true assignment destinations, so weekly or range-based work lives on the multiday spread instead of falling back to a month/year spread and becoming confusing later.
+
+### Definition of Done
+- Multiday is a first-class assignable period for tasks and notes in conventional mode.
+- Multiday remains optional product behavior: recommendations and default spread expectations still cover only year/month/day.
+- Assignment resolution, deletion fallback, overdue logic, and spread rendering all treat explicit multiday assignment consistently.
+- New multiday create/edit flows block overlapping ranges while grandfathering legacy overlapping data.
+- Unit, integration, UI, and sync-path tests cover multiday assignment, waterfall migration, picker behavior, and legacy-overlap fallback rules.
+
+### [SPRD-193] Core/UI/Sync: implement first-class multiday assignment semantics
+- **Context**: The current product and codebase treat multiday as an aggregate-only surface. That causes day-level work to fall back to month/year surfaces even when the user is working primarily out of a weekly multiday spread, which makes overdue and ownership behavior misleading. The refreshed spec makes multiday a first-class assignable period while keeping it optional and non-recommended.
+- **Description**: Refactor the assignment model, unified spread picker, migration engine, multiday validation, rendering rules, overdue logic, and sync identity so explicit multiday spreads can own task/note assignments safely and predictably.
+- **Spec**: Spread Periods; Migration; Spread Visual System Refresh; Edge Cases
+- **Implementation Details**:
+  - Update `Period`-level assignment capabilities so `multiday` is a first-class assignable period in conventional mode.
+  - Introduce stable direct multiday-assignment ownership keyed to explicit multiday spread identity rather than inferring ownership only from `period + date`.
+  - Preserve optional-product semantics:
+    - recommendations still cover only year/month/day
+    - default spread expectations never assume users will create multiday spreads
+    - multiday appears only when it already exists or when the user is explicitly working in one
+  - Replace the old spread-assignment UI split with the unified picker contract from the spec:
+    - inline `year`, `month`, `multiday`, and `day` options
+    - created/uncreated differentiation for year/month/day
+    - existing-multiday-only choices for multiday
+  - Change create/edit defaults so creating from a multiday spread preselects that multiday spread as the assignment destination.
+  - Update reassignment/waterfall logic:
+    - day-preferred entries resolve `day -> multiday -> month -> year`
+    - multiday-preferred entries resolve `multiday -> month -> year`
+    - month-preferred entries do not auto-resolve into multiday
+  - Add automatic migration into newly created multiday spreads for eligible day-preferred and multiday-preferred entries, and preserve auto-migration from multiday into explicit day spreads when a finer destination becomes available.
+  - Update multiday spread rendering so:
+    - preferred-period `multiday` entries render in a dedicated spread-level section
+    - day-preferred entries assigned to the multiday render only in their preferred-day section
+    - multiday-assigned entries do not duplicate into overlapping day/month/year spread content
+  - Update overdue logic so direct multiday assignments become overdue only after the multiday spread end date passes.
+  - Update spread deletion/edit logic:
+    - deleting a multiday spread reassigns owned entries through the normal non-multiday fallback hierarchy
+    - editing multiday dates preserves assignment ownership by spread identity
+    - new create/edit validation blocks overlapping multiday ranges
+    - legacy overlapping multiday data remains readable, with deterministic fallback resolution
+  - Update sync/schema/serialization as needed so direct multiday assignment survives offline edits, sync merges, date edits, and deletion fallback without ambiguity.
+- **Acceptance Criteria**:
+  - Tasks and notes can be explicitly assigned to existing multiday spreads.
+  - Creating from a multiday spread defaults assignment to that multiday spread.
+  - The unified spread picker shows year/month/day implicit or explicit destinations plus existing multiday spreads only.
+  - Day-preferred entries may auto-migrate into an explicit multiday spread when it becomes the best available destination, and later auto-migrate into an explicit day spread when that day spread is created.
+  - Month-preferred and year-preferred entries do not auto-migrate into multiday spreads.
+  - Multiday-preferred entries render in the spread-level multiday section, while day-preferred entries render only in their preferred-day section.
+  - Multiday-assigned entries appear only on their current multiday spread in spread content.
+  - Direct multiday assignments become overdue only after the assigned multiday end date passes.
+  - Deleting a multiday spread preserves entries by reassigning them through the non-multiday fallback hierarchy.
+  - New overlapping multiday ranges are blocked; grandfathered legacy overlaps still load and resolve deterministically.
+- **Tests**:
+  - Unit tests for period capabilities, unified picker option derivation, and created/uncreated destination formatting.
+  - Builder and reconciler tests for multiday direct assignment, day-to-multiday waterfall migration, and multiday-to-day follow-up migration.
+  - Overdue tests for direct multiday assignments and fallback reassignment after multiday deletion.
+  - Validation tests for blocking new overlapping multiday creates/edits while allowing grandfathered legacy overlap reads.
+  - Integration tests for multiday spread rendering with spread-level multiday entries plus day-section entries.
+  - Sync/serialization tests proving direct multiday assignment survives device sync, date edits, deletion fallback, and legacy-overlap resolution.
+- **Dependencies**: SPRD-186, SPRD-187, SPRD-189, SPRD-190, SPRD-192
 
 ## Story: Core time and data models
 
