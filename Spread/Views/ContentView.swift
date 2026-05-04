@@ -40,6 +40,7 @@ struct ContentView: View {
                     makeDebugMenuView: runtime.makeDebugMenuView
                 )
                 .environment(\.appClock, runtime.appClock)
+                .environment(\.eventKitService, runtime.dependencies.eventKitService)
             } else {
                 loadingView
             }
