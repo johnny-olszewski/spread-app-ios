@@ -79,6 +79,14 @@ struct EntryListView: View {
     /// The current sync status, used to populate the pull-to-refresh indicator title.
     var syncStatus: SyncStatus?
 
+    /// When `true`, the view renders rows in a `LazyVStack` rather than a `List`.
+    ///
+    /// Use this when the view is embedded inside a parent `ScrollView` (e.g. the iPad
+    /// horizontal day-spread layout) so both the timeline and entries scroll as one unit.
+    /// In embedded mode pull-to-refresh and the calendar-events section are suppressed
+    /// because the parent layout handles them.
+    var isEmbedded: Bool = false
+
     // MARK: - Inline creation state
 
     @State private var activeInlineCreationTarget: InlineCreationTarget?
@@ -108,7 +116,8 @@ struct EntryListView: View {
         onSelectSpread: ((DataModel.Spread) -> Void)? = nil,
         onCreateSpread: ((Date) -> Void)? = nil,
         onRefresh: (() async -> Void)? = nil,
-        syncStatus: SyncStatus? = nil
+        syncStatus: SyncStatus? = nil,
+        isEmbedded: Bool = false
     ) {
         self.spreadDataModel = spreadDataModel
         self.calendar = calendar
@@ -129,6 +138,7 @@ struct EntryListView: View {
         self.onCreateSpread = onCreateSpread
         self.onRefresh = onRefresh
         self.syncStatus = syncStatus
+        self.isEmbedded = isEmbedded
     }
 
     // MARK: - Computed Properties
@@ -272,7 +282,11 @@ struct EntryListView: View {
         if isMultidaySpread, configuration.groupingStyle != .flat {
             multidayEntryGrid
         } else if hasAnyEntries || onAddTask != nil {
-            entryList
+            if isEmbedded {
+                embeddedEntryList
+            } else {
+                entryList
+            }
         } else {
             emptyState
         }
@@ -359,6 +373,72 @@ struct EntryListView: View {
         .environment(\.defaultMinListRowHeight, 0)
         .modifier(RefreshableModifier(onRefresh: onRefresh))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
+    }
+
+    /// A non-scrolling `LazyVStack` variant of the entry list for use when embedded
+    /// inside a parent `ScrollView` (e.g. the iPad horizontal day-spread layout).
+    ///
+    /// Calendar events are intentionally omitted — the parent renders them in the
+    /// `DayTimelineView` column instead.
+    @ViewBuilder
+    private var embeddedEntryList: some View {
+        LazyVStack(alignment: .leading, spacing: 0) {
+            ForEach(sections) { section in
+                if !section.title.isEmpty {
+                    Text(section.title)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(EdgeInsets(
+                            top: 12,
+                            leading: Self.rowInsets.leading,
+                            bottom: 4,
+                            trailing: Self.rowInsets.trailing
+                        ))
+                }
+                embeddedSectionRows(section)
+            }
+
+            if let migrationConfiguration, configuration.showsMigrationHistory {
+                InlineTaskMigrationSection(
+                    items: migrationConfiguration.destinationItems,
+                    calendar: calendar,
+                    onMigrate: { item in migrationConfiguration.onDestinationMigration(item) },
+                    onMigrateAll: migrationConfiguration.onDestinationMigrationAll
+                )
+                .padding(.horizontal, Self.rowInsets.leading)
+            }
+
+            if configuration.showsMigrationHistory {
+                MigratedEntriesSection(
+                    spread: spreadDataModel.spread,
+                    migratedTasks: [],
+                    migratedNotes: migratedNotes,
+                    calendar: calendar,
+                    onEdit: { entry in onEdit?(entry) },
+                    onTaskTap: { task in onOpenMigratedTask?(task) }
+                )
+                .padding(.horizontal, Self.rowInsets.leading)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func embeddedSectionRows(_ section: EntryListSection) -> some View {
+        ForEach(section.entries, id: \.id) { entry in
+            entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
+                .padding(Self.rowInsets)
+        }
+
+        if onAddTask != nil {
+            if activeInlineCreationTarget?.sectionID == section.id {
+                inlineCreationRow(for: creationTarget(for: section))
+                    .padding(Self.rowInsets)
+            } else {
+                addTaskButton(for: creationTarget(for: section))
+                    .padding(Self.rowInsets)
+            }
+        }
     }
 
     private var multidayEntryGrid: some View {
