@@ -370,7 +370,7 @@
 - New multiday create/edit flows block overlapping ranges while grandfathering legacy overlapping data.
 - Unit, integration, UI, and sync-path tests cover multiday assignment, waterfall migration, picker behavior, and legacy-overlap fallback rules.
 
-### [SPRD-193] Core/UI/Sync: implement first-class multiday assignment semantics
+### [SPRD-193] Core/UI/Sync: implement first-class multiday assignment semantics - [x] Complete
 - **Context**: The current product and codebase treat multiday as an aggregate-only surface. That causes day-level work to fall back to month/year surfaces even when the user is working primarily out of a weekly multiday spread, which makes overdue and ownership behavior misleading. The refreshed spec makes multiday a first-class assignable period while keeping it optional and non-recommended.
 - **Description**: Refactor the assignment model, unified spread picker, migration engine, multiday validation, rendering rules, overdue logic, and sync identity so explicit multiday spreads can own task/note assignments safely and predictably.
 - **Spec**: Spread Periods; Migration; Spread Visual System Refresh; Edge Cases
@@ -422,7 +422,7 @@
   - Sync/serialization tests proving direct multiday assignment survives device sync, date edits, deletion fallback, and legacy-overlap resolution.
 - **Dependencies**: SPRD-186, SPRD-187, SPRD-189, SPRD-190, SPRD-192
 
-### [SPRD-194] Infra: EventKit service — CalendarEvent type, protocol, live implementation, and DI
+### [SPRD-194] Infra: EventKit service — CalendarEvent type, protocol, live implementation, and DI - [x] Complete
 - **Context**: The app will display read-only calendar events from EventKit on day and multiday spreads. Before any UI exists, the service layer needs a clean protocol boundary so views are testable and the EventStore dependency is injectable.
 - **Description**: Introduce a `CalendarEvent` value type, an `EventKitService` protocol, a `LiveEventKitService` implementation backed by `EKEventStore`, a `MockEventKitService` for testing, and wire the service into `DependencyContainer`.
 - **Spec**: Events (EventKit Integration — v1)
@@ -448,7 +448,7 @@
   - Unit tests confirming `CalendarEvent` initialisation from representative EK data shapes (all-day, timed, multi-day).
 - **Dependencies**: None
 
-### [SPRD-195] UI: Display EventKit events on day and multiday spreads
+### [SPRD-195] UI: Display EventKit events on day and multiday spreads - [x] Complete
 - **Context**: With the `EventKitService` in place, day and multiday spread content views should fetch and display calendar events live, handle all authorization states gracefully, and let the user view event detail by tapping.
 - **Description**: Add event fetching to day and multiday spread content views; render a dedicated Events section with `CalendarEventRow`; handle authorization states; present `EKEventViewController` on tap.
 - **Spec**: Events (EventKit Integration — v1)
@@ -473,6 +473,76 @@
   - Unit tests confirming correct day-overlap filtering for multiday spread day sections.
   - UI tests verifying the Events section appears on a day spread with stubbed events, and is absent when the mock returns no events or denied status.
 - **Dependencies**: SPRD-194
+
+## Story: Day timeline visualization
+
+### User Story
+- As a user, I want to see a visual timeline of my calendar events on day spreads so I can understand my scheduled time at a glance alongside my tasks and notes.
+
+### Definition of Done
+- A fixed-height timeline card appears above the entry list on day spreads when events are present and EventKit is authorized.
+- The card renders a time ruler on the left and proportionally positioned EventKit event blocks on the right.
+- Overlapping events are indented so both remain partially visible.
+- The timeline component in `johnnyo-foundation` is generic and protocol-driven; the Spread app provides the `CalendarEvent` rendering via a conforming provider.
+
+### [SPRD-196] Package: DayTimelineView — coordinate space, provider protocol, and generic view
+- **Context**: The app needs a day timeline visualization component. To keep it reusable and testable, the layout math and view skeleton live in the `johnnyo-foundation` package while the Spread app supplies rendering via a protocol conformance.
+- **Description**: Add `DayTimeCoordinateSpace` (core), `DayTimelineItemContext` (core), `DayTimelineContentProvider` protocol (UI), and `DayTimelineView` generic SwiftUI view (UI) to `johnnyo-foundation`.
+- **Spec**: Day Timeline Visualization
+- **Implementation Details**:
+  - `DayTimeCoordinateSpace` in `JohnnyOFoundationCore/DayTimeline/`:
+    - Public `Sendable` struct with `visibleStart: Date`, `visibleEnd: Date`, `totalHeight: CGFloat`.
+    - `yOffset(for date: Date) -> CGFloat` — proportional offset, clamped to `[0, totalHeight]`.
+    - `height(from startDate: Date, to endDate: Date) -> CGFloat` — proportional height for a range, clamped; minimum 0.
+    - Dates outside the visible window are clamped rather than excluded so edge events still partially appear.
+  - `DayTimelineItemContext<Item: Identifiable & Sendable>` in `JohnnyOFoundationCore/DayTimeline/`:
+    - Public `Identifiable`, `Sendable` generic struct.
+    - Properties: `item: Item`, `yOffset: CGFloat`, `height: CGFloat`, `overlapOffset: CGFloat`, `coordinateSpace: DayTimeCoordinateSpace`.
+    - `id` forwarded from `item.id`.
+  - `DayTimelineContentProvider` protocol in `JohnnyOFoundationUI/DayTimeline/`:
+    - Associated types: `Item: Identifiable & Sendable`, `ItemContent: View`, `TimeRulerLabel: View`.
+    - `func startDate(for item: Item) -> Date` — the package queries this to compute layout.
+    - `func endDate(for item: Item) -> Date`.
+    - `@ViewBuilder func itemView(context: DayTimelineItemContext<Item>) -> ItemContent` — called by the view to render each event; the package handles position; the conformer handles appearance.
+    - `@ViewBuilder func timeRulerLabel(hour: Int) -> TimeRulerLabel` — rendered at each hour tick.
+  - `DayTimelineView<Provider: DayTimelineContentProvider>` in `JohnnyOFoundationUI/DayTimeline/`:
+    - Public struct with: `provider: Provider`, `items: [Provider.Item]`, `date: Date`, `visibleStartHour: Int = 6`, `visibleEndHour: Int = 22`, `height: CGFloat = 240`, `calendar: Calendar = .current`.
+    - Constructs `DayTimeCoordinateSpace` from `date`, `visibleStartHour`, `visibleEndHour`, and `height`.
+    - Renders a two-column `HStack`: left ruler column (fixed width ~40pt) with hour labels; right event zone with hour-divider lines and item blocks.
+    - Overlap detection: sorts items by start time; for each item, finds the count of earlier items whose ranges overlap; uses that depth × 12pt as `overlapOffset`. Each item view is positioned with `.frame(height:)` + `.padding(.leading, overlapOffset)` + `.offset(y: yOffset)` within a `ZStack(alignment: .topLeading)`.
+    - The entire view clips to `height`.
+- **Acceptance Criteria**:
+  - `DayTimeCoordinateSpace` maps dates proportionally to Y offsets within the visible window, clamping outside dates.
+  - `DayTimelineView` renders with items positioned at correct Y offsets relative to the visible window.
+  - Overlapping items receive non-zero `overlapOffset` values; non-overlapping items receive zero.
+  - The view compiles and previews against a dummy conformer in `JohnnyOFoundationUI`.
+- **Tests**:
+  - Unit tests for `DayTimeCoordinateSpace`: correct Y for in-range, start, end, before-start, after-end dates; correct height computation for full, partial, and zero-length ranges.
+  - Unit tests for overlap detection logic: non-overlapping items all get zero offset; two overlapping items give the second a non-zero offset; three-way overlap gives escalating offsets.
+
+### [SPRD-197] App: Integrate DayTimelineView on day spreads
+- **Context**: With the generic `DayTimelineView` in place, the Spread app wires in a `SpreadDayTimelineProvider` that renders `CalendarEvent` items and displays the timeline card above the entry list on day spread content views.
+- **Description**: Implement `SpreadDayTimelineProvider`, integrate `DayTimelineView` into `DaySpreadContentView`, and ensure the card only appears when authorized with events.
+- **Spec**: Day Timeline Visualization
+- **Implementation Details**:
+  - `SpreadDayTimelineProvider` in `Spread/Views/EventKit/`:
+    - Struct conforming to `DayTimelineContentProvider` with `Item = CalendarEvent`.
+    - `startDate(for:)` and `endDate(for:)` forward to `CalendarEvent.startDate`/`endDate`.
+    - `itemView(context:)`: renders a rounded rectangle filled with a translucent version of `event.calendarColor`, a leading 3pt color bar, and a single-line event title in caption style. All-day events use a lighter fill.
+    - `timeRulerLabel(hour:)`: renders the hour as a short string (e.g. `"9 AM"`) using `SpreadTheme.Typography.caption` in `.tertiary` foreground.
+  - Modify `DaySpreadContentView`:
+    - Replace the top-level `VStack` `if let dataModel` branch body: insert `DayTimelineView(provider: SpreadDayTimelineProvider(), items: calendarEvents, date: spread.date, calendar: journalManager.calendar)` above `EntryListView`, wrapped in `if !calendarEvents.isEmpty`.
+  - The timeline is omitted when `calendarEvents` is empty (which already handles denied/restricted states since `fetchCalendarEvents` returns empty on non-authorized status).
+- **Acceptance Criteria**:
+  - The timeline card appears above the entry list on a day spread when events are present and authorized.
+  - The card is absent when no events exist or authorization is not granted.
+  - Each event block is proportionally positioned and uses the calendar color from `CalendarEvent`.
+  - Overlapping events are visually offset so both blocks are partially visible.
+  - Hour labels appear at the correct positions in the ruler.
+- **Tests**:
+  - Unit test for `SpreadDayTimelineProvider.startDate(for:)` and `endDate(for:)` forwarding.
+  - Snapshot or preview test verifying layout with a mix of non-overlapping and overlapping events.
+- **Dependencies**: SPRD-195, SPRD-196
 
 ## Story: Core time and data models
 
