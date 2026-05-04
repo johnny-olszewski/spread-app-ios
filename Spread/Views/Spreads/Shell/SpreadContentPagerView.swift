@@ -200,10 +200,10 @@ private struct SpreadPageContentView: View {
                         calendar: journalManager.calendar,
                         today: journalManager.today,
                         firstWeekday: journalManager.firstWeekday,
-                        allowsPersonalization: true,
-                        taskCount: conventionalSpreadDataModel(for: spread)?.tasks.count ?? 0,
-                        noteCount: conventionalSpreadDataModel(for: spread)?.notes.count ?? 0
+                        allowsPersonalization: true
                     ),
+                    syncEngine: syncEngine,
+                    onSyncNow: syncEngine.map { engine in { Task { @MainActor in await engine.syncNow() } } },
                     onFavoriteToggle: {
                         toggleFavorite(for: spread)
                     },
@@ -294,10 +294,10 @@ private struct SpreadPageContentView: View {
                         calendar: journalManager.calendar,
                         today: journalManager.today,
                         firstWeekday: journalManager.firstWeekday,
-                        allowsPersonalization: false,
-                        taskCount: traditionalSpreadDataModel(for: item.selection).tasks.count,
-                        noteCount: traditionalSpreadDataModel(for: item.selection).notes.count
-                    )
+                        allowsPersonalization: false
+                    ),
+                    syncEngine: syncEngine,
+                    onSyncNow: syncEngine.map { engine in { Task { @MainActor in await engine.syncNow() } } }
                 )
                 traditionalContentView(for: spread, selection: item.selection)
             }
