@@ -44,8 +44,12 @@ struct DaySpreadContentView: View {
     /// height on any iPad, so the card is always scrollable.
     private let iPadTimelineHeight: CGFloat = 1000
 
-    /// Fixed width of the timeline card in the iPad horizontal layout.
-    private let iPadTimelineWidth: CGFloat = 200
+    /// `.containerRelativeFrame` parameters for the iPad timeline card width.
+    ///
+    /// Divides the available container width into `iPadTimelineColumnCount` equal parts
+    /// and sizes the card to `iPadTimelineColumnSpan` of them.
+    private let iPadTimelineColumnCount: Int = 10
+    private let iPadTimelineColumnSpan: Int = 4
 
     // MARK: - Derived
 
@@ -177,7 +181,7 @@ struct DaySpreadContentView: View {
                 scrollToFirstEvent()
             }
         }
-        .frame(width: iPadTimelineWidth)
+        .containerRelativeFrame(.horizontal, count: iPadTimelineColumnCount, span: iPadTimelineColumnSpan, spacing: 0)
         .frame(maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
