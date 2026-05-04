@@ -1,4 +1,5 @@
 import SwiftUI
+import JohnnyOFoundationUI
 
 /// Renders the entry list for a day spread, with optional inline spread creation and navigation.
 struct DaySpreadContentView: View {
@@ -28,11 +29,23 @@ struct DaySpreadContentView: View {
 
     var body: some View {
         if let dataModel = spreadDataModel {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
                 if let message = autoMigrationFeedback?.message {
                     SpreadAutoMigrationCueView(message: message)
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
+                }
+
+                if !calendarEvents.isEmpty {
+                    DayTimelineView(
+                        provider: SpreadDayTimelineProvider(),
+                        items: calendarEvents,
+                        date: spread.date,
+                        calendar: journalManager.calendar
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 4)
                 }
 
                 EntryListView(
