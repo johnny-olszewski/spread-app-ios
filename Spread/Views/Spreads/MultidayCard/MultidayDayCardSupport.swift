@@ -28,41 +28,21 @@ enum MultidayDayCardVisualState: Equatable {
         if isToday {
             return SpreadTheme.Accent.todayEmphasis.opacity(0.08)
         }
-
-        switch self {
-        case .created:
-            return SpreadTheme.Paper.primary.opacity(0.6)
-        case .uncreated:
-            return SpreadTheme.Paper.primary.opacity(0.25)
-        case .todayCreated, .todayUncreated:
-            return SpreadTheme.Accent.todayEmphasis.opacity(0.08)
-        }
+        return SpreadTheme.Paper.primary.opacity(0.6)
     }
 
     var borderColor: Color {
         if isToday {
             return SpreadTheme.Accent.todayEmphasisBorder
         }
-
-        switch self {
-        case .uncreated:
-            return Color.secondary.opacity(0.28)
-        case .created:
-            return Color.secondary.opacity(0.12)
-        case .todayCreated, .todayUncreated:
-            return SpreadTheme.Accent.todayEmphasisBorder
-        }
+        return Color.secondary.opacity(0.12)
     }
 
     var borderStyle: StrokeStyle {
         switch self {
-        case .todayCreated:
+        case .todayCreated, .todayUncreated:
             return StrokeStyle(lineWidth: 1.5)
-        case .todayUncreated:
-            return StrokeStyle(lineWidth: 1.5, dash: [6, 4])
-        case .uncreated:
-            return StrokeStyle(lineWidth: 1, dash: [6, 4])
-        case .created:
+        case .created, .uncreated:
             return StrokeStyle(lineWidth: 1)
         }
     }

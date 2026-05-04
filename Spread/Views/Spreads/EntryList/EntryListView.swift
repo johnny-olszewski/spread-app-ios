@@ -66,6 +66,9 @@ struct EntryListView: View {
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
     var onSelectSpread: ((DataModel.Spread) -> Void)? = nil
     var onCreateSpread: ((Date) -> Void)? = nil
+    /// Returns the number of open tasks for the given explicit day spread.
+    /// Used to populate the summary card shown when a day spread exists within a multiday range.
+    var openTaskCountForDaySpread: ((DataModel.Spread) -> Int)? = nil
 
     /// Calendar events to display alongside entries.
     ///
@@ -115,6 +118,7 @@ struct EntryListView: View {
         explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil,
         onSelectSpread: ((DataModel.Spread) -> Void)? = nil,
         onCreateSpread: ((Date) -> Void)? = nil,
+        openTaskCountForDaySpread: ((DataModel.Spread) -> Int)? = nil,
         onRefresh: (() async -> Void)? = nil,
         syncStatus: SyncStatus? = nil,
         isEmbedded: Bool = false
@@ -136,6 +140,7 @@ struct EntryListView: View {
         self.explicitDaySpreadForDate = explicitDaySpreadForDate
         self.onSelectSpread = onSelectSpread
         self.onCreateSpread = onCreateSpread
+        self.openTaskCountForDaySpread = openTaskCountForDaySpread
         self.onRefresh = onRefresh
         self.syncStatus = syncStatus
         self.isEmbedded = isEmbedded
@@ -570,7 +575,6 @@ struct EntryListView: View {
     @ViewBuilder
     private func multidayDaySection(_ section: EntryListSection) -> some View {
         let dateID = multidaySectionDateID(for: section.date)
-        let isDayActive = activeInlineCreationTarget?.sectionID == section.id
         let explicitDaySpread = explicitDaySpreadForDate?(section.date)
         let visualState = MultidayDayCardSupport.visualState(
             for: section.date,
@@ -582,61 +586,108 @@ struct EntryListView: View {
             for: section.date,
             explicitDaySpread: explicitDaySpread
         )
-        let overdueCount = multidayOverdueCount(for: section)
 
-        MultidayDayCardView(
-            dateID: dateID,
-            visualState: visualState,
-            footerAction: footerAction,
-            overdueCount: overdueCount,
-            shortMonthText: multidayShortMonthText(for: section.date),
-            weekdayText: multidayWeekdayText(for: section.date),
-            dayNumberText: multidayDayNumberText(for: section.date),
-            footerAccessibilityLabel: multidayFooterAccessibilityLabel(for: footerAction),
-            onFooterTap: {
-                switch footerAction {
-                case .navigate(let spread):
+        if let daySpread = explicitDaySpread {
+            // Day has its own spread — show a summary tile that pushes the user to open it.
+            let openTaskCount = openTaskCountForDaySpread?(daySpread) ?? 0
+            let eventCount = calendarEvents(for: section.date).count
+
+            MultidayDayCardView(
+                dateID: dateID,
+                visualState: visualState,
+                footerAction: footerAction,
+                overdueCount: 0,
+                shortMonthText: multidayShortMonthText(for: section.date),
+                weekdayText: multidayWeekdayText(for: section.date),
+                dayNumberText: multidayDayNumberText(for: section.date),
+                footerAccessibilityLabel: multidayFooterAccessibilityLabel(for: footerAction),
+                isContentCentered: true,
+                onFooterTap: {
                     dismissActiveInlineEditing()
-                    onSelectSpread?(spread)
-                case .createDay(let date):
-                    dismissActiveInlineEditing()
-                    onCreateSpread?(date)
+                    onSelectSpread?(daySpread)
                 }
+            ) {
+                multidaySummaryContent(taskCount: openTaskCount, eventCount: eventCount)
             }
-        ) {
+        } else {
+            // No day spread — show the full entry list and events for this day.
+            let isDayActive = activeInlineCreationTarget?.sectionID == section.id
+            let overdueCount = multidayOverdueCount(for: section)
             let dayEvents = calendarEvents(for: section.date)
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(section.entries, id: \.id) { entry in
-                    entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
-                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                }
 
-                ForEach(dayEvents) { event in
-                    CalendarEventRow(event: event, calendar: calendar)
-                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                        .contentShape(Rectangle())
-                        .onTapGesture { eventKitService?.openEvent(event) }
+            MultidayDayCardView(
+                dateID: dateID,
+                visualState: visualState,
+                footerAction: footerAction,
+                overdueCount: overdueCount,
+                shortMonthText: multidayShortMonthText(for: section.date),
+                weekdayText: multidayWeekdayText(for: section.date),
+                dayNumberText: multidayDayNumberText(for: section.date),
+                footerAccessibilityLabel: multidayFooterAccessibilityLabel(for: footerAction),
+                onFooterTap: {
+                    dismissActiveInlineEditing()
+                    onCreateSpread?(section.date)
                 }
+            ) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(section.entries, id: \.id) { entry in
+                        entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
+                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                    }
 
-                if isDayActive {
-                    inlineCreationRow(for: creationTarget(for: section))
-                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                } else if onAddTask != nil {
-                    addTaskButton(for: creationTarget(for: section))
-                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                        .accessibilityIdentifier(
-                            Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID)
-                        )
-                } else if section.entries.isEmpty, dayEvents.isEmpty {
-                    Text("No entries for this day.")
-                        .font(SpreadTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier(
-                            Definitions.AccessibilityIdentifiers.SpreadContent.multidayEmptyState(dateID)
-                        )
+                    ForEach(dayEvents) { event in
+                        CalendarEventRow(event: event, calendar: calendar)
+                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                            .contentShape(Rectangle())
+                            .onTapGesture { eventKitService?.openEvent(event) }
+                    }
+
+                    if isDayActive {
+                        inlineCreationRow(for: creationTarget(for: section))
+                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                    } else if onAddTask != nil {
+                        addTaskButton(for: creationTarget(for: section))
+                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                            .accessibilityIdentifier(
+                                Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID)
+                            )
+                    } else if section.entries.isEmpty, dayEvents.isEmpty {
+                        Text("No entries for this day.")
+                            .font(SpreadTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier(
+                                Definitions.AccessibilityIdentifiers.SpreadContent.multidayEmptyState(dateID)
+                            )
+                    }
                 }
             }
         }
+    }
+
+    private func multidaySummaryContent(taskCount: Int, eventCount: Int) -> some View {
+        HStack(spacing: 24) {
+            Label {
+                Text("\(taskCount)")
+                    .font(SpreadTheme.Typography.title3)
+                    .fontWeight(.medium)
+            } icon: {
+                Image(systemName: "circle")
+                    .font(.system(size: 15))
+            }
+            .foregroundStyle(taskCount > 0 ? Color.primary : Color.secondary)
+
+            Label {
+                Text("\(eventCount)")
+                    .font(SpreadTheme.Typography.title3)
+                    .fontWeight(.medium)
+            } icon: {
+                Image(systemName: "calendar")
+                    .font(.system(size: 15))
+            }
+            .foregroundStyle(eventCount > 0 ? Color.primary : Color.secondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(taskCount) open tasks, \(eventCount) events")
     }
 
     private func dismissActiveInlineEditing() {

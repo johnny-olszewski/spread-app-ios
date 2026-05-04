@@ -9,16 +9,52 @@ struct MultidayDayCardView<Content: View>: View {
     let weekdayText: String
     let dayNumberText: String
     let footerAccessibilityLabel: String
+    /// When `true`, the content is centered vertically between the header and footer
+    /// rather than top-aligned. Used for summary-only cards (e.g. days with an existing
+    /// day spread) where a compact HStack replaces the full entry list.
+    let isContentCentered: Bool
     let onFooterTap: () -> Void
     @ViewBuilder let content: () -> Content
+
+    init(
+        dateID: String,
+        visualState: MultidayDayCardVisualState,
+        footerAction: MultidayDayCardAction,
+        overdueCount: Int,
+        shortMonthText: String,
+        weekdayText: String,
+        dayNumberText: String,
+        footerAccessibilityLabel: String,
+        isContentCentered: Bool = false,
+        onFooterTap: @escaping () -> Void,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.dateID = dateID
+        self.visualState = visualState
+        self.footerAction = footerAction
+        self.overdueCount = overdueCount
+        self.shortMonthText = shortMonthText
+        self.weekdayText = weekdayText
+        self.dayNumberText = dayNumberText
+        self.footerAccessibilityLabel = footerAccessibilityLabel
+        self.isContentCentered = isContentCentered
+        self.onFooterTap = onFooterTap
+        self.content = content
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
 
-            content()
-
-            Spacer(minLength: 0)
+            if isContentCentered {
+                Spacer(minLength: 0)
+                content()
+                    .frame(maxWidth: .infinity)
+                Spacer(minLength: 0)
+            } else {
+                content()
+                Spacer(minLength: 0)
+            }
 
             footer
         }
