@@ -4,14 +4,15 @@ import JohnnyOFoundationUI
 
 /// Renders the entry list for a day spread, with optional inline spread creation and navigation.
 ///
-/// On iPhone (compact width) the layout is vertical: an optional fixed-height timeline card
-/// appears above the scrollable entry list when events are present.
+/// In compact width the layout is a single scrollable entry list. Calendar events appear
+/// in a dedicated section within the list.
 ///
-/// On iPad (regular width) the layout is horizontal when events are present:
+/// In regular width the layout is horizontal when events are present:
 /// - Leading: a full-height card containing a `ScrollView` with a full-day `DayTimelineView`.
 ///   All-day events are pinned at the top of the card (outside the scroll). The timed grid
 ///   scrolls independently so the first event is visible on load.
-/// - Trailing: `EntryListView` with its own independent scroll.
+/// - Trailing: `EntryListView` with its own independent scroll. Calendar events are omitted
+///   from the list because the timeline card already surfaces them.
 struct DaySpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
@@ -35,21 +36,18 @@ struct DaySpreadContentView: View {
 
     // MARK: - Layout constants
 
-    /// Height of the timeline card on iPhone (compressed smart window).
-    private let iPhoneTimelineHeight: CGFloat = 240
-
-    /// Scrollable content height for the iPad timeline card (full 24-hour day).
+    /// Scrollable content height for the wide timeline card (full 24-hour day).
     ///
     /// At 1000pt for 24 hours (~42 pt/hour) this always exceeds the available card
-    /// height on any iPad, so the card is always scrollable.
-    private let iPadTimelineHeight: CGFloat = 1000
+    /// height, so the card is always scrollable.
+    private let wideTimelineHeight: CGFloat = 1000
 
-    /// `.containerRelativeFrame` parameters for the iPad timeline card width.
+    /// `.containerRelativeFrame` parameters for the wide timeline card width.
     ///
-    /// Divides the available container width into `iPadTimelineColumnCount` equal parts
-    /// and sizes the card to `iPadTimelineColumnSpan` of them.
-    private let iPadTimelineColumnCount: Int = 10
-    private let iPadTimelineColumnSpan: Int = 4
+    /// Divides the available container width into `wideTimelineColumnCount` equal parts
+    /// and sizes the card to `wideTimelineColumnSpan` of them.
+    private let wideTimelineColumnCount: Int = 10
+    private let wideTimelineColumnSpan: Int = 4
 
     // MARK: - Derived
 
@@ -62,8 +60,8 @@ struct DaySpreadContentView: View {
         return feedback
     }
 
-    private var useHorizontalLayout: Bool {
-        horizontalSizeClass == .regular && !calendarEvents.isEmpty
+    private var showsTimelineCard: Bool {
+        horizontalSizeClass.isRegular && !calendarEvents.isEmpty
     }
 
     private var allDayEvents: [CalendarEvent] {
@@ -78,10 +76,10 @@ struct DaySpreadContentView: View {
 
     var body: some View {
         if let dataModel = spreadDataModel {
-            if useHorizontalLayout {
-                iPadLayout(dataModel: dataModel)
+            if showsTimelineCard {
+                wideLayout(dataModel: dataModel)
             } else {
-                iPhoneLayout(dataModel: dataModel)
+                compactLayout(dataModel: dataModel)
             }
         } else {
             ContentUnavailableView {
@@ -94,8 +92,11 @@ struct DaySpreadContentView: View {
 
     // MARK: - Layout variants
 
-    /// iPad: full-height side-by-side layout with independent scrolls.
-    private func iPadLayout(dataModel: SpreadDataModel) -> some View {
+    /// Regular-width: full-height side-by-side layout with independent scrolls.
+    ///
+    /// Calendar events are surfaced in the timeline card only; the entry list
+    /// receives an empty events array so it does not duplicate them.
+    private func wideLayout(dataModel: SpreadDataModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if let message = autoMigrationFeedback?.message {
                 SpreadAutoMigrationCueView(message: message)
@@ -105,7 +106,7 @@ struct DaySpreadContentView: View {
 
             HStack(alignment: .top, spacing: 0) {
                 timelineCard
-                entryListView(dataModel: dataModel)
+                entryListView(dataModel: dataModel, calendarEvents: [])
             }
             .frame(maxHeight: .infinity)
         }
@@ -114,8 +115,8 @@ struct DaySpreadContentView: View {
         }
     }
 
-    /// iPhone: a vertical stack with an optional timeline card above the entry list.
-    private func iPhoneLayout(dataModel: SpreadDataModel) -> some View {
+    /// Compact-width: a single scrollable entry list with calendar events in a dedicated section.
+    private func compactLayout(dataModel: SpreadDataModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if let message = autoMigrationFeedback?.message {
                 SpreadAutoMigrationCueView(message: message)
@@ -123,20 +124,7 @@ struct DaySpreadContentView: View {
                     .padding(.top, 8)
             }
 
-            if !calendarEvents.isEmpty {
-                DayTimelineView(
-                    provider: SpreadDayTimelineProvider(),
-                    items: calendarEvents,
-                    date: spread.date,
-                    height: iPhoneTimelineHeight,
-                    calendar: journalManager.calendar
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 4)
-            }
-
-            entryListView(dataModel: dataModel)
+            entryListView(dataModel: dataModel, calendarEvents: calendarEvents)
         }
         .task(id: spread.id) {
             await fetchCalendarEvents()
@@ -145,7 +133,7 @@ struct DaySpreadContentView: View {
 
     // MARK: - Timeline card
 
-    /// Full-height card for the iPad layout.
+    /// Full-height card for the wide layout.
     ///
     /// Structure (top to bottom):
     /// 1. All-day events header — non-scrolling, pinned above the timed grid.
@@ -170,7 +158,7 @@ struct DaySpreadContentView: View {
                     date: spread.date,
                     visibleStartHour: 0,
                     visibleEndHour: 24,
-                    height: iPadTimelineHeight,
+                    height: wideTimelineHeight,
                     calendar: journalManager.calendar
                 )
                 .scrollIndicators(.hidden)
@@ -181,7 +169,7 @@ struct DaySpreadContentView: View {
                 scrollToFirstEvent()
             }
         }
-        .containerRelativeFrame(.horizontal, count: iPadTimelineColumnCount, span: iPadTimelineColumnSpan, spacing: 0)
+        .containerRelativeFrame(.horizontal, count: wideTimelineColumnCount, span: wideTimelineColumnSpan, spacing: 0)
         .frame(maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -199,7 +187,10 @@ struct DaySpreadContentView: View {
     // MARK: - Shared subviews
 
     /// Builds the `EntryListView` with all current callbacks wired up.
-    private func entryListView(dataModel: SpreadDataModel) -> some View {
+    ///
+    /// - Parameter calendarEvents: Events to surface in the list's events section.
+    ///   Pass `[]` when the timeline card already displays them.
+    private func entryListView(dataModel: SpreadDataModel, calendarEvents: [CalendarEvent]) -> some View {
         EntryListView(
             spreadDataModel: dataModel,
             calendar: journalManager.calendar,
@@ -282,10 +273,17 @@ struct DaySpreadContentView: View {
         let coordinateSpace = DayTimeCoordinateSpace(
             visibleStart: startOfDay,
             visibleEnd: endOfDay,
-            totalHeight: iPadTimelineHeight
+            totalHeight: wideTimelineHeight
         )
         // +8 for the padding around the DayTimelineView inside the ScrollView
         let targetY = coordinateSpace.yOffset(for: firstEvent.startDate) + 8
         timelineScrollPosition = ScrollPosition(y: targetY)
     }
+}
+
+// MARK: - UserInterfaceSizeClass
+
+private extension Optional where Wrapped == UserInterfaceSizeClass {
+    /// `true` when the size class is `.regular` (wider layout context).
+    var isRegular: Bool { self == .regular }
 }
