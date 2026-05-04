@@ -422,6 +422,58 @@
   - Sync/serialization tests proving direct multiday assignment survives device sync, date edits, deletion fallback, and legacy-overlap resolution.
 - **Dependencies**: SPRD-186, SPRD-187, SPRD-189, SPRD-190, SPRD-192
 
+### [SPRD-194] Infra: EventKit service — CalendarEvent type, protocol, live implementation, and DI
+- **Context**: The app will display read-only calendar events from EventKit on day and multiday spreads. Before any UI exists, the service layer needs a clean protocol boundary so views are testable and the EventStore dependency is injectable.
+- **Description**: Introduce a `CalendarEvent` value type, an `EventKitService` protocol, a `LiveEventKitService` implementation backed by `EKEventStore`, a `MockEventKitService` for testing, and wire the service into `DependencyContainer`.
+- **Spec**: Events (EventKit Integration — v1)
+- **Implementation Details**:
+  - `CalendarEvent` struct: `id: String` (EK event identifier), `title: String`, `startDate: Date`, `endDate: Date`, `isAllDay: Bool`, `calendarTitle: String`, `calendarColor: Color`. Pure value type, not a SwiftData model, not part of the Entry hierarchy.
+  - `EventAuthorizationStatus` enum: `notDetermined`, `authorized`, `denied`, `restricted`. Maps to `EKAuthorizationStatus`.
+  - `EventKitService` protocol:
+    - `var authorizationStatus: EventAuthorizationStatus { get }`
+    - `func requestAuthorization() async -> Bool`
+    - `func fetchEvents(from start: Date, to end: Date) -> [CalendarEvent]`
+    - `func openEvent(_ event: CalendarEvent)` — presents `EKEventViewController` or falls back to Calendar URL scheme
+  - `LiveEventKitService`: wraps `EKEventStore`. `fetchEvents` queries all calendars with no filter (v1 shows all). `openEvent` stores a reference to the `EKEvent` by identifier for presentation.
+  - `MockEventKitService`: configurable `stubbedStatus` and `stubbedEvents` array. Conforms to the protocol. Lives in its own file in the test target (or in `Debug/` if needed by the debug UI).
+  - Wire `EventKitService` into `DependencyContainer` with `LiveEventKitService` as the production instance and `MockEventKitService` available for tests.
+- **Acceptance Criteria**:
+  - `CalendarEvent` is a struct with all display-relevant fields.
+  - `EventKitService` protocol compiles and all methods are covered by `MockEventKitService`.
+  - `LiveEventKitService` fetches events within the given date range from `EKEventStore` using all calendars.
+  - `DependencyContainer` exposes `eventKitService: any EventKitService`.
+  - No production file contains `#if DEBUG` blocks related to EventKit.
+- **Tests**:
+  - Unit tests for `MockEventKitService` confirming stub behavior for all protocol methods.
+  - Unit tests confirming `CalendarEvent` initialisation from representative EK data shapes (all-day, timed, multi-day).
+- **Dependencies**: None
+
+### [SPRD-195] UI: Display EventKit events on day and multiday spreads
+- **Context**: With the `EventKitService` in place, day and multiday spread content views should fetch and display calendar events live, handle all authorization states gracefully, and let the user view event detail by tapping.
+- **Description**: Add event fetching to day and multiday spread content views; render a dedicated Events section with `CalendarEventRow`; handle authorization states; present `EKEventViewController` on tap.
+- **Spec**: Events (EventKit Integration — v1)
+- **Implementation Details**:
+  - On day spreads: request authorization on first `.task {}` / `.onAppear`. If authorized, fetch events for the spread's single day. Display in a dedicated **Events** section below the task list — all-day events first, then timed events sorted by start time.
+  - On multiday spreads: fetch events covering the full spread date range. Within each day section, show the events that overlap that day.
+  - `CalendarEventRow`: leading calendar color square, event title (primary), time range or "All Day" + calendar name (secondary). No swipe actions, no status toggle.
+  - Tap → present `EKEventViewControllerRepresentable` (a `UIViewControllerRepresentable` wrapping `EKEventViewController`) as a sheet. Sheet is read-only (`allowsEditing = false`). A Done button dismisses.
+  - If `authorizationStatus` is `.denied` or `.restricted`, the Events section is silently omitted. No empty state, no error banner.
+  - If `authorizationStatus` is `.notDetermined`, call `requestAuthorization()` once on appear; show the section only after authorization resolves to `.authorized`.
+  - If there are no events for the period and permission is granted, omit the Events section (no empty state).
+- **Acceptance Criteria**:
+  - Events appear in a dedicated section below the task list on day spreads.
+  - Events appear per-day in the correct day sections on multiday spreads.
+  - All-day events sort before timed events; timed events sort by start time.
+  - Tapping an event row presents the native `EKEventViewController` in a sheet.
+  - The Events section is absent when permission is denied, restricted, or there are no events.
+  - Authorization is requested automatically on first spread appearance when status is `notDetermined`.
+  - No `EKEventStore` or EventKit import appears in view files — views depend only on `EventKitService`.
+- **Tests**:
+  - Unit tests for event-section visibility logic (authorized + events present, authorized + no events, denied, not determined).
+  - Unit tests confirming correct day-overlap filtering for multiday spread day sections.
+  - UI tests verifying the Events section appears on a day spread with stubbed events, and is absent when the mock returns no events or denied status.
+- **Dependencies**: SPRD-194
+
 ## Story: Core time and data models
 
 ### User Story
