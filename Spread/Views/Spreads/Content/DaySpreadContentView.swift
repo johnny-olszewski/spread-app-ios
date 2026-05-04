@@ -2,6 +2,13 @@ import SwiftUI
 import JohnnyOFoundationUI
 
 /// Renders the entry list for a day spread, with optional inline spread creation and navigation.
+///
+/// On iPhone (compact width) the layout is vertical: an optional fixed-height timeline card
+/// appears above the scrollable entry list when events are present.
+///
+/// On iPad (regular width) the layout switches to a horizontal unified-scroll design when
+/// events are present: a tall `DayTimelineView` column sits to the leading edge, and the entry
+/// list fills the remaining width. Both scroll together inside a single `ScrollView`.
 struct DaySpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
@@ -16,7 +23,19 @@ struct DaySpreadContentView: View {
     var onCreateSpread: ((Date) -> Void)? = nil
 
     @Environment(\.eventKitService) private var eventKitService
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var calendarEvents: [CalendarEvent] = []
+
+    // MARK: - Layout constants
+
+    /// Height of the timeline card on iPhone (compressed smart window).
+    private let iPhoneTimelineHeight: CGFloat = 240
+    /// Height of the timeline column on iPad (taller, designed for unified scroll).
+    private let iPadTimelineHeight: CGFloat = 600
+    /// Fixed width of the timeline column in the iPad horizontal layout.
+    private let iPadTimelineWidth: CGFloat = 200
+
+    // MARK: - Derived
 
     private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
         guard let feedback = viewModel.autoMigrationFeedback,
@@ -27,83 +46,18 @@ struct DaySpreadContentView: View {
         return feedback
     }
 
+    private var useHorizontalLayout: Bool {
+        horizontalSizeClass == .regular && !calendarEvents.isEmpty
+    }
+
+    // MARK: - Body
+
     var body: some View {
         if let dataModel = spreadDataModel {
-            VStack(alignment: .leading, spacing: 0) {
-                if let message = autoMigrationFeedback?.message {
-                    SpreadAutoMigrationCueView(message: message)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                }
-
-                if !calendarEvents.isEmpty {
-                    DayTimelineView(
-                        provider: SpreadDayTimelineProvider(),
-                        items: calendarEvents,
-                        date: spread.date,
-                        calendar: journalManager.calendar
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 4)
-                }
-
-                EntryListView(
-                    spreadDataModel: dataModel,
-                    calendar: journalManager.calendar,
-                    today: journalManager.today,
-                    configuration: entryListConfiguration,
-                    calendarEvents: calendarEvents,
-                    onEdit: { entry in
-                        if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
-                        else if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
-                    },
-                    onOpenMigratedTask: onOpenMigratedTask,
-                    onDelete: { entry in
-                        if let task = entry as? DataModel.Task {
-                            Task { @MainActor in
-                                try? await journalManager.deleteTask(task)
-                                await syncEngine?.syncNow()
-                            }
-                        } else if let note = entry as? DataModel.Note {
-                            Task { @MainActor in
-                                try? await journalManager.deleteNote(note)
-                                await syncEngine?.syncNow()
-                            }
-                        }
-                    },
-                    onComplete: { task in
-                        Task { @MainActor in
-                            let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
-                            try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
-                            await syncEngine?.syncNow()
-                        }
-                    },
-                    migrationConfiguration: migrationConfiguration,
-                    onTitleCommit: { @MainActor task, newTitle in
-                        try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
-                        Task { @MainActor in await syncEngine?.syncNow() }
-                    },
-                    onReassignTask: { @MainActor task, date, period in
-                        try? await journalManager.updateTaskDateAndPeriod(task, newDate: date, newPeriod: period)
-                        await syncEngine?.syncNow()
-                    },
-                    onAddTask: { @MainActor title, date, period in
-                        _ = try await journalManager.addTask(title: title, date: date, period: period)
-                        Task { @MainActor in await syncEngine?.syncNow() }
-                    },
-                    explicitDaySpreadForDate: explicitDaySpreadForDate,
-                    onSelectSpread: onSelectSpread,
-                    onCreateSpread: onCreateSpread,
-                    onRefresh: {
-                        guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
-                        await engine.syncNow()
-                    },
-                    syncStatus: syncEngine?.status
-                )
-            }
-            .task(id: spread.id) {
-                await fetchCalendarEvents()
+            if useHorizontalLayout {
+                iPadLayout(dataModel: dataModel)
+            } else {
+                iPhoneLayout(dataModel: dataModel)
             }
         } else {
             ContentUnavailableView {
@@ -112,6 +66,131 @@ struct DaySpreadContentView: View {
                 Text("Unable to load spread data.")
             }
         }
+    }
+
+    // MARK: - Layout variants
+
+    /// iPad: a single `ScrollView` with a timeline column on the leading edge and entries
+    /// filling the remaining width. Both columns scroll as one unit.
+    private func iPadLayout(dataModel: SpreadDataModel) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let message = autoMigrationFeedback?.message {
+                SpreadAutoMigrationCueView(message: message)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
+
+            ScrollView {
+                HStack(alignment: .top, spacing: 0) {
+                    DayTimelineView(
+                        provider: SpreadDayTimelineProvider(),
+                        items: calendarEvents,
+                        date: spread.date,
+                        height: iPadTimelineHeight,
+                        calendar: journalManager.calendar
+                    )
+                    .frame(width: iPadTimelineWidth)
+                    .padding(.top, 12)
+                    .padding(.horizontal, 8)
+
+                    Divider()
+
+                    entryListView(dataModel: dataModel, isEmbedded: true)
+                }
+            }
+        }
+        .task(id: spread.id) {
+            await fetchCalendarEvents()
+        }
+    }
+
+    /// iPhone: a vertical stack with an optional timeline card above the entry list.
+    private func iPhoneLayout(dataModel: SpreadDataModel) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let message = autoMigrationFeedback?.message {
+                SpreadAutoMigrationCueView(message: message)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
+
+            if !calendarEvents.isEmpty {
+                DayTimelineView(
+                    provider: SpreadDayTimelineProvider(),
+                    items: calendarEvents,
+                    date: spread.date,
+                    height: iPhoneTimelineHeight,
+                    calendar: journalManager.calendar
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 4)
+            }
+
+            entryListView(dataModel: dataModel, isEmbedded: false)
+        }
+        .task(id: spread.id) {
+            await fetchCalendarEvents()
+        }
+    }
+
+    // MARK: - Shared subviews
+
+    /// Builds the `EntryListView` with all current callbacks wired up.
+    private func entryListView(dataModel: SpreadDataModel, isEmbedded: Bool) -> some View {
+        EntryListView(
+            spreadDataModel: dataModel,
+            calendar: journalManager.calendar,
+            today: journalManager.today,
+            configuration: entryListConfiguration,
+            calendarEvents: calendarEvents,
+            onEdit: { entry in
+                if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
+                else if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
+            },
+            onOpenMigratedTask: onOpenMigratedTask,
+            onDelete: { entry in
+                if let task = entry as? DataModel.Task {
+                    Task { @MainActor in
+                        try? await journalManager.deleteTask(task)
+                        await syncEngine?.syncNow()
+                    }
+                } else if let note = entry as? DataModel.Note {
+                    Task { @MainActor in
+                        try? await journalManager.deleteNote(note)
+                        await syncEngine?.syncNow()
+                    }
+                }
+            },
+            onComplete: { task in
+                Task { @MainActor in
+                    let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
+                    try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
+                    await syncEngine?.syncNow()
+                }
+            },
+            migrationConfiguration: migrationConfiguration,
+            onTitleCommit: { @MainActor task, newTitle in
+                try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
+                Task { @MainActor in await syncEngine?.syncNow() }
+            },
+            onReassignTask: { @MainActor task, date, period in
+                try? await journalManager.updateTaskDateAndPeriod(task, newDate: date, newPeriod: period)
+                await syncEngine?.syncNow()
+            },
+            onAddTask: { @MainActor title, date, period in
+                _ = try await journalManager.addTask(title: title, date: date, period: period)
+                Task { @MainActor in await syncEngine?.syncNow() }
+            },
+            explicitDaySpreadForDate: explicitDaySpreadForDate,
+            onSelectSpread: onSelectSpread,
+            onCreateSpread: onCreateSpread,
+            onRefresh: {
+                guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
+                await engine.syncNow()
+            },
+            syncStatus: syncEngine?.status,
+            isEmbedded: isEmbedded
+        )
     }
 
     // MARK: - Private
