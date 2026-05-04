@@ -233,6 +233,9 @@ struct EntryListGrouper: Sendable {
         let startDate = (spreadStartDate ?? spreadDate).startOfDay(calendar: calendar)
         let endDate = (spreadEndDate ?? spreadDate).startOfDay(calendar: calendar)
 
+        let multidayEntries = sortEntriesChronologically(
+            entries.filter { assignableGrouping(for: $0).period == .multiday }
+        )
         var dayGroups: [Date: [any Entry]] = [:]
         for entry in entries {
             let grouping = assignableGrouping(for: entry)
@@ -242,6 +245,20 @@ struct EntryListGrouper: Sendable {
         }
 
         var sections: [EntryListSection] = []
+        if !multidayEntries.isEmpty {
+            sections.append(
+                EntryListSection(
+                    id: startDate.addingTimeInterval(-1),
+                    title: "This Range",
+                    date: startDate,
+                    entries: multidayEntries,
+                    contextualLabels: [:],
+                    creationPeriod: .multiday,
+                    creationDate: spreadDate
+                )
+            )
+        }
+
         var currentDate = startDate
         while currentDate <= endDate {
             let sortedEntries = sortEntriesChronologically(dayGroups[currentDate] ?? [])

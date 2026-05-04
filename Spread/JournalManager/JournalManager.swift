@@ -683,8 +683,9 @@ final class JournalManager {
 
     /// Creates a new multiday spread.
     ///
-    /// Multiday spreads aggregate entries by date range and do not have direct
-    /// entry assignments. No auto-resolution is performed.
+    /// In conventional mode, creating an explicit multiday spread also reconciles
+    /// eligible day-preferred and multiday-preferred entries into that spread when
+    /// it becomes their best available destination.
     ///
     /// - Parameters:
     ///   - startDate: The start date of the multiday range.
@@ -710,7 +711,11 @@ final class JournalManager {
         try await spreadRepository.save(spread)
         spreads.append(spread)
 
-        if let key = activeDataModelBuilder.spreadKey(
+        let autoMigrationSummary = try await reconcileEntriesForNewExplicitSpreadIfNeeded(spread)
+
+        if autoMigrationSummary != nil {
+            refreshDataModel(for: .structural)
+        } else if let key = activeDataModelBuilder.spreadKey(
             for: spread,
             spreads: spreads,
             tasks: tasks,
@@ -825,7 +830,11 @@ final class JournalManager {
 
         for task in tasks where task.hasPreferredAssignment && task.status != .cancelled && task.status != .migrated {
             let previousAssignments = task.assignments
-            taskAssignmentReconciler.reconcilePreferredAssignment(for: task, in: spreads)
+            taskAssignmentReconciler.reconcilePreferredAssignment(
+                for: task,
+                in: spreads,
+                preferredSpreadID: nil
+            )
 
             guard task.assignments != previousAssignments else { continue }
             try await taskRepository.save(task)
@@ -834,7 +843,11 @@ final class JournalManager {
 
         for note in notes where note.status != .migrated {
             let previousAssignments = note.assignments
-            noteAssignmentReconciler.reconcilePreferredAssignment(for: note, in: spreads)
+            noteAssignmentReconciler.reconcilePreferredAssignment(
+                for: note,
+                in: spreads,
+                preferredSpreadID: nil
+            )
 
             guard note.assignments != previousAssignments else { continue }
             try await noteRepository.save(note)
@@ -1061,7 +1074,6 @@ final class JournalManager {
         from source: DataModel.Spread,
         to destination: DataModel.Spread
     ) -> [DataModel.Task] {
-        // Multiday spreads cannot accept direct assignments
         guard destination.period.canHaveTasksAssigned else {
             return []
         }
@@ -1072,7 +1084,7 @@ final class JournalManager {
 
             // Find assignment on source spread
             guard let sourceAssignment = task.assignments.first(where: { assignment in
-                assignment.matches(period: source.period, date: source.date, calendar: calendar)
+                assignment.matches(spread: source, calendar: calendar)
             }) else {
                 return false
             }
@@ -1230,6 +1242,7 @@ final class JournalManager {
         title: String,
         date: Date,
         period: Period,
+        preferredSpreadID: UUID? = nil,
         hasPreferredAssignment: Bool,
         body: String?,
         priority: DataModel.Task.Priority,
@@ -1242,6 +1255,7 @@ final class JournalManager {
             dueDate: dueDate?.startOfDay(calendar: calendar),
             date: date,
             period: period,
+            preferredSpreadID: preferredSpreadID,
             hasPreferredAssignment: hasPreferredAssignment,
             calendar: calendar,
             spreads: spreads
@@ -1313,7 +1327,8 @@ final class JournalManager {
     func updateTaskDateAndPeriod(
         _ task: DataModel.Task,
         newDate: Date,
-        newPeriod: Period
+        newPeriod: Period,
+        preferredSpreadID: UUID? = nil
     ) async throws {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
         let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
@@ -1321,6 +1336,7 @@ final class JournalManager {
             task,
             newDate: newDate,
             newPeriod: newPeriod,
+            preferredSpreadID: preferredSpreadID,
             calendar: calendar,
             spreads: spreads
         )
@@ -1436,13 +1452,15 @@ final class JournalManager {
         title: String,
         content: String = "",
         date: Date,
-        period: Period
+        period: Period,
+        preferredSpreadID: UUID? = nil
     ) async throws -> DataModel.Note {
         let result = try await noteMutationCoordinator.createNote(
             title: title,
             content: content,
             date: date,
             period: period,
+            preferredSpreadID: preferredSpreadID,
             calendar: calendar,
             spreads: spreads
         )
@@ -1508,7 +1526,8 @@ final class JournalManager {
     func updateNoteDateAndPeriod(
         _ note: DataModel.Note,
         newDate: Date,
-        newPeriod: Period
+        newPeriod: Period,
+        preferredSpreadID: UUID? = nil
     ) async throws {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
         let previousKeys = activeDataModelBuilder.spreadKeys(for: note, spreads: spreads)
@@ -1516,6 +1535,7 @@ final class JournalManager {
             note,
             newDate: newDate,
             newPeriod: newPeriod,
+            preferredSpreadID: preferredSpreadID,
             calendar: calendar,
             spreads: spreads
         )

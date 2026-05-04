@@ -259,7 +259,7 @@ struct EntryListView: View {
 
     @ViewBuilder
     private var contentView: some View {
-        if isMultidaySpread {
+        if isMultidaySpread, configuration.groupingStyle != .flat {
             multidayEntryGrid
         } else if hasAnyEntries || onAddTask != nil {
             entryList
@@ -357,7 +357,12 @@ struct EntryListView: View {
                 spacing: 16
             ) {
                 ForEach(sections) { section in
-                    multidayDaySection(section)
+                    if section.creationPeriod == .multiday {
+                        multidayAssignmentSection(section)
+                            .gridCellColumns(multidayColumnCount)
+                    } else {
+                        multidayDaySection(section)
+                    }
                 }
             }
             .padding(16)
@@ -697,17 +702,40 @@ struct EntryListView: View {
         )
     }
 
+    private func multidayAssignmentSection(_ section: EntryListSection) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(section.title)
+                .font(SpreadTheme.Typography.title3)
+                .foregroundStyle(.primary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(section.entries, id: \.id) { entry in
+                    entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
+                }
+
+                if onAddTask != nil {
+                    if activeInlineCreationTarget?.sectionID == section.id {
+                        inlineCreationRow(for: creationTarget(for: section))
+                    } else {
+                        addTaskButton(for: creationTarget(for: section))
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemBackground))
+        )
+    }
+
     // MARK: - Helpers
 
     /// Whether a task has a migrated assignment on this spread.
     private func isMigratedOnSpread(_ task: DataModel.Task) -> Bool {
         task.assignments.contains { assignment in
             assignment.status == .migrated &&
-            assignment.matches(
-                period: spreadDataModel.spread.period,
-                date: spreadDataModel.spread.date,
-                calendar: calendar
-            )
+            assignment.matches(spread: spreadDataModel.spread, calendar: calendar)
         }
     }
 
@@ -742,11 +770,21 @@ struct EntryListView: View {
     private func multidayOverdueCount(for section: EntryListSection) -> Int {
         section.entries.reduce(into: 0) { count, entry in
             guard let task = entry as? DataModel.Task,
-                  task.status == .open,
-                  task.hasPreferredAssignment,
-                  isOverdue(date: task.date, period: task.period) else {
+                  task.status == .open else {
                 return
             }
+
+            let isAssignedToCurrentMultiday = task.assignments.contains { assignment in
+                assignment.status == .open &&
+                assignment.matches(spread: spreadDataModel.spread, calendar: calendar)
+            }
+
+            guard isAssignedToCurrentMultiday,
+                  let multidayEndDate = spreadDataModel.spread.endDate else {
+                return
+            }
+
+            guard isOverdue(date: multidayEndDate, period: .day) else { return }
             count += 1
         }
     }

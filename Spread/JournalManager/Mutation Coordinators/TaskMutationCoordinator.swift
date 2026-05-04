@@ -35,6 +35,7 @@ protocol TaskMutationCoordinator {
         dueDate: Date?,
         date: Date,
         period: Period,
+        preferredSpreadID: UUID?,
         hasPreferredAssignment: Bool,
         calendar: Calendar,
         spreads: [DataModel.Spread]
@@ -57,6 +58,7 @@ protocol TaskMutationCoordinator {
         _ task: DataModel.Task,
         newDate: Date,
         newPeriod: Period,
+        preferredSpreadID: UUID?,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> TaskListMutationResult

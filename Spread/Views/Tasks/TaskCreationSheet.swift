@@ -153,16 +153,15 @@ struct TaskCreationSheet: View {
                 .padding(.vertical, 12)
             }
             .sheet(isPresented: $isShowingSpreadPicker) {
-                    SpreadPickerView(
-                        spreads: journalManager.spreads,
-                        calendar: presentedTemporalContext.calendar,
-                        today: presentedTemporalContext.today,
-                        onSpreadSelected: { period, date in
-                            formModel.applySpreadSelection(period: period, date: date)
-                        },
-                        onChooseCustomDate: {
-                            // Stay on custom date entry - no action needed
-                    }
+                SpreadPickerView(
+                    spreads: journalManager.spreads,
+                    calendar: presentedTemporalContext.calendar,
+                    today: presentedTemporalContext.today,
+                    focusDate: formModel.effectiveSelectedDate,
+                    onSpreadSelected: { selection in
+                        formModel.applySpreadSelection(selection)
+                    },
+                    onChooseCustomDate: {}
                 )
             }
             .navigationTitle("New Task")
@@ -312,20 +311,26 @@ struct TaskCreationSheet: View {
     private var dateSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Date")
-            PeriodDatePicker(
-                period: formModel.selectedPeriod,
-                selectedDate: dateBinding,
-                calendar: presentedTemporalContext.calendar,
-                today: presentedTemporalContext.today,
-                minimumDate: configuration.minimumDate(for: .day),
-                maximumDate: configuration.maximumDate,
-                accessibilityIdentifiers: .init(
-                    dayPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.datePicker,
-                    yearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.yearPicker,
-                    monthPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthPicker,
-                    monthYearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthYearPicker
+            if formModel.selectedPeriod == .multiday {
+                Text(selectedMultidaySummary)
+                    .font(.subheadline)
+                    .foregroundStyle(formModel.selectedSpreadID == nil ? .secondary : .primary)
+            } else {
+                PeriodDatePicker(
+                    period: formModel.selectedPeriod,
+                    selectedDate: dateBinding,
+                    calendar: presentedTemporalContext.calendar,
+                    today: presentedTemporalContext.today,
+                    minimumDate: configuration.minimumDate(for: .day),
+                    maximumDate: configuration.maximumDate,
+                    accessibilityIdentifiers: .init(
+                        dayPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.datePicker,
+                        yearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.yearPicker,
+                        monthPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthPicker,
+                        monthYearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthYearPicker
+                    )
                 )
-            )
+            }
 
             if formModel.showValidationErrors, let error = formModel.dateError {
                 validationErrorRow(message: error.message)
@@ -354,6 +359,20 @@ struct TaskCreationSheet: View {
             .foregroundStyle(.secondary)
     }
 
+    private var selectedMultidaySummary: String {
+        guard let spreadID = formModel.selectedSpreadID,
+              let spread = journalManager.spreads.first(where: { $0.id == spreadID }) else {
+            return "Select an existing multiday spread above"
+        }
+
+        return SpreadPickerConfiguration(
+            spreads: journalManager.spreads,
+            calendar: presentedTemporalContext.calendar,
+            today: presentedTemporalContext.today
+        )
+        .displayLabel(for: spread)
+    }
+
     // MARK: - Actions
 
     private func attemptCreate() {
@@ -373,6 +392,7 @@ struct TaskCreationSheet: View {
                     title: formModel.title,
                     date: formModel.effectiveSelectedDate,
                     period: formModel.selectedPeriod,
+                    preferredSpreadID: formModel.selectedSpreadID,
                     hasPreferredAssignment: formModel.hasPreferredAssignment,
                     body: formModel.sanitizedBody,
                     priority: formModel.priority,

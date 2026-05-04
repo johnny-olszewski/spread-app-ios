@@ -318,6 +318,7 @@ struct MergeTaskAssignmentParams: Encodable, Sendable {
     let pTaskId: String
     let pPeriod: String
     let pDate: String
+    let pSpreadId: String?
     let pStatus: String
     let pCreatedAt: String
     let pDeletedAt: String?
@@ -330,6 +331,7 @@ struct MergeTaskAssignmentParams: Encodable, Sendable {
         case pTaskId = "p_task_id"
         case pPeriod = "p_period"
         case pDate = "p_date"
+        case pSpreadId = "p_spread_id"
         case pStatus = "p_status"
         case pCreatedAt = "p_created_at"
         case pDeletedAt = "p_deleted_at"
@@ -344,6 +346,7 @@ struct MergeTaskAssignmentParams: Encodable, Sendable {
         try container.encode(pTaskId, forKey: .pTaskId)
         try container.encode(pPeriod, forKey: .pPeriod)
         try container.encode(pDate, forKey: .pDate)
+        try container.encode(pSpreadId, forKey: .pSpreadId)
         try container.encode(pStatus, forKey: .pStatus)
         try container.encode(pCreatedAt, forKey: .pCreatedAt)
         try container.encode(pDeletedAt, forKey: .pDeletedAt)
@@ -359,6 +362,7 @@ struct MergeNoteAssignmentParams: Encodable, Sendable {
     let pNoteId: String
     let pPeriod: String
     let pDate: String
+    let pSpreadId: String?
     let pStatus: String
     let pCreatedAt: String
     let pDeletedAt: String?
@@ -371,6 +375,7 @@ struct MergeNoteAssignmentParams: Encodable, Sendable {
         case pNoteId = "p_note_id"
         case pPeriod = "p_period"
         case pDate = "p_date"
+        case pSpreadId = "p_spread_id"
         case pStatus = "p_status"
         case pCreatedAt = "p_created_at"
         case pDeletedAt = "p_deleted_at"
@@ -385,6 +390,7 @@ struct MergeNoteAssignmentParams: Encodable, Sendable {
         try container.encode(pNoteId, forKey: .pNoteId)
         try container.encode(pPeriod, forKey: .pPeriod)
         try container.encode(pDate, forKey: .pDate)
+        try container.encode(pSpreadId, forKey: .pSpreadId)
         try container.encode(pStatus, forKey: .pStatus)
         try container.encode(pCreatedAt, forKey: .pCreatedAt)
         try container.encode(pDeletedAt, forKey: .pDeletedAt)
@@ -585,6 +591,7 @@ struct ServerTaskAssignmentRow: Decodable, Sendable {
     let taskId: UUID
     let period: String
     let date: String
+    let spreadId: UUID?
     let status: String
     let createdAt: String
     let deletedAt: String?
@@ -593,8 +600,31 @@ struct ServerTaskAssignmentRow: Decodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id, period, date, status, revision
         case taskId = "task_id"
+        case spreadId = "spread_id"
         case createdAt = "created_at"
         case deletedAt = "deleted_at"
+    }
+
+    init(
+        id: UUID,
+        taskId: UUID,
+        period: String,
+        date: String,
+        spreadId: UUID? = nil,
+        status: String,
+        createdAt: String,
+        deletedAt: String?,
+        revision: Int64
+    ) {
+        self.id = id
+        self.taskId = taskId
+        self.period = period
+        self.date = date
+        self.spreadId = spreadId
+        self.status = status
+        self.createdAt = createdAt
+        self.deletedAt = deletedAt
+        self.revision = revision
     }
 }
 
@@ -604,6 +634,7 @@ struct ServerNoteAssignmentRow: Decodable, Sendable {
     let noteId: UUID
     let period: String
     let date: String
+    let spreadId: UUID?
     let status: String
     let createdAt: String
     let deletedAt: String?
@@ -612,8 +643,31 @@ struct ServerNoteAssignmentRow: Decodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id, period, date, status, revision
         case noteId = "note_id"
+        case spreadId = "spread_id"
         case createdAt = "created_at"
         case deletedAt = "deleted_at"
+    }
+
+    init(
+        id: UUID,
+        noteId: UUID,
+        period: String,
+        date: String,
+        spreadId: UUID? = nil,
+        status: String,
+        createdAt: String,
+        deletedAt: String?,
+        revision: Int64
+    ) {
+        self.id = id
+        self.noteId = noteId
+        self.period = period
+        self.date = date
+        self.spreadId = spreadId
+        self.status = status
+        self.createdAt = createdAt
+        self.deletedAt = deletedAt
+        self.revision = revision
     }
 }
 
@@ -784,6 +838,7 @@ enum SyncSerializer {
             "task_id": taskId.uuidString,
             "period": assignment.period.rawValue,
             "date": SyncDateFormatting.formatDate(assignment.date),
+            "spread_id": assignment.spreadID?.uuidString,
             "status": assignment.status.rawValue,
             "created_at": ts,
             "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
@@ -809,6 +864,7 @@ enum SyncSerializer {
             "note_id": noteId.uuidString,
             "period": assignment.period.rawValue,
             "date": SyncDateFormatting.formatDate(assignment.date),
+            "spread_id": assignment.spreadID?.uuidString,
             "status": assignment.status.rawValue,
             "created_at": ts,
             "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
@@ -994,7 +1050,11 @@ enum SyncSerializer {
             }
             let params = MergeTaskAssignmentParams(
                 pId: id, pUserId: uid, pDeviceId: deviceId,
-                pTaskId: taskId, pPeriod: period, pDate: date, pStatus: status,
+                pTaskId: taskId,
+                pPeriod: period,
+                pDate: date,
+                pSpreadId: json["spread_id"] as? String,
+                pStatus: status,
                 pCreatedAt: createdAt,
                 pDeletedAt: json["deleted_at"] as? String,
                 pStatusUpdatedAt: statusUpdatedAt
@@ -1014,7 +1074,11 @@ enum SyncSerializer {
             }
             let params = MergeNoteAssignmentParams(
                 pId: id, pUserId: uid, pDeviceId: deviceId,
-                pNoteId: noteId, pPeriod: period, pDate: date, pStatus: status,
+                pNoteId: noteId,
+                pPeriod: period,
+                pDate: date,
+                pSpreadId: json["spread_id"] as? String,
+                pStatus: status,
                 pCreatedAt: createdAt,
                 pDeletedAt: json["deleted_at"] as? String,
                 pStatusUpdatedAt: statusUpdatedAt
@@ -1181,7 +1245,13 @@ enum SyncSerializer {
               let status = DataModel.Task.Status(rawValue: row.status) else {
             return nil
         }
-        return TaskAssignment(id: row.id, period: period, date: date, status: status)
+        return TaskAssignment(
+            id: row.id,
+            period: period,
+            date: date,
+            spreadID: row.spreadId,
+            status: status
+        )
     }
 
     /// Converts a server note assignment row to a local NoteAssignment value.
@@ -1192,7 +1262,13 @@ enum SyncSerializer {
               let status = DataModel.Note.Status(rawValue: row.status) else {
             return nil
         }
-        return NoteAssignment(id: row.id, period: period, date: date, status: status)
+        return NoteAssignment(
+            id: row.id,
+            period: period,
+            date: date,
+            spreadID: row.spreadId,
+            status: status
+        )
     }
 
     /// Applies a server settings row to a local settings model.

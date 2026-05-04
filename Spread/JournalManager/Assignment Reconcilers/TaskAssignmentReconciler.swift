@@ -30,8 +30,11 @@ protocol TaskAssignmentReconciler {
     /// - Parameters:
     ///   - task: The task whose assignment should be reconciled.
     ///   - spreads: The full list of existing spreads to search.
+    ///   - preferredSpreadID: Explicit multiday spread identity when the user
+    ///     directly selected one.
     func reconcilePreferredAssignment(
         for task: DataModel.Task,
-        in spreads: [DataModel.Spread]
+        in spreads: [DataModel.Spread],
+        preferredSpreadID: UUID?
     )
 }

@@ -123,9 +123,14 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
         switch sourceKey.kind {
         case .inbox:
             break
-        case .spread(_, let sourcePeriod, let sourceDate):
+        case .spread(let sourceSpreadID, let sourcePeriod, let sourceDate):
             guard let sourceIndex = task.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: sourcePeriod, date: sourceDate, calendar: calendar)
+                assignment.matches(
+                    period: sourcePeriod,
+                    date: sourceDate,
+                    spreadID: sourceSpreadID,
+                    calendar: calendar
+                )
             }) else {
                 throw MigrationError.noSourceAssignment
             }
@@ -133,7 +138,7 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
         }
 
         if let destinationIndex = task.assignments.firstIndex(where: { assignment in
-            assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
+            assignment.matches(spread: destination, calendar: calendar)
         }) {
             task.assignments[destinationIndex].status = .open
         } else {
@@ -141,6 +146,7 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
                 TaskAssignment(
                     period: destination.period,
                     date: destination.date,
+                    spreadID: destination.period == .multiday ? destination.id : nil,
                     status: .open
                 )
             )
@@ -186,7 +192,7 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
         for task in tasks {
             guard task.status != .cancelled else { continue }
             guard let sourceIndex = task.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: source.period, date: source.date, calendar: calendar)
+                assignment.matches(spread: source, calendar: calendar)
             }) else {
                 continue
             }
@@ -194,7 +200,7 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
             task.assignments[sourceIndex].status = .migrated
 
             if let destinationIndex = task.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
+                assignment.matches(spread: destination, calendar: calendar)
             }) {
                 task.assignments[destinationIndex].status = .open
             } else {
@@ -202,6 +208,7 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
                     TaskAssignment(
                         period: destination.period,
                         date: destination.date,
+                        spreadID: destination.period == .multiday ? destination.id : nil,
                         status: .open
                     )
                 )
@@ -244,7 +251,7 @@ struct StandardNoteMigrationCoordinator: NoteMigrationCoordinator {
         }
 
         guard let sourceIndex = note.assignments.firstIndex(where: { assignment in
-            assignment.matches(period: source.period, date: source.date, calendar: calendar)
+            assignment.matches(spread: source, calendar: calendar)
         }) else {
             throw MigrationError.noSourceAssignment
         }
@@ -252,7 +259,7 @@ struct StandardNoteMigrationCoordinator: NoteMigrationCoordinator {
         note.assignments[sourceIndex].status = .migrated
 
         if let destinationIndex = note.assignments.firstIndex(where: { assignment in
-            assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
+            assignment.matches(spread: destination, calendar: calendar)
         }) {
             note.assignments[destinationIndex].status = .active
         } else {
@@ -260,6 +267,7 @@ struct StandardNoteMigrationCoordinator: NoteMigrationCoordinator {
                 NoteAssignment(
                     period: destination.period,
                     date: destination.date,
+                    spreadID: destination.period == .multiday ? destination.id : nil,
                     status: .active
                 )
             )
