@@ -58,6 +58,16 @@ struct MultidaySpreadContentView: View {
                     Task { @MainActor in await syncEngine?.syncNow() }
                 },
                 explicitDaySpreadForDate: explicitDaySpreadForDate,
+                onSelectSpread: { spread in
+                    viewModel.selectedSelection = .conventional(spread)
+                },
+                onCreateSpread: { date in
+                    viewModel.showSpreadCreation(prefill: .init(period: .day, date: date))
+                },
+                openTaskCountForDaySpread: { spread in
+                    let key = SpreadDataModelKey(spread: spread, calendar: journalManager.calendar)
+                    return journalManager.dataModel[key: key]?.tasks.filter { $0.status == .open }.count ?? 0
+                },
                 onRefresh: {
                     guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
                     await engine.syncNow()

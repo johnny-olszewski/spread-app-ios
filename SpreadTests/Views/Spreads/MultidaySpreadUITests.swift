@@ -174,7 +174,7 @@ struct MultidaySpreadUITests {
     }
 
     @Test("Multiday day card uses today uncreated state when explicit day is missing")
-    func multidayDayCardTodayWithoutDaySpreadKeepsDashedState() {
+    func multidayDayCardTodayWithoutDaySpreadUsesTodayUncreatedState() {
         let date = makeDate(year: 2026, month: 1, day: 10)
 
         let state = MultidayDayCardSupport.visualState(
@@ -373,5 +373,67 @@ struct MultidaySpreadUITests {
 
         #expect(spread.contains(date: startDate, calendar: calendar))
         #expect(spread.contains(date: endDate, calendar: calendar))
+    }
+
+    // MARK: - Navigation Callback Tests
+
+    /// Conditions: A day within the multiday range has an explicit day spread.
+    /// Expected: The footer action is .navigate and processing it invokes onSelectSpread with the correct spread.
+    @Test("Navigate footer action invokes onSelectSpread with the correct day spread")
+    func navigateFooterActionInvokesOnSelectSpreadWithCorrectSpread() {
+        let date = makeDate(year: 2026, month: 1, day: 10)
+        let daySpread = DataModel.Spread(period: .day, date: date, calendar: calendar)
+        let action = MultidayDayCardSupport.footerAction(for: date, explicitDaySpread: daySpread)
+
+        var navigatedSpread: DataModel.Spread?
+        let onSelectSpread: (DataModel.Spread) -> Void = { navigatedSpread = $0 }
+
+        // Simulate the tap handler logic executed by multidayDaySection.
+        if case .navigate(let spread) = action {
+            onSelectSpread(spread)
+        }
+
+        #expect(navigatedSpread == daySpread)
+    }
+
+    /// Conditions: A day within the multiday range has no explicit day spread.
+    /// Expected: The footer action is .createDay and processing it invokes onCreateSpread with the correct date.
+    @Test("Create footer action invokes onCreateSpread with the correct date")
+    func createFooterActionInvokesOnCreateSpreadWithCorrectDate() {
+        let date = makeDate(year: 2026, month: 1, day: 10)
+        let action = MultidayDayCardSupport.footerAction(for: date, explicitDaySpread: nil)
+
+        var createdDate: Date?
+        let onCreateSpread: (Date) -> Void = { createdDate = $0 }
+
+        // Simulate the tap handler logic executed by multidayDaySection.
+        if case .createDay(let actionDate) = action {
+            onCreateSpread(actionDate)
+        }
+
+        #expect(createdDate == date)
+    }
+
+    /// Conditions: Two different day spreads exist within the multiday range.
+    /// Expected: The navigate action for each day resolves to its own respective day spread, not the other.
+    @Test("Navigate action resolves to the correct spread per day when multiple day spreads exist")
+    func navigateActionResolvesToCorrectSpreadPerDay() {
+        let date1 = makeDate(year: 2026, month: 1, day: 10)
+        let date2 = makeDate(year: 2026, month: 1, day: 11)
+        let daySpread1 = DataModel.Spread(period: .day, date: date1, calendar: calendar)
+        let daySpread2 = DataModel.Spread(period: .day, date: date2, calendar: calendar)
+
+        let action1 = MultidayDayCardSupport.footerAction(for: date1, explicitDaySpread: daySpread1)
+        let action2 = MultidayDayCardSupport.footerAction(for: date2, explicitDaySpread: daySpread2)
+
+        guard case .navigate(let resolved1) = action1,
+              case .navigate(let resolved2) = action2 else {
+            Issue.record("Expected both actions to be .navigate")
+            return
+        }
+
+        #expect(resolved1 == daySpread1)
+        #expect(resolved2 == daySpread2)
+        #expect(resolved1 != resolved2)
     }
 }
