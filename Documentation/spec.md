@@ -2,7 +2,7 @@
 
 ## Status
 - Specification finalized for v1 implementation (tasks + notes only). [SPRD-1]
-- Events (including calendar integrations) are deferred to v2. [SPRD-69]
+- EventKit calendar integration is in v1 scope: read-only events appear on day and multiday spreads, live-fetched from EventKit with no local persistence. [SPRD-194, SPRD-195] Manual event creation and Google Calendar OAuth remain deferred to v2. [SPRD-69]
 - `WKFLW-17` is the active workflow branch for a bundled spread/task enhancement pass so schema-affecting decisions land together instead of through piecemeal migrations. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-176, SPRD-177, SPRD-178]
 
 ## Project Summary
@@ -16,7 +16,7 @@
   - Task: assignable entry with status and migration history. [SPRD-9, SPRD-10]
   - Note: assignable entry with assignment history and no batch-migration prompts. [SPRD-9, SPRD-34, SPRD-186]
   - TaskAssignment/NoteAssignment: preferred period/date plus current-destination/status history for migration tracking. Direct multiday assignments must identify the explicit multiday spread record rather than infer ownership only from `period + date`, because multiday spread uniqueness is range-based and legacy overlapping multiday records may still exist in synced data. [SPRD-10, SPRD-15, SPRD-193]
-- Events are a v2 integration (calendar-backed date-range entries), not part of v1 UI/flows. [SPRD-57]
+- EventKit calendar events appear read-only alongside tasks and notes on day and multiday spreads; live-fetched from EventKit with no local caching or Supabase sync. [SPRD-57, SPRD-194, SPRD-195]
 - JournalManager is the app's central journal facade and in-memory state owner. It owns repository coordination, cached journal state, data-model refresh, and app-facing mutation/query APIs, but business-rule engines should be extracted behind injected protocols so they can be unit tested independently and swapped when needed. [SPRD-11, SPRD-13, SPRD-15, SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
 - Two mode-specific spread rule sets over a shared UI architecture: [SPRD-25, SPRD-35, SPRD-38, SPRD-151]
   - Conventional mode exposes only explicitly created spreads, including explicit multiday spreads. Spread content is current-assignment-only; migration history is retained in assignments and surfaced only through dedicated migration affordances/feedback. Multiday is a first-class assignable period in conventional mode, but it remains an optional tool rather than a recommended or assumed spread type. [SPRD-25, SPRD-27, SPRD-30, SPRD-140, SPRD-151, SPRD-186, SPRD-193]
@@ -104,7 +104,7 @@
 - Fully automatic spread creation or recommendation of multiday spreads. Multiday remains an optional explicit tool rather than an assumed product workflow. [SPRD-56, SPRD-193]
 - Advanced collection types beyond plain text pages. [SPRD-39, SPRD-56]
 - Links, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads behavior, status-model expansion, and nil-assignment parity for notes are deferred beyond `WKFLW-17` and tracked in `Documentation/backlog.md`. [SPRD-167, SPRD-171]
-- Events (manual creation or calendar integrations) are deferred to v2. [SPRD-69]
+- Manual event creation and Google Calendar OAuth are deferred to v2. [SPRD-69] Per-calendar visibility toggles and events on month/year spreads are deferred to follow-on tasks.
 - Localization - hardcoded English strings for v1. Revisit post-v1.
 - macOS support - planned for future versions.
 - Realtime updates (Supabase Realtime) in v1.
@@ -137,9 +137,9 @@
 - Entry: Protocol defining shared behavior (id, title, createdDate, entryType). [SPRD-9]
 - Entry types are separate SwiftData @Model classes for type-safe queries and scalability. [SPRD-9]
 - EntryType enum: `.task`, `.note` (v1) - used for UI rendering and type discrimination. [SPRD-9]
-- `.event` entry type is reserved for v2 integration and not exposed in v1. [SPRD-57]
+- `.event` entry type and `DateRangeEntry` protocol remain reserved for a future persisted Event @Model. [SPRD-57]
 - AssignableEntry protocol (Task, Note): adds date, period, assignments array. [SPRD-9]
-- DateRangeEntry protocol (Event) is reserved for v2 calendar integration. [SPRD-57]
+- `CalendarEvent` is a lightweight value type (not an Entry) representing a live-fetched EventKit event; it is not persisted, not assigned, and not part of the Entry protocol hierarchy. [SPRD-194]
 
 ### Spread
 - A journaling page tied to a time period and normalized date. [SPRD-8]
@@ -409,7 +409,7 @@
   - When draft status is `complete` or `cancelled`, period/date controls remain visible but are disabled; assignment history remains visible.
   - If draft status is returned to `open` before save, period/date controls become editable again immediately.
 - Delete entries across all spreads. [SPRD-11, SPRD-5]
-- Events are deferred to v2 and not available in v1. [SPRD-69]
+- EventKit events appear read-only on day and multiday spreads. [SPRD-194, SPRD-195]
 
 ### Entry Date/Period Changes (Reassignment)
 - Changing preferred date or period triggers reassignment logic in conventional mode. [SPRD-24]
@@ -1209,17 +1209,51 @@
 - Habit/mood trackers. [SPRD-56]
 - Review/reflection. [SPRD-56]
 - Search, filters, tagging. [SPRD-56]
-- Event logging with calendar integration (EventKit and/or Google). [SPRD-57]
+- Event logging with Google Calendar OAuth integration. [SPRD-57]
 
 ---
 
-## Events (v2 - Calendar Integration)
-- Events are calendar-backed date-range entries that appear alongside tasks/notes on spreads. [SPRD-57]
-- Supported sources (decide at v2 kickoff): EventKit (device calendars) and/or Google Calendar via OAuth. [SPRD-57]
-- Event data is cached locally for offline display; cache mirrors external source and is treated as read-only unless write-back is explicitly in scope. [SPRD-59]
-- Event visibility is computed from date-range overlap with spreads (no assignments). [SPRD-33]
-- Timing modes: single-day, all-day, timed, multi-day; time zone handling is explicit and source-driven. [SPRD-60]
-- UI considerations: show source calendar color/label, allow per-calendar visibility toggles, and handle permission/authorization states gracefully. [SPRD-60]
+## Events (EventKit Integration — v1)
+
+### Decisions
+- Source: EventKit only (device calendars — iCloud, Exchange, Google via iOS Settings). Google Calendar OAuth is deferred to v2. [SPRD-57, SPRD-194]
+- Persistence: None. Events are live-fetched from EventKit on each spread display. No SwiftData model, no Supabase sync. [SPRD-194]
+- Spread scope: Day and multiday spreads only. Month and year spread aggregation is deferred. [SPRD-195]
+- Calendar filtering: None in v1 — all authorized calendars are shown. Per-calendar toggles are deferred to a follow-on task. [SPRD-60]
+- Write-back: None. Events are read-only; the app opens them for viewing, not editing. [SPRD-59]
+
+### Data Model
+- `CalendarEvent` is a value type (struct) wrapping EventKit data relevant for display: event identifier, title, start date, end date, `isAllDay`, calendar title, and calendar color. [SPRD-194]
+- `CalendarEvent` is not part of the Entry protocol hierarchy and has no assignments. [SPRD-194]
+
+### EventKit Service
+- `EventKitService` protocol exposes: authorization status, `requestAuthorization()`, `fetchEvents(from:to:)`, and `openEvent(_:)`. [SPRD-194]
+- `LiveEventKitService` implements the protocol using `EKEventStore`. [SPRD-194]
+- `MockEventKitService` supports testing without system EventStore access. [SPRD-194]
+- Injected via `DependencyContainer`; spread views receive it through the environment or init injection. [SPRD-194]
+
+### Permission Handling
+- Authorization is requested the first time the user views a day or multiday spread. [SPRD-195]
+- If denied or restricted, the events section is silently hidden — no error state is shown. [SPRD-195]
+- No in-app Settings nudge or re-prompt UI in v1. [SPRD-195]
+
+### UI
+- Events appear in a dedicated **Events** section below the task list on day spreads, sorted by start time (all-day events first). [SPRD-195]
+- On multiday spreads, events appear within each day section for every day they overlap. [SPRD-195]
+- Each event row shows: calendar color indicator, event title, time range or "All Day" label, and calendar name. [SPRD-195]
+- Tapping an event row presents an `EKEventViewController` in a sheet, showing native iOS event detail. [SPRD-195]
+- The events section is omitted entirely when there are no events for the period or when permission is not granted. [SPRD-195]
+
+### Event Visibility
+- Event visibility on a day spread: start date ≤ spread date ≤ end date (inclusive, date comparison only). [SPRD-33]
+- For multiday spread day sections: event overlaps the day using the same date-range comparison. [SPRD-33]
+
+## Events (v2 - Future Calendar Integration)
+- Manual event creation in the app. [SPRD-57]
+- Google Calendar OAuth integration. [SPRD-57]
+- Per-calendar visibility toggles in Settings. [SPRD-60]
+- Events on month and year spreads with appropriate aggregation. [SPRD-57]
+- Offline caching and cross-device sync for calendar events. [SPRD-59]
 
 ## Edge Cases (Resolved)
 - Date normalization: Use Calendar API with user's firstWeekday setting. [SPRD-7, SPRD-49]
@@ -1264,7 +1298,7 @@
 - Minimum accessibility baseline for v1: VoiceOver labels, standard Dynamic Type, contrast ratios. [SPRD-TBD]
 
 ## Open Questions
-- For v2 events: EventKit only or EventKit + Google? [SPRD-57]
+- For v2 events: add Google Calendar OAuth or EventKit only for the foreseeable future? [SPRD-57]
 - For v2 events: read-only import vs write-back edits? [SPRD-57]
 - For v2 events: local manual events in addition to integrations, or integrations only? [SPRD-57]
 
