@@ -32,6 +32,7 @@ protocol NoteMutationCoordinator {
         content: String,
         date: Date,
         period: Period,
+        preferredSpreadID: UUID?,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> NoteListMutationResult
@@ -50,6 +51,7 @@ protocol NoteMutationCoordinator {
         _ note: DataModel.Note,
         newDate: Date,
         newPeriod: Period,
+        preferredSpreadID: UUID?,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> NoteListMutationResult

@@ -490,9 +490,14 @@ struct SpreadTitleNavigatorModel {
     private func multidayOverdueCount(for spread: DataModel.Spread) -> Int {
         headerModel.tasks.reduce(into: 0) { count, task in
             guard task.status == .open,
-                  task.hasPreferredAssignment,
-                  taskDateFallsWithinMultidayRange(task.date, spread: spread),
-                  isOverdue(date: task.date, period: task.period) else {
+                  task.assignments.contains(where: { assignment in
+                      assignment.status == .open &&
+                      assignment.matches(spread: spread, calendar: calendar)
+                  }),
+                  isOverdue(
+                    date: Period.day.normalizeDate(spread.endDate ?? spread.date, calendar: calendar),
+                    period: .day
+                  ) else {
                 return
             }
             count += 1
@@ -662,13 +667,15 @@ enum SpreadTitleStripRelevanceFilter {
             guard task.status == .open else { return false }
 
             if spread.period == .multiday {
-                return task.hasPreferredAssignment &&
-                    taskDateFallsWithinMultidayRange(task.date, spread: spread, calendar: calendar)
+                return task.assignments.contains { assignment in
+                    assignment.status == .open &&
+                    assignment.matches(spread: spread, calendar: calendar)
+                }
             }
 
             return task.assignments.contains { assignment in
                 assignment.status == .open &&
-                assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
+                assignment.matches(spread: spread, calendar: calendar)
             }
         }
     }

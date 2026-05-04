@@ -32,6 +32,7 @@ struct NoteCreationSheet: View {
     @State private var content: String = ""
     @State private var selectedPeriod: Period = .day
     @State private var selectedDate: Date = Date()
+    @State private var selectedSpreadID: UUID?
     @State private var hasEditedTitle = false
     @State private var showValidationErrors = false
     @State private var isCreating = false
@@ -59,7 +60,12 @@ struct NoteCreationSheet: View {
         let minimumDate = configuration.minimumDate(for: defaults.period)
         let normalizedDate = defaults.period.normalizeDate(defaults.date, calendar: presentedTemporalContext.calendar)
         _selectedPeriod = State(initialValue: defaults.period)
-        _selectedDate = State(initialValue: normalizedDate < minimumDate ? minimumDate : normalizedDate)
+        if defaults.period == .multiday {
+            _selectedDate = State(initialValue: normalizedDate)
+        } else {
+            _selectedDate = State(initialValue: normalizedDate < minimumDate ? minimumDate : normalizedDate)
+        }
+        _selectedSpreadID = State(initialValue: selectedSpread?.period == .multiday ? selectedSpread?.id : nil)
     }
 
     // MARK: - Computed Properties
@@ -112,14 +118,14 @@ struct NoteCreationSheet: View {
                     spreads: journalManager.spreads,
                     calendar: presentedTemporalContext.calendar,
                     today: presentedTemporalContext.today,
-                    onSpreadSelected: { period, date in
-                        selectedPeriod = period
-                        selectedDate = date
+                    focusDate: selectedDate,
+                    onSpreadSelected: { selection in
+                        selectedPeriod = selection.period
+                        selectedDate = selection.date
+                        selectedSpreadID = selection.spreadID
                         clearDateError()
                     },
-                    onChooseCustomDate: {
-                        // Stay on custom date entry - no action needed
-                    }
+                    onChooseCustomDate: {}
                 )
             }
             .navigationTitle("New Note")
@@ -143,6 +149,9 @@ struct NoteCreationSheet: View {
             }
             .onAppear { isTitleFocused = true }
             .onChange(of: selectedPeriod) { _, newPeriod in
+                if newPeriod != .multiday {
+                    selectedSpreadID = nil
+                }
                 adjustDateForPeriod(newPeriod)
                 clearDateError()
             }
@@ -243,20 +252,26 @@ struct NoteCreationSheet: View {
     private var dateSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Date")
-            PeriodDatePicker(
-                period: selectedPeriod,
-                selectedDate: $selectedDate,
-                calendar: presentedTemporalContext.calendar,
-                today: presentedTemporalContext.today,
-                minimumDate: configuration.minimumDate(for: .day),
-                maximumDate: configuration.maximumDate,
-                accessibilityIdentifiers: .init(
-                    dayPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.datePicker,
-                    yearPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.yearPicker,
-                    monthPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.monthPicker,
-                    monthYearPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.monthYearPicker
+            if selectedPeriod == .multiday {
+                Text(selectedMultidaySummary)
+                    .font(.subheadline)
+                    .foregroundStyle(selectedSpreadID == nil ? .secondary : .primary)
+            } else {
+                PeriodDatePicker(
+                    period: selectedPeriod,
+                    selectedDate: $selectedDate,
+                    calendar: presentedTemporalContext.calendar,
+                    today: presentedTemporalContext.today,
+                    minimumDate: configuration.minimumDate(for: .day),
+                    maximumDate: configuration.maximumDate,
+                    accessibilityIdentifiers: .init(
+                        dayPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.datePicker,
+                        yearPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.yearPicker,
+                        monthPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.monthPicker,
+                        monthYearPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.monthYearPicker
+                    )
                 )
-            )
+            }
 
             if showValidationErrors, let error = dateError {
                 validationErrorRow(message: error.message)
@@ -293,9 +308,9 @@ struct NoteCreationSheet: View {
             return "Note will be assigned to a year spread"
         case .month:
             return "Note will be assigned to a month spread"
-        case .day:
-            return "Note will be assigned to a day spread"
         case .multiday:
+            return "Note will be assigned to an existing multiday spread"
+        case .day:
             return "Note will be assigned to a day spread"
         }
     }
@@ -303,12 +318,27 @@ struct NoteCreationSheet: View {
     // MARK: - Actions
 
     private func adjustDateForPeriod(_ period: Period) {
+        guard period != .multiday else { return }
         let minDate = configuration.minimumDate(for: period)
         let normalizedSelected = period.normalizeDate(selectedDate, calendar: presentedTemporalContext.calendar)
 
         if normalizedSelected < minDate {
             selectedDate = minDate
         }
+    }
+
+    private var selectedMultidaySummary: String {
+        guard let spreadID = selectedSpreadID,
+              let spread = journalManager.spreads.first(where: { $0.id == spreadID }) else {
+            return "Select an existing multiday spread above"
+        }
+
+        return SpreadPickerConfiguration(
+            spreads: journalManager.spreads,
+            calendar: presentedTemporalContext.calendar,
+            today: presentedTemporalContext.today
+        )
+        .displayLabel(for: spread)
     }
 
     private func clearTitleError() {
@@ -325,7 +355,14 @@ struct NoteCreationSheet: View {
 
     private func attemptCreate() {
         let titleResult = configuration.validateTitle(title)
-        let dateResult = configuration.validateDate(period: selectedPeriod, date: selectedDate)
+        let dateResult: NoteCreationResult
+        if selectedPeriod == .multiday && selectedSpreadID == nil {
+            dateResult = .invalid(.missingMultidaySpread)
+        } else if selectedPeriod == .multiday {
+            dateResult = .valid
+        } else {
+            dateResult = configuration.validateDate(period: selectedPeriod, date: selectedDate)
+        }
 
         if !titleResult.isValid || !dateResult.isValid {
             showValidationErrors = true
@@ -343,11 +380,12 @@ struct NoteCreationSheet: View {
         Task {
             do {
                 let note = try await journalManager.addNote(
-                    title: title,
-                    content: content,
-                    date: selectedDate,
-                    period: selectedPeriod
-                )
+                title: title,
+                content: content,
+                date: selectedDate,
+                period: selectedPeriod,
+                preferredSpreadID: selectedSpreadID
+            )
                 await MainActor.run {
                     onNoteCreated(note)
                     dismiss()

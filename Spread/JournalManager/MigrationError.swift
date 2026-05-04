@@ -9,6 +9,6 @@ enum MigrationError: Error {
     /// The entry has no assignment on the source spread.
     case noSourceAssignment
 
-    /// The destination spread cannot accept direct assignments (e.g., multiday).
+    /// The destination spread cannot accept direct assignments.
     case destinationNotAssignable
 }

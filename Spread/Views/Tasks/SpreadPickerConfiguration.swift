@@ -1,11 +1,31 @@
 import Foundation
 
+struct SpreadPickerSelection: Equatable, Sendable {
+    let period: Period
+    let date: Date
+    let spreadID: UUID?
+}
+
+struct SpreadPickerOption: Identifiable, Equatable, Sendable {
+    enum Availability: Equatable, Sendable {
+        case existing
+        case uncreated
+    }
+
+    let id: String
+    let title: String
+    let subtitle: String
+    let selection: SpreadPickerSelection
+    let period: Period
+    let availability: Availability
+}
+
 /// Configuration and logic for the spread picker in task creation.
 ///
 /// Provides:
 /// - Chronological spread ordering matching the spread tab bar
-/// - Period filter logic for multi-select toggles
-/// - Multiday expansion to list contained dates
+/// - Explicit or implicit year/month/day destination options
+/// - Existing direct multiday destination options
 struct SpreadPickerConfiguration {
 
     // MARK: - Properties
@@ -48,33 +68,49 @@ struct SpreadPickerConfiguration {
             }
     }
 
-    // MARK: - Multiday Expansion
+    // MARK: - Destination Options
 
-    /// Returns all dates contained within a multiday spread.
-    ///
-    /// For non-multiday spreads, returns an empty array.
-    ///
-    /// - Parameter spread: The spread to expand.
-    /// - Returns: Array of dates from startDate to endDate inclusive.
-    func containedDates(for spread: DataModel.Spread) -> [Date] {
-        guard spread.period == .multiday,
-              let startDate = spread.startDate,
-              let endDate = spread.endDate else {
-            return []
-        }
-
-        var dates: [Date] = []
-        var currentDate = startDate
-
-        while currentDate <= endDate {
-            dates.append(currentDate)
-            guard let nextDate = calendar.date(byAdding: .day, value: 1, to: currentDate) else {
-                break
+    func directDestinationOptions(for date: Date) -> [SpreadPickerOption] {
+        [Period.year, .month, .day].map { period in
+            let normalizedDate = period.normalizeDate(date, calendar: calendar)
+            let existingSpread = spreads.first { spread in
+                spread.period == period &&
+                period.normalizeDate(spread.date, calendar: calendar) == normalizedDate
             }
-            currentDate = nextDate
-        }
 
-        return dates
+            let title = existingSpread.map(displayLabel(for:)) ?? displayLabel(for: period, date: normalizedDate)
+            let subtitle = subtitle(for: period, availability: existingSpread == nil ? .uncreated : .existing)
+
+            return SpreadPickerOption(
+                id: "\(period.rawValue)-\(normalizedDate.timeIntervalSinceReferenceDate)",
+                title: title,
+                subtitle: subtitle,
+                selection: SpreadPickerSelection(
+                    period: period,
+                    date: normalizedDate,
+                    spreadID: nil
+                ),
+                period: period,
+                availability: existingSpread == nil ? .uncreated : .existing
+            )
+        }
+    }
+
+    func multidayOptions() -> [SpreadPickerOption] {
+        filteredSpreads(periods: [.multiday]).map { spread in
+            SpreadPickerOption(
+                id: spread.id.uuidString,
+                title: displayLabel(for: spread),
+                subtitle: "Existing multiday spread",
+                selection: SpreadPickerSelection(
+                    period: .multiday,
+                    date: spread.date,
+                    spreadID: spread.id
+                ),
+                period: .multiday,
+                availability: .existing
+            )
+        }
     }
 
     // MARK: - Display Labels
@@ -102,14 +138,30 @@ struct SpreadPickerConfiguration {
         }
     }
 
-    /// Returns a display label for a date within a multiday spread.
-    ///
-    /// - Parameter date: The date to label.
-    /// - Returns: Label in format "January 15, 2026".
-    func dateLabel(for date: Date) -> String {
-        let formatter = dateFormatter
-        formatter.dateStyle = .long
-        return formatter.string(from: date)
+    func displayLabel(for period: Period, date: Date) -> String {
+        let spread = DataModel.Spread(period: period, date: date, calendar: calendar)
+        return displayLabel(for: spread)
+    }
+
+    func subtitle(for period: Period, availability: SpreadPickerOption.Availability) -> String {
+        switch (period, availability) {
+        case (.year, .existing):
+            return "Existing year spread"
+        case (.year, .uncreated):
+            return "Uncreated year destination"
+        case (.month, .existing):
+            return "Existing month spread"
+        case (.month, .uncreated):
+            return "Uncreated month destination"
+        case (.day, .existing):
+            return "Existing day spread"
+        case (.day, .uncreated):
+            return "Uncreated day destination"
+        case (.multiday, .existing):
+            return "Existing multiday spread"
+        case (.multiday, .uncreated):
+            return "Uncreated multiday destination"
+        }
     }
 
     // MARK: - Private Helpers

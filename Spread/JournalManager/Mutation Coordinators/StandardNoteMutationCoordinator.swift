@@ -31,6 +31,7 @@ struct StandardNoteMutationCoordinator: NoteMutationCoordinator {
         content: String,
         date: Date,
         period: Period,
+        preferredSpreadID: UUID? = nil,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> NoteListMutationResult {
@@ -43,7 +44,11 @@ struct StandardNoteMutationCoordinator: NoteMutationCoordinator {
             assignments: []
         )
 
-        noteAssignmentReconciler.reconcilePreferredAssignment(for: note, in: spreads)
+        noteAssignmentReconciler.reconcilePreferredAssignment(
+            for: note,
+            in: spreads,
+            preferredSpreadID: preferredSpreadID
+        )
         try await noteRepository.save(note)
         return NoteListMutationResult(
             note: note,
@@ -59,13 +64,18 @@ struct StandardNoteMutationCoordinator: NoteMutationCoordinator {
         _ note: DataModel.Note,
         newDate: Date,
         newPeriod: Period,
+        preferredSpreadID: UUID? = nil,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> NoteListMutationResult {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
         note.date = normalizedDate
         note.period = newPeriod
-        noteAssignmentReconciler.reconcilePreferredAssignment(for: note, in: spreads)
+        noteAssignmentReconciler.reconcilePreferredAssignment(
+            for: note,
+            in: spreads,
+            preferredSpreadID: preferredSpreadID
+        )
         try await noteRepository.save(note)
         return NoteListMutationResult(
             note: note,

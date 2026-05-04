@@ -65,7 +65,7 @@ struct StandardOverdueEvaluator: OverdueEvaluator {
                     date: openSpread.period.normalizeDate(openSpread.date, calendar: calendar)
                 )
             )
-            guard isOverdue(date: openSpread.date, period: openSpread.period) else {
+            guard isOverdue(spread: openSpread) else {
                 return nil
             }
             return OverdueTaskItem(task: task, sourceKey: sourceKey)
@@ -76,6 +76,16 @@ struct StandardOverdueEvaluator: OverdueEvaluator {
             return nil
         }
         return OverdueTaskItem(task: task, sourceKey: .init(kind: .inbox))
+    }
+
+    private func isOverdue(spread: DataModel.Spread) -> Bool {
+        if spread.period == .multiday {
+            guard let endDate = spread.endDate else { return false }
+            let todayStart = today.startOfDay(calendar: calendar)
+            return todayStart > endDate.startOfDay(calendar: calendar)
+        }
+
+        return isOverdue(date: spread.date, period: spread.period)
     }
 
     private func isOverdue(date: Date, period: Period) -> Bool {

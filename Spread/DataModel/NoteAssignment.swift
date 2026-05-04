@@ -11,6 +11,9 @@ struct NoteAssignment: Codable, Hashable, AssignmentMatchable {
     /// The spread date for this assignment.
     var date: Date
 
+    /// Explicit spread identity for direct multiday ownership.
+    var spreadID: UUID?
+
     /// The status of the note on this spread.
     var status: DataModel.Note.Status
 
@@ -21,12 +24,14 @@ struct NoteAssignment: Codable, Hashable, AssignmentMatchable {
         id: UUID = UUID(),
         period: Period,
         date: Date,
+        spreadID: UUID? = nil,
         status: DataModel.Note.Status,
         statusUpdatedAt: Date? = nil
     ) {
         self.id = id
         self.period = period
         self.date = date
+        self.spreadID = spreadID
         self.status = status
         self.statusUpdatedAt = statusUpdatedAt
     }
@@ -35,6 +40,7 @@ struct NoteAssignment: Codable, Hashable, AssignmentMatchable {
         case id
         case period
         case date
+        case spreadID
         case status
         case statusUpdatedAt
     }
@@ -44,6 +50,7 @@ struct NoteAssignment: Codable, Hashable, AssignmentMatchable {
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         period = try container.decode(Period.self, forKey: .period)
         date = try container.decode(Date.self, forKey: .date)
+        spreadID = try container.decodeIfPresent(UUID.self, forKey: .spreadID)
         status = try container.decode(DataModel.Note.Status.self, forKey: .status)
         statusUpdatedAt = try container.decodeIfPresent(Date.self, forKey: .statusUpdatedAt)
     }
@@ -53,6 +60,7 @@ struct NoteAssignment: Codable, Hashable, AssignmentMatchable {
         try container.encode(id, forKey: .id)
         try container.encode(period, forKey: .period)
         try container.encode(date, forKey: .date)
+        try container.encodeIfPresent(spreadID, forKey: .spreadID)
         try container.encode(status, forKey: .status)
         try container.encodeIfPresent(statusUpdatedAt, forKey: .statusUpdatedAt)
     }

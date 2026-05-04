@@ -20,6 +20,8 @@
 #   ./scripts/supabase.sh push dev         Apply pending migrations to dev
 #   ./scripts/supabase.sh push prod        Apply pending migrations to prod
 #   ./scripts/supabase.sh push all         Apply pending migrations to both
+#   ./scripts/supabase.sh reload-cache dev Notify PostgREST to reload the dev schema cache
+#   ./scripts/supabase.sh reload-cache prod Notify PostgREST to reload the prod schema cache
 #   ./scripts/supabase.sh status           Show migration status for dev and prod
 #   ./scripts/supabase.sh init-prod        One-time: apply full dev schema to prod
 
@@ -95,6 +97,16 @@ push_to() {
     ok "$label is up to date."
 }
 
+reload_cache_for() {
+    local ref="$1" label="$2" host="$3" password="$4"
+    local encoded_pw
+    encoded_pw="$(url_encode "$password")"
+    local db_url="postgresql://postgres.${ref}:${encoded_pw}@${host}:5432/postgres"
+    log "Reloading PostgREST schema cache for $label ($ref)..."
+    psql "$db_url" -v ON_ERROR_STOP=1 -c "NOTIFY pgrst, 'reload schema';"
+    ok "$label schema cache reloaded."
+}
+
 # ─── Commands ─────────────────────────────────────────────────────────────────
 
 # Create a new timestamped migration file in supabase/migrations/.
@@ -126,6 +138,25 @@ cmd_push() {
             ;;
         *)
             err "Unknown target '$target'. Use: dev, prod, or all"
+            ;;
+    esac
+}
+
+cmd_reload_cache() {
+    local target="${1:-}"
+    require_login
+    require_psql
+    case "$target" in
+        dev)
+            require_dev_password
+            reload_cache_for "$DEV_REF" "dev" "$DEV_POOLER_HOST" "$DEV_DB_PASSWORD"
+            ;;
+        prod)
+            require_prod_password
+            reload_cache_for "$PROD_REF" "prod" "$PROD_POOLER_HOST" "$PROD_DB_PASSWORD"
+            ;;
+        *)
+            err "Unknown target '$target'. Use: dev or prod"
             ;;
     esac
 }
@@ -235,6 +266,8 @@ Commands:
   push dev      Apply pending migrations to dev
   push prod     Apply pending migrations to prod
   push all      Apply pending migrations to dev then prod  (default)
+  reload-cache dev|prod
+                 Notify PostgREST to reload the schema cache
   status        Show migration status for dev and prod
   init-prod     One-time: apply full dev schema to prod
 
@@ -249,6 +282,7 @@ EOF
 case "${1:-}" in
     new)       cmd_new "${2:-}" ;;
     push)      cmd_push "${2:-all}" ;;
+    reload-cache) cmd_reload_cache "${2:-}" ;;
     status)    cmd_status ;;
     init-prod) cmd_init_prod ;;
     *)         usage ;;

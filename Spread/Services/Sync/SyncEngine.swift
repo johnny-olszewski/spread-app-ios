@@ -735,13 +735,24 @@ final class SyncEngine {
 
         if row.deletedAt != nil {
             task.assignments.removeAll {
-                $0.id == row.id || ($0.period == rowPeriod && $0.date == rowDate)
+                taskAssignmentMatches(
+                    $0,
+                    rowID: row.id,
+                    rowPeriod: rowPeriod,
+                    rowDate: rowDate,
+                    rowSpreadID: row.spreadId
+                )
             }
         } else if let assignment = SyncSerializer.createTaskAssignment(from: row) {
-            if let index = task.assignments.firstIndex(where: { $0.id == row.id })
-                ?? task.assignments.firstIndex(where: {
-                    $0.period == rowPeriod && $0.date == rowDate
-                }) {
+            if let index = task.assignments.firstIndex(where: {
+                taskAssignmentMatches(
+                    $0,
+                    rowID: row.id,
+                    rowPeriod: rowPeriod,
+                    rowDate: rowDate,
+                    rowSpreadID: row.spreadId
+                )
+            }) {
                 task.assignments[index] = assignment
             } else {
                 task.assignments.append(assignment)
@@ -769,18 +780,65 @@ final class SyncEngine {
 
         if row.deletedAt != nil {
             note.assignments.removeAll {
-                $0.id == row.id || ($0.period == rowPeriod && $0.date == rowDate)
+                noteAssignmentMatches(
+                    $0,
+                    rowID: row.id,
+                    rowPeriod: rowPeriod,
+                    rowDate: rowDate,
+                    rowSpreadID: row.spreadId
+                )
             }
         } else if let assignment = SyncSerializer.createNoteAssignment(from: row) {
-            if let index = note.assignments.firstIndex(where: { $0.id == row.id })
-                ?? note.assignments.firstIndex(where: {
-                    $0.period == rowPeriod && $0.date == rowDate
-                }) {
+            if let index = note.assignments.firstIndex(where: {
+                noteAssignmentMatches(
+                    $0,
+                    rowID: row.id,
+                    rowPeriod: rowPeriod,
+                    rowDate: rowDate,
+                    rowSpreadID: row.spreadId
+                )
+            }) {
                 note.assignments[index] = assignment
             } else {
                 note.assignments.append(assignment)
             }
         }
+    }
+
+    private func taskAssignmentMatches(
+        _ assignment: TaskAssignment,
+        rowID: UUID,
+        rowPeriod: Period,
+        rowDate: Date,
+        rowSpreadID: UUID?
+    ) -> Bool {
+        if assignment.id == rowID {
+            return true
+        }
+
+        if let rowSpreadID {
+            return assignment.spreadID == rowSpreadID && assignment.period == rowPeriod
+        }
+
+        return assignment.spreadID == nil && assignment.period == rowPeriod && assignment.date == rowDate
+    }
+
+    private func noteAssignmentMatches(
+        _ assignment: NoteAssignment,
+        rowID: UUID,
+        rowPeriod: Period,
+        rowDate: Date,
+        rowSpreadID: UUID?
+    ) -> Bool {
+        if assignment.id == rowID {
+            return true
+        }
+
+        if let rowSpreadID {
+            return assignment.spreadID == rowSpreadID && assignment.period == rowPeriod
+        }
+
+        return assignment.spreadID == nil && assignment.period == rowPeriod && assignment.date == rowDate
     }
 
     // MARK: - Assignment Repair

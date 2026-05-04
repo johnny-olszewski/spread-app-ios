@@ -8,6 +8,9 @@ enum SpreadCreationError: Equatable {
     /// A spread already exists for this period/date.
     case duplicate
 
+    /// A multiday spread overlaps another multiday spread.
+    case overlap
+
     /// The multiday date range is invalid (end before start).
     case invalidRange
 
@@ -18,6 +21,8 @@ enum SpreadCreationError: Equatable {
             return "You can only create spreads for present or future dates"
         case .duplicate:
             return "A spread for this time period already exists"
+        case .overlap:
+            return "This date range overlaps another multiday spread"
         case .invalidRange:
             return "End date must be after start date"
         }
@@ -195,7 +200,7 @@ struct SpreadCreationConfiguration {
             return .invalid(.invalidRange)
         }
 
-        // Check for duplicates
+        // Check for exact duplicates first
         let spreadExists = existingSpreads.contains { spread in
             guard spread.id != ignoringSpreadID else { return false }
             guard spread.period == .multiday,
@@ -209,6 +214,23 @@ struct SpreadCreationConfiguration {
 
         if spreadExists {
             return .invalid(.duplicate)
+        }
+
+        let overlapsExistingSpread = existingSpreads.contains { spread in
+            guard spread.id != ignoringSpreadID else { return false }
+            guard spread.period == .multiday,
+                  let existingStart = spread.startDate,
+                  let existingEnd = spread.endDate else {
+                return false
+            }
+
+            let normalizedExistingStart = existingStart.startOfDay(calendar: calendar)
+            let normalizedExistingEnd = existingEnd.startOfDay(calendar: calendar)
+            return normalizedStart <= normalizedExistingEnd && normalizedEnd >= normalizedExistingStart
+        }
+
+        if overlapsExistingSpread {
+            return .invalid(.overlap)
         }
 
         // Check date validity

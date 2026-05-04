@@ -54,14 +54,10 @@ enum Period: String, CaseIterable, Codable {
     // MARK: - Assignment Rules
 
     /// Whether tasks and notes can be directly assigned to spreads of this period.
-    ///
-    /// Multiday spreads aggregate entries by date range rather than direct assignment.
     var canHaveTasksAssigned: Bool {
         switch self {
-        case .year, .month, .day:
+        case .year, .month, .day, .multiday:
             return true
-        case .multiday:
-            return false
         }
     }
 
@@ -97,18 +93,18 @@ enum Period: String, CaseIterable, Codable {
 
     /// Relative granularity rank for assignable periods.
     ///
-    /// Higher values are more granular. Multiday is excluded from direct
-    /// assignment workflows and uses rank 0 to stay out of comparisons.
+    /// Higher values are more granular. Multiday sits between month and day
+    /// because it is finer than month/year but coarser than an exact day.
     var granularityRank: Int {
         switch self {
         case .year:
             return 1
         case .month:
             return 2
-        case .day:
-            return 3
         case .multiday:
-            return 0
+            return 3
+        case .day:
+            return 4
         }
     }
 

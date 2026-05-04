@@ -22,13 +22,18 @@ struct StandardNoteAssignmentReconciler: NoteAssignmentReconciler {
 
     func reconcilePreferredAssignment(
         for note: DataModel.Note,
-        in spreads: [DataModel.Spread]
+        in spreads: [DataModel.Spread],
+        preferredSpreadID: UUID? = nil
     ) {
-        let destination = spreadService.findBestSpread(for: note, in: spreads)
+        let destination = spreadService.findBestSpread(
+            for: note,
+            in: spreads,
+            preferredSpreadID: preferredSpreadID
+        )
 
         if let destination {
             if let destinationIndex = note.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
+                assignment.matches(spread: destination, calendar: calendar)
             }) {
                 for index in note.assignments.indices where index != destinationIndex && note.assignments[index].status != .migrated {
                     note.assignments[index].status = .migrated
@@ -40,6 +45,7 @@ struct StandardNoteAssignmentReconciler: NoteAssignmentReconciler {
                     NoteAssignment(
                         period: destination.period,
                         date: destination.date,
+                        spreadID: destination.period == .multiday ? destination.id : nil,
                         status: .active
                     )
                 )

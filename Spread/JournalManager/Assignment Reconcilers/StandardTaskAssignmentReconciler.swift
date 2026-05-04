@@ -23,14 +23,19 @@ struct StandardTaskAssignmentReconciler: TaskAssignmentReconciler {
 
     func reconcilePreferredAssignment(
         for task: DataModel.Task,
-        in spreads: [DataModel.Spread]
+        in spreads: [DataModel.Spread],
+        preferredSpreadID: UUID? = nil
     ) {
-        let destination = spreadService.findBestSpread(for: task, in: spreads)
+        let destination = spreadService.findBestSpread(
+            for: task,
+            in: spreads,
+            preferredSpreadID: preferredSpreadID
+        )
         let destinationStatus = task.status == .complete ? DataModel.Task.Status.complete : task.status
 
         if let destination {
             if let destinationIndex = task.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: destination.period, date: destination.date, calendar: calendar)
+                assignment.matches(spread: destination, calendar: calendar)
             }) {
                 for index in task.assignments.indices where index != destinationIndex && task.assignments[index].status != .migrated {
                     task.assignments[index].status = .migrated
@@ -42,6 +47,7 @@ struct StandardTaskAssignmentReconciler: TaskAssignmentReconciler {
                     TaskAssignment(
                         period: destination.period,
                         date: destination.date,
+                        spreadID: destination.period == .multiday ? destination.id : nil,
                         status: destinationStatus
                     )
                 )

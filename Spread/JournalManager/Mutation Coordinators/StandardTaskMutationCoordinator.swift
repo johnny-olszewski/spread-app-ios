@@ -33,6 +33,7 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         dueDate: Date? = nil,
         date: Date,
         period: Period,
+        preferredSpreadID: UUID? = nil,
         hasPreferredAssignment: Bool = true,
         calendar: Calendar,
         spreads: [DataModel.Spread]
@@ -52,7 +53,11 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         )
 
         if hasPreferredAssignment {
-            taskAssignmentReconciler.reconcilePreferredAssignment(for: task, in: spreads)
+            taskAssignmentReconciler.reconcilePreferredAssignment(
+                for: task,
+                in: spreads,
+                preferredSpreadID: preferredSpreadID
+            )
         }
         try await taskRepository.save(task)
         return TaskListMutationResult(
@@ -69,6 +74,7 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         _ task: DataModel.Task,
         newDate: Date,
         newPeriod: Period,
+        preferredSpreadID: UUID? = nil,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> TaskListMutationResult {
@@ -76,7 +82,11 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         task.date = normalizedDate
         task.period = newPeriod
         task.hasPreferredAssignment = true
-        taskAssignmentReconciler.reconcilePreferredAssignment(for: task, in: spreads)
+        taskAssignmentReconciler.reconcilePreferredAssignment(
+            for: task,
+            in: spreads,
+            preferredSpreadID: preferredSpreadID
+        )
         try await taskRepository.save(task)
         return TaskListMutationResult(
             task: task,
@@ -98,7 +108,11 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         task.date = fallbackPeriod.normalizeDate(fallbackDate, calendar: calendar)
         task.period = fallbackPeriod
         task.hasPreferredAssignment = false
-        taskAssignmentReconciler.reconcilePreferredAssignment(for: task, in: spreads)
+        taskAssignmentReconciler.reconcilePreferredAssignment(
+            for: task,
+            in: spreads,
+            preferredSpreadID: nil
+        )
         try await taskRepository.save(task)
         return TaskListMutationResult(
             task: task,

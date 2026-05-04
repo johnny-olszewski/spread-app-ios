@@ -108,6 +108,10 @@ struct StandardMigrationPlanner: MigrationPlanner {
     /// The calendar used for date normalization and parent hierarchy traversal.
     let calendar: Calendar
 
+    private var spreadService: ConventionalSpreadService {
+        ConventionalSpreadService(calendar: calendar)
+    }
+
     func migrationCandidates(
         tasks: [DataModel.Task],
         spreads: [DataModel.Spread],
@@ -137,16 +141,17 @@ struct StandardMigrationPlanner: MigrationPlanner {
 
         guard task.assignments.contains(where: { assignment in
             assignment.status == .open &&
-            assignment.matches(period: source.period, date: source.date, calendar: calendar)
+            assignment.matches(spread: source, calendar: calendar)
         }) else {
             return nil
         }
 
-        return mostGranularValidDestination(
-            for: task,
-            spreads: spreads,
-            sourceRank: source.period.granularityRank
-        )
+        guard let destination = mostGranularValidDestination(for: task, spreads: spreads),
+              destination.period.granularityRank > source.period.granularityRank else {
+            return nil
+        }
+
+        return destination
     }
 
     func parentHierarchyMigrationCandidates(
@@ -205,14 +210,6 @@ struct StandardMigrationPlanner: MigrationPlanner {
             return nil
         }
 
-        guard destinationMatchesDesiredPath(destination, forDesiredDate: task.date) else {
-            return nil
-        }
-
-        guard destination.period.granularityRank <= task.period.granularityRank else {
-            return nil
-        }
-
         let sourceKey: TaskReviewSourceKey
         let sourceSpread: DataModel.Spread?
         if let openSpread = currentDestinationSpread(for: task, spreads: spreads, excluding: nil) {
@@ -227,11 +224,7 @@ struct StandardMigrationPlanner: MigrationPlanner {
             return nil
         }
 
-        guard let bestDestination = mostGranularValidDestination(
-            for: task,
-            spreads: spreads,
-            sourceRank: sourceKey.sourceRank
-        ) else {
+        guard let bestDestination = mostGranularValidDestination(for: task, spreads: spreads) else {
             return nil
         }
 
@@ -257,47 +250,23 @@ struct StandardMigrationPlanner: MigrationPlanner {
             .filter(statusPredicate)
             .compactMap { assignment in
                 spreads.first(where: { spread in
-                    spread.period == assignment.period &&
-                    spread.period.normalizeDate(spread.date, calendar: calendar) ==
-                    assignment.period.normalizeDate(assignment.date, calendar: calendar)
+                    assignment.matches(spread: spread, calendar: calendar)
                 })
             }
             .filter { spread in
                 guard let excludedSpread else { return true }
                 return spread.id != excludedSpread.id
             }
-            .max { lhs, rhs in
-                if lhs.period.granularityRank == rhs.period.granularityRank {
-                    return lhs.date < rhs.date
-                }
-                return lhs.period.granularityRank < rhs.period.granularityRank
-            }
-    }
-
-    private func destinationMatchesDesiredPath(
-        _ destination: DataModel.Spread,
-        forDesiredDate desiredDate: Date
-    ) -> Bool {
-        destination.period.normalizeDate(destination.date, calendar: calendar) ==
-        destination.period.normalizeDate(desiredDate, calendar: calendar)
+            .sorted(by: preferredSpreadOrder)
+            .last
     }
 
     private func mostGranularValidDestination(
         for task: DataModel.Task,
-        spreads: [DataModel.Spread],
-        sourceRank: Int
+        spreads: [DataModel.Spread]
     ) -> DataModel.Spread? {
         guard task.hasPreferredAssignment else { return nil }
-        return spreads
-            .filter { spread in
-                spread.period.canHaveTasksAssigned &&
-                destinationMatchesDesiredPath(spread, forDesiredDate: task.date) &&
-                spread.period.granularityRank <= task.period.granularityRank &&
-                spread.period.granularityRank > sourceRank
-            }
-            .max { lhs, rhs in
-                lhs.period.granularityRank < rhs.period.granularityRank
-            }
+        return spreadService.findBestSpread(for: task, in: spreads)
     }
 
     private func sourceSpreadSource(_ spread: DataModel.Spread) -> TaskReviewSourceKey {
@@ -314,6 +283,10 @@ struct StandardMigrationPlanner: MigrationPlanner {
         for destination: DataModel.Spread,
         spreads: [DataModel.Spread]
     ) -> [DataModel.Spread] {
+        if destination.period == .multiday {
+            return parentHierarchySpreadsForMultiday(destination, spreads: spreads)
+        }
+
         var parentSpreads: [DataModel.Spread] = []
         var currentPeriod = destination.period.parentPeriod
 
@@ -329,5 +302,71 @@ struct StandardMigrationPlanner: MigrationPlanner {
         }
 
         return parentSpreads
+    }
+
+    private func parentHierarchySpreadsForMultiday(
+        _ destination: DataModel.Spread,
+        spreads: [DataModel.Spread]
+    ) -> [DataModel.Spread] {
+        guard let startDate = destination.startDate, let endDate = destination.endDate else { return [] }
+
+        var parents: [DataModel.Spread] = []
+        var monthKeys = Set<Date>()
+        var cursor = Period.month.normalizeDate(startDate, calendar: calendar)
+        let finalMonth = Period.month.normalizeDate(endDate, calendar: calendar)
+
+        while cursor <= finalMonth {
+            monthKeys.insert(cursor)
+            guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: cursor) else {
+                break
+            }
+            cursor = Period.month.normalizeDate(nextMonth, calendar: calendar)
+        }
+
+        parents.append(contentsOf: spreads.filter { spread in
+            spread.period == .month && monthKeys.contains(Period.month.normalizeDate(spread.date, calendar: calendar))
+        })
+
+        let yearKeys = Set(monthKeys.map { Period.year.normalizeDate($0, calendar: calendar) })
+        parents.append(contentsOf: spreads.filter { spread in
+            spread.period == .year && yearKeys.contains(Period.year.normalizeDate(spread.date, calendar: calendar))
+        })
+
+        return parents.sorted(by: preferredSpreadOrder)
+    }
+
+    private func preferredSpreadOrder(_ lhs: DataModel.Spread, _ rhs: DataModel.Spread) -> Bool {
+        if lhs.period.granularityRank != rhs.period.granularityRank {
+            return lhs.period.granularityRank < rhs.period.granularityRank
+        }
+
+        if lhs.period == .multiday, rhs.period == .multiday {
+            let lhsLength = rangeLength(for: lhs)
+            let rhsLength = rangeLength(for: rhs)
+            if lhsLength != rhsLength {
+                return lhsLength > rhsLength
+            }
+        }
+
+        let lhsStart = lhs.startDate ?? lhs.date
+        let rhsStart = rhs.startDate ?? rhs.date
+        if lhsStart != rhsStart {
+            return lhsStart < rhsStart
+        }
+
+        let lhsEnd = lhs.endDate ?? lhs.date
+        let rhsEnd = rhs.endDate ?? rhs.date
+        if lhsEnd != rhsEnd {
+            return lhsEnd < rhsEnd
+        }
+
+        return lhs.createdDate < rhs.createdDate
+    }
+
+    private func rangeLength(for spread: DataModel.Spread) -> Int {
+        guard let startDate = spread.startDate, let endDate = spread.endDate else {
+            return .max
+        }
+        return calendar.dateComponents([.day], from: startDate, to: endDate).day ?? .max
     }
 }

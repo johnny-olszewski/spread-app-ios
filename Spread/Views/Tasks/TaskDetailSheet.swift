@@ -141,8 +141,9 @@ struct TaskDetailSheet: View {
                     spreads: journalManager.spreads,
                     calendar: presentedTemporalContext.calendar,
                     today: presentedTemporalContext.today,
-                    onSpreadSelected: { period, date in
-                        formModel.applySpreadSelection(period: period, date: date)
+                    focusDate: formModel.effectiveSelectedDate,
+                    onSpreadSelected: { selection in
+                        formModel.applySpreadSelection(selection)
                     },
                     onChooseCustomDate: {}
                 )
@@ -160,7 +161,15 @@ struct TaskDetailSheet: View {
                     Button("Save") {
                         save()
                     }
-                    .disabled(isSaving || formModel.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(
+                        isSaving ||
+                        formModel.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                        (
+                            formModel.hasPreferredAssignment &&
+                            formModel.selectedPeriod == .multiday &&
+                            formModel.selectedSpreadID == nil
+                        )
+                    )
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.saveButton)
                 }
             }
@@ -320,29 +329,31 @@ struct TaskDetailSheet: View {
             sectionHeader("Date")
 
             selectionSummaryRow(
-                title: "Date",
+                title: formModel.selectedPeriod == .multiday ? "Multiday spread" : "Date",
                 value: formattedDateSummary,
                 isEnabled: isAssignmentEditable,
                 showsChevron: false
             )
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.dateSummary)
 
-            PeriodDatePicker(
-                period: formModel.selectedPeriod,
-                selectedDate: dateBinding,
-                calendar: presentedTemporalContext.calendar,
-                today: presentedTemporalContext.today,
-                minimumDate: configuration.minimumDate(for: .day),
-                maximumDate: configuration.maximumDate,
-                accessibilityIdentifiers: .init(
-                    dayPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.datePicker,
-                    yearPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.yearPicker,
-                    monthPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.monthPicker,
-                    monthYearPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.monthYearPicker
+            if formModel.selectedPeriod != .multiday {
+                PeriodDatePicker(
+                    period: formModel.selectedPeriod,
+                    selectedDate: dateBinding,
+                    calendar: presentedTemporalContext.calendar,
+                    today: presentedTemporalContext.today,
+                    minimumDate: configuration.minimumDate(for: .day),
+                    maximumDate: configuration.maximumDate,
+                    accessibilityIdentifiers: .init(
+                        dayPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.datePicker,
+                        yearPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.yearPicker,
+                        monthPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.monthPicker,
+                        monthYearPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.monthYearPicker
+                    )
                 )
-            )
-            .disabled(!isAssignmentEditable)
-            .opacity(isAssignmentEditable ? 1 : 0.6)
+                .disabled(!isAssignmentEditable)
+                .opacity(isAssignmentEditable ? 1 : 0.6)
+            }
         }
     }
 
@@ -418,6 +429,10 @@ struct TaskDetailSheet: View {
     }
 
     private var formattedDateSummary: String {
+        if formModel.selectedPeriod == .multiday {
+            return selectedMultidaySummary
+        }
+
         let formatter = DateFormatter()
         formatter.calendar = journalManager.calendar
         formatter.timeZone = journalManager.calendar.timeZone
@@ -433,6 +448,24 @@ struct TaskDetailSheet: View {
         }
 
         return formatter.string(from: formModel.effectiveSelectedDate)
+    }
+
+    private var selectedMultidaySummary: String {
+        guard let spreadID = formModel.selectedSpreadID,
+              let spread = journalManager.spreads.first(where: { $0.id == spreadID }) else {
+            return "Select an existing multiday spread above"
+        }
+
+        return SpreadPickerConfiguration(
+            spreads: journalManager.spreads,
+            calendar: presentedTemporalContext.calendar,
+            today: presentedTemporalContext.today
+        )
+        .displayLabel(for: spread)
+    }
+
+    private var currentMultidaySpreadID: UUID? {
+        task.assignments.first(where: { $0.status != .migrated && $0.period == .multiday })?.spreadID
     }
 
     private var compactDivider: some View {
@@ -520,11 +553,13 @@ struct TaskDetailSheet: View {
                         let effectiveDate = formModel.effectiveSelectedDate
                         if !task.hasPreferredAssignment ||
                            effectiveDate != task.date ||
-                           formModel.selectedPeriod != task.period {
+                           formModel.selectedPeriod != task.period ||
+                           formModel.selectedSpreadID != currentMultidaySpreadID {
                             try await journalManager.updateTaskDateAndPeriod(
                                 task,
                                 newDate: effectiveDate,
-                                newPeriod: formModel.selectedPeriod
+                                newPeriod: formModel.selectedPeriod,
+                                preferredSpreadID: formModel.selectedSpreadID
                             )
                         }
                     } else if task.hasPreferredAssignment {
