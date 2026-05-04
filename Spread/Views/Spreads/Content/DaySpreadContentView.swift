@@ -169,6 +169,7 @@ struct DaySpreadContentView: View {
                     height: iPadTimelineHeight,
                     calendar: journalManager.calendar
                 )
+                .scrollIndicators(.hidden)
                 .padding(8)
             }
             .scrollPosition($timelineScrollPosition)
