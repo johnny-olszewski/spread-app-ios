@@ -24,6 +24,7 @@ struct EntryListView: View {
     }
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.eventKitService) private var eventKitService
 
     // MARK: - Properties
 
@@ -66,6 +67,12 @@ struct EntryListView: View {
     var onSelectSpread: ((DataModel.Spread) -> Void)? = nil
     var onCreateSpread: ((Date) -> Void)? = nil
 
+    /// Calendar events to display alongside entries.
+    ///
+    /// For day spreads, these are events for that day displayed in a dedicated section.
+    /// For multiday spreads, events are filtered per day section.
+    var calendarEvents: [CalendarEvent]
+
     /// Callback invoked when the user pulls to refresh. `nil` disables pull-to-refresh.
     var onRefresh: (() async -> Void)?
 
@@ -87,6 +94,7 @@ struct EntryListView: View {
         calendar: Calendar,
         today: Date,
         configuration: EntryListConfiguration = .init(),
+        calendarEvents: [CalendarEvent] = [],
         onEdit: ((any Entry) -> Void)? = nil,
         onOpenMigratedTask: ((DataModel.Task) -> Void)? = nil,
         onDelete: ((any Entry) -> Void)? = nil,
@@ -106,6 +114,7 @@ struct EntryListView: View {
         self.calendar = calendar
         self.today = today
         self.configuration = configuration
+        self.calendarEvents = calendarEvents
         self.onEdit = onEdit
         self.onOpenMigratedTask = onOpenMigratedTask
         self.onDelete = onDelete
@@ -182,11 +191,12 @@ struct EntryListView: View {
         MultidaySectionLayout.columnCount(for: horizontalSizeClass)
     }
 
-    /// Whether there are any entries or migration affordances to display.
+    /// Whether there are any entries, migration affordances, or calendar events to display.
     private var hasAnyEntries: Bool {
         !displayedEntries.isEmpty ||
         !migratedNotes.isEmpty ||
-        !(migrationConfiguration?.destinationItems.isEmpty ?? true)
+        !(migrationConfiguration?.destinationItems.isEmpty ?? true) ||
+        (spreadDataModel.spread.period == .day && !calendarEvents.isEmpty)
     }
 
     /// Row insets for the standard entry list, using theme-defined vertical spacing.
@@ -326,6 +336,20 @@ struct EntryListView: View {
                     }
                 )
                 .listRowBackground(Color.clear)
+            }
+
+            // Calendar events section — day spreads only
+            if spreadDataModel.spread.period == .day, !calendarEvents.isEmpty {
+                Section("Events") {
+                    ForEach(calendarEvents) { event in
+                        CalendarEventRow(event: event, calendar: calendar)
+                            .listRowInsets(Self.rowInsets)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .contentShape(Rectangle())
+                            .onTapGesture { eventKitService?.openEvent(event) }
+                    }
+                }
             }
 
         }
@@ -500,10 +524,18 @@ struct EntryListView: View {
                 }
             }
         ) {
+            let dayEvents = calendarEvents(for: section.date)
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(section.entries, id: \.id) { entry in
                     entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
                         .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                }
+
+                ForEach(dayEvents) { event in
+                    CalendarEventRow(event: event, calendar: calendar)
+                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                        .contentShape(Rectangle())
+                        .onTapGesture { eventKitService?.openEvent(event) }
                 }
 
                 if isDayActive {
@@ -515,7 +547,7 @@ struct EntryListView: View {
                         .accessibilityIdentifier(
                             Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID)
                         )
-                } else if section.entries.isEmpty {
+                } else if section.entries.isEmpty, dayEvents.isEmpty {
                     Text("No entries for this day.")
                         .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
@@ -730,6 +762,19 @@ struct EntryListView: View {
     }
 
     // MARK: - Helpers
+
+    /// Returns calendar events whose time span overlaps the given day.
+    ///
+    /// Used to filter events per-day within multiday spread sections.
+    private func calendarEvents(for date: Date) -> [CalendarEvent] {
+        let dayStart = date.startOfDay(calendar: calendar)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+            return []
+        }
+        return calendarEvents.filter { event in
+            event.startDate < dayEnd && event.endDate > dayStart
+        }
+    }
 
     /// Whether a task has a migrated assignment on this spread.
     private func isMigratedOnSpread(_ task: DataModel.Task) -> Bool {

@@ -14,6 +14,9 @@ struct DaySpreadContentView: View {
     var onSelectSpread: ((DataModel.Spread) -> Void)? = nil
     var onCreateSpread: ((Date) -> Void)? = nil
 
+    @Environment(\.eventKitService) private var eventKitService
+    @State private var calendarEvents: [CalendarEvent] = []
+
     private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
         guard let feedback = viewModel.autoMigrationFeedback,
               feedback.surfaceSpreadID == spread.id,
@@ -37,6 +40,7 @@ struct DaySpreadContentView: View {
                     calendar: journalManager.calendar,
                     today: journalManager.today,
                     configuration: entryListConfiguration,
+                    calendarEvents: calendarEvents,
                     onEdit: { entry in
                         if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
                         else if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
@@ -85,6 +89,9 @@ struct DaySpreadContentView: View {
                     syncStatus: syncEngine?.status
                 )
             }
+            .task(id: spread.id) {
+                await fetchCalendarEvents()
+            }
         } else {
             ContentUnavailableView {
                 Label("No Data", systemImage: "tray")
@@ -92,5 +99,21 @@ struct DaySpreadContentView: View {
                 Text("Unable to load spread data.")
             }
         }
+    }
+
+    // MARK: - Private
+
+    private func fetchCalendarEvents() async {
+        guard let service = eventKitService else { return }
+        if service.authorizationStatus == .notDetermined {
+            _ = await service.requestAuthorization()
+        }
+        guard service.authorizationStatus == .authorized else {
+            calendarEvents = []
+            return
+        }
+        let dayStart = spread.date.startOfDay(calendar: journalManager.calendar)
+        guard let dayEnd = journalManager.calendar.date(byAdding: .day, value: 1, to: dayStart) else { return }
+        calendarEvents = service.fetchEvents(from: dayStart, to: dayEnd)
     }
 }
