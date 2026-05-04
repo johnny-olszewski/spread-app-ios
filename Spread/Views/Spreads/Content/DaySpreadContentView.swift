@@ -1,4 +1,5 @@
 import SwiftUI
+import JohnnyOFoundationCore
 import JohnnyOFoundationUI
 
 /// Renders the entry list for a day spread, with optional inline spread creation and navigation.
@@ -6,10 +7,11 @@ import JohnnyOFoundationUI
 /// On iPhone (compact width) the layout is vertical: an optional fixed-height timeline card
 /// appears above the scrollable entry list when events are present.
 ///
-/// On iPad (regular width) the layout is horizontal when events are present: a full-height
-/// timeline card sits on the leading edge with its own independent scroll, and the entry list
-/// fills the remaining width with its own independent scroll. The two columns size their
-/// heights to fill the available screen area and never scroll together.
+/// On iPad (regular width) the layout is horizontal when events are present:
+/// - Leading: a full-height card containing a `ScrollView` with a full-day `DayTimelineView`.
+///   All-day events are pinned at the top of the card (outside the scroll). The timed grid
+///   scrolls independently so the first event is visible on load.
+/// - Trailing: `EntryListView` with its own independent scroll.
 struct DaySpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
@@ -27,15 +29,19 @@ struct DaySpreadContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var calendarEvents: [CalendarEvent] = []
 
+    /// Tracks the scroll position of the timeline card so we can programmatically
+    /// jump to the first event on load.
+    @State private var timelineScrollPosition = ScrollPosition()
+
     // MARK: - Layout constants
 
     /// Height of the timeline card on iPhone (compressed smart window).
     private let iPhoneTimelineHeight: CGFloat = 240
 
-    /// Scrollable content height for the iPad timeline card.
+    /// Scrollable content height for the iPad timeline card (full 24-hour day).
     ///
-    /// At 1000pt for a 6 AM–10 PM window (~62 pt/hour) this always exceeds the
-    /// available card height on any iPad size, so the card is always scrollable.
+    /// At 1000pt for 24 hours (~42 pt/hour) this always exceeds the available card
+    /// height on any iPad, so the card is always scrollable.
     private let iPadTimelineHeight: CGFloat = 1000
 
     /// Fixed width of the timeline card in the iPad horizontal layout.
@@ -54,6 +60,14 @@ struct DaySpreadContentView: View {
 
     private var useHorizontalLayout: Bool {
         horizontalSizeClass == .regular && !calendarEvents.isEmpty
+    }
+
+    private var allDayEvents: [CalendarEvent] {
+        calendarEvents.filter { $0.isAllDay }
+    }
+
+    private var timedEvents: [CalendarEvent] {
+        calendarEvents.filter { !$0.isAllDay }
     }
 
     // MARK: - Body
@@ -76,11 +90,7 @@ struct DaySpreadContentView: View {
 
     // MARK: - Layout variants
 
-    /// iPad: full-height side-by-side layout.
-    ///
-    /// Leading: a card containing a `ScrollView` with `DayTimelineView` — the card
-    /// fills the available height and its content scrolls independently.
-    /// Trailing: `EntryListView` using its own `List` scroll, also filling available height.
+    /// iPad: full-height side-by-side layout with independent scrolls.
     private func iPadLayout(dataModel: SpreadDataModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if let message = autoMigrationFeedback?.message {
@@ -129,23 +139,42 @@ struct DaySpreadContentView: View {
         }
     }
 
-    // MARK: - Subviews
+    // MARK: - Timeline card
 
-    /// Full-height timeline card for the iPad layout.
+    /// Full-height card for the iPad layout.
     ///
-    /// The card has a secondary-background fill and a continuous rounded border matching
-    /// the app's established card style. Its `ScrollView` lets the user scroll through the
-    /// full day independently of the entry list.
+    /// Structure (top to bottom):
+    /// 1. All-day events header — non-scrolling, pinned above the timed grid.
+    /// 2. Divider — only present when all-day events exist.
+    /// 3. Timed event grid — full-day `DayTimelineView` inside a `ScrollView`.
+    ///    On load the scroll position jumps to the start of the first timed event.
     private var timelineCard: some View {
-        ScrollView {
-            DayTimelineView(
-                provider: SpreadDayTimelineProvider(),
-                items: calendarEvents,
-                date: spread.date,
-                height: iPadTimelineHeight,
-                calendar: journalManager.calendar
-            )
-            .padding(12)
+        let provider = SpreadDayTimelineProvider()
+
+        return VStack(spacing: 0) {
+            if !allDayEvents.isEmpty {
+                DayTimelineAllDaySection(items: allDayEvents) { event in
+                    provider.allDayItemView(item: event)
+                }
+                Divider()
+            }
+
+            ScrollView {
+                DayTimelineView(
+                    provider: provider,
+                    items: calendarEvents,
+                    date: spread.date,
+                    visibleStartHour: 0,
+                    visibleEndHour: 24,
+                    height: iPadTimelineHeight,
+                    calendar: journalManager.calendar
+                )
+                .padding(8)
+            }
+            .scrollPosition($timelineScrollPosition)
+            .task(id: calendarEvents.count) {
+                scrollToFirstEvent()
+            }
         }
         .frame(width: iPadTimelineWidth)
         .frame(maxHeight: .infinity)
@@ -161,6 +190,8 @@ struct DaySpreadContentView: View {
         .padding(.trailing, 8)
         .padding(.vertical, 12)
     }
+
+    // MARK: - Shared subviews
 
     /// Builds the `EntryListView` with all current callbacks wired up.
     private func entryListView(dataModel: SpreadDataModel) -> some View {
@@ -233,5 +264,23 @@ struct DaySpreadContentView: View {
         let dayStart = spread.date.startOfDay(calendar: journalManager.calendar)
         guard let dayEnd = journalManager.calendar.date(byAdding: .day, value: 1, to: dayStart) else { return }
         calendarEvents = service.fetchEvents(from: dayStart, to: dayEnd)
+    }
+
+    /// Scrolls the timeline card so the first timed event's start time is near the
+    /// top of the visible area. No-ops when there are no timed events.
+    private func scrollToFirstEvent() {
+        guard let firstEvent = timedEvents.min(by: { $0.startDate < $1.startDate }) else { return }
+
+        let startOfDay = spread.date.startOfDay(calendar: journalManager.calendar)
+        guard let endOfDay = journalManager.calendar.date(byAdding: .day, value: 1, to: startOfDay) else { return }
+
+        let coordinateSpace = DayTimeCoordinateSpace(
+            visibleStart: startOfDay,
+            visibleEnd: endOfDay,
+            totalHeight: iPadTimelineHeight
+        )
+        // +8 for the padding around the DayTimelineView inside the ScrollView
+        let targetY = coordinateSpace.yOffset(for: firstEvent.startDate) + 8
+        timelineScrollPosition = ScrollPosition(y: targetY)
     }
 }
