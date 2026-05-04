@@ -6,9 +6,9 @@ import Testing
 ///
 /// Validates:
 /// - Range header formatting for multiday spreads
-/// - Entry aggregation by date range (not assignment)
 /// - Grouping entries by day within the range
-/// - Migration banner exclusion (multiday doesn't own entries)
+/// - Multiday hierarchy placement
+/// - Multiday assignment affordances
 @Suite("Multiday Spread UI Tests")
 struct MultidaySpreadUITests {
 
@@ -232,10 +232,10 @@ struct MultidaySpreadUITests {
     // MARK: - No Migration Banner Tests
 
     /// Conditions: Multiday period.
-    /// Expected: canHaveTasksAssigned is false, preventing migration to multiday.
+    /// Expected: canHaveTasksAssigned is true, allowing direct multiday ownership.
     @Test("Multiday period cannot have tasks assigned")
     func multidayCannotHaveTasksAssigned() {
-        #expect(Period.multiday.canHaveTasksAssigned == false)
+        #expect(Period.multiday.canHaveTasksAssigned == true)
     }
 
     /// Conditions: SpreadDataModel with multiday spread and aggregated entries.

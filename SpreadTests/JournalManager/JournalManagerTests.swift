@@ -171,9 +171,9 @@ struct JournalManagerTests {
         #expect(spreadData?.spread.id == spread.id)
     }
 
-    /// Conditions: Provide a multiday spread and tasks inside and outside its date range.
-    /// Expected: Spread data includes only tasks within the range.
-    @Test @MainActor func testMultidaySpreadAggregatesTasksByDateRange() async throws {
+    /// Conditions: Provide a multiday spread and direct multiday task assignments.
+    /// Expected: Spread data includes only tasks explicitly assigned to that spread.
+    @Test @MainActor func testMultidaySpreadAggregatesTasksByDirectAssignment() async throws {
         let calendar = Self.testCalendar
         let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 13))!
         let endDate = calendar.date(from: .init(year: 2026, month: 1, day: 19))!
@@ -185,7 +185,15 @@ struct JournalManagerTests {
         let inRangeTask = DataModel.Task(
             title: "In Range",
             date: Self.testDate,
-            period: .day
+            period: .multiday,
+            assignments: [
+                TaskAssignment(
+                    period: .multiday,
+                    date: multidaySpread.date,
+                    spreadID: multidaySpread.id,
+                    status: .open
+                )
+            ]
         )
         let outOfRangeDate = calendar.date(from: .init(year: 2026, month: 1, day: 25))!
         let outOfRangeTask = DataModel.Task(
@@ -208,9 +216,9 @@ struct JournalManagerTests {
         #expect(spreadData?.tasks.first?.id == inRangeTask.id)
     }
 
-    /// Conditions: Provide a multiday spread and notes inside and outside its date range.
-    /// Expected: Spread data includes only notes within the range.
-    @Test @MainActor func testMultidaySpreadAggregatesNotesByDateRange() async throws {
+    /// Conditions: Provide a multiday spread and direct multiday note assignments.
+    /// Expected: Spread data includes only notes explicitly assigned to that spread.
+    @Test @MainActor func testMultidaySpreadAggregatesNotesByDirectAssignment() async throws {
         let calendar = Self.testCalendar
         let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 13))!
         let endDate = calendar.date(from: .init(year: 2026, month: 1, day: 19))!
@@ -222,7 +230,15 @@ struct JournalManagerTests {
         let inRangeNote = DataModel.Note(
             title: "In Range",
             date: Self.testDate,
-            period: .day
+            period: .multiday,
+            assignments: [
+                NoteAssignment(
+                    period: .multiday,
+                    date: multidaySpread.date,
+                    spreadID: multidaySpread.id,
+                    status: .active
+                )
+            ]
         )
         let outOfRangeDate = calendar.date(from: .init(year: 2026, month: 1, day: 25))!
         let outOfRangeNote = DataModel.Note(

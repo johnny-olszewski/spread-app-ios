@@ -179,10 +179,10 @@ $$;
 
 
 --
--- Name: merge_note_assignment(uuid, uuid, uuid, uuid, text, date, text, timestamp with time zone, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+-- Name: merge_note_assignment(uuid, uuid, uuid, uuid, text, date, uuid, text, timestamp with time zone, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) RETURNS jsonb
+CREATE FUNCTION public.merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -194,26 +194,72 @@ BEGIN
     END IF;
 
     SELECT * INTO v_existing FROM note_assignments WHERE id = p_id AND user_id = p_user_id;
-    
+
     IF NOT FOUND THEN
-        INSERT INTO note_assignments (
-            id, user_id, device_id, note_id, period, date, status,
-            created_at, deleted_at, status_updated_at
-        ) VALUES (
-            p_id, p_user_id, p_device_id, p_note_id, p_period, p_date, p_status,
-            p_created_at, p_deleted_at, p_status_updated_at
-        )
-        RETURNING * INTO v_result;
+        SELECT * INTO v_existing
+        FROM note_assignments
+        WHERE user_id = p_user_id
+          AND note_id = p_note_id
+          AND (
+              (p_spread_id IS NOT NULL AND spread_id = p_spread_id)
+              OR (
+                  p_spread_id IS NULL
+                  AND spread_id IS NULL
+                  AND period = p_period
+                  AND date = p_date
+              )
+          )
+        ORDER BY CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END, created_at
+        LIMIT 1;
+    END IF;
+
+    IF NOT FOUND THEN
+        BEGIN
+            INSERT INTO note_assignments (
+                id, user_id, device_id, note_id, period, date, spread_id, status,
+                created_at, deleted_at, status_updated_at
+            ) VALUES (
+                p_id, p_user_id, p_device_id, p_note_id, p_period, p_date, p_spread_id, p_status,
+                p_created_at, p_deleted_at, p_status_updated_at
+            )
+            RETURNING * INTO v_result;
+        EXCEPTION
+            WHEN unique_violation THEN
+                SELECT * INTO v_existing
+                FROM note_assignments
+                WHERE user_id = p_user_id
+                  AND note_id = p_note_id
+                  AND (
+                      (p_spread_id IS NOT NULL AND spread_id = p_spread_id)
+                      OR (
+                          p_spread_id IS NULL
+                          AND spread_id IS NULL
+                          AND period = p_period
+                          AND date = p_date
+                      )
+                  )
+                ORDER BY CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END, created_at
+                LIMIT 1;
+
+                IF NOT FOUND THEN
+                    RAISE;
+                END IF;
+        END;
+
+        IF v_result IS NOT NULL THEN
+            RETURN to_jsonb(v_result);
+        END IF;
     ELSE
         IF p_deleted_at IS NOT NULL AND (v_existing.deleted_at IS NULL OR p_deleted_at > v_existing.deleted_at) THEN
             UPDATE note_assignments SET deleted_at = p_deleted_at, device_id = p_device_id
-            WHERE id = p_id RETURNING * INTO v_result;
+            WHERE id = v_existing.id RETURNING * INTO v_result;
         ELSE
             UPDATE note_assignments SET
                 device_id = p_device_id,
+                spread_id = COALESCE(v_existing.spread_id, p_spread_id),
                 status = CASE WHEN p_status_updated_at > v_existing.status_updated_at THEN p_status ELSE v_existing.status END,
                 status_updated_at = GREATEST(p_status_updated_at, v_existing.status_updated_at)
-            WHERE id = p_id RETURNING * INTO v_result;
+            WHERE id = v_existing.id RETURNING * INTO v_result;
         END IF;
     END IF;
     
@@ -400,10 +446,10 @@ $$;
 
 
 --
--- Name: merge_task_assignment(uuid, uuid, uuid, uuid, text, date, text, timestamp with time zone, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+-- Name: merge_task_assignment(uuid, uuid, uuid, uuid, text, date, uuid, text, timestamp with time zone, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) RETURNS jsonb
+CREATE FUNCTION public.merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -415,26 +461,72 @@ BEGIN
     END IF;
 
     SELECT * INTO v_existing FROM task_assignments WHERE id = p_id AND user_id = p_user_id;
-    
+
     IF NOT FOUND THEN
-        INSERT INTO task_assignments (
-            id, user_id, device_id, task_id, period, date, status,
-            created_at, deleted_at, status_updated_at
-        ) VALUES (
-            p_id, p_user_id, p_device_id, p_task_id, p_period, p_date, p_status,
-            p_created_at, p_deleted_at, p_status_updated_at
-        )
-        RETURNING * INTO v_result;
+        SELECT * INTO v_existing
+        FROM task_assignments
+        WHERE user_id = p_user_id
+          AND task_id = p_task_id
+          AND (
+              (p_spread_id IS NOT NULL AND spread_id = p_spread_id)
+              OR (
+                  p_spread_id IS NULL
+                  AND spread_id IS NULL
+                  AND period = p_period
+                  AND date = p_date
+              )
+          )
+        ORDER BY CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END, created_at
+        LIMIT 1;
+    END IF;
+
+    IF NOT FOUND THEN
+        BEGIN
+            INSERT INTO task_assignments (
+                id, user_id, device_id, task_id, period, date, spread_id, status,
+                created_at, deleted_at, status_updated_at
+            ) VALUES (
+                p_id, p_user_id, p_device_id, p_task_id, p_period, p_date, p_spread_id, p_status,
+                p_created_at, p_deleted_at, p_status_updated_at
+            )
+            RETURNING * INTO v_result;
+        EXCEPTION
+            WHEN unique_violation THEN
+                SELECT * INTO v_existing
+                FROM task_assignments
+                WHERE user_id = p_user_id
+                  AND task_id = p_task_id
+                  AND (
+                      (p_spread_id IS NOT NULL AND spread_id = p_spread_id)
+                      OR (
+                          p_spread_id IS NULL
+                          AND spread_id IS NULL
+                          AND period = p_period
+                          AND date = p_date
+                      )
+                  )
+                ORDER BY CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END, created_at
+                LIMIT 1;
+
+                IF NOT FOUND THEN
+                    RAISE;
+                END IF;
+        END;
+
+        IF v_result IS NOT NULL THEN
+            RETURN to_jsonb(v_result);
+        END IF;
     ELSE
         IF p_deleted_at IS NOT NULL AND (v_existing.deleted_at IS NULL OR p_deleted_at > v_existing.deleted_at) THEN
             UPDATE task_assignments SET deleted_at = p_deleted_at, device_id = p_device_id
-            WHERE id = p_id RETURNING * INTO v_result;
+            WHERE id = v_existing.id RETURNING * INTO v_result;
         ELSE
             UPDATE task_assignments SET
                 device_id = p_device_id,
+                spread_id = COALESCE(v_existing.spread_id, p_spread_id),
                 status = CASE WHEN p_status_updated_at > v_existing.status_updated_at THEN p_status ELSE v_existing.status END,
                 status_updated_at = GREATEST(p_status_updated_at, v_existing.status_updated_at)
-            WHERE id = p_id RETURNING * INTO v_result;
+            WHERE id = v_existing.id RETURNING * INTO v_result;
         END IF;
     END IF;
     
@@ -701,6 +793,7 @@ CREATE TABLE public.note_assignments (
     note_id uuid NOT NULL,
     period text NOT NULL,
     date date NOT NULL,
+    spread_id uuid,
     status text DEFAULT 'active'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -814,6 +907,7 @@ CREATE TABLE public.task_assignments (
     task_id uuid NOT NULL,
     period text NOT NULL,
     date date NOT NULL,
+    spread_id uuid,
     status text DEFAULT 'open'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -943,6 +1037,13 @@ CREATE INDEX note_assignments_note_id_idx ON public.note_assignments USING btree
 
 
 --
+-- Name: note_assignments_spread_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX note_assignments_spread_id_idx ON public.note_assignments USING btree (spread_id);
+
+
+--
 -- Name: note_assignments_user_deleted_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -953,7 +1054,14 @@ CREATE INDEX note_assignments_user_deleted_idx ON public.note_assignments USING 
 -- Name: note_assignments_user_note_period_date_unique; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX note_assignments_user_note_period_date_unique ON public.note_assignments USING btree (user_id, note_id, period, date) WHERE (deleted_at IS NULL);
+CREATE UNIQUE INDEX note_assignments_user_note_period_date_unique ON public.note_assignments USING btree (user_id, note_id, period, date) WHERE ((deleted_at IS NULL) AND (spread_id IS NULL));
+
+
+--
+-- Name: note_assignments_user_note_multiday_spread_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX note_assignments_user_note_multiday_spread_unique ON public.note_assignments USING btree (user_id, note_id, spread_id) WHERE ((deleted_at IS NULL) AND (spread_id IS NOT NULL));
 
 
 --
@@ -1027,6 +1135,13 @@ CREATE INDEX task_assignments_task_id_idx ON public.task_assignments USING btree
 
 
 --
+-- Name: task_assignments_spread_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX task_assignments_spread_id_idx ON public.task_assignments USING btree (spread_id);
+
+
+--
 -- Name: task_assignments_user_deleted_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1041,10 +1156,17 @@ CREATE INDEX task_assignments_user_revision_idx ON public.task_assignments USING
 
 
 --
+-- Name: task_assignments_user_task_multiday_spread_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX task_assignments_user_task_multiday_spread_unique ON public.task_assignments USING btree (user_id, task_id, spread_id) WHERE ((deleted_at IS NULL) AND (spread_id IS NOT NULL));
+
+
+--
 -- Name: task_assignments_user_task_period_date_unique; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX task_assignments_user_task_period_date_unique ON public.task_assignments USING btree (user_id, task_id, period, date) WHERE (deleted_at IS NULL);
+CREATE UNIQUE INDEX task_assignments_user_task_period_date_unique ON public.task_assignments USING btree (user_id, task_id, period, date) WHERE ((deleted_at IS NULL) AND (spread_id IS NULL));
 
 
 --
@@ -1119,11 +1241,27 @@ ALTER TABLE ONLY public.note_assignments
 
 
 --
+-- Name: note_assignments note_assignments_spread_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.note_assignments
+    ADD CONSTRAINT note_assignments_spread_id_fkey FOREIGN KEY (spread_id) REFERENCES public.spreads(id) ON DELETE SET NULL;
+
+
+--
 -- Name: task_assignments task_assignments_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.task_assignments
     ADD CONSTRAINT task_assignments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
+
+
+--
+-- Name: task_assignments task_assignments_spread_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.task_assignments
+    ADD CONSTRAINT task_assignments_spread_id_fkey FOREIGN KEY (spread_id) REFERENCES public.spreads(id) ON DELETE SET NULL;
 
 
 --
@@ -1412,12 +1550,12 @@ GRANT ALL ON FUNCTION public.merge_note(p_id uuid, p_user_id uuid, p_device_id u
 
 
 --
--- Name: FUNCTION merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
+-- Name: FUNCTION merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON FUNCTION public.merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO anon;
-GRANT ALL ON FUNCTION public.merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO authenticated;
-GRANT ALL ON FUNCTION public.merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO service_role;
+GRANT ALL ON FUNCTION public.merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO service_role;
 
 
 --
@@ -1448,12 +1586,12 @@ GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id u
 
 
 --
--- Name: FUNCTION merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
+-- Name: FUNCTION merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON FUNCTION public.merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO anon;
-GRANT ALL ON FUNCTION public.merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO authenticated;
-GRANT ALL ON FUNCTION public.merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO service_role;
+GRANT ALL ON FUNCTION public.merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO service_role;
 
 
 --

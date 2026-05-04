@@ -122,6 +122,7 @@ struct RemoteAssignmentRow: Decodable {
     let status: String
     let period: String
     let date: String
+    let spreadId: UUID?
     let deletedAt: Date?
 
     private enum CodingKeys: String, CodingKey {
@@ -129,6 +130,7 @@ struct RemoteAssignmentRow: Decodable {
         case status
         case period
         case date
+        case spreadId = "spread_id"
         case deletedAt = "deleted_at"
     }
 }
@@ -161,7 +163,7 @@ struct LocalSupabaseAdmin {
 
     func fetchTaskAssignments(taskId: UUID, userId: UUID) async throws -> [RemoteAssignmentRow] {
         try await client.from("task_assignments")
-            .select("id, status, period, date, deleted_at")
+            .select("id, status, period, date, spread_id, deleted_at")
             .eq("user_id", value: userId.uuidString)
             .eq("task_id", value: taskId.uuidString)
             .execute()

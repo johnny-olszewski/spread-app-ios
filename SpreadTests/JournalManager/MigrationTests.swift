@@ -353,9 +353,9 @@ struct MigrationTests {
         }
     }
 
-    /// Conditions: Attempt to migrate a task to a multiday spread.
-    /// Expected: Migration is rejected with an error.
-    @Test @MainActor func testMigrateTaskRejectsMigrationToMultidaySpread() async throws {
+    /// Conditions: Migrate a task from a standard spread to an explicit multiday spread.
+    /// Expected: Source assignment is migrated and the explicit multiday spread becomes the active destination.
+    @Test @MainActor func testMigrateTaskToMultidaySpread() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
         let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 13))!
@@ -384,9 +384,18 @@ struct MigrationTests {
             spreadRepository: spreadRepo
         )
 
-        await #expect(throws: MigrationError.self) {
-            try await manager.migrateTask(task, from: monthSpread, to: multidaySpread)
-        }
+        try await manager.migrateTask(task, from: monthSpread, to: multidaySpread)
+
+        let updatedTask = try #require(manager.tasks.first { $0.id == task.id })
+        #expect(updatedTask.assignments.contains {
+            $0.matches(period: .month, date: monthSpread.date, calendar: calendar) && $0.status == .migrated
+        })
+        #expect(updatedTask.assignments.contains {
+            $0.matches(spread: multidaySpread, calendar: calendar) &&
+            $0.spreadID == multidaySpread.id &&
+            $0.status == .open
+        })
+        #expect(manager.currentDestinationSpread(for: updatedTask) == multidaySpread)
     }
 
     /// Conditions: A task has multiple open assignments that match existing spreads.

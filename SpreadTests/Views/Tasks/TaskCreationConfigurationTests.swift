@@ -397,8 +397,8 @@ struct TaskCreationConfigurationTests {
     /// Tests default selection with a multiday spread selected.
     ///
     /// Condition: Multiday spread selected.
-    /// Expected: Defaults to day period (multiday can't have tasks assigned) and spread's start date.
-    @Test("Default selection with multiday spread uses day period and start date")
+    /// Expected: Uses the explicit multiday spread as the default destination.
+    @Test("Default selection with multiday spread uses multiday period and start date")
     @MainActor
     func testDefaultSelectionWithMultidaySpread() {
         let calendar = Self.makeCalendar()
@@ -410,23 +410,23 @@ struct TaskCreationConfigurationTests {
 
         let (period, date) = config.defaultSelection(from: spread)
 
-        #expect(period == .day)
+        #expect(period == .multiday)
         #expect(calendar.isDate(date, inSameDayAs: startDate))
     }
 
     // MARK: - Assignable Periods Tests
 
-    /// Tests that assignable periods are year, month, and day only.
+    /// Tests that assignable periods include multiday.
     ///
     /// Condition: Check assignablePeriods static property.
-    /// Expected: Contains year, month, day but not multiday.
-    @Test("Assignable periods are year, month, and day only")
+    /// Expected: Contains year, month, multiday, and day.
+    @Test("Assignable periods include multiday")
     func testAssignablePeriodsExcludeMultiday() {
         let periods = TaskCreationConfiguration.assignablePeriods
 
         #expect(periods.contains(.year))
         #expect(periods.contains(.month))
+        #expect(periods.contains(.multiday))
         #expect(periods.contains(.day))
-        #expect(!periods.contains(.multiday))
     }
 }

@@ -114,9 +114,9 @@ struct PeriodTests {
     }
 
     /// Conditions: Check if multiday period can have tasks assigned.
-    /// Expected: Should return false (tasks aggregate by date range, not assigned directly).
-    @Test func testMultidayCannotHaveTasksAssigned() {
-        #expect(Period.multiday.canHaveTasksAssigned == false)
+    /// Expected: Should return true because multiday spreads now support direct ownership.
+    @Test func testMultidayCanHaveTasksAssigned() {
+        #expect(Period.multiday.canHaveTasksAssigned == true)
     }
 
     // MARK: - Child Period Tests

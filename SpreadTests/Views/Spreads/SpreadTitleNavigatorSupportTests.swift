@@ -324,7 +324,8 @@ struct SpreadTitleNavigatorSupportTests {
             date: Self.makeDate(year: 2026, month: 4, day: 5),
             period: .day,
             hasPreferredAssignment: true,
-            status: .open
+            status: .open,
+            assignments: [TaskAssignment(period: .multiday, date: openPastMultiday.date, spreadID: openPastMultiday.id, status: .open)]
         )
         let stripModel = SpreadTitleNavigatorModel(
             headerModel: SpreadHeaderNavigatorModel(
@@ -506,23 +507,32 @@ struct SpreadTitleNavigatorSupportTests {
         let completeTask = DataModel.Task(
             title: "Complete only",
             date: Self.makeDate(year: 2026, month: 4, day: 5),
-            period: .day,
+            period: .multiday,
             hasPreferredAssignment: true,
-            status: .complete
+            status: .complete,
+            assignments: [
+                TaskAssignment(period: .multiday, date: completeOnlyMultiday.date, spreadID: completeOnlyMultiday.id, status: .complete)
+            ]
         )
         let cancelledTask = DataModel.Task(
             title: "Cancelled only",
             date: Self.makeDate(year: 2026, month: 4, day: 2),
-            period: .day,
+            period: .multiday,
             hasPreferredAssignment: true,
-            status: .cancelled
+            status: .cancelled,
+            assignments: [
+                TaskAssignment(period: .multiday, date: hiddenPastMultiday.date, spreadID: hiddenPastMultiday.id, status: .cancelled)
+            ]
         )
         let openTask = DataModel.Task(
             title: "Open",
             date: Self.makeDate(year: 2026, month: 4, day: 11),
-            period: .day,
+            period: .multiday,
             hasPreferredAssignment: true,
-            status: .open
+            status: .open,
+            assignments: [
+                TaskAssignment(period: .multiday, date: openPastMultiday.date, spreadID: openPastMultiday.id, status: .open)
+            ]
         )
         let stripModel = SpreadTitleNavigatorModel(
             headerModel: SpreadHeaderNavigatorModel(
@@ -875,13 +885,15 @@ struct SpreadTitleNavigatorSupportTests {
             title: "Inside A",
             date: Self.makeDate(year: 2026, month: 1, day: 10),
             period: .day,
-            status: .open
+            status: .open,
+            assignments: [TaskAssignment(period: .multiday, date: multiday.date, spreadID: multiday.id, status: .open)]
         )
         let taskB = DataModel.Task(
             title: "Inside B",
             date: Self.makeDate(year: 2026, month: 1, day: 12),
             period: .day,
-            status: .open
+            status: .open,
+            assignments: [TaskAssignment(period: .multiday, date: multiday.date, spreadID: multiday.id, status: .open)]
         )
         let outsideTask = DataModel.Task(
             title: "Outside",
