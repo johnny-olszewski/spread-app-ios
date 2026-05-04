@@ -10,6 +10,9 @@ struct MultidaySpreadContentView: View {
     var entryListConfiguration: EntryListConfiguration = .init(showsMigrationHistory: false)
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
 
+    @Environment(\.eventKitService) private var eventKitService
+    @State private var calendarEvents: [CalendarEvent] = []
+
     var body: some View {
         if let dataModel = spreadDataModel {
             EntryListView(
@@ -17,6 +20,7 @@ struct MultidaySpreadContentView: View {
                 calendar: journalManager.calendar,
                 today: journalManager.today,
                 configuration: entryListConfiguration,
+                calendarEvents: calendarEvents,
                 onEdit: { entry in
                     if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
                     else if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
@@ -60,6 +64,9 @@ struct MultidaySpreadContentView: View {
                 },
                 syncStatus: syncEngine?.status
             )
+            .task(id: spread.id) {
+                await fetchCalendarEvents()
+            }
         } else {
             ContentUnavailableView {
                 Label("No Data", systemImage: "tray")
@@ -67,5 +74,24 @@ struct MultidaySpreadContentView: View {
                 Text("Unable to load spread data.")
             }
         }
+    }
+
+    // MARK: - Private
+
+    private func fetchCalendarEvents() async {
+        guard let service = eventKitService,
+              let startDate = spread.startDate,
+              let endDate = spread.endDate else { return }
+        if service.authorizationStatus == .notDetermined {
+            _ = await service.requestAuthorization()
+        }
+        guard service.authorizationStatus == .authorized else {
+            calendarEvents = []
+            return
+        }
+        let cal = journalManager.calendar
+        let start = startDate.startOfDay(calendar: cal)
+        guard let end = cal.date(byAdding: .day, value: 1, to: endDate.startOfDay(calendar: cal)) else { return }
+        calendarEvents = service.fetchEvents(from: start, to: end)
     }
 }
