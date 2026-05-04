@@ -577,7 +577,7 @@ struct InboxTests {
     }
 
     /// Conditions: Inbox task and note dates fall within a new multiday spread's range.
-    /// Expected: Multiday creation remains aggregation-only and does not create direct assignments or remove Inbox entries.
+    /// Expected: Explicit multiday creation reconciles them into direct multiday ownership.
     @Test @MainActor func testAddMultidaySpreadDoesNotAutoAssignInboxEntries() async throws {
         let calendar = Self.testCalendar
         let entryDate = Self.testDate
@@ -604,11 +604,15 @@ struct InboxTests {
         let endDate = calendar.date(from: .init(year: 2026, month: 1, day: 19))!
         let multidaySpread = try await manager.addMultidaySpread(startDate: startDate, endDate: endDate)
 
-        #expect(manager.inboxEntries.count == 2)
+        #expect(manager.inboxEntries.isEmpty)
         let updatedTask = try #require(manager.tasks.first { $0.id == task.id })
         let updatedNote = try #require(manager.notes.first { $0.id == note.id })
-        #expect(updatedTask.assignments.isEmpty)
-        #expect(updatedNote.assignments.isEmpty)
+        #expect(updatedTask.assignments.count == 1)
+        #expect(updatedNote.assignments.count == 1)
+        #expect(updatedTask.assignments.first?.matches(spread: multidaySpread, calendar: calendar) == true)
+        #expect(updatedTask.assignments.first?.spreadID == multidaySpread.id)
+        #expect(updatedNote.assignments.first?.matches(spread: multidaySpread, calendar: calendar) == true)
+        #expect(updatedNote.assignments.first?.spreadID == multidaySpread.id)
         #expect(manager.dataModel[.multiday]?[multidaySpread.date]?.tasks.map(\.id) == [task.id])
         #expect(manager.dataModel[.multiday]?[multidaySpread.date]?.notes.map(\.id) == [note.id])
     }

@@ -187,12 +187,11 @@ struct NoteCreationConfigurationTests {
     // MARK: - Assignable Periods
 
     /// Condition: Request assignable periods.
-    /// Expected: Returns year, month, day (excludes multiday).
-    @Test("Assignable periods exclude multiday")
-    func testAssignablePeriodsExcludeMultiday() {
+    /// Expected: Returns year, month, multiday, day.
+    @Test("Assignable periods include multiday")
+    func testAssignablePeriodsIncludeMultiday() {
         let periods = NoteCreationConfiguration.assignablePeriods
 
-        #expect(periods == [.year, .month, .day])
-        #expect(!periods.contains(.multiday))
+        #expect(periods == [.year, .month, .multiday, .day])
     }
 }

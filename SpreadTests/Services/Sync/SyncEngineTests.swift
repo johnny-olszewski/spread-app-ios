@@ -646,6 +646,84 @@ struct SyncEngineTests {
         #expect(markers.first?.didBackfill == true)
     }
 
+    /// Conditions: Pull receives a multiday assignment row whose spread identity matches an existing
+    /// local assignment, but whose row ID differs and shares the same normalized date as another spread.
+    /// Expected: The matching multiday assignment updates in place by spread ID instead of replacing
+    /// the first assignment found at the same period/date.
+    @Test func pullMatchesMultidayAssignmentsBySpreadIdentity() async throws {
+        let taskID = UUID(uuidString: "00000000-0000-0000-0000-000000193301")!
+        let replacementAssignmentID = UUID(uuidString: "00000000-0000-0000-0000-000000193302")!
+        let leftSpreadID = UUID(uuidString: "00000000-0000-0000-0000-000000193303")!
+        let rightSpreadID = UUID(uuidString: "00000000-0000-0000-0000-000000193304")!
+        let sharedDate = SyncDateFormatting.parseDate("2026-05-03")!
+
+        let (engine, container, _, _) = try makeEngine(
+            serverRowsFetcher: { entityType, _, _ in
+                switch entityType {
+                case .taskAssignment:
+                    return ([
+                        [
+                            "id": replacementAssignmentID.uuidString,
+                            "task_id": taskID.uuidString,
+                            "period": "multiday",
+                            "date": "2026-05-03",
+                            "spread_id": rightSpreadID.uuidString,
+                            "status": "open",
+                            "created_at": "2026-05-03T10:00:00.000Z",
+                            "deleted_at": NSNull(),
+                            "revision": 1
+                        ]
+                    ], 1)
+                default:
+                    return ([], 0)
+                }
+            },
+            mergeRPCCaller: { _, _ in }
+        )
+
+        let task = DataModel.Task(
+            id: taskID,
+            title: "Multiday identity task",
+            assignments: [
+                TaskAssignment(
+                    id: UUID(uuidString: "00000000-0000-0000-0000-000000193305")!,
+                    period: .multiday,
+                    date: sharedDate,
+                    spreadID: leftSpreadID,
+                    status: .open
+                ),
+                TaskAssignment(
+                    id: UUID(uuidString: "00000000-0000-0000-0000-000000193306")!,
+                    period: .multiday,
+                    date: sharedDate,
+                    spreadID: rightSpreadID,
+                    status: .migrated
+                )
+            ]
+        )
+        container.mainContext.insert(task)
+        try container.mainContext.save()
+
+        await engine.syncNow()
+
+        let descriptor = FetchDescriptor<DataModel.Task>(
+            predicate: #Predicate { $0.id == taskID }
+        )
+        let updatedTask = try #require(container.mainContext.fetch(descriptor).first)
+
+        #expect(updatedTask.assignments.count == 2)
+        #expect(updatedTask.assignments.contains {
+            $0.spreadID == leftSpreadID &&
+            $0.id.uuidString == "00000000-0000-0000-0000-000000193305" &&
+            $0.status == .open
+        })
+        #expect(updatedTask.assignments.contains {
+            $0.spreadID == rightSpreadID &&
+            $0.id == replacementAssignmentID &&
+            $0.status == .open
+        })
+    }
+
     // MARK: - Network Monitor Integration
 
     /// Conditions: Sync is disabled.

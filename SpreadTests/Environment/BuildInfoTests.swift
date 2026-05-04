@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Spread
 
@@ -24,16 +25,16 @@ struct BuildInfoTests {
     /// Conditions: Tests run under any shared app scheme.
     /// Expected: configurationName reflects the active Debug, QA, or Release build configuration.
     @Test func testConfigurationNameMatchesActiveBuildConfiguration() {
+        // configurationName is determined at runtime from the app bundle identifier.
+        // DEBUG is defined in both Debug and QA configurations, so we check the bundle
+        // suffix to distinguish them rather than relying on the compile-time flag alone.
         let expectedConfigurationName: String
-
         #if DEBUG
-        expectedConfigurationName = "Debug"
+        let appBundleID = Bundle(for: SyncEngine.self).bundleIdentifier ?? ""
+        expectedConfigurationName = appBundleID.hasSuffix(".qa") ? "QA" : "Debug"
         #else
-        expectedConfigurationName = BuildInfo.defaultDataEnvironment == .production
-            ? "Release"
-            : "QA"
+        expectedConfigurationName = "Release"
         #endif
-
         #expect(BuildInfo.configurationName == expectedConfigurationName)
     }
 

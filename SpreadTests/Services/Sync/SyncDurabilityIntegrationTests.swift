@@ -152,7 +152,7 @@ final class SyncDurabilityIntegrationTests: XCTestCase {
         XCTAssertEqual(status(for: rebuiltTask, period: .year, date: yearSpread.date), .migrated)
         XCTAssertEqual(status(for: rebuiltTask, period: .month, date: monthSpread.date), .open)
         XCTAssertTrue(rebuiltMonth.tasks.contains { $0.id == task.id })
-        XCTAssertTrue(rebuiltYear.tasks.contains { $0.id == task.id })
+        XCTAssertFalse(rebuiltYear.tasks.contains { $0.id == task.id })
     }
 
     /// Setup: Reassign a task by editing its preferred date/period, sync it, then rebuild a clean second client.
@@ -176,7 +176,7 @@ final class SyncDurabilityIntegrationTests: XCTestCase {
 
         XCTAssertEqual(status(for: rebuiltTask, period: .month, date: monthSpread.date), .migrated)
         XCTAssertEqual(status(for: rebuiltTask, period: .day, date: daySpread.date), .open)
-        XCTAssertTrue(rebuiltMonth.tasks.contains { $0.id == task.id })
+        XCTAssertFalse(rebuiltMonth.tasks.contains { $0.id == task.id })
         XCTAssertTrue(rebuiltDay.tasks.contains { $0.id == task.id })
     }
 

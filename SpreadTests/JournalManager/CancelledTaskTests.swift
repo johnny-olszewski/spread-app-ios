@@ -164,9 +164,16 @@ struct CancelledTaskTests {
         let cancelledTask = DataModel.Task(
             title: "Cancelled Task in Range",
             date: taskDate,
-            period: .day,
+            period: .multiday,
             status: .cancelled,
-            assignments: []
+            assignments: [
+                TaskAssignment(
+                    period: .multiday,
+                    date: multidaySpread.date,
+                    spreadID: multidaySpread.id,
+                    status: .cancelled
+                )
+            ]
         )
 
         let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])

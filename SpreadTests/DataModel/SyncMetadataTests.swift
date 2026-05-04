@@ -585,11 +585,13 @@ struct SyncMetadataTests {
         let modelTimestamp = SyncDateFormatting.parseTimestamp("2025-01-01T00:00:00.000Z")!
         let fallbackTimestamp = SyncDateFormatting.parseTimestamp("2025-12-31T23:59:59.000Z")!
         let assignmentID = UUID()
+        let spreadID = UUID()
 
         let assignment = TaskAssignment(
             id: assignmentID,
             period: .day,
             date: referenceDate,
+            spreadID: spreadID,
             status: .open,
             statusUpdatedAt: modelTimestamp
         )
@@ -601,6 +603,7 @@ struct SyncMetadataTests {
 
         let expectedTs = SyncDateFormatting.formatTimestamp(modelTimestamp)
         #expect(json["id"] as? String == assignmentID.uuidString)
+        #expect(json["spread_id"] as? String == spreadID.uuidString)
         #expect(json["status_updated_at"] as? String == expectedTs)
     }
 
@@ -610,11 +613,13 @@ struct SyncMetadataTests {
         let modelTimestamp = SyncDateFormatting.parseTimestamp("2025-01-01T00:00:00.000Z")!
         let fallbackTimestamp = SyncDateFormatting.parseTimestamp("2025-12-31T23:59:59.000Z")!
         let assignmentID = UUID()
+        let spreadID = UUID()
 
         let assignment = NoteAssignment(
             id: assignmentID,
             period: .day,
             date: referenceDate,
+            spreadID: spreadID,
             status: .active,
             statusUpdatedAt: modelTimestamp
         )
@@ -626,6 +631,7 @@ struct SyncMetadataTests {
 
         let expectedTs = SyncDateFormatting.formatTimestamp(modelTimestamp)
         #expect(json["id"] as? String == assignmentID.uuidString)
+        #expect(json["spread_id"] as? String == spreadID.uuidString)
         #expect(json["status_updated_at"] as? String == expectedTs)
     }
 

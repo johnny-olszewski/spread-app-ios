@@ -97,6 +97,20 @@ struct SyncSerializerTests {
         #expect(result?.params is MergeTaskAssignmentParams)
     }
 
+    @Test func testBuildMergeParamsForMultidayTaskAssignmentPreservesSpreadID() throws {
+        let spreadID = UUID()
+        let record = makeTaskAssignmentRecord(spreadID: spreadID)
+
+        let result = SyncSerializer.buildMergeParams(
+            entityType: .taskAssignment,
+            recordData: record,
+            userId: UUID()
+        )
+
+        let params = try #require(result?.params as? MergeTaskAssignmentParams)
+        #expect(params.pSpreadId == spreadID.uuidString)
+    }
+
     /// Conditions: Invalid JSON data.
     /// Expected: Should return nil.
     @Test func testBuildMergeParamsReturnsNilForInvalidData() {
@@ -351,6 +365,25 @@ struct SyncSerializerTests {
         #expect(assignment?.status == .open)
     }
 
+    @Test func testCreateTaskAssignmentFromMultidayRowPreservesSpreadIdentity() {
+        let spreadID = UUID()
+        let row = ServerTaskAssignmentRow(
+            id: UUID(),
+            taskId: UUID(),
+            period: "multiday",
+            date: "2025-03-15",
+            spreadId: spreadID,
+            status: "open",
+            createdAt: "2025-03-15T10:00:00.000Z",
+            deletedAt: nil,
+            revision: 1
+        )
+
+        let assignment = SyncSerializer.createTaskAssignment(from: row)
+
+        #expect(assignment?.spreadID == spreadID)
+    }
+
     /// Conditions: Server task assignment row with deletedAt set.
     /// Expected: Should return nil.
     @Test func testCreateTaskAssignmentReturnsNilForDeletedRow() {
@@ -381,6 +414,25 @@ struct SyncSerializerTests {
         #expect(assignment != nil)
         #expect(assignment?.id == rowID)
         #expect(assignment?.period == .month)
+    }
+
+    @Test func testCreateNoteAssignmentFromMultidayRowPreservesSpreadIdentity() {
+        let spreadID = UUID()
+        let row = ServerNoteAssignmentRow(
+            id: UUID(),
+            noteId: UUID(),
+            period: "multiday",
+            date: "2025-06-01",
+            spreadId: spreadID,
+            status: "active",
+            createdAt: "2025-06-01T08:00:00.000Z",
+            deletedAt: nil,
+            revision: 3
+        )
+
+        let assignment = SyncSerializer.createNoteAssignment(from: row)
+
+        #expect(assignment?.spreadID == spreadID)
     }
 
     // MARK: - Apply Rows
@@ -514,7 +566,7 @@ struct SyncSerializerTests {
         return try! JSONSerialization.data(withJSONObject: record)
     }
 
-    private func makeTaskAssignmentRecord() -> Data {
+    private func makeTaskAssignmentRecord(spreadID: UUID? = nil) -> Data {
         let ts = SyncDateFormatting.formatTimestamp(.now)
         let record: [String: Any] = [
             "id": UUID().uuidString,
@@ -522,6 +574,7 @@ struct SyncSerializerTests {
             "task_id": UUID().uuidString,
             "period": "day",
             "date": "2025-03-15",
+            "spread_id": spreadID?.uuidString ?? NSNull(),
             "status": "open",
             "created_at": ts,
             "deleted_at": NSNull(),

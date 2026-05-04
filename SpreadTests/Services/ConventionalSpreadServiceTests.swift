@@ -175,9 +175,9 @@ struct ConventionalSpreadServiceTests {
         #expect(result == nil)
     }
 
-    /// Conditions: Only a multiday spread exists for a task date.
-    /// Expected: Service returns nil.
-    @Test func testTaskReturnsNilWhenOnlyMultidaySpreadExists() {
+    /// Conditions: Only a multiday spread exists for a day task date.
+    /// Expected: Service falls back to the containing multiday spread.
+    @Test func testTaskFallsBackToContainingMultidaySpread() {
         let service = Self.makeService()
         let calendar = Self.testCalendar
         let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 13))!
@@ -187,7 +187,7 @@ struct ConventionalSpreadServiceTests {
 
         let result = service.findBestSpread(for: task, in: [multidaySpread])
 
-        #expect(result == nil)
+        #expect(result?.id == multidaySpread.id)
     }
 
     // MARK: - Task Assignment: Multiday Skipped Tests

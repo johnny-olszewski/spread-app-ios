@@ -411,8 +411,8 @@ struct SpreadCreationSheetTests {
     }
 
     /// Conditions: Editing one multiday spread to partially overlap another spread without exact range equality.
-    /// Expected: Validation allows the partial overlap.
-    @Test func testEditDatesAllowsPartialOverlap() {
+    /// Expected: Validation rejects the overlap.
+    @Test func testEditDatesRejectsPartialOverlap() {
         let editedStart = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 18))!
         let editedEnd = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 24))!
         let otherStart = Self.testCalendar.date(from: .init(year: 2026, month: 1, day: 25))!
@@ -429,7 +429,8 @@ struct SpreadCreationSheetTests {
             ignoringSpreadID: editedSpread.id
         )
 
-        #expect(result.isValid)
+        #expect(!result.isValid)
+        #expect(result.error == .overlap)
     }
 
     /// Conditions: Edited start/end dates match the original multiday range after day normalization.
