@@ -6,9 +6,10 @@ import JohnnyOFoundationUI
 /// On iPhone (compact width) the layout is vertical: an optional fixed-height timeline card
 /// appears above the scrollable entry list when events are present.
 ///
-/// On iPad (regular width) the layout switches to a horizontal unified-scroll design when
-/// events are present: a tall `DayTimelineView` column sits to the leading edge, and the entry
-/// list fills the remaining width. Both scroll together inside a single `ScrollView`.
+/// On iPad (regular width) the layout is horizontal when events are present: a full-height
+/// timeline card sits on the leading edge with its own independent scroll, and the entry list
+/// fills the remaining width with its own independent scroll. The two columns size their
+/// heights to fill the available screen area and never scroll together.
 struct DaySpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
@@ -30,9 +31,14 @@ struct DaySpreadContentView: View {
 
     /// Height of the timeline card on iPhone (compressed smart window).
     private let iPhoneTimelineHeight: CGFloat = 240
-    /// Height of the timeline column on iPad (taller, designed for unified scroll).
-    private let iPadTimelineHeight: CGFloat = 600
-    /// Fixed width of the timeline column in the iPad horizontal layout.
+
+    /// Scrollable content height for the iPad timeline card.
+    ///
+    /// At 1000pt for a 6 AM–10 PM window (~62 pt/hour) this always exceeds the
+    /// available card height on any iPad size, so the card is always scrollable.
+    private let iPadTimelineHeight: CGFloat = 1000
+
+    /// Fixed width of the timeline card in the iPad horizontal layout.
     private let iPadTimelineWidth: CGFloat = 200
 
     // MARK: - Derived
@@ -70,8 +76,11 @@ struct DaySpreadContentView: View {
 
     // MARK: - Layout variants
 
-    /// iPad: a single `ScrollView` with a timeline column on the leading edge and entries
-    /// filling the remaining width. Both columns scroll as one unit.
+    /// iPad: full-height side-by-side layout.
+    ///
+    /// Leading: a card containing a `ScrollView` with `DayTimelineView` — the card
+    /// fills the available height and its content scrolls independently.
+    /// Trailing: `EntryListView` using its own `List` scroll, also filling available height.
     private func iPadLayout(dataModel: SpreadDataModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             if let message = autoMigrationFeedback?.message {
@@ -80,24 +89,11 @@ struct DaySpreadContentView: View {
                     .padding(.top, 8)
             }
 
-            ScrollView {
-                HStack(alignment: .top, spacing: 0) {
-                    DayTimelineView(
-                        provider: SpreadDayTimelineProvider(),
-                        items: calendarEvents,
-                        date: spread.date,
-                        height: iPadTimelineHeight,
-                        calendar: journalManager.calendar
-                    )
-                    .frame(width: iPadTimelineWidth)
-                    .padding(.top, 12)
-                    .padding(.horizontal, 8)
-
-                    Divider()
-
-                    entryListView(dataModel: dataModel, isEmbedded: true)
-                }
+            HStack(alignment: .top, spacing: 0) {
+                timelineCard
+                entryListView(dataModel: dataModel)
             }
+            .frame(maxHeight: .infinity)
         }
         .task(id: spread.id) {
             await fetchCalendarEvents()
@@ -126,17 +122,48 @@ struct DaySpreadContentView: View {
                 .padding(.bottom, 4)
             }
 
-            entryListView(dataModel: dataModel, isEmbedded: false)
+            entryListView(dataModel: dataModel)
         }
         .task(id: spread.id) {
             await fetchCalendarEvents()
         }
     }
 
-    // MARK: - Shared subviews
+    // MARK: - Subviews
+
+    /// Full-height timeline card for the iPad layout.
+    ///
+    /// The card has a secondary-background fill and a continuous rounded border matching
+    /// the app's established card style. Its `ScrollView` lets the user scroll through the
+    /// full day independently of the entry list.
+    private var timelineCard: some View {
+        ScrollView {
+            DayTimelineView(
+                provider: SpreadDayTimelineProvider(),
+                items: calendarEvents,
+                date: spread.date,
+                height: iPadTimelineHeight,
+                calendar: journalManager.calendar
+            )
+            .padding(12)
+        }
+        .frame(width: iPadTimelineWidth)
+        .frame(maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color(uiColor: .separator).opacity(0.5), lineWidth: 0.5)
+        )
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .padding(.vertical, 12)
+    }
 
     /// Builds the `EntryListView` with all current callbacks wired up.
-    private func entryListView(dataModel: SpreadDataModel, isEmbedded: Bool) -> some View {
+    private func entryListView(dataModel: SpreadDataModel) -> some View {
         EntryListView(
             spreadDataModel: dataModel,
             calendar: journalManager.calendar,
@@ -188,8 +215,7 @@ struct DaySpreadContentView: View {
                 guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
                 await engine.syncNow()
             },
-            syncStatus: syncEngine?.status,
-            isEmbedded: isEmbedded
+            syncStatus: syncEngine?.status
         )
     }
 
