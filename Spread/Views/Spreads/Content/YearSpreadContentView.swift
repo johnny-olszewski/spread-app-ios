@@ -14,11 +14,17 @@ private enum YearSpreadContentLayout {
 /// Renders the dedicated year surface: one top year-entry section plus month cards.
 struct YearSpreadContentView: View {
 
-    private struct PendingSourceMigration: Identifiable {
-        let task: DataModel.Task
-        let destination: DataModel.Spread
+    // MARK: - ViewModel
 
-        var id: UUID { task.id }
+    @Observable @MainActor final class ViewModel {
+        struct PendingSourceMigration: Identifiable {
+            let task: DataModel.Task
+            let destination: DataModel.Spread
+
+            var id: UUID { task.id }
+        }
+
+        var pendingSourceMigration: PendingSourceMigration?
     }
 
     let spread: DataModel.Spread
@@ -30,7 +36,7 @@ struct YearSpreadContentView: View {
     var migrationConfiguration: EntryListMigrationConfiguration? = nil
     var onOpenMigratedTask: ((DataModel.Task) -> Void)? = nil
 
-    @State private var pendingSourceMigration: PendingSourceMigration?
+    @State private var contentViewModel = ViewModel()
 
     private var calendar: Calendar {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
@@ -45,6 +51,7 @@ struct YearSpreadContentView: View {
     }
 
     var body: some View {
+        @Bindable var contentViewModel = contentViewModel
         if let dataModel = spreadDataModel {
             let contentModel = YearSpreadContentSupport.model(
                 for: spread,
@@ -71,7 +78,7 @@ struct YearSpreadContentView: View {
                 .padding(.top, Layout.contentPadding)
                 .padding(.bottom, Layout.sectionSpacing)
             }
-            .alert(item: $pendingSourceMigration) { migration in
+            .alert(item: $contentViewModel.pendingSourceMigration) { migration in
                 Alert(
                     title: Text("Migrate Task"),
                     message: Text("Move \"\(migration.task.title)\" to \(spreadTitle(for: migration.destination))?"),
@@ -252,7 +259,7 @@ struct YearSpreadContentView: View {
             } : nil,
             onMigrate: task.status == .open ? sourceMigrationDestination.map { destination in
                 {
-                    pendingSourceMigration = PendingSourceMigration(task: task, destination: destination)
+                    contentViewModel.pendingSourceMigration = ViewModel.PendingSourceMigration(task: task, destination: destination)
                 }
             } : nil,
             onEdit: {
@@ -277,7 +284,7 @@ struct YearSpreadContentView: View {
                     systemImage: "arrow.right",
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.Migration.sourceButton(task.title),
                     action: {
-                        pendingSourceMigration = PendingSourceMigration(task: task, destination: destination)
+                        contentViewModel.pendingSourceMigration = ViewModel.PendingSourceMigration(task: task, destination: destination)
                     }
                 )
             } : nil

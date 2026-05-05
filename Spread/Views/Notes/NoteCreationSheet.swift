@@ -10,6 +10,43 @@ import SwiftUI
 /// - Inline validation with Create button visibility rules
 struct NoteCreationSheet: View {
 
+    // MARK: - ViewModel
+
+    @Observable @MainActor final class ViewModel {
+        var presentedTemporalContext: PresentedTemporalContext
+        var title: String = ""
+        var content: String = ""
+        var selectedPeriod: Period
+        var selectedDate: Date
+        var selectedSpreadID: UUID?
+        var hasEditedTitle = false
+        var showValidationErrors = false
+        var isCreating = false
+        var titleError: NoteCreationError?
+        var dateError: NoteCreationError?
+        var isShowingSpreadPicker = false
+
+        init(journalManager: JournalManager, selectedSpread: DataModel.Spread?) {
+            let context = PresentedTemporalContext(journalManager: journalManager)
+            presentedTemporalContext = context
+
+            let configuration = NoteCreationConfiguration(
+                calendar: context.calendar,
+                today: context.today
+            )
+            let defaults = configuration.defaultSelection(from: selectedSpread)
+            let minimumDate = configuration.minimumDate(for: defaults.period)
+            let normalizedDate = defaults.period.normalizeDate(defaults.date, calendar: context.calendar)
+            selectedPeriod = defaults.period
+            if defaults.period == .multiday {
+                selectedDate = normalizedDate
+            } else {
+                selectedDate = normalizedDate < minimumDate ? minimumDate : normalizedDate
+            }
+            selectedSpreadID = selectedSpread?.period == .multiday ? selectedSpread?.id : nil
+        }
+    }
+
     // MARK: - Environment
 
     @Environment(\.dismiss) private var dismiss
@@ -27,18 +64,7 @@ struct NoteCreationSheet: View {
 
     // MARK: - State
 
-    @State private var presentedTemporalContext: PresentedTemporalContext
-    @State private var title: String = ""
-    @State private var content: String = ""
-    @State private var selectedPeriod: Period = .day
-    @State private var selectedDate: Date = Date()
-    @State private var selectedSpreadID: UUID?
-    @State private var hasEditedTitle = false
-    @State private var showValidationErrors = false
-    @State private var isCreating = false
-    @State private var titleError: NoteCreationError?
-    @State private var dateError: NoteCreationError?
-    @State private var isShowingSpreadPicker = false
+    @State private var viewModel: ViewModel
     @FocusState private var isTitleFocused: Bool
 
     init(
@@ -49,31 +75,15 @@ struct NoteCreationSheet: View {
         self.journalManager = journalManager
         self.selectedSpread = selectedSpread
         self.onNoteCreated = onNoteCreated
-        let presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
-        _presentedTemporalContext = State(initialValue: presentedTemporalContext)
-
-        let configuration = NoteCreationConfiguration(
-            calendar: presentedTemporalContext.calendar,
-            today: presentedTemporalContext.today
-        )
-        let defaults = configuration.defaultSelection(from: selectedSpread)
-        let minimumDate = configuration.minimumDate(for: defaults.period)
-        let normalizedDate = defaults.period.normalizeDate(defaults.date, calendar: presentedTemporalContext.calendar)
-        _selectedPeriod = State(initialValue: defaults.period)
-        if defaults.period == .multiday {
-            _selectedDate = State(initialValue: normalizedDate)
-        } else {
-            _selectedDate = State(initialValue: normalizedDate < minimumDate ? minimumDate : normalizedDate)
-        }
-        _selectedSpreadID = State(initialValue: selectedSpread?.period == .multiday ? selectedSpread?.id : nil)
+        _viewModel = State(initialValue: ViewModel(journalManager: journalManager, selectedSpread: selectedSpread))
     }
 
     // MARK: - Computed Properties
 
     private var configuration: NoteCreationConfiguration {
         NoteCreationConfiguration(
-            calendar: presentedTemporalContext.calendar,
-            today: presentedTemporalContext.today
+            calendar: viewModel.presentedTemporalContext.calendar,
+            today: viewModel.presentedTemporalContext.today
         )
     }
 
@@ -81,22 +91,13 @@ struct NoteCreationSheet: View {
     ///
     /// Hidden until title is edited once; then always visible.
     private var isCreateButtonVisible: Bool {
-        hasEditedTitle
-    }
-
-    /// Whether the form has any validation errors.
-    private var hasValidationErrors: Bool {
-        let result = configuration.validate(
-            title: title,
-            period: selectedPeriod,
-            date: selectedDate
-        )
-        return !result.isValid
+        viewModel.hasEditedTitle
     }
 
     // MARK: - Body
 
     var body: some View {
+        @Bindable var viewModel = viewModel
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -113,16 +114,16 @@ struct NoteCreationSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .sheet(isPresented: $isShowingSpreadPicker) {
+            .sheet(isPresented: $viewModel.isShowingSpreadPicker) {
                 SpreadPickerView(
                     spreads: journalManager.spreads,
-                    calendar: presentedTemporalContext.calendar,
-                    today: presentedTemporalContext.today,
-                    focusDate: selectedDate,
+                    calendar: viewModel.presentedTemporalContext.calendar,
+                    today: viewModel.presentedTemporalContext.today,
+                    focusDate: viewModel.selectedDate,
                     onSpreadSelected: { selection in
-                        selectedPeriod = selection.period
-                        selectedDate = selection.date
-                        selectedSpreadID = selection.spreadID
+                        viewModel.selectedPeriod = selection.period
+                        viewModel.selectedDate = selection.date
+                        viewModel.selectedSpreadID = selection.spreadID
                         clearDateError()
                     },
                     onChooseCustomDate: {}
@@ -142,15 +143,15 @@ struct NoteCreationSheet: View {
                         Button("Create") {
                             attemptCreate()
                         }
-                        .disabled(isCreating)
+                        .disabled(viewModel.isCreating)
                         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteCreationSheet.createButton)
                     }
                 }
             }
             .onAppear { isTitleFocused = true }
-            .onChange(of: selectedPeriod) { _, newPeriod in
+            .onChange(of: viewModel.selectedPeriod) { _, newPeriod in
                 if newPeriod != .multiday {
-                    selectedSpreadID = nil
+                    viewModel.selectedSpreadID = nil
                 }
                 adjustDateForPeriod(newPeriod)
                 clearDateError()
@@ -158,8 +159,8 @@ struct NoteCreationSheet: View {
         }
         .localhostTemporalHarness(
             presentedDiagnostics: LocalhostTemporalHarnessPresentedDiagnostics(
-                calendarIdentifier: presentedTemporalContext.calendar.identifier,
-                today: presentedTemporalContext.today
+                calendarIdentifier: viewModel.presentedTemporalContext.calendar.identifier,
+                today: viewModel.presentedTemporalContext.today
             )
         )
     }
@@ -169,17 +170,17 @@ struct NoteCreationSheet: View {
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Title")
-            TextField("Note title", text: $title)
+            TextField("Note title", text: $viewModel.title)
                 .focused($isTitleFocused)
-                .onChange(of: title) { _, _ in
-                    if !hasEditedTitle {
-                        hasEditedTitle = true
+                .onChange(of: viewModel.title) { _, _ in
+                    if !viewModel.hasEditedTitle {
+                        viewModel.hasEditedTitle = true
                     }
                     clearTitleError()
                 }
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteCreationSheet.titleField)
 
-            if showValidationErrors, let error = titleError {
+            if viewModel.showValidationErrors, let error = viewModel.titleError {
                 validationErrorRow(message: error.message)
             }
         }
@@ -188,7 +189,7 @@ struct NoteCreationSheet: View {
     private var contentSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Content")
-            TextEditor(text: $content)
+            TextEditor(text: $viewModel.content)
                 .frame(minHeight: 100)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
@@ -206,7 +207,7 @@ struct NoteCreationSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Spread")
             Button {
-                isShowingSpreadPicker = true
+                viewModel.isShowingSpreadPicker = true
             } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -229,7 +230,7 @@ struct NoteCreationSheet: View {
     private var periodSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Period")
-            Picker("Period", selection: $selectedPeriod) {
+            Picker("Period", selection: $viewModel.selectedPeriod) {
                 ForEach(NoteCreationConfiguration.assignablePeriods, id: \.self) { period in
                     Text(period.displayName)
                         .tag(period)
@@ -252,16 +253,16 @@ struct NoteCreationSheet: View {
     private var dateSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Date")
-            if selectedPeriod == .multiday {
+            if viewModel.selectedPeriod == .multiday {
                 Text(selectedMultidaySummary)
                     .font(.subheadline)
-                    .foregroundStyle(selectedSpreadID == nil ? .secondary : .primary)
+                    .foregroundStyle(viewModel.selectedSpreadID == nil ? .secondary : .primary)
             } else {
                 PeriodDatePicker(
-                    period: selectedPeriod,
-                    selectedDate: $selectedDate,
-                    calendar: presentedTemporalContext.calendar,
-                    today: presentedTemporalContext.today,
+                    period: viewModel.selectedPeriod,
+                    selectedDate: $viewModel.selectedDate,
+                    calendar: viewModel.presentedTemporalContext.calendar,
+                    today: viewModel.presentedTemporalContext.today,
                     minimumDate: configuration.minimumDate(for: .day),
                     maximumDate: configuration.maximumDate,
                     accessibilityIdentifiers: .init(
@@ -273,7 +274,7 @@ struct NoteCreationSheet: View {
                 )
             }
 
-            if showValidationErrors, let error = dateError {
+            if viewModel.showValidationErrors, let error = viewModel.dateError {
                 validationErrorRow(message: error.message)
             }
         }
@@ -303,7 +304,7 @@ struct NoteCreationSheet: View {
     // MARK: - Period Description
 
     private var periodDescription: String {
-        switch selectedPeriod {
+        switch viewModel.selectedPeriod {
         case .year:
             return "Note will be assigned to a year spread"
         case .month:
@@ -320,54 +321,54 @@ struct NoteCreationSheet: View {
     private func adjustDateForPeriod(_ period: Period) {
         guard period != .multiday else { return }
         let minDate = configuration.minimumDate(for: period)
-        let normalizedSelected = period.normalizeDate(selectedDate, calendar: presentedTemporalContext.calendar)
+        let normalizedSelected = period.normalizeDate(viewModel.selectedDate, calendar: viewModel.presentedTemporalContext.calendar)
 
         if normalizedSelected < minDate {
-            selectedDate = minDate
+            viewModel.selectedDate = minDate
         }
     }
 
     private var selectedMultidaySummary: String {
-        guard let spreadID = selectedSpreadID,
+        guard let spreadID = viewModel.selectedSpreadID,
               let spread = journalManager.spreads.first(where: { $0.id == spreadID }) else {
             return "Select an existing multiday spread above"
         }
 
         return SpreadPickerConfiguration(
             spreads: journalManager.spreads,
-            calendar: presentedTemporalContext.calendar,
-            today: presentedTemporalContext.today
+            calendar: viewModel.presentedTemporalContext.calendar,
+            today: viewModel.presentedTemporalContext.today
         )
         .displayLabel(for: spread)
     }
 
     private func clearTitleError() {
-        if showValidationErrors {
-            titleError = nil
+        if viewModel.showValidationErrors {
+            viewModel.titleError = nil
         }
     }
 
     private func clearDateError() {
-        if showValidationErrors {
-            dateError = nil
+        if viewModel.showValidationErrors {
+            viewModel.dateError = nil
         }
     }
 
     private func attemptCreate() {
-        let titleResult = configuration.validateTitle(title)
+        let titleResult = configuration.validateTitle(viewModel.title)
         let dateResult: NoteCreationResult
-        if selectedPeriod == .multiday && selectedSpreadID == nil {
+        if viewModel.selectedPeriod == .multiday && viewModel.selectedSpreadID == nil {
             dateResult = .invalid(.missingMultidaySpread)
-        } else if selectedPeriod == .multiday {
+        } else if viewModel.selectedPeriod == .multiday {
             dateResult = .valid
         } else {
-            dateResult = configuration.validateDate(period: selectedPeriod, date: selectedDate)
+            dateResult = configuration.validateDate(period: viewModel.selectedPeriod, date: viewModel.selectedDate)
         }
 
         if !titleResult.isValid || !dateResult.isValid {
-            showValidationErrors = true
-            titleError = titleResult.error
-            dateError = dateResult.error
+            viewModel.showValidationErrors = true
+            viewModel.titleError = titleResult.error
+            viewModel.dateError = dateResult.error
             return
         }
 
@@ -375,24 +376,24 @@ struct NoteCreationSheet: View {
     }
 
     private func createNote() {
-        isCreating = true
+        viewModel.isCreating = true
 
         Task {
             do {
                 let note = try await journalManager.addNote(
-                title: title,
-                content: content,
-                date: selectedDate,
-                period: selectedPeriod,
-                preferredSpreadID: selectedSpreadID
-            )
+                    title: viewModel.title,
+                    content: viewModel.content,
+                    date: viewModel.selectedDate,
+                    period: viewModel.selectedPeriod,
+                    preferredSpreadID: viewModel.selectedSpreadID
+                )
                 await MainActor.run {
                     onNoteCreated(note)
                     dismiss()
                 }
             } catch {
                 await MainActor.run {
-                    isCreating = false
+                    viewModel.isCreating = false
                 }
             }
         }

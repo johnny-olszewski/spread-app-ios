@@ -10,6 +10,31 @@ import SwiftUI
 /// - Delete action
 struct NoteDetailSheet: View {
 
+    // MARK: - ViewModel
+
+    @Observable @MainActor final class ViewModel {
+        var presentedTemporalContext: PresentedTemporalContext
+        var title: String
+        var content: String
+        var selectedPeriod: Period
+        var selectedDate: Date
+        var selectedSpreadID: UUID?
+        var isSaving = false
+        var isShowingSpreadPicker = false
+
+        init(note: DataModel.Note, journalManager: JournalManager) {
+            let context = PresentedTemporalContext(journalManager: journalManager)
+            presentedTemporalContext = context
+            title = note.title
+            content = note.content
+            selectedPeriod = note.period
+            selectedDate = note.date
+            selectedSpreadID = note.assignments.first(where: {
+                $0.status != .migrated && $0.period == .multiday
+            })?.spreadID
+        }
+    }
+
     // MARK: - Environment
 
     @Environment(\.dismiss) private var dismiss
@@ -25,16 +50,7 @@ struct NoteDetailSheet: View {
     /// Callback when the note is deleted.
     let onDelete: () -> Void
 
-    // MARK: - State
-
-    @State private var presentedTemporalContext: PresentedTemporalContext
-    @State private var title: String = ""
-    @State private var content: String = ""
-    @State private var selectedPeriod: Period = .day
-    @State private var selectedDate: Date = Date()
-    @State private var selectedSpreadID: UUID?
-    @State private var isSaving = false
-    @State private var isShowingSpreadPicker = false
+    @State private var viewModel: ViewModel
 
     init(
         note: DataModel.Note,
@@ -44,22 +60,13 @@ struct NoteDetailSheet: View {
         self.note = note
         self.journalManager = journalManager
         self.onDelete = onDelete
-        let presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
-        _presentedTemporalContext = State(initialValue: presentedTemporalContext)
-        _title = State(initialValue: note.title)
-        _content = State(initialValue: note.content)
-        _selectedPeriod = State(initialValue: note.period)
-        _selectedDate = State(initialValue: note.date)
-        _selectedSpreadID = State(
-            initialValue: note.assignments.first(where: {
-                $0.status != .migrated && $0.period == .multiday
-            })?.spreadID
-        )
+        _viewModel = State(initialValue: ViewModel(note: note, journalManager: journalManager))
     }
 
     // MARK: - Body
 
     var body: some View {
+        @Bindable var viewModel = viewModel
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -84,16 +91,16 @@ struct NoteDetailSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .sheet(isPresented: $isShowingSpreadPicker) {
+            .sheet(isPresented: $viewModel.isShowingSpreadPicker) {
                 SpreadPickerView(
                     spreads: journalManager.spreads,
-                    calendar: presentedTemporalContext.calendar,
-                    today: presentedTemporalContext.today,
-                    focusDate: selectedDate,
+                    calendar: viewModel.presentedTemporalContext.calendar,
+                    today: viewModel.presentedTemporalContext.today,
+                    focusDate: viewModel.selectedDate,
                     onSpreadSelected: { selection in
-                        selectedPeriod = selection.period
-                        selectedDate = selection.date
-                        selectedSpreadID = selection.spreadID
+                        viewModel.selectedPeriod = selection.period
+                        viewModel.selectedDate = selection.date
+                        viewModel.selectedSpreadID = selection.spreadID
                     },
                     onChooseCustomDate: {}
                 )
@@ -112,24 +119,24 @@ struct NoteDetailSheet: View {
                         save()
                     }
                     .disabled(
-                        isSaving ||
-                        title.isEmpty ||
-                        title.allSatisfy(\.isWhitespace) ||
-                        (selectedPeriod == .multiday && selectedSpreadID == nil)
+                        viewModel.isSaving ||
+                        viewModel.title.isEmpty ||
+                        viewModel.title.allSatisfy(\.isWhitespace) ||
+                        (viewModel.selectedPeriod == .multiday && viewModel.selectedSpreadID == nil)
                     )
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteDetailSheet.saveButton)
                 }
             }
-            .onChange(of: selectedPeriod) { _, newPeriod in
+            .onChange(of: viewModel.selectedPeriod) { _, newPeriod in
                 if newPeriod != .multiday {
-                    selectedSpreadID = nil
+                    viewModel.selectedSpreadID = nil
                 }
             }
         }
         .localhostTemporalHarness(
             presentedDiagnostics: LocalhostTemporalHarnessPresentedDiagnostics(
-                calendarIdentifier: presentedTemporalContext.calendar.identifier,
-                today: presentedTemporalContext.today
+                calendarIdentifier: viewModel.presentedTemporalContext.calendar.identifier,
+                today: viewModel.presentedTemporalContext.today
             )
         )
     }
@@ -139,7 +146,7 @@ struct NoteDetailSheet: View {
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Title")
-            TextField("Note title", text: $title)
+            TextField("Note title", text: $viewModel.title)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteDetailSheet.titleField)
         }
     }
@@ -147,7 +154,7 @@ struct NoteDetailSheet: View {
     private var contentSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Content")
-            TextEditor(text: $content)
+            TextEditor(text: $viewModel.content)
                 .frame(minHeight: 100)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
@@ -161,12 +168,12 @@ struct NoteDetailSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Spread")
             Button {
-                isShowingSpreadPicker = true
+                viewModel.isShowingSpreadPicker = true
             } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Select destination")
-                        Text(selectedPeriod == .multiday ? selectedMultidaySummary : "Or use the controls below")
+                        Text(viewModel.selectedPeriod == .multiday ? selectedMultidaySummary : "Or use the controls below")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -184,7 +191,7 @@ struct NoteDetailSheet: View {
     private var periodSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Period")
-            Picker("Period", selection: $selectedPeriod) {
+            Picker("Period", selection: $viewModel.selectedPeriod) {
                 ForEach(NoteCreationConfiguration.assignablePeriods, id: \.self) { period in
                     Text(period.displayName)
                         .tag(period)
@@ -199,19 +206,19 @@ struct NoteDetailSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Date")
             let configuration = NoteCreationConfiguration(
-                calendar: presentedTemporalContext.calendar,
-                today: presentedTemporalContext.today
+                calendar: viewModel.presentedTemporalContext.calendar,
+                today: viewModel.presentedTemporalContext.today
             )
-            if selectedPeriod == .multiday {
+            if viewModel.selectedPeriod == .multiday {
                 Text(selectedMultidaySummary)
                     .font(.subheadline)
-                    .foregroundStyle(selectedSpreadID == nil ? .secondary : .primary)
+                    .foregroundStyle(viewModel.selectedSpreadID == nil ? .secondary : .primary)
             } else {
                 PeriodDatePicker(
-                    period: selectedPeriod,
-                    selectedDate: $selectedDate,
-                    calendar: presentedTemporalContext.calendar,
-                    today: presentedTemporalContext.today,
+                    period: viewModel.selectedPeriod,
+                    selectedDate: $viewModel.selectedDate,
+                    calendar: viewModel.presentedTemporalContext.calendar,
+                    today: viewModel.presentedTemporalContext.today,
                     minimumDate: configuration.minimumDate(for: .day),
                     maximumDate: configuration.maximumDate,
                     accessibilityIdentifiers: nil
@@ -285,15 +292,15 @@ struct NoteDetailSheet: View {
     }
 
     private var selectedMultidaySummary: String {
-        guard let spreadID = selectedSpreadID,
+        guard let spreadID = viewModel.selectedSpreadID,
               let spread = journalManager.spreads.first(where: { $0.id == spreadID }) else {
             return "Select an existing multiday spread"
         }
 
         return SpreadPickerConfiguration(
             spreads: journalManager.spreads,
-            calendar: presentedTemporalContext.calendar,
-            today: presentedTemporalContext.today
+            calendar: viewModel.presentedTemporalContext.calendar,
+            today: viewModel.presentedTemporalContext.today
         )
         .displayLabel(for: spread)
     }
@@ -301,28 +308,26 @@ struct NoteDetailSheet: View {
     // MARK: - Actions
 
     private func save() {
-        isSaving = true
+        viewModel.isSaving = true
 
         Task { @MainActor in
             do {
-                // Apply title and content changes
-                if title != note.title || content != note.content {
-                    try await journalManager.updateNoteTitle(note, newTitle: title, newContent: content)
+                if viewModel.title != note.title || viewModel.content != note.content {
+                    try await journalManager.updateNoteTitle(note, newTitle: viewModel.title, newContent: viewModel.content)
                 }
 
-                // Apply date/period changes
-                if selectedDate != note.date || selectedPeriod != note.period {
+                if viewModel.selectedDate != note.date || viewModel.selectedPeriod != note.period {
                     try await journalManager.updateNoteDateAndPeriod(
                         note,
-                        newDate: selectedDate,
-                        newPeriod: selectedPeriod,
-                        preferredSpreadID: selectedSpreadID
+                        newDate: viewModel.selectedDate,
+                        newPeriod: viewModel.selectedPeriod,
+                        preferredSpreadID: viewModel.selectedSpreadID
                     )
                 }
 
                 dismiss()
             } catch {
-                isSaving = false
+                viewModel.isSaving = false
             }
         }
     }
