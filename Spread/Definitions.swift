@@ -120,6 +120,10 @@ struct Definitions {
             static func multidayFooterButton(_ dateID: String) -> String {
                 "spreads.content.multiday.section.\(dateID).footer"
             }
+
+            static func multidayPeekButton(_ dateID: String) -> String {
+                "spreads.content.multiday.section.\(dateID).peek"
+            }
         }
 
         struct SpreadNavigator {

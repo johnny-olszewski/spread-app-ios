@@ -70,6 +70,10 @@ struct EntryListView: View {
     /// Used to populate the summary card shown when a day spread exists within a multiday range.
     var openTaskCountForDaySpread: ((DataModel.Spread) -> Int)? = nil
 
+    /// Returns the peek data bundle for a day spread, used to populate the peek overlay panel.
+    /// `nil` disables the peek eye button on summary cards.
+    var peekDataForDaySpread: ((DataModel.Spread) -> MultidayPeekData?)? = nil
+
     /// Calendar events to display alongside entries.
     ///
     /// For day spreads, these are events for that day displayed in a dedicated section.
@@ -89,6 +93,11 @@ struct EntryListView: View {
     /// In embedded mode pull-to-refresh and the calendar-events section are suppressed
     /// because the parent layout handles them.
     var isEmbedded: Bool = false
+
+    // MARK: - Peek state
+
+    @Namespace private var peekNamespace
+    @State private var activePeekData: MultidayPeekData?
 
     // MARK: - Inline creation state
 
@@ -119,6 +128,7 @@ struct EntryListView: View {
         onSelectSpread: ((DataModel.Spread) -> Void)? = nil,
         onCreateSpread: ((Date) -> Void)? = nil,
         openTaskCountForDaySpread: ((DataModel.Spread) -> Int)? = nil,
+        peekDataForDaySpread: ((DataModel.Spread) -> MultidayPeekData?)? = nil,
         onRefresh: (() async -> Void)? = nil,
         syncStatus: SyncStatus? = nil,
         isEmbedded: Bool = false
@@ -141,6 +151,7 @@ struct EntryListView: View {
         self.onSelectSpread = onSelectSpread
         self.onCreateSpread = onCreateSpread
         self.openTaskCountForDaySpread = openTaskCountForDaySpread
+        self.peekDataForDaySpread = peekDataForDaySpread
         self.onRefresh = onRefresh
         self.syncStatus = syncStatus
         self.isEmbedded = isEmbedded
@@ -478,6 +489,47 @@ struct EntryListView: View {
         }
         .modifier(RefreshableModifier(onRefresh: onRefresh))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
+        .overlay {
+            if activePeekData != nil {
+                peekOverlay
+            }
+        }
+        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: activePeekData != nil)
+    }
+
+    @ViewBuilder
+    private var peekOverlay: some View {
+        if let data = activePeekData {
+            ZStack {
+                Color.black.opacity(0.25)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                            activePeekData = nil
+                        }
+                    }
+                    .transition(.opacity)
+
+                MultidayPeekPanelView(
+                    data: data,
+                    calendar: calendar,
+                    today: today,
+                    onClose: {
+                        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                            activePeekData = nil
+                        }
+                    },
+                    onNavigate: { spread in
+                        activePeekData = nil
+                        onSelectSpread?(spread)
+                    }
+                )
+                .matchedGeometryEffect(id: data.spread.id, in: peekNamespace, isSource: false)
+                .padding(20)
+                .transition(.scale(scale: 0.88, anchor: .center).combined(with: .opacity))
+                .zIndex(1)
+            }
+        }
     }
 
     @ViewBuilder
@@ -591,23 +643,41 @@ struct EntryListView: View {
             // Day has its own spread — show a summary tile that pushes the user to open it.
             let openTaskCount = openTaskCountForDaySpread?(daySpread) ?? 0
             let eventCount = calendarEvents(for: section.date).count
+            let isPeeking = activePeekData?.spread.id == daySpread.id
 
-            MultidayDayCardView(
-                dateID: dateID,
-                visualState: visualState,
-                footerAction: footerAction,
-                overdueCount: 0,
-                shortMonthText: multidayShortMonthText(for: section.date),
-                weekdayText: multidayWeekdayText(for: section.date),
-                dayNumberText: multidayDayNumberText(for: section.date),
-                footerAccessibilityLabel: multidayFooterAccessibilityLabel(for: footerAction),
-                isContentCentered: true,
-                onFooterTap: {
-                    dismissActiveInlineEditing()
-                    onSelectSpread?(daySpread)
+            Group {
+                if isPeeking {
+                    // Placeholder keeps grid space while the panel is open.
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.clear)
+                        .frame(minHeight: 120)
+                        .matchedGeometryEffect(id: daySpread.id, in: peekNamespace)
+                } else {
+                    MultidayDayCardView(
+                        dateID: dateID,
+                        visualState: visualState,
+                        footerAction: footerAction,
+                        overdueCount: 0,
+                        shortMonthText: multidayShortMonthText(for: section.date),
+                        weekdayText: multidayWeekdayText(for: section.date),
+                        dayNumberText: multidayDayNumberText(for: section.date),
+                        footerAccessibilityLabel: multidayFooterAccessibilityLabel(for: footerAction),
+                        isContentCentered: true,
+                        onPeek: peekDataForDaySpread != nil ? {
+                            guard let data = peekDataForDaySpread?(daySpread) else { return }
+                            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                                activePeekData = data
+                            }
+                        } : nil,
+                        onFooterTap: {
+                            dismissActiveInlineEditing()
+                            onSelectSpread?(daySpread)
+                        }
+                    ) {
+                        multidaySummaryContent(taskCount: openTaskCount, eventCount: eventCount)
+                    }
+                    .matchedGeometryEffect(id: daySpread.id, in: peekNamespace)
                 }
-            ) {
-                multidaySummaryContent(taskCount: openTaskCount, eventCount: eventCount)
             }
         } else {
             // No day spread — show the full entry list and events for this day.

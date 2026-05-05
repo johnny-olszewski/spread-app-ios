@@ -68,6 +68,16 @@ struct MultidaySpreadContentView: View {
                     let key = SpreadDataModelKey(spread: spread, calendar: journalManager.calendar)
                     return journalManager.dataModel[key: key]?.tasks.filter { $0.status == .open }.count ?? 0
                 },
+                peekDataForDaySpread: { spread in
+                    let key = SpreadDataModelKey(spread: spread, calendar: journalManager.calendar)
+                    guard let dataModel = journalManager.dataModel[key: key] else { return nil }
+                    let dayStart = spread.date.startOfDay(calendar: journalManager.calendar)
+                    guard let dayEnd = journalManager.calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+                        return nil
+                    }
+                    let dayEvents = calendarEvents.filter { $0.startDate < dayEnd && $0.endDate > dayStart }
+                    return MultidayPeekData(spread: spread, spreadDataModel: dataModel, calendarEvents: dayEvents)
+                },
                 onRefresh: {
                     guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
                     await engine.syncNow()

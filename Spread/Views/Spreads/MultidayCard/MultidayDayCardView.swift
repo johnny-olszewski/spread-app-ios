@@ -13,6 +13,8 @@ struct MultidayDayCardView<Content: View>: View {
     /// rather than top-aligned. Used for summary-only cards (e.g. days with an existing
     /// day spread) where a compact HStack replaces the full entry list.
     let isContentCentered: Bool
+    /// When non-nil, a peek (eye) button appears on the leading edge of the footer.
+    let onPeek: (() -> Void)?
     let onFooterTap: () -> Void
     @ViewBuilder let content: () -> Content
 
@@ -26,6 +28,7 @@ struct MultidayDayCardView<Content: View>: View {
         dayNumberText: String,
         footerAccessibilityLabel: String,
         isContentCentered: Bool = false,
+        onPeek: (() -> Void)? = nil,
         onFooterTap: @escaping () -> Void,
         @ViewBuilder content: @escaping () -> Content
     ) {
@@ -38,6 +41,7 @@ struct MultidayDayCardView<Content: View>: View {
         self.dayNumberText = dayNumberText
         self.footerAccessibilityLabel = footerAccessibilityLabel
         self.isContentCentered = isContentCentered
+        self.onPeek = onPeek
         self.onFooterTap = onFooterTap
         self.content = content
     }
@@ -123,6 +127,24 @@ struct MultidayDayCardView<Content: View>: View {
 
     private var footer: some View {
         HStack {
+            if let onPeek {
+                Button(action: onPeek) {
+                    Image(systemName: "eye")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.secondary)
+                        .frame(width: 30, height: 30)
+                        .background(
+                            Circle()
+                                .fill(.white.opacity(0.94))
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Preview day spread")
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadContent.multidayPeekButton(dateID)
+                )
+            }
+
             Spacer()
 
             Button(action: onFooterTap) {
