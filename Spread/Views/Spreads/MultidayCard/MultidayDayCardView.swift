@@ -131,12 +131,7 @@ struct MultidayDayCardView<Content: View>: View {
                 Button(action: onPeek) {
                     Image(systemName: "eye")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color.secondary)
-                        .frame(width: 30, height: 30)
-                        .background(
-                            Circle()
-                                .fill(.white.opacity(0.94))
-                        )
+                        .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Preview day spread")
