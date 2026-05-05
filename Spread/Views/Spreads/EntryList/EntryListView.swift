@@ -295,6 +295,12 @@ struct EntryListView: View {
                     secondaryButton: .cancel()
                 )
             }
+            .overlay {
+                if viewModel.activePeekData != nil {
+                    peekOverlay
+                }
+            }
+            .animation(.spring(response: 0.38, dampingFraction: 0.82), value: viewModel.activePeekData != nil)
     }
 
     // MARK: - Content
@@ -495,12 +501,6 @@ struct EntryListView: View {
         }
         .modifier(RefreshableModifier(onRefresh: onRefresh))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
-        .overlay {
-            if viewModel.activePeekData != nil {
-                peekOverlay
-            }
-        }
-        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: viewModel.activePeekData != nil)
     }
 
     @ViewBuilder
@@ -530,8 +530,10 @@ struct EntryListView: View {
                         onSelectSpread?(spread)
                     }
                 )
+                .containerRelativeFrame([.horizontal, .vertical]) { size, axis in
+                    axis == .horizontal ? size * 7 / 8 : size * 5 / 8
+                }
                 .matchedGeometryEffect(id: data.spread.id, in: peekNamespace, isSource: false)
-                .padding(20)
                 .transition(.scale(scale: 0.88, anchor: .center).combined(with: .opacity))
                 .zIndex(1)
             }
