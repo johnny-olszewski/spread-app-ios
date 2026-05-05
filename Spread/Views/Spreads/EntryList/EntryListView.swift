@@ -10,17 +10,30 @@ import SwiftUI
 ///
 /// Uses `EntryRowView` for consistent entry rendering across all spread types.
 struct EntryListView: View {
-    private struct InlineCreationTarget: Equatable {
-        let sectionID: Date
-        let date: Date
-        let period: Period
-    }
 
-    private struct PendingSourceMigration: Identifiable {
-        let task: DataModel.Task
-        let destination: DataModel.Spread
+    // MARK: - ViewModel
 
-        var id: UUID { task.id }
+    @Observable @MainActor final class ViewModel {
+        struct InlineCreationTarget: Equatable {
+            let sectionID: Date
+            let date: Date
+            let period: Period
+        }
+
+        struct PendingSourceMigration: Identifiable {
+            let task: DataModel.Task
+            let destination: DataModel.Spread
+
+            var id: UUID { task.id }
+        }
+
+        var activeInlineCreationTarget: InlineCreationTarget?
+        var inlineTitle: String = ""
+        var inlineCreationID: UUID = UUID()
+        var activeInlineTaskID: UUID?
+        var pendingSourceMigration: PendingSourceMigration?
+        var hasAcquiredInlineCreationFocus: Bool = false
+        var activePeekData: MultidayPeekData?
     }
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -94,19 +107,10 @@ struct EntryListView: View {
     /// because the parent layout handles them.
     var isEmbedded: Bool = false
 
-    // MARK: - Peek state
+    // MARK: - View-owned state
 
     @Namespace private var peekNamespace
-    @State private var activePeekData: MultidayPeekData?
-
-    // MARK: - Inline creation state
-
-    @State private var activeInlineCreationTarget: InlineCreationTarget?
-    @State private var inlineTitle: String = ""
-    @State private var inlineCreationID: UUID = UUID()
-    @State private var activeInlineTaskID: UUID?
-    @State private var pendingSourceMigration: PendingSourceMigration?
-    @State private var hasAcquiredInlineCreationFocus = false
+    @State private var viewModel = ViewModel()
     @FocusState private var isInlineFocused: Bool
 
     init(
@@ -236,6 +240,7 @@ struct EntryListView: View {
     // MARK: - Body
 
     var body: some View {
+        @Bindable var viewModel = viewModel
         contentView
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
@@ -248,38 +253,39 @@ struct EntryListView: View {
                         Spacer()
 
                         Button("Save") {
-                            if let target = activeInlineCreationTarget {
+                            if let target = viewModel.activeInlineCreationTarget {
                                 commitInlineTask(target: target)
                             }
                         }
                         .glassEffect(in: Capsule())
-                        .disabled(inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(viewModel.inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
             }
             .onChange(of: isInlineFocused) { _, focused in
                 if focused {
-                    hasAcquiredInlineCreationFocus = true
+                    viewModel.hasAcquiredInlineCreationFocus = true
                     return
                 }
 
-                guard hasAcquiredInlineCreationFocus, activeInlineCreationTarget != nil else { return }
-                let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard viewModel.hasAcquiredInlineCreationFocus,
+                      viewModel.activeInlineCreationTarget != nil else { return }
+                let trimmed = viewModel.inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty {
                     dismissInlineCreation()
-                } else if let target = activeInlineCreationTarget {
+                } else if let target = viewModel.activeInlineCreationTarget {
                     commitInlineTask(target: target)
                 }
             }
-            .onChange(of: activeInlineCreationTarget) { _, target in
+            .onChange(of: viewModel.activeInlineCreationTarget) { _, target in
                 guard target != nil else { return }
-                hasAcquiredInlineCreationFocus = false
+                viewModel.hasAcquiredInlineCreationFocus = false
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(150))
                     isInlineFocused = true
                 }
             }
-            .alert(item: $pendingSourceMigration) { migration in
+            .alert(item: $viewModel.pendingSourceMigration) { migration in
                 Alert(
                     title: Text("Migrate Task"),
                     message: Text("Move \"\(migration.task.title)\" to \(sourceMigrationDestinationTitle(for: migration.destination))?"),
@@ -447,7 +453,7 @@ struct EntryListView: View {
         }
 
         if onAddTask != nil {
-            if activeInlineCreationTarget?.sectionID == section.id {
+            if viewModel.activeInlineCreationTarget?.sectionID == section.id {
                 inlineCreationRow(for: creationTarget(for: section))
                     .padding(Self.rowInsets)
             } else {
@@ -490,22 +496,22 @@ struct EntryListView: View {
         .modifier(RefreshableModifier(onRefresh: onRefresh))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
         .overlay {
-            if activePeekData != nil {
+            if viewModel.activePeekData != nil {
                 peekOverlay
             }
         }
-        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: activePeekData != nil)
+        .animation(.spring(response: 0.38, dampingFraction: 0.82), value: viewModel.activePeekData != nil)
     }
 
     @ViewBuilder
     private var peekOverlay: some View {
-        if let data = activePeekData {
+        if let data = viewModel.activePeekData {
             ZStack {
                 Color.black.opacity(0.25)
                     .ignoresSafeArea()
                     .onTapGesture {
                         withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-                            activePeekData = nil
+                            viewModel.activePeekData = nil
                         }
                     }
                     .transition(.opacity)
@@ -516,11 +522,11 @@ struct EntryListView: View {
                     today: today,
                     onClose: {
                         withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-                            activePeekData = nil
+                            viewModel.activePeekData = nil
                         }
                     },
                     onNavigate: { spread in
-                        activePeekData = nil
+                        viewModel.activePeekData = nil
                         onSelectSpread?(spread)
                     }
                 )
@@ -573,7 +579,10 @@ struct EntryListView: View {
             onComplete: rowStatus == .open ? { onComplete?(task) } : nil,
             onMigrate: rowStatus == .open ? sourceMigrationDestination.map { destination in
                 {
-                    pendingSourceMigration = PendingSourceMigration(task: task, destination: destination)
+                    viewModel.pendingSourceMigration = ViewModel.PendingSourceMigration(
+                        task: task,
+                        destination: destination
+                    )
                 }
             } : nil,
             onEdit: {
@@ -593,18 +602,21 @@ struct EntryListView: View {
                     systemImage: "arrow.right",
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.Migration.sourceButton(task.title),
                     action: {
-                        pendingSourceMigration = PendingSourceMigration(task: task, destination: destination)
+                        viewModel.pendingSourceMigration = ViewModel.PendingSourceMigration(
+                            task: task,
+                            destination: destination
+                        )
                     }
                 )
             } : nil,
             inlineActionConfiguration: rowStatus == .open ? inlineActionConfiguration(for: task) : nil,
-            isInlineActive: activeInlineTaskID == task.id,
+            isInlineActive: viewModel.activeInlineTaskID == task.id,
             onBeginInlineEditing: {
-                activeInlineTaskID = task.id
+                viewModel.activeInlineTaskID = task.id
             },
             onEndInlineEditing: {
-                if activeInlineTaskID == task.id {
-                    activeInlineTaskID = nil
+                if viewModel.activeInlineTaskID == task.id {
+                    viewModel.activeInlineTaskID = nil
                 }
             }
         )
@@ -643,7 +655,7 @@ struct EntryListView: View {
             // Day has its own spread — show a summary tile that pushes the user to open it.
             let openTaskCount = openTaskCountForDaySpread?(daySpread) ?? 0
             let eventCount = calendarEvents(for: section.date).count
-            let isPeeking = activePeekData?.spread.id == daySpread.id
+            let isPeeking = viewModel.activePeekData?.spread.id == daySpread.id
 
             Group {
                 if isPeeking {
@@ -658,15 +670,15 @@ struct EntryListView: View {
                         visualState: visualState,
                         footerAction: footerAction,
                         overdueCount: 0,
-                        shortMonthText: multidayShortMonthText(for: section.date),
-                        weekdayText: multidayWeekdayText(for: section.date),
-                        dayNumberText: multidayDayNumberText(for: section.date),
+                        shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar),
+                        weekdayText: EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar),
+                        dayNumberText: EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar),
                         footerAccessibilityLabel: multidayFooterAccessibilityLabel(for: footerAction),
                         isContentCentered: true,
                         onPeek: peekDataForDaySpread != nil ? {
                             guard let data = peekDataForDaySpread?(daySpread) else { return }
                             withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-                                activePeekData = data
+                                viewModel.activePeekData = data
                             }
                         } : nil,
                         onFooterTap: {
@@ -681,7 +693,7 @@ struct EntryListView: View {
             }
         } else {
             // No day spread — show the full entry list and events for this day.
-            let isDayActive = activeInlineCreationTarget?.sectionID == section.id
+            let isDayActive = viewModel.activeInlineCreationTarget?.sectionID == section.id
             let overdueCount = multidayOverdueCount(for: section)
             let dayEvents = calendarEvents(for: section.date)
 
@@ -690,9 +702,9 @@ struct EntryListView: View {
                 visualState: visualState,
                 footerAction: footerAction,
                 overdueCount: overdueCount,
-                shortMonthText: multidayShortMonthText(for: section.date),
-                weekdayText: multidayWeekdayText(for: section.date),
-                dayNumberText: multidayDayNumberText(for: section.date),
+                shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar),
+                weekdayText: EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar),
+                dayNumberText: EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar),
                 footerAccessibilityLabel: multidayFooterAccessibilityLabel(for: footerAction),
                 onFooterTap: {
                     dismissActiveInlineEditing()
@@ -761,7 +773,7 @@ struct EntryListView: View {
     }
 
     private func dismissActiveInlineEditing() {
-        activeInlineTaskID = nil
+        viewModel.activeInlineTaskID = nil
     }
 
     private func multidayFooterAccessibilityLabel(for action: MultidayDayCardAction) -> String {
@@ -783,7 +795,7 @@ struct EntryListView: View {
         }
 
         if onAddTask != nil {
-            if activeInlineCreationTarget?.sectionID == section.id {
+            if viewModel.activeInlineCreationTarget?.sectionID == section.id {
                 inlineCreationRow(for: creationTarget(for: section))
                     .listRowInsets(Self.rowInsets)
                     .listRowBackground(Color.clear)
@@ -801,39 +813,15 @@ struct EntryListView: View {
         Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: date, calendar: calendar)
     }
 
-    private func multidayWeekdayText(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "EEEE"
-        return formatter.string(from: date)
-    }
-
-    private func multidayShortMonthText(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "MMM"
-        return formatter.string(from: date)
-    }
-
-    private func multidayDayNumberText(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "d"
-        return formatter.string(from: date)
-    }
-
     // MARK: - Inline Creation
 
-    private func inlineCreationRow(for target: InlineCreationTarget) -> some View {
+    private func inlineCreationRow(for target: ViewModel.InlineCreationTarget) -> some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
             StatusIcon(entryType: .task, taskStatus: .open, color: .primary)
                 .frame(width: 24, height: 24)
 
-            TextField("New task", text: $inlineTitle)
-                .id(inlineCreationID)
+            TextField("New task", text: $viewModel.inlineTitle)
+                .id(viewModel.inlineCreationID)
                 .textFieldStyle(.plain)
                 .font(SpreadTheme.Typography.body)
                 .focused($isInlineFocused)
@@ -852,7 +840,7 @@ struct EntryListView: View {
         }
     }
 
-    private func addTaskButton(for target: InlineCreationTarget) -> some View {
+    private func addTaskButton(for target: ViewModel.InlineCreationTarget) -> some View {
         Button {
             activateInlineCreation(for: target)
         } label: {
@@ -873,15 +861,15 @@ struct EntryListView: View {
 
     // MARK: - Inline Creation Helpers
 
-    private func activateInlineCreation(for target: InlineCreationTarget) {
+    private func activateInlineCreation(for target: ViewModel.InlineCreationTarget) {
         dismissActiveInlineEditing()
-        inlineTitle = ""
-        inlineCreationID = UUID()
-        activeInlineCreationTarget = target
+        viewModel.inlineTitle = ""
+        viewModel.inlineCreationID = UUID()
+        viewModel.activeInlineCreationTarget = target
     }
 
-    private func commitInlineTask(target: InlineCreationTarget) {
-        let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func commitInlineTask(target: ViewModel.InlineCreationTarget) {
+        let trimmed = viewModel.inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             dismissInlineCreation()
             return
@@ -894,7 +882,7 @@ struct EntryListView: View {
     }
 
     @MainActor
-    private func performInlineTaskAdd(title: String, target: InlineCreationTarget) async -> Bool {
+    private func performInlineTaskAdd(title: String, target: ViewModel.InlineCreationTarget) async -> Bool {
         do {
             try await onAddTask?(title, target.date, target.period)
             return true
@@ -904,9 +892,9 @@ struct EntryListView: View {
     }
 
     private func dismissInlineCreation() {
-        activeInlineCreationTarget = nil
-        inlineTitle = ""
-        hasAcquiredInlineCreationFocus = false
+        viewModel.activeInlineCreationTarget = nil
+        viewModel.inlineTitle = ""
+        viewModel.hasAcquiredInlineCreationFocus = false
         isInlineFocused = false
     }
 
@@ -927,8 +915,8 @@ struct EntryListView: View {
         }
     }
 
-    private func creationTarget(for section: EntryListSection) -> InlineCreationTarget {
-        InlineCreationTarget(
+    private func creationTarget(for section: EntryListSection) -> ViewModel.InlineCreationTarget {
+        ViewModel.InlineCreationTarget(
             sectionID: section.id,
             date: section.creationDate,
             period: section.creationPeriod
@@ -947,7 +935,7 @@ struct EntryListView: View {
                 }
 
                 if onAddTask != nil {
-                    if activeInlineCreationTarget?.sectionID == section.id {
+                    if viewModel.activeInlineCreationTarget?.sectionID == section.id {
                         inlineCreationRow(for: creationTarget(for: section))
                     } else {
                         addTaskButton(for: creationTarget(for: section))
