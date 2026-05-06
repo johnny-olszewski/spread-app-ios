@@ -1,8 +1,6 @@
 import SwiftUI
 
 struct SpreadTitleNavigatorItemView: View {
-    private static let selectionIndicatorID = "spread-title-selection-indicator"
-
     let semanticID: String
     let style: SpreadTitleNavigatorItemStyle
     let display: SpreadTitleNavigatorModel.Item.Display
@@ -10,8 +8,6 @@ struct SpreadTitleNavigatorItemView: View {
     let isSelected: Bool
     let accessibilityIdentifier: String
     let badgeAccessibilityIdentifier: String?
-    let selectionIndicatorNamespace: Namespace.ID
-    let showsSelectionIndicator: Bool
     let borderColor: Color?
     let emphasisColor: Color
     let selectedEmphasisColor: Color
@@ -44,27 +40,8 @@ struct SpreadTitleNavigatorItemView: View {
                 .padding(.horizontal, horizontalPadding)
                 .padding(.top, 6)
 
-            if showsSelectionIndicator {
-                ZStack {
-                    Circle()
-                        .fill(Color.clear)
-                        .frame(width: 6, height: 6)
-
-                    if isSelected {
-                        Circle()
-                            .fill(selectionIndicatorColor)
-                            .frame(width: 6, height: 6)
-                            .matchedGeometryEffect(
-                                id: Self.selectionIndicatorID,
-                                in: selectionIndicatorNamespace
-                            )
-                    }
-                }
-                .frame(height: 8)
-            } else {
-                Spacer(minLength: 0)
-                    .frame(height: 8)
-            }
+            // Reserved space for the strip's shared selection indicator overlay.
+            Color.clear.frame(height: 8)
         }
         .frame(minHeight: 48)
         .contentShape(Rectangle())
@@ -144,11 +121,11 @@ struct SpreadTitleNavigatorItemView: View {
                 VStack(spacing: -2) {
                     if let top = display.top {
                         Text(top)
-                            .font(.title3.weight(yearWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                            .font(.title3.weight(yearWeight(emphasized: isTodayEmphasized)))
                             .foregroundStyle(foregroundColor(selected: isSelected))
                     }
                     Text(display.bottom)
-                        .font(.title3.weight(yearWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                        .font(.title3.weight(yearWeight(emphasized: isTodayEmphasized)))
                         .foregroundStyle(foregroundColor(selected: isSelected))
                 }
             case .month:
@@ -160,14 +137,14 @@ struct SpreadTitleNavigatorItemView: View {
                             .foregroundStyle(foregroundColor(selected: isSelected))
                             .lineLimit(1)
                         Text(display.bottom)
-                            .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                            .font(.subheadline.weight(monthWeight(emphasized: isTodayEmphasized)))
                             .textCase(.uppercase)
                             .foregroundStyle(foregroundColor(selected: isSelected))
                             .lineLimit(1)
                     }
                 } else {
                     Text(display.bottom)
-                        .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                        .font(.subheadline.weight(monthWeight(emphasized: isTodayEmphasized)))
                         .textCase(.uppercase)
                         .foregroundStyle(foregroundColor(selected: isSelected))
                         .lineLimit(1)
@@ -182,7 +159,7 @@ struct SpreadTitleNavigatorItemView: View {
                             .lineLimit(1)
                     }
                     Text(display.bottom)
-                        .font(.body.weight(dayWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                        .font(.body.weight(dayWeight(emphasized: isTodayEmphasized)))
                         .foregroundStyle(foregroundColor(selected: isSelected))
                         .lineLimit(1)
                     if let footer = display.footer {
@@ -208,7 +185,7 @@ struct SpreadTitleNavigatorItemView: View {
                     .minimumScaleFactor(0.78)
             }
             Text(display.bottom)
-                .font(.subheadline.weight(monthWeight(selected: isSelected, emphasized: isTodayEmphasized)))
+                .font(.subheadline.weight(monthWeight(emphasized: isTodayEmphasized)))
                 .foregroundStyle(foregroundColor(selected: isSelected))
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
@@ -227,7 +204,7 @@ struct SpreadTitleNavigatorItemView: View {
         if isTodayEmphasized {
             return selected ? selectedEmphasisColor : emphasisColor
         }
-        if selected { return .yellow }
+        if selected { return .accentColor }
         return isHidden ? .secondary : .primary
     }
 
@@ -235,30 +212,23 @@ struct SpreadTitleNavigatorItemView: View {
         if isTodayEmphasized {
             return isSelected ? selectedEmphasisColor.opacity(0.95) : emphasisColor.opacity(0.9)
         }
-        if isSelected { return Color.yellow.opacity(0.9) }
+        if isSelected { return Color.accentColor.opacity(0.8) }
         return isHidden ? .secondary.opacity(0.85) : .primary
     }
 
-    private var selectionIndicatorColor: Color {
-        if isTodayEmphasized {
-            return selectedEmphasisColor
-        }
-        return .yellow
-    }
-
-    private func yearWeight(selected: Bool, emphasized: Bool) -> Font.Weight {
+    private func yearWeight(emphasized: Bool) -> Font.Weight {
         if emphasized { return .bold }
         if isHidden { return .semibold }
         return .bold
     }
 
-    private func monthWeight(selected: Bool, emphasized: Bool) -> Font.Weight {
+    private func monthWeight(emphasized: Bool) -> Font.Weight {
         if emphasized { return .semibold }
         if isHidden { return .medium }
         return .semibold
     }
 
-    private func dayWeight(selected: Bool, emphasized: Bool) -> Font.Weight {
+    private func dayWeight(emphasized: Bool) -> Font.Weight {
         if emphasized { return .semibold }
         if isHidden { return .regular }
         return .semibold

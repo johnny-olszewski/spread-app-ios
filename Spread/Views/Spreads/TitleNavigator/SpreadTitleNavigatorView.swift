@@ -19,7 +19,6 @@ struct SpreadTitleNavigatorView: View {
     private static let itemSpacing: CGFloat = 12
     private static let recommendationFadeWidth: CGFloat = 50
     private static let recommendationCornerRadius: CGFloat = 10
-    private static let selectionIndicatorID = "spread-title-selection-indicator"
 
     let stripModel: SpreadTitleNavigatorModel
     let fullItems: [SpreadTitleNavigatorModel.Item]
@@ -40,7 +39,6 @@ struct SpreadTitleNavigatorView: View {
     @State private var isShowingNavigator = false
     @State private var expandedGroupID: String?
     @State private var cachedStripElements: [SpreadTitleNavigatorStripElement] = []
-    @Namespace private var selectionIndicatorNamespace
 
     private var selectedSemanticID: String {
         selection.stableID(calendar: stripModel.calendar)
@@ -78,14 +76,6 @@ struct SpreadTitleNavigatorView: View {
         }
 
         return result
-    }
-
-    private var isSelectedHiddenFromTitleStrip: Bool {
-        !SpreadTitleNavigatorSelectionVisibility.isSelectionVisible(
-            selection,
-            in: items,
-            calendar: stripModel.calendar
-        )
     }
 
     private var currentNavigatorSpread: DataModel.Spread {
@@ -159,6 +149,9 @@ struct SpreadTitleNavigatorView: View {
                     }
             }
         )
+        .overlay(alignment: .topLeading) {
+            selectionIndicatorOverlay
+        }
         .frame(maxWidth: .infinity)
         .task(id: fullItems.map(\.id) + items.map(\.id)) {
             cachedStripElements = SpreadTitleNavigatorStripElementBuilder.elements(
@@ -188,34 +181,18 @@ struct SpreadTitleNavigatorView: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 15, weight: isSelectedHiddenFromTitleStrip ? .bold : .semibold))
-                    .foregroundStyle(isSelectedHiddenFromTitleStrip ? Color.primary : Color.secondary)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.secondary)
                     .frame(width: 32, height: 38)
 
-                ZStack {
-                    Circle()
-                        .fill(Color.clear)
-                        .frame(width: 6, height: 6)
-
-                    if isSelectedHiddenFromTitleStrip {
-                        Circle()
-                            .fill(Color.accentColor)
-                            .frame(width: 6, height: 6)
-                            .transition(.opacity)
-                    }
-                }
-                .frame(height: 8)
+                Color.clear.frame(height: 8)
             }
             .frame(minHeight: 48)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Open Spread Navigator")
-        .accessibilityHint(
-            isSelectedHiddenFromTitleStrip
-                ? "Selected spread is hidden from the title strip. Shows all spreads in the rooted navigator."
-                : "Shows all spreads in the rooted navigator."
-        )
+        .accessibilityHint("Shows all spreads in the rooted navigator.")
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.selectSpreadButton)
         .spreadNavigatorPresentation(
             isPresented: $isShowingNavigator,
@@ -248,11 +225,13 @@ struct SpreadTitleNavigatorView: View {
         case .item(let item, let index):
             itemView(for: item, index: index, isHidden: false)
         case .groupHeader(let group):
+            let isExpanded = expandedGroupID == group.id
+            let containsSelection = group.containsItem(withID: selectedSemanticID)
             SpreadTitleNavigatorGroupView(
                 group: group,
-                isExpanded: expandedGroupID == group.id,
-                containsSelection: group.containsItem(withID: selectedSemanticID),
-                selectionIndicatorNamespace: selectionIndicatorNamespace,
+                isExpanded: isExpanded,
+                containsSelection: containsSelection,
+                selectedItemSemanticID: containsSelection && !isExpanded ? selectedSemanticID : nil,
                 onExpand: { expandGroup(group) },
                 onCollapse: { collapseCurrentGroup() }
             )
@@ -280,8 +259,6 @@ struct SpreadTitleNavigatorView: View {
                 for: item.selection,
                 calendar: stripModel.calendar
             ),
-            selectionIndicatorNamespace: selectionIndicatorNamespace,
-            showsSelectionIndicator: true,
             borderColor: nil,
             emphasisColor: SpreadTheme.Accent.todayEmphasis,
             selectedEmphasisColor: SpreadTheme.Accent.todaySelectedEmphasis,
@@ -394,8 +371,6 @@ struct SpreadTitleNavigatorView: View {
                 recommendation.period.rawValue
             ),
             badgeAccessibilityIdentifier: nil,
-            selectionIndicatorNamespace: selectionIndicatorNamespace,
-            showsSelectionIndicator: false,
             borderColor: nil,
             emphasisColor: SpreadTheme.Accent.todayEmphasis,
             selectedEmphasisColor: SpreadTheme.Accent.todaySelectedEmphasis,
@@ -459,6 +434,24 @@ struct SpreadTitleNavigatorView: View {
             borderWidth: 2.2,
             blurRadius: 3.5
         )
+    }
+
+    // MARK: - Selection Indicator
+
+    /// Single dot drawn as a strip overlay at a fixed vertical position, tracking the selected
+    /// item's horizontal location via `itemFrames`. Using an overlay avoids the vertical
+    /// animation artefacts that `matchedGeometryEffect` produces when items have different heights.
+    @ViewBuilder
+    private var selectionIndicatorOverlay: some View {
+        if let frame = itemFrames[selectedSemanticID], scrollContainerFrame.width > 0 {
+            let dotCenterX = frame.midX - scrollContainerFrame.minX
+            let dotCenterY = scrollContainerFrame.height - 6
+            Circle()
+                .fill(Color.accentColor)
+                .frame(width: 6, height: 6)
+                .offset(x: dotCenterX - 3, y: dotCenterY - 3)
+                .allowsHitTesting(false)
+        }
     }
 
     // MARK: - Group Expansion
