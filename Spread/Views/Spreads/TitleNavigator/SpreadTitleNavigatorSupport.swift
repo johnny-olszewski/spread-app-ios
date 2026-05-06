@@ -837,6 +837,59 @@ enum SpreadTitleNavigatorStripElementBuilder {
     }
 }
 
+enum SpreadTitleNavigatorTargetingSupport {
+    static func targetID(
+        for selectionID: String,
+        visibleItems: [SpreadTitleNavigatorModel.Item],
+        stripElements: [SpreadTitleNavigatorStripElement],
+        expandedGroupID: String?
+    ) -> String? {
+        if visibleItems.contains(where: { $0.id == selectionID }) {
+            return selectionID
+        }
+
+        if let expandedGroup = group(id: expandedGroupID, in: stripElements),
+           expandedGroup.containsItem(withID: selectionID) {
+            return selectionID
+        }
+
+        return hiddenGroup(containing: selectionID, in: stripElements, excludingGroupID: expandedGroupID)?.id
+    }
+
+    static func hiddenGroup(
+        containing selectionID: String,
+        in stripElements: [SpreadTitleNavigatorStripElement],
+        excludingGroupID: String? = nil
+    ) -> SpreadTitleNavigatorGroup? {
+        stripElements.first {
+            guard case .group(let group) = $0, group.id != excludingGroupID else {
+                return false
+            }
+            return group.containsItem(withID: selectionID)
+        }
+        .flatMap { element -> SpreadTitleNavigatorGroup? in
+            guard case .group(let group) = element else { return nil }
+            return group
+        }
+    }
+
+    private static func group(
+        id: String?,
+        in stripElements: [SpreadTitleNavigatorStripElement]
+    ) -> SpreadTitleNavigatorGroup? {
+        guard let id else { return nil }
+
+        return stripElements.first {
+            guard case .group(let group) = $0 else { return false }
+            return group.id == id
+        }
+        .flatMap { element -> SpreadTitleNavigatorGroup? in
+            guard case .group(let group) = element else { return nil }
+            return group
+        }
+    }
+}
+
 extension SpreadTitleNavigatorModel {
     func liveWindowIDs(
         items: [Item],
