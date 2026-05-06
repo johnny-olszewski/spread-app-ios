@@ -246,7 +246,7 @@ struct SpreadTitleNavigatorView: View {
     private func renderElement(_ element: StripRenderElement) -> some View {
         switch element {
         case .item(let item, let index):
-            itemView(for: item, index: index)
+            itemView(for: item, index: index, isHidden: false)
         case .groupHeader(let group):
             SpreadTitleNavigatorGroupView(
                 group: group,
@@ -257,7 +257,7 @@ struct SpreadTitleNavigatorView: View {
                 onCollapse: { collapseCurrentGroup() }
             )
         case .expandedItem(let item, let index):
-            itemView(for: item, index: index)
+            itemView(for: item, index: index, isHidden: true)
                 .transition(.asymmetric(
                     insertion: .move(edge: .leading).combined(with: .opacity),
                     removal: .move(edge: .leading).combined(with: .opacity)
@@ -265,7 +265,7 @@ struct SpreadTitleNavigatorView: View {
         }
     }
 
-    private func itemView(for item: SpreadTitleNavigatorModel.Item, index: Int) -> some View {
+    private func itemView(for item: SpreadTitleNavigatorModel.Item, index: Int, isHidden: Bool) -> some View {
         let itemIdentifier = item.id == selectedSemanticID
             ? Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator
             : identifier(for: item)
@@ -289,7 +289,8 @@ struct SpreadTitleNavigatorView: View {
             action: {
                 handleItemTap(item)
             },
-            isTodayEmphasized: item.id == todaySemanticID
+            isTodayEmphasized: item.id == todaySemanticID,
+            isHidden: isHidden
         )
         .id(stripID(for: item.id))
         .padding(.leading, extraLeadingSpacing(for: item, at: index))
