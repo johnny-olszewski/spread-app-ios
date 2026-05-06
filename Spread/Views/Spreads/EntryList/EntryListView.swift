@@ -87,6 +87,10 @@ struct EntryListView: View {
     /// `nil` disables the peek eye button on summary cards.
     var peekDataForDaySpread: ((DataModel.Spread) -> MultidayPeekData?)? = nil
 
+    /// Called when the user taps a task inside the peek sheet.
+    /// The handler should navigate to `spread` and open the task detail editor.
+    var onPeekTaskTap: ((DataModel.Spread, DataModel.Task) -> Void)? = nil
+
     /// Calendar events to display alongside entries.
     ///
     /// For day spreads, these are events for that day displayed in a dedicated section.
@@ -132,6 +136,7 @@ struct EntryListView: View {
         onCreateSpread: ((Date) -> Void)? = nil,
         openTaskCountForDaySpread: ((DataModel.Spread) -> Int)? = nil,
         peekDataForDaySpread: ((DataModel.Spread) -> MultidayPeekData?)? = nil,
+        onPeekTaskTap: ((DataModel.Spread, DataModel.Task) -> Void)? = nil,
         onRefresh: (() async -> Void)? = nil,
         syncStatus: SyncStatus? = nil,
         isEmbedded: Bool = false
@@ -155,6 +160,7 @@ struct EntryListView: View {
         self.onCreateSpread = onCreateSpread
         self.openTaskCountForDaySpread = openTaskCountForDaySpread
         self.peekDataForDaySpread = peekDataForDaySpread
+        self.onPeekTaskTap = onPeekTaskTap
         self.onRefresh = onRefresh
         self.syncStatus = syncStatus
         self.isEmbedded = isEmbedded
@@ -303,7 +309,11 @@ struct EntryListView: View {
                     onNavigate: { spread in
                         viewModel.activePeekData = nil
                         onSelectSpread?(spread)
-                    }
+                    },
+                    onTaskTap: onPeekTaskTap != nil ? { task in
+                        viewModel.activePeekData = nil
+                        onPeekTaskTap?(data.spread, task)
+                    } : nil
                 )
             }
     }

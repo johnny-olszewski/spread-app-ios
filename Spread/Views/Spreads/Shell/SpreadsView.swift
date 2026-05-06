@@ -183,7 +183,10 @@ struct SpreadsView: View {
     private var selectionBinding: Binding<SpreadHeaderNavigatorModel.Selection> {
         Binding(
             get: { currentSelection },
-            set: { viewModel.selectedSelection = $0 }
+            set: {
+                viewModel.selectedSelection = $0
+                viewModel.clearPeekNavigationSource()
+            }
         )
     }
 
@@ -258,6 +261,7 @@ struct SpreadsView: View {
     }
 
     private func selectFavorite(_ item: SpreadTitleNavigatorModel.Item) {
+        viewModel.clearPeekNavigationSource()
         viewModel.selectedSelection = item.selection
         viewModel.recenterToken += 1
     }
@@ -265,6 +269,7 @@ struct SpreadsView: View {
     // MARK: - Navigation
 
     private func navigateToToday() {
+        viewModel.clearPeekNavigationSource()
         switch journalManager.bujoMode {
         case .conventional:
             guard let targetSpread = SpreadHierarchyOrganizer(

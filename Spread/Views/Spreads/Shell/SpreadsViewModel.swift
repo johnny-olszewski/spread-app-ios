@@ -84,6 +84,10 @@ final class SpreadsViewModel {
     /// Transient feedback for automatic explicit-spread migration.
     var autoMigrationFeedback: SpreadAutoMigrationFeedback?
 
+    /// The spread the user navigated from via a peek action. Non-nil enables the "Go Back" button
+    /// in `SpreadHeaderView`. Cleared by any navigation that is not a peek-initiated jump.
+    var peekNavigationSource: DataModel.Spread?
+
     private var autoMigrationFeedbackDismissTask: Task<Void, Never>?
 
     // MARK: - Actions
@@ -157,6 +161,18 @@ final class SpreadsViewModel {
     /// Presents the note creation sheet.
     func showNoteCreation() {
         activeSheet = .noteCreation
+    }
+
+    /// Navigates to `destination` and records `source` as the peek navigation origin,
+    /// enabling the "Go Back" button in `SpreadHeaderView`.
+    func navigateViaPeek(to destination: DataModel.Spread, from source: DataModel.Spread) {
+        selectedSelection = .conventional(destination)
+        peekNavigationSource = source
+    }
+
+    /// Clears the peek navigation source, hiding the "Go Back" button.
+    func clearPeekNavigationSource() {
+        peekNavigationSource = nil
     }
 
     /// Presents the task detail sheet for editing.

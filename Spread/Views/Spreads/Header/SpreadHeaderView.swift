@@ -30,17 +30,39 @@ struct SpreadHeaderView: View {
     /// Callback for presenting the current explicit spread deletion confirmation.
     var onDeleteSpread: (() -> Void)? = nil
 
+    /// When non-nil, a "Go Back" button is shown centered in the header.
+    var backDestination: DataModel.Spread? = nil
+
+    /// Called when the user taps the "Go Back" button.
+    var onGoBack: (() -> Void)? = nil
+
     // MARK: - Body
 
     var body: some View {
-        HStack(spacing: 8) {
-            syncRing
-            Spacer(minLength: 0)
-            headerActions
+        ZStack {
+            HStack(spacing: 8) {
+                syncRing
+                Spacer(minLength: 0)
+                headerActions
+            }
+
+            if backDestination != nil, let onGoBack {
+                Button(action: onGoBack) {
+                    Label("Go Back", systemImage: "chevron.left")
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .glassEffect(in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .transition(.scale(scale: 0.88).combined(with: .opacity))
+                .accessibilityLabel("Go back to previous spread")
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal)
         .padding(.vertical, 10)
+        .animation(.spring(response: 0.32, dampingFraction: 0.8), value: backDestination?.id)
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
     }
 
