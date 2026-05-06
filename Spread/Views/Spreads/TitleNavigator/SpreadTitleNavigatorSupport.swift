@@ -744,6 +744,99 @@ enum SpreadNavigatorPresentationSupport {
     }
 }
 
+// MARK: - Strip Element Types
+
+struct SpreadTitleNavigatorGroup: Identifiable {
+    let id: String
+    let items: [SpreadTitleNavigatorModel.Item]
+    let dateRangeLabel: String
+
+    init(items: [SpreadTitleNavigatorModel.Item]) {
+        self.items = items
+        self.id = "group.\(items.first?.id ?? "empty").\(items.last?.id ?? "empty")"
+        self.dateRangeLabel = Self.computeLabel(for: items)
+    }
+
+    func containsItem(withID semanticID: String) -> Bool {
+        items.contains { $0.id == semanticID }
+    }
+
+    private static func computeLabel(for items: [SpreadTitleNavigatorModel.Item]) -> String {
+        guard let first = items.first else { return "" }
+        guard items.count > 1, let last = items.last else {
+            return compactLabel(for: first)
+        }
+        // Year items: top/bottom split the number, so always use full label
+        if first.style == .year {
+            return "\(compactLabel(for: first))–\(compactLabel(for: last))"
+        }
+        // Same top context (same month for days, same year for months): show only the bottom range
+        if first.display.top == last.display.top, first.style == last.style {
+            return "\(first.display.bottom)–\(last.display.bottom)"
+        }
+        return "\(compactLabel(for: first))–\(compactLabel(for: last))"
+    }
+
+    private static func compactLabel(for item: SpreadTitleNavigatorModel.Item) -> String {
+        switch item.style {
+        case .year:
+            return item.label
+        case .month:
+            return item.display.bottom
+        case .day:
+            if let top = item.display.top {
+                return "\(top) \(item.display.bottom)"
+            }
+            return item.display.bottom
+        case .multiday:
+            return item.display.bottom
+        }
+    }
+}
+
+enum SpreadTitleNavigatorStripElement: Identifiable {
+    case item(SpreadTitleNavigatorModel.Item)
+    case group(SpreadTitleNavigatorGroup)
+
+    var id: String {
+        switch self {
+        case .item(let item): return item.id
+        case .group(let group): return group.id
+        }
+    }
+}
+
+enum SpreadTitleNavigatorStripElementBuilder {
+    /// Merges a full item list with a filtered (visible) item list, replacing each contiguous
+    /// run of hidden items with a single group element at the correct chronological position.
+    static func elements(
+        fullItems: [SpreadTitleNavigatorModel.Item],
+        filteredItems: [SpreadTitleNavigatorModel.Item]
+    ) -> [SpreadTitleNavigatorStripElement] {
+        let filteredIDs = Set(filteredItems.map(\.id))
+        var elements: [SpreadTitleNavigatorStripElement] = []
+        var pendingHidden: [SpreadTitleNavigatorModel.Item] = []
+
+        func flushPending() {
+            guard !pendingHidden.isEmpty else { return }
+            elements.append(.group(SpreadTitleNavigatorGroup(items: pendingHidden)))
+            pendingHidden = []
+        }
+
+        for item in fullItems {
+            if filteredIDs.contains(item.id) {
+                flushPending()
+                elements.append(.item(item))
+            } else {
+                pendingHidden.append(item)
+            }
+        }
+        flushPending()
+
+        return elements
+    }
+}
+
 extension SpreadTitleNavigatorModel {
     func liveWindowIDs(
         items: [Item],
