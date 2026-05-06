@@ -1313,6 +1313,101 @@
 
 ---
 
+## Title Navigator Collapsed Groups [SPRD-198]
+
+**Status**: Draft
+**Date**: 2026-05-06
+
+### Overview
+Contiguous runs of hidden spreads in the title strip are represented by a collapsed group element that carries the selection indicator and expands inline to reveal its spreads.
+
+### Problem Statement
+When navigating via horizontal swipe in the content area, users can land on a spread that the relevance filter has hidden from the title strip. There is no positional anchor in the strip for these spreads, causing disorientation. The existing chevron dot signals something is hidden but gives no context about where in the timeline it is.
+
+### Goals
+- Give hidden spreads a positional placeholder in the strip at their correct chronological position
+- Show the selection indicator on the group when the active spread is inside it
+- Let users expand the group to see and directly select the hidden spreads
+
+### Non-Goals
+- Traditional mode (the relevance filter does not apply; no hidden spreads exist)
+- Badges on group elements (hidden spreads cannot have overdue or favorite badges by filter invariant — the relevance filter keeps any spread with an open task or favorite star visible)
+- Persisting expanded/collapsed state across sessions or spread-year changes
+
+### Functional Requirements
+1. In conventional mode only, contiguous runs of items present in the full item list but absent in the filtered strip list are each represented by a single group element, inserted at their correct chronological position in the strip. [SPRD-198]
+2. The group element displays a compact date range label derived from the first and last hidden item in the run (e.g. "JAN–MAR" for months, "3–7" for days). [SPRD-198]
+3. When the active spread is inside a collapsed group, the selection indicator dot appears under the group element using the same `matchedGeometryEffect` namespace as individual item indicators. [SPRD-198]
+4. Tapping a collapsed group expands it inline with animation: the hidden spreads appear in the strip in order, and the group header shrinks to a collapse trigger anchored at the leading edge of the revealed items. [SPRD-198]
+5. Tapping the collapse trigger animates the items back out and restores the full group element. [SPRD-198]
+6. When the selected spread changes to a spread outside the expanded group, the group auto-collapses with animation. [SPRD-198]
+7. Only one group can be expanded at a time; expanding a second group collapses the first. [SPRD-198]
+8. The strip scrolls to center the active spread after a group expands. [SPRD-198]
+
+### Technical Design
+
+#### Data Model
+```swift
+// A contiguous run of hidden items represented as a group in the strip
+struct SpreadTitleNavigatorGroup: Identifiable {
+    let id: String           // stable, derived from first+last item IDs
+    let items: [SpreadTitleNavigatorModel.Item]
+    let dateRangeLabel: String
+}
+
+// A typed element in the rendered strip — either a visible item or a group
+enum SpreadTitleNavigatorStripElement: Identifiable {
+    case item(SpreadTitleNavigatorModel.Item)
+    case group(SpreadTitleNavigatorGroup)
+
+    var id: String { ... }
+}
+```
+
+#### Architecture
+- **New file**: `SpreadTitleNavigatorGroupView.swift` — view for the collapsed/expanded group; accepts the `matchedGeometryEffect` namespace and renders the selection indicator when `containsSelection && !isExpanded`
+- **`SpreadTitleNavigatorSupport.swift`** — add `SpreadTitleNavigatorGroup`, `SpreadTitleNavigatorStripElement`, and a static function to compute strip elements from the full item list and the filtered item list
+- **`SpreadTitleNavigatorView.swift`** — replace direct `items` array rendering with strip elements; add `@State private var expandedGroupID: String?`; add auto-collapse logic in `.onChange(of: selectedSemanticID)`
+
+#### State & Data Flow
+- `expandedGroupID: String?` lives on `SpreadTitleNavigatorView`
+- Strip elements are computed from `stripModel.items(for:)` (full) diffed against the filtered `items` prop
+- When `expandedGroupID` matches a group, that group renders its items inline; otherwise it renders the collapsed header
+- `.onChange(of: selectedSemanticID)`: if the new ID is not contained in the expanded group's items, set `expandedGroupID = nil` with animation
+
+#### Animation
+- Item appearance/disappearance uses `.transition(.asymmetric(insertion: .move(edge: .leading).combined(with: .opacity), removal: .opacity))`
+- Group header size change animates with `.animation(.easeInOut(duration: 0.28))`
+- Strip re-centering after expansion uses the existing `requestCenter(on:animated:)` path
+
+#### Edge Cases
+- **Single hidden item**: group still renders (date range label is just that item's label); expanding reveals the one item
+- **Year boundary**: groups do not span years — the strip already segments by year, so this is a natural constraint
+- **Selection is in the group when strip regenerates**: if `expandedGroupID` refers to a group that no longer exists after item list changes, reset `expandedGroupID = nil`
+
+#### Security Considerations
+None — purely local UI state with no data exposure.
+
+#### Testing Strategy
+- Unit tests for the strip-element computation: verify correct group formation from full vs filtered item lists across single-gap, multi-gap, leading-gap, and trailing-gap scenarios
+- Unit tests for group `dateRangeLabel` formatting for month, day, and mixed-style hidden items
+- UI tests: collapsed group visibility when active spread is hidden, indicator position, expand/collapse animation trigger, auto-collapse on selection change
+
+### Acceptance Criteria
+- [ ] Contiguous hidden spreads appear as a single group element in the strip at their correct chronological position
+- [ ] Group label reflects the date span of the first and last hidden item in the run
+- [ ] Selection indicator appears under the group (not missing) when the active spread is one of its hidden items
+- [ ] Tapping a collapsed group expands it with animation; hidden items appear inline in order
+- [ ] Group header remains visible as a collapse trigger while expanded
+- [ ] Tapping the collapse trigger collapses the group with animation
+- [ ] Changing selection to a spread outside the group auto-collapses with animation
+- [ ] Only one group is expanded at a time
+- [ ] No badges appear on group elements
+- [ ] Traditional mode is unaffected
+- [ ] Strip correctly re-centers on the active spread after expansion
+
+---
+
 ## Future Versions
 - Spread bookmarking. [SPRD-56]
 - Dynamic spread names. [SPRD-56]
