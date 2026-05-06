@@ -5163,3 +5163,26 @@ Supabase: SPRD-85A -> SPRD-85C
   - Support tests for calendar target derivation, including single-target and multi-target day selection.
   - UI tests covering horizontal year paging, persisted expanded month state while open, `View Month`, disabled dates, and confirmation-dialog selection for overlapping day/multiday targets.
 - **Dependencies**: SPRD-125
+
+### [SPRD-198] UI: Title navigator collapsed groups
+- **Context**: When users swipe horizontally in the content area and land on a spread hidden by the relevance filter, there is no visual anchor in the title strip. Contiguous runs of hidden spreads should be represented by a collapsed group element that shows the selection indicator when the active spread is inside it, and expands inline to reveal and navigate to those spreads.
+- **Spec**: Title Navigator Collapsed Groups [SPRD-198]
+- **Acceptance Criteria**:
+  - [ ] Add `SpreadTitleNavigatorGroup` value type in `SpreadTitleNavigatorSupport.swift` with `id`, `items: [SpreadTitleNavigatorModel.Item]`, and `dateRangeLabel: String`.
+  - [ ] Add `SpreadTitleNavigatorStripElement` enum (`.item` / `.group`) in `SpreadTitleNavigatorSupport.swift`.
+  - [ ] Add a static function in `SpreadTitleNavigatorSupport.swift` that computes the ordered array of `SpreadTitleNavigatorStripElement` from a full item list and a filtered item list, forming one group per contiguous gap.
+  - [ ] Implement `dateRangeLabel` computation: for a single hidden item use its display label; for multiple, compose a compact range from the first and last item (e.g. "JAN–MAR", "3–7").
+  - [ ] Create `SpreadTitleNavigatorGroupView.swift` that renders the collapsed state (date range label + selection indicator dot via `matchedGeometryEffect`) and the expanded collapse-trigger state (compact icon/label).
+  - [ ] Update `SpreadTitleNavigatorView` to compute strip elements from full vs filtered item lists and render them instead of the flat `items` array.
+  - [ ] Add `@State private var expandedGroupID: String?` to `SpreadTitleNavigatorView`.
+  - [ ] Tapping a collapsed group sets `expandedGroupID` with animation; expanding reveals its items inline and collapses any previously expanded group.
+  - [ ] Tapping the collapse trigger sets `expandedGroupID = nil` with animation.
+  - [ ] In `.onChange(of: selectedSemanticID)`: if new ID is not inside the expanded group, set `expandedGroupID = nil` with animation.
+  - [ ] After group expansion, call `requestCenter(on:animated:)` for the active spread.
+  - [ ] If the expanded group no longer exists after item list regeneration, reset `expandedGroupID = nil`.
+  - [ ] Traditional mode strip is unaffected (groups only form in conventional mode where the relevance filter runs).
+- **Tests**:
+  - Unit tests for strip-element computation: single-gap, multi-gap, leading-gap, trailing-gap, and no-gap scenarios.
+  - Unit tests for `dateRangeLabel` formatting for month-style, day-style, and single-item groups.
+  - UI tests: indicator appears under group when active spread is hidden, expand/collapse animation triggers, auto-collapse on selection change outside the group.
+- **Dependencies**: SPRD-136, SPRD-137
