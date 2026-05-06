@@ -60,6 +60,7 @@ struct SpreadsView: View {
         VStack(spacing: 0) {
             SpreadTitleNavigatorView(
                 stripModel: stripModel,
+                fullItems: completeItems,
                 items: titleStripItems,
                 recenterToken: viewModel.recenterToken,
                 onRecommendedSpreadTapped: onRecommendedSpreadTapped,
