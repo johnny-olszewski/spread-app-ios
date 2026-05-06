@@ -1,9 +1,12 @@
 import SwiftUI
 
 struct SpreadTitleNavigatorGroupView: View {
+    static let controlWidth: CGFloat = 32
+
     let group: SpreadTitleNavigatorGroup
     let isExpanded: Bool
     let containsSelection: Bool
+    let selectionIndicatorAnchorID: String?
     let onExpand: () -> Void
     let onCollapse: () -> Void
 
@@ -29,23 +32,11 @@ struct SpreadTitleNavigatorGroupView: View {
             Image(systemName: "ellipsis")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(Color.secondary)
-                .padding(.horizontal, 10)
                 .padding(.top, 6)
 
-            ZStack {
-                Circle()
-                    .fill(Color.clear)
-                    .frame(width: 6, height: 6)
-
-                if containsSelection {
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 6, height: 6)
-                }
-            }
-            .frame(height: 8)
+            selectionIndicatorAnchor
         }
-        .frame(minHeight: 48)
+        .frame(minWidth: Self.controlWidth, minHeight: 48)
     }
 
     private var collapseLabel: some View {
@@ -57,6 +48,20 @@ struct SpreadTitleNavigatorGroupView: View {
 
             Color.clear.frame(height: 8)
         }
-        .frame(minWidth: 28, minHeight: 48)
+        .frame(minWidth: Self.controlWidth, minHeight: 48)
+    }
+
+    private var selectionIndicatorAnchor: some View {
+        Circle()
+            .fill(Color.clear)
+            .frame(width: 6, height: 6)
+            .anchorPreference(
+                key: SpreadTitleNavigatorSelectionIndicatorAnchorPreferenceKey.self,
+                value: .bounds
+            ) { anchor in
+                guard containsSelection, let selectionIndicatorAnchorID else { return [:] }
+                return [selectionIndicatorAnchorID: anchor]
+            }
+            .frame(height: 8)
     }
 }

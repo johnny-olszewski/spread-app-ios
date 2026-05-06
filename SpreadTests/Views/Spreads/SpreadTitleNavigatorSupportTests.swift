@@ -1504,6 +1504,61 @@ struct SpreadTitleNavigatorSupportTests {
         #expect(trailingGroup.items.count == 2)
     }
 
+    @Test func targetingSupportCentersHiddenSelectionOnCollapsedGroup() {
+        let jan = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let feb = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 2), calendar: Self.calendar)
+        let mar = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 3), calendar: Self.calendar)
+        let model = stripModel(spreads: [jan, feb, mar], today: Self.makeDate(year: 2026, month: 3, day: 1))
+        let fullItems = model.items(for: .conventional(mar))
+        let marItem = fullItems.first { stableID($0) == stableID(for: mar) }!
+        let elements = SpreadTitleNavigatorStripElementBuilder.elements(
+            fullItems: fullItems,
+            filteredItems: [marItem]
+        )
+
+        guard case .group(let hiddenGroup) = elements.first else {
+            Issue.record("Expected leading group")
+            return
+        }
+
+        let targetID = SpreadTitleNavigatorTargetingSupport.targetID(
+            for: stableID(for: jan),
+            visibleItems: [marItem],
+            stripElements: elements,
+            expandedGroupID: nil
+        )
+
+        #expect(targetID == hiddenGroup.id)
+    }
+
+    @Test func targetingSupportUsesSelectedItemWhenItsGroupIsExpanded() {
+        let jan = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let feb = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 2), calendar: Self.calendar)
+        let mar = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 3), calendar: Self.calendar)
+        let model = stripModel(spreads: [jan, feb, mar], today: Self.makeDate(year: 2026, month: 3, day: 1))
+        let fullItems = model.items(for: .conventional(mar))
+        let marItem = fullItems.first { stableID($0) == stableID(for: mar) }!
+        let elements = SpreadTitleNavigatorStripElementBuilder.elements(
+            fullItems: fullItems,
+            filteredItems: [marItem]
+        )
+
+        guard case .group(let hiddenGroup) = elements.first,
+              let janItem = fullItems.first(where: { stableID($0) == stableID(for: jan) }) else {
+            Issue.record("Expected leading group and January item")
+            return
+        }
+
+        let targetID = SpreadTitleNavigatorTargetingSupport.targetID(
+            for: janItem.id,
+            visibleItems: [marItem],
+            stripElements: elements,
+            expandedGroupID: hiddenGroup.id
+        )
+
+        #expect(targetID == janItem.id)
+    }
+
     // MARK: - SpreadTitleNavigatorGroup dateRangeLabel
 
     /// Setup: a single month item is in the group with today well past it (no dynamic name).

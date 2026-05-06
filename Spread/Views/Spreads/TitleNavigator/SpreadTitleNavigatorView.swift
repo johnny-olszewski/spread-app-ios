@@ -29,10 +29,8 @@ struct SpreadTitleNavigatorView: View {
     @Binding var selection: SpreadHeaderNavigatorModel.Selection
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var itemFrames: [String: CGRect] = [:]
     @State private var recommendationHeights: [String: CGFloat] = [:]
     @State private var recommendationWidths: [String: CGFloat] = [:]
-    @State private var scrollContainerFrame: CGRect = .zero
     @State private var scrollViewportWidth: CGFloat = 0
     @State private var stripCenteredTargetID: String?
     @State private var widthChangeCenterToken = 0
@@ -52,8 +50,24 @@ struct SpreadTitleNavigatorView: View {
         recommendationProvider.recommendations(for: stripModel.headerModel)
     }
 
-    private var selectedFrame: CGRect? {
-        itemFrames[selectedSemanticID]
+    private var selectedItem: SpreadTitleNavigatorModel.Item? {
+        fullItems.first { $0.id == selectedSemanticID }
+    }
+
+    private var selectionIndicatorTargetID: String? {
+        SpreadTitleNavigatorTargetingSupport.targetID(
+            for: selectedSemanticID,
+            visibleItems: items,
+            stripElements: cachedStripElements,
+            expandedGroupID: expandedGroupID
+        )
+    }
+
+    private var selectedIndicatorColor: Color {
+        if selectedItem?.id == todaySemanticID {
+            return SpreadTheme.Accent.todaySelectedEmphasis
+        }
+        return .accentColor
     }
 
     private var renderElements: [StripRenderElement] {
@@ -105,10 +119,8 @@ struct SpreadTitleNavigatorView: View {
         )
     }
 
-    private var isSelectedCentered: Bool {
-        guard scrollContainerFrame.width > 0, let selectedFrame else { return false }
-        let tolerance = max(selectedFrame.width / 2, 24)
-        return abs(selectedFrame.midX - scrollContainerFrame.midX) <= tolerance
+    private var currentSelectionScrollTargetID: String? {
+        selectionIndicatorTargetID.map(stripID(for:))
     }
 
     var body: some View {
@@ -138,11 +150,7 @@ struct SpreadTitleNavigatorView: View {
             GeometryReader { geometry in
                 Color.clear
                     .onAppear {
-                        scrollContainerFrame = geometry.frame(in: .global)
                         handleWidthChange(to: geometry.size.width)
-                    }
-                    .onChange(of: geometry.frame(in: .global)) { _, newValue in
-                        scrollContainerFrame = newValue
                     }
                     .onChange(of: geometry.size.width) { _, newValue in
                         handleWidthChange(to: newValue)
@@ -196,18 +204,33 @@ struct SpreadTitleNavigatorView: View {
     }
 
     private var itemRow: some View {
-        HStack(spacing: Self.itemSpacing) {
+        LazyHStack(spacing: Self.itemSpacing) {
+            Color.clear
+                .frame(width: leadingInset(for: scrollViewportWidth))
+
             ForEach(renderElements) { element in
                 renderElement(element)
             }
+
+            Color.clear
+                .frame(width: trailingInset(for: scrollViewportWidth))
         }
         .scrollTargetLayout()
-        .backgroundPreferenceValue(SpreadTitleNavigatorItemFramePreferenceKey.self) { frames in
-            Color.clear
-                .onAppear { itemFrames = frames }
-                .onChange(of: frames) { _, newValue in
-                    itemFrames = newValue
+        .overlayPreferenceValue(SpreadTitleNavigatorSelectionIndicatorAnchorPreferenceKey.self) { anchors in
+            GeometryReader { geometry in
+                if let targetID = selectionIndicatorTargetID,
+                   let anchor = anchors[targetID] {
+                    Circle()
+                        .fill(selectedIndicatorColor)
+                        .frame(width: 6, height: 6)
+                        .position(
+                            x: geometry[anchor].midX,
+                            y: geometry[anchor].midY
+                        )
+                        .animation(.easeInOut(duration: 0.28), value: targetID)
+                        .allowsHitTesting(false)
                 }
+            }
         }
     }
 
@@ -223,9 +246,11 @@ struct SpreadTitleNavigatorView: View {
                 group: group,
                 isExpanded: isExpanded,
                 containsSelection: containsSelection,
+                selectionIndicatorAnchorID: group.id,
                 onExpand: { expandGroup(group) },
                 onCollapse: { collapseCurrentGroup() }
             )
+            .id(stripID(for: group.id))
         case .expandedItem(let item, let index):
             itemView(for: item, index: index, isHidden: true)
                 .transition(.asymmetric(
@@ -254,6 +279,7 @@ struct SpreadTitleNavigatorView: View {
             emphasisColor: SpreadTheme.Accent.todayEmphasis,
             selectedEmphasisColor: SpreadTheme.Accent.todaySelectedEmphasis,
             horizontalPadding: 16,
+            selectionIndicatorAnchorID: item.id,
             action: {
                 handleItemTap(item)
             },
@@ -366,6 +392,7 @@ struct SpreadTitleNavigatorView: View {
             emphasisColor: SpreadTheme.Accent.todayEmphasis,
             selectedEmphasisColor: SpreadTheme.Accent.todaySelectedEmphasis,
             horizontalPadding: 0,
+            selectionIndicatorAnchorID: nil,
             action: {},
             isInteractive: false,
             isTodayEmphasized: item.id == todaySemanticID
@@ -487,9 +514,7 @@ struct SpreadTitleNavigatorView: View {
     private func handleNavigatorSelection(_ nextSelection: SpreadHeaderNavigatorModel.Selection) {
         selection = nextSelection
         let nextID = nextSelection.stableID(calendar: stripModel.calendar)
-        if items.contains(where: { $0.id == nextID }) {
-            requestCenter(on: nextID, animated: true)
-        }
+        requestCenterIfVisible(on: nextID, animated: true)
     }
 
     // MARK: - Layout Helpers
@@ -538,16 +563,23 @@ struct SpreadTitleNavigatorView: View {
         return ceil(max(bottomWidth, topWidth, footerWidth) + 32)
     }
 
+    private func renderElementWidth(for element: StripRenderElement) -> CGFloat {
+        switch element {
+        case .item(let item, _), .expandedItem(let item, _):
+            return itemWidth(for: item)
+        case .groupHeader:
+            return SpreadTitleNavigatorGroupView.controlWidth
+        }
+    }
+
     private func leadingInset(for visibleWidth: CGFloat) -> CGFloat {
-        guard visibleWidth > 0 else { return 0 }
-        let firstWidth = items.first.map(itemWidth(for:)) ?? 0
-        return max((visibleWidth - firstWidth) / 2, 0)
+        guard visibleWidth > 0, let firstElement = renderElements.first else { return 0 }
+        return max((visibleWidth - renderElementWidth(for: firstElement)) / 2, 0)
     }
 
     private func trailingInset(for visibleWidth: CGFloat) -> CGFloat {
-        guard visibleWidth > 0 else { return 0 }
-        let lastWidth = items.last.map(itemWidth(for:)) ?? 0
-        return max((visibleWidth - lastWidth) / 2, 0)
+        guard visibleWidth > 0, let lastElement = renderElements.last else { return 0 }
+        return max((visibleWidth - renderElementWidth(for: lastElement)) / 2, 0)
     }
 
     private func stripID(for semanticID: String) -> String {
@@ -579,7 +611,7 @@ struct SpreadTitleNavigatorView: View {
 
     private func handleWidthChange(to newWidth: CGFloat) {
         let previousWidth = scrollViewportWidth
-        let shouldMaintainSelectionCenter = isSelectedCentered
+        let shouldMaintainSelectionCenter = stripCenteredTargetID == currentSelectionScrollTargetID
         scrollViewportWidth = max(newWidth, 0)
 
         guard previousWidth > 0,
@@ -604,21 +636,15 @@ struct SpreadTitleNavigatorView: View {
     }
 
     private func requestCenterIfVisible(on semanticID: String, animated: Bool) {
-        let isInVisibleItems = items.contains(where: { $0.id == semanticID })
-        let isInExpandedGroup = isItemInExpandedGroup(semanticID: semanticID)
-        guard isInVisibleItems || isInExpandedGroup else { return }
-        requestCenter(on: semanticID, animated: animated)
-    }
-
-    private func isItemInExpandedGroup(semanticID: String) -> Bool {
-        guard let expandedID = expandedGroupID else { return false }
-        return cachedStripElements.first {
-            if case .group(let g) = $0 { return g.id == expandedID }
-            return false
-        }.flatMap { element -> SpreadTitleNavigatorGroup? in
-            if case .group(let g) = element { return g }
-            return nil
-        }?.containsItem(withID: semanticID) ?? false
+        guard let targetID = SpreadTitleNavigatorTargetingSupport.targetID(
+            for: semanticID,
+            visibleItems: items,
+            stripElements: cachedStripElements,
+            expandedGroupID: expandedGroupID
+        ) else {
+            return
+        }
+        requestCenter(on: targetID, animated: animated)
     }
 }
 

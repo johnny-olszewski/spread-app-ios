@@ -12,6 +12,7 @@ struct SpreadTitleNavigatorItemView: View {
     let emphasisColor: Color
     let selectedEmphasisColor: Color
     let horizontalPadding: CGFloat
+    let selectionIndicatorAnchorID: String?
     let action: () -> Void
     var isInteractive: Bool = true
     var isTodayEmphasized: Bool = false
@@ -30,7 +31,6 @@ struct SpreadTitleNavigatorItemView: View {
             }
         }
         .padding(.vertical, 2)
-        .animation(.easeInOut(duration: 0.28), value: isSelected)
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 
@@ -40,33 +40,28 @@ struct SpreadTitleNavigatorItemView: View {
                 .padding(.horizontal, horizontalPadding)
                 .padding(.top, 6)
 
-            ZStack {
-                Circle()
-                    .fill(Color.clear)
-                    .frame(width: 6, height: 6)
-
-                if isSelected {
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 6, height: 6)
-                }
-            }
-            .frame(height: 8)
+            selectionIndicatorAnchor
         }
         .frame(minHeight: 48)
         .contentShape(Rectangle())
         .background(backgroundShape)
-        .background(
-            GeometryReader { geometry in
-                Color.clear.preference(
-                    key: SpreadTitleNavigatorItemFramePreferenceKey.self,
-                    value: [semanticID: geometry.frame(in: .global)]
-                )
-            }
-        )
         .overlay(alignment: .topTrailing) {
             titleBadge
         }
+    }
+
+    private var selectionIndicatorAnchor: some View {
+        Circle()
+            .fill(Color.clear)
+            .frame(width: 6, height: 6)
+            .anchorPreference(
+                key: SpreadTitleNavigatorSelectionIndicatorAnchorPreferenceKey.self,
+                value: .bounds
+            ) { anchor in
+                guard let selectionIndicatorAnchorID else { return [:] }
+                return [selectionIndicatorAnchorID: anchor]
+            }
+            .frame(height: 8)
     }
 
     @ViewBuilder
@@ -257,10 +252,10 @@ struct SpreadTitleNavigatorItemView: View {
     }
 }
 
-struct SpreadTitleNavigatorItemFramePreferenceKey: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
+struct SpreadTitleNavigatorSelectionIndicatorAnchorPreferenceKey: PreferenceKey {
+    static var defaultValue: [String: Anchor<CGRect>] = [:]
 
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+    static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
         value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
