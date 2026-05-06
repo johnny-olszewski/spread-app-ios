@@ -193,6 +193,9 @@ private struct SpreadPageContentView: View {
     @ViewBuilder
     private var conventionalPage: some View {
         if case .conventional(let spread) = item.selection {
+            let selectedID = viewModel.selectedSelection?.stableID(calendar: model.calendar)
+            let isCurrentPage = item.id == selectedID
+            let backDestination = isCurrentPage ? viewModel.peekNavigationSource : nil
             VStack(spacing: 0) {
                 SpreadHeaderView(
                     configuration: SpreadHeaderConfiguration(
@@ -215,6 +218,13 @@ private struct SpreadPageContentView: View {
                     } : nil,
                     onDeleteSpread: {
                         viewModel.showSpreadDeleteConfirmation(spread)
+                    },
+                    backDestination: backDestination,
+                    onGoBack: backDestination.map { source in
+                        {
+                            viewModel.clearPeekNavigationSource()
+                            viewModel.selectedSelection = .conventional(source)
+                        }
                     }
                 )
                 conventionalContentView(for: spread)

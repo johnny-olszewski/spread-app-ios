@@ -58,8 +58,15 @@ struct MultidaySpreadContentView: View {
                     Task { @MainActor in await syncEngine?.syncNow() }
                 },
                 explicitDaySpreadForDate: explicitDaySpreadForDate,
-                onSelectSpread: { spread in
-                    viewModel.selectedSelection = .conventional(spread)
+                onSelectSpread: { daySpread in
+                    viewModel.navigateViaPeek(to: daySpread, from: spread)
+                },
+                onPeekTaskTap: { daySpread, task in
+                    viewModel.navigateViaPeek(to: daySpread, from: spread)
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(150))
+                        viewModel.showTaskDetail(task)
+                    }
                 },
                 onCreateSpread: { date in
                     viewModel.showSpreadCreation(prefill: .init(period: .day, date: date))

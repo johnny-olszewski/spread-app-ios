@@ -27,6 +27,8 @@ struct MultidayPeekPanelView: View {
     let today: Date
     let onClose: () -> Void
     let onNavigate: (DataModel.Spread) -> Void
+    /// When non-nil, task rows become tappable and invoke this callback.
+    let onTaskTap: ((DataModel.Task) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
 
@@ -56,6 +58,16 @@ struct MultidayPeekPanelView: View {
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: SpreadTheme.Spacing.entryRowVertical, leading: 16, bottom: SpreadTheme.Spacing.entryRowVertical, trailing: 16))
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { onTaskTap?(task) }
+                                    .overlay(alignment: .trailing) {
+                                        if onTaskTap != nil {
+                                            Image(systemName: "chevron.right")
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(.tertiary)
+                                                .padding(.trailing, 4)
+                                        }
+                                    }
                             }
                         }
                     }
