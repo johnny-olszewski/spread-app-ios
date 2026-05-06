@@ -30,10 +30,9 @@ struct SpreadTitleNavigatorGroupView: View {
 
     private var expandLabel: some View {
         VStack(spacing: 4) {
-            Text(group.dateRangeLabel)
+            Image(systemName: "ellipsis")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(containsSelection ? Color.primary : Color.secondary)
-                .lineLimit(1)
                 .padding(.horizontal, 10)
                 .padding(.top, 6)
 
