@@ -1,6 +1,20 @@
 import SwiftUI
 import UIKit
 
+private enum StripRenderElement: Identifiable {
+    case item(SpreadTitleNavigatorModel.Item, index: Int)
+    case groupHeader(SpreadTitleNavigatorGroup)
+    case expandedItem(SpreadTitleNavigatorModel.Item, index: Int)
+
+    var id: String {
+        switch self {
+        case .item(let item, _): return "render.item.\(item.id)"
+        case .groupHeader(let group): return "render.group.\(group.id)"
+        case .expandedItem(let item, _): return "render.expanded.\(item.id)"
+        }
+    }
+}
+
 struct SpreadTitleNavigatorView: View {
     private static let itemSpacing: CGFloat = 12
     private static let recommendationFadeWidth: CGFloat = 50
@@ -23,6 +37,7 @@ struct SpreadTitleNavigatorView: View {
     @State private var stripCenteredTargetID: String?
     @State private var widthChangeCenterToken = 0
     @State private var isShowingNavigator = false
+    @State private var expandedGroupID: String?
     @Namespace private var selectionIndicatorNamespace
 
     private var selectedSemanticID: String {
@@ -41,12 +56,42 @@ struct SpreadTitleNavigatorView: View {
         itemFrames[selectedSemanticID]
     }
 
-    private var isSelectedHiddenFromTitleStrip: Bool {
-        !SpreadTitleNavigatorSelectionVisibility.isSelectionVisible(
-            selection,
-            in: items,
-            calendar: stripModel.calendar
+    private var stripElements: [SpreadTitleNavigatorStripElement] {
+        SpreadTitleNavigatorStripElementBuilder.elements(
+            fullItems: stripModel.items(for: selection),
+            filteredItems: items
         )
+    }
+
+    private var renderElements: [StripRenderElement] {
+        var result: [StripRenderElement] = []
+        var itemIndex = 0
+
+        for element in stripElements {
+            switch element {
+            case .item(let item):
+                result.append(.item(item, index: itemIndex))
+                itemIndex += 1
+            case .group(let group):
+                result.append(.groupHeader(group))
+                if expandedGroupID == group.id {
+                    for (idx, item) in group.items.enumerated() {
+                        result.append(.expandedItem(item, index: idx))
+                    }
+                }
+            }
+        }
+
+        return result
+    }
+
+    private var isSelectedHiddenFromTitleStrip: Bool {
+        let isInVisibleItems = items.contains { $0.id == selectedSemanticID }
+        let isInAnyGroup = stripElements.contains { element in
+            if case .group(let group) = element { return group.containsItem(withID: selectedSemanticID) }
+            return false
+        }
+        return !isInVisibleItems && !isInAnyGroup
     }
 
     private var currentNavigatorSpread: DataModel.Spread {
@@ -122,9 +167,11 @@ struct SpreadTitleNavigatorView: View {
         )
         .frame(maxWidth: .infinity)
         .task(id: items.map(\.id)) {
+            cleanupExpandedGroupIfNeeded()
             requestCenterIfVisible(on: selectedSemanticID, animated: false)
         }
         .onChange(of: selectedSemanticID) { _, newValue in
+            autoCollapseGroupIfNeeded(for: newValue)
             requestCenterIfVisible(on: newValue, animated: true)
         }
         .onChange(of: recenterToken) { _, _ in
@@ -183,8 +230,8 @@ struct SpreadTitleNavigatorView: View {
 
     private var itemRow: some View {
         HStack(spacing: Self.itemSpacing) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                itemView(for: item, index: index)
+            ForEach(renderElements) { element in
+                renderElement(element)
             }
         }
         .scrollTargetLayout()
@@ -194,6 +241,29 @@ struct SpreadTitleNavigatorView: View {
                 .onChange(of: frames) { _, newValue in
                     itemFrames = newValue
                 }
+        }
+    }
+
+    @ViewBuilder
+    private func renderElement(_ element: StripRenderElement) -> some View {
+        switch element {
+        case .item(let item, let index):
+            itemView(for: item, index: index)
+        case .groupHeader(let group):
+            SpreadTitleNavigatorGroupView(
+                group: group,
+                isExpanded: expandedGroupID == group.id,
+                containsSelection: group.containsItem(withID: selectedSemanticID),
+                selectionIndicatorNamespace: selectionIndicatorNamespace,
+                onExpand: { expandGroup(group) },
+                onCollapse: { collapseCurrentGroup() }
+            )
+        case .expandedItem(let item, let index):
+            itemView(for: item, index: index)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .leading).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
         }
     }
 
@@ -392,6 +462,52 @@ struct SpreadTitleNavigatorView: View {
         )
     }
 
+    // MARK: - Group Expansion
+
+    private func expandGroup(_ group: SpreadTitleNavigatorGroup) {
+        withAnimation(.easeInOut(duration: 0.28)) {
+            expandedGroupID = group.id
+        }
+        let semanticID = selectedSemanticID
+        if group.containsItem(withID: semanticID) {
+            requestCenter(on: semanticID, animated: true)
+        }
+    }
+
+    private func collapseCurrentGroup() {
+        withAnimation(.easeInOut(duration: 0.28)) {
+            expandedGroupID = nil
+        }
+    }
+
+    private func autoCollapseGroupIfNeeded(for newSemanticID: String) {
+        guard let expandedID = expandedGroupID else { return }
+        let isInsideGroup = stripElements.contains { element in
+            if case .group(let group) = element, group.id == expandedID {
+                return group.containsItem(withID: newSemanticID)
+            }
+            return false
+        }
+        if !isInsideGroup {
+            withAnimation(.easeInOut(duration: 0.28)) {
+                expandedGroupID = nil
+            }
+        }
+    }
+
+    private func cleanupExpandedGroupIfNeeded() {
+        guard let expandedID = expandedGroupID else { return }
+        let groupExists = stripElements.contains { element in
+            if case .group(let group) = element { return group.id == expandedID }
+            return false
+        }
+        if !groupExists {
+            expandedGroupID = nil
+        }
+    }
+
+    // MARK: - Item Actions
+
     private func handleItemTap(_ item: SpreadTitleNavigatorModel.Item) {
         guard let nextSelection = SpreadTitleNavigatorTapSupport.selectionChange(
             for: item,
@@ -410,6 +526,8 @@ struct SpreadTitleNavigatorView: View {
             requestCenter(on: nextID, animated: true)
         }
     }
+
+    // MARK: - Layout Helpers
 
     private func uiFont(for style: SpreadTitleNavigatorItemStyle) -> UIFont {
         switch style {
@@ -507,6 +625,8 @@ struct SpreadTitleNavigatorView: View {
         widthChangeCenterToken += 1
     }
 
+    // MARK: - Scroll Centering
+
     private func requestCenter(on semanticID: String, animated: Bool) {
         let targetID = stripID(for: semanticID)
         if animated {
@@ -519,8 +639,21 @@ struct SpreadTitleNavigatorView: View {
     }
 
     private func requestCenterIfVisible(on semanticID: String, animated: Bool) {
-        guard items.contains(where: { $0.id == semanticID }) else { return }
+        let isInVisibleItems = items.contains(where: { $0.id == semanticID })
+        let isInExpandedGroup = isItemInExpandedGroup(semanticID: semanticID)
+        guard isInVisibleItems || isInExpandedGroup else { return }
         requestCenter(on: semanticID, animated: animated)
+    }
+
+    private func isItemInExpandedGroup(semanticID: String) -> Bool {
+        guard let expandedID = expandedGroupID else { return false }
+        return stripElements.first {
+            if case .group(let g) = $0 { return g.id == expandedID }
+            return false
+        }.flatMap { element -> SpreadTitleNavigatorGroup? in
+            if case .group(let g) = element { return g }
+            return nil
+        }?.containsItem(withID: semanticID) ?? false
     }
 }
 
