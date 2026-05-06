@@ -5164,7 +5164,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests covering horizontal year paging, persisted expanded month state while open, `View Month`, disabled dates, and confirmation-dialog selection for overlapping day/multiday targets.
 - **Dependencies**: SPRD-125
 
-### [SPRD-198] UI: Title navigator collapsed groups
+### [SPRD-198] UI: Title navigator collapsed groups - [x] Complete
 - **Context**: When users swipe horizontally in the content area and land on a spread hidden by the relevance filter, there is no visual anchor in the title strip. Contiguous runs of hidden spreads should be represented by a collapsed group element that shows the selection indicator when the active spread is inside it, and expands inline to reveal and navigate to those spreads.
 - **Spec**: Title Navigator Collapsed Groups [SPRD-198]
 - **Acceptance Criteria**:
