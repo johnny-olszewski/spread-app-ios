@@ -61,21 +61,12 @@ struct MultidaySpreadContentView: View {
                 onSelectSpread: { daySpread in
                     viewModel.navigateViaPeek(to: daySpread, from: spread)
                 },
-                onPeekTaskTap: { daySpread, task in
-                    viewModel.navigateViaPeek(to: daySpread, from: spread)
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(150))
-                        viewModel.showTaskDetail(task)
-                    }
-                },
                 onCreateSpread: { date in
                     viewModel.showSpreadCreation(prefill: .init(period: .day, date: date))
-                },
-                openTaskCountForDaySpread: { spread in
+                }, openTaskCountForDaySpread: { spread in
                     let key = SpreadDataModelKey(spread: spread, calendar: journalManager.calendar)
                     return journalManager.dataModel[key: key]?.tasks.filter { $0.status == .open }.count ?? 0
-                },
-                peekDataForDaySpread: { spread in
+                }, peekDataForDaySpread: { spread in
                     let key = SpreadDataModelKey(spread: spread, calendar: journalManager.calendar)
                     guard let dataModel = journalManager.dataModel[key: key] else { return nil }
                     let dayStart = spread.date.startOfDay(calendar: journalManager.calendar)
@@ -84,6 +75,12 @@ struct MultidaySpreadContentView: View {
                     }
                     let dayEvents = calendarEvents.filter { $0.startDate < dayEnd && $0.endDate > dayStart }
                     return MultidayPeekData(spread: spread, spreadDataModel: dataModel, calendarEvents: dayEvents)
+                }, onPeekTaskTap: { daySpread, task in
+                    viewModel.navigateViaPeek(to: daySpread, from: spread)
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(150))
+                        viewModel.showTaskDetail(task)
+                    }
                 },
                 onRefresh: {
                     guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
