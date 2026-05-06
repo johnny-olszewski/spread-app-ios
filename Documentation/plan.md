@@ -5187,7 +5187,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests: indicator appears under group when active spread is hidden, expand/collapse animation triggers, auto-collapse on selection change outside the group.
 - **Dependencies**: SPRD-136, SPRD-137
 
-### [SPRD-199] UI: Replace inline title strip with compact spread context bar
+### [SPRD-199] ✅ UI: Replace inline title strip with compact spread context bar
 - **Context**: The inline title strip has accumulated too many responsibilities: current-context display, timeline browsing, recommendation surfacing, hidden-range recovery, and animation-heavy centering behavior. The result is unstable vertical chrome, complex state coupling, and a navigation model that is harder to scan than a simpler persistent context bar plus richer navigator surface.
 - **Description**: Replace the persistent horizontal title strip with a compact spread context bar that shows only the current spread, keeps the rooted navigator as the full browsing surface, and moves spread recommendations into the rooted navigator.
 - **Spec**: Compact Spread Context Bar and Rooted Navigator [SPRD-199]
