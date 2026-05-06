@@ -145,12 +145,14 @@ struct SpreadContentPagerView: View {
     }
 
     private func center(on id: String, animated: Bool) {
+        let targetID = pagerID(for: id)
+        guard pagerSettledTargetID != targetID else { return }
         if animated {
             withAnimation(.easeInOut(duration: 0.38)) {
-                pagerSettledTargetID = pagerID(for: id)
+                pagerSettledTargetID = targetID
             }
         } else {
-            pagerSettledTargetID = pagerID(for: id)
+            pagerSettledTargetID = targetID
         }
     }
 
@@ -224,6 +226,7 @@ private struct SpreadPageContentView: View {
                         {
                             viewModel.clearPeekNavigationSource()
                             viewModel.selectedSelection = .conventional(source)
+                            viewModel.recenterToken += 1
                         }
                     }
                 )
@@ -273,6 +276,7 @@ private struct SpreadPageContentView: View {
                 explicitDaySpreadForDate: { date in explicitDaySpread(for: date) },
                 onSelectSpread: { selectedSpread in
                     viewModel.selectedSelection = .conventional(selectedSpread)
+                    viewModel.recenterToken += 1
                 },
                 onCreateSpread: { date in
                     viewModel.showSpreadCreation(prefill: .init(period: .day, date: date))
@@ -414,6 +418,7 @@ private struct SpreadPageContentView: View {
                 return
             }
             viewModel.selectedSelection = .conventional(destination)
+            viewModel.recenterToken += 1
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(150))
                 viewModel.showTaskDetail(task)

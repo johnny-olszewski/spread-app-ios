@@ -8,7 +8,7 @@
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
-- Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and a fixed leading affordance in that navigator presents the complete rooted spread navigator as a popover on iPad and a sheet on iPhone. Conventional and traditional modes share the same navigator, rooted selector, swipe pager, and spread-surface architecture; mode differences are expressed through spread availability, title-strip filtering, title-strip badges, and entry inclusion/assignment rules rather than separate navigation UIs. A dedicated top-level search-role tab replaces the old Inbox toolbar flow and hosts the global task browser. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-151, SPRD-176, SPRD-177, SPRD-178]
+- Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses a compact in-view spread context bar on both platforms, and a fixed leading affordance in that bar presents the complete rooted spread navigator as a popover on iPad and a sheet on iPhone. Conventional and traditional modes share the same compact bar, rooted selector, swipe pager, and spread-surface architecture; mode differences are expressed through spread availability and entry inclusion/assignment rules rather than separate navigation UIs. A dedicated top-level search-role tab replaces the old Inbox toolbar flow and hosts the global task browser. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-151, SPRD-177]
 - Shared foundations package: the app may host reusable UI components and utilities in a local Swift Package named `johnnyo-foundation`, structured for later GitHub publication. App-facing product spec captures integration points and high-level contracts; detailed package API spec should live with the package. [SPRD-152, SPRD-153]
 - AppClock is the app-wide temporal-context infrastructure for current time, system calendar, time zone, and locale. It keeps time-sensitive product behavior correct while the app remains open across foregrounding, midnight, DST, travel, and other significant time changes. It is infrastructure only: product policy remains in JournalManager collaborators, view models, and view-local renderers. [SPRD-179]
 - Core entities (v1): [SPRD-8, SPRD-9, SPRD-10]
@@ -27,7 +27,7 @@
 - BuJo modes: "conventional" (explicit-spread-driven, current-assignment content with dedicated migration flows) and "traditional" (full year/month/day hierarchy, preferred-assignment driven). [SPRD-20, SPRD-17, SPRD-151, SPRD-186]
 
 ## Goals
-- Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with an in-view horizontal spread navigator, a selected-spread navigator surface presented as an iPad popover and iPhone sheet, and conventional-mode migration flows that preserve assignment history without leaving historical rows in spread content. [SPRD-25, SPRD-15, SPRD-29, SPRD-125, SPRD-126, SPRD-186]
+- Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with an in-view compact spread context bar, a selected-spread navigator surface presented as an iPad popover and iPhone sheet, and conventional-mode migration flows that preserve assignment history without leaving historical rows in spread content. [SPRD-25, SPRD-15, SPRD-29, SPRD-125, SPRD-126, SPRD-186]
 - Provide a unified spread-surface architecture where traditional mode reuses the same navigator, pager, header, section, and list components as conventional mode while preserving traditional spread availability and assignment semantics. [SPRD-17, SPRD-35, SPRD-38, SPRD-151]
 - Support offline-first usage with SwiftData local storage and Supabase sync. [SPRD-80, SPRD-85]
 - Require authentication for all product usage in dev/prod environments, while preserving offline access for users with an existing cached session and local data. [SPRD-104, SPRD-106]
@@ -96,10 +96,9 @@
   - Preferred assignment remains governed by existing assignment/status sync behavior rather than the new independent metadata conflict system. New task metadata is preserved against title edits, but assignment/status changes keep existing stronger behavior. [SPRD-168]
   - During migration/backfill, new field timestamps initialize from each record's existing sync/update timestamp rather than migration time or nil. Delete wins over concurrent edits to new metadata and never resurrects a deleted task or spread. [SPRD-168]
 - Local navigation display scope:
-  - Conventional mode title-strip display is controlled by a local per-device preference, persisted outside synced schema using `UserDefaults`/`@AppStorage` or an equivalent local-only settings store. [SPRD-176]
-  - The preference has two values: `Relevant Past Only` and `Show All Spreads`. `Relevant Past Only` is the default for new and existing installs after the feature lands. [SPRD-176]
-  - This preference does not require SwiftData/Supabase schema changes, does not sync across devices, and has no migration beyond choosing a local default when absent. [SPRD-176]
-  - The setting is exposed from Settings, not from the spread toolbar/title strip, with explanatory copy that filtered mode hides old completed past spreads and that the rooted chevron navigator remains the complete jump surface. [SPRD-176, SPRD-177]
+  - The persistent spread context bar is not a filterable timeline surface. It always renders only the current selection's compact context and does not expose a local per-device visibility mode. [SPRD-126]
+  - Full chronological browsing lives in the rooted navigator surface, which remains complete rather than locally filtered. [SPRD-125, SPRD-177]
+  - This redesign removes the need for the previous `Relevant Past Only` vs `Show All Spreads` display preference and its local-only persistence. [SPRD-176]
 
 ## Non-Goals (v1)
 - Advanced search and filters remain out of scope for v1. Task body participates in the existing global task browser search, but tags and tag filters are deferred beyond `WKFLW-17`. [SPRD-56, SPRD-167, SPRD-170]
@@ -120,8 +119,8 @@
 ### Multiplatform Strategy
 - Adaptive layouts using size classes: [SPRD-19, SPRD-25]
   - A single top-level `TabView` is used for all devices. [SPRD-143]
-  - Regular width (iPad): the root `TabView` uses SwiftUI's sidebar-adaptable presentation so top-level destinations are surfaced through Apple's adaptive sidebar/tab model rather than a custom `NavigationSplitView`. Spread navigation stays in the spread view via a centered horizontal spread-title navigator, whose fixed leading chevron affordance opens the complete rooted spread navigator popover.
-  - Compact width (iPhone): the same root `TabView` presents as a bottom tab bar; the same centered horizontal spread-title navigator appears in the spread view, and its fixed leading chevron affordance opens the same rooted spread navigator content in a large sheet.
+  - Regular width (iPad): the root `TabView` uses SwiftUI's sidebar-adaptable presentation so top-level destinations are surfaced through Apple's adaptive sidebar/tab model rather than a custom `NavigationSplitView`. Spread navigation stays in the spread view via a compact spread context bar, whose fixed leading chevron affordance opens the complete rooted spread navigator popover.
+  - Compact width (iPhone): the same root `TabView` presents as a bottom tab bar; the same compact spread context bar appears in the spread view, and its fixed leading chevron affordance opens the same rooted spread navigator content in a large sheet.
   - Top-level destinations remain flat, first-class destinations: `Spreads`, `Collections`, `Settings`, and `Debug` when available. [SPRD-19, SPRD-143]
   - User tab/sidebar customization is out of scope for v1; the adaptive tab structure is app-defined and non-customizable. [SPRD-143]
   - `NavigationTab` remains the single source of truth for top-level destination identity and selection. [SPRD-143]
@@ -164,7 +163,7 @@
   - current system `Locale`
   - semantic change facts such as whether a refresh crossed a day boundary or was triggered by a significant time change [SPRD-179]
 - `AppClock` does not own app product settings such as BuJo mode or first-weekday preference. Consumers compose those settings with clock state when needed. [SPRD-179]
-- `AppClock` is infrastructure only. It observes and publishes temporal reality, but it does not decide product behavior such as whether a spread should remain selected, how overdue is evaluated, or how the title strip is filtered. That policy remains in injected business-rule services, JournalManager orchestration, and view-local rendering code. [SPRD-179]
+- `AppClock` is infrastructure only. It observes and publishes temporal reality, but it does not decide product behavior such as whether a spread should remain selected or how overdue is evaluated. That policy remains in injected business-rule services, JournalManager orchestration, and view-local rendering code. [SPRD-179]
 - `AppClock` should be implemented as a concrete observable service with injectable low-level collaborators such as current-time providers and notification/lifecycle bridges rather than as a top-level protocol-backed service abstraction. [SPRD-179]
 - View-layer access to `AppClock` should be provided through the SwiftUI environment so descendant views can read temporal context without prop drilling. Non-view infrastructure such as `JournalManager`, coordinators, and rule engines must still receive explicit constructor-injected access to the same shared instance or to explicit temporal inputs; the app must not rely on view-only environment lookup inside core services. [SPRD-179]
 - Time-sensitive pure logic should receive explicit temporal input values from higher layers where practical rather than reaching into shared mutable state directly. `JournalManager` and view models may read from `AppClock`, but evaluators, builders, formatters, and support-layer helpers should prefer explicit reference-date and temporal-context parameters when feasible so tests remain deterministic. [SPRD-180]
@@ -474,7 +473,7 @@
 - Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
 - Cancelled tasks are excluded from Inbox. [SPRD-16]
 - A standalone `Today` text button appears as a `.glassEffect` overlay button anchored to the bottom-leading corner of the spread content view on both iPhone and iPad. It is always visible regardless of the currently selected spread. [SPRD-130]
-- Pressing `Today` navigates to the smallest-granularity spread containing the current absolute today date and synchronizes all spread navigation surfaces, including the selected spread, horizontal title strip, and horizontal content pager. [SPRD-130]
+- Pressing `Today` navigates to the smallest-granularity spread containing the current absolute today date and synchronizes all spread navigation surfaces, including the selected spread, compact spread context bar, and horizontal content pager. [SPRD-130]
 - Conventional mode `Today` target resolution: [SPRD-130]
   - Prefer an explicit day spread for today when it exists.
   - Otherwise prefer the narrowest explicit multiday spread whose range contains today.
@@ -483,7 +482,7 @@
   - If multiple multiday spreads contain today, choose the narrowest containing range; break ties by the existing chronological spread ordering.
   - If no explicit spread contains today, the button currently does nothing.
 - Traditional mode `Today` always navigates to the traditional day destination for today. [SPRD-130]
-- If `Today` is pressed while today is already the selected spread, it still recenters the title strip and content pager on today's selection if needed. [SPRD-130]
+- If `Today` is pressed while today is already the selected spread, it still refreshes the compact context bar and content pager on today's selection if needed. [SPRD-130]
 
 ### Navigation and UI
 - Spread navigation uses an in-view hierarchical tab bar on both iPad and iPhone; it handles navigation between spreads only. [SPRD-19, SPRD-25]
@@ -495,53 +494,26 @@
 - Search results are grouped into hidden-when-empty sections:
   - `Inbox` first.
   - Remaining sections follow the same ordering model as `SpreadTitleNavigatorView` for the active mode (`conventional` vs `traditional`). [SPRD-148]
-- The global task browser uses the complete spread ordering model, not the local title-strip relevance filter. Hidden past title-strip items do not hide or reorder search sections. [SPRD-176]
+- The global task browser uses the complete spread ordering model. There is no compact-bar-specific filtering layer that can hide or reorder search sections. [SPRD-176]
 - Each task appears exactly once in search, under the spread where it is currently shown. Migrated historical entries are excluded. [SPRD-148]
 - Tapping a search result navigates to the task's current spread and then opens the task edit sheet there. [SPRD-148]
-- Horizontal spread-title navigator behavior: [SPRD-126, SPRD-127, SPRD-176, SPRD-177]
+- Spread context bar behavior: [SPRD-126, SPRD-177]
   - Periods shown remain year → month → (day, multiday); no week period. [SPRD-8, SPRD-126]
-  - The navigator replaces the old top spread selection bar and becomes the primary in-view spread-selection control on both iPhone and iPad. [SPRD-126]
-  - The navigator is a horizontal scroll view of spread titles ordered according to the app's actual navigable spread sequence for the selected year in the current mode. [SPRD-126, SPRD-127]
-  - As long as selection stays within the same year, the strip contents do not rescope based on whether the selected spread is a year, month, day, or multiday spread. [SPRD-127]
-  - Conventional mode title-strip visibility depends on the local title-strip display preference. `Show All Spreads` shows all explicit spreads that exist in the selected year, in chronological order, including explicit year, month, day, and multiday spreads. `Relevant Past Only` uses the same chronological ordering but filters irrelevant past explicit spreads before rendering. [SPRD-127, SPRD-176]
-  - In `Relevant Past Only`, current and future conventional explicit spreads always remain visible. A past conventional explicit spread remains visible only when it is favorited or currently shows at least one open task. Completed, cancelled, migrated-history-only tasks, notes, and events do not preserve past spread visibility. [SPRD-176]
-  - Past is period-specific: a day spread is past after that day has fully passed; a month spread is past after that month has fully passed; a year spread is past after that year has fully passed; a multiday spread is past after its end date has passed. [SPRD-176]
-  - Open-task relevance uses existing display/inclusion rules. Year/month/day spreads are relevant when they currently show at least one `.open` task under existing conventional spread-resolution rules. Multiday spreads are relevant when they currently show at least one `.open` task assigned to that multiday spread. [SPRD-176, SPRD-193]
-  - When a conventional-mode day spread and multiday spread share the same start date, the multiday item appears before the day item in the strip ordering. [SPRD-127]
-  - Traditional mode is not affected by the title-strip display preference. It continues to show the full selected calendar year inline as a single chronological sequence: the year item, each month item, and every day in that year; traditional mode does not include multiday items in the strip. [SPRD-127, SPRD-176]
-  - When selection moves to a spread in a different year, the strip rebuilds to that new year's sequence. [SPRD-127]
-  - The currently selected spread is centered in the strip on launch when it is visible in the current title-strip display mode. Strip-originated spread selections animate the strip to the selected spread. Intentional non-strip jump actions such as `Today` and rooted spread-surface selection recenter the strip when the selected spread is visible, or activate the leading selected proxy when it is hidden by the filter. Pager-driven selection changes do not automatically recenter the strip; they preserve the current strip browse offset while updating selection state or the hidden-selection proxy. [SPRD-126, SPRD-127, SPRD-136, SPRD-176, SPRD-177]
-  - The selected spread is rendered with a small indicator dot beneath the selected title. [SPRD-126, SPRD-127, SPRD-136]
-  - If the selected spread is hidden by `Relevant Past Only`, selection remains valid and the app does not force navigation to another spread. The fixed leading rooted-navigator chevron acts as a selected-state proxy: it uses selected styling and receives the same indicator dot underneath, animated smoothly into the chevron position. [SPRD-176, SPRD-177]
-  - Non-selected visible spreads are rendered as plain text titles with hierarchy-aware styling. [SPRD-126]
-  - Inline month items in the strip should have subtle spacing/separator treatment so month boundaries remain readable within the year-wide sequence. [SPRD-127]
-  - The strip passively emphasizes the item representing today's navigable destination even when it is not selected, using a shared configurable today-emphasis color token and a slight weight increase. [SPRD-144]
-  - Today emphasis in the strip uses the same resolution semantics as the `Today` button: in conventional mode it highlights the destination that `Today` would navigate to, and in traditional mode it highlights today's traditional day destination. [SPRD-144]
-  - Strip styling distinguishes four states: non-today selected, non-today unselected, today selected, and today unselected. [SPRD-144]
-  - The navigator preserves a centered selected slot even near list edges or when fewer than five spreads exist by using invisible spacer slots rather than collapsing the layout around the selected item. [SPRD-126]
-  - The number of neighboring visible titles is adaptive to available width; it is not hardcoded per device class. Partially visible edge titles are allowed to signal additional offscreen spreads. [SPRD-126]
-  - Horizontal drag is browse-only in this task: the user may scroll and snap the strip without changing the currently selected spread or the main spread content. [SPRD-127]
-  - Selection does not update continuously during drag or on drag settle. [SPRD-127]
-  - Tapping a visible non-selected spread selects it, updates the main app spread content, and animates that spread into the centered selected position. Tapping the selected title-strip item does not open the rooted navigator; rooted navigation is owned by the fixed leading chevron affordance. [SPRD-126, SPRD-127, SPRD-177]
-  - The selected spread always retains its selected-state indicator styling while browsing; browsing the strip does not hide selected-state styling. [SPRD-127]
-  - The horizontal title strip provides a fixed leading chevron affordance that opens the rooted spread navigator. The affordance is outside the scrollable title content and remains visible while the strip scrolls. [SPRD-177]
-  - Each title-strip item can render at most one top-right badge from a prioritized badge enum. Priority is `overdue(count)` first, then `favorite`; lower-priority badges are hidden when a higher-priority badge exists. [SPRD-178]
-  - `overdue(count)` uses the existing red numeric count badge language, including exact uncapped counts. `favorite` uses a yellow `star.fill` icon badge in the same badge slot. [SPRD-147, SPRD-178]
-  - Conventional explicit year/month/day/multiday spreads can show either badge in both `Relevant Past Only` and `Show All Spreads`. Traditional virtual year/month/day items participate in the same badge enum for overdue counts only; favorite badges never apply to traditional virtual destinations. [SPRD-169, SPRD-176, SPRD-178]
-  - Badge accessibility labels are semantic, such as `3 overdue tasks`, `3 overdue tasks in this date range`, or `Favorited spread`. Badge accessibility identifiers include the badge kind plus the spread date/period, such as `overdue-2026-03-01-day` or `favorite-2026-01-01-year`, so tests can target a specific spread's badge. [SPRD-178]
-  - The strip uses browse-only snapping while preserving the user's browse offset across layout-width changes when the strip is already browsed away from the selected spread. If the strip is currently centered on the selected spread, width changes keep it centered. This preserves browsing position, but may leave the selected spread visually off-center after some width changes and should be monitored as a potential UX bug. [SPRD-136]
-  - The spread header no longer renders a duplicate spread title once this navigator is present. [SPRD-126]
+  - The context bar replaces both the old top spread selection bar and the exploratory inline scrolling title strip. It becomes the primary persistent spread-navigation chrome on both iPhone and iPad. [SPRD-126]
+  - The context bar is not a horizontal browse surface. It renders only the current selection's compact identity and delegates full chronological browsing to the rooted navigator surface. [SPRD-125, SPRD-126, SPRD-177]
+  - A fixed leading chevron affordance opens the rooted spread navigator. The affordance remains visible at all times and does not scroll independently from the rest of the bar. [SPRD-177]
+  - The context area shows the current spread only:
+    - a primary label for the current display title
+    - compact secondary canonical date context when needed, especially for personalized spread names
+    - no duplicate large header title elsewhere in the spread content surface [SPRD-126, SPRD-129, SPRD-172]
+  - The bar must remain compact and stable across modes and widths. It should not reserve centered timeline slots, introduce broad empty gutters, or grow into a tall band when the selected spread changes. [SPRD-126]
+  - The bar does not support drag browsing, collapsed hidden groups, recenter buttons, or offscreen-selected proxies because the persistent surface no longer represents the full selected-year sequence inline. [SPRD-127, SPRD-136, SPRD-176, SPRD-198]
+  - Today emphasis applies only to the current selected spread shown in the compact bar. Broader passive cross-spread emphasis belongs in the rooted navigator surface. [SPRD-144]
   - A trailing "+" button remains always visible and opens a creation menu (spread or task). [SPRD-23, SPRD-26, SPRD-126]
   - Navigator label refinements: [SPRD-129]
     - The spread content surface removes the duplicate `Spreads` title, while higher-level container navigation titles may remain when needed. [SPRD-129]
-    - Year items use a stacked treatment with the leading century digits rendered smaller above the larger trailing two digits, while accessibility continues to expose the plain spoken year value such as `2026`. [SPRD-129]
-    - Month items remain single-line labels but use a more expressive typographic treatment than plain body text. [SPRD-129]
-    - Day items render as a three-line label with a smallcaps month abbreviation above the day number and a short weekday label beneath it. [SPRD-129]
-    - Multiday items render as a three-line label:
-      - same-month ranges show a smallcaps month abbreviation above a compact day range and a short weekday span beneath it
-      - cross-month ranges show a smallcaps month span above the compact endpoint day range and a short weekday span beneath it [SPRD-129]
-  - The strip height is content-driven with a minimum visual floor; it must not be hardcoded. The strip expands to fit its tallest item label (including multi-line day and multiday items) plus adequate vertical padding so the selected indicator and labels are never clipped or overlapped by sibling views. [SPRD-136]
-  - Scrolling the title strip is isolated from the content pager. Strip scroll events must not propagate to the pager or change the selected spread unless the user explicitly taps a strip item. [SPRD-136]
+    - Personalized labels remain primary when present; canonical date context is shown as secondary support text where space allows. [SPRD-169, SPRD-172]
+  - The context bar height is content-driven with a compact visual floor; it must not be hardcoded or allowed to expand to absorb unrelated vertical space from surrounding layout. [SPRD-136]
 
 ### Shared Spread Surface Architecture
 - Conventional and traditional modes must render through the same shared spread UI architecture. [SPRD-151]
@@ -672,8 +644,8 @@
 - Navigation surface alignment: [SPRD-186]
   - Rooted navigator and related spread-preview surfaces adopt the same existence/content semantics and broader visual grammar as the main spread pages, but with lighter information density.
   - Conventional navigator month grids continue to use explicit day-spread existence for created/uncreated borders, while multiday coverage remains a decorative overlay lane rather than turning day cells into created day spreads.
-  - Recommended spread inset behavior: [SPRD-137]
-    - In conventional mode only, the title navigator shows a separate fixed trailing inset area for recommended spreads to create.
+  - Recommended spread behavior: [SPRD-137]
+    - In conventional mode only, recommended spreads to create are surfaced inside the rooted navigator surface rather than as a persistent trailing inset in the top bar.
     - Recommendations are based on `today`, not on the currently selected spread.
     - The recommendation engine is defined by an injected protocol so recommendation derivation can be unit tested independently of the view.
     - The protocol returns semantic recommendations only; the navigator view continues to derive label presentation using the existing spread-title formatting system.
@@ -681,27 +653,20 @@
     - Recommendations never include multiday spreads.
     - A multiday spread containing today does not satisfy the `day` recommendation; only an explicit day spread does.
     - When multiple recommendations are present, they are shown in `year`, `month`, `day` order.
-    - The recommendation inset is not part of the scrollable strip content; it stays fixed on the trailing side while the existing spread strip continues to scroll independently.
-    - If no recommendations are available, the trailing inset disappears entirely and does not reserve empty space.
-    - Recommended spreads use the same compact label language as ordinary strip items and are visually distinguished with the shimmering recommendation treatment.
-    - Recommendation cards remove the ordinary inner horizontal padding and use a shared fixed `3:5` aspect ratio.
-    - All visible recommendation cards share the same size.
-    - On iPad, all recommendations continue to appear directly in the trailing inset; they do not collapse into a menu.
-    - On iPhone, a single recommendation still appears as a direct tappable recommendation card.
-    - On iPhone, when more than one recommendation exists, the trailing inset collapses to a single shimmering down-chevron card instead of showing multiple direct cards.
-    - The iPhone multi-recommendation chevron card uses the same shared size as the direct recommendation cards.
-    - Tapping the iPhone chevron card opens a `Menu` whose items use full spread date/title labels.
+    - If no recommendations are available, the recommendation section is omitted entirely from the rooted navigator surface.
+    - Recommended spreads use the same compact label language as ordinary navigator destinations but are visually distinguished with the shimmering recommendation treatment.
+    - Recommendation cards or rows may adapt by size class, but they no longer reserve persistent horizontal chrome space beside the compact context bar.
     - Tapping a recommendation opens the existing create-spread flow prefilled for that recommendation rather than creating the spread immediately.
     - A recommendation remains visible while the create-spread flow is open and disappears only after successful spread creation.
   - Rooted spread navigator behavior: [SPRD-125, SPRD-139, SPRD-177]
-    - A fixed leading chevron affordance in `SpreadTitleNavigatorView` opens the rooted spread navigator: as a popover on iPad and as a large sheet on iPhone.
-    - `SpreadHeaderView` does not own or duplicate the rooted navigator trigger once the title navigator leading affordance is present.
+    - A fixed leading chevron affordance in the compact spread context bar opens the rooted spread navigator: as a popover on iPad and as a large sheet on iPhone.
+    - `SpreadHeaderView` does not own or duplicate the rooted navigator trigger once the compact bar leading affordance is present.
     - The spread header shows the period type in the existing small-caps style above the main title.
     - Year spread headers use the year as the main title and reserve subtitle space without rendering subtitle text.
     - Month spread headers use the month name as the main title and the year as the subtitle.
     - Day spread headers keep the long-form date as the main title and show the weekday as the subtitle.
     - Multiday spread headers use `DD MMM - DD MMM` as the main title regardless of whether the start and end dates share a month, and show the weekday range as the subtitle.
-    - The rooted navigator chevron is fixed in the title navigator's leading inset rather than attached to the centered spread header title block.
+    - The rooted navigator chevron is fixed in the compact context bar rather than attached to the spread header title block.
     - The rooted navigator is a horizontal paging scroll view of year pages ordered chronologically from left to right.
     - Each page is a separate injected year view configured with the spreads for one specific year.
     - The initially visible page is the year of the currently selected spread.
@@ -721,28 +686,28 @@
     - In conventional mode, multiday spreads count as sub-spreads for determining whether a month is shown.
     - If an expanded month has an explicit month spread, that row also shows a `View Month` button.
     - `View Month` is the only control that selects the month spread from an expanded month row.
-- Horizontal spread-content paging behavior: [SPRD-128, SPRD-176]
-  - Spread content pages are presented in a separate horizontal pager beneath the title strip; the title strip remains the navigation chrome and stays synchronized with the selected page. [SPRD-128]
-  - The pager uses the complete ordered selected-year navigation sequence for the current mode, not the filtered title-strip presentation sequence. In conventional `Relevant Past Only` mode, a past spread may be hidden from the title strip while still remaining selectable and pageable through the complete pager/rooted navigator sequence. [SPRD-128, SPRD-176]
+- Horizontal spread-content paging behavior: [SPRD-128]
+  - Spread content pages are presented in a separate horizontal pager beneath the compact context bar; the bar remains the persistent navigation chrome and stays synchronized with the selected page. [SPRD-128]
+  - The pager uses the complete ordered selected-year navigation sequence for the current mode, matching the rooted navigator's complete browsing model rather than any inline filtered-strip presentation. [SPRD-128]
   - The pager includes the full current sequence inline, including year, month, day, and multiday spreads in conventional mode and year, month, and day destinations in traditional mode. [SPRD-128]
   - Horizontal page swiping changes the selected spread only after the paging gesture settles on a new page. [SPRD-128]
   - The pager rests on a single full-width selected page; adjacent pages do not remain peeked into view at rest. [SPRD-128]
-  - When selection changes from the title strip or rooted navigator surface within the same selected-year sequence, the pager animates to the selected page. [SPRD-128]
+  - When selection changes from the compact context bar actions or rooted navigator surface within the same selected-year sequence, the pager animates to the selected page. [SPRD-128]
   - When selection changes to a spread in a different year, the pager rebuilds to the new selected-year sequence and jumps to the selected page without cross-year scrolling animation. [SPRD-128]
-  - When the pager settles on a new page, the horizontal spread-title navigator updates selection state to that page but preserves its current browse offset instead of automatically recentering. [SPRD-128, SPRD-136]
+  - When the pager settles on a new page, the compact context bar updates to that page immediately. No separate inline browse offset or recenter behavior exists. [SPRD-128]
   - The pager preserves the full existing spread view for each page rather than rendering preview-only variants. [SPRD-128]
   - The implementation must avoid instantiating the full selected-year content view set at once. Use native lazy containers where feasible and keep only a small live window of pages around the selected spread, with a small nearby cache. [SPRD-128]
   - For this task, the live page window keeps the current page plus two neighboring pages on each side available, and pages outside that window may be torn down and rebuilt, losing transient local view state. [SPRD-128]
   - The pager supports swipe navigation and external programmatic selection only; it does not add separate previous/next arrow buttons. [SPRD-128]
   - When the user navigates from a multiday spread to a day spread via a multiday day card (footer button or peek sheet), a "Go Back" liquid glass button appears centered in `SpreadHeaderView` on the destination page. Pressing it navigates back to the originating multiday spread. [WKFLW-18]
-  - The "Go Back" button disappears on any subsequent navigation: tapping a title strip item, swiping to another page, pressing "Today", or selecting a favorite all clear the back destination. [WKFLW-18]
+  - The "Go Back" button disappears on any subsequent navigation: selecting another destination from the rooted navigator, swiping to another page, pressing "Today", or selecting a favorite all clear the back destination. [WKFLW-18]
 - Traditional mode uses calendar-style navigation (year → month → day). [SPRD-35, SPRD-38]
 - Traditional navigation mirrors iOS Calendar-style drill-in. [SPRD-35, SPRD-38]
 - Spread navigator surface: [SPRD-125, SPRD-126, SPRD-177]
-  - The navigator surface is opened from the fixed leading chevron affordance in the horizontal spread-title navigator on both iPad and iPhone.
+  - The navigator surface is opened from the fixed leading chevron affordance in the compact spread context bar on both iPad and iPhone.
   - On iPad, tapping the leading chevron opens a popover navigator rooted on that affordance.
   - On iPhone, tapping the leading chevron opens a large sheet presenting the same rooted navigator content.
-  - The selected spread title item itself is not an opener for the rooted navigator; selected state is communicated through the indicator dot and text styling.
+  - The current spread title area itself is tappable as an alternate opener for the rooted navigator, but it does not attempt inline browsing or secondary actions.
   - The iPad popover uses a bounded designed size rather than fully content-driven sizing; exact dimensions are implementation-defined.
   - The navigator always presents a single rooted hierarchy view rather than drill-in navigation. Expanding and collapsing sections is sufficient to traverse the hierarchy in this task.
   - Root content:
@@ -769,7 +734,7 @@
   - Month detail renders a calendar-style day grid for the visible month.
   - In conventional mode, the grid always shows the month's day cells, while explicit multiday spreads render as decorative row-bounded overlay lanes across those day cells.
   - In traditional mode, month grids show every calendar day in the month and do not include multiday overlays in v1.
-  - Selecting a spread row/tile immediately navigates the main app to that spread and dismisses the current navigator surface. If the selected spread is visible under the current title-strip display preference, the horizontal spread-title navigator recenters on it; if it is hidden by `Relevant Past Only`, the leading chevron shows selected styling and the selected indicator dot as the proxy location.
+  - Selecting a spread row/tile immediately navigates the main app to that spread and dismisses the current navigator surface. The compact context bar updates to the newly selected spread with no additional inline recenter logic.
   - The current spread is indicated with a light shape background; no checkmark badge is used.
   - Conventional-mode availability rules:
     - derived years and derived months use subtle styling to indicate they are not explicitly created at that level
@@ -824,8 +789,8 @@
   - Cancelled rows are visually greyed out and do not use inline row editing.
   - Cancelled task rows use a continuous strike line that visually runs from the status icon through the title text.
   - Tapping a cancelled row opens the task edit sheet.
-- Spread title navigator badges: [SPRD-147, SPRD-178]
-  - Overdue spread signaling moves from a global toolbar button/sheet into per-spread badges in the spread title navigator.
+- Spread navigator badges: [SPRD-147, SPRD-178]
+  - Overdue spread signaling moves from a global toolbar button/sheet into per-spread badges in the rooted spread navigator rather than the persistent compact bar.
   - Each spread item can show at most one top-right badge through a prioritized badge enum. `overdue(count)` takes priority over `favorite`.
   - Overdue badge counts include only open tasks whose preferred assignment date/period has passed under the existing overdue threshold rules. Completed, cancelled, and migrated-history-only tasks do not count.
   - For conventional year/month/day spreads, overdue counts follow the existing current-spread/source semantics for the task's open assignment. Ancestor spread badges do not receive propagated counts merely because a child spread is overdue.
@@ -857,11 +822,7 @@
 - First day of week preference: System Default, Sunday, Monday. [SPRD-49]
   - System Default uses device locale. [SPRD-49]
   - Affects multiday preset calculations. [SPRD-49]
-- Title-strip display preference: `Relevant Past Only` vs `Show All Spreads`. [SPRD-176]
-  - Default is `Relevant Past Only`. [SPRD-176]
-  - The setting is conventional-mode UI behavior only; traditional mode remains unchanged. [SPRD-176]
-  - Settings copy explains that filtered mode keeps current/future spreads plus favorited or open-task past spreads visible, and that the chevron navigator remains available for complete navigation when a spread is not immediately visible. [SPRD-176, SPRD-177]
-- Persist settings locally via UserDefaults/@AppStorage. Synced settings such as BuJo mode and first day of week sync via Supabase when signed in; local-only display preferences such as title-strip display do not sync and must not require schema changes. [SPRD-20, SPRD-88, SPRD-176]
+- The previous title-strip display preference is removed. The compact bar shows only the current selection, and the rooted navigator remains the complete browsing surface in both modes. [SPRD-126, SPRD-176, SPRD-177]
 
 ### Modes
 - Conventional: [SPRD-13, SPRD-14, SPRD-25, SPRD-31]
@@ -877,7 +838,7 @@
   - Migrating updates the preferred date/period; conventional assignments recomputed. [SPRD-17, SPRD-15]
   - If no conventional spread exists for migration target, assign to nearest parent or Inbox. [SPRD-17, SPRD-14]
   - Traditional mode does not show migration prompts because all calendar spreads are navigable without waiting for created conventional spreads. [SPRD-110]
-- Traditional mode does not gain any separate overdue review affordance; overdue spread badges are only shown where the spread title navigator is present. [SPRD-147]
+- Traditional mode does not gain any separate overdue review affordance; overdue spread badges are only shown in navigator surfaces where spread destinations are listed. [SPRD-147]
 
 ### Collections
 - Collections are plain text pages (title + content). [SPRD-39]
@@ -1169,7 +1130,7 @@
 - On multiday spreads, only the section for today's date receives passive today emphasis. Its header text, outline, and card background use the shared configurable today-emphasis color family; other day sections remain unchanged. [SPRD-144]
 
 ### Header Spread Navigator
-- The fixed leading chevron affordance in the horizontal spread-title navigator presents the same rooted spread navigator on both platforms: as a popover on iPad and as a large sheet on iPhone. The selected spread title item itself does not present the rooted navigator. [SPRD-125, SPRD-126, SPRD-177]
+- The fixed leading chevron affordance in the compact spread context bar presents the same rooted spread navigator on both platforms: as a popover on iPad and as a large sheet on iPhone. The current title area may also open the same surface, but it does not expose inline scrolling or alternate navigation behavior. [SPRD-125, SPRD-126, SPRD-177]
 - The navigator always presents a single rooted hierarchy view with no push navigation in v1. Current context is revealed by expanded sections inside that rooted view rather than by drilling into another screen. [SPRD-125]
 - Years and months are presented as collapsible table rows; month contents are presented as grid tiles within the expanded month section. [SPRD-125]
 - Year and month rows use split interaction: row-body tap navigates when the row is a valid destination, while a trailing disclosure expands or collapses that section. Derived conventional rows use disclosure-only behavior. [SPRD-125]
@@ -1180,8 +1141,8 @@
 - Traditional mode uses the full calendar structure, with the root year list spanning from the first year with entry data or created spreads through current year plus ten years, and month grids showing all calendar days with no multiday overlays in v1. [SPRD-125]
 - Keyboard/trackpad-specific navigation enhancements are deferred from the initial implementation. [SPRD-125]
 - The rooted navigator surface should be implemented with a separable model/support layer so hierarchy derivation, expansion state, and current-context opening rules can be unit tested independently from the popover/sheet view. [SPRD-125]
-- The horizontal spread-title navigator should also use a separable support/model layer so ordered spread sequencing, selection state, adaptive visible-slot behavior, browse-state rules, offscreen-selected detection, and recenter rules can be unit tested independently from the scrolling view. [SPRD-126, SPRD-127]
-- Required coverage includes iPhone and iPad UI tests plus lower-level unit tests for navigator state/data derivation, centered-strip behavior, browse-only scrolling, and return-to-selected behavior. [SPRD-125, SPRD-126, SPRD-127]
+- The compact spread context bar should use a separable support/model layer so current-selection title derivation, personalized/canonical secondary context, compact sizing rules, and rooted-navigator trigger behavior can be unit tested independently from the SwiftUI view. [SPRD-126]
+- Required coverage includes iPhone and iPad UI tests plus lower-level unit tests for navigator state/data derivation, compact-bar sizing behavior, rooted-navigator opening, recommendations, and pager synchronization. [SPRD-125, SPRD-126, SPRD-137]
 
 ### Error Handling UX
 - **Sign-in errors**: Error messages are displayed inline on the login sheet below the password field. Error text is human-readable and maps from auth error types: [SPRD-84]
@@ -1313,98 +1274,77 @@
 
 ---
 
-## Title Navigator Collapsed Groups [SPRD-198]
+## Compact Spread Context Bar and Rooted Navigator [SPRD-199]
 
 **Status**: Draft
 **Date**: 2026-05-06
 
 ### Overview
-Contiguous runs of hidden spreads in the title strip are represented by a collapsed group element that carries the selection indicator and expands inline to reveal its spreads.
+Replace the persistent horizontal title strip with a compact spread context bar that shows only the current spread and opens a richer rooted navigator surface for all chronological browsing.
 
 ### Problem Statement
-When navigating via horizontal swipe in the content area, users can land on a spread that the relevance filter has hidden from the title strip. There is no positional anchor in the strip for these spreads, causing disorientation. The existing chevron dot signals something is hidden but gives no context about where in the timeline it is.
+The inline title strip is trying to serve too many responsibilities at once: current-context display, chronological browsing, filtered visibility, recommendation surfacing, and hidden-range recovery. That produces excessive chrome height, brittle centering behavior, and high implementation complexity without a clear UX payoff.
 
 ### Goals
-- Give hidden spreads a positional placeholder in the strip at their correct chronological position
-- Show the selection indicator on the group when the active spread is inside it
-- Let users expand the group to see and directly select the hidden spreads
+- Keep the persistent spread-navigation chrome compact, stable, and easy to scan
+- Preserve fast access to full chronological browsing through the rooted navigator surface
+- Move recommendations and passive cross-spread cues into the richer navigator surface where they have room to breathe
+- Reduce coupling between current-selection display and timeline-browsing behavior
 
 ### Non-Goals
-- Traditional mode (the relevance filter does not apply; no hidden spreads exist)
-- Badges on group elements (hidden spreads cannot have overdue or favorite badges by filter invariant — the relevance filter keeps any spread with an open task or favorite star visible)
-- Persisting expanded/collapsed state across sessions or spread-year changes
+- Reintroducing any inline horizontally scrolling title timeline
+- Preserving hidden-group proxy behavior from the old filtered strip design
+- Adding a second persistent row of chips, breadcrumbs, or segmented controls in v1
 
 ### Functional Requirements
-1. In conventional mode only, contiguous runs of items present in the full item list but absent in the filtered strip list are each represented by a single group element, inserted at their correct chronological position in the strip. [SPRD-198]
-2. The group element displays a compact date range label derived from the first and last hidden item in the run (e.g. "JAN–MAR" for months, "3–7" for days). [SPRD-198]
-3. When the active spread is inside a collapsed group, the selection indicator dot appears under the group element using the same `matchedGeometryEffect` namespace as individual item indicators. [SPRD-198]
-4. Tapping a collapsed group expands it inline with animation: the hidden spreads appear in the strip in order, and the group header shrinks to a collapse trigger anchored at the leading edge of the revealed items. [SPRD-198]
-5. Tapping the collapse trigger animates the items back out and restores the full group element. [SPRD-198]
-6. When the selected spread changes to a spread outside the expanded group, the group auto-collapses with animation. [SPRD-198]
-7. Only one group can be expanded at a time; expanding a second group collapses the first. [SPRD-198]
-8. The strip scrolls to center the active spread after a group expands. [SPRD-198]
+1. The persistent top spread-navigation chrome is a compact context bar, not a horizontally scrolling strip. [SPRD-199]
+2. The bar always shows the current selected spread only, with primary title and compact secondary date context as needed. [SPRD-199]
+3. The fixed leading chevron opens the rooted navigator surface on both platforms; tapping the current title area may also open the same surface. [SPRD-199]
+4. The rooted navigator remains the only full chronological browsing surface in v1. [SPRD-199]
+5. Recommended missing explicit year/month/day spreads for today are shown inside the rooted navigator surface in conventional mode rather than beside the persistent bar. [SPRD-199]
+6. Pager swipes continue to change the current spread after settle, and the compact bar updates directly to the new selection with no inline recenter behavior. [SPRD-199]
+7. The old local title-strip visibility preference is removed because the persistent bar no longer renders a filterable spread sequence. [SPRD-199]
 
 ### Technical Design
 
-#### Data Model
-```swift
-// A contiguous run of hidden items represented as a group in the strip
-struct SpreadTitleNavigatorGroup: Identifiable {
-    let id: String           // stable, derived from first+last item IDs
-    let items: [SpreadTitleNavigatorModel.Item]
-    let dateRangeLabel: String
-}
-
-// A typed element in the rendered strip — either a visible item or a group
-enum SpreadTitleNavigatorStripElement: Identifiable {
-    case item(SpreadTitleNavigatorModel.Item)
-    case group(SpreadTitleNavigatorGroup)
-
-    var id: String { ... }
-}
-```
-
 #### Architecture
-- **New file**: `SpreadTitleNavigatorGroupView.swift` — view for the collapsed/expanded group; accepts the `matchedGeometryEffect` namespace and renders the selection indicator when `containsSelection && !isExpanded`
-- **`SpreadTitleNavigatorSupport.swift`** — add `SpreadTitleNavigatorGroup`, `SpreadTitleNavigatorStripElement`, and a static function to compute strip elements from the full item list and the filtered item list
-- **`SpreadTitleNavigatorView.swift`** — replace direct `items` array rendering with strip elements; add `@State private var expandedGroupID: String?`; add auto-collapse logic in `.onChange(of: selectedSemanticID)`
+- `SpreadTitleNavigatorView.swift` should be simplified into a compact bar view that renders:
+  - a fixed rooted-navigator trigger
+  - a tappable current-selection title/context region
+  - the existing trailing create affordance
+- `SpreadTitleNavigatorSupport.swift` should shift from strip-centering and hidden-group support toward compact-label derivation and bar sizing support.
+- Recommendation rendering should move into the rooted navigator presentation layer and reuse the existing recommendation provider protocol.
 
 #### State & Data Flow
-- `expandedGroupID: String?` lives on `SpreadTitleNavigatorView`
-- Strip elements are computed from `stripModel.items(for:)` (full) diffed against the filtered `items` prop
-- When `expandedGroupID` matches a group, that group renders its items inline; otherwise it renders the collapsed header
-- `.onChange(of: selectedSemanticID)`: if the new ID is not contained in the expanded group's items, set `expandedGroupID = nil` with animation
+- The compact bar derives its content from the same current `selection` and `SpreadTitleNavigatorModel`.
+- The rooted navigator remains the owner of full-sequence browsing and explicit destination selection.
+- The pager remains synchronized by current selection only; there is no separate inline browse position state.
 
 #### Animation
-- Item appearance/disappearance uses `.transition(.asymmetric(insertion: .move(edge: .leading).combined(with: .opacity), removal: .opacity))`
-- Group header size change animates with `.animation(.easeInOut(duration: 0.28))`
-- Strip re-centering after expansion uses the existing `requestCenter(on:animated:)` path
+- The compact bar should animate only lightweight current-context transitions, such as text/content swaps and navigator presentation.
+- There is no persistent inline horizontal scroll animation path.
 
 #### Edge Cases
-- **Single hidden item**: group still renders (date range label is just that item's label); expanding reveals the one item
-- **Year boundary**: groups do not span years — the strip already segments by year, so this is a natural constraint
-- **Selection is in the group when strip regenerates**: if `expandedGroupID` refers to a group that no longer exists after item list changes, reset `expandedGroupID = nil`
+- Personalized spread names still show canonical context when needed to avoid ambiguity.
+- Long labels should compress gracefully without increasing the bar into a second large chrome band.
+- Recommendations can adapt layout by size class inside the rooted navigator without affecting persistent bar height.
 
 #### Security Considerations
-None — purely local UI state with no data exposure.
+None — purely local UI composition and interaction behavior.
 
 #### Testing Strategy
-- Unit tests for the strip-element computation: verify correct group formation from full vs filtered item lists across single-gap, multi-gap, leading-gap, and trailing-gap scenarios
-- Unit tests for group `dateRangeLabel` formatting for month, day, and mixed-style hidden items
-- UI tests: collapsed group visibility when active spread is hidden, indicator position, expand/collapse animation trigger, auto-collapse on selection change
+- Unit tests for current-selection title/context derivation and compact sizing rules.
+- Unit tests for recommendation derivation remaining independent of the persistent bar implementation.
+- UI tests for rooted navigator opening from the chevron and title area, pager-to-bar synchronization, and compact-height behavior on iPhone and iPad.
 
 ### Acceptance Criteria
-- [ ] Contiguous hidden spreads appear as a single group element in the strip at their correct chronological position
-- [ ] Group label reflects the date span of the first and last hidden item in the run
-- [ ] Selection indicator appears under the group (not missing) when the active spread is one of its hidden items
-- [ ] Tapping a collapsed group expands it with animation; hidden items appear inline in order
-- [ ] Group header remains visible as a collapse trigger while expanded
-- [ ] Tapping the collapse trigger collapses the group with animation
-- [ ] Changing selection to a spread outside the group auto-collapses with animation
-- [ ] Only one group is expanded at a time
-- [ ] No badges appear on group elements
-- [ ] Traditional mode is unaffected
-- [ ] Strip correctly re-centers on the active spread after expansion
+- [ ] The persistent spread-navigation UI no longer renders a horizontally scrolling title timeline.
+- [ ] The compact bar remains visually short and does not absorb excess vertical space.
+- [ ] The current spread identity remains clear through primary title plus compact secondary context where needed.
+- [ ] The rooted navigator remains the complete browsing surface on both iPhone and iPad.
+- [ ] Recommendations are visible in the rooted navigator in conventional mode and are no longer rendered as persistent trailing inset cards.
+- [ ] Pager swipes keep the compact bar synchronized without any inline recenter or hidden-group behavior.
+- [ ] The old local title-strip display preference is removed from settings and supporting state.
 
 ---
 

@@ -76,6 +76,7 @@ struct SpreadsView: View {
 
             contentArea
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .localhostTemporalHarness(spreadDiagnostics: currentSpreadDiagnostics)
         .toolbar {
             if journalManager.bujoMode == .conventional {
@@ -123,6 +124,7 @@ struct SpreadsView: View {
                 recenterToken: viewModel.recenterToken,
                 selection: selectionBinding
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .dotGridBackground(.paper, ignoresSafeAreaEdges: .bottom)
         } else {
             ContentUnavailableView {
@@ -130,6 +132,7 @@ struct SpreadsView: View {
             } description: {
                 Text("Select a spread from the bar above.")
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .dotGridBackground(.paper, ignoresSafeAreaEdges: .bottom)
         }
     }
@@ -282,6 +285,7 @@ struct SpreadsView: View {
                 viewModel.recenterToken += 1
             } else {
                 viewModel.selectedSelection = .conventional(targetSpread)
+                viewModel.recenterToken += 1
             }
 
         case .traditional:
@@ -293,6 +297,7 @@ struct SpreadsView: View {
                 viewModel.recenterToken += 1
             } else {
                 viewModel.selectedSelection = target
+                viewModel.recenterToken += 1
             }
         }
     }
@@ -322,6 +327,7 @@ struct SpreadsView: View {
             calendar: journalManager.calendar,
             today: journalManager.today
         )
+        viewModel.recenterToken += 1
     }
 
     // MARK: - Sheet Content
@@ -437,6 +443,7 @@ struct SpreadsView: View {
             guard journalManager.bujoMode == .traditional else { return }
             viewModel.selectedSelection = request.selection
         }
+        viewModel.recenterToken += 1
 
         guard let task = journalManager.tasks.first(where: { $0.id == request.taskID }) else {
             navigationState.pendingRequest = nil

@@ -744,6 +744,54 @@ enum SpreadNavigatorPresentationSupport {
     }
 }
 
+enum SpreadTitleNavigatorStripLayoutMode: Equatable {
+    case denseLeading
+    case scrollCentered
+}
+
+enum SpreadTitleNavigatorStripLayoutSupport {
+    static func contentWidth(
+        elementWidths: [CGFloat],
+        leadingSpacings: [CGFloat],
+        itemSpacing: CGFloat
+    ) -> CGFloat {
+        guard !elementWidths.isEmpty else { return 0 }
+
+        let elementWidthTotal = elementWidths.reduce(0, +)
+        let spacingTotal = itemSpacing * CGFloat(max(elementWidths.count - 1, 0))
+        let leadingSpacingTotal = leadingSpacings.reduce(0, +)
+        return elementWidthTotal + spacingTotal + leadingSpacingTotal
+    }
+
+    static func mode(
+        contentWidth: CGFloat,
+        viewportWidth: CGFloat,
+        overflowThreshold: CGFloat = 12
+    ) -> SpreadTitleNavigatorStripLayoutMode {
+        guard viewportWidth > 0 else { return .scrollCentered }
+        if contentWidth <= viewportWidth + overflowThreshold {
+            return .denseLeading
+        }
+        return .scrollCentered
+    }
+
+    static func centeredInsets(
+        viewportWidth: CGFloat,
+        firstElementWidth: CGFloat,
+        lastElementWidth: CGFloat
+    ) -> (leading: CGFloat, trailing: CGFloat) {
+        (
+            leading: max((viewportWidth - firstElementWidth) / 2, 0),
+            trailing: max((viewportWidth - lastElementWidth) / 2, 0)
+        )
+    }
+
+    static func animationDuration(stepDistance: Int) -> Double {
+        let clampedDistance = max(0, stepDistance)
+        return min(0.54, 0.30 + Double(clampedDistance) * 0.045)
+    }
+}
+
 // MARK: - Strip Element Types
 
 struct SpreadTitleNavigatorGroup: Identifiable {

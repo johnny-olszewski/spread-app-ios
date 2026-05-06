@@ -19,6 +19,7 @@ struct SpreadTitleNavigatorView: View {
     private static let itemSpacing: CGFloat = 12
     private static let recommendationFadeWidth: CGFloat = 50
     private static let recommendationCornerRadius: CGFloat = 10
+    private static let stripMinimumHeight: CGFloat = 52
 
     let stripModel: SpreadTitleNavigatorModel
     let fullItems: [SpreadTitleNavigatorModel.Item]
@@ -123,6 +124,25 @@ struct SpreadTitleNavigatorView: View {
         selectionIndicatorTargetID.map(stripID(for:))
     }
 
+    private var stripContentHeight: CGFloat {
+        max(Self.stripMinimumHeight, recommendationCardSize?.height ?? 0)
+    }
+
+    private var stripLayoutMode: SpreadTitleNavigatorStripLayoutMode {
+        SpreadTitleNavigatorStripLayoutSupport.mode(
+            contentWidth: baseStripContentWidth,
+            viewportWidth: scrollViewportWidth
+        )
+    }
+
+    private var baseStripContentWidth: CGFloat {
+        SpreadTitleNavigatorStripLayoutSupport.contentWidth(
+            elementWidths: renderElements.map(renderElementWidth),
+            leadingSpacings: renderElements.map(renderElementLeadingSpacing),
+            itemSpacing: Self.itemSpacing
+        )
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             navigatorTrigger
@@ -135,7 +155,19 @@ struct SpreadTitleNavigatorView: View {
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $stripCenteredTargetID, anchor: .center)
             .mask(mainStripMask)
+            .frame(height: stripContentHeight)
             .frame(maxWidth: .infinity)
+            .background(
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear {
+                            handleWidthChange(to: geometry.size.width)
+                        }
+                        .onChange(of: geometry.size.width) { _, newValue in
+                            handleWidthChange(to: newValue)
+                        }
+                }
+            )
             if !recommendations.isEmpty {
                 recommendationInset
                     .padding(.leading, 12)
@@ -146,17 +178,7 @@ struct SpreadTitleNavigatorView: View {
         .overlay {
             recommendationMeasurementRow
         }
-        .background(
-            GeometryReader { geometry in
-                Color.clear
-                    .onAppear {
-                        handleWidthChange(to: geometry.size.width)
-                    }
-                    .onChange(of: geometry.size.width) { _, newValue in
-                        handleWidthChange(to: newValue)
-                    }
-            }
-        )
+        .frame(height: stripContentHeight)
         .frame(maxWidth: .infinity)
         .task(id: fullItems.map(\.id) + items.map(\.id)) {
             cachedStripElements = SpreadTitleNavigatorStripElementBuilder.elements(
@@ -168,7 +190,6 @@ struct SpreadTitleNavigatorView: View {
         }
         .onChange(of: selectedSemanticID) { _, newValue in
             autoCollapseGroupIfNeeded(for: newValue)
-            requestCenterIfVisible(on: newValue, animated: true)
         }
         .onChange(of: recenterToken) { _, _ in
             requestCenterIfVisible(on: selectedSemanticID, animated: true)
@@ -205,16 +226,21 @@ struct SpreadTitleNavigatorView: View {
 
     private var itemRow: some View {
         LazyHStack(spacing: Self.itemSpacing) {
-            Color.clear
-                .frame(width: leadingInset(for: scrollViewportWidth))
+            if stripLayoutMode == .scrollCentered {
+                Color.clear
+                    .frame(width: leadingInset(for: scrollViewportWidth))
+            }
 
             ForEach(renderElements) { element in
                 renderElement(element)
             }
 
-            Color.clear
-                .frame(width: trailingInset(for: scrollViewportWidth))
+            if stripLayoutMode == .scrollCentered {
+                Color.clear
+                    .frame(width: trailingInset(for: scrollViewportWidth))
+            }
         }
+        .frame(maxWidth: stripLayoutMode == .denseLeading ? .infinity : nil, alignment: .leading)
         .scrollTargetLayout()
         .overlayPreferenceValue(SpreadTitleNavigatorSelectionIndicatorAnchorPreferenceKey.self) { anchors in
             GeometryReader { geometry in
@@ -572,14 +598,31 @@ struct SpreadTitleNavigatorView: View {
         }
     }
 
+    private func renderElementLeadingSpacing(for element: StripRenderElement) -> CGFloat {
+        switch element {
+        case .item(let item, let index), .expandedItem(let item, let index):
+            return extraLeadingSpacing(for: item, at: index)
+        case .groupHeader:
+            return 0
+        }
+    }
+
     private func leadingInset(for visibleWidth: CGFloat) -> CGFloat {
         guard visibleWidth > 0, let firstElement = renderElements.first else { return 0 }
-        return max((visibleWidth - renderElementWidth(for: firstElement)) / 2, 0)
+        return SpreadTitleNavigatorStripLayoutSupport.centeredInsets(
+            viewportWidth: visibleWidth,
+            firstElementWidth: renderElementWidth(for: firstElement),
+            lastElementWidth: renderElementWidth(for: firstElement)
+        ).leading
     }
 
     private func trailingInset(for visibleWidth: CGFloat) -> CGFloat {
         guard visibleWidth > 0, let lastElement = renderElements.last else { return 0 }
-        return max((visibleWidth - renderElementWidth(for: lastElement)) / 2, 0)
+        return SpreadTitleNavigatorStripLayoutSupport.centeredInsets(
+            viewportWidth: visibleWidth,
+            firstElementWidth: renderElementWidth(for: lastElement),
+            lastElementWidth: renderElementWidth(for: lastElement)
+        ).trailing
     }
 
     private func stripID(for semanticID: String) -> String {
@@ -626,8 +669,9 @@ struct SpreadTitleNavigatorView: View {
 
     private func requestCenter(on semanticID: String, animated: Bool) {
         let targetID = stripID(for: semanticID)
+        guard stripCenteredTargetID != targetID else { return }
         if animated {
-            withAnimation(.easeInOut(duration: 0.38)) {
+            withAnimation(.easeInOut(duration: centerAnimationDuration(for: targetID))) {
                 stripCenteredTargetID = targetID
             }
         } else {
@@ -645,6 +689,22 @@ struct SpreadTitleNavigatorView: View {
             return
         }
         requestCenter(on: targetID, animated: animated)
+    }
+
+    private func centerAnimationDuration(for targetID: String) -> Double {
+        let orderedIDs = renderElements.map { stripID(for: $0.id) }
+        guard let targetIndex = orderedIDs.firstIndex(of: targetID) else {
+            return SpreadTitleNavigatorStripLayoutSupport.animationDuration(stepDistance: 1)
+        }
+
+        guard let currentID = stripCenteredTargetID,
+              let currentIndex = orderedIDs.firstIndex(of: currentID) else {
+            return SpreadTitleNavigatorStripLayoutSupport.animationDuration(stepDistance: targetIndex)
+        }
+
+        return SpreadTitleNavigatorStripLayoutSupport.animationDuration(
+            stepDistance: abs(targetIndex - currentIndex)
+        )
     }
 }
 
