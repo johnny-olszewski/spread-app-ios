@@ -19,6 +19,8 @@ struct SpreadTitleNavigatorItemView: View {
     let action: () -> Void
     var isInteractive: Bool = true
     var isTodayEmphasized: Bool = false
+    /// True when this item is rendered inside an expanded hidden group (subdued appearance).
+    var isHidden: Bool = false
 
     var body: some View {
         Group {
@@ -225,44 +227,53 @@ struct SpreadTitleNavigatorItemView: View {
         if isTodayEmphasized {
             return selected ? selectedEmphasisColor : emphasisColor
         }
-        return selected ? .primary : .secondary
+        if selected { return .yellow }
+        return isHidden ? .secondary : .primary
     }
 
     private var footerColor: Color {
         if isTodayEmphasized {
             return isSelected ? selectedEmphasisColor.opacity(0.95) : emphasisColor.opacity(0.9)
         }
-        return isSelected ? .primary : .secondary.opacity(0.85)
+        if isSelected { return Color.yellow.opacity(0.9) }
+        return isHidden ? .secondary.opacity(0.85) : .primary
     }
 
     private var selectionIndicatorColor: Color {
         if isTodayEmphasized {
             return selectedEmphasisColor
         }
-        return .accentColor
+        return .yellow
     }
 
     private func yearWeight(selected: Bool, emphasized: Bool) -> Font.Weight {
-        if selected || emphasized { return .bold }
-        return .semibold
+        if emphasized { return .bold }
+        if isHidden { return .semibold }
+        return .bold
     }
 
     private func monthWeight(selected: Bool, emphasized: Bool) -> Font.Weight {
-        if selected || emphasized { return .semibold }
-        return .medium
+        if emphasized { return .semibold }
+        if isHidden { return .medium }
+        return .semibold
     }
 
     private func dayWeight(selected: Bool, emphasized: Bool) -> Font.Weight {
-        if selected || emphasized { return .semibold }
-        return .regular
+        if emphasized { return .semibold }
+        if isHidden { return .regular }
+        return .semibold
     }
 
     private func captionWeight(emphasized: Bool) -> Font.Weight {
-        emphasized ? .bold : .semibold
+        if emphasized { return .bold }
+        if isHidden { return .semibold }
+        return .bold
     }
 
     private func footerWeight(emphasized: Bool) -> Font.Weight {
-        emphasized ? .semibold : .medium
+        if emphasized { return .semibold }
+        if isHidden { return .medium }
+        return .semibold
     }
 }
 

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SpreadTitleNavigatorGroupView: View {
     private static let selectionIndicatorID = "spread-title-selection-indicator"
-    private static let cornerRadius: CGFloat = 6
 
     let group: SpreadTitleNavigatorGroup
     let isExpanded: Bool
@@ -32,7 +31,7 @@ struct SpreadTitleNavigatorGroupView: View {
         VStack(spacing: 4) {
             Image(systemName: "ellipsis")
                 .font(.caption.weight(.medium))
-                .foregroundStyle(containsSelection ? Color.primary : Color.secondary)
+                .foregroundStyle(Color.secondary)
                 .padding(.horizontal, 10)
                 .padding(.top, 6)
 
@@ -43,7 +42,7 @@ struct SpreadTitleNavigatorGroupView: View {
 
                 if containsSelection {
                     Circle()
-                        .fill(Color.accentColor)
+                        .fill(Color.yellow)
                         .frame(width: 6, height: 6)
                         .matchedGeometryEffect(
                             id: Self.selectionIndicatorID,
@@ -54,13 +53,6 @@ struct SpreadTitleNavigatorGroupView: View {
             .frame(height: 8)
         }
         .frame(minHeight: 48)
-        .background(
-            RoundedRectangle(cornerRadius: Self.cornerRadius)
-                .stroke(
-                    Color.secondary.opacity(containsSelection ? 0.45 : 0.2),
-                    lineWidth: 1
-                )
-        )
     }
 
     private var collapseLabel: some View {
@@ -75,9 +67,5 @@ struct SpreadTitleNavigatorGroupView: View {
                 .frame(height: 8)
         }
         .frame(minWidth: 28, minHeight: 48)
-        .background(
-            RoundedRectangle(cornerRadius: Self.cornerRadius)
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-        )
     }
 }
