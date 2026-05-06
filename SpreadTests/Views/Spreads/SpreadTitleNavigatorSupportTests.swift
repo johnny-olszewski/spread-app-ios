@@ -1406,4 +1406,187 @@ struct SpreadTitleNavigatorSupportTests {
     private func stableID(for spread: DataModel.Spread) -> String {
         SpreadHeaderNavigatorModel.Selection.conventional(spread).stableID(calendar: Self.calendar)
     }
+
+    // MARK: - SpreadTitleNavigatorStripElementBuilder
+
+    /// Setup: all full items appear in the filtered list (no hidden spreads).
+    /// Expected: elements match the filtered items one-to-one with no groups.
+    @Test func stripElementBuilderProducesNoGroupsWhenNothingIsHidden() {
+        let jan = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let feb = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 2), calendar: Self.calendar)
+        let mar = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 3), calendar: Self.calendar)
+        let model = stripModel(spreads: [jan, feb, mar], today: Self.makeDate(year: 2026, month: 3, day: 1))
+        let fullItems = model.items(for: .conventional(mar))
+        let elements = SpreadTitleNavigatorStripElementBuilder.elements(fullItems: fullItems, filteredItems: fullItems)
+
+        #expect(elements.count == fullItems.count)
+        #expect(elements.allSatisfy { if case .item = $0 { return true } else { return false } })
+    }
+
+    /// Setup: the first two items are hidden and the third is visible.
+    /// Expected: a single leading group is produced followed by the visible item.
+    @Test func stripElementBuilderProducesSingleLeadingGroupForHiddenPrefix() {
+        let jan = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let feb = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 2), calendar: Self.calendar)
+        let mar = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 3), calendar: Self.calendar)
+        let model = stripModel(spreads: [jan, feb, mar], today: Self.makeDate(year: 2026, month: 3, day: 1))
+        let fullItems = model.items(for: .conventional(mar))
+        let marItem = fullItems.first { stableID($0) == stableID(for: mar) }!
+        let elements = SpreadTitleNavigatorStripElementBuilder.elements(
+            fullItems: fullItems,
+            filteredItems: [marItem]
+        )
+
+        #expect(elements.count == 2)
+        if case .group(let group) = elements[0] {
+            #expect(group.items.count == 2)
+        } else {
+            Issue.record("Expected leading group")
+        }
+        if case .item(let item) = elements[1] {
+            #expect(item.id == marItem.id)
+        } else {
+            Issue.record("Expected trailing item")
+        }
+    }
+
+    /// Setup: the first item is visible and the last two are hidden.
+    /// Expected: the visible item is followed by a single trailing group.
+    @Test func stripElementBuilderProducesSingleTrailingGroupForHiddenSuffix() {
+        let jan = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let feb = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 2), calendar: Self.calendar)
+        let mar = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 3), calendar: Self.calendar)
+        let model = stripModel(spreads: [jan, feb, mar], today: Self.makeDate(year: 2026, month: 1, day: 1))
+        let fullItems = model.items(for: .conventional(jan))
+        let janItem = fullItems.first { stableID($0) == stableID(for: jan) }!
+        let elements = SpreadTitleNavigatorStripElementBuilder.elements(
+            fullItems: fullItems,
+            filteredItems: [janItem]
+        )
+
+        #expect(elements.count == 2)
+        if case .item(let item) = elements[0] {
+            #expect(item.id == janItem.id)
+        } else {
+            Issue.record("Expected leading item")
+        }
+        if case .group(let group) = elements[1] {
+            #expect(group.items.count == 2)
+        } else {
+            Issue.record("Expected trailing group")
+        }
+    }
+
+    /// Setup: items alternate visible/hidden/visible — two separate hidden runs.
+    /// Expected: two separate groups are produced with the visible item between them.
+    @Test func stripElementBuilderProducesTwoGroupsForDisjointHiddenRuns() {
+        let jan = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let feb = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 2), calendar: Self.calendar)
+        let mar = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 3), calendar: Self.calendar)
+        let apr = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 4), calendar: Self.calendar)
+        let may = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 5), calendar: Self.calendar)
+        let model = stripModel(spreads: [jan, feb, mar, apr, may], today: Self.makeDate(year: 2026, month: 3, day: 1))
+        let fullItems = model.items(for: .conventional(mar))
+        let marItem = fullItems.first { stableID($0) == stableID(for: mar) }!
+        let elements = SpreadTitleNavigatorStripElementBuilder.elements(
+            fullItems: fullItems,
+            filteredItems: [marItem]
+        )
+
+        #expect(elements.count == 3)
+        guard case .group(let leadingGroup) = elements[0],
+              case .item = elements[1],
+              case .group(let trailingGroup) = elements[2] else {
+            Issue.record("Expected group, item, group")
+            return
+        }
+        #expect(leadingGroup.items.count == 2)
+        #expect(trailingGroup.items.count == 2)
+    }
+
+    // MARK: - SpreadTitleNavigatorGroup dateRangeLabel
+
+    /// Setup: a single month item is in the group with today well past it (no dynamic name).
+    /// Expected: the label is just the month abbreviation bottom value.
+    @Test func groupLabelForSingleMonthItemUsesDisplayBottom() {
+        let may = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 5), calendar: Self.calendar)
+        let model = stripModel(spreads: [may], today: Self.makeDate(year: 2026, month: 8, day: 1))
+        let item = model.items(for: .conventional(may)).first!
+        let group = SpreadTitleNavigatorGroup(items: [item])
+
+        #expect(group.dateRangeLabel == "MAY")
+    }
+
+    /// Setup: three consecutive month items from the same year are in the group.
+    /// Expected: the label is "FIRST–LAST" using the bottom values only (same top year).
+    @Test func groupLabelForSameYearMonthRangeUsesBottomRange() {
+        let jan = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
+        let feb = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 2), calendar: Self.calendar)
+        let mar = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 3), calendar: Self.calendar)
+        let model = stripModel(spreads: [jan, feb, mar], today: Self.makeDate(year: 2026, month: 5, day: 1))
+        let fullItems = model.items(for: .conventional(jan))
+        let group = SpreadTitleNavigatorGroup(items: fullItems)
+
+        #expect(group.dateRangeLabel == "JAN–MAR")
+    }
+
+    /// Setup: two day items from the same month are in the group.
+    /// Expected: the label shows only the day numbers separated by an en-dash.
+    @Test func groupLabelForSameMonthDayRangeUsesBottomRange() {
+        let day3 = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 3), calendar: Self.calendar)
+        let day7 = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 7), calendar: Self.calendar)
+        let model = stripModel(spreads: [day3, day7], today: Self.makeDate(year: 2026, month: 3, day: 10))
+        let fullItems = model.items(for: .conventional(day3))
+        let group = SpreadTitleNavigatorGroup(items: fullItems)
+
+        #expect(group.dateRangeLabel == "3–7")
+    }
+
+    /// Setup: two day items from different months are in the group.
+    /// Expected: the label shows "MON DAY–MON DAY" with month context on both ends.
+    @Test func groupLabelForCrossMonthDayRangeIncludesMonthContext() {
+        let day29 = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 29), calendar: Self.calendar)
+        let day5 = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 4, day: 5), calendar: Self.calendar)
+        let model = stripModel(spreads: [day29, day5], today: Self.makeDate(year: 2026, month: 4, day: 10))
+        let fullItems = model.items(for: .conventional(day29))
+        let group = SpreadTitleNavigatorGroup(items: fullItems)
+
+        #expect(group.dateRangeLabel == "MAR 29–APR 5")
+    }
+
+    /// Setup: a single year item with dynamic naming disabled is in the group.
+    /// Expected: the label is the full year string from item.label.
+    @Test func groupLabelForSingleYearItemUsesFullYearLabel() {
+        let year = DataModel.Spread(
+            period: .year,
+            date: Self.makeDate(year: 2026, month: 1),
+            calendar: Self.calendar,
+            usesDynamicName: false
+        )
+        let model = stripModel(spreads: [year], today: Self.makeDate(year: 2026, month: 5, day: 1))
+        let item = model.items(for: .conventional(year)).first!
+        let group = SpreadTitleNavigatorGroup(items: [item])
+
+        #expect(group.dateRangeLabel == "2026")
+    }
+
+    // MARK: - Helpers
+
+    private func stripModel(spreads: [DataModel.Spread], today: Date) -> SpreadTitleNavigatorModel {
+        SpreadTitleNavigatorModel(
+            headerModel: SpreadHeaderNavigatorModel(
+                mode: .conventional,
+                calendar: Self.calendar,
+                today: today,
+                spreads: spreads,
+                tasks: [],
+                notes: [],
+                events: []
+            )
+        )
+    }
+
+    private func stableID(_ item: SpreadTitleNavigatorModel.Item) -> String {
+        item.id
+    }
 }
