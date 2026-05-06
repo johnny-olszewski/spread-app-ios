@@ -22,6 +22,7 @@ struct SpreadTitleNavigatorView: View {
     private static let selectionIndicatorID = "spread-title-selection-indicator"
 
     let stripModel: SpreadTitleNavigatorModel
+    let fullItems: [SpreadTitleNavigatorModel.Item]
     let items: [SpreadTitleNavigatorModel.Item]
     let recenterToken: Int
     let onRecommendedSpreadTapped: ((SpreadTitleNavigatorRecommendation) -> Void)?
@@ -38,6 +39,7 @@ struct SpreadTitleNavigatorView: View {
     @State private var widthChangeCenterToken = 0
     @State private var isShowingNavigator = false
     @State private var expandedGroupID: String?
+    @State private var cachedStripElements: [SpreadTitleNavigatorStripElement] = []
     @Namespace private var selectionIndicatorNamespace
 
     private var selectedSemanticID: String {
@@ -56,18 +58,11 @@ struct SpreadTitleNavigatorView: View {
         itemFrames[selectedSemanticID]
     }
 
-    private var stripElements: [SpreadTitleNavigatorStripElement] {
-        SpreadTitleNavigatorStripElementBuilder.elements(
-            fullItems: stripModel.items(for: selection),
-            filteredItems: items
-        )
-    }
-
     private var renderElements: [StripRenderElement] {
         var result: [StripRenderElement] = []
         var itemIndex = 0
 
-        for element in stripElements {
+        for element in cachedStripElements {
             switch element {
             case .item(let item):
                 result.append(.item(item, index: itemIndex))
@@ -165,7 +160,11 @@ struct SpreadTitleNavigatorView: View {
             }
         )
         .frame(maxWidth: .infinity)
-        .task(id: items.map(\.id)) {
+        .task(id: fullItems.map(\.id) + items.map(\.id)) {
+            cachedStripElements = SpreadTitleNavigatorStripElementBuilder.elements(
+                fullItems: fullItems,
+                filteredItems: items
+            )
             cleanupExpandedGroupIfNeeded()
             requestCenterIfVisible(on: selectedSemanticID, animated: false)
         }
@@ -481,7 +480,7 @@ struct SpreadTitleNavigatorView: View {
 
     private func autoCollapseGroupIfNeeded(for newSemanticID: String) {
         guard let expandedID = expandedGroupID else { return }
-        let isInsideGroup = stripElements.contains { element in
+        let isInsideGroup = cachedStripElements.contains { element in
             if case .group(let group) = element, group.id == expandedID {
                 return group.containsItem(withID: newSemanticID)
             }
@@ -496,7 +495,7 @@ struct SpreadTitleNavigatorView: View {
 
     private func cleanupExpandedGroupIfNeeded() {
         guard let expandedID = expandedGroupID else { return }
-        let groupExists = stripElements.contains { element in
+        let groupExists = cachedStripElements.contains { element in
             if case .group(let group) = element { return group.id == expandedID }
             return false
         }
@@ -646,7 +645,7 @@ struct SpreadTitleNavigatorView: View {
 
     private func isItemInExpandedGroup(semanticID: String) -> Bool {
         guard let expandedID = expandedGroupID else { return false }
-        return stripElements.first {
+        return cachedStripElements.first {
             if case .group(let g) = $0 { return g.id == expandedID }
             return false
         }.flatMap { element -> SpreadTitleNavigatorGroup? in
