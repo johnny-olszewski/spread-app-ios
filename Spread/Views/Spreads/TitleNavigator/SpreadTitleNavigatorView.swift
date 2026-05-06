@@ -86,12 +86,11 @@ struct SpreadTitleNavigatorView: View {
     }
 
     private var isSelectedHiddenFromTitleStrip: Bool {
-        let isInVisibleItems = items.contains { $0.id == selectedSemanticID }
-        let isInAnyGroup = stripElements.contains { element in
-            if case .group(let group) = element { return group.containsItem(withID: selectedSemanticID) }
-            return false
-        }
-        return !isInVisibleItems && !isInAnyGroup
+        !SpreadTitleNavigatorSelectionVisibility.isSelectionVisible(
+            selection,
+            in: items,
+            calendar: stripModel.calendar
+        )
     }
 
     private var currentNavigatorSpread: DataModel.Spread {
