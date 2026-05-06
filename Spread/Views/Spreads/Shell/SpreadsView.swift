@@ -7,8 +7,6 @@ struct SpreadsView: View {
     let navigationState: SpreadsNavigationState
 
     @State private var viewModel = SpreadsViewModel()
-    @AppStorage(TitleStripDisplayPreference.storageKey)
-    private var titleStripDisplayPreferenceRaw = TitleStripDisplayPreference.defaultValue.rawValue
 
     private let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding =
         TodayMissingSpreadRecommendationProvider()
@@ -19,13 +17,6 @@ struct SpreadsView: View {
 
     private var completeItems: [SpreadTitleNavigatorModel.Item] {
         stripModel.items(for: currentSelection)
-    }
-
-    private var titleStripItems: [SpreadTitleNavigatorModel.Item] {
-        stripModel.titleStripItems(
-            for: currentSelection,
-            displayPreference: TitleStripDisplayPreference(storedRawValue: titleStripDisplayPreferenceRaw)
-        )
     }
 
     private var currentSpreadDiagnostics: LocalhostTemporalHarnessSpreadDiagnostics {
@@ -60,9 +51,6 @@ struct SpreadsView: View {
         VStack(spacing: 0) {
             SpreadTitleNavigatorView(
                 stripModel: stripModel,
-                fullItems: completeItems,
-                items: titleStripItems,
-                recenterToken: viewModel.recenterToken,
                 onRecommendedSpreadTapped: onRecommendedSpreadTapped,
                 recommendationProvider: recommendationProvider,
                 selection: selectionBinding
