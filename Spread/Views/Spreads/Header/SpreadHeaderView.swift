@@ -196,7 +196,9 @@ extension View {
         presentsAsPopover: Bool,
         model: SpreadHeaderNavigatorModel,
         currentSpread: DataModel.Spread,
-        onSelect: @escaping (SpreadHeaderNavigatorModel.Selection) -> Void
+        recommendations: [SpreadTitleNavigatorRecommendation] = [],
+        onSelect: @escaping (SpreadHeaderNavigatorModel.Selection) -> Void,
+        onRecommendationTapped: ((SpreadTitleNavigatorRecommendation) -> Void)? = nil
     ) -> some View {
         modifier(
             SpreadNavigatorPresentationModifier(
@@ -207,7 +209,9 @@ extension View {
                         SpreadHeaderNavigatorPopoverView(
                             model: model,
                             currentSpread: currentSpread,
+                            recommendations: recommendations,
                             onSelect: onSelect,
+                            onRecommendationTapped: onRecommendationTapped,
                             onDismiss: { isPresented.wrappedValue = false }
                         )
                     )
