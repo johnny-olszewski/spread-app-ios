@@ -149,9 +149,6 @@ struct SpreadTitleNavigatorView: View {
                     }
             }
         )
-        .overlay(alignment: .topLeading) {
-            selectionIndicatorOverlay
-        }
         .frame(maxWidth: .infinity)
         .task(id: fullItems.map(\.id) + items.map(\.id)) {
             cachedStripElements = SpreadTitleNavigatorStripElementBuilder.elements(
@@ -179,16 +176,11 @@ struct SpreadTitleNavigatorView: View {
         Button {
             isShowingNavigator = true
         } label: {
-            VStack(spacing: 4) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.secondary)
-                    .frame(width: 32, height: 38)
-
-                Color.clear.frame(height: 8)
-            }
-            .frame(minHeight: 48)
-            .contentShape(Rectangle())
+            Image(systemName: "chevron.down")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.secondary)
+                .frame(minWidth: 32, minHeight: 48)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Open Spread Navigator")
@@ -231,7 +223,6 @@ struct SpreadTitleNavigatorView: View {
                 group: group,
                 isExpanded: isExpanded,
                 containsSelection: containsSelection,
-                selectedItemSemanticID: containsSelection && !isExpanded ? selectedSemanticID : nil,
                 onExpand: { expandGroup(group) },
                 onCollapse: { collapseCurrentGroup() }
             )
@@ -434,24 +425,6 @@ struct SpreadTitleNavigatorView: View {
             borderWidth: 2.2,
             blurRadius: 3.5
         )
-    }
-
-    // MARK: - Selection Indicator
-
-    /// Single dot drawn as a strip overlay at a fixed vertical position, tracking the selected
-    /// item's horizontal location via `itemFrames`. Using an overlay avoids the vertical
-    /// animation artefacts that `matchedGeometryEffect` produces when items have different heights.
-    @ViewBuilder
-    private var selectionIndicatorOverlay: some View {
-        if let frame = itemFrames[selectedSemanticID], scrollContainerFrame.width > 0 {
-            let dotCenterX = frame.midX - scrollContainerFrame.minX
-            let dotCenterY = scrollContainerFrame.height - 6
-            Circle()
-                .fill(Color.accentColor)
-                .frame(width: 6, height: 6)
-                .offset(x: dotCenterX - 3, y: dotCenterY - 3)
-                .allowsHitTesting(false)
-        }
     }
 
     // MARK: - Group Expansion

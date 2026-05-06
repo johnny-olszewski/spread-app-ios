@@ -4,10 +4,6 @@ struct SpreadTitleNavigatorGroupView: View {
     let group: SpreadTitleNavigatorGroup
     let isExpanded: Bool
     let containsSelection: Bool
-    /// The semantic ID of the selected item when this group is collapsed and contains the
-    /// selection. Used to register the group header's frame under that ID so the strip's
-    /// shared indicator overlay can position itself correctly.
-    let selectedItemSemanticID: String?
     let onExpand: () -> Void
     let onCollapse: () -> Void
 
@@ -26,16 +22,6 @@ struct SpreadTitleNavigatorGroupView: View {
         .animation(.easeInOut(duration: 0.28), value: isExpanded)
         .accessibilityLabel(isExpanded ? "Collapse group" : "Expand hidden spreads: \(group.dateRangeLabel)")
         .accessibilityHint(isExpanded ? "Hides the revealed spreads" : "Shows spreads hidden from the title strip")
-        .background {
-            if let id = selectedItemSemanticID {
-                GeometryReader { geometry in
-                    Color.clear.preference(
-                        key: SpreadTitleNavigatorItemFramePreferenceKey.self,
-                        value: [id: geometry.frame(in: .global)]
-                    )
-                }
-            }
-        }
     }
 
     private var expandLabel: some View {
@@ -46,8 +32,18 @@ struct SpreadTitleNavigatorGroupView: View {
                 .padding(.horizontal, 10)
                 .padding(.top, 6)
 
-            // Reserved space aligned with the strip's shared selection indicator overlay.
-            Color.clear.frame(height: 8)
+            ZStack {
+                Circle()
+                    .fill(Color.clear)
+                    .frame(width: 6, height: 6)
+
+                if containsSelection {
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .frame(height: 8)
         }
         .frame(minHeight: 48)
     }
