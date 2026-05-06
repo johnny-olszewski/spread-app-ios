@@ -40,8 +40,18 @@ struct SpreadTitleNavigatorItemView: View {
                 .padding(.horizontal, horizontalPadding)
                 .padding(.top, 6)
 
-            // Reserved space for the strip's shared selection indicator overlay.
-            Color.clear.frame(height: 8)
+            ZStack {
+                Circle()
+                    .fill(Color.clear)
+                    .frame(width: 6, height: 6)
+
+                if isSelected {
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .frame(height: 8)
         }
         .frame(minHeight: 48)
         .contentShape(Rectangle())
