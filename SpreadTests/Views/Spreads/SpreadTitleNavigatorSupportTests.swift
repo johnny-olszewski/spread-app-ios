@@ -586,8 +586,8 @@ struct SpreadTitleNavigatorSupportTests {
     }
 
     /// Setup: A past selected spread is hidden by the Relevant Past Only title-strip filter.
-    /// Expected: Selection remains valid but visibility support reports that the leading chevron must act as proxy.
-    @Test func hiddenFilteredSelectionActivatesLeadingNavigatorProxy() {
+    /// Expected: Selection remains valid even though the filtered strip no longer renders the selected item directly.
+    @Test func hiddenFilteredSelectionRemainsValidWhenFilteredOutOfVisibleStrip() {
         let today = Self.makeDate(year: 2026, month: 4, day: 15)
         let hiddenPastDay = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 4, day: 8), calendar: Self.calendar)
         let visibleCurrentDay = DataModel.Spread(period: .day, date: today, calendar: Self.calendar)
@@ -1557,6 +1557,32 @@ struct SpreadTitleNavigatorSupportTests {
         )
 
         #expect(targetID == janItem.id)
+    }
+
+    @Test func stripLayoutSupportUsesDenseLeadingModeWhenContentFitsViewport() {
+        let mode = SpreadTitleNavigatorStripLayoutSupport.mode(
+            contentWidth: 280,
+            viewportWidth: 320
+        )
+
+        #expect(mode == .denseLeading)
+    }
+
+    @Test func stripLayoutSupportUsesCenteredScrollModeWhenContentOverflowsViewport() {
+        let mode = SpreadTitleNavigatorStripLayoutSupport.mode(
+            contentWidth: 380,
+            viewportWidth: 320
+        )
+
+        #expect(mode == .scrollCentered)
+    }
+
+    @Test func stripLayoutSupportAnimationDurationScalesWithTravelDistanceAndCaps() {
+        let nearDuration = SpreadTitleNavigatorStripLayoutSupport.animationDuration(stepDistance: 1)
+        let farDuration = SpreadTitleNavigatorStripLayoutSupport.animationDuration(stepDistance: 10)
+
+        #expect(nearDuration > 0.34 && nearDuration < 0.35)
+        #expect(farDuration == 0.54)
     }
 
     // MARK: - SpreadTitleNavigatorGroup dateRangeLabel

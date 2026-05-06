@@ -135,12 +135,14 @@ final class SpreadsViewModel {
                 break
             case .navigate:
                 selectedSelection = destinationSelection
+                recenterToken += 1
             }
             presentAutoMigrationFeedback(feedback)
             return
         }
 
         selectedSelection = destinationSelection
+        recenterToken += 1
     }
 
     /// Presents spread deletion confirmation for a conventional explicit spread.
@@ -167,6 +169,7 @@ final class SpreadsViewModel {
     /// enabling the "Go Back" button in `SpreadHeaderView`.
     func navigateViaPeek(to destination: DataModel.Spread, from source: DataModel.Spread) {
         selectedSelection = .conventional(destination)
+        recenterToken += 1
         peekNavigationSource = source
     }
 

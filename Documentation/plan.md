@@ -5186,3 +5186,24 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit tests for `dateRangeLabel` formatting for month-style, day-style, and single-item groups.
   - UI tests: indicator appears under group when active spread is hidden, expand/collapse animation triggers, auto-collapse on selection change outside the group.
 - **Dependencies**: SPRD-136, SPRD-137
+
+### [SPRD-199] UI: Replace inline title strip with compact spread context bar
+- **Context**: The inline title strip has accumulated too many responsibilities: current-context display, timeline browsing, recommendation surfacing, hidden-range recovery, and animation-heavy centering behavior. The result is unstable vertical chrome, complex state coupling, and a navigation model that is harder to scan than a simpler persistent context bar plus richer navigator surface.
+- **Description**: Replace the persistent horizontal title strip with a compact spread context bar that shows only the current spread, keeps the rooted navigator as the full browsing surface, and moves spread recommendations into the rooted navigator.
+- **Spec**: Compact Spread Context Bar and Rooted Navigator [SPRD-199]
+- **Acceptance Criteria**:
+  - [ ] `SpreadTitleNavigatorView` no longer renders a horizontally scrolling title timeline in the persistent spread chrome.
+  - [ ] The persistent bar renders only:
+    - a fixed leading rooted-navigator trigger
+    - the current spread's primary title plus compact secondary context when needed
+    - the existing trailing create affordance
+  - [ ] The compact bar stays visually short on iPhone and iPad and does not expand into a tall band during selection changes, layout changes, or recommendation state changes.
+  - [ ] Tapping the leading chevron opens the rooted navigator on both platforms; tapping the current title area may open the same navigator surface.
+  - [ ] Pager swipes continue to settle selection normally, and the compact bar updates directly to the settled page with no inline recenter, hidden-group proxy, or browse-offset behavior.
+  - [ ] Conventional-mode recommendations are removed from the persistent trailing inset and rendered inside the rooted navigator surface instead.
+  - [ ] The local `Relevant Past Only` / `Show All Spreads` setting and supporting `@AppStorage` state are removed from the UI and spread-shell wiring.
+- **Tests**:
+  - Unit tests for compact current-title derivation, including personalized-title + canonical-context combinations.
+  - Unit tests for recommendation derivation remaining unchanged while recommendation placement moves into the rooted navigator.
+  - UI tests on iPhone and iPad covering compact bar height, rooted navigator opening from the chevron/title area, pager-to-bar synchronization, and recommendation visibility inside the rooted navigator.
+- **Dependencies**: SPRD-125, SPRD-128, SPRD-137, SPRD-151
