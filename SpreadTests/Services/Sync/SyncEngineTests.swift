@@ -23,10 +23,15 @@ struct SyncEngineTests {
         ([], 0)
     }
 
-    private static let wkflw17SpreadID = UUID(uuidString: "00000000-0000-0000-0000-000000171001")!
-    private static let wkflw17AssignedTaskID = UUID(uuidString: "00000000-0000-0000-0000-000000171002")!
-    private static let wkflw17InboxTaskID = UUID(uuidString: "00000000-0000-0000-0000-000000171003")!
-    private static let wkflw17AssignmentID = UUID(uuidString: "00000000-0000-0000-0000-000000171004")!
+    private nonisolated static let wkflw17SpreadID = UUID(uuidString: "00000000-0000-0000-0000-000000171001")!
+    private nonisolated static let wkflw17AssignedTaskID = UUID(uuidString: "00000000-0000-0000-0000-000000171002")!
+    private nonisolated static let wkflw17InboxTaskID = UUID(uuidString: "00000000-0000-0000-0000-000000171003")!
+    private nonisolated static let wkflw17AssignmentID = UUID(uuidString: "00000000-0000-0000-0000-000000171004")!
+
+    private nonisolated static let multidayIdentityTaskID = UUID(uuidString: "00000000-0000-0000-0000-000000193301")!
+    private nonisolated static let multidayIdentityReplacementAssignmentID = UUID(uuidString: "00000000-0000-0000-0000-000000193302")!
+    private nonisolated static let multidayIdentityLeftSpreadID = UUID(uuidString: "00000000-0000-0000-0000-000000193303")!
+    private nonisolated static let multidayIdentityRightSpreadID = UUID(uuidString: "00000000-0000-0000-0000-000000193304")!
 
     private nonisolated static func wkflw17ServerRowsFetcher(
         entityType: SyncEntityType,
@@ -93,6 +98,31 @@ struct SyncEngineTests {
                 ]
             ], 13)
         case .settings, .note, .collection, .noteAssignment:
+            return ([], 0)
+        }
+    }
+
+    private nonisolated static func multidayIdentityServerRowsFetcher(
+        entityType: SyncEntityType,
+        _: Int64,
+        _: Int
+    ) async throws -> (rows: [[String: Any]], maxRevision: Int64) {
+        switch entityType {
+        case .taskAssignment:
+            return ([
+                [
+                    "id": multidayIdentityReplacementAssignmentID.uuidString,
+                    "task_id": multidayIdentityTaskID.uuidString,
+                    "period": "multiday",
+                    "date": "2026-05-03",
+                    "spread_id": multidayIdentityRightSpreadID.uuidString,
+                    "status": "open",
+                    "created_at": "2026-05-03T10:00:00.000Z",
+                    "deleted_at": NSNull(),
+                    "revision": 1
+                ]
+            ], 1)
+        default:
             return ([], 0)
         }
     }
@@ -651,33 +681,14 @@ struct SyncEngineTests {
     /// Expected: The matching multiday assignment updates in place by spread ID instead of replacing
     /// the first assignment found at the same period/date.
     @Test func pullMatchesMultidayAssignmentsBySpreadIdentity() async throws {
-        let taskID = UUID(uuidString: "00000000-0000-0000-0000-000000193301")!
-        let replacementAssignmentID = UUID(uuidString: "00000000-0000-0000-0000-000000193302")!
-        let leftSpreadID = UUID(uuidString: "00000000-0000-0000-0000-000000193303")!
-        let rightSpreadID = UUID(uuidString: "00000000-0000-0000-0000-000000193304")!
+        let taskID = Self.multidayIdentityTaskID
+        let replacementAssignmentID = Self.multidayIdentityReplacementAssignmentID
+        let leftSpreadID = Self.multidayIdentityLeftSpreadID
+        let rightSpreadID = Self.multidayIdentityRightSpreadID
         let sharedDate = SyncDateFormatting.parseDate("2026-05-03")!
 
         let (engine, container, _, _) = try makeEngine(
-            serverRowsFetcher: { entityType, _, _ in
-                switch entityType {
-                case .taskAssignment:
-                    return ([
-                        [
-                            "id": replacementAssignmentID.uuidString,
-                            "task_id": taskID.uuidString,
-                            "period": "multiday",
-                            "date": "2026-05-03",
-                            "spread_id": rightSpreadID.uuidString,
-                            "status": "open",
-                            "created_at": "2026-05-03T10:00:00.000Z",
-                            "deleted_at": NSNull(),
-                            "revision": 1
-                        ]
-                    ], 1)
-                default:
-                    return ([], 0)
-                }
-            },
+            serverRowsFetcher: Self.multidayIdentityServerRowsFetcher,
             mergeRPCCaller: { _, _ in }
         )
 
