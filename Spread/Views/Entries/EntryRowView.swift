@@ -551,6 +551,15 @@ struct EntryRowView: View {
     // MARK: - Styling
 
     private var rowColor: Color {
+        // For tasks, use inlineTaskStatus (the immediate UI state) rather than
+        // configuration (which lags behind async persistence updates) so that
+        // icon and text color update the moment the user taps the status toggle.
+        if let inlineStatus = inlineTaskStatus {
+            switch inlineStatus {
+            case .open:                       return .primary
+            case .complete, .migrated, .cancelled: return .secondary
+            }
+        }
         if configuration.isGreyedOut || configuration.hasStrikethrough {
             return .secondary
         }
