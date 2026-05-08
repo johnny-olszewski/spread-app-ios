@@ -32,18 +32,26 @@ enum MultidayDayCardVisualState: Equatable {
     }
 
     var borderColor: Color {
-        if isToday {
+        switch self {
+        case .todayCreated, .todayUncreated:
             return SpreadTheme.Accent.todayEmphasisBorder
+        case .created:
+            return Color.secondary.opacity(0.12)
+        case .uncreated:
+            return Color.secondary.opacity(0.24)
         }
-        return Color.secondary.opacity(0.12)
     }
 
     var borderStyle: StrokeStyle {
         switch self {
-        case .todayCreated, .todayUncreated:
+        case .todayCreated:
             return StrokeStyle(lineWidth: 1.5)
-        case .created, .uncreated:
+        case .todayUncreated:
+            return StrokeStyle(lineWidth: 1.5, dash: [4, 3])
+        case .created:
             return StrokeStyle(lineWidth: 1)
+        case .uncreated:
+            return StrokeStyle(lineWidth: 1, dash: [4, 3])
         }
     }
 
