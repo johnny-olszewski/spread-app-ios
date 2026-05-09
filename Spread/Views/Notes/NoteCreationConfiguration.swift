@@ -8,6 +8,9 @@ enum NoteCreationError: Equatable {
     /// The selected date is in the past.
     case pastDate
 
+    /// Multiday assignment requires choosing an existing multiday spread.
+    case missingMultidaySpread
+
     /// User-facing error message.
     var message: String {
         switch self {
@@ -15,6 +18,8 @@ enum NoteCreationError: Equatable {
             return "Title is required"
         case .pastDate:
             return "You can only create notes for present or future dates"
+        case .missingMultidaySpread:
+            return "Select an existing multiday spread"
         }
     }
 }
@@ -132,14 +137,14 @@ struct NoteCreationConfiguration {
             return (.day, today)
         }
 
-        let period: Period = spread.period == .multiday ? .day : spread.period
-        let date = spread.period == .multiday ? (spread.startDate ?? today) : spread.date
+        let period = spread.period
+        let date = spread.period == .multiday ? (spread.startDate ?? spread.date) : spread.date
 
         return (period, date)
     }
 
-    /// Returns the assignable periods (excludes multiday).
+    /// Returns the assignable periods.
     static var assignablePeriods: [Period] {
-        [.year, .month, .day]
+        [.year, .month, .multiday, .day]
     }
 }

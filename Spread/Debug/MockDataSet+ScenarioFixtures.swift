@@ -415,7 +415,9 @@ extension MockDataSet {
         let februaryTenth = calendar.date(from: DateComponents(year: 2026, month: 2, day: 10)) ?? today
         let marchTenth = calendar.date(from: DateComponents(year: 2026, month: 3, day: 10)) ?? today
         let marchTwenty = calendar.date(from: DateComponents(year: 2026, month: 3, day: 20)) ?? today
+        let marchTwentyFour = calendar.date(from: DateComponents(year: 2026, month: 3, day: 24)) ?? today
         let marchTwentyTwo = calendar.date(from: DateComponents(year: 2026, month: 3, day: 22)) ?? today
+        let marchTwentySix = calendar.date(from: DateComponents(year: 2026, month: 3, day: 26)) ?? today
         let marchTwentyOne = calendar.date(from: DateComponents(year: 2026, month: 3, day: 21)) ?? today
         let marchTwentyNine = calendar.date(from: DateComponents(year: 2026, month: 3, day: 29)) ?? today
         let marchThirtyOne = calendar.date(from: DateComponents(year: 2026, month: 3, day: 31)) ?? today
@@ -443,7 +445,8 @@ extension MockDataSet {
                 spread(.day, marchThirtyOne, calendar: calendar),
                 spread(.day, januarySecond2027, calendar: calendar),
                 DataModel.Spread(startDate: januarySecond, endDate: januaryFifth, calendar: calendar),
-                DataModel.Spread(startDate: marchTwenty, endDate: marchTwentyTwo, calendar: calendar)
+                DataModel.Spread(startDate: marchTwenty, endDate: marchTwentyFour, calendar: calendar),
+                DataModel.Spread(startDate: marchTwentyTwo, endDate: marchTwentySix, calendar: calendar)
             ],
             tasks: [
                 // January 1 day spread tasks

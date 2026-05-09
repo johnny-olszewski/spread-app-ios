@@ -371,4 +371,65 @@ struct SpreadsViewModelTests {
         }
         #expect(stored.id == spread.id)
     }
+
+    /// Condition: Creating a month spread from the selected parent year triggers auto-migration.
+    /// Expected: Selection stays on the year surface and a local month-card feedback cue is stored.
+    @Test("finishSpreadCreation keeps parent selection for local year to month reveal")
+    func testFinishSpreadCreationKeepsParentSelectionForLocalReveal() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .init(identifier: "UTC")!
+        let year = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
+        let month = DataModel.Spread(period: .month, date: calendar.date(from: .init(year: 2026, month: 3, day: 1))!, calendar: calendar)
+        let viewModel = SpreadsViewModel()
+        let currentSelection = SpreadHeaderNavigatorModel.Selection.conventional(year)
+        viewModel.selectedSelection = currentSelection
+
+        viewModel.finishSpreadCreation(
+            .init(
+                spread: month,
+                autoMigrationSummary: .init(taskCount: 1, noteCount: 1)
+            ),
+            currentSelection: currentSelection,
+            calendar: calendar
+        )
+
+        guard case .conventional(let selectedSpread)? = viewModel.selectedSelection else {
+            Issue.record("Expected conventional selection")
+            return
+        }
+        #expect(selectedSpread.id == year.id)
+        #expect(viewModel.autoMigrationFeedback?.surfaceSpreadID == year.id)
+    }
+
+    /// Condition: Creating a day spread from a multiday surface triggers auto-migration.
+    /// Expected: Selection navigates to the created day destination and stores header-level feedback.
+    @Test("finishSpreadCreation navigates when local reveal is unavailable")
+    func testFinishSpreadCreationNavigatesWhenLocalRevealIsUnavailable() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .init(identifier: "UTC")!
+        let multiday = DataModel.Spread(
+            startDate: calendar.date(from: .init(year: 2026, month: 3, day: 10))!,
+            endDate: calendar.date(from: .init(year: 2026, month: 3, day: 16))!,
+            calendar: calendar
+        )
+        let day = DataModel.Spread(period: .day, date: calendar.date(from: .init(year: 2026, month: 3, day: 14))!, calendar: calendar)
+        let viewModel = SpreadsViewModel()
+
+        viewModel.finishSpreadCreation(
+            .init(
+                spread: day,
+                autoMigrationSummary: .init(taskCount: 2, noteCount: 0)
+            ),
+            currentSelection: .conventional(multiday),
+            calendar: calendar
+        )
+
+        guard case .conventional(let selectedSpread)? = viewModel.selectedSelection else {
+            Issue.record("Expected conventional destination selection")
+            return
+        }
+        #expect(selectedSpread.id == day.id)
+        #expect(viewModel.autoMigrationFeedback?.surfaceSpreadID == day.id)
+        #expect(viewModel.autoMigrationFeedback?.anchor == .spreadHeader)
+    }
 }

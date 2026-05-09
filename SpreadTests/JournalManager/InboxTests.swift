@@ -279,8 +279,8 @@ struct InboxTests {
     // MARK: - Auto-Resolve Tests
 
     /// Conditions: A task is in the inbox and a matching day spread is added.
-    /// Expected: The task remains in Inbox until the user explicitly migrates it.
-    @Test @MainActor func testAddSpreadLeavesInboxTaskUnassigned() async throws {
+    /// Expected: The new spread becomes the task's current assignment and the task leaves Inbox.
+    @Test @MainActor func testAddSpreadAutoAssignsMatchingInboxTask() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
         let task = DataModel.Task(
@@ -301,16 +301,18 @@ struct InboxTests {
         #expect(manager.inboxEntries.count == 1)
 
         // Add a spread matching the task's date
-        try await manager.addSpread(period: .day, date: taskDate)
+        let spread = try await manager.addSpread(period: .day, date: taskDate)
 
-        #expect(manager.inboxEntries.count == 1)
+        #expect(manager.inboxEntries.isEmpty)
         let updatedTask = manager.tasks.first { $0.id == task.id }
-        #expect(updatedTask?.assignments.isEmpty == true)
+        #expect(updatedTask?.assignments.count == 1)
+        #expect(updatedTask?.assignments.first?.status == .open)
+        #expect(updatedTask?.assignments.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
     }
 
     /// Conditions: A note is in the inbox and a matching day spread is added.
-    /// Expected: The note remains in Inbox until explicitly reassigned.
-    @Test @MainActor func testAddSpreadLeavesInboxNoteUnassigned() async throws {
+    /// Expected: The new spread becomes the note's current assignment and the note leaves Inbox.
+    @Test @MainActor func testAddSpreadAutoAssignsMatchingInboxNote() async throws {
         let calendar = Self.testCalendar
         let noteDate = Self.testDate
         let note = DataModel.Note(
@@ -331,16 +333,18 @@ struct InboxTests {
         #expect(manager.inboxEntries.count == 1)
 
         // Add a spread matching the note's date
-        try await manager.addSpread(period: .day, date: noteDate)
+        let spread = try await manager.addSpread(period: .day, date: noteDate)
 
-        #expect(manager.inboxEntries.count == 1)
+        #expect(manager.inboxEntries.isEmpty)
         let updatedNote = manager.notes.first { $0.id == note.id }
-        #expect(updatedNote?.assignments.isEmpty == true)
+        #expect(updatedNote?.assignments.count == 1)
+        #expect(updatedNote?.assignments.first?.status == .active)
+        #expect(updatedNote?.assignments.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
     }
 
     /// Conditions: Two tasks and one note are in the inbox and a matching day spread is added.
-    /// Expected: Inbox still contains the entries until explicit migration/reassignment.
-    @Test @MainActor func testAddSpreadDoesNotResolveMultipleInboxEntries() async throws {
+    /// Expected: All matching entries resolve onto the new spread and Inbox becomes empty.
+    @Test @MainActor func testAddSpreadAutoAssignsMultipleMatchingInboxEntries() async throws {
         let calendar = Self.testCalendar
         let date = Self.testDate
         let task1 = DataModel.Task(title: "Task 1", date: date, period: .day, assignments: [])
@@ -358,14 +362,22 @@ struct InboxTests {
 
         #expect(manager.inboxEntries.count == 3)
 
-        try await manager.addSpread(period: .day, date: date)
+        let spread = try await manager.addSpread(period: .day, date: date)
 
-        #expect(manager.inboxEntries.count == 3)
+        #expect(manager.inboxEntries.isEmpty)
+        for task in manager.tasks {
+            #expect(task.assignments.count == 1)
+            #expect(task.assignments.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
+        }
+        for note in manager.notes {
+            #expect(note.assignments.count == 1)
+            #expect(note.assignments.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
+        }
     }
 
     /// Conditions: A task is in the inbox and a matching day spread is added.
-    /// Expected: The matching day spread exposes the task as a migration candidate from Inbox.
-    @Test @MainActor func testAddSpreadExposesInboxTaskAsMigrationCandidate() async throws {
+    /// Expected: The task auto-assigns to the new spread, so no Inbox migration candidate remains.
+    @Test @MainActor func testAddSpreadResolvesInboxTaskInsteadOfLeavingMigrationCandidate() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
         let task = DataModel.Task(
@@ -384,15 +396,14 @@ struct InboxTests {
 
         let spread = try await manager.addSpread(period: .day, date: taskDate)
 
+        #expect(manager.inboxEntries.isEmpty)
         let candidates = manager.migrationCandidates(to: spread)
-        #expect(candidates.count == 1)
-        #expect(candidates.first?.task.id == task.id)
-        #expect(candidates.first?.sourceKey.kind == .inbox)
+        #expect(candidates.isEmpty)
     }
 
     /// Conditions: A day task is in the inbox and a parent month spread is added.
-    /// Expected: The task remains in Inbox and becomes migratable from the month spread.
-    @Test @MainActor func testAddSpreadMakesInboxTaskMigratableFromParentPeriod() async throws {
+    /// Expected: The task auto-assigns to the new month spread and leaves Inbox.
+    @Test @MainActor func testAddSpreadAutoAssignsInboxTaskToBestAvailableParentPeriod() async throws {
         let calendar = Self.testCalendar
         let taskDate = Self.testDate
         let task = DataModel.Task(
@@ -414,10 +425,196 @@ struct InboxTests {
 
         let spread = try await manager.addSpread(period: .month, date: taskDate)
 
-        #expect(manager.inboxEntries.count == 1)
+        #expect(manager.inboxEntries.isEmpty)
+        let updatedTask = try #require(manager.tasks.first { $0.id == task.id })
+        #expect(updatedTask.assignments.count == 1)
+        #expect(updatedTask.assignments.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
         let candidates = manager.migrationCandidates(to: spread)
-        #expect(candidates.count == 1)
-        #expect(candidates.first?.sourceKey.kind == .inbox)
+        #expect(candidates.isEmpty)
+    }
+
+    /// Conditions: A day task is currently assigned to a year spread and a matching month spread is added.
+    /// Expected: The task auto-migrates to the new month spread and leaves the year spread's current content.
+    @Test @MainActor func testAddMonthSpreadAutoMigratesYearAssignedTaskToMonth() async throws {
+        let calendar = Self.testCalendar
+        let taskDate = Self.testDate
+        let yearSpread = DataModel.Spread(period: .year, date: taskDate, calendar: calendar)
+        let task = DataModel.Task(
+            title: "Year Assigned Task",
+            date: taskDate,
+            period: .day,
+            assignments: [TaskAssignment(period: .year, date: taskDate, status: .open)]
+        )
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: Self.testDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread])
+        )
+
+        let monthSpread = try await manager.addSpread(period: .month, date: taskDate)
+
+        let updatedTask = try #require(manager.tasks.first { $0.id == task.id })
+        #expect(updatedTask.assignments.count == 2)
+        #expect(updatedTask.assignments.first?.status == .migrated)
+        #expect(updatedTask.assignments.last?.matches(period: .month, date: monthSpread.date, calendar: calendar) == true)
+        #expect(updatedTask.assignments.last?.status == .open)
+
+        let yearKey = SpreadDataModelKey(spread: yearSpread, calendar: calendar)
+        let monthKey = SpreadDataModelKey(spread: monthSpread, calendar: calendar)
+        #expect(manager.dataModel[key: yearKey]?.tasks.isEmpty == true)
+        #expect(manager.dataModel[key: monthKey]?.tasks.map(\.id) == [task.id])
+    }
+
+    /// Conditions: A day note is currently assigned to a month spread and a matching day spread is added.
+    /// Expected: The note auto-migrates to the new day spread and leaves the month spread's current content.
+    @Test @MainActor func testAddDaySpreadAutoMigratesMonthAssignedNoteToDay() async throws {
+        let calendar = Self.testCalendar
+        let noteDate = Self.testDate
+        let monthSpread = DataModel.Spread(period: .month, date: noteDate, calendar: calendar)
+        let note = DataModel.Note(
+            title: "Month Assigned Note",
+            date: noteDate,
+            period: .day,
+            assignments: [NoteAssignment(period: .month, date: noteDate, status: .active)]
+        )
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: Self.testDate,
+            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread]),
+            noteRepository: InMemoryNoteRepository(notes: [note])
+        )
+
+        let daySpread = try await manager.addSpread(period: .day, date: noteDate)
+
+        let updatedNote = try #require(manager.notes.first { $0.id == note.id })
+        #expect(updatedNote.assignments.count == 2)
+        #expect(updatedNote.assignments.first?.status == .migrated)
+        #expect(updatedNote.assignments.last?.matches(period: .day, date: daySpread.date, calendar: calendar) == true)
+        #expect(updatedNote.assignments.last?.status == .active)
+
+        let monthKey = SpreadDataModelKey(spread: monthSpread, calendar: calendar)
+        let dayKey = SpreadDataModelKey(spread: daySpread, calendar: calendar)
+        #expect(manager.dataModel[key: monthKey]?.notes.isEmpty == true)
+        #expect(manager.dataModel[key: dayKey]?.notes.map(\.id) == [note.id])
+    }
+
+    /// Conditions: Explicit spread creation resolves both a task and a note onto the new destination.
+    /// Expected: The creation result reports exact auto-migration counts for feedback routing.
+    @Test @MainActor func testCreateSpreadReturnsAutoMigrationSummary() async throws {
+        let calendar = Self.testCalendar
+        let entryDate = Self.testDate
+        let task = DataModel.Task(
+            title: "Inbox Task",
+            date: entryDate,
+            period: .day,
+            assignments: []
+        )
+        let note = DataModel.Note(
+            title: "Inbox Note",
+            date: entryDate,
+            period: .day,
+            assignments: []
+        )
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: Self.testDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            noteRepository: InMemoryNoteRepository(notes: [note])
+        )
+
+        let result = try await manager.createSpread(period: .day, date: entryDate)
+
+        #expect(result.spread.period == .day)
+        #expect(result.autoMigrationSummary?.taskCount == 1)
+        #expect(result.autoMigrationSummary?.noteCount == 1)
+    }
+
+    /// Conditions: Explicit spread creation adds a destination but no eligible entries move.
+    /// Expected: The creation result reports no auto-migration summary.
+    @Test @MainActor func testCreateSpreadReturnsNilSummaryWhenNoEntriesMove() async throws {
+        let calendar = Self.testCalendar
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: Self.testDate
+        )
+
+        let result = try await manager.createSpread(period: .day, date: Self.testDate)
+
+        #expect(result.autoMigrationSummary == nil)
+    }
+
+    /// Conditions: A month-preferred task is currently assigned to a month spread and a matching day spread is added.
+    /// Expected: The task stays on the month spread because the new day spread would exceed its preferred-period ceiling.
+    @Test @MainActor func testAddDaySpreadDoesNotAutoMigrateMonthPreferredTask() async throws {
+        let calendar = Self.testCalendar
+        let taskDate = Self.testDate
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: calendar)
+        let task = DataModel.Task(
+            title: "Month Preferred Task",
+            date: taskDate,
+            period: .month,
+            assignments: [TaskAssignment(period: .month, date: taskDate, status: .open)]
+        )
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: Self.testDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread])
+        )
+
+        let daySpread = try await manager.addSpread(period: .day, date: taskDate)
+
+        let updatedTask = try #require(manager.tasks.first { $0.id == task.id })
+        #expect(updatedTask.assignments.count == 1)
+        #expect(updatedTask.assignments.first?.matches(period: .month, date: monthSpread.date, calendar: calendar) == true)
+        #expect(updatedTask.assignments.first?.status == .open)
+
+        let monthKey = SpreadDataModelKey(spread: monthSpread, calendar: calendar)
+        let dayKey = SpreadDataModelKey(spread: daySpread, calendar: calendar)
+        #expect(manager.dataModel[key: monthKey]?.tasks.map(\.id) == [task.id])
+        #expect(manager.dataModel[key: dayKey]?.tasks.isEmpty == true)
+    }
+
+    /// Conditions: Inbox task and note dates fall within a new multiday spread's range.
+    /// Expected: Explicit multiday creation reconciles them into direct multiday ownership.
+    @Test @MainActor func testAddMultidaySpreadDoesNotAutoAssignInboxEntries() async throws {
+        let calendar = Self.testCalendar
+        let entryDate = Self.testDate
+        let task = DataModel.Task(
+            title: "Inbox Task",
+            date: entryDate,
+            period: .day,
+            assignments: []
+        )
+        let note = DataModel.Note(
+            title: "Inbox Note",
+            date: entryDate,
+            period: .day,
+            assignments: []
+        )
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: Self.testDate,
+            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            noteRepository: InMemoryNoteRepository(notes: [note])
+        )
+
+        let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 13))!
+        let endDate = calendar.date(from: .init(year: 2026, month: 1, day: 19))!
+        let multidaySpread = try await manager.addMultidaySpread(startDate: startDate, endDate: endDate)
+
+        #expect(manager.inboxEntries.isEmpty)
+        let updatedTask = try #require(manager.tasks.first { $0.id == task.id })
+        let updatedNote = try #require(manager.notes.first { $0.id == note.id })
+        #expect(updatedTask.assignments.count == 1)
+        #expect(updatedNote.assignments.count == 1)
+        #expect(updatedTask.assignments.first?.matches(spread: multidaySpread, calendar: calendar) == true)
+        #expect(updatedTask.assignments.first?.spreadID == multidaySpread.id)
+        #expect(updatedNote.assignments.first?.matches(spread: multidaySpread, calendar: calendar) == true)
+        #expect(updatedNote.assignments.first?.spreadID == multidaySpread.id)
+        #expect(manager.dataModel[.multiday]?[multidaySpread.date]?.tasks.map(\.id) == [task.id])
+        #expect(manager.dataModel[.multiday]?[multidaySpread.date]?.notes.map(\.id) == [note.id])
     }
 
     /// Conditions: Add a spread to the manager.

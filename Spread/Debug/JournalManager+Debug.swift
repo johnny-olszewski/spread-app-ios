@@ -69,6 +69,7 @@ extension JournalManager {
     ///   - status: The initial task status (defaults to `.open`).
     /// - Returns: The created task.
     /// - Throws: Repository errors if persistence fails.
+    @_disfavoredOverload
     @discardableResult
     func addTask(
         title: String,
@@ -160,6 +161,7 @@ extension JournalManager {
     ///   - period: The preferred period for the note.
     /// - Returns: The created note.
     /// - Throws: Repository errors if persistence fails.
+    @_disfavoredOverload
     @discardableResult
     func addNote(
         title: String,

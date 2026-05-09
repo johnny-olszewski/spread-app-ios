@@ -12,6 +12,7 @@ struct TaskEditorFormModel {
     var hasPreferredAssignment: Bool
     var selectedPeriod: Period
     var selectedDate: Date
+    var selectedSpreadID: UUID?
     var hasEditedTitle: Bool
     var isDetailsExpanded = false
     var showValidationErrors = false
@@ -31,7 +32,12 @@ struct TaskEditorFormModel {
         self.dueDate = configuration.today.startOfDay(calendar: configuration.calendar)
         self.hasPreferredAssignment = selectedSpread != nil
         self.selectedPeriod = defaults.period
-        self.selectedDate = configuration.adjustedDate(defaults.date, for: defaults.period)
+        if selectedSpread?.period == .multiday {
+            self.selectedDate = defaults.date
+        } else {
+            self.selectedDate = configuration.adjustedDate(defaults.date, for: defaults.period)
+        }
+        self.selectedSpreadID = selectedSpread?.period == .multiday ? selectedSpread?.id : nil
         self.hasEditedTitle = false
     }
 
@@ -48,6 +54,9 @@ struct TaskEditorFormModel {
         self.hasPreferredAssignment = task.hasPreferredAssignment
         self.selectedPeriod = task.hasPreferredAssignment ? task.period : .day
         self.selectedDate = task.hasPreferredAssignment ? task.date : configuration.today.startOfDay(calendar: configuration.calendar)
+        self.selectedSpreadID = task.assignments.first(where: {
+            $0.status != .migrated && $0.period == .multiday
+        })?.spreadID
         self.hasEditedTitle = true
     }
 
@@ -61,7 +70,9 @@ struct TaskEditorFormModel {
             return "Task will be assigned to a year spread"
         case .month:
             return "Task will be assigned to a month spread"
-        case .day, .multiday:
+        case .multiday:
+            return "Task will be assigned to an existing multiday spread"
+        case .day:
             return "Task will be assigned to a day spread"
         }
     }
@@ -98,13 +109,17 @@ struct TaskEditorFormModel {
     mutating func setPeriod(_ newPeriod: Period) {
         selectedDate = configuration.adjustedDate(selectedDate, for: newPeriod)
         selectedPeriod = newPeriod
+        if newPeriod != .multiday {
+            selectedSpreadID = nil
+        }
         clearDateError()
     }
 
-    mutating func applySpreadSelection(period: Period, date: Date) {
+    mutating func applySpreadSelection(_ selection: SpreadPickerSelection) {
         hasPreferredAssignment = true
-        selectedDate = configuration.adjustedDate(date, for: period)
-        selectedPeriod = period
+        selectedDate = configuration.adjustedDate(selection.date, for: selection.period)
+        selectedPeriod = selection.period
+        selectedSpreadID = selection.spreadID
         clearDateError()
     }
 
@@ -114,6 +129,7 @@ struct TaskEditorFormModel {
         if isEnabled {
             selectedPeriod = .day
             selectedDate = configuration.today.startOfDay(calendar: configuration.calendar)
+            selectedSpreadID = nil
         }
         clearDateError()
     }
@@ -132,9 +148,16 @@ struct TaskEditorFormModel {
 
     mutating func validateForSubmission() -> Bool {
         let titleResult = configuration.validateTitle(title)
-        let dateResult = hasPreferredAssignment
-            ? configuration.validateDate(period: selectedPeriod, date: selectedDate)
-            : .valid
+        let dateResult: TaskCreationResult
+        if !hasPreferredAssignment {
+            dateResult = .valid
+        } else if selectedPeriod == .multiday && selectedSpreadID == nil {
+            dateResult = .invalid(.missingMultidaySpread)
+        } else if selectedPeriod == .multiday {
+            dateResult = .valid
+        } else {
+            dateResult = configuration.validateDate(period: selectedPeriod, date: selectedDate)
+        }
 
         if !titleResult.isValid || !dateResult.isValid {
             showValidationErrors = true

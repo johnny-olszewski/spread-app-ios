@@ -32,13 +32,14 @@ struct SpreadCreationSheet: View {
     let editingSpread: DataModel.Spread?
 
     /// Callback when a spread is created.
-    let onSpreadCreated: (DataModel.Spread) -> Void
+    let onSpreadCreated: (SpreadCreationOperationResult) -> Void
 
     /// Callback when an existing multiday spread date range is saved.
     let onSpreadDatesSaved: (DataModel.Spread) -> Void
 
     // MARK: - State
 
+    @State private var presentedTemporalContext: PresentedTemporalContext
     @State private var selectedPeriod: Period = .day
     @State private var selectedDate: Date = Date()
     @State private var multidayStartDate: Date = Date()
@@ -56,28 +57,30 @@ struct SpreadCreationSheet: View {
         firstWeekday: FirstWeekday,
         initialPeriod: Period? = nil,
         initialDate: Date? = nil,
-        onSpreadCreated: @escaping (DataModel.Spread) -> Void
+        onSpreadCreated: @escaping (SpreadCreationOperationResult) -> Void
     ) {
         self.journalManager = journalManager
         self.firstWeekday = firstWeekday
         self.initialPeriod = initialPeriod
         self.initialDate = initialDate
+        let presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        _presentedTemporalContext = State(initialValue: presentedTemporalContext)
         self.mode = .create
         self.editingSpread = nil
         self.onSpreadCreated = onSpreadCreated
         self.onSpreadDatesSaved = { _ in }
 
         let period = initialPeriod ?? .day
-        let date = initialDate ?? journalManager.today
+        let date = initialDate ?? presentedTemporalContext.today
         self._selectedPeriod = State(initialValue: period)
-        self._selectedDate = State(initialValue: period.normalizeDate(date, calendar: journalManager.calendar))
-        self._multidayStartDate = State(initialValue: journalManager.today)
+        self._selectedDate = State(initialValue: period.normalizeDate(date, calendar: presentedTemporalContext.calendar))
+        self._multidayStartDate = State(initialValue: presentedTemporalContext.today)
         self._multidayEndDate = State(
-            initialValue: journalManager.calendar.date(
+            initialValue: presentedTemporalContext.calendar.date(
                 byAdding: .day,
                 value: 6,
-                to: journalManager.today
-            ) ?? journalManager.today
+                to: presentedTemporalContext.today
+            ) ?? presentedTemporalContext.today
         )
         self._customName = State(initialValue: "")
         self._usesDynamicName = State(initialValue: true)
@@ -93,6 +96,8 @@ struct SpreadCreationSheet: View {
         self.firstWeekday = firstWeekday
         self.initialPeriod = .multiday
         self.initialDate = spread.startDate ?? spread.date
+        let presentedTemporalContext = PresentedTemporalContext(journalManager: journalManager)
+        _presentedTemporalContext = State(initialValue: presentedTemporalContext)
         self.mode = .editDates(
             spreadID: spread.id,
             originalStartDate: spread.startDate ?? spread.date,
@@ -102,8 +107,8 @@ struct SpreadCreationSheet: View {
         self.onSpreadCreated = { _ in }
         self.onSpreadDatesSaved = onSpreadDatesSaved
 
-        let startDate = (spread.startDate ?? spread.date).startOfDay(calendar: journalManager.calendar)
-        let endDate = (spread.endDate ?? spread.date).startOfDay(calendar: journalManager.calendar)
+        let startDate = (spread.startDate ?? spread.date).startOfDay(calendar: presentedTemporalContext.calendar)
+        let endDate = (spread.endDate ?? spread.date).startOfDay(calendar: presentedTemporalContext.calendar)
         self._selectedPeriod = State(initialValue: .multiday)
         self._selectedDate = State(initialValue: startDate)
         self._multidayStartDate = State(initialValue: startDate)
@@ -116,8 +121,8 @@ struct SpreadCreationSheet: View {
 
     private var configuration: SpreadCreationConfiguration {
         SpreadCreationConfiguration(
-            calendar: journalManager.calendar,
-            today: journalManager.today,
+            calendar: presentedTemporalContext.calendar,
+            today: presentedTemporalContext.today,
             firstWeekday: firstWeekday,
             existingSpreads: journalManager.spreads
         )
@@ -207,10 +212,13 @@ struct SpreadCreationSheet: View {
             .onChange(of: selectedPeriod) { _, newPeriod in
                 adjustDatesForPeriod(newPeriod)
             }
-            .onAppear {
-                initializeDates()
-            }
         }
+        .localhostTemporalHarness(
+            presentedDiagnostics: LocalhostTemporalHarnessPresentedDiagnostics(
+                calendarIdentifier: presentedTemporalContext.calendar.identifier,
+                today: presentedTemporalContext.today
+            )
+        )
     }
 
     // MARK: - Sections
@@ -255,7 +263,7 @@ struct SpreadCreationSheet: View {
         let lowerBound: Date
         if case .editDates(_, let originalStartDate, _) = mode {
             lowerBound = min(
-                originalStartDate.startOfDay(calendar: journalManager.calendar),
+                originalStartDate.startOfDay(calendar: presentedTemporalContext.calendar),
                 configuration.minimumMultidayStartDate
             )
         } else {
@@ -268,7 +276,7 @@ struct SpreadCreationSheet: View {
         let lowerBound: Date
         if case .editDates(_, _, let originalEndDate) = mode {
             lowerBound = min(
-                originalEndDate.startOfDay(calendar: journalManager.calendar),
+                originalEndDate.startOfDay(calendar: presentedTemporalContext.calendar),
                 configuration.minimumMultidayEndDate
             )
         } else {
@@ -292,8 +300,8 @@ struct SpreadCreationSheet: View {
             PeriodDatePicker(
                 period: selectedPeriod,
                 selectedDate: $selectedDate,
-                calendar: journalManager.calendar,
-                today: journalManager.today,
+                calendar: presentedTemporalContext.calendar,
+                today: presentedTemporalContext.today,
                 minimumDate: configuration.minimumDate(for: .day),
                 maximumDate: configuration.maximumDate,
                 accessibilityIdentifiers: .init(
@@ -398,35 +406,12 @@ struct SpreadCreationSheet: View {
 
     // MARK: - Actions
 
-    private func initializeDates() {
-        let today = journalManager.today
-        let prefilledPeriod = initialPeriod ?? .day
-        let prefilledDate = initialDate ?? today
-
-        switch mode {
-        case .create:
-            selectedPeriod = prefilledPeriod
-            selectedDate = prefilledPeriod.normalizeDate(prefilledDate, calendar: journalManager.calendar)
-            multidayStartDate = today
-            multidayEndDate = journalManager.calendar.date(byAdding: .day, value: 6, to: today) ?? today
-            customName = ""
-            usesDynamicName = true
-        case .editDates(_, let originalStartDate, let originalEndDate):
-            selectedPeriod = .multiday
-            selectedDate = originalStartDate.startOfDay(calendar: journalManager.calendar)
-            multidayStartDate = originalStartDate.startOfDay(calendar: journalManager.calendar)
-            multidayEndDate = originalEndDate.startOfDay(calendar: journalManager.calendar)
-            customName = ""
-            usesDynamicName = true
-        }
-    }
-
     private func adjustDatesForPeriod(_ period: Period) {
         guard period != .multiday else { return }
         let minDate = configuration.minimumDate(for: period)
 
         // Normalize selection to the period and clamp to minimum date.
-        let normalizedSelected = period.normalizeDate(selectedDate, calendar: journalManager.calendar)
+        let normalizedSelected = period.normalizeDate(selectedDate, calendar: presentedTemporalContext.calendar)
         selectedDate = normalizedSelected < minDate ? minDate : normalizedSelected
     }
 
@@ -483,18 +468,23 @@ struct SpreadCreationSheet: View {
                 usesDynamicName: usesDynamicName
             )
             await MainActor.run {
-                onSpreadCreated(spread)
+                onSpreadCreated(
+                    SpreadCreationOperationResult(
+                        spread: spread,
+                        autoMigrationSummary: nil
+                    )
+                )
                 dismiss()
             }
         } else {
-            let spread = try await journalManager.addSpread(
+            let result = try await journalManager.createSpread(
                 period: selectedPeriod,
                 date: selectedDate,
                 customName: customName,
                 usesDynamicName: usesDynamicName
             )
             await MainActor.run {
-                onSpreadCreated(spread)
+                onSpreadCreated(result)
                 dismiss()
             }
         }
@@ -525,8 +515,8 @@ struct SpreadCreationSheet: View {
         SpreadCreationSheet(
             journalManager: .previewInstance,
             firstWeekday: .sunday,
-            onSpreadCreated: { spread in
-                print("Created spread: \(spread.period)")
+            onSpreadCreated: { result in
+                print("Created spread: \(result.spread.period)")
             }
         )
     }

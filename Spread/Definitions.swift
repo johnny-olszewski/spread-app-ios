@@ -120,6 +120,10 @@ struct Definitions {
             static func multidayFooterButton(_ dateID: String) -> String {
                 "spreads.content.multiday.section.\(dateID).footer"
             }
+
+            static func multidayPeekButton(_ dateID: String) -> String {
+                "spreads.content.multiday.section.\(dateID).peek"
+            }
         }
 
         struct SpreadNavigator {
@@ -367,6 +371,33 @@ struct Definitions {
             static func multidayDate(spreadId: String, date: String) -> String {
                 "tasks.spreadpicker.multiday.\(spreadId).date.\(date)"
             }
+        }
+
+        struct Debug {
+            static let temporalHarness = "debug.temporal.harness"
+            static let temporalNow = "debug.temporal.now"
+            static let temporalToday = "debug.temporal.today"
+            static let temporalTimeZone = "debug.temporal.timeZone"
+            static let temporalLocale = "debug.temporal.locale"
+            static let temporalCalendar = "debug.temporal.calendar"
+            static let temporalOverride = "debug.temporal.override"
+            static let temporalRefreshReason = "debug.temporal.refresh.reason"
+            static let temporalRefreshRevision = "debug.temporal.refresh.revision"
+            static let temporalSemanticRevision = "debug.temporal.semantic.revision"
+            static let temporalAdvanceHour = "debug.temporal.advanceHour"
+            static let temporalAdvanceDay = "debug.temporal.advanceDay"
+            static let temporalSetUTC = "debug.temporal.timeZone.utc"
+            static let temporalSetNewYork = "debug.temporal.timeZone.newYork"
+            static let temporalSetFrenchLocale = "debug.temporal.locale.frFR"
+            static let temporalSetEnglishLocale = "debug.temporal.locale.enUSPOSIX"
+            static let temporalSetGregorianCalendar = "debug.temporal.calendar.gregorian"
+            static let temporalSetBuddhistCalendar = "debug.temporal.calendar.buddhist"
+            static let temporalResumeLive = "debug.temporal.resumeLive"
+            static let temporalSelectedSpreadID = "debug.temporal.selectedSpread.id"
+            static let temporalSelectedSpreadTitle = "debug.temporal.selectedSpread.title"
+            static let temporalSelectedSpreadSubtitle = "debug.temporal.selectedSpread.subtitle"
+            static let temporalPresentedToday = "debug.temporal.presented.today"
+            static let temporalPresentedCalendar = "debug.temporal.presented.calendar"
         }
     }
 }

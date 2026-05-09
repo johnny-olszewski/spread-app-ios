@@ -57,7 +57,7 @@ struct StandardInboxResolver: InboxResolver {
         spreads.contains { spread in
             task.assignments.contains { assignment in
                 assignment.status != .migrated &&
-                assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
+                assignment.matches(spread: spread, calendar: calendar)
             }
         }
     }
@@ -66,7 +66,7 @@ struct StandardInboxResolver: InboxResolver {
         spreads.contains { spread in
             note.assignments.contains { assignment in
                 assignment.status != .migrated &&
-                assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
+                assignment.matches(spread: spread, calendar: calendar)
             }
         }
     }

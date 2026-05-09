@@ -7,8 +7,6 @@ struct SpreadsView: View {
     let navigationState: SpreadsNavigationState
 
     @State private var viewModel = SpreadsViewModel()
-    @AppStorage(TitleStripDisplayPreference.storageKey)
-    private var titleStripDisplayPreferenceRaw = TitleStripDisplayPreference.defaultValue.rawValue
 
     private let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding =
         TodayMissingSpreadRecommendationProvider()
@@ -21,10 +19,31 @@ struct SpreadsView: View {
         stripModel.items(for: currentSelection)
     }
 
-    private var titleStripItems: [SpreadTitleNavigatorModel.Item] {
-        stripModel.titleStripItems(
-            for: currentSelection,
-            displayPreference: TitleStripDisplayPreference(storedRawValue: titleStripDisplayPreferenceRaw)
+    private var currentSpreadDiagnostics: LocalhostTemporalHarnessSpreadDiagnostics {
+        let spread: DataModel.Spread
+        switch currentSelection {
+        case .conventional(let currentSpread):
+            spread = currentSpread
+        case .traditionalYear(let date):
+            spread = DataModel.Spread(period: .year, date: date, calendar: journalManager.calendar)
+        case .traditionalMonth(let date):
+            spread = DataModel.Spread(period: .month, date: date, calendar: journalManager.calendar)
+        case .traditionalDay(let date):
+            spread = DataModel.Spread(period: .day, date: date, calendar: journalManager.calendar)
+        }
+
+        let headerConfiguration = SpreadHeaderConfiguration(
+            spread: spread,
+            calendar: journalManager.calendar,
+            today: journalManager.today,
+            firstWeekday: journalManager.firstWeekday,
+            allowsPersonalization: true
+        )
+
+        return LocalhostTemporalHarnessSpreadDiagnostics(
+            selectionID: currentSelection.stableID(calendar: journalManager.calendar),
+            title: headerConfiguration.title,
+            subtitle: headerConfiguration.subtitle
         )
     }
 
@@ -32,8 +51,6 @@ struct SpreadsView: View {
         VStack(spacing: 0) {
             SpreadTitleNavigatorView(
                 stripModel: stripModel,
-                items: titleStripItems,
-                recenterToken: viewModel.recenterToken,
                 onRecommendedSpreadTapped: onRecommendedSpreadTapped,
                 recommendationProvider: recommendationProvider,
                 selection: selectionBinding
@@ -47,6 +64,8 @@ struct SpreadsView: View {
 
             contentArea
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .localhostTemporalHarness(spreadDiagnostics: currentSpreadDiagnostics)
         .toolbar {
             if journalManager.bujoMode == .conventional {
                 ToolbarItem(placement: .primaryAction) {
@@ -93,6 +112,7 @@ struct SpreadsView: View {
                 recenterToken: viewModel.recenterToken,
                 selection: selectionBinding
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .dotGridBackground(.paper, ignoresSafeAreaEdges: .bottom)
         } else {
             ContentUnavailableView {
@@ -100,6 +120,7 @@ struct SpreadsView: View {
             } description: {
                 Text("Select a spread from the bar above.")
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .dotGridBackground(.paper, ignoresSafeAreaEdges: .bottom)
         }
     }
@@ -154,7 +175,10 @@ struct SpreadsView: View {
     private var selectionBinding: Binding<SpreadHeaderNavigatorModel.Selection> {
         Binding(
             get: { currentSelection },
-            set: { viewModel.selectedSelection = $0 }
+            set: {
+                viewModel.selectedSelection = $0
+                viewModel.clearPeekNavigationSource()
+            }
         )
     }
 
@@ -229,6 +253,7 @@ struct SpreadsView: View {
     }
 
     private func selectFavorite(_ item: SpreadTitleNavigatorModel.Item) {
+        viewModel.clearPeekNavigationSource()
         viewModel.selectedSelection = item.selection
         viewModel.recenterToken += 1
     }
@@ -236,6 +261,7 @@ struct SpreadsView: View {
     // MARK: - Navigation
 
     private func navigateToToday() {
+        viewModel.clearPeekNavigationSource()
         switch journalManager.bujoMode {
         case .conventional:
             guard let targetSpread = SpreadHierarchyOrganizer(
@@ -247,6 +273,7 @@ struct SpreadsView: View {
                 viewModel.recenterToken += 1
             } else {
                 viewModel.selectedSelection = .conventional(targetSpread)
+                viewModel.recenterToken += 1
             }
 
         case .traditional:
@@ -258,6 +285,7 @@ struct SpreadsView: View {
                 viewModel.recenterToken += 1
             } else {
                 viewModel.selectedSelection = target
+                viewModel.recenterToken += 1
             }
         }
     }
@@ -287,6 +315,7 @@ struct SpreadsView: View {
             calendar: journalManager.calendar,
             today: journalManager.today
         )
+        viewModel.recenterToken += 1
     }
 
     // MARK: - Sheet Content
@@ -301,8 +330,12 @@ struct SpreadsView: View {
                     firstWeekday: journalManager.firstWeekday,
                     initialPeriod: prefill?.period,
                     initialDate: prefill?.date,
-                    onSpreadCreated: { spread in
-                        viewModel.selectedSelection = .conventional(spread)
+                    onSpreadCreated: { result in
+                        viewModel.finishSpreadCreation(
+                            result,
+                            currentSelection: currentSelection,
+                            calendar: journalManager.calendar
+                        )
                         Task { @MainActor in await syncEngine?.syncNow() }
                     }
                 )
@@ -398,6 +431,7 @@ struct SpreadsView: View {
             guard journalManager.bujoMode == .traditional else { return }
             viewModel.selectedSelection = request.selection
         }
+        viewModel.recenterToken += 1
 
         guard let task = journalManager.tasks.first(where: { $0.id == request.taskID }) else {
             navigationState.pendingRequest = nil

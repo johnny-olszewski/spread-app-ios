@@ -12,7 +12,11 @@
 
 ## Story Overview (v1)
 - Foundation and scaffolding (completed)
+- Month calendar row overlays
+- Spread visual system refresh
+- First-class multiday assignment
 - Core time and data models
+- Temporal context and AppClock
 - Supabase offline-first sync + auth migration (priority)
 - Simplification pass: auth, environments, debug tooling, and test cleanup
 - Journal core: creation, assignment, inbox, migration
@@ -40,6 +44,506 @@
 - SwiftData schema and task/spread repositories (plus mocks) are in place.
 - Baseline environment/container/repository tests pass.
 
+## Story: Month calendar row overlays
+
+### User Story
+- As a user, I want month-calendar surfaces to show spanning row-bounded decorations, such as multiday coverage in the rooted navigator, so I can recognize date ranges without opening each day individually.
+
+### Definition of Done
+- `MonthCalendarView` exposes a separate optional row-overlay seam distinct from `CalendarContentGenerator`.
+- Overlay coverage is date-driven in v1 and may include visible peripheral day cells when they are rendered.
+- The shell automatically segments overlays by visible week row, packs colliding segments into lanes, and enforces a configurable visible-lane limit.
+- Over-limit packed overlays surface overflow metadata so the app can render an explicit overflow indicator lane instead of silently dropping information.
+- Overlay visuals remain app-owned; foundation owns structural math, layout context, and packing behavior only.
+- Overlays render between the week background and day cells and remain decorative-only.
+- Package-level logic tests and focused `Spread` integration tests protect the contract.
+
+### [SPRD-183] Feature: add row-bounded overlay seam to MonthCalendarView - [x] Complete
+- **Context**: `MonthCalendarView` currently supports only single-slot content plus a week background seam. The rooted spread navigator now needs multiday coverage cues, and future calendar consumers may need other same-row date-driven decorations. Cross-row continuation was considered and explicitly deferred to keep the shell simpler and more predictable.
+- **Description**: Extend `johnnyo-foundation` with a separate optional row-overlay seam for `MonthCalendarView` that supports decorative same-row overlay segments across visible day cells.
+- **Spec**: Shared Month Calendar Component; Month Calendar Row Overlays
+- **Implementation Details**:
+  - Add a separate optional row-overlay generator protocol instead of expanding `CalendarContentGenerator`.
+  - Keep the v1 overlay contract date-driven:
+    - callers declare logical overlay coverage against dates
+    - the shell resolves only visible day cells
+    - hidden placeholders never participate
+  - Allow visible peripheral dates to participate when `showsPeripheralDates == true`.
+  - Split logical overlay coverage into visible row-bounded segments at week boundaries.
+  - Render overlay content between `weekBackgroundView` and the day/placeholder cells.
+  - Keep overlays decorative-only; do not add overlay hit testing or overlay-driven delegate actions.
+  - Let consumers configure the maximum number of visible overlay lanes per week row.
+  - Implement foundation-owned automatic lane packing for colliding row segments.
+  - Derive overflow metadata when packed lanes exceed the visible-lane limit instead of silently discarding overflowed segments.
+  - Expose a packed row-segment render context to the app that includes semantic coverage, lane assignment, row metadata, continuation flags, overflow metadata, and row-scoped layout information sufficient for app-owned rendering.
+- **Acceptance Criteria**:
+  - `MonthCalendarView` accepts an optional separate row-overlay seam.
+  - Row overlays can span multiple visible day cells within one week row.
+  - Logical overlays that cross week boundaries are split into separate row segments.
+  - Visible peripheral dates participate when rendered; hidden placeholders do not.
+  - Colliding segments are automatically packed into lanes by foundation.
+  - The visible-lane count is consumer-configurable.
+  - Overflow metadata is surfaced whenever packed segments exceed the visible-lane limit.
+  - Overlay rendering does not intercept existing day/week interactions.
+- **Tests**:
+  - Package-unit tests for visible-date participation and placeholder exclusion.
+  - Package-unit tests for row segmentation across week boundaries.
+  - Package-unit tests for automatic lane packing and stable ordering of colliding segments.
+  - Package-unit tests for visible-lane limiting and overflow metadata derivation.
+  - Package-view tests proving overlays render between week background and day cells without altering existing cell invocation behavior.
+- **Dependencies**: SPRD-153
+
+### [SPRD-184] Feature: render multiday spread row overlays in the rooted navigator - [x] Complete
+- **Context**: The first concrete consumer of the new row-overlay seam is the rooted spread navigator's expanded month grid. Conventional mode already reasons about explicit day and multiday targets there, but the grid does not yet show spanning multiday coverage.
+- **Description**: Add a `Spread` overlay generator and renderer for the rooted navigator so multiday spreads appear as row-bounded spanning decorations in expanded month grids.
+- **Spec**: Rooted spread navigator behavior; Month Calendar Row Overlays
+- **Implementation Details**:
+  - Add a `Spread`-side overlay generator for the rooted navigator month grid that derives overlay coverage from conventional multiday spread ranges.
+  - Keep the first consumer decorative-only; continue to route selection through day-cell taps and existing multi-target dialogs.
+  - Ensure overlay coverage reflects visible day cells, including visible peripheral dates if a future navigator configuration enables them.
+  - Render app-owned overlay visuals from the packed row-segment context supplied by foundation.
+  - Render app-owned overflow indicator treatment using the overflow metadata supplied by foundation.
+  - Preserve existing rooted-navigator created/uncreated/today cell treatment and existing day-target selection semantics.
+  - Keep traditional-mode behavior unchanged unless a concrete overlay use case is later approved there.
+- **Acceptance Criteria**:
+  - Conventional rooted-navigator month grids show row-bounded multiday coverage overlays for explicit multiday spreads.
+  - Day-cell taps and multi-target dialogs continue to work as before.
+  - Multiple overlapping multiday overlays are packed into visible lanes automatically.
+  - Overflow conditions render an explicit app-owned overflow indication rather than silently hiding extra overlays.
+  - Traditional-mode navigator behavior is unchanged unless explicitly covered by overlay data.
+- **Tests**:
+  - App-level model tests for multiday spread overlay coverage derivation in the rooted navigator.
+  - App-level integration/view tests proving packed row-segment context renders the expected multiday overlay visuals.
+  - Regression tests proving existing navigator selection behavior remains unchanged when overlays are present.
+  - Focused UI tests for representative overlapping and overflow scenarios in the expanded month navigator.
+- **Dependencies**: SPRD-183, SPRD-166, SPRD-177
+
+### [SPRD-185] Test/Docs: codify row-overlay guarantees and edge cases - [x] Complete
+- **Context**: The new seam splits responsibility between foundation-owned structural math and app-owned visuals. Without explicit documentation and edge-case coverage, future work can easily reintroduce geometry leakage or broaden the seam inconsistently.
+- **Description**: Add the remaining documentation, test fixtures, and edge-case coverage needed so row overlays remain predictable and extensible.
+- **Spec**: Shared Foundations Package; Month Calendar Row Overlays; Testing
+- **Implementation Details**:
+  - Update package-local documentation so the overlay contract is documented alongside the month shell API.
+  - Add explicit guidance that cross-row continuation is out of scope for this version.
+  - Add fixture coverage for:
+    - week-boundary splitting
+    - visible peripheral participation
+    - dense overlap packing
+    - visible-lane overflow
+  - Ensure the app-side tests document that overflow visuals are app-owned even though overflow metadata is foundation-owned.
+- **Acceptance Criteria**:
+  - Package-local docs describe the overlay seam, ownership split, and current row-bounded limitation.
+  - Edge-case tests cover the accepted behaviors called out in the spec.
+  - The implementation guidance is clear enough that future work does not need to rediscover the lane/overflow contract.
+- **Tests**:
+  - Additional package fixtures for pathological overlap/overflow cases.
+- App-level regression coverage for overflow rendering and non-interactive overlay behavior.
+- **Dependencies**: SPRD-183, SPRD-184
+
+## Story: Spread visual system refresh
+
+### User Story
+- As a user, I want every spread type and its related navigation surfaces to use a clearer, more calendar-structured visual system, so I can understand what exists, what is assigned where, and where work moved when more granular spreads are created.
+
+### Definition of Done
+- Spread content is current-assignment-only and no longer shows migrated-history rows.
+- Year/month/day spread creation auto-migrates eligible tasks and notes within the explicit year/month/day hierarchy using existing preferred-date/preferred-period rules.
+- Year, month, day, and multiday spreads follow the confirmed new layout system.
+- Navigation surfaces adopt the same semantics and lighter matching visuals.
+- Automatic migration feedback uses structural motion plus anchored cues with context-dependent destination reveal.
+- Unit, integration, and UI coverage protect the new visibility, migration, and layout rules.
+
+### [SPRD-186] Spec/Model: rewrite spread visibility and assignment semantics - [x] Complete
+- **Context**: Current conventional spread builders and spread content surfaces still include migrated/source-history content and older sectioning rules. The new visual system requires spread content to be driven by current live assignment only, with migration becoming a distinct flow rather than persistent clutter.
+- **Description**: Update the product spec and core assignment/visibility model so spread content becomes current-assignment-only and automatic migration is defined for explicit year/month/day spread creation.
+- **Spec**: Shared Spread Surface Architecture; Spread Visual System Refresh
+- **Dependencies**: SPRD-140, SPRD-151
+
+### [SPRD-187] Core refactor: implement current-assignment-only builders and automatic year/month/day migration - [x] Complete
+- **Context**: The data model and builders currently retain source-history visibility and require manual movement in cases the new system wants to resolve automatically.
+- **Description**: Refactor spread builders, assignment visibility, and spread-creation side effects so eligible tasks and notes automatically move into newly created more-granular explicit year/month/day spreads and disappear from their old spread content immediately afterward.
+- **Spec**: Spread Visual System Refresh
+- **Implementation Details**:
+  - Update conventional spread-data building so explicit year/month/day spread membership is driven only by current non-migrated assignments.
+  - Ensure targeted derived-model rebuild scope uses only current explicit-assignment keys plus multiday aggregation keys, so source-history assignments no longer keep obsolete surfaces alive.
+  - Keep assignment history persistence intact on `TaskAssignment` and `NoteAssignment`; only spread-content visibility changes.
+  - Add a shared conventional-mode spread-creation reconciliation path for explicit `year`, `month`, and `day` spreads:
+    - append/save the new spread
+    - recompute eligible task and note destinations using the existing preferred-date/preferred-period hierarchy rules
+    - persist only entries whose current assignment path actually changes
+  - Apply automatic migration only within the explicit year/month/day hierarchy.
+  - Do not auto-migrate into multiday spreads and do not change traditional-mode virtual spread derivation.
+  - Preserve preferred-assignment ceilings:
+    - year-preferred entries do not move below year
+    - month-preferred entries do not move to day
+    - day-preferred entries may move year → month → day as finer explicit spreads appear
+  - Preserve Inbox behavior for entries with no preferred assignment and for preferred assignments that still have no valid explicit destination after spread creation.
+  - Keep migration/history state available for dedicated migration flows, deletion fallback, sync durability, and future feedback work under `SPRD-192`.
+- **Acceptance Criteria**:
+  - Conventional explicit spread content excludes migrated-history-only task and note rows.
+  - Reassignment or manual migration removes the entry from the old spread's content immediately while preserving migrated assignment history.
+  - Creating an explicit year spread auto-assigns eligible Inbox entries whose best available explicit destination is that year spread, including month/day-preferred entries when no finer explicit spread exists yet.
+  - Creating an explicit month spread auto-assigns eligible preferred month/day entries from Inbox or year spreads, without exceeding the preferred assignment period.
+  - Creating an explicit day spread auto-assigns eligible preferred day entries from Inbox, year, or month spreads.
+  - Month-preferred entries do not auto-migrate into day spreads.
+  - Explicit spread creation auto-reconciles notes using the same destination hierarchy rules, while multiday spread creation remains aggregation-only.
+  - Traditional-mode derived spread behavior is unchanged.
+- **Tests**:
+  - Builder tests for excluding migrated-history-only explicit assignments from spread content.
+  - Builder/patch-scope tests for dropping migrated explicit spread keys while preserving multiday aggregation keys.
+  - JournalManager tests for year/month/day spread creation auto-assigning eligible Inbox tasks and notes.
+  - JournalManager tests for parent-to-child auto-migration across year → month and month → day creation.
+  - JournalManager tests proving preferred-period ceilings block invalid finer auto-migration.
+  - JournalManager tests proving unmatched or nil-preference entries remain in Inbox.
+  - Regression tests proving multiday spread creation does not trigger direct assignment auto-migration.
+- **Dependencies**: SPRD-186
+
+### [SPRD-188] UI: redesign year spread into year section plus adaptive month cards - [x] Complete
+- **Context**: The year spread needs to shift from a generic sectioned list toward a vertical month-card surface that still truthfully reflects current assignment.
+- **Description**: Implement the new year spread layout with a top year-period section, adaptive month cards, month-grid previews, existence/current-month state styling, and year-assigned task/note previews inside month cards.
+- **Spec**: Spread Visual System Refresh
+- **Implementation Details**:
+  - Replace the generic year-spread sectioning with a dedicated year surface composed of:
+    - one top year-period entry section for entries currently assigned to the year with preferred period `year`
+    - a vertically stacked month-card list beneath it
+  - Build month cards from calendar order rather than from the old source-assignment grouping.
+  - Render each month card with:
+    - month title/header
+    - read-only mini month grid with weekday headers and date numbers
+    - no interactive cells inside the mini grid
+    - explicit month-spread existence styling via solid vs dashed border
+    - distinct current-month emphasis layered independently from created/uncreated state
+    - a bottom `View Spread` or `Create Spread` action based on explicit month-spread existence
+  - Surface year-assigned entries with dates in that month inside the corresponding card, without old migrated/source subsections.
+  - Keep month-card entry previews unsectioned; when an entry has a concrete day date, render a small day-number context label.
+  - Implement adaptive density rules so sparse months stay compact while dense months switch to preview-threshold plus overflow treatment instead of unbounded height.
+  - Reuse shared entry-row styling and shared spread visual tokens introduced by this refreshed system instead of creating a year-only row language.
+- **Acceptance Criteria**:
+  - Year spreads render a top year-entry section plus one month card per calendar month.
+  - Month cards visually distinguish explicit month spreads from missing month spreads using the specified border-state semantics.
+  - Current-month emphasis does not replace the explicit existence styling.
+  - Month cards show currently year-assigned month/day-dated entries only; migrated/source-history entries are absent.
+  - Month card actions open the existing month spread when it exists and the create-spread flow when it does not.
+  - Mini month grids are read-only and do not introduce cell-level navigation.
+  - Dense month cards use preview limiting/overflow instead of growing without bound.
+- **Tests**:
+  - View-model/support tests for month-card grouping and day-number context labeling.
+  - View tests for solid/dashed/current-month card state combinations.
+  - View tests for `View Spread` vs `Create Spread` action routing.
+  - View tests for preview-threshold and overflow behavior on dense months.
+  - Integration tests proving migrated/source-history rows are absent from year surfaces while current assigned entries appear in the correct cards.
+- **Dependencies**: SPRD-186, SPRD-187
+
+### [SPRD-189] UI: redesign month spread into calendar, month section, and day-section list - [x] Complete
+- **Context**: The month spread needs to become a structural calendar surface with distinct month-level and day-level current-assignment presentation.
+- **Description**: Implement the new month spread layout with a structural month calendar, dedicated month-period section, and plain day-section list including explicit empty day-spread destinations.
+- **Spec**: Shared Month Calendar Component; Spread Visual System Refresh
+- **Implementation Details**:
+  - Restructure month spreads around three fixed zones:
+    - top structural month calendar
+    - month-entry section for entries currently assigned to that month with preferred period `month`
+    - day-section list beneath for day-preferred entries currently assigned to the month
+  - Use `MonthCalendarView` as a structural/navigation surface rather than as a row-list replacement.
+  - Keep explicit day-spread existence and current assignment content as separate signals in the calendar:
+    - borders communicate explicit day-spread existence
+    - secondary indicators communicate currently assigned content
+  - Remove old generic source-based grouping and migrated-history subsections from month spread content.
+  - Render non-empty day sections by default for current month-assigned day entries.
+  - Preserve explicit day-spread destinations even when no current entries remain there by rendering an empty section for created day spreads.
+  - Make the day-section header the clickthrough/navigation affordance to the explicit day spread.
+  - Keep day-section entry content plain and list-first rather than card-composed.
+- **Acceptance Criteria**:
+  - Month spreads render a month calendar, a dedicated month-entry section, and a day-section list in that order.
+  - Month-entry content contains only month-assigned entries whose preferred period is `month`.
+  - Day sections contain only currently assigned day-period entries or explicit empty day-spread destinations.
+  - A created day spread still renders its day section even when its current entry list is empty.
+  - Calendar existence styling and content indicators remain distinct.
+  - Month spread content no longer shows migrated-history/source sections.
+- **Tests**:
+  - View/support tests for separating month-period entries from day-period sections.
+  - View tests for explicit empty day-spread destination rendering.
+  - View tests for day-section header navigation behavior.
+  - Month-calendar integration tests for distinct created/uncreated borders versus current-content indicators.
+  - Integration tests proving current-assignment-only month content after auto-migration and manual migration.
+- **Dependencies**: SPRD-186, SPRD-187
+
+### [SPRD-190] UI: align day and multiday spreads with the refreshed system - [x] Complete
+- **Context**: Day and multiday surfaces should preserve their strengths while adopting the new assignment-only and visual-state rules.
+- **Description**: Keep day spreads list-first, update multiday to show only currently assigned entries with lighter empty days, and align shared styling/state semantics across spread surfaces.
+- **Spec**: Spread Visual System Refresh
+- **Implementation Details**:
+  - Keep day spreads primarily list-first and avoid reworking them into the year/month card architecture.
+  - Refresh day spread styling to match the shared visual system:
+    - shared header semantics
+    - shared section styling
+    - no migrated/source-history subsection
+  - Update multiday spreads so every covered day remains visible regardless of whether that day currently has entries.
+  - Render only currently assigned entries inside each multiday day section.
+  - Introduce a lighter empty-day treatment for multiday sections instead of removing empty dates.
+  - Preserve existing multiday footer actions, created/uncreated/today card semantics, and related day-spread creation/navigation affordances while aligning the surrounding content styling with the refreshed system.
+  - Ensure cancelled-task visibility rules continue to apply where task rows remain visible, while migrated-history-only rows do not reappear in spread content.
+- **Acceptance Criteria**:
+  - Day spreads remain list-first and adopt the refreshed shared styling without introducing year/month card behavior.
+  - Day spread content is current-assignment-only.
+  - Multiday spreads show every day in range, including empty days.
+  - Multiday day sections render only currently assigned entries for that date.
+  - Empty multiday days use a lighter empty-state treatment instead of disappearing.
+  - Migrated-history/source sections are absent from both day and multiday spread content.
+- **Tests**:
+  - View tests for day spread list-first structure under the refreshed styling.
+  - Integration tests for day spreads dropping migrated/source-history rows after reassignment.
+  - Multiday support/view tests for preserving all covered dates, including empty days.
+  - Multiday integration tests proving only current entries render in each day section.
+  - Regression tests for cancelled-row visibility and existing multiday footer action behavior.
+- **Dependencies**: SPRD-186, SPRD-187
+
+### [SPRD-191] UI: align rooted navigator and related navigation surfaces - [x] Complete
+- **Context**: The new spread system also applies to related navigation surfaces, but those surfaces should remain lighter-density than full spread pages.
+- **Description**: Update the rooted navigator and related spread-preview/navigation surfaces to use the new existence/content semantics, lighter shared visual language, and refreshed month/day cues.
+- **Spec**: Rooted spread navigator behavior; Spread Visual System Refresh
+- **Implementation Details**:
+  - Refresh rooted navigator month grids and related preview/navigation surfaces to match the new existence/content semantics:
+    - explicit year/month/day spread existence remains the created/uncreated signal
+    - current assignment content is communicated through lighter secondary cues
+  - Keep these surfaces lighter-density than the full spread pages; do not duplicate full spread-entry previews everywhere.
+  - In conventional mode, preserve the rule that multiday coverage is a decorative overlay lane and does not make day cells appear as created day spreads.
+  - Align year-page month rows, expanded month grids, and related preview surfaces with the refreshed day/month visual grammar introduced by `SPRD-188` and `SPRD-189`.
+  - Ensure today/current-period emphasis layers on top of created/uncreated state instead of replacing it.
+  - Preserve rooted navigator selection rules, month filtering rules, and multi-target confirmation flows while refreshing the visual semantics.
+  - Update any auxiliary spread-preview surfaces tied to the title navigator, month/day previews, or rooted selector so they no longer imply source-history content.
+- **Acceptance Criteria**:
+  - Rooted navigator day cells use distinct created/uncreated existence state plus separate current-content indication.
+  - Multiday overlay lanes remain decorative and do not mark covered day cells as explicitly created.
+  - Today/current-period emphasis layers correctly over created/uncreated day-cell state.
+  - Conventional and traditional rooted navigator availability rules remain intact while sharing the refreshed visual language.
+  - Related spread-preview/navigation surfaces no longer imply migrated/source-history content.
+- **Tests**:
+  - Navigator support/view tests for day-cell created/uncreated/content-state combinations.
+  - Integration tests proving multiday overlay lanes remain separate from explicit day-spread existence.
+  - View tests for today/current-period emphasis layering over existence state.
+  - Rooted navigator interaction regression tests for month visibility, expansion, and multi-target day selection.
+  - Preview/navigation surface tests for lighter shared semantics without full spread-density regressions.
+- **Dependencies**: SPRD-183, SPRD-184, SPRD-186, SPRD-188, SPRD-189, SPRD-190
+
+### [SPRD-192] UX/Test: implement migration feedback and full regression coverage - [x] Complete
+- **Context**: Automatic migration is a major behavioral change and needs strong user feedback plus tests that prevent subtle regressions.
+- **Description**: Add structural migration feedback, anchored cues, context-dependent reveal behavior, and comprehensive unit/integration/UI coverage for the refreshed spread system.
+- **Spec**: Spread Visual System Refresh; Testing
+- **Implementation Details**:
+  - Add automatic migration feedback for explicit year/month/day spread creation using structural motion plus a lightweight anchored cue.
+  - Define reveal behavior by context:
+    - when the destination is already visible in the current surface, reveal/highlight it locally
+    - otherwise update selection/navigation so the destination spread becomes visible
+  - Ensure automatic migration feedback handles both task and note moves without reintroducing persistent source-history sections.
+  - Keep feedback scoped to the automatic-migration transition itself rather than broad permanent badge/state additions.
+  - Add comprehensive regression coverage spanning:
+    - current-assignment-only spread content
+    - auto-migration on explicit spread creation
+    - year/month/day refreshed layouts
+    - multiday current-assignment rendering
+    - rooted navigator and preview semantic alignment
+    - feedback/reveal behavior
+  - Cover sync/rebuild durability for preserved assignment history without resurrecting source-spread content.
+- **Acceptance Criteria**:
+  - Automatic migration produces visible feedback rather than silently moving content.
+  - Feedback reveals/highlights the destination locally when possible and otherwise changes selection to show the destination spread.
+  - Automatic migration feedback works for both tasks and notes.
+  - Full regression coverage protects current-assignment-only spread content across year, month, day, multiday, and navigation surfaces.
+  - Sync/rebuild scenarios preserve assignment history while keeping source-spread content absent after reassignment.
+- **Tests**:
+  - Unit tests for auto-migration feedback decision logic and destination-reveal routing.
+  - Integration tests for year/month/day spread creation auto-migration plus destination highlight/selection behavior.
+  - UI tests for refreshed year/month/day/multiday surfaces and rooted navigator semantics.
+  - Sync-enabled durability tests for auto-migrated and manually migrated entries rebuilding with preserved history but no resurrected source content.
+  - Regression tests covering tasks vs notes, Inbox-origin entries, parent-origin entries, and preferred-period ceiling edge cases.
+- **Dependencies**: SPRD-187, SPRD-188, SPRD-189, SPRD-190, SPRD-191
+
+## Story: First-class multiday assignment
+
+### User Story
+- As a user, I want multiday spreads to be true assignment destinations, so weekly or range-based work lives on the multiday spread instead of falling back to a month/year spread and becoming confusing later.
+
+### Definition of Done
+- Multiday is a first-class assignable period for tasks and notes in conventional mode.
+- Multiday remains optional product behavior: recommendations and default spread expectations still cover only year/month/day.
+- Assignment resolution, deletion fallback, overdue logic, and spread rendering all treat explicit multiday assignment consistently.
+- New multiday create/edit flows block overlapping ranges while grandfathering legacy overlapping data.
+- Unit, integration, UI, and sync-path tests cover multiday assignment, waterfall migration, picker behavior, and legacy-overlap fallback rules.
+
+### [SPRD-193] Core/UI/Sync: implement first-class multiday assignment semantics - [x] Complete
+- **Context**: The current product and codebase treat multiday as an aggregate-only surface. That causes day-level work to fall back to month/year surfaces even when the user is working primarily out of a weekly multiday spread, which makes overdue and ownership behavior misleading. The refreshed spec makes multiday a first-class assignable period while keeping it optional and non-recommended.
+- **Description**: Refactor the assignment model, unified spread picker, migration engine, multiday validation, rendering rules, overdue logic, and sync identity so explicit multiday spreads can own task/note assignments safely and predictably.
+- **Spec**: Spread Periods; Migration; Spread Visual System Refresh; Edge Cases
+- **Implementation Details**:
+  - Update `Period`-level assignment capabilities so `multiday` is a first-class assignable period in conventional mode.
+  - Introduce stable direct multiday-assignment ownership keyed to explicit multiday spread identity rather than inferring ownership only from `period + date`.
+  - Preserve optional-product semantics:
+    - recommendations still cover only year/month/day
+    - default spread expectations never assume users will create multiday spreads
+    - multiday appears only when it already exists or when the user is explicitly working in one
+  - Replace the old spread-assignment UI split with the unified picker contract from the spec:
+    - inline `year`, `month`, `multiday`, and `day` options
+    - created/uncreated differentiation for year/month/day
+    - existing-multiday-only choices for multiday
+  - Change create/edit defaults so creating from a multiday spread preselects that multiday spread as the assignment destination.
+  - Update reassignment/waterfall logic:
+    - day-preferred entries resolve `day -> multiday -> month -> year`
+    - multiday-preferred entries resolve `multiday -> month -> year`
+    - month-preferred entries do not auto-resolve into multiday
+  - Add automatic migration into newly created multiday spreads for eligible day-preferred and multiday-preferred entries, and preserve auto-migration from multiday into explicit day spreads when a finer destination becomes available.
+  - Update multiday spread rendering so:
+    - preferred-period `multiday` entries render in a dedicated spread-level section
+    - day-preferred entries assigned to the multiday render only in their preferred-day section
+    - multiday-assigned entries do not duplicate into overlapping day/month/year spread content
+  - Update overdue logic so direct multiday assignments become overdue only after the multiday spread end date passes.
+  - Update spread deletion/edit logic:
+    - deleting a multiday spread reassigns owned entries through the normal non-multiday fallback hierarchy
+    - editing multiday dates preserves assignment ownership by spread identity
+    - new create/edit validation blocks overlapping multiday ranges
+    - legacy overlapping multiday data remains readable, with deterministic fallback resolution
+  - Update sync/schema/serialization as needed so direct multiday assignment survives offline edits, sync merges, date edits, and deletion fallback without ambiguity.
+- **Acceptance Criteria**:
+  - Tasks and notes can be explicitly assigned to existing multiday spreads.
+  - Creating from a multiday spread defaults assignment to that multiday spread.
+  - The unified spread picker shows year/month/day implicit or explicit destinations plus existing multiday spreads only.
+  - Day-preferred entries may auto-migrate into an explicit multiday spread when it becomes the best available destination, and later auto-migrate into an explicit day spread when that day spread is created.
+  - Month-preferred and year-preferred entries do not auto-migrate into multiday spreads.
+  - Multiday-preferred entries render in the spread-level multiday section, while day-preferred entries render only in their preferred-day section.
+  - Multiday-assigned entries appear only on their current multiday spread in spread content.
+  - Direct multiday assignments become overdue only after the assigned multiday end date passes.
+  - Deleting a multiday spread preserves entries by reassigning them through the non-multiday fallback hierarchy.
+  - New overlapping multiday ranges are blocked; grandfathered legacy overlaps still load and resolve deterministically.
+- **Tests**:
+  - Unit tests for period capabilities, unified picker option derivation, and created/uncreated destination formatting.
+  - Builder and reconciler tests for multiday direct assignment, day-to-multiday waterfall migration, and multiday-to-day follow-up migration.
+  - Overdue tests for direct multiday assignments and fallback reassignment after multiday deletion.
+  - Validation tests for blocking new overlapping multiday creates/edits while allowing grandfathered legacy overlap reads.
+  - Integration tests for multiday spread rendering with spread-level multiday entries plus day-section entries.
+  - Sync/serialization tests proving direct multiday assignment survives device sync, date edits, deletion fallback, and legacy-overlap resolution.
+- **Dependencies**: SPRD-186, SPRD-187, SPRD-189, SPRD-190, SPRD-192
+
+### [SPRD-194] Infra: EventKit service — CalendarEvent type, protocol, live implementation, and DI - [x] Complete
+- **Context**: The app will display read-only calendar events from EventKit on day and multiday spreads. Before any UI exists, the service layer needs a clean protocol boundary so views are testable and the EventStore dependency is injectable.
+- **Description**: Introduce a `CalendarEvent` value type, an `EventKitService` protocol, a `LiveEventKitService` implementation backed by `EKEventStore`, a `MockEventKitService` for testing, and wire the service into `DependencyContainer`.
+- **Spec**: Events (EventKit Integration — v1)
+- **Implementation Details**:
+  - `CalendarEvent` struct: `id: String` (EK event identifier), `title: String`, `startDate: Date`, `endDate: Date`, `isAllDay: Bool`, `calendarTitle: String`, `calendarColor: Color`. Pure value type, not a SwiftData model, not part of the Entry hierarchy.
+  - `EventAuthorizationStatus` enum: `notDetermined`, `authorized`, `denied`, `restricted`. Maps to `EKAuthorizationStatus`.
+  - `EventKitService` protocol:
+    - `var authorizationStatus: EventAuthorizationStatus { get }`
+    - `func requestAuthorization() async -> Bool`
+    - `func fetchEvents(from start: Date, to end: Date) -> [CalendarEvent]`
+    - `func openEvent(_ event: CalendarEvent)` — presents `EKEventViewController` or falls back to Calendar URL scheme
+  - `LiveEventKitService`: wraps `EKEventStore`. `fetchEvents` queries all calendars with no filter (v1 shows all). `openEvent` stores a reference to the `EKEvent` by identifier for presentation.
+  - `MockEventKitService`: configurable `stubbedStatus` and `stubbedEvents` array. Conforms to the protocol. Lives in its own file in the test target (or in `Debug/` if needed by the debug UI).
+  - Wire `EventKitService` into `DependencyContainer` with `LiveEventKitService` as the production instance and `MockEventKitService` available for tests.
+- **Acceptance Criteria**:
+  - `CalendarEvent` is a struct with all display-relevant fields.
+  - `EventKitService` protocol compiles and all methods are covered by `MockEventKitService`.
+  - `LiveEventKitService` fetches events within the given date range from `EKEventStore` using all calendars.
+  - `DependencyContainer` exposes `eventKitService: any EventKitService`.
+  - No production file contains `#if DEBUG` blocks related to EventKit.
+- **Tests**:
+  - Unit tests for `MockEventKitService` confirming stub behavior for all protocol methods.
+  - Unit tests confirming `CalendarEvent` initialisation from representative EK data shapes (all-day, timed, multi-day).
+- **Dependencies**: None
+
+### [SPRD-195] UI: Display EventKit events on day and multiday spreads - [x] Complete
+- **Context**: With the `EventKitService` in place, day and multiday spread content views should fetch and display calendar events live, handle all authorization states gracefully, and let the user view event detail by tapping.
+- **Description**: Add event fetching to day and multiday spread content views; render a dedicated Events section with `CalendarEventRow`; handle authorization states; present `EKEventViewController` on tap.
+- **Spec**: Events (EventKit Integration — v1)
+- **Implementation Details**:
+  - On day spreads: request authorization on first `.task {}` / `.onAppear`. If authorized, fetch events for the spread's single day. Display in a dedicated **Events** section below the task list — all-day events first, then timed events sorted by start time.
+  - On multiday spreads: fetch events covering the full spread date range. Within each day section, show the events that overlap that day.
+  - `CalendarEventRow`: leading calendar color square, event title (primary), time range or "All Day" + calendar name (secondary). No swipe actions, no status toggle.
+  - Tap → present `EKEventViewControllerRepresentable` (a `UIViewControllerRepresentable` wrapping `EKEventViewController`) as a sheet. Sheet is read-only (`allowsEditing = false`). A Done button dismisses.
+  - If `authorizationStatus` is `.denied` or `.restricted`, the Events section is silently omitted. No empty state, no error banner.
+  - If `authorizationStatus` is `.notDetermined`, call `requestAuthorization()` once on appear; show the section only after authorization resolves to `.authorized`.
+  - If there are no events for the period and permission is granted, omit the Events section (no empty state).
+- **Acceptance Criteria**:
+  - Events appear in a dedicated section below the task list on day spreads.
+  - Events appear per-day in the correct day sections on multiday spreads.
+  - All-day events sort before timed events; timed events sort by start time.
+  - Tapping an event row presents the native `EKEventViewController` in a sheet.
+  - The Events section is absent when permission is denied, restricted, or there are no events.
+  - Authorization is requested automatically on first spread appearance when status is `notDetermined`.
+  - No `EKEventStore` or EventKit import appears in view files — views depend only on `EventKitService`.
+- **Tests**:
+  - Unit tests for event-section visibility logic (authorized + events present, authorized + no events, denied, not determined).
+  - Unit tests confirming correct day-overlap filtering for multiday spread day sections.
+  - UI tests verifying the Events section appears on a day spread with stubbed events, and is absent when the mock returns no events or denied status.
+- **Dependencies**: SPRD-194
+
+## Story: Day timeline visualization
+
+### User Story
+- As a user, I want to see a visual timeline of my calendar events on day spreads so I can understand my scheduled time at a glance alongside my tasks and notes.
+
+### Definition of Done
+- A fixed-height timeline card appears above the entry list on day spreads when events are present and EventKit is authorized.
+- The card renders a time ruler on the left and proportionally positioned EventKit event blocks on the right.
+- Overlapping events are indented so both remain partially visible.
+- The timeline component in `johnnyo-foundation` is generic and protocol-driven; the Spread app provides the `CalendarEvent` rendering via a conforming provider.
+
+### [SPRD-196] Package: DayTimelineView — coordinate space, provider protocol, and generic view
+- **Context**: The app needs a day timeline visualization component. To keep it reusable and testable, the layout math and view skeleton live in the `johnnyo-foundation` package while the Spread app supplies rendering via a protocol conformance.
+- **Description**: Add `DayTimeCoordinateSpace` (core), `DayTimelineItemContext` (core), `DayTimelineContentProvider` protocol (UI), and `DayTimelineView` generic SwiftUI view (UI) to `johnnyo-foundation`.
+- **Spec**: Day Timeline Visualization
+- **Implementation Details**:
+  - `DayTimeCoordinateSpace` in `JohnnyOFoundationCore/DayTimeline/`:
+    - Public `Sendable` struct with `visibleStart: Date`, `visibleEnd: Date`, `totalHeight: CGFloat`.
+    - `yOffset(for date: Date) -> CGFloat` — proportional offset, clamped to `[0, totalHeight]`.
+    - `height(from startDate: Date, to endDate: Date) -> CGFloat` — proportional height for a range, clamped; minimum 0.
+    - Dates outside the visible window are clamped rather than excluded so edge events still partially appear.
+  - `DayTimelineItemContext<Item: Identifiable & Sendable>` in `JohnnyOFoundationCore/DayTimeline/`:
+    - Public `Identifiable`, `Sendable` generic struct.
+    - Properties: `item: Item`, `yOffset: CGFloat`, `height: CGFloat`, `overlapOffset: CGFloat`, `coordinateSpace: DayTimeCoordinateSpace`.
+    - `id` forwarded from `item.id`.
+  - `DayTimelineContentProvider` protocol in `JohnnyOFoundationUI/DayTimeline/`:
+    - Associated types: `Item: Identifiable & Sendable`, `ItemContent: View`, `TimeRulerLabel: View`.
+    - `func startDate(for item: Item) -> Date` — the package queries this to compute layout.
+    - `func endDate(for item: Item) -> Date`.
+    - `@ViewBuilder func itemView(context: DayTimelineItemContext<Item>) -> ItemContent` — called by the view to render each event; the package handles position; the conformer handles appearance.
+    - `@ViewBuilder func timeRulerLabel(hour: Int) -> TimeRulerLabel` — rendered at each hour tick.
+  - `DayTimelineView<Provider: DayTimelineContentProvider>` in `JohnnyOFoundationUI/DayTimeline/`:
+    - Public struct with: `provider: Provider`, `items: [Provider.Item]`, `date: Date`, `visibleStartHour: Int = 6`, `visibleEndHour: Int = 22`, `height: CGFloat = 240`, `calendar: Calendar = .current`.
+    - Constructs `DayTimeCoordinateSpace` from `date`, `visibleStartHour`, `visibleEndHour`, and `height`.
+    - Renders a two-column `HStack`: left ruler column (fixed width ~40pt) with hour labels; right event zone with hour-divider lines and item blocks.
+    - Overlap detection: sorts items by start time; for each item, finds the count of earlier items whose ranges overlap; uses that depth × 12pt as `overlapOffset`. Each item view is positioned with `.frame(height:)` + `.padding(.leading, overlapOffset)` + `.offset(y: yOffset)` within a `ZStack(alignment: .topLeading)`.
+    - The entire view clips to `height`.
+- **Acceptance Criteria**:
+  - `DayTimeCoordinateSpace` maps dates proportionally to Y offsets within the visible window, clamping outside dates.
+  - `DayTimelineView` renders with items positioned at correct Y offsets relative to the visible window.
+  - Overlapping items receive non-zero `overlapOffset` values; non-overlapping items receive zero.
+  - The view compiles and previews against a dummy conformer in `JohnnyOFoundationUI`.
+- **Tests**:
+  - Unit tests for `DayTimeCoordinateSpace`: correct Y for in-range, start, end, before-start, after-end dates; correct height computation for full, partial, and zero-length ranges.
+  - Unit tests for overlap detection logic: non-overlapping items all get zero offset; two overlapping items give the second a non-zero offset; three-way overlap gives escalating offsets.
+
+### [SPRD-197] App: Integrate DayTimelineView on day spreads
+- **Context**: With the generic `DayTimelineView` in place, the Spread app wires in a `SpreadDayTimelineProvider` that renders `CalendarEvent` items and displays the timeline card above the entry list on day spread content views.
+- **Description**: Implement `SpreadDayTimelineProvider`, integrate `DayTimelineView` into `DaySpreadContentView`, and ensure the card only appears when authorized with events.
+- **Spec**: Day Timeline Visualization
+- **Implementation Details**:
+  - `SpreadDayTimelineProvider` in `Spread/Views/EventKit/`:
+    - Struct conforming to `DayTimelineContentProvider` with `Item = CalendarEvent`.
+    - `startDate(for:)` and `endDate(for:)` forward to `CalendarEvent.startDate`/`endDate`.
+    - `itemView(context:)`: renders a rounded rectangle filled with a translucent version of `event.calendarColor`, a leading 3pt color bar, and a single-line event title in caption style. All-day events use a lighter fill.
+    - `timeRulerLabel(hour:)`: renders the hour as a short string (e.g. `"9 AM"`) using `SpreadTheme.Typography.caption` in `.tertiary` foreground.
+  - Modify `DaySpreadContentView`:
+    - Replace the top-level `VStack` `if let dataModel` branch body: insert `DayTimelineView(provider: SpreadDayTimelineProvider(), items: calendarEvents, date: spread.date, calendar: journalManager.calendar)` above `EntryListView`, wrapped in `if !calendarEvents.isEmpty`.
+  - The timeline is omitted when `calendarEvents` is empty (which already handles denied/restricted states since `fetchCalendarEvents` returns empty on non-authorized status).
+- **Acceptance Criteria**:
+  - The timeline card appears above the entry list on a day spread when events are present and authorized.
+  - The card is absent when no events exist or authorization is not granted.
+  - Each event block is proportionally positioned and uses the calendar color from `CalendarEvent`.
+  - Overlapping events are visually offset so both blocks are partially visible.
+  - Hour labels appear at the correct positions in the ruler.
+- **Tests**:
+  - Unit test for `SpreadDayTimelineProvider.startDate(for:)` and `endDate(for:)` forwarding.
+  - Snapshot or preview test verifying layout with a mix of non-overlapping and overlapping events.
+- **Dependencies**: SPRD-195, SPRD-196
+
 ## Story: Core time and data models
 
 ### User Story
@@ -49,6 +553,149 @@
 - Date utilities and period normalization support first-weekday settings.
 - Spread/Entry/Assignment models exist with multiday support.
 - Date and multiday preset tests pass.
+
+## Story: Temporal context and AppClock
+
+### User Story
+- As a user, I want the app's time-sensitive behavior to stay correct while the app remains open across midnight, foreground returns, DST/time-zone shifts, and locale/calendar changes, without the app unexpectedly navigating away from what I am viewing.
+
+### Definition of Done
+- A single app-wide `AppClock` owns system temporal context (`now`, `Calendar`, `TimeZone`, `Locale`) and refresh semantics, with scene lifecycle inputs feeding that shared instance.
+- SwiftUI views can access the shared clock through the environment, while non-view infrastructure receives explicit injected access or explicit temporal inputs.
+- `JournalManager` and related helpers no longer depend on a frozen launch-time `today` for live product semantics.
+- Time-sensitive product semantics refresh correctly without automatic selection jumps.
+- Draft/edit sessions keep user-entered state stable across temporal changes.
+- Debug and test infrastructure support both startup-fixed and runtime-controllable temporal context.
+- Unit, integration, and localhost UI scenario coverage prove correctness and protect against stale-time regressions.
+
+### [SPRD-179] Infra: introduce AppClock and temporal-context refresh pipeline - [x] Complete
+- **Context**: The app currently captures `today` at runtime creation and threads that snapshot through navigation, overdue logic, dynamic naming, and other date-sensitive surfaces. This causes stale semantics when the app stays open across day/time/context changes.
+- **Description**: Add a concrete app-wide `AppClock` service that observes system temporal-context changes and publishes refreshed temporal state into the app runtime.
+- **Spec**: AppClock and Temporal Context; Testing
+- **Implementation Details**:
+  - Add a concrete observable `AppClock` type that owns:
+    - current reference time
+    - current system `Calendar`
+    - current system `TimeZone`
+    - current system `Locale`
+    - semantic refresh metadata describing why the clock refreshed and whether a day boundary was crossed
+  - Keep `AppClock` infrastructure-only; do not move product policy into it.
+  - Use injectable low-level collaborators rather than a top-level `AppClock` protocol:
+    - current-time provider
+    - notification bridge/observer
+    - lifecycle bridge or scene activation hook support
+  - Create one shared `AppClock` per app runtime.
+  - Feed scene/app activation into the shared clock rather than creating per-scene clocks.
+  - Wire refresh triggers for:
+    - foreground/active transitions
+    - significant time change
+    - calendar day changed
+    - time-zone change
+    - locale change
+    - current-calendar/preference change notifications/messages where applicable
+  - Inject the clock into the view layer through the SwiftUI environment so descendants can read it without prop drilling.
+  - Inject the same shared clock explicitly into non-view infrastructure that needs it; do not let core services depend on environment lookup.
+  - Do not add a global minute ticker to `AppClock`.
+- **Acceptance Criteria**:
+  - The app runtime owns one shared `AppClock` instance.
+  - Foreground and significant temporal-context changes refresh the shared clock without rebuilding the entire app runtime.
+  - Descendant SwiftUI views can access the clock through the environment.
+  - Core services do not depend on a view-only environment lookup for clock access.
+  - `AppClock` publishes enough semantic refresh metadata for consumers to react without encoding product behavior in the clock itself.
+  - No app-wide minute cadence is introduced.
+- **Tests**:
+  - Unit tests for clock refresh classification and day-boundary detection.
+  - Unit tests for notification/lifecycle bridge wiring.
+  - Unit tests proving locale/time-zone/calendar changes refresh the clock state.
+  - Integration-style tests proving a single shared clock instance is reused across the runtime.
+- **Dependencies**: SPRD-49
+
+### [SPRD-180] Refactor: route journal semantics through AppClock and explicit temporal inputs - [x] Complete
+- **Context**: A clock service alone does not fix stale semantics unless the journal layer and support helpers stop treating launch-time `today` as authoritative runtime state.
+- **Description**: Refactor journal and view-support code so shared semantics refresh from AppClock while pure helpers consume explicit temporal inputs.
+- **Spec**: AppClock and Temporal Context; Inbox; Modes; Navigation and UI
+- **Implementation Details**:
+  - Remove frozen launch-time `today` assumptions from `JournalManager`-owned live semantics.
+  - Keep the hybrid recomputation model explicit:
+    - shared broadly reused semantics may refresh eagerly on coarse clock changes
+    - pure formatting and local checks stay lazy and accept explicit temporal input parameters
+  - Pass explicit temporal inputs where practical into:
+    - overdue evaluation
+    - dynamic spread naming
+    - today-target resolution
+    - spread recommendation derivation
+    - title-strip today emphasis support
+    - other support/model helpers that are pure rule code
+  - Refresh shared manager/view-model semantics on coarse AppClock changes without automatically changing the currently selected spread.
+  - Preserve user selection across temporal refreshes unless existing non-clock logic already requires a fallback due to deleted/invalid data.
+  - Distinguish live display semantics from draft state:
+    - open create/edit sheets may refresh surrounding display-only labels
+    - form defaults and user-entered draft state stay frozen after presentation
+  - Ensure app-owned settings such as `firstWeekday` remain outside `AppClock` and are composed by consumers with temporal context.
+  - Add implementation notes or local comments where needed so developers do not accidentally reintroduce frozen-time seams.
+- **Acceptance Criteria**:
+  - Dynamic names, `Today` behavior, overdue semantics, recommendations, and today emphasis update correctly after coarse clock changes.
+  - Temporal refresh does not auto-navigate the user to a new spread.
+  - Open create/edit sessions keep draft/default state stable while surrounding semantics update.
+  - Pure rule helpers that remain time-sensitive accept explicit temporal input where practical instead of reaching into hidden global state.
+  - Existing product behavior unrelated to time refresh remains unchanged.
+- **Tests**:
+  - Unit tests for explicit-input helpers across before/after temporal boundaries.
+  - JournalManager/view-model tests proving shared semantic refresh without selection jumps.
+  - Regression tests for dynamic names, overdue thresholds, recommendations, and today emphasis after clock changes.
+  - Regression tests proving open sheets/forms do not silently rewrite draft state on temporal refresh.
+- **Dependencies**: SPRD-179, SPRD-155, SPRD-157, SPRD-158
+
+### [SPRD-181] Test/Debug: add deterministic and runtime-controllable AppClock infrastructure - [x] Complete
+- **Context**: The existing localhost testing strategy relies on fixed `today` injection at launch, but AppClock behavior also needs same-session transition coverage such as midnight rollover and context changes while the app remains open.
+- **Description**: Extend debug and test infrastructure so temporal context can be fixed at startup or controlled at runtime in localhost, previews, unit tests, and UI scenarios.
+- **Spec**: AppClock and Temporal Context; Testing
+- **Implementation Details**:
+  - Preserve startup-fixed temporal context support for deterministic datasets and scenario seeding.
+  - Add a controllable test/debug clock path that can:
+    - advance or set the reference date/time
+    - cross midnight without relaunch
+    - simulate significant time change refreshes
+    - change time zone
+    - change locale
+    - change current calendar context where applicable
+  - Make the controllable clock drive the same AppClock refresh pipeline as production rather than bypassing core behavior.
+  - Expose only the minimum debug/test affordances needed for engineering and automated tests.
+  - Update the shared localhost scenario harness to support both startup-fixed and runtime-controlled temporal scenarios.
+  - Keep debug-only wiring isolated from production files where practical.
+- **Acceptance Criteria**:
+  - Localhost and tests can launch with a fixed temporal context.
+  - Localhost and tests can change temporal context during a running session without relaunching the app.
+  - Runtime-controlled temporal changes exercise the same update path as production AppClock refreshes.
+  - Existing deterministic scenario seeding remains available.
+  - Release builds expose no debug-only temporal controls.
+- **Tests**:
+  - Unit tests for controllable clock operations and emitted refresh semantics.
+  - Preview/test harness tests verifying startup-fixed and runtime-controlled configuration paths.
+  - Localhost UI scenario coverage for:
+    - app remains open across midnight and labels/badges update
+    - foreground return after time changed while suspended
+    - time-zone or locale change affecting date-sensitive UI
+    - open form draft stability during temporal refresh
+- **Dependencies**: SPRD-179
+
+### [SPRD-182] Infra/UI: codify local minute-based rendering for live calendar surfaces - [x] Complete
+- **Context**: The app needs a clear boundary between coarse semantic clock refreshes and future minute-level live rendering such as a current-time line on a day calendar. Without an explicit seam, developers may incorrectly turn AppClock into a global timer.
+- **Description**: Add the architectural guardrails and initial support layer for minute-sensitive view-local rendering while keeping AppClock coarse-grained.
+- **Spec**: AppClock and Temporal Context
+- **Implementation Details**:
+  - Document and enforce that minute-sensitive surfaces use local timeline-based rendering such as `TimelineView(.everyMinute)` or an equivalent local schedule.
+  - Do not add a global minute revision to AppClock.
+  - Add a small support seam or local pattern for live calendar/day-schedule surfaces so future work such as a current-time line can plug into minute updates without redesigning the temporal architecture.
+  - Keep minute rendering view-local and display-only unless a future approved spec explicitly introduces minute-based business semantics.
+- **Acceptance Criteria**:
+  - The codebase contains no app-wide minute ticker inside AppClock.
+  - The implementation/docs make the preferred local-minute rendering path explicit enough that future developers are not misled into using AppClock for minute polling.
+  - The architectural seam is sufficient for a future day-calendar current-time line to be implemented without revisiting the coarse clock design.
+- **Tests**:
+  - Focused unit/view tests for any new support seam or helper introduced for local timeline usage.
+  - Regression tests proving coarse AppClock refresh logic remains independent from minute-local rendering.
+- **Dependencies**: SPRD-179
 
 ### [SPRD-49] Feature: Unit tests for date + multiday presets - [x] Complete
 - **Context**: Date logic is error-prone.
@@ -4516,3 +5163,47 @@ Supabase: SPRD-85A -> SPRD-85C
   - Support tests for calendar target derivation, including single-target and multi-target day selection.
   - UI tests covering horizontal year paging, persisted expanded month state while open, `View Month`, disabled dates, and confirmation-dialog selection for overlapping day/multiday targets.
 - **Dependencies**: SPRD-125
+
+### [SPRD-198] UI: Title navigator collapsed groups - [x] Complete
+- **Context**: When users swipe horizontally in the content area and land on a spread hidden by the relevance filter, there is no visual anchor in the title strip. Contiguous runs of hidden spreads should be represented by a collapsed group element that shows the selection indicator when the active spread is inside it, and expands inline to reveal and navigate to those spreads.
+- **Spec**: Title Navigator Collapsed Groups [SPRD-198]
+- **Acceptance Criteria**:
+  - [ ] Add `SpreadTitleNavigatorGroup` value type in `SpreadTitleNavigatorSupport.swift` with `id`, `items: [SpreadTitleNavigatorModel.Item]`, and `dateRangeLabel: String`.
+  - [ ] Add `SpreadTitleNavigatorStripElement` enum (`.item` / `.group`) in `SpreadTitleNavigatorSupport.swift`.
+  - [ ] Add a static function in `SpreadTitleNavigatorSupport.swift` that computes the ordered array of `SpreadTitleNavigatorStripElement` from a full item list and a filtered item list, forming one group per contiguous gap.
+  - [ ] Implement `dateRangeLabel` computation: for a single hidden item use its display label; for multiple, compose a compact range from the first and last item (e.g. "JAN–MAR", "3–7").
+  - [ ] Create `SpreadTitleNavigatorGroupView.swift` that renders the collapsed state (date range label + selection indicator dot via `matchedGeometryEffect`) and the expanded collapse-trigger state (compact icon/label).
+  - [ ] Update `SpreadTitleNavigatorView` to compute strip elements from full vs filtered item lists and render them instead of the flat `items` array.
+  - [ ] Add `@State private var expandedGroupID: String?` to `SpreadTitleNavigatorView`.
+  - [ ] Tapping a collapsed group sets `expandedGroupID` with animation; expanding reveals its items inline and collapses any previously expanded group.
+  - [ ] Tapping the collapse trigger sets `expandedGroupID = nil` with animation.
+  - [ ] In `.onChange(of: selectedSemanticID)`: if new ID is not inside the expanded group, set `expandedGroupID = nil` with animation.
+  - [ ] After group expansion, call `requestCenter(on:animated:)` for the active spread.
+  - [ ] If the expanded group no longer exists after item list regeneration, reset `expandedGroupID = nil`.
+  - [ ] Traditional mode strip is unaffected (groups only form in conventional mode where the relevance filter runs).
+- **Tests**:
+  - Unit tests for strip-element computation: single-gap, multi-gap, leading-gap, trailing-gap, and no-gap scenarios.
+  - Unit tests for `dateRangeLabel` formatting for month-style, day-style, and single-item groups.
+  - UI tests: indicator appears under group when active spread is hidden, expand/collapse animation triggers, auto-collapse on selection change outside the group.
+- **Dependencies**: SPRD-136, SPRD-137
+
+### [SPRD-199] ✅ UI: Replace inline title strip with compact spread context bar
+- **Context**: The inline title strip has accumulated too many responsibilities: current-context display, timeline browsing, recommendation surfacing, hidden-range recovery, and animation-heavy centering behavior. The result is unstable vertical chrome, complex state coupling, and a navigation model that is harder to scan than a simpler persistent context bar plus richer navigator surface.
+- **Description**: Replace the persistent horizontal title strip with a compact spread context bar that shows only the current spread, keeps the rooted navigator as the full browsing surface, and moves spread recommendations into the rooted navigator.
+- **Spec**: Compact Spread Context Bar and Rooted Navigator [SPRD-199]
+- **Acceptance Criteria**:
+  - [ ] `SpreadTitleNavigatorView` no longer renders a horizontally scrolling title timeline in the persistent spread chrome.
+  - [ ] The persistent bar renders only:
+    - a fixed leading rooted-navigator trigger
+    - the current spread's primary title plus compact secondary context when needed
+    - the existing trailing create affordance
+  - [ ] The compact bar stays visually short on iPhone and iPad and does not expand into a tall band during selection changes, layout changes, or recommendation state changes.
+  - [ ] Tapping the leading chevron opens the rooted navigator on both platforms; tapping the current title area may open the same navigator surface.
+  - [ ] Pager swipes continue to settle selection normally, and the compact bar updates directly to the settled page with no inline recenter, hidden-group proxy, or browse-offset behavior.
+  - [ ] Conventional-mode recommendations are removed from the persistent trailing inset and rendered inside the rooted navigator surface instead.
+  - [ ] The local `Relevant Past Only` / `Show All Spreads` setting and supporting `@AppStorage` state are removed from the UI and spread-shell wiring.
+- **Tests**:
+  - Unit tests for compact current-title derivation, including personalized-title + canonical-context combinations.
+  - Unit tests for recommendation derivation remaining unchanged while recommendation placement moves into the rooted navigator.
+  - UI tests on iPhone and iPad covering compact bar height, rooted navigator opening from the chevron/title area, pager-to-bar synchronization, and recommendation visibility inside the rooted navigator.
+- **Dependencies**: SPRD-125, SPRD-128, SPRD-137, SPRD-151

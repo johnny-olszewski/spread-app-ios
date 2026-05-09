@@ -1,15 +1,22 @@
 import SwiftUI
 
-/// Header view displaying spread title and entry counts.
+/// Toolbar-style header for a spread surface.
 ///
-/// Shows the spread's period-appropriate title (e.g., "2026", "January 2026",
-/// "January 5, 2026") along with entry counts by type.
+/// Shows the sync ring on the leading edge and spread actions (favorite, contextual menu)
+/// on the trailing edge. The spread title is intentionally omitted here because the title
+/// navigator strip directly above already provides full spread identity. The entry count is
+/// also omitted — that space is reserved for future features.
 struct SpreadHeaderView: View {
 
     // MARK: - Properties
 
-    /// The configuration containing spread and count information.
     let configuration: SpreadHeaderConfiguration
+
+    /// Sync engine observed for ring state. `nil` hides the ring.
+    var syncEngine: SyncEngine? = nil
+
+    /// Called when the user taps the sync ring to force a sync.
+    var onSyncNow: (() -> Void)? = nil
 
     /// Callback for toggling the current explicit spread favorite state.
     var onFavoriteToggle: (() -> Void)? = nil
@@ -23,31 +30,57 @@ struct SpreadHeaderView: View {
     /// Callback for presenting the current explicit spread deletion confirmation.
     var onDeleteSpread: (() -> Void)? = nil
 
+    /// When non-nil, a "Go Back" button is shown centered in the header.
+    var backDestination: DataModel.Spread? = nil
+
+    /// Called when the user taps the "Go Back" button.
+    var onGoBack: (() -> Void)? = nil
+
     // MARK: - Body
 
     var body: some View {
-        headerContainer {
-            titleLabel
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
-        }
-    }
-
-    private func headerContainer<Content: View>(
-        @ViewBuilder titleContent: () -> Content
-    ) -> some View {
         ZStack {
-            HStack {
-                entryCountLabel
+            HStack(spacing: 8) {
+                syncRing
                 Spacer(minLength: 0)
                 headerActions
             }
 
-            titleContent()
+            if backDestination != nil, let onGoBack {
+                Button(action: onGoBack) {
+                    Label("Go Back", systemImage: "chevron.left")
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .glassEffect(in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .transition(.scale(scale: 0.88).combined(with: .opacity))
+                .accessibilityLabel("Go back to previous spread")
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal)
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
+        .animation(.spring(response: 0.32, dampingFraction: 0.8), value: backDestination?.id)
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
     }
+
+    // MARK: - Sync ring
+
+    @ViewBuilder
+    private var syncRing: some View {
+        if let engine = syncEngine, engine.status != .localOnly {
+            SyncRingView(
+                status: engine.status,
+                outboxCount: engine.outboxCount,
+                onSyncNow: onSyncNow
+            )
+            .frame(width: 32, height: 32)
+        }
+    }
+
+    // MARK: - Actions
 
     private var headerActions: some View {
         HStack(spacing: 8) {
@@ -107,47 +140,9 @@ struct SpreadHeaderView: View {
             }
         }
     }
-
-    private var titleLabel: some View {
-        centeredTitleStack
-    }
-
-    private var entryCountLabel: some View {
-        Text(configuration.countSummaryText)
-            .font(SpreadTheme.Typography.subheadline)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.entryCounts)
-    }
-
-    private var centeredTitleStack: some View {
-        VStack(spacing: 2) {
-            Text(configuration.spread.period.displayName)
-                .font(.caption.smallCaps())
-                .foregroundStyle(.secondary)
-
-            Text(configuration.title)
-                .font(SpreadTheme.Typography.title2)
-
-            subtitleLabel
-        }
-        .fixedSize()
-    }
-
-    @ViewBuilder
-    private var subtitleLabel: some View {
-        if let subtitle = configuration.subtitle {
-            Text(subtitle)
-                .font(.footnote.smallCaps())
-                .foregroundStyle(.secondary)
-        } else {
-            Text(" ")
-                .font(.footnote.smallCaps())
-                .hidden()
-        }
-    }
-
 }
+
+// MARK: - Supporting types
 
 enum SpreadHeaderAction: Equatable {
     case editName
@@ -201,7 +196,9 @@ extension View {
         presentsAsPopover: Bool,
         model: SpreadHeaderNavigatorModel,
         currentSpread: DataModel.Spread,
-        onSelect: @escaping (SpreadHeaderNavigatorModel.Selection) -> Void
+        recommendations: [SpreadTitleNavigatorRecommendation] = [],
+        onSelect: @escaping (SpreadHeaderNavigatorModel.Selection) -> Void,
+        onRecommendationTapped: ((SpreadTitleNavigatorRecommendation) -> Void)? = nil
     ) -> some View {
         modifier(
             SpreadNavigatorPresentationModifier(
@@ -212,7 +209,9 @@ extension View {
                         SpreadHeaderNavigatorPopoverView(
                             model: model,
                             currentSpread: currentSpread,
+                            recommendations: recommendations,
                             onSelect: onSelect,
+                            onRecommendationTapped: onRecommendationTapped,
                             onDismiss: { isPresented.wrappedValue = false }
                         )
                     )
@@ -225,20 +224,9 @@ extension View {
 // MARK: - Convenience Initializers
 
 extension SpreadHeaderView {
-    /// Creates a header view from a spread and calendar with explicit counts.
-    ///
-    /// - Parameters:
-    ///   - spread: The spread to display.
-    ///   - calendar: The calendar for date formatting.
-    ///   - taskCount: The number of tasks.
-    ///   - eventCount: The number of events (ignored in v1 UI).
-    ///   - noteCount: The number of notes.
     init(
         spread: DataModel.Spread,
         calendar: Calendar,
-        taskCount: Int = 0,
-        eventCount: Int = 0,
-        noteCount: Int = 0,
         today: Date = .now,
         firstWeekday: FirstWeekday = .systemDefault,
         allowsPersonalization: Bool = false
@@ -248,18 +236,10 @@ extension SpreadHeaderView {
             calendar: calendar,
             today: today,
             firstWeekday: firstWeekday,
-            allowsPersonalization: allowsPersonalization,
-            taskCount: taskCount,
-            eventCount: eventCount,
-            noteCount: noteCount
+            allowsPersonalization: allowsPersonalization
         )
     }
 
-    /// Creates a header view from a SpreadDataModel.
-    ///
-    /// - Parameters:
-    ///   - spreadDataModel: The spread data model containing entries.
-    ///   - calendar: The calendar for date formatting.
     init(
         spreadDataModel: SpreadDataModel,
         calendar: Calendar,
@@ -279,88 +259,28 @@ extension SpreadHeaderView {
 
 // MARK: - Preview
 
-#Preview("Year Spread") {
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = .init(identifier: "UTC")!
-    let date = calendar.date(from: .init(year: 2026, month: 1, day: 1))!
-    let spread = DataModel.Spread(period: .year, date: date, calendar: calendar)
-
-    return SpreadHeaderView(
-        spread: spread,
-        calendar: calendar,
-        taskCount: 15,
-        noteCount: 3
-    )
-}
-
-#Preview("Month Spread") {
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = .init(identifier: "UTC")!
-    let date = calendar.date(from: .init(year: 2026, month: 1, day: 1))!
-    let spread = DataModel.Spread(period: .month, date: date, calendar: calendar)
-
-    return SpreadHeaderView(
-        spread: spread,
-        calendar: calendar,
-        taskCount: 5,
-        noteCount: 0
-    )
-}
-
-#Preview("Day Spread") {
+#Preview("With sync ring — synced") {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = .init(identifier: "UTC")!
     let date = calendar.date(from: .init(year: 2026, month: 1, day: 15))!
     let spread = DataModel.Spread(period: .day, date: date, calendar: calendar)
-
-    return SpreadHeaderView(
-        spread: spread,
-        calendar: calendar,
-        taskCount: 3,
-        noteCount: 1
-    )
+    return VStack(spacing: 0) {
+        SpreadHeaderView(
+            spread: spread,
+            calendar: calendar,
+            allowsPersonalization: true
+        )
+        Divider()
+    }
 }
 
-#Preview("Multiday Spread") {
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = .init(identifier: "UTC")!
-    let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 6))!
-    let endDate = calendar.date(from: .init(year: 2026, month: 1, day: 12))!
-    let spread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
-
-    return SpreadHeaderView(
-        spread: spread,
-        calendar: calendar,
-        taskCount: 8,
-        noteCount: 2
-    )
-}
-
-#Preview("Multiday Spanning Months") {
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = .init(identifier: "UTC")!
-    let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 28))!
-    let endDate = calendar.date(from: .init(year: 2026, month: 2, day: 3))!
-    let spread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
-
-    return SpreadHeaderView(
-        spread: spread,
-        calendar: calendar,
-        taskCount: 4,
-        noteCount: 0
-    )
-}
-
-#Preview("Empty Spread") {
+#Preview("No sync engine") {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = .init(identifier: "UTC")!
     let date = calendar.date(from: .init(year: 2026, month: 1, day: 15))!
     let spread = DataModel.Spread(period: .day, date: date, calendar: calendar)
-
     return SpreadHeaderView(
         spread: spread,
-        calendar: calendar,
-        taskCount: 0,
-        noteCount: 0
+        calendar: calendar
     )
 }

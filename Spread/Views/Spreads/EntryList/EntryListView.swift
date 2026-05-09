@@ -10,20 +10,34 @@ import SwiftUI
 ///
 /// Uses `EntryRowView` for consistent entry rendering across all spread types.
 struct EntryListView: View {
-    private struct InlineCreationTarget: Equatable {
-        let sectionID: Date
-        let date: Date
-        let period: Period
-    }
 
-    private struct PendingSourceMigration: Identifiable {
-        let task: DataModel.Task
-        let destination: DataModel.Spread
+    // MARK: - ViewModel
 
-        var id: UUID { task.id }
+    @Observable @MainActor final class ViewModel {
+        struct InlineCreationTarget: Equatable {
+            let sectionID: Date
+            let date: Date
+            let period: Period
+        }
+
+        struct PendingSourceMigration: Identifiable {
+            let task: DataModel.Task
+            let destination: DataModel.Spread
+
+            var id: UUID { task.id }
+        }
+
+        var activeInlineCreationTarget: InlineCreationTarget?
+        var inlineTitle: String = ""
+        var inlineCreationID: UUID = UUID()
+        var activeInlineTaskID: UUID?
+        var pendingSourceMigration: PendingSourceMigration?
+        var hasAcquiredInlineCreationFocus: Bool = false
+        var activePeekData: MultidayPeekData?
     }
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.eventKitService) private var eventKitService
 
     // MARK: - Properties
 
@@ -65,6 +79,23 @@ struct EntryListView: View {
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
     var onSelectSpread: ((DataModel.Spread) -> Void)? = nil
     var onCreateSpread: ((Date) -> Void)? = nil
+    /// Returns the number of open tasks for the given explicit day spread.
+    /// Used to populate the summary card shown when a day spread exists within a multiday range.
+    var openTaskCountForDaySpread: ((DataModel.Spread) -> Int)? = nil
+
+    /// Returns the peek data bundle for a day spread, used to populate the peek overlay panel.
+    /// `nil` disables the peek eye button on summary cards.
+    var peekDataForDaySpread: ((DataModel.Spread) -> MultidayPeekData?)? = nil
+
+    /// Called when the user taps a task inside the peek sheet.
+    /// The handler should navigate to `spread` and open the task detail editor.
+    var onPeekTaskTap: ((DataModel.Spread, DataModel.Task) -> Void)? = nil
+
+    /// Calendar events to display alongside entries.
+    ///
+    /// For day spreads, these are events for that day displayed in a dedicated section.
+    /// For multiday spreads, events are filtered per day section.
+    var calendarEvents: [CalendarEvent]
 
     /// Callback invoked when the user pulls to refresh. `nil` disables pull-to-refresh.
     var onRefresh: (() async -> Void)?
@@ -72,14 +103,17 @@ struct EntryListView: View {
     /// The current sync status, used to populate the pull-to-refresh indicator title.
     var syncStatus: SyncStatus?
 
-    // MARK: - Inline creation state
+    /// When `true`, the view renders rows in a `LazyVStack` rather than a `List`.
+    ///
+    /// Use this when the view is embedded inside a parent `ScrollView` (e.g. the iPad
+    /// horizontal day-spread layout) so both the timeline and entries scroll as one unit.
+    /// In embedded mode pull-to-refresh and the calendar-events section are suppressed
+    /// because the parent layout handles them.
+    var isEmbedded: Bool = false
 
-    @State private var activeInlineCreationTarget: InlineCreationTarget?
-    @State private var inlineTitle: String = ""
-    @State private var inlineCreationID: UUID = UUID()
-    @State private var activeInlineTaskID: UUID?
-    @State private var pendingSourceMigration: PendingSourceMigration?
-    @State private var hasAcquiredInlineCreationFocus = false
+    // MARK: - View-owned state
+
+    @State private var viewModel = ViewModel()
     @FocusState private var isInlineFocused: Bool
 
     init(
@@ -87,6 +121,7 @@ struct EntryListView: View {
         calendar: Calendar,
         today: Date,
         configuration: EntryListConfiguration = .init(),
+        calendarEvents: [CalendarEvent] = [],
         onEdit: ((any Entry) -> Void)? = nil,
         onOpenMigratedTask: ((DataModel.Task) -> Void)? = nil,
         onDelete: ((any Entry) -> Void)? = nil,
@@ -99,13 +134,18 @@ struct EntryListView: View {
         explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil,
         onSelectSpread: ((DataModel.Spread) -> Void)? = nil,
         onCreateSpread: ((Date) -> Void)? = nil,
+        openTaskCountForDaySpread: ((DataModel.Spread) -> Int)? = nil,
+        peekDataForDaySpread: ((DataModel.Spread) -> MultidayPeekData?)? = nil,
+        onPeekTaskTap: ((DataModel.Spread, DataModel.Task) -> Void)? = nil,
         onRefresh: (() async -> Void)? = nil,
-        syncStatus: SyncStatus? = nil
+        syncStatus: SyncStatus? = nil,
+        isEmbedded: Bool = false
     ) {
         self.spreadDataModel = spreadDataModel
         self.calendar = calendar
         self.today = today
         self.configuration = configuration
+        self.calendarEvents = calendarEvents
         self.onEdit = onEdit
         self.onOpenMigratedTask = onOpenMigratedTask
         self.onDelete = onDelete
@@ -118,24 +158,23 @@ struct EntryListView: View {
         self.explicitDaySpreadForDate = explicitDaySpreadForDate
         self.onSelectSpread = onSelectSpread
         self.onCreateSpread = onCreateSpread
+        self.openTaskCountForDaySpread = openTaskCountForDaySpread
+        self.peekDataForDaySpread = peekDataForDaySpread
+        self.onPeekTaskTap = onPeekTaskTap
         self.onRefresh = onRefresh
         self.syncStatus = syncStatus
+        self.isEmbedded = isEmbedded
     }
 
     // MARK: - Computed Properties
 
     /// Entries combined from the spread data model for normal list rendering.
     private var displayedEntries: [any Entry] {
-        if isMultidaySpread {
-            var entries: [any Entry] = []
-            entries.append(contentsOf: displayedTasks)
-            return entries
-        }
-
-        var entries: [any Entry] = []
-        entries.append(contentsOf: displayedTasks)
-        entries.append(contentsOf: displayedNotes)
-        return entries
+        EntryListDisplaySupport.displayedEntries(
+            for: spreadDataModel,
+            configuration: configuration,
+            calendar: calendar
+        )
     }
 
     /// Tasks rendered in the normal list, including cancelled and migrated rows.
@@ -145,25 +184,20 @@ struct EntryListView: View {
 
     /// Notes that are not migrated on this spread.
     private var displayedNotes: [DataModel.Note] {
-        if isMultidaySpread {
-            return []
-        }
-        guard configuration.showsMigrationHistory else {
-            return spreadDataModel.notes
-        }
-        return spreadDataModel.notes.filter { note in
-            !isMigratedOnSpread(note)
-        }
+        EntryListDisplaySupport.displayedNotes(
+            for: spreadDataModel,
+            configuration: configuration,
+            calendar: calendar
+        )
     }
 
     /// Notes migrated from this spread (have a migrated assignment on this spread).
     private var migratedNotes: [DataModel.Note] {
-        if isMultidaySpread || !configuration.showsMigrationHistory {
-            return []
-        }
-        return spreadDataModel.notes.filter { note in
-            isMigratedOnSpread(note)
-        }
+        EntryListDisplaySupport.migratedNotes(
+            for: spreadDataModel,
+            configuration: configuration,
+            calendar: calendar
+        )
     }
 
     /// Formatter for computing migration destination labels.
@@ -192,11 +226,12 @@ struct EntryListView: View {
         MultidaySectionLayout.columnCount(for: horizontalSizeClass)
     }
 
-    /// Whether there are any entries or migration affordances to display.
+    /// Whether there are any entries, migration affordances, or calendar events to display.
     private var hasAnyEntries: Bool {
         !displayedEntries.isEmpty ||
         !migratedNotes.isEmpty ||
-        !(migrationConfiguration?.destinationItems.isEmpty ?? true)
+        !(migrationConfiguration?.destinationItems.isEmpty ?? true) ||
+        (spreadDataModel.spread.period == .day && !calendarEvents.isEmpty)
     }
 
     /// Row insets for the standard entry list, using theme-defined vertical spacing.
@@ -210,6 +245,7 @@ struct EntryListView: View {
     // MARK: - Body
 
     var body: some View {
+        @Bindable var viewModel = viewModel
         contentView
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
@@ -222,38 +258,39 @@ struct EntryListView: View {
                         Spacer()
 
                         Button("Save") {
-                            if let target = activeInlineCreationTarget {
+                            if let target = viewModel.activeInlineCreationTarget {
                                 commitInlineTask(target: target)
                             }
                         }
                         .glassEffect(in: Capsule())
-                        .disabled(inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(viewModel.inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
             }
             .onChange(of: isInlineFocused) { _, focused in
                 if focused {
-                    hasAcquiredInlineCreationFocus = true
+                    viewModel.hasAcquiredInlineCreationFocus = true
                     return
                 }
 
-                guard hasAcquiredInlineCreationFocus, activeInlineCreationTarget != nil else { return }
-                let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard viewModel.hasAcquiredInlineCreationFocus,
+                      viewModel.activeInlineCreationTarget != nil else { return }
+                let trimmed = viewModel.inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty {
                     dismissInlineCreation()
-                } else if let target = activeInlineCreationTarget {
+                } else if let target = viewModel.activeInlineCreationTarget {
                     commitInlineTask(target: target)
                 }
             }
-            .onChange(of: activeInlineCreationTarget) { _, target in
+            .onChange(of: viewModel.activeInlineCreationTarget) { _, target in
                 guard target != nil else { return }
-                hasAcquiredInlineCreationFocus = false
+                viewModel.hasAcquiredInlineCreationFocus = false
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(150))
                     isInlineFocused = true
                 }
             }
-            .alert(item: $pendingSourceMigration) { migration in
+            .alert(item: $viewModel.pendingSourceMigration) { migration in
                 Alert(
                     title: Text("Migrate Task"),
                     message: Text("Move \"\(migration.task.title)\" to \(sourceMigrationDestinationTitle(for: migration.destination))?"),
@@ -263,16 +300,36 @@ struct EntryListView: View {
                     secondaryButton: .cancel()
                 )
             }
+            .sheet(item: $viewModel.activePeekData) { data in
+                MultidayPeekPanelView(
+                    data: data,
+                    calendar: calendar,
+                    today: today,
+                    onClose: { viewModel.activePeekData = nil },
+                    onNavigate: { spread in
+                        viewModel.activePeekData = nil
+                        onSelectSpread?(spread)
+                    },
+                    onTaskTap: onPeekTaskTap != nil ? { task in
+                        viewModel.activePeekData = nil
+                        onPeekTaskTap?(data.spread, task)
+                    } : nil
+                )
+            }
     }
 
     // MARK: - Content
 
     @ViewBuilder
     private var contentView: some View {
-        if isMultidaySpread {
+        if isMultidaySpread, configuration.groupingStyle != .flat {
             multidayEntryGrid
         } else if hasAnyEntries || onAddTask != nil {
-            entryList
+            if isEmbedded {
+                embeddedEntryList
+            } else {
+                entryList
+            }
         } else {
             emptyState
         }
@@ -338,6 +395,20 @@ struct EntryListView: View {
                 .listRowBackground(Color.clear)
             }
 
+            // Calendar events section — day spreads only
+            if spreadDataModel.spread.period == .day, !calendarEvents.isEmpty {
+                Section("Events") {
+                    ForEach(calendarEvents) { event in
+                        CalendarEventRow(event: event, calendar: calendar)
+                            .listRowInsets(Self.rowInsets)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .contentShape(Rectangle())
+                            .onTapGesture { eventKitService?.openEvent(event) }
+                    }
+                }
+            }
+
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -345,6 +416,72 @@ struct EntryListView: View {
         .environment(\.defaultMinListRowHeight, 0)
         .modifier(RefreshableModifier(onRefresh: onRefresh))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
+    }
+
+    /// A non-scrolling `LazyVStack` variant of the entry list for use when embedded
+    /// inside a parent `ScrollView` (e.g. the iPad horizontal day-spread layout).
+    ///
+    /// Calendar events are intentionally omitted — the parent renders them in the
+    /// `DayTimelineView` column instead.
+    @ViewBuilder
+    private var embeddedEntryList: some View {
+        LazyVStack(alignment: .leading, spacing: 0) {
+            ForEach(sections) { section in
+                if !section.title.isEmpty {
+                    Text(section.title)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                        .padding(EdgeInsets(
+                            top: 12,
+                            leading: Self.rowInsets.leading,
+                            bottom: 4,
+                            trailing: Self.rowInsets.trailing
+                        ))
+                }
+                embeddedSectionRows(section)
+            }
+
+            if let migrationConfiguration, configuration.showsMigrationHistory {
+                InlineTaskMigrationSection(
+                    items: migrationConfiguration.destinationItems,
+                    calendar: calendar,
+                    onMigrate: { item in migrationConfiguration.onDestinationMigration(item) },
+                    onMigrateAll: migrationConfiguration.onDestinationMigrationAll
+                )
+                .padding(.horizontal, Self.rowInsets.leading)
+            }
+
+            if configuration.showsMigrationHistory {
+                MigratedEntriesSection(
+                    spread: spreadDataModel.spread,
+                    migratedTasks: [],
+                    migratedNotes: migratedNotes,
+                    calendar: calendar,
+                    onEdit: { entry in onEdit?(entry) },
+                    onTaskTap: { task in onOpenMigratedTask?(task) }
+                )
+                .padding(.horizontal, Self.rowInsets.leading)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func embeddedSectionRows(_ section: EntryListSection) -> some View {
+        ForEach(section.entries, id: \.id) { entry in
+            entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
+                .padding(Self.rowInsets)
+        }
+
+        if onAddTask != nil {
+            if viewModel.activeInlineCreationTarget?.sectionID == section.id {
+                inlineCreationRow(for: creationTarget(for: section))
+                    .padding(Self.rowInsets)
+            } else {
+                addTaskButton(for: creationTarget(for: section))
+                    .padding(Self.rowInsets)
+            }
+        }
     }
 
     private var multidayEntryGrid: some View {
@@ -367,7 +504,12 @@ struct EntryListView: View {
                 spacing: 16
             ) {
                 ForEach(sections) { section in
-                    multidayDaySection(section)
+                    if section.creationPeriod == .multiday {
+                        multidayAssignmentSection(section)
+                            .gridCellColumns(multidayColumnCount)
+                    } else {
+                        multidayDaySection(section)
+                    }
                 }
             }
             .padding(16)
@@ -417,7 +559,10 @@ struct EntryListView: View {
             onComplete: rowStatus == .open ? { onComplete?(task) } : nil,
             onMigrate: rowStatus == .open ? sourceMigrationDestination.map { destination in
                 {
-                    pendingSourceMigration = PendingSourceMigration(task: task, destination: destination)
+                    viewModel.pendingSourceMigration = ViewModel.PendingSourceMigration(
+                        task: task,
+                        destination: destination
+                    )
                 }
             } : nil,
             onEdit: {
@@ -437,18 +582,21 @@ struct EntryListView: View {
                     systemImage: "arrow.right",
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.Migration.sourceButton(task.title),
                     action: {
-                        pendingSourceMigration = PendingSourceMigration(task: task, destination: destination)
+                        viewModel.pendingSourceMigration = ViewModel.PendingSourceMigration(
+                            task: task,
+                            destination: destination
+                        )
                     }
                 )
             } : nil,
             inlineActionConfiguration: rowStatus == .open ? inlineActionConfiguration(for: task) : nil,
-            isInlineActive: activeInlineTaskID == task.id,
+            isInlineActive: viewModel.activeInlineTaskID == task.id,
             onBeginInlineEditing: {
-                activeInlineTaskID = task.id
+                viewModel.activeInlineTaskID = task.id
             },
             onEndInlineEditing: {
-                if activeInlineTaskID == task.id {
-                    activeInlineTaskID = nil
+                if viewModel.activeInlineTaskID == task.id {
+                    viewModel.activeInlineTaskID = nil
                 }
             }
         )
@@ -471,7 +619,6 @@ struct EntryListView: View {
     @ViewBuilder
     private func multidayDaySection(_ section: EntryListSection) -> some View {
         let dateID = multidaySectionDateID(for: section.date)
-        let isDayActive = activeInlineCreationTarget?.sectionID == section.id
         let explicitDaySpread = explicitDaySpreadForDate?(section.date)
         let visualState = MultidayDayCardSupport.visualState(
             for: section.date,
@@ -483,57 +630,116 @@ struct EntryListView: View {
             for: section.date,
             explicitDaySpread: explicitDaySpread
         )
-        let overdueCount = multidayOverdueCount(for: section)
 
-        MultidayDayCardView(
-            dateID: dateID,
-            visualState: visualState,
-            footerAction: footerAction,
-            overdueCount: overdueCount,
-            shortMonthText: multidayShortMonthText(for: section.date),
-            weekdayText: multidayWeekdayText(for: section.date),
-            dayNumberText: multidayDayNumberText(for: section.date),
-            footerAccessibilityLabel: multidayFooterAccessibilityLabel(for: footerAction),
-            onFooterTap: {
-                switch footerAction {
-                case .navigate(let spread):
+        if let daySpread = explicitDaySpread {
+            // Day has its own spread — show a summary tile that pushes the user to open it.
+            let openTaskCount = openTaskCountForDaySpread?(daySpread) ?? 0
+            let eventCount = calendarEvents(for: section.date).count
+
+            MultidayDayCardView(
+                dateID: dateID,
+                visualState: visualState,
+                footerAction: footerAction,
+                overdueCount: 0,
+                shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar),
+                weekdayText: EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar),
+                dayNumberText: EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar),
+                footerAccessibilityLabel: multidayFooterAccessibilityLabel(for: footerAction),
+                isContentCentered: true,
+                onPeek: peekDataForDaySpread != nil ? {
+                    guard let data = peekDataForDaySpread?(daySpread) else { return }
+                    viewModel.activePeekData = data
+                } : nil,
+                onFooterTap: {
                     dismissActiveInlineEditing()
-                    onSelectSpread?(spread)
-                case .createDay(let date):
-                    dismissActiveInlineEditing()
-                    onCreateSpread?(date)
+                    onSelectSpread?(daySpread)
                 }
+            ) {
+                multidaySummaryContent(taskCount: openTaskCount, eventCount: eventCount)
             }
-        ) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(section.entries, id: \.id) { entry in
-                    entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
-                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                }
+        } else {
+            // No day spread — show the full entry list and events for this day.
+            let isDayActive = viewModel.activeInlineCreationTarget?.sectionID == section.id
+            let overdueCount = multidayOverdueCount(for: section)
+            let dayEvents = calendarEvents(for: section.date)
 
-                if isDayActive {
-                    inlineCreationRow(for: creationTarget(for: section))
-                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                } else if onAddTask != nil {
-                    addTaskButton(for: creationTarget(for: section))
-                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                        .accessibilityIdentifier(
-                            Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID)
-                        )
-                } else if section.entries.isEmpty {
-                    Text("No tasks for this day.")
-                        .font(SpreadTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier(
-                            Definitions.AccessibilityIdentifiers.SpreadContent.multidayEmptyState(dateID)
-                        )
+            MultidayDayCardView(
+                dateID: dateID,
+                visualState: visualState,
+                footerAction: footerAction,
+                overdueCount: overdueCount,
+                shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar),
+                weekdayText: EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar),
+                dayNumberText: EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar),
+                footerAccessibilityLabel: multidayFooterAccessibilityLabel(for: footerAction),
+                onFooterTap: {
+                    dismissActiveInlineEditing()
+                    onCreateSpread?(section.date)
+                }
+            ) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(section.entries, id: \.id) { entry in
+                        entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
+                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                    }
+
+                    ForEach(dayEvents) { event in
+                        CalendarEventRow(event: event, calendar: calendar)
+                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                            .contentShape(Rectangle())
+                            .onTapGesture { eventKitService?.openEvent(event) }
+                    }
+
+                    if isDayActive {
+                        inlineCreationRow(for: creationTarget(for: section))
+                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                    } else if onAddTask != nil {
+                        addTaskButton(for: creationTarget(for: section))
+                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                            .accessibilityIdentifier(
+                                Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID)
+                            )
+                    } else if section.entries.isEmpty, dayEvents.isEmpty {
+                        Text("No entries for this day.")
+                            .font(SpreadTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier(
+                                Definitions.AccessibilityIdentifiers.SpreadContent.multidayEmptyState(dateID)
+                            )
+                    }
                 }
             }
         }
     }
 
+    private func multidaySummaryContent(taskCount: Int, eventCount: Int) -> some View {
+        HStack(spacing: 24) {
+            Label {
+                Text("\(taskCount)")
+                    .font(SpreadTheme.Typography.title3)
+                    .fontWeight(.medium)
+            } icon: {
+                Image(systemName: "circle")
+                    .font(.system(size: 15))
+            }
+            .foregroundStyle(taskCount > 0 ? Color.primary : Color.secondary)
+
+            Label {
+                Text("\(eventCount)")
+                    .font(SpreadTheme.Typography.title3)
+                    .fontWeight(.medium)
+            } icon: {
+                Image(systemName: "calendar")
+                    .font(.system(size: 15))
+            }
+            .foregroundStyle(eventCount > 0 ? Color.primary : Color.secondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(taskCount) open tasks, \(eventCount) events")
+    }
+
     private func dismissActiveInlineEditing() {
-        activeInlineTaskID = nil
+        viewModel.activeInlineTaskID = nil
     }
 
     private func multidayFooterAccessibilityLabel(for action: MultidayDayCardAction) -> String {
@@ -555,7 +761,7 @@ struct EntryListView: View {
         }
 
         if onAddTask != nil {
-            if activeInlineCreationTarget?.sectionID == section.id {
+            if viewModel.activeInlineCreationTarget?.sectionID == section.id {
                 inlineCreationRow(for: creationTarget(for: section))
                     .listRowInsets(Self.rowInsets)
                     .listRowBackground(Color.clear)
@@ -573,39 +779,15 @@ struct EntryListView: View {
         Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: date, calendar: calendar)
     }
 
-    private func multidayWeekdayText(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "EEEE"
-        return formatter.string(from: date)
-    }
-
-    private func multidayShortMonthText(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "MMM"
-        return formatter.string(from: date)
-    }
-
-    private func multidayDayNumberText(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "d"
-        return formatter.string(from: date)
-    }
-
     // MARK: - Inline Creation
 
-    private func inlineCreationRow(for target: InlineCreationTarget) -> some View {
+    private func inlineCreationRow(for target: ViewModel.InlineCreationTarget) -> some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
             StatusIcon(entryType: .task, taskStatus: .open, color: .primary)
                 .frame(width: 24, height: 24)
 
-            TextField("New task", text: $inlineTitle)
-                .id(inlineCreationID)
+            TextField("New task", text: $viewModel.inlineTitle)
+                .id(viewModel.inlineCreationID)
                 .textFieldStyle(.plain)
                 .font(SpreadTheme.Typography.body)
                 .focused($isInlineFocused)
@@ -624,7 +806,7 @@ struct EntryListView: View {
         }
     }
 
-    private func addTaskButton(for target: InlineCreationTarget) -> some View {
+    private func addTaskButton(for target: ViewModel.InlineCreationTarget) -> some View {
         Button {
             activateInlineCreation(for: target)
         } label: {
@@ -645,15 +827,15 @@ struct EntryListView: View {
 
     // MARK: - Inline Creation Helpers
 
-    private func activateInlineCreation(for target: InlineCreationTarget) {
+    private func activateInlineCreation(for target: ViewModel.InlineCreationTarget) {
         dismissActiveInlineEditing()
-        inlineTitle = ""
-        inlineCreationID = UUID()
-        activeInlineCreationTarget = target
+        viewModel.inlineTitle = ""
+        viewModel.inlineCreationID = UUID()
+        viewModel.activeInlineCreationTarget = target
     }
 
-    private func commitInlineTask(target: InlineCreationTarget) {
-        let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func commitInlineTask(target: ViewModel.InlineCreationTarget) {
+        let trimmed = viewModel.inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             dismissInlineCreation()
             return
@@ -666,7 +848,7 @@ struct EntryListView: View {
     }
 
     @MainActor
-    private func performInlineTaskAdd(title: String, target: InlineCreationTarget) async -> Bool {
+    private func performInlineTaskAdd(title: String, target: ViewModel.InlineCreationTarget) async -> Bool {
         do {
             try await onAddTask?(title, target.date, target.period)
             return true
@@ -676,9 +858,9 @@ struct EntryListView: View {
     }
 
     private func dismissInlineCreation() {
-        activeInlineCreationTarget = nil
-        inlineTitle = ""
-        hasAcquiredInlineCreationFocus = false
+        viewModel.activeInlineCreationTarget = nil
+        viewModel.inlineTitle = ""
+        viewModel.hasAcquiredInlineCreationFocus = false
         isInlineFocused = false
     }
 
@@ -699,37 +881,61 @@ struct EntryListView: View {
         }
     }
 
-    private func creationTarget(for section: EntryListSection) -> InlineCreationTarget {
-        InlineCreationTarget(
+    private func creationTarget(for section: EntryListSection) -> ViewModel.InlineCreationTarget {
+        ViewModel.InlineCreationTarget(
             sectionID: section.id,
             date: section.creationDate,
             period: section.creationPeriod
         )
     }
 
+    private func multidayAssignmentSection(_ section: EntryListSection) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(section.title)
+                .font(SpreadTheme.Typography.title3)
+                .foregroundStyle(.primary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(section.entries, id: \.id) { entry in
+                    entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
+                }
+
+                if onAddTask != nil {
+                    if viewModel.activeInlineCreationTarget?.sectionID == section.id {
+                        inlineCreationRow(for: creationTarget(for: section))
+                    } else {
+                        addTaskButton(for: creationTarget(for: section))
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemBackground))
+        )
+    }
+
     // MARK: - Helpers
+
+    /// Returns calendar events whose time span overlaps the given day.
+    ///
+    /// Used to filter events per-day within multiday spread sections.
+    private func calendarEvents(for date: Date) -> [CalendarEvent] {
+        let dayStart = date.startOfDay(calendar: calendar)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+            return []
+        }
+        return calendarEvents.filter { event in
+            event.startDate < dayEnd && event.endDate > dayStart
+        }
+    }
 
     /// Whether a task has a migrated assignment on this spread.
     private func isMigratedOnSpread(_ task: DataModel.Task) -> Bool {
         task.assignments.contains { assignment in
             assignment.status == .migrated &&
-            assignment.matches(
-                period: spreadDataModel.spread.period,
-                date: spreadDataModel.spread.date,
-                calendar: calendar
-            )
-        }
-    }
-
-    /// Whether a note has a migrated assignment on this spread.
-    private func isMigratedOnSpread(_ note: DataModel.Note) -> Bool {
-        note.assignments.contains { assignment in
-            assignment.status == .migrated &&
-            assignment.matches(
-                period: spreadDataModel.spread.period,
-                date: spreadDataModel.spread.date,
-                calendar: calendar
-            )
+            assignment.matches(spread: spreadDataModel.spread, calendar: calendar)
         }
     }
 
@@ -764,11 +970,21 @@ struct EntryListView: View {
     private func multidayOverdueCount(for section: EntryListSection) -> Int {
         section.entries.reduce(into: 0) { count, entry in
             guard let task = entry as? DataModel.Task,
-                  task.status == .open,
-                  task.hasPreferredAssignment,
-                  isOverdue(date: task.date, period: task.period) else {
+                  task.status == .open else {
                 return
             }
+
+            let isAssignedToCurrentMultiday = task.assignments.contains { assignment in
+                assignment.status == .open &&
+                assignment.matches(spread: spreadDataModel.spread, calendar: calendar)
+            }
+
+            guard isAssignedToCurrentMultiday,
+                  let multidayEndDate = spreadDataModel.spread.endDate else {
+                return
+            }
+
+            guard isOverdue(date: multidayEndDate, period: .day) else { return }
             count += 1
         }
     }

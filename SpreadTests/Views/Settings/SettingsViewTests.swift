@@ -18,6 +18,15 @@ struct SettingsViewTests {
         testCalendar.date(from: DateComponents(year: 2026, month: 3, day: 15))!
     }
 
+    private static var testAppClock: AppClock {
+        AppClock.fixed(
+            now: testToday,
+            calendar: testCalendar,
+            timeZone: testCalendar.timeZone,
+            locale: testCalendar.locale ?? Locale(identifier: "en_US_POSIX")
+        )
+    }
+
     // MARK: - Mode Toggle Tests
 
     /// Conditions: JournalManager created with conventional mode.
@@ -150,21 +159,6 @@ struct SettingsViewTests {
         #expect(settings.firstWeekday == 2)
     }
 
-    // MARK: - Local Title Strip Preference Tests
-
-    /// Conditions: The local title-strip preference has no stored value or has an invalid stored value.
-    /// Expected: It defaults to Relevant Past Only without touching synced Settings.
-    @Test func testTitleStripDisplayPreferenceDefaultsToRelevantPastOnly() {
-        #expect(TitleStripDisplayPreference.defaultValue == .relevantPastOnly)
-        #expect(TitleStripDisplayPreference(storedRawValue: "unknown") == .relevantPastOnly)
-    }
-
-    /// Conditions: The local title-strip preference stores the Show All Spreads raw value.
-    /// Expected: It restores the matching enum value from UserDefaults-compatible storage.
-    @Test func testTitleStripDisplayPreferenceRestoresShowAllSpreads() {
-        #expect(TitleStripDisplayPreference(storedRawValue: TitleStripDisplayPreference.showAllSpreads.rawValue) == .showAllSpreads)
-    }
-
     // MARK: - FirstWeekday Affects Multiday Preset Tests
 
     /// Conditions: Create SpreadCreationConfiguration with .sunday firstWeekday.
@@ -217,7 +211,7 @@ struct SettingsViewTests {
         )
 
         let manager = try await dependencies.makeJournalManager(
-            today: Self.testToday,
+            appClock: Self.testAppClock,
             bujoMode: .traditional,
             firstWeekday: .monday
         )

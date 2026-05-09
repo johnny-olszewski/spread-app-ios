@@ -1,17 +1,18 @@
 import SwiftUI
+import JohnnyOFoundationUI
 
 /// A reusable icon component for displaying entry type and status.
 ///
-/// Renders the appropriate SF Symbol based on entry type:
-/// - Task: solid circle (●)
-/// - Event: empty circle (○)
+/// Renders a custom-drawn SwiftUI icon based on entry type:
+/// - Task: filled circle (●)
+/// - Event: stroked circle (○)
 /// - Note: dash (—)
 ///
-/// For tasks, an overlay indicates status:
+/// For tasks, a decorator overlaid on the base indicates status:
 /// - Open: base circle only
-/// - Complete: xmark overlay
-/// - Migrated: arrow.right overlay
-/// - Cancelled: slash overlay
+/// - Complete: X mark extending beyond the circle frame (animated draw-in)
+/// - Migrated: right arrow extending beyond the circle (animated draw-in)
+/// - Cancelled: diagonal slash through the circle (animated draw-in)
 ///
 /// Example usage:
 /// ```swift
@@ -71,66 +72,14 @@ struct StatusIcon: View {
     // MARK: - Body
 
     var body: some View {
-        Image(systemName: configuration.baseSymbol)
-            .font(.system(configuration.size))
-            .foregroundStyle(color)
-            .overlay {
-                overlayImage
-            }
-    }
-
-    // MARK: - Overlay
-
-    @ViewBuilder
-    private var overlayImage: some View {
-        if let overlaySymbol = configuration.overlaySymbol {
-            Image(systemName: overlaySymbol)
-                .font(.system(configuration.size))
-                .scaleEffect(configuration.overlayScale)
-                .fontWeight(.bold)
-                .foregroundStyle(color)
-                .frame(
-                    width: overlayFrameWidth,
-                    alignment: .leading
-                )
-                .offset(configuration.overlayOffset)
-        }
-    }
-
-    private var overlayFrameWidth: CGFloat? {
-        let leading = configuration.overlayLeadingExtension
-        let trailing = configuration.overlayTrailingExtension
-        guard leading > 0 || trailing > 0 else { return nil }
-        return iconPointSize + leading + trailing
-    }
-
-    private var iconPointSize: CGFloat {
-        switch configuration.size {
-        case .largeTitle:
-            return 34
-        case .title:
-            return 28
-        case .title2:
-            return 22
-        case .title3:
-            return 20
-        case .headline:
-            return 17
-        case .subheadline:
-            return 15
-        case .body:
-            return 17
-        case .callout:
-            return 16
-        case .footnote:
-            return 13
-        case .caption:
-            return 12
-        case .caption2:
-            return 11
-        @unknown default:
-            return 12
-        }
+        EntryIconFactory.icon(
+            entryType: configuration.entryType,
+            taskStatus: configuration.taskStatus,
+            noteStatus: configuration.noteStatus,
+            isEventPast: configuration.isEventPast,
+            size: EntryIconSize(configuration.size).points,
+            color: color
+        )
     }
 }
 
@@ -256,6 +205,31 @@ struct StatusIcon: View {
             StatusIcon(entryType: .task, taskStatus: .complete, color: .red)
             Text("Red")
         }
+    }
+    .padding()
+}
+
+#Preview("Animated Toggle") {
+    @Previewable @State var status: DataModel.Task.Status = .open
+
+    VStack(spacing: 24) {
+        StatusIcon(entryType: .task, taskStatus: status, size: .title, color: status.statusIconColor)
+            .animation(.easeInOut(duration: 0.18), value: status)
+
+        Button("Cycle status") {
+            withAnimation {
+                switch status {
+                case .open:      status = .complete
+                case .complete:  status = .migrated
+                case .migrated:  status = .cancelled
+                case .cancelled: status = .open
+                }
+            }
+        }
+        .buttonStyle(.bordered)
+
+        Text(status.displayName)
+            .foregroundStyle(.secondary)
     }
     .padding()
 }

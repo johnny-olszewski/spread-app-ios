@@ -41,6 +41,9 @@ struct AppDependencies: @unchecked Sendable {
     /// Network connectivity monitor.
     let networkMonitor: any NetworkMonitoring
 
+    /// EventKit calendar service for fetching and opening device calendar events.
+    let eventKitService: any EventKitService
+
     // MARK: - Factory Methods
 
     /// Creates app dependencies for live app use.
@@ -65,7 +68,8 @@ struct AppDependencies: @unchecked Sendable {
             noteRepository: SwiftDataNoteRepository(modelContainer: modelContainer),
             collectionRepository: SwiftDataCollectionRepository(modelContainer: modelContainer),
             settingsRepository: SwiftDataSettingsRepository(modelContainer: modelContainer),
-            networkMonitor: makeNetworkMonitor()
+            networkMonitor: makeNetworkMonitor(),
+            eventKitService: LiveEventKitService()
         )
     }
 
@@ -89,6 +93,7 @@ struct AppDependencies: @unchecked Sendable {
         noteRepository: (any NoteRepository)? = nil,
         collectionRepository: (any CollectionRepository)? = nil,
         settingsRepository: (any SettingsRepository)? = nil,
+        eventKitService: (any EventKitService)? = nil,
         makeNetworkMonitor: @MainActor () -> any NetworkMonitoring = { NetworkMonitor() }
     ) throws -> AppDependencies {
         let resolvedModelContainer = try modelContainer ?? ModelContainerFactory.makeInMemory()
@@ -102,7 +107,8 @@ struct AppDependencies: @unchecked Sendable {
             noteRepository: noteRepository ?? EmptyNoteRepository(),
             collectionRepository: collectionRepository ?? EmptyCollectionRepository(),
             settingsRepository: settingsRepository ?? EmptySettingsRepository(),
-            networkMonitor: makeNetworkMonitor()
+            networkMonitor: makeNetworkMonitor(),
+            eventKitService: eventKitService ?? MockEventKitService()
         )
     }
 
@@ -127,7 +133,8 @@ struct AppDependencies: @unchecked Sendable {
             noteRepository: MockNoteRepository(),
             collectionRepository: MockCollectionRepository(),
             settingsRepository: EmptySettingsRepository(),
-            networkMonitor: makeNetworkMonitor()
+            networkMonitor: makeNetworkMonitor(),
+            eventKitService: MockEventKitService()
         )
     }
 
@@ -136,20 +143,18 @@ struct AppDependencies: @unchecked Sendable {
     /// Creates a JournalManager configured with these dependencies' repositories.
     ///
     /// - Parameters:
-    ///   - calendar: The calendar for date calculations (defaults to current).
-    ///   - today: The current date (defaults to now).
+    ///   - appClock: The shared app clock for temporal context and refreshes.
     ///   - bujoMode: The initial BuJo mode (defaults to conventional).
     ///   - firstWeekday: The user's first day of week preference (defaults to system default).
     /// - Returns: A configured JournalManager with data loaded.
+    @MainActor
     func makeJournalManager(
-        calendar: Calendar = .current,
-        today: Date = .now,
+        appClock: AppClock? = nil,
         bujoMode: BujoMode = .conventional,
         firstWeekday: FirstWeekday = .systemDefault
     ) async throws -> JournalManager {
         try await JournalManager.make(
-            calendar: calendar,
-            today: today,
+            appClock: appClock ?? AppClock.live(),
             taskRepository: taskRepository,
             spreadRepository: spreadRepository,
             eventRepository: eventRepository,

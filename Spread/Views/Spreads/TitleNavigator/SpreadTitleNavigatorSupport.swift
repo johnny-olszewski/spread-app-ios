@@ -80,27 +80,10 @@ enum SpreadTitleNavigatorBadge: Equatable {
     }
 }
 
-enum TitleStripDisplayPreference: String, CaseIterable, Identifiable {
-    case relevantPastOnly
-    case showAllSpreads
-
-    static let storageKey = "spreads.titleStripDisplayPreference"
-    static let defaultValue: TitleStripDisplayPreference = .relevantPastOnly
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .relevantPastOnly:
-            return "Relevant Past Only"
-        case .showAllSpreads:
-            return "Show All Spreads"
-        }
-    }
-
-    init(storedRawValue: String) {
-        self = Self(rawValue: storedRawValue) ?? Self.defaultValue
-    }
+/// Label content for the compact spread context bar.
+struct SpreadCompactBarLabel: Equatable {
+    let primary: String
+    let secondary: String?
 }
 
 struct SpreadTitleNavigatorModel {
@@ -165,21 +148,6 @@ struct SpreadTitleNavigatorModel {
         }
     }
 
-    func titleStripItems(
-        for currentSelection: SpreadHeaderNavigatorModel.Selection,
-        displayPreference: TitleStripDisplayPreference
-    ) -> [Item] {
-        let completeItems = items(for: currentSelection)
-        return SpreadTitleStripRelevanceFilter.filteredItems(
-            completeItems,
-            mode: headerModel.mode,
-            displayPreference: displayPreference,
-            tasks: headerModel.tasks,
-            calendar: calendar,
-            today: today
-        )
-    }
-
     func item(for recommendation: SpreadTitleNavigatorRecommendation) -> Item {
         let spread = DataModel.Spread(
             period: recommendation.period,
@@ -187,6 +155,32 @@ struct SpreadTitleNavigatorModel {
             calendar: recommendation.calendar
         )
         return item(for: spread, allowsPersonalization: false)
+    }
+
+    /// Compact primary + optional secondary label for the persistent context bar.
+    func compactBarLabel(for selection: SpreadHeaderNavigatorModel.Selection) -> SpreadCompactBarLabel {
+        switch selection {
+        case .conventional(let spread):
+            let name = displayName(for: spread, allowsPersonalization: true)
+            return SpreadCompactBarLabel(primary: name.primary, secondary: name.secondaryForHeader)
+        case .traditionalYear(let date):
+            return SpreadCompactBarLabel(
+                primary: String(calendar.component(.year, from: date)),
+                secondary: nil
+            )
+        case .traditionalMonth(let date):
+            let title = SpreadDisplayNameFormatter.canonicalTitle(
+                for: DataModel.Spread(period: .month, date: date, calendar: calendar),
+                calendar: calendar
+            )
+            let year = String(calendar.component(.year, from: date))
+            return SpreadCompactBarLabel(primary: title, secondary: year)
+        case .traditionalDay(let date):
+            let spread = DataModel.Spread(period: .day, date: date, calendar: calendar)
+            let title = SpreadDisplayNameFormatter.canonicalTitle(for: spread, calendar: calendar)
+            let subtitle = SpreadDisplayNameFormatter.canonicalSubtitle(for: spread, calendar: calendar)
+            return SpreadCompactBarLabel(primary: title, secondary: subtitle)
+        }
     }
 
     private func conventionalYearItems(in year: Int) -> [Item] {
@@ -490,29 +484,18 @@ struct SpreadTitleNavigatorModel {
     private func multidayOverdueCount(for spread: DataModel.Spread) -> Int {
         headerModel.tasks.reduce(into: 0) { count, task in
             guard task.status == .open,
-                  task.hasPreferredAssignment,
-                  taskDateFallsWithinMultidayRange(task.date, spread: spread),
-                  isOverdue(date: task.date, period: task.period) else {
+                  task.assignments.contains(where: { assignment in
+                      assignment.status == .open &&
+                      assignment.matches(spread: spread, calendar: calendar)
+                  }),
+                  isOverdue(
+                    date: Period.day.normalizeDate(spread.endDate ?? spread.date, calendar: calendar),
+                    period: .day
+                  ) else {
                 return
             }
             count += 1
         }
-    }
-
-    private func taskDateFallsWithinMultidayRange(_ date: Date, spread: DataModel.Spread) -> Bool {
-        guard let range = multidayDateRange(for: spread) else { return false }
-        let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
-        return normalizedDate >= range.start && normalizedDate <= range.end
-    }
-
-    private func multidayDateRange(for spread: DataModel.Spread) -> (start: Date, end: Date)? {
-        guard spread.period == .multiday else { return nil }
-        let start = Period.day.normalizeDate(spread.startDate ?? spread.date, calendar: calendar)
-        let end = Period.day.normalizeDate(spread.endDate ?? spread.date, calendar: calendar)
-        if start <= end {
-            return (start, end)
-        }
-        return (end, start)
     }
 
     private func isOverdue(date: Date, period: Period) -> Bool {
@@ -596,138 +579,6 @@ struct SpreadTitleNavigatorModel {
         case .traditionalDay(let date):
             return (Period.day.normalizeDate(date, calendar: calendar), 2)
         }
-    }
-}
-
-enum SpreadTitleStripRelevanceFilter {
-    static func filteredItems(
-        _ items: [SpreadTitleNavigatorModel.Item],
-        mode: SpreadHeaderNavigatorModel.Mode,
-        displayPreference: TitleStripDisplayPreference,
-        tasks: [DataModel.Task],
-        calendar: Calendar,
-        today: Date
-    ) -> [SpreadTitleNavigatorModel.Item] {
-        guard case .conventional = mode,
-              displayPreference == .relevantPastOnly else {
-            return items
-        }
-
-        return items.filter { item in
-            guard case .conventional(let spread) = item.selection else {
-                return true
-            }
-
-            guard isPast(spread, calendar: calendar, today: today) else {
-                return true
-            }
-
-            return spread.isFavorite || hasOpenTask(on: spread, tasks: tasks, calendar: calendar)
-        }
-    }
-
-    static func isPast(
-        _ spread: DataModel.Spread,
-        calendar: Calendar,
-        today: Date
-    ) -> Bool {
-        let todayStart = today.startOfDay(calendar: calendar)
-        let periodEndBoundary: Date?
-
-        switch spread.period {
-        case .year:
-            let start = Period.year.normalizeDate(spread.date, calendar: calendar)
-            periodEndBoundary = calendar.date(byAdding: .year, value: 1, to: start)
-        case .month:
-            let start = Period.month.normalizeDate(spread.date, calendar: calendar)
-            periodEndBoundary = calendar.date(byAdding: .month, value: 1, to: start)
-        case .day:
-            let start = Period.day.normalizeDate(spread.date, calendar: calendar)
-            periodEndBoundary = calendar.date(byAdding: .day, value: 1, to: start)
-        case .multiday:
-            let end = multidayEffectiveEndDate(for: spread, calendar: calendar)
-            periodEndBoundary = calendar.date(byAdding: .day, value: 1, to: end)
-        }
-
-        guard let periodEndBoundary else { return false }
-        return periodEndBoundary <= todayStart
-    }
-
-    static func hasOpenTask(
-        on spread: DataModel.Spread,
-        tasks: [DataModel.Task],
-        calendar: Calendar
-    ) -> Bool {
-        tasks.contains { task in
-            guard task.status == .open else { return false }
-
-            if spread.period == .multiday {
-                return task.hasPreferredAssignment &&
-                    taskDateFallsWithinMultidayRange(task.date, spread: spread, calendar: calendar)
-            }
-
-            return task.assignments.contains { assignment in
-                assignment.status == .open &&
-                assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
-            }
-        }
-    }
-
-    private static func taskDateFallsWithinMultidayRange(
-        _ date: Date,
-        spread: DataModel.Spread,
-        calendar: Calendar
-    ) -> Bool {
-        guard let range = multidayDateRange(for: spread, calendar: calendar) else {
-            return false
-        }
-        let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
-        return normalizedDate >= range.start && normalizedDate <= range.end
-    }
-
-    private static func multidayEffectiveEndDate(
-        for spread: DataModel.Spread,
-        calendar: Calendar
-    ) -> Date {
-        guard let range = multidayDateRange(for: spread, calendar: calendar) else {
-            return Period.day.normalizeDate(spread.date, calendar: calendar)
-        }
-        return range.end
-    }
-
-    private static func multidayDateRange(
-        for spread: DataModel.Spread,
-        calendar: Calendar
-    ) -> (start: Date, end: Date)? {
-        guard spread.period == .multiday else { return nil }
-
-        let start = Period.day.normalizeDate(spread.startDate ?? spread.date, calendar: calendar)
-        let end = Period.day.normalizeDate(spread.endDate ?? spread.date, calendar: calendar)
-
-        if start <= end {
-            return (start, end)
-        }
-        return (end, start)
-    }
-}
-
-enum SpreadTitleNavigatorSelectionVisibility {
-    static func isSelectionVisible(
-        _ selection: SpreadHeaderNavigatorModel.Selection,
-        in items: [SpreadTitleNavigatorModel.Item],
-        calendar: Calendar
-    ) -> Bool {
-        let selectionID = selection.stableID(calendar: calendar)
-        return items.contains { $0.id == selectionID }
-    }
-}
-
-enum SpreadTitleNavigatorTapSupport {
-    static func selectionChange(
-        for item: SpreadTitleNavigatorModel.Item,
-        selectedSemanticID: String
-    ) -> SpreadHeaderNavigatorModel.Selection? {
-        item.id == selectedSemanticID ? nil : item.selection
     }
 }
 

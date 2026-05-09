@@ -145,12 +145,14 @@ struct SpreadContentPagerView: View {
     }
 
     private func center(on id: String, animated: Bool) {
+        let targetID = pagerID(for: id)
+        guard pagerSettledTargetID != targetID else { return }
         if animated {
             withAnimation(.easeInOut(duration: 0.38)) {
-                pagerSettledTargetID = pagerID(for: id)
+                pagerSettledTargetID = targetID
             }
         } else {
-            pagerSettledTargetID = pagerID(for: id)
+            pagerSettledTargetID = targetID
         }
     }
 
@@ -193,6 +195,9 @@ private struct SpreadPageContentView: View {
     @ViewBuilder
     private var conventionalPage: some View {
         if case .conventional(let spread) = item.selection {
+            let selectedID = viewModel.selectedSelection?.stableID(calendar: model.calendar)
+            let isCurrentPage = item.id == selectedID
+            let backDestination = isCurrentPage ? viewModel.peekNavigationSource : nil
             VStack(spacing: 0) {
                 SpreadHeaderView(
                     configuration: SpreadHeaderConfiguration(
@@ -200,10 +205,10 @@ private struct SpreadPageContentView: View {
                         calendar: journalManager.calendar,
                         today: journalManager.today,
                         firstWeekday: journalManager.firstWeekday,
-                        allowsPersonalization: true,
-                        taskCount: conventionalSpreadDataModel(for: spread)?.tasks.count ?? 0,
-                        noteCount: conventionalSpreadDataModel(for: spread)?.notes.count ?? 0
+                        allowsPersonalization: true
                     ),
+                    syncEngine: syncEngine,
+                    onSyncNow: syncEngine.map { engine in { Task { @MainActor in await engine.syncNow() } } },
                     onFavoriteToggle: {
                         toggleFavorite(for: spread)
                     },
@@ -215,6 +220,14 @@ private struct SpreadPageContentView: View {
                     } : nil,
                     onDeleteSpread: {
                         viewModel.showSpreadDeleteConfirmation(spread)
+                    },
+                    backDestination: backDestination,
+                    onGoBack: backDestination.map { source in
+                        {
+                            viewModel.clearPeekNavigationSource()
+                            viewModel.selectedSelection = .conventional(source)
+                            viewModel.recenterToken += 1
+                        }
                     }
                 )
                 conventionalContentView(for: spread)
@@ -263,6 +276,7 @@ private struct SpreadPageContentView: View {
                 explicitDaySpreadForDate: { date in explicitDaySpread(for: date) },
                 onSelectSpread: { selectedSpread in
                     viewModel.selectedSelection = .conventional(selectedSpread)
+                    viewModel.recenterToken += 1
                 },
                 onCreateSpread: { date in
                     viewModel.showSpreadCreation(prefill: .init(period: .day, date: date))
@@ -294,10 +308,10 @@ private struct SpreadPageContentView: View {
                         calendar: journalManager.calendar,
                         today: journalManager.today,
                         firstWeekday: journalManager.firstWeekday,
-                        allowsPersonalization: false,
-                        taskCount: traditionalSpreadDataModel(for: item.selection).tasks.count,
-                        noteCount: traditionalSpreadDataModel(for: item.selection).notes.count
-                    )
+                        allowsPersonalization: false
+                    ),
+                    syncEngine: syncEngine,
+                    onSyncNow: syncEngine.map { engine in { Task { @MainActor in await engine.syncNow() } } }
                 )
                 traditionalContentView(for: spread, selection: item.selection)
             }
@@ -404,6 +418,7 @@ private struct SpreadPageContentView: View {
                 return
             }
             viewModel.selectedSelection = .conventional(destination)
+            viewModel.recenterToken += 1
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(150))
                 viewModel.showTaskDetail(task)
