@@ -5,6 +5,7 @@
 - EventKit calendar integration is in v1 scope: read-only events appear on day and multiday spreads, live-fetched from EventKit with no local persistence. [SPRD-194, SPRD-195] Manual event creation and Google Calendar OAuth remain deferred to v2. [SPRD-69]
 - Day timeline visualization is in v1 scope: a fixed-height time-ruler card with EventKit event blocks appears above the entry list on day spreads. The layout component lives in `johnnyo-foundation` as a generic, provider-driven `DayTimelineView`; the Spread app supplies a `SpreadDayTimelineProvider` conformance that renders events using `CalendarEvent`. [SPRD-196, SPRD-197]
 - `WKFLW-17` is the active workflow branch for a bundled spread/task enhancement pass so schema-affecting decisions land together instead of through piecemeal migrations. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-176, SPRD-177, SPRD-178]
+- `WKFLW-19` brings the authentication flow to TestFlight quality: email confirmation after sign-up with an in-sheet confirmation state, deeplink handling for email verification and password reset via the `spread://` custom URL scheme, loading state indicators on all auth sheets, expanded error message mapping, and mid-session token expiry handling. All Supabase configuration changes (redirect URLs, etc.) must be applied to both `spread-prod` and `spread-dev`. [SPRD-200, SPRD-201, SPRD-202, SPRD-203, SPRD-204, SPRD-205, SPRD-206, SPRD-207]
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
@@ -1345,6 +1346,89 @@ None — purely local UI composition and interaction behavior.
 - [ ] Recommendations are visible in the rooted navigator in conventional mode and are no longer rendered as persistent trailing inset cards.
 - [ ] Pager swipes keep the compact bar synchronized without any inline recenter or hidden-group behavior.
 - [ ] The old local title-strip display preference is removed from settings and supporting state.
+
+---
+
+## Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19)
+
+### Overview
+
+`WKFLW-19` completes the auth flow for TestFlight. Supabase email confirmation is enabled in production. This means sign-up does not produce an immediate session; the user must verify their email before accessing journal content. Both the email verification link and the password reset link must deep-link back into the app rather than opening a web page. A `spread://` custom URL scheme handles both. [SPRD-200, SPRD-201, SPRD-202, SPRD-203, SPRD-204, SPRD-205, SPRD-206, SPRD-207]
+
+> **Supabase config**: All redirect URL and auth configuration changes must be applied to both `spread-prod` and `spread-dev` projects. The allowed redirect URL `spread://auth/callback` must be added to Authentication → URL Configuration in the Supabase dashboard for each project.
+
+### URL Scheme and Deeplink Routing
+
+- The app registers the `spread` custom URL scheme in `Info.plist` (`CFBundleURLSchemes`). [SPRD-202]
+- Supabase is configured to redirect email confirmation and password reset links to `spread://auth/callback`. [SPRD-202]
+- An `AuthDeepLinkCoordinator` (`@Observable @MainActor final class`) handles all incoming URLs via `.onOpenURL` wired at the app root. [SPRD-202]
+- The coordinator parses the URL type and calls `AuthService.handle(url:)` to exchange the token with Supabase. [SPRD-202]
+- Two URL types are handled: [SPRD-202]
+  - `type=signup`: email verification. Token exchange establishes a real session. The `authStateChanges` stream propagates the sign-in automatically. No additional routing is needed.
+  - `type=recovery`: password reset. Token exchange establishes a temporary recovery session. The coordinator sets `isRecoverySession = true`, which the root view observes to present `SetNewPasswordSheet`. After the user sets a new password, the recovery session becomes a permanent session and `isRecoverySession` clears.
+- If the user confirms their email on a different device, the deeplink does not open the app. The user opens the app manually and signs in. The login error mapping must handle the "email not confirmed" case explicitly so users who attempt to sign in before confirming receive a clear message rather than a generic failure. [SPRD-206]
+
+### Sign-Up Flow (with Email Confirmation)
+
+- After the user submits the sign-up form, `AuthService.signUp` succeeds but returns no session (Supabase email confirmation is enabled). [SPRD-203]
+- `SignUpSheet` does not call `onSignIn` or dismiss. Instead it transitions to an in-sheet confirmation state. [SPRD-203]
+- The confirmation state displays: [SPRD-203]
+  - The submitted email address
+  - Instructions: "Check your email at [address] and tap the verification link to continue."
+  - A "Resend Email" button that calls `AuthManager.resendVerification(email:)`. Resend is rate-limited by Supabase; errors surface via `authManager.errorMessage`.
+  - A "Done" button that dismisses the sheet (user can reopen it later via the auth toolbar button)
+- Once the user taps the verification deeplink and the app signs them in automatically, the blocking auth gate (if presented) dismisses normally via the existing `authManager.state` observation. [SPRD-200, SPRD-202]
+
+### Password Reset Flow
+
+- The existing `ForgotPasswordSheet` already shows a success state after sending the reset email. No changes to that sheet. [SPRD-196]
+- When the user taps the reset link, the `spread://auth/callback?type=recovery` URL opens the app. [SPRD-202]
+- `AuthDeepLinkCoordinator` exchanges the token, sets `isRecoverySession = true`, and the root view presents `SetNewPasswordSheet` as a full-screen sheet. [SPRD-202, SPRD-204]
+- `SetNewPasswordSheet` contains: [SPRD-204]
+  - New password field (`textContentType(.newPassword)`)
+  - Confirm password field
+  - Validation via `AuthFormValidator` (minimum length, match)
+  - Inline validation and server error display matching the existing auth sheet patterns
+  - A "Save Password" toolbar button (disabled until the form is valid and not loading)
+  - A `ProgressView` overlay when `authManager.isLoading`
+- On success: the sheet dismisses, `isRecoverySession` clears, and the user lands in journal content. No additional sign-in step is required. [SPRD-204]
+- `interactiveDismissDisabled(true)` is set on `SetNewPasswordSheet` so users cannot accidentally skip the step. A "Cancel" button is available that clears the recovery session and returns to the auth gate. [SPRD-204]
+
+### Loading States
+
+- `LoginSheet`, `SignUpSheet`, and `ForgotPasswordSheet` each show a `ProgressView` overlay when `authManager.isLoading == true`. [SPRD-205]
+- The overlay sits above the form content and below the navigation bar.
+- Existing button-disable behavior during loading is preserved. [SPRD-205]
+
+### AuthService Protocol Additions
+
+New methods added to `AuthService` and implemented in `SupabaseAuthService`, with stubs in `MockAuthService`: [SPRD-200]
+
+- `handle(url: URL) async throws -> AuthDeepLinkResult` — exchanges a deeplink URL token for a session. Returns `.emailConfirmed(AuthSuccess)` or `.recoverySession`.
+- `updatePassword(newPassword: String) async throws` — updates the authenticated user's password. Used post-recovery.
+- `resendVerification(email: String) async throws` — resends the email confirmation link.
+- `var authStateChanges: AsyncStream<AuthChangeEvent>` — emits `.signedOut` when the session is externally invalidated.
+
+### Session Expiry
+
+- `AuthManager.init` starts a stored `Task` that iterates `service.authStateChanges`. [SPRD-201]
+- On a `.signedOut` event from the stream, `AuthManager` transitions state to `.signedOut` and calls `onSignOut`. [SPRD-201]
+- This is the same path as a manual sign-out: local data is wiped via `AuthLifecycleCoordinator` and the auth gate is presented. [SPRD-201]
+- The stream covers cases such as: session revoked from another device, refresh token expired after a long idle period, or admin-forced sign-out. [SPRD-201]
+
+### Error Message Additions
+
+The following Supabase error cases must produce specific human-readable messages in `AuthManager.mapAuthError`: [SPRD-206]
+
+- `emailNotConfirmed` → "Please verify your email first. Check your inbox."
+- `userAlreadyExists` / duplicate email on sign-up → "An account with this email already exists."
+- Rate limiting → "Too many attempts. Please try again later."
+- Network / timeout → "No internet connection. Please check your network and try again."
+
+### Testing
+
+- Automated smoke tests cover: login success and failure (wrong password, unconfirmed email), sign-up confirmation state, sign-up failure (email already exists), forgot-password submission success and error, password update success, session expiry state transition, and URL parsing for both deeplink types. [SPRD-207]
+- Flows that require a real Supabase backend and a live email inbox cannot be covered by automated tests. These are documented in `Documentation/ManualTests.md`.
 
 ---
 
