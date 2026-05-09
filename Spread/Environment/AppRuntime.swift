@@ -5,12 +5,14 @@ typealias DebugMenuViewFactory = (
     AppDependencies,
     JournalManager,
     AuthManager,
-    SyncEngine?
+    SyncEngine?,
+    AppClock
 ) -> AnyView
 
 /// Aggregates app-level services created for a running app runtime.
 struct AppRuntime {
     let dependencies: AppDependencies
+    let appClock: AppClock
     let journalManager: JournalManager
     let authManager: AuthManager
     let syncEngine: SyncEngine

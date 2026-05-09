@@ -141,6 +141,20 @@ struct AssignmentTests {
         #expect(result == false)
     }
 
+    @Test func testTaskAssignmentPrefersExplicitSpreadIdentityForMultidayMatches() {
+        let date = makeDate(year: 2026, month: 6, day: 15)
+        let matchingSpreadID = UUID()
+        let assignment = TaskAssignment(
+            period: .multiday,
+            date: date,
+            spreadID: matchingSpreadID,
+            status: .open
+        )
+
+        #expect(assignment.matches(period: .multiday, date: date, spreadID: matchingSpreadID, calendar: testCalendar))
+        #expect(!assignment.matches(period: .multiday, date: date, spreadID: UUID(), calendar: testCalendar))
+    }
+
     // MARK: - NoteAssignment Matching Tests
 
     /// Conditions: NoteAssignment for day June 15, checking same period and date.
@@ -236,6 +250,20 @@ struct AssignmentTests {
 
         let result = assignment.matches(period: .year, date: year2027, calendar: testCalendar)
         #expect(result == false)
+    }
+
+    @Test func testNoteAssignmentPrefersExplicitSpreadIdentityForMultidayMatches() {
+        let date = makeDate(year: 2026, month: 6, day: 15)
+        let matchingSpreadID = UUID()
+        let assignment = NoteAssignment(
+            period: .multiday,
+            date: date,
+            spreadID: matchingSpreadID,
+            status: .active
+        )
+
+        #expect(assignment.matches(period: .multiday, date: date, spreadID: matchingSpreadID, calendar: testCalendar))
+        #expect(!assignment.matches(period: .multiday, date: date, spreadID: UUID(), calendar: testCalendar))
     }
 
     // MARK: - TaskAssignment Status Tests

@@ -149,20 +149,34 @@ struct StandardSpreadDeletionPlanner: SpreadDeletionPlanner {
     /// The calendar used for date normalization when matching spreads in the hierarchy.
     let calendar: Calendar
 
+    private var spreadService: ConventionalSpreadService {
+        ConventionalSpreadService(calendar: calendar)
+    }
+
     func makePlan(
         for spread: DataModel.Spread,
         spreads: [DataModel.Spread],
         tasks: [DataModel.Task],
         notes: [DataModel.Note]
     ) -> SpreadDeletionPlan {
-        let parentSpread = findParentSpread(for: spread, in: spreads)
+        let parentSpread = spread.period == .multiday ? nil : findParentSpread(for: spread, in: spreads)
 
         let taskPlans = tasks.compactMap { task in
-            makeTaskPlan(for: task, deleting: spread, parentSpread: parentSpread)
+            makeTaskPlan(
+                for: task,
+                deleting: spread,
+                parentSpread: parentSpread,
+                spreads: spreads
+            )
         }
 
         let notePlans = notes.compactMap { note in
-            makeNotePlan(for: note, deleting: spread, parentSpread: parentSpread)
+            makeNotePlan(
+                for: note,
+                deleting: spread,
+                parentSpread: parentSpread,
+                spreads: spreads
+            )
         }
 
         return SpreadDeletionPlan(
@@ -196,26 +210,34 @@ struct StandardSpreadDeletionPlanner: SpreadDeletionPlanner {
     private func makeTaskPlan(
         for task: DataModel.Task,
         deleting spread: DataModel.Spread,
-        parentSpread: DataModel.Spread?
+        parentSpread: DataModel.Spread?,
+        spreads: [DataModel.Spread]
     ) -> TaskSpreadDeletionPlan? {
         guard let sourceAssignmentIndex = task.assignments.firstIndex(where: { assignment in
-            assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
+            assignment.matches(spread: spread, calendar: calendar)
         }) else {
             return nil
         }
 
         let preservedStatus = task.assignments[sourceAssignmentIndex].status
-        let replacementAssignmentIndex = parentSpread.flatMap { parent in
+        let replacementSpread = replacementSpread(
+            for: task,
+            deleting: spread,
+            parentSpread: parentSpread,
+            spreads: spreads
+        )
+        let replacementAssignmentIndex = replacementSpread.flatMap { parent in
             task.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: parent.period, date: parent.date, calendar: calendar)
+                assignment.matches(spread: parent, calendar: calendar)
             })
         }
 
-        let replacementAssignment = parentSpread.flatMap { parent -> TaskAssignment? in
+        let replacementAssignment = replacementSpread.flatMap { parent -> TaskAssignment? in
             guard replacementAssignmentIndex == nil else { return nil }
             return TaskAssignment(
                 period: parent.period,
                 date: parent.date,
+                spreadID: parent.period == .multiday ? parent.id : nil,
                 status: preservedStatus
             )
         }
@@ -232,26 +254,34 @@ struct StandardSpreadDeletionPlanner: SpreadDeletionPlanner {
     private func makeNotePlan(
         for note: DataModel.Note,
         deleting spread: DataModel.Spread,
-        parentSpread: DataModel.Spread?
+        parentSpread: DataModel.Spread?,
+        spreads: [DataModel.Spread]
     ) -> NoteSpreadDeletionPlan? {
         guard let sourceAssignmentIndex = note.assignments.firstIndex(where: { assignment in
-            assignment.matches(period: spread.period, date: spread.date, calendar: calendar)
+            assignment.matches(spread: spread, calendar: calendar)
         }) else {
             return nil
         }
 
         let preservedStatus = note.assignments[sourceAssignmentIndex].status
-        let replacementAssignmentIndex = parentSpread.flatMap { parent in
+        let replacementSpread = replacementSpread(
+            for: note,
+            deleting: spread,
+            parentSpread: parentSpread,
+            spreads: spreads
+        )
+        let replacementAssignmentIndex = replacementSpread.flatMap { parent in
             note.assignments.firstIndex(where: { assignment in
-                assignment.matches(period: parent.period, date: parent.date, calendar: calendar)
+                assignment.matches(spread: parent, calendar: calendar)
             })
         }
 
-        let replacementAssignment = parentSpread.flatMap { parent -> NoteAssignment? in
+        let replacementAssignment = replacementSpread.flatMap { parent -> NoteAssignment? in
             guard replacementAssignmentIndex == nil else { return nil }
             return NoteAssignment(
                 period: parent.period,
                 date: parent.date,
+                spreadID: parent.period == .multiday ? parent.id : nil,
                 status: preservedStatus
             )
         }
@@ -262,6 +292,42 @@ struct StandardSpreadDeletionPlanner: SpreadDeletionPlanner {
             replacementAssignmentIndex: replacementAssignmentIndex,
             replacementAssignment: replacementAssignment,
             preservedStatus: preservedStatus
+        )
+    }
+
+    private func replacementSpread(
+        for task: DataModel.Task,
+        deleting spread: DataModel.Spread,
+        parentSpread: DataModel.Spread?,
+        spreads: [DataModel.Spread]
+    ) -> DataModel.Spread? {
+        if spread.period != .multiday {
+            return parentSpread
+        }
+
+        let fallbackPeriod: Period = task.period == .multiday ? .month : task.period
+        return spreadService.findBestSpread(
+            preferredDate: task.date,
+            preferredPeriod: fallbackPeriod,
+            in: spreads.filter { $0.id != spread.id && $0.period != .multiday }
+        )
+    }
+
+    private func replacementSpread(
+        for note: DataModel.Note,
+        deleting spread: DataModel.Spread,
+        parentSpread: DataModel.Spread?,
+        spreads: [DataModel.Spread]
+    ) -> DataModel.Spread? {
+        if spread.period != .multiday {
+            return parentSpread
+        }
+
+        let fallbackPeriod: Period = note.period == .multiday ? .month : note.period
+        return spreadService.findBestSpread(
+            preferredDate: note.date,
+            preferredPeriod: fallbackPeriod,
+            in: spreads.filter { $0.id != spread.id && $0.period != .multiday }
         )
     }
 }

@@ -2,28 +2,32 @@
 
 ## Status
 - Specification finalized for v1 implementation (tasks + notes only). [SPRD-1]
-- Events (including calendar integrations) are deferred to v2. [SPRD-69]
+- EventKit calendar integration is in v1 scope: read-only events appear on day and multiday spreads, live-fetched from EventKit with no local persistence. [SPRD-194, SPRD-195] Manual event creation and Google Calendar OAuth remain deferred to v2. [SPRD-69]
+- Day timeline visualization is in v1 scope: a fixed-height time-ruler card with EventKit event blocks appears above the entry list on day spreads. The layout component lives in `johnnyo-foundation` as a generic, provider-driven `DayTimelineView`; the Spread app supplies a `SpreadDayTimelineProvider` conformance that renders events using `CalendarEvent`. [SPRD-196, SPRD-197]
 - `WKFLW-17` is the active workflow branch for a bundled spread/task enhancement pass so schema-affecting decisions land together instead of through piecemeal migrations. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-176, SPRD-177, SPRD-178]
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
-- Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses an in-view horizontal spread-title navigator on both platforms, and a fixed leading affordance in that navigator presents the complete rooted spread navigator as a popover on iPad and a sheet on iPhone. Conventional and traditional modes share the same navigator, rooted selector, swipe pager, and spread-surface architecture; mode differences are expressed through spread availability, title-strip filtering, title-strip badges, and entry inclusion/assignment rules rather than separate navigation UIs. A dedicated top-level search-role tab replaces the old Inbox toolbar flow and hosts the global task browser. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-151, SPRD-176, SPRD-177, SPRD-178]
+- Adaptive UI: top-level navigation adapts by device using a single `TabView` root configured with SwiftUI's adaptive tab APIs. On iPhone it presents as a tab bar; on iPad it uses Apple's sidebar-adaptable presentation rather than a custom split-view shell. Spread navigation uses a compact in-view spread context bar on both platforms, and a fixed leading affordance in that bar presents the complete rooted spread navigator as a popover on iPad and a sheet on iPhone. Conventional and traditional modes share the same compact bar, rooted selector, swipe pager, and spread-surface architecture; mode differences are expressed through spread availability and entry inclusion/assignment rules rather than separate navigation UIs. A dedicated top-level search-role tab replaces the old Inbox toolbar flow and hosts the global task browser. [SPRD-19, SPRD-25, SPRD-35, SPRD-38, SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-151, SPRD-177]
 - Shared foundations package: the app may host reusable UI components and utilities in a local Swift Package named `johnnyo-foundation`, structured for later GitHub publication. App-facing product spec captures integration points and high-level contracts; detailed package API spec should live with the package. [SPRD-152, SPRD-153]
+- AppClock is the app-wide temporal-context infrastructure for current time, system calendar, time zone, and locale. It keeps time-sensitive product behavior correct while the app remains open across foregrounding, midnight, DST, travel, and other significant time changes. It is infrastructure only: product policy remains in JournalManager collaborators, view models, and view-local renderers. [SPRD-179]
 - Core entities (v1): [SPRD-8, SPRD-9, SPRD-10]
   - Spread: period (day, multiday, month, year) + normalized date. [SPRD-8]
   - Entry: protocol for task and note with type-specific behaviors. [SPRD-9]
   - Task: assignable entry with status and migration history. [SPRD-9, SPRD-10]
-  - Note: assignable entry with explicit-only migration. [SPRD-9, SPRD-34]
-  - TaskAssignment/NoteAssignment: period/date/status for migration tracking. [SPRD-10, SPRD-15]
-- Events are a v2 integration (calendar-backed date-range entries), not part of v1 UI/flows. [SPRD-57]
+  - Note: assignable entry with assignment history and no batch-migration prompts. [SPRD-9, SPRD-34, SPRD-186]
+  - TaskAssignment/NoteAssignment: preferred period/date plus current-destination/status history for migration tracking. Direct multiday assignments must identify the explicit multiday spread record rather than infer ownership only from `period + date`, because multiday spread uniqueness is range-based and legacy overlapping multiday records may still exist in synced data. [SPRD-10, SPRD-15, SPRD-193]
+- EventKit calendar events appear read-only alongside tasks and notes on day and multiday spreads; live-fetched from EventKit with no local caching or Supabase sync. [SPRD-57, SPRD-194, SPRD-195]
+- Day spread surfaces include a fixed-height day timeline card rendered above the entry list. The card shows a time ruler with hour labels on the left and EventKit event blocks positioned proportionally on the right. Events that overlap in time are rendered in start-time order with a leading indent on later-starting events so both are partially visible. The visible time window defaults to 6 AM–10 PM and is configurable at the call site. The card height is also configurable with a default of approximately 240pt. The timeline is absent when EventKit authorization is denied, restricted, or no events are present for the day. [SPRD-196, SPRD-197]
+- The `DayTimelineView` component lives in `johnnyo-foundation` (`JohnnyOFoundationUI` target) as a generic, provider-driven view. It depends on a `DayTimelineContentProvider` protocol whose conformer supplies per-item rendering via a typed `DayTimelineItemContext` view-builder method (mirroring the `CalendarContentGenerator` / `MonthCalendarDayContext` pattern) and a time-ruler label view-builder. Layout math (time-to-Y mapping, height, clamping, overlap detection, and overlap offsets) is owned by the package through a first-class `DayTimeCoordinateSpace` value type that lives in `JohnnyOFoundationCore`. The Spread app provides a `SpreadDayTimelineProvider` conformance that renders `CalendarEvent` items. [SPRD-196, SPRD-197]
 - JournalManager is the app's central journal facade and in-memory state owner. It owns repository coordination, cached journal state, data-model refresh, and app-facing mutation/query APIs, but business-rule engines should be extracted behind injected protocols so they can be unit tested independently and swapped when needed. [SPRD-11, SPRD-13, SPRD-15, SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
 - Two mode-specific spread rule sets over a shared UI architecture: [SPRD-25, SPRD-35, SPRD-38, SPRD-151]
-  - Conventional mode exposes only explicitly created spreads, including explicit multiday spreads, and shows migration/history affordances. [SPRD-25, SPRD-27, SPRD-30, SPRD-140, SPRD-151]
+  - Conventional mode exposes only explicitly created spreads, including explicit multiday spreads. Spread content is current-assignment-only; migration history is retained in assignments and surfaced only through dedicated migration affordances/feedback. Multiday is a first-class assignable period in conventional mode, but it remains an optional tool rather than a recommended or assumed spread type. [SPRD-25, SPRD-27, SPRD-30, SPRD-140, SPRD-151, SPRD-186, SPRD-193]
   - Traditional mode exposes year/month/day destinations through the same shared spread navigation and surface components, but applies traditional spread-availability and entry-inclusion rules and does not surface multiday destinations. [SPRD-35, SPRD-38, SPRD-151]
-- BuJo modes: "conventional" (explicit-spread-driven, migration history visible) and "traditional" (full year/month/day hierarchy, preferred-assignment driven). [SPRD-20, SPRD-17, SPRD-151]
+- BuJo modes: "conventional" (explicit-spread-driven, current-assignment content with dedicated migration flows) and "traditional" (full year/month/day hierarchy, preferred-assignment driven). [SPRD-20, SPRD-17, SPRD-151, SPRD-186]
 
 ## Goals
-- Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with an in-view horizontal spread navigator, a selected-spread navigator surface presented as an iPad popover and iPhone sheet, manual migration, and clear task history in conventional mode. [SPRD-25, SPRD-15, SPRD-29, SPRD-125, SPRD-126]
+- Deliver a tab-based bullet journal focused on spreads, tasks, and notes, with an in-view compact spread context bar, a selected-spread navigator surface presented as an iPad popover and iPhone sheet, and conventional-mode migration flows that preserve assignment history without leaving historical rows in spread content. [SPRD-25, SPRD-15, SPRD-29, SPRD-125, SPRD-126, SPRD-186]
 - Provide a unified spread-surface architecture where traditional mode reuses the same navigator, pager, header, section, and list components as conventional mode while preserving traditional spread availability and assignment semantics. [SPRD-17, SPRD-35, SPRD-38, SPRD-151]
 - Support offline-first usage with SwiftData local storage and Supabase sync. [SPRD-80, SPRD-85]
 - Require authentication for all product usage in dev/prod environments, while preserving offline access for users with an existing cached session and local data. [SPRD-104, SPRD-106]
@@ -42,7 +46,7 @@
   - Conventional explicit multiday spreads expose an `Edit Dates` action in the same spread actions menu as `Edit Name` and `Delete Spread`. The action is hidden for year/month/day spreads and hidden in traditional mode because traditional destinations are virtual and traditional mode does not surface multiday destinations. [SPRD-175]
   - `Edit Dates` opens the existing spread creation sheet in a focused edit mode for the selected multiday spread. Edit mode shows only multiday date-range controls and presets, uses title `Edit Dates`, keeps `Cancel` and `Save` toolbar actions, and does not expose spread type, custom name, dynamic naming, or favorite controls. [SPRD-174, SPRD-175]
   - Editing a multiday spread date range preserves the same spread record identity and keeps custom name, dynamic-name setting, and favorite state unchanged. It never deletes and recreates the spread. [SPRD-175]
-  - Multiday date editing follows the existing multiday creation date limits, except duplicate detection ignores the spread being edited. Save is disabled when the range is unchanged, invalid, or exactly duplicates another multiday spread. Partial overlaps remain allowed because overlapping multiday spreads are independent views. [SPRD-175]
+  - Multiday date editing follows the existing multiday creation date limits, except duplicate detection ignores the spread being edited. Save is disabled when the range is unchanged, invalid, or overlaps another multiday spread. Pre-existing overlapping multiday spreads already present in local or synced data are grandfathered legacy data, but new saves must reject overlaps rather than only exact duplicates. [SPRD-175, SPRD-193]
   - A successful date edit dismisses the sheet, keeps the edited spread selected by record identity, and lets the title navigator and content pager rebuild/recenter around the updated start/end range, including cross-year moves based on the new range start. [SPRD-175]
   - If local save fails, the edit sheet remains open, preserves the user's selected range, and shows an error alert. Later sync failures continue through the normal sync status/error surfaces. [SPRD-175]
   - A conventional-mode toolbar button presents a menu of favorited explicit spreads from the currently selected year only; selecting a favorite navigates the spread title navigator to that spread. [SPRD-169]
@@ -81,29 +85,28 @@
   - A true nil-assignment task is Inbox-first, remains in Inbox until explicitly assigned, never becomes overdue until it has a preferred assignment, and is unaffected by later spread creation. Due date can still highlight independently on open Inbox-first task rows. [SPRD-170]
   - Assigned tasks keep existing most-granular-valid spread resolution and Inbox fallback behavior. Tasks with a preferred assignment but no matching explicit spread remain in Inbox as `assigned, waiting for spread`. [SPRD-170]
   - The global Inbox keeps one list structure, but row metadata explicitly distinguishes true `Unassigned` tasks from `Assigned: ...` waiting-for-spread tasks. In traditional mode, true Inbox-first tasks appear only in the global task browser's Inbox until assigned. [SPRD-170]
-  - In task create/edit UI, assignment is controlled by an explicit optional `Assign to spread` section. Creating from an explicit year/month/day spread defaults assignment on and prefilled to that spread. Creating from an explicit multiday spread defaults assignment on and prefilled to the multiday range's start day at day granularity. Creating from a non-spread context defaults assignment off; if the user turns it on, it prepopulates today at day granularity. Editing a true nil-assignment task follows the same assign-on prefill. [SPRD-170]
+  - In task create/edit UI, assignment is controlled by an explicit optional `Assign to spread` section. Creating from an explicit year/month/day spread defaults assignment on and prefilled to that spread. Creating from an explicit multiday spread defaults assignment on and prefilled to that multiday spread as a true multiday assignment. Creating from a non-spread context defaults assignment off; if the user turns it on, it prepopulates today at day granularity. Editing a true nil-assignment task follows the same assign-on prefill. [SPRD-170, SPRD-193]
   - Editing an Inbox task shows `Assign to spread` on when it has a preferred assignment but no matching spread, and off only for true nil-assignment tasks. [SPRD-170]
   - Clearing assignment from a task with a real current open spread assignment moves it to Inbox and converts the current open assignment into historical migrated state. Clearing assignment from a task that only had an unmaterialized preferred assignment clears preferred assignment to nil without creating migrated history. [SPRD-170]
 - Explicitly deferred from `WKFLW-17`: links, tags, assigned time, subtasks, sequential/blocking task dependencies, hidden-on-spreads, status-model expansion, and nil-assignment parity for notes. These candidates are tracked for future prioritization in `Documentation/backlog.md`. [SPRD-167, SPRD-171]
 - Sync/conflict scope:
   - All approved persisted fields sync across devices in this branch. [SPRD-168]
   - New independently mergeable metadata fields use per-field conflict timestamps. Independent new metadata edits merge; same-field conflicts use per-field last-write-wins. Clearing an optional field to nil is a first-class edit and updates that field's timestamp. [SPRD-168]
-  - Multiday `Edit Dates` is an existing-record update that mutates the spread `date`, `startDate`, and `endDate` fields together from one user action, using the existing per-field timestamps for those fields. Delete still wins over concurrent date edits. No additional Supabase schema or RPC migration is intended unless implementation discovers the current merge path cannot persist these existing fields. [SPRD-175]
+  - Multiday `Edit Dates` is an existing-record update that mutates the spread `date`, `startDate`, and `endDate` fields together from one user action, using the existing per-field timestamps for those fields. Delete still wins over concurrent date edits. Because multiday can now own direct assignments, the sync model must preserve stable multiday spread identity across date edits and serialize direct multiday assignment ownership against that identity. [SPRD-175, SPRD-193]
   - Preferred assignment remains governed by existing assignment/status sync behavior rather than the new independent metadata conflict system. New task metadata is preserved against title edits, but assignment/status changes keep existing stronger behavior. [SPRD-168]
   - During migration/backfill, new field timestamps initialize from each record's existing sync/update timestamp rather than migration time or nil. Delete wins over concurrent edits to new metadata and never resurrects a deleted task or spread. [SPRD-168]
 - Local navigation display scope:
-  - Conventional mode title-strip display is controlled by a local per-device preference, persisted outside synced schema using `UserDefaults`/`@AppStorage` or an equivalent local-only settings store. [SPRD-176]
-  - The preference has two values: `Relevant Past Only` and `Show All Spreads`. `Relevant Past Only` is the default for new and existing installs after the feature lands. [SPRD-176]
-  - This preference does not require SwiftData/Supabase schema changes, does not sync across devices, and has no migration beyond choosing a local default when absent. [SPRD-176]
-  - The setting is exposed from Settings, not from the spread toolbar/title strip, with explanatory copy that filtered mode hides old completed past spreads and that the rooted chevron navigator remains the complete jump surface. [SPRD-176, SPRD-177]
+  - The persistent spread context bar is not a filterable timeline surface. It always renders only the current selection's compact context and does not expose a local per-device visibility mode. [SPRD-126]
+  - Full chronological browsing lives in the rooted navigator surface, which remains complete rather than locally filtered. [SPRD-125, SPRD-177]
+  - This redesign removes the need for the previous `Relevant Past Only` vs `Show All Spreads` display preference and its local-only persistence. [SPRD-176]
 
 ## Non-Goals (v1)
 - Advanced search and filters remain out of scope for v1. Task body participates in the existing global task browser search, but tags and tag filters are deferred beyond `WKFLW-17`. [SPRD-56, SPRD-167, SPRD-170]
 - Week period in Period enum or week-based task assignment. [SPRD-8, SPRD-56]
-- Automated migration. [SPRD-15, SPRD-56]
+- Fully automatic spread creation or recommendation of multiday spreads. Multiday remains an optional explicit tool rather than an assumed product workflow. [SPRD-56, SPRD-193]
 - Advanced collection types beyond plain text pages. [SPRD-39, SPRD-56]
 - Links, assigned time, subtasks, sequential/blocking dependencies, hidden-on-spreads behavior, status-model expansion, and nil-assignment parity for notes are deferred beyond `WKFLW-17` and tracked in `Documentation/backlog.md`. [SPRD-167, SPRD-171]
-- Events (manual creation or calendar integrations) are deferred to v2. [SPRD-69]
+- Manual event creation and Google Calendar OAuth are deferred to v2. [SPRD-69] Per-calendar visibility toggles and events on month/year spreads are deferred to follow-on tasks.
 - Localization - hardcoded English strings for v1. Revisit post-v1.
 - macOS support - planned for future versions.
 - Realtime updates (Supabase Realtime) in v1.
@@ -116,8 +119,8 @@
 ### Multiplatform Strategy
 - Adaptive layouts using size classes: [SPRD-19, SPRD-25]
   - A single top-level `TabView` is used for all devices. [SPRD-143]
-  - Regular width (iPad): the root `TabView` uses SwiftUI's sidebar-adaptable presentation so top-level destinations are surfaced through Apple's adaptive sidebar/tab model rather than a custom `NavigationSplitView`. Spread navigation stays in the spread view via a centered horizontal spread-title navigator, whose fixed leading chevron affordance opens the complete rooted spread navigator popover.
-  - Compact width (iPhone): the same root `TabView` presents as a bottom tab bar; the same centered horizontal spread-title navigator appears in the spread view, and its fixed leading chevron affordance opens the same rooted spread navigator content in a large sheet.
+  - Regular width (iPad): the root `TabView` uses SwiftUI's sidebar-adaptable presentation so top-level destinations are surfaced through Apple's adaptive sidebar/tab model rather than a custom `NavigationSplitView`. Spread navigation stays in the spread view via a compact spread context bar, whose fixed leading chevron affordance opens the complete rooted spread navigator popover.
+  - Compact width (iPhone): the same root `TabView` presents as a bottom tab bar; the same compact spread context bar appears in the spread view, and its fixed leading chevron affordance opens the same rooted spread navigator content in a large sheet.
   - Top-level destinations remain flat, first-class destinations: `Spreads`, `Collections`, `Settings`, and `Debug` when available. [SPRD-19, SPRD-143]
   - User tab/sidebar customization is out of scope for v1; the adaptive tab structure is app-defined and non-customizable. [SPRD-143]
   - `NavigationTab` remains the single source of truth for top-level destination identity and selection. [SPRD-143]
@@ -136,9 +139,9 @@
 - Entry: Protocol defining shared behavior (id, title, createdDate, entryType). [SPRD-9]
 - Entry types are separate SwiftData @Model classes for type-safe queries and scalability. [SPRD-9]
 - EntryType enum: `.task`, `.note` (v1) - used for UI rendering and type discrimination. [SPRD-9]
-- `.event` entry type is reserved for v2 integration and not exposed in v1. [SPRD-57]
+- `.event` entry type and `DateRangeEntry` protocol remain reserved for a future persisted Event @Model. [SPRD-57]
 - AssignableEntry protocol (Task, Note): adds date, period, assignments array. [SPRD-9]
-- DateRangeEntry protocol (Event) is reserved for v2 calendar integration. [SPRD-57]
+- `CalendarEvent` is a lightweight value type (not an Entry) representing a live-fetched EventKit event; it is not persisted, not assigned, and not part of the Entry protocol hierarchy. [SPRD-194]
 
 ### Spread
 - A journaling page tied to a time period and normalized date. [SPRD-8]
@@ -147,19 +150,65 @@
 - Persisted explicit spreads support user-scoped personalization metadata as part of `WKFLW-17`: favorite state, optional custom name override, and dynamic naming enabled state. These fields do not apply to traditional virtual destinations. [SPRD-169]
 - Custom name override is the highest-priority display label. When no override exists and dynamic naming is enabled, qualifying explicit spreads use live relative names; otherwise they use canonical date titles. Relative names never create a new period or assignment granularity. [SPRD-169]
 - Persisted explicit spreads can be deleted from the conventional-mode spread actions menu. Deleting a spread does not delete tasks or notes; existing spread deletion rules migrate entry assignments to the nearest parent spread or Inbox. The user-facing behavior is permanent deletion with no restore/trash flow, backed by the existing local hard delete plus sync tombstone/delete-wins architecture. [SPRD-173]
-- Persisted explicit multiday spreads can be date-edited from the conventional-mode spread actions menu. Editing a multiday range updates the same spread record's existing date/range fields, preserves personalization, and does not change task/note assignment because multiday spreads aggregate existing day ranges rather than owning direct entry assignments. [SPRD-175]
+- Persisted explicit multiday spreads can be date-edited from the conventional-mode spread actions menu. Editing a multiday range updates the same spread record's existing date/range fields, preserves personalization, and keeps existing direct multiday assignments attached to that spread record identity. [SPRD-175, SPRD-193]
+- New multiday spreads must not overlap other multiday spreads. Existing overlapping multiday spreads already present in local or synced data are grandfathered as legacy data, but create/edit validation for newly saved multiday ranges must reject any overlap. [SPRD-193]
+
+### AppClock and Temporal Context
+- The app must not treat `today` or equivalent temporal context as launch-time-only state for product semantics that are defined relative to the current date, calendar, time zone, or locale. [SPRD-179]
+- `AppClock` is a single app-wide temporal-context service with scene lifecycle inputs. The service is shared across windows/scenes, while scene activation/foreground events may trigger refreshes into that shared instance. [SPRD-179]
+- `AppClock` owns only system temporal context and derived semantic change metadata:
+  - current reference time (`now`)
+  - current system `Calendar`
+  - current system `TimeZone`
+  - current system `Locale`
+  - semantic change facts such as whether a refresh crossed a day boundary or was triggered by a significant time change [SPRD-179]
+- `AppClock` does not own app product settings such as BuJo mode or first-weekday preference. Consumers compose those settings with clock state when needed. [SPRD-179]
+- `AppClock` is infrastructure only. It observes and publishes temporal reality, but it does not decide product behavior such as whether a spread should remain selected or how overdue is evaluated. That policy remains in injected business-rule services, JournalManager orchestration, and view-local rendering code. [SPRD-179]
+- `AppClock` should be implemented as a concrete observable service with injectable low-level collaborators such as current-time providers and notification/lifecycle bridges rather than as a top-level protocol-backed service abstraction. [SPRD-179]
+- View-layer access to `AppClock` should be provided through the SwiftUI environment so descendant views can read temporal context without prop drilling. Non-view infrastructure such as `JournalManager`, coordinators, and rule engines must still receive explicit constructor-injected access to the same shared instance or to explicit temporal inputs; the app must not rely on view-only environment lookup inside core services. [SPRD-179]
+- Time-sensitive pure logic should receive explicit temporal input values from higher layers where practical rather than reaching into shared mutable state directly. `JournalManager` and view models may read from `AppClock`, but evaluators, builders, formatters, and support-layer helpers should prefer explicit reference-date and temporal-context parameters when feasible so tests remain deterministic. [SPRD-180]
+- `AppClock` must react automatically to all temporal-context changes that can alter app semantics or date rendering:
+  - scene/app activation and foreground return
+  - significant time change notifications
+  - calendar-day-changed notifications
+  - system time-zone changes
+  - current locale changes
+  - current system calendar changes where the underlying Foundation notifications/messages indicate a change in user date preferences [SPRD-179]
+- Automatic temporal refresh is passive with respect to spread selection. When temporal context changes, the app must refresh semantics such as labels, recommendations, badges, overdue state, and `Today` behavior without automatically navigating away from the currently selected spread. [SPRD-179]
+- Open create/edit sessions freeze their user-editable draft state and defaulted form inputs at presentation time. Temporal changes may refresh display-only labels around those forms, but they must not silently rewrite the user's current draft values or defaulted assignment/date choices while the form remains open. [SPRD-179]
+- The app uses a hybrid recomputation model:
+  - shared app semantics that are broadly reused may refresh eagerly on coarse `AppClock` changes
+  - pure formatting and view-local checks should remain lazy and derive from current temporal input at render/use time [SPRD-180]
+- `AppClock` must not become a global minute ticker for the whole app. Minute-level rendering is view-local:
+  - app-wide semantic changes are driven by coarse temporal refreshes only
+  - views that truly need minute-aligned updates, such as a future current-time line on a day calendar or minute-relative labels, must use local timeline-based rendering such as `TimelineView(.everyMinute)` or an equivalent local schedule [SPRD-179]
+- The spec-defined time-sensitive behaviors that must become correct under `AppClock` include:
+  - dynamic spread names such as `Today`, `Yesterday`, `This month`, `Next week`
+  - `Today` button target resolution and passive today emphasis
+  - overdue evaluation and overdue badge visibility
+  - today-based spread recommendations
+  - day/month/year/multiday visual today states
+  - future day-calendar current-time indicators and similar local live-time surfaces [SPRD-179, SPRD-180]
+- Debug and test infrastructure must support both:
+  - startup-fixed temporal context for deterministic scenario seeding
+  - runtime-controllable temporal context so tests can advance time, cross midnight, simulate significant time changes, and change time zone/locale/calendar context without relaunching the app [SPRD-181]
 
 ### Spread Periods
 - Creatable periods: year, month, day, multiday. [SPRD-8]
-- Task/Note assignable periods: year, month, day only. [SPRD-13]
-- Multiday spreads aggregate entries by date range; no direct entry assignment to multiday. [SPRD-18]
-- Period hierarchy: year → month → day (for migration and assignment). [SPRD-8]
+- Task/Note assignable periods: year, month, multiday, day. [SPRD-13, SPRD-193]
+- Multiday is a first-class preferred period and current assignment destination when the user explicitly assigns to an existing multiday spread or when waterfall reassignment resolves a finer preferred date into an existing multiday spread. Multiday is still optional product behavior: recommendations and default spread expectations never assume users will create multiday spreads. [SPRD-18, SPRD-193]
+- Period hierarchy for explicit-spread resolution is year → month → multiday → day. Resolution still respects the entry's preferred-period ceiling:
+  - year-preferred entries resolve only across year
+  - month-preferred entries resolve across month → year
+  - multiday-preferred entries resolve across explicit multiday → month → year
+  - day-preferred entries resolve across day → containing multiday → month → year [SPRD-8, SPRD-13, SPRD-193]
+- For grandfathered legacy overlap data only, when multiple existing multiday spreads contain the same date and automatic resolution must choose among them, the resolver prefers the narrowest containing multiday range and breaks ties using the app's existing chronological spread ordering. [SPRD-193]
 
 ### Task
 - Inherits Entry protocol. [SPRD-9]
 - Has status: open, complete, migrated, cancelled. [SPRD-10]
 - `migrated` is system-derived historical assignment state and is not user-editable in the task edit sheet. [SPRD-141]
-- Can be assigned to year, month, or day spreads. [SPRD-13]
+- Can be assigned to year, month, multiday, or day spreads. [SPRD-13, SPRD-193]
 - A task may have a desired assignment defined by a preferred `date` and preferred `period`; when no preferred assignment exists, the task remains in Inbox until explicitly assigned. [SPRD-24, SPRD-110, SPRD-170]
 - A task's due date is distinct from its assignment target. Due date is informational display metadata only; it does not move the task between spreads, place it in Inbox, affect migration, or determine overdue membership. [SPRD-170]
 - `WKFLW-17` task metadata includes one optional plain multiline body field, one optional day-level due date, and one non-null display-only priority enum (`none`, `low`, `medium`, `high`). These are task-level properties, not assignment-level properties. [SPRD-170]
@@ -177,7 +226,7 @@
 - Inherits Entry protocol. [SPRD-9]
 - Has status: active, migrated. [SPRD-9]
 - Behaves like tasks for spread assignment (date, period, assignments). [SPRD-9, SPRD-34]
-- Can migrate only when user explicitly requests (never suggested in batch migration). [SPRD-15, SPRD-34]
+- Uses the same preferred-date/preferred-period assignment resolution as tasks, including first-class multiday assignment semantics. Notes are never suggested in batch migration UI, but explicit spread creation may automatically move them to the best newly available destination under the same hierarchy rules as tasks. [SPRD-15, SPRD-34, SPRD-186, SPRD-193]
 - May have longer content field for extended notes. [SPRD-9]
 - Symbol: dash (—). [SPRD-21]
 - Status visual treatment: [SPRD-22, SPRD-64]
@@ -187,8 +236,8 @@
 ### Migration
 - Moving a task/note from a parent spread to a child spread. [SPRD-15]
 - Source assignment status becomes migrated; destination assignment becomes open/active. [SPRD-15]
-- Manual only - user must trigger migration. [SPRD-15]
-- Notes migrate only via explicit action (not in batch suggestions). [SPRD-15, SPRD-34]
+- Manual migration remains available through explicit user actions. In addition, creating an explicit year/month/day/multiday spread automatically reconciles eligible current tasks and notes to the best available destination in that hierarchy using preferred-date/preferred-period rules. Multiday participation is optional rather than recommendation-driven: the system never recommends creating multiday spreads, but once an explicit multiday spread exists it participates in waterfall assignment and auto-migration. [SPRD-15, SPRD-34, SPRD-186, SPRD-193]
+- Notes are never suggested in batch migration UI, even though spread creation can automatically reconcile them. [SPRD-15, SPRD-34, SPRD-186]
 - Migration prompt logic in v1 applies to tasks only and only in conventional mode. [SPRD-110, SPRD-140]
 - A task is eligible to migrate into a spread only when all of the following are true: [SPRD-110]
   - The task has a current open assignment on a coarser source (`Inbox`, year, or month/day parent) aligned to the destination's date hierarchy.
@@ -199,8 +248,9 @@
 - Migration prompt source rules: [SPRD-110]
   - A year spread may pull from `Inbox` only.
   - A month spread may pull from `Inbox` and year spreads.
-  - A day spread may pull from `Inbox`, month spreads, and year spreads.
-  - Multiday spreads never show migration prompts and never receive direct assignment migrations.
+  - A multiday spread may pull eligible day-preferred and multiday-preferred entries from `Inbox`, year spreads, and month spreads when the entry's preferred date falls inside the multiday range and no finer explicit destination already exists.
+  - A day spread may pull from `Inbox`, multiday spreads, month spreads, and year spreads.
+  - Multiday spreads never appear in spread recommendations and are never treated as expected-created spreads, but they may receive direct assignments and automatic waterfall migration once they exist. [SPRD-193]
 - Source-spread migration affordance: [SPRD-140]
   - In conventional mode, an active task row shows a trailing right-arrow button only when that task has a smaller valid existing destination spread.
   - Tapping the arrow presents a confirmation alert that explicitly names the destination spread the task will be moved to.
@@ -212,15 +262,14 @@
   - The section lists one row per migratable task; tapping a row migrates that task into the current destination spread without additional confirmation.
   - The old migration banner and migration review sheet are removed from this flow.
 - Post-migration source behavior: [SPRD-140]
-  - A migrated task leaves the source spread's active task list.
+  - A migrated task leaves the source spread's content entirely.
   - The source assignment remains in history with migrated status.
-  - The source spread shows migrated tasks in a disabled `Migrated tasks` subsection.
-  - This migrated subsection behavior applies on all spread types that can host tasks.
+  - Spread content does not retain migrated rows or a `Migrated tasks` subsection after reassignment. [SPRD-186]
 - Migration prompting examples: [SPRD-110]
-  - Example A: `2026` and `January 2026` exist. A task desired for `January 1, 2026` day is currently open on `January 2026`. When `January 1, 2026` day is created, that day spread prompts migration.
-  - Example B: `2026` exists. A task desired for `January 2026` month is open on `2026`. When `January 2026` is created, the month spread prompts migration. If `January 10, 2026` is later created, that day spread does not prompt for this task because day is more granular than the task's desired assignment.
-  - Example C: A task desired for `January 10, 2026` day is in `Inbox`. If `2026`, `January 2026`, and `January 10, 2026` all exist, only `January 10, 2026` prompts it because that is the most granular valid existing destination.
-  - Example D: A task desired for `January 10, 2026` day is open on `2026`. If `January 2026` exists and `January 10, 2026` does not, the month spread prompts it. Once the day spread exists, the month prompt disappears and only the day spread prompts it.
+  - Example A: `2026` and `January 2026` exist. A task desired for `January 1, 2026` day is currently open on `January 2026`. When `January 1, 2026` day is created, the task automatically moves to that day spread.
+  - Example B: `2026` exists. A task desired for `January 2026` month is open on `2026`. When `January 2026` is created, the task automatically moves to the month spread. If `January 10, 2026` is later created, that day spread does not move this task because day is more granular than the task's desired assignment.
+  - Example C: A task desired for `January 10, 2026` day is in `Inbox`. If `2026`, `January 2026`, and `January 10, 2026` all exist, only `January 10, 2026` receives it because that is the most granular valid existing destination.
+  - Example D: A task desired for `January 10, 2026` day is open on `2026`. If `January 2026` exists and `January 10, 2026` does not, the task resolves to the month spread. Once the day spread exists, it automatically moves again to the day spread.
 - Migration scenario table (absolute-date reference cases): [SPRD-113]
 
 | Scenario date context | Task desired assignment | Current source | Existing valid spreads | Prompted destination | Why |
@@ -232,7 +281,7 @@
 | `January 12, 2026` | `January 10, 2026` day | `Inbox` | `2026`, `January 2026`, `January 10, 2026` | `January 10, 2026` | Inbox follows the same most-granular-valid-existing-destination rule as spread-assigned tasks. |
 
 ### BuJo Mode
-- Conventional: show migration history across spreads, tasks appear on multiple spreads. [SPRD-29]
+- Conventional: show only current assignments in spread content while preserving assignment history for migration logic and feedback. [SPRD-29, SPRD-186]
 - Traditional: show entries only on their preferred assignment, no migration history visible, and expose the full year/month/day hierarchy through the same shared spread navigation and surface components used by conventional mode. [SPRD-17, SPRD-35, SPRD-151]
 
 ### Journal Logic Architecture
@@ -323,29 +372,33 @@
 - Multiday creation can start in the past if it is within the current week. [SPRD-12, SPRD-50]
 - Multiday presets follow user's first day of week setting; allow override in creation UI. [SPRD-8, SPRD-26, SPRD-49]
 - Multiday spreads are creatable (range can be custom start/end or presets like "this week"/"next week"). [SPRD-8, SPRD-26]
-- Multiday spreads aggregate entries by date range; entries are not assigned directly to multiday. [SPRD-18, SPRD-13]
+- New multiday spreads must not overlap existing multiday spreads; create/edit validation blocks overlaps while grandfathering pre-existing legacy overlaps in synced data. [SPRD-193]
+- Multiday spreads are directly assignable destinations. The app never recommends creating them, but once they exist they participate in conventional assignment resolution and migration as explicit optional tools. [SPRD-18, SPRD-13, SPRD-193]
 
 ### Spread Deletion
 - Deleting a year/month/day spread reassigns all entries (open, completed, migrated) to the parent spread. [SPRD-15]
 - If no parent spread exists, entries go to Inbox. [SPRD-14, SPRD-15]
 - Entries are NEVER deleted when a spread is deleted; history is preserved. [SPRD-15]
 - Deletion is blocked if it would orphan entries with no valid destination. [SPRD-15]
-- Multiday spread deletion is a simple delete with no reassignment needed (multiday spreads aggregate entries by date range and have no direct assignments). [SPRD-18]
+- Deleting a multiday spread reassigns its entries through the normal non-multiday fallback hierarchy based on each entry's preferred date and preferred period, or Inbox when no valid explicit destination exists. Entries are never deleted. [SPRD-18, SPRD-193]
 
 ### Entries (Tasks/Notes)
 - Create entries with title, preferred date, preferred period, and type. [SPRD-9, SPRD-23]
 - Tasks support status (open/complete/migrated/cancelled). [SPRD-9, SPRD-24]
 - Notes support status (active/migrated). [SPRD-9]
-- Tasks and notes can be assigned to year, month, or day spreads. [SPRD-13]
+- Tasks and notes can be assigned to year, month, multiday, or day spreads. [SPRD-13, SPRD-193]
 - Notes are not suggested for batch migration but can be migrated explicitly. [SPRD-15, SPRD-34]
 - Creating entries for past dates is not allowed in v1. [SPRD-23, SPRD-56]
 - Task creation UI (v1): [SPRD-23, SPRD-71]
-  - Task creation uses a sheet with title + period (year/month/day) + period-appropriate date controls.
+  - Task creation uses a sheet with title + period (year/month/multiday/day) + period-appropriate controls.
   - Defaults to the selected spread's period/date; if none selected, uses initial selection logic. [SPRD-25]
   - Date validation uses period-normalized comparison (current month/year allowed). [SPRD-23]
   - Inline validation with Create button shown after first edit; whitespace-only titles are invalid. [SPRD-23]
   - Optional picker to choose from existing spreads or select a custom date; choosing a date without a matching spread is allowed (Inbox fallback). [SPRD-71, SPRD-14]
-  - Spread picker lists created spreads chronologically with period filter toggles; multiday items expand to show contained dates (day selections appear on multiday). [SPRD-71]
+  - A unified assignment picker replaces the old split between period/date pickers and `select from existing spread`:
+    - `year`, `month`, and `day` show all valid assignment destinations for the chosen preference, with already-created explicit spreads visually distinguished from uncreated implicit destinations
+    - `multiday` shows only already-created explicit multiday spreads
+    - choosing an uncreated `year`, `month`, or `day` destination is allowed and follows the existing fallback behavior until that explicit spread is created [SPRD-71, SPRD-14, SPRD-193]
 - Task edit UI (v1): [SPRD-24, SPRD-141]
   - Task edit uses the same shared period/date normalization path as task creation.
   - The edit sheet does not expose `migrated` as a selectable status.
@@ -358,7 +411,7 @@
   - When draft status is `complete` or `cancelled`, period/date controls remain visible but are disabled; assignment history remains visible.
   - If draft status is returned to `open` before save, period/date controls become editable again immediately.
 - Delete entries across all spreads. [SPRD-11, SPRD-5]
-- Events are deferred to v2 and not available in v1. [SPRD-69]
+- EventKit events appear read-only on day and multiday spreads. [SPRD-194, SPRD-195]
 
 ### Entry Date/Period Changes (Reassignment)
 - Changing preferred date or period triggers reassignment logic in conventional mode. [SPRD-24]
@@ -367,7 +420,11 @@
 - In the edit sheet, reassignment is the user-facing way to migrate a task; changing preferred date and/or period updates the preferred assignment, and the previous assignment becomes migrated history if reassignment occurs. [SPRD-141]
 - Old assignments (on old date/period's spreads) are marked as migrated to preserve history. [SPRD-24]
 - New assignment is created on the best matching spread for the new date/period: [SPRD-24, SPRD-13]
-  - Search from finest to coarsest: day → month → year.
+  - Search from finest to coarsest within the preferred-period ceiling:
+    - day-preferred: day → containing multiday → month → year
+    - multiday-preferred: explicit multiday → month → year
+    - month-preferred: month → year
+    - year-preferred: year [SPRD-24, SPRD-13, SPRD-193]
   - If a matching spread exists, create/update assignment with open/active status.
   - If no matching spread exists, entry goes to Inbox.
 - If destination spread already has an assignment, update its status (don't duplicate). [SPRD-52]
@@ -385,6 +442,7 @@
 - Only tasks whose current actionable state is `open` can be overdue. Completed, migrated-history-only, and cancelled tasks are not overdue. [SPRD-112]
 - Overdue is determined by the task's current open assignment when one exists. [SPRD-112]
   - Day-assigned task: overdue after that assigned day has passed.
+  - Multiday-assigned task: overdue after that assigned multiday spread's end date has passed.
   - Month-assigned task: overdue only after the assigned month has fully passed.
   - Year-assigned task: overdue only after the assigned year has fully passed.
 - If a task is still in `Inbox`, overdue falls back to the task's desired assignment period/date. [SPRD-112]
@@ -415,7 +473,7 @@
 - Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
 - Cancelled tasks are excluded from Inbox. [SPRD-16]
 - A standalone `Today` text button appears as a `.glassEffect` overlay button anchored to the bottom-leading corner of the spread content view on both iPhone and iPad. It is always visible regardless of the currently selected spread. [SPRD-130]
-- Pressing `Today` navigates to the smallest-granularity spread containing the current absolute today date and synchronizes all spread navigation surfaces, including the selected spread, horizontal title strip, and horizontal content pager. [SPRD-130]
+- Pressing `Today` navigates to the smallest-granularity spread containing the current absolute today date and synchronizes all spread navigation surfaces, including the selected spread, compact spread context bar, and horizontal content pager. [SPRD-130]
 - Conventional mode `Today` target resolution: [SPRD-130]
   - Prefer an explicit day spread for today when it exists.
   - Otherwise prefer the narrowest explicit multiday spread whose range contains today.
@@ -424,7 +482,7 @@
   - If multiple multiday spreads contain today, choose the narrowest containing range; break ties by the existing chronological spread ordering.
   - If no explicit spread contains today, the button currently does nothing.
 - Traditional mode `Today` always navigates to the traditional day destination for today. [SPRD-130]
-- If `Today` is pressed while today is already the selected spread, it still recenters the title strip and content pager on today's selection if needed. [SPRD-130]
+- If `Today` is pressed while today is already the selected spread, it still refreshes the compact context bar and content pager on today's selection if needed. [SPRD-130]
 
 ### Navigation and UI
 - Spread navigation uses an in-view hierarchical tab bar on both iPad and iPhone; it handles navigation between spreads only. [SPRD-19, SPRD-25]
@@ -436,53 +494,26 @@
 - Search results are grouped into hidden-when-empty sections:
   - `Inbox` first.
   - Remaining sections follow the same ordering model as `SpreadTitleNavigatorView` for the active mode (`conventional` vs `traditional`). [SPRD-148]
-- The global task browser uses the complete spread ordering model, not the local title-strip relevance filter. Hidden past title-strip items do not hide or reorder search sections. [SPRD-176]
+- The global task browser uses the complete spread ordering model. There is no compact-bar-specific filtering layer that can hide or reorder search sections. [SPRD-176]
 - Each task appears exactly once in search, under the spread where it is currently shown. Migrated historical entries are excluded. [SPRD-148]
 - Tapping a search result navigates to the task's current spread and then opens the task edit sheet there. [SPRD-148]
-- Horizontal spread-title navigator behavior: [SPRD-126, SPRD-127, SPRD-176, SPRD-177]
+- Spread context bar behavior: [SPRD-126, SPRD-177]
   - Periods shown remain year → month → (day, multiday); no week period. [SPRD-8, SPRD-126]
-  - The navigator replaces the old top spread selection bar and becomes the primary in-view spread-selection control on both iPhone and iPad. [SPRD-126]
-  - The navigator is a horizontal scroll view of spread titles ordered according to the app's actual navigable spread sequence for the selected year in the current mode. [SPRD-126, SPRD-127]
-  - As long as selection stays within the same year, the strip contents do not rescope based on whether the selected spread is a year, month, day, or multiday spread. [SPRD-127]
-  - Conventional mode title-strip visibility depends on the local title-strip display preference. `Show All Spreads` shows all explicit spreads that exist in the selected year, in chronological order, including explicit year, month, day, and multiday spreads. `Relevant Past Only` uses the same chronological ordering but filters irrelevant past explicit spreads before rendering. [SPRD-127, SPRD-176]
-  - In `Relevant Past Only`, current and future conventional explicit spreads always remain visible. A past conventional explicit spread remains visible only when it is favorited or currently shows at least one open task. Completed, cancelled, migrated-history-only tasks, notes, and events do not preserve past spread visibility. [SPRD-176]
-  - Past is period-specific: a day spread is past after that day has fully passed; a month spread is past after that month has fully passed; a year spread is past after that year has fully passed; a multiday spread is past after its end date has passed. [SPRD-176]
-  - Open-task relevance uses existing display/inclusion rules. Year/month/day spreads are relevant when they currently show at least one `.open` task under existing conventional spread-resolution rules. Multiday spreads are relevant when at least one `.open` task has a preferred assignment date inside the multiday range under existing multiday inclusion behavior. [SPRD-176]
-  - When a conventional-mode day spread and multiday spread share the same start date, the multiday item appears before the day item in the strip ordering. [SPRD-127]
-  - Traditional mode is not affected by the title-strip display preference. It continues to show the full selected calendar year inline as a single chronological sequence: the year item, each month item, and every day in that year; traditional mode does not include multiday items in the strip. [SPRD-127, SPRD-176]
-  - When selection moves to a spread in a different year, the strip rebuilds to that new year's sequence. [SPRD-127]
-  - The currently selected spread is centered in the strip on launch when it is visible in the current title-strip display mode. Strip-originated spread selections animate the strip to the selected spread. Intentional non-strip jump actions such as `Today` and rooted spread-surface selection recenter the strip when the selected spread is visible, or activate the leading selected proxy when it is hidden by the filter. Pager-driven selection changes do not automatically recenter the strip; they preserve the current strip browse offset while updating selection state or the hidden-selection proxy. [SPRD-126, SPRD-127, SPRD-136, SPRD-176, SPRD-177]
-  - The selected spread is rendered with a small indicator dot beneath the selected title. [SPRD-126, SPRD-127, SPRD-136]
-  - If the selected spread is hidden by `Relevant Past Only`, selection remains valid and the app does not force navigation to another spread. The fixed leading rooted-navigator chevron acts as a selected-state proxy: it uses selected styling and receives the same indicator dot underneath, animated smoothly into the chevron position. [SPRD-176, SPRD-177]
-  - Non-selected visible spreads are rendered as plain text titles with hierarchy-aware styling. [SPRD-126]
-  - Inline month items in the strip should have subtle spacing/separator treatment so month boundaries remain readable within the year-wide sequence. [SPRD-127]
-  - The strip passively emphasizes the item representing today's navigable destination even when it is not selected, using a shared configurable today-emphasis color token and a slight weight increase. [SPRD-144]
-  - Today emphasis in the strip uses the same resolution semantics as the `Today` button: in conventional mode it highlights the destination that `Today` would navigate to, and in traditional mode it highlights today's traditional day destination. [SPRD-144]
-  - Strip styling distinguishes four states: non-today selected, non-today unselected, today selected, and today unselected. [SPRD-144]
-  - The navigator preserves a centered selected slot even near list edges or when fewer than five spreads exist by using invisible spacer slots rather than collapsing the layout around the selected item. [SPRD-126]
-  - The number of neighboring visible titles is adaptive to available width; it is not hardcoded per device class. Partially visible edge titles are allowed to signal additional offscreen spreads. [SPRD-126]
-  - Horizontal drag is browse-only in this task: the user may scroll and snap the strip without changing the currently selected spread or the main spread content. [SPRD-127]
-  - Selection does not update continuously during drag or on drag settle. [SPRD-127]
-  - Tapping a visible non-selected spread selects it, updates the main app spread content, and animates that spread into the centered selected position. Tapping the selected title-strip item does not open the rooted navigator; rooted navigation is owned by the fixed leading chevron affordance. [SPRD-126, SPRD-127, SPRD-177]
-  - The selected spread always retains its selected-state indicator styling while browsing; browsing the strip does not hide selected-state styling. [SPRD-127]
-  - The horizontal title strip provides a fixed leading chevron affordance that opens the rooted spread navigator. The affordance is outside the scrollable title content and remains visible while the strip scrolls. [SPRD-177]
-  - Each title-strip item can render at most one top-right badge from a prioritized badge enum. Priority is `overdue(count)` first, then `favorite`; lower-priority badges are hidden when a higher-priority badge exists. [SPRD-178]
-  - `overdue(count)` uses the existing red numeric count badge language, including exact uncapped counts. `favorite` uses a yellow `star.fill` icon badge in the same badge slot. [SPRD-147, SPRD-178]
-  - Conventional explicit year/month/day/multiday spreads can show either badge in both `Relevant Past Only` and `Show All Spreads`. Traditional virtual year/month/day items participate in the same badge enum for overdue counts only; favorite badges never apply to traditional virtual destinations. [SPRD-169, SPRD-176, SPRD-178]
-  - Badge accessibility labels are semantic, such as `3 overdue tasks`, `3 overdue tasks in this date range`, or `Favorited spread`. Badge accessibility identifiers include the badge kind plus the spread date/period, such as `overdue-2026-03-01-day` or `favorite-2026-01-01-year`, so tests can target a specific spread's badge. [SPRD-178]
-  - The strip uses browse-only snapping while preserving the user's browse offset across layout-width changes when the strip is already browsed away from the selected spread. If the strip is currently centered on the selected spread, width changes keep it centered. This preserves browsing position, but may leave the selected spread visually off-center after some width changes and should be monitored as a potential UX bug. [SPRD-136]
-  - The spread header no longer renders a duplicate spread title once this navigator is present. [SPRD-126]
+  - The context bar replaces both the old top spread selection bar and the exploratory inline scrolling title strip. It becomes the primary persistent spread-navigation chrome on both iPhone and iPad. [SPRD-126]
+  - The context bar is not a horizontal browse surface. It renders only the current selection's compact identity and delegates full chronological browsing to the rooted navigator surface. [SPRD-125, SPRD-126, SPRD-177]
+  - A fixed leading chevron affordance opens the rooted spread navigator. The affordance remains visible at all times and does not scroll independently from the rest of the bar. [SPRD-177]
+  - The context area shows the current spread only:
+    - a primary label for the current display title
+    - compact secondary canonical date context when needed, especially for personalized spread names
+    - no duplicate large header title elsewhere in the spread content surface [SPRD-126, SPRD-129, SPRD-172]
+  - The bar must remain compact and stable across modes and widths. It should not reserve centered timeline slots, introduce broad empty gutters, or grow into a tall band when the selected spread changes. [SPRD-126]
+  - The bar does not support drag browsing, collapsed hidden groups, recenter buttons, or offscreen-selected proxies because the persistent surface no longer represents the full selected-year sequence inline. [SPRD-127, SPRD-136, SPRD-176, SPRD-198]
+  - Today emphasis applies only to the current selected spread shown in the compact bar. Broader passive cross-spread emphasis belongs in the rooted navigator surface. [SPRD-144]
   - A trailing "+" button remains always visible and opens a creation menu (spread or task). [SPRD-23, SPRD-26, SPRD-126]
   - Navigator label refinements: [SPRD-129]
     - The spread content surface removes the duplicate `Spreads` title, while higher-level container navigation titles may remain when needed. [SPRD-129]
-    - Year items use a stacked treatment with the leading century digits rendered smaller above the larger trailing two digits, while accessibility continues to expose the plain spoken year value such as `2026`. [SPRD-129]
-    - Month items remain single-line labels but use a more expressive typographic treatment than plain body text. [SPRD-129]
-    - Day items render as a three-line label with a smallcaps month abbreviation above the day number and a short weekday label beneath it. [SPRD-129]
-    - Multiday items render as a three-line label:
-      - same-month ranges show a smallcaps month abbreviation above a compact day range and a short weekday span beneath it
-      - cross-month ranges show a smallcaps month span above the compact endpoint day range and a short weekday span beneath it [SPRD-129]
-  - The strip height is content-driven with a minimum visual floor; it must not be hardcoded. The strip expands to fit its tallest item label (including multi-line day and multiday items) plus adequate vertical padding so the selected indicator and labels are never clipped or overlapped by sibling views. [SPRD-136]
-  - Scrolling the title strip is isolated from the content pager. Strip scroll events must not propagate to the pager or change the selected spread unless the user explicitly taps a strip item. [SPRD-136]
+    - Personalized labels remain primary when present; canonical date context is shown as secondary support text where space allows. [SPRD-169, SPRD-172]
+  - The context bar height is content-driven with a compact visual floor; it must not be hardcoded or allowed to expand to absorb unrelated vertical space from surrounding layout. [SPRD-136]
 
 ### Shared Spread Surface Architecture
 - Conventional and traditional modes must render through the same shared spread UI architecture. [SPRD-151]
@@ -506,7 +537,9 @@
   - `SpreadDataModel` remains the core domain input
   - mode-specific builders/adapters translate domain state into shared UI configuration
 - Mode-specific inclusion rules remain explicit even when visual components are shared. [SPRD-151]
-  - Example: in conventional mode, a month surface may include day-assigned tasks that have not yet been taken over by explicit day spreads; in traditional mode, the month surface includes only month-assigned tasks because day-assigned tasks belong on day surfaces.
+  - Conventional spread content is driven by current live assignment only. Spread content does not retain migrated-history rows or source-history sections after an entry has been reassigned elsewhere. [SPRD-186]
+  - Parent spreads may still organize currently assigned entries into calendar-derived presentation sections. For example, year spreads may organize year-assigned entries under month cards, and month spreads may organize month-assigned day-period entries under day sections, without changing the underlying current assignment. [SPRD-186]
+  - In traditional mode, shared surface layouts remain aligned with the same visual system, but availability and navigation semantics continue to follow the traditional calendar hierarchy rather than explicit-spread existence. [SPRD-186]
 
 ### Shared Foundations Package
 - The repository may contain a local Swift Package named `johnnyo-foundation` for reusable components and utilities intended to be publishable independently later. [SPRD-152]
@@ -517,8 +550,8 @@
 
 ### Shared Month Calendar Component
 - `johnnyo-foundation` should provide a reusable month-based calendar shell component intended for embedding inside spread surfaces rather than replacing the month spread surface entirely. [SPRD-153]
-- In `Spread`, both conventional and traditional month spreads should embed the shared month calendar above the existing entry list content. The calendar is view-only for this first integration and must not change list filtering or month-spread selection behavior yet. [SPRD-153]
-- The month spread calendar uses the same three-state day cell visual treatment as the rooted navigator and the multiday day card: today (accent fill + solid accent border), created (day has at least one entry — solid secondary border), uncreated (day has no entries — dashed secondary border, transparent fill). Entry count dot indicators are retained below the day number. [SPRD-166]
+- In `Spread`, both conventional and traditional month spreads should embed the shared month calendar above the month-level and day-section content areas. The calendar is structural and navigational rather than the primary entry-list container. [SPRD-153, SPRD-186]
+- In the redesigned spread system, month-calendar borders communicate explicit spread existence, while secondary indicators communicate currently assigned content. Existence and content must not be conflated into one visual signal. [SPRD-186]
 - The month calendar shell owns month structure and calendar math, including: [SPRD-153]
   - header placement
   - weekday header row placement
@@ -538,35 +571,102 @@
 - Date-cell rendering callbacks should receive rich semantic context models rather than raw dates alone, so callers can render based on in-month vs peripheral state, today state, row/column position, and related shell-owned metadata without recomputing package-owned calendar logic. [SPRD-153]
 - The package month shell also accepts an optional injected delegate protocol for shell-generated actions and interactions. The initial `Spread` integration may omit the delegate and remain view-only, but the action API should exist from the start so later interactive consumers do not require a package API redesign. [SPRD-153]
 - The package month shell does not ship with built-in previous/next month controls in v1; header rendering is generator-driven so callers can choose their own month-navigation affordances later. [SPRD-153]
-  - Recommended spread inset behavior: [SPRD-137]
-    - In conventional mode only, the title navigator shows a separate fixed trailing inset area for recommended spreads to create.
+
+### Month Calendar Row Overlays
+- `MonthCalendarView` must support optional row-bounded overlay decorations that can visually span multiple visible day cells within a single week row. Cross-row continuation is explicitly out of scope for this version; a logical overlay that crosses a week boundary renders as separate row segments. [SPRD-183]
+- Row overlays are a separate concern from day-cell rendering. `CalendarContentGenerator` remains focused on header, weekday, day-cell, placeholder-cell, and week-background content; row overlays must be introduced through a separate optional overlay generator protocol rather than broadening `CalendarContentGenerator`. [SPRD-183]
+- The first API should be generic enough for multiple decoration use cases, not only multiday spreads, but the semantic model remains calendar-aware and date-driven in v1. Overlay coverage is defined against dates, not raw row/column coordinates. A future revision may add non-date-driven row decorations if a real consumer requires them. [SPRD-183]
+- Row overlays are decorative-only in v1. They do not own taps, gestures, focus, or accessibility interaction targets; underlying day/week interactions continue to belong to the existing shell content and delegate surfaces. [SPRD-183]
+- When peripheral dates are visible, row overlays may render over any visible day cell, including visible peripheral dates. Hidden placeholder slots never participate in overlay coverage. [SPRD-183]
+- Overlay rendering must occur between `weekBackgroundView` and the day/placeholder cell content so overlays can act as spanning background signals without obscuring day labels, borders, or existing tap targets. [SPRD-183]
+- `johnnyo-foundation` owns the structural overlay math:
+  - splitting logical overlay coverage into visible same-row segments
+  - automatic lane packing for colliding segments within a week row
+  - enforcing a configurable visible-lane limit
+  - surfacing overflow metadata when packed overlays exceed the visible-lane limit [SPRD-183]
+- The app owns overlay visuals. The overlay generator supplies app-defined overlay views or view-building logic for packed row segments and overflow presentation, while `johnnyo-foundation` supplies the packed render context needed to position those visuals correctly. Foundation should not ship a built-in visual style system for row overlays in this version. [SPRD-183]
+- The packed row-segment render context must include enough semantic and layout metadata for app-owned rendering without exposing raw shell internals as the primary API. At minimum, the context should make available:
+  - the overlay identity/payload
+  - the week context
+  - the segment's visible start and end coverage within the row
+  - the assigned packed lane index
+  - the total visible lane count for that row
+  - whether the logical overlay continues before or after the current row segment
+  - overflow metadata for any clipped packed lanes
+  - row-scoped geometry or proportional layout information needed to render the app-owned overlay view [SPRD-183]
+- The visible-lane count must be configurable by the consumer. When packed overlays exceed that limit, the shell must not silently discard information. Instead, foundation must reserve overflow metadata so the app can render an explicit overflow indicator lane or equivalent app-owned summary treatment. [SPRD-183]
+- Package-local tests must prove the row-overlay contract independently of `Spread`, including:
+  - visible-date participation
+  - row segmentation at week boundaries
+  - automatic lane packing for overlapping overlays
+  - visible-lane limiting
+  - overflow metadata derivation [SPRD-183]
+- App-level integration tests must verify that `Spread` converts multiday spread semantics into the new overlay contract and renders the intended row-bounded overlay visuals in the rooted navigator without regressing existing month-grid interactions. [SPRD-184]
+
+### Spread Visual System Refresh
+- Spread content and related navigation surfaces share one visual language, but navigation surfaces remain lighter-density than the main spread pages. [SPRD-186]
+- Conventional spread content is current-assignment-only. Tasks and notes appear only on the spread they are currently assigned to; migrated-history rows and source-history sections do not remain in spread content after reassignment. Migration visibility belongs only to dedicated migration flows and migration feedback interactions. [SPRD-186]
+- Creating an explicit year/month/day spread automatically migrates eligible currently assigned tasks and notes to the best available explicit destination in that hierarchy using existing preferred-date and preferred-period rules only. This includes temporary fallback onto a year or month spread for month/day-preferred entries when no finer explicit spread exists yet, while still respecting preferred-period ceilings. [SPRD-186]
+- Creating an explicit multiday spread automatically migrates eligible currently assigned tasks and notes into that multiday spread when:
+  - the entry's preferred period is `multiday`, or
+  - the entry is day-preferred, its preferred date falls inside the multiday range, and no explicit day spread currently exists for that date
+  - month-preferred and year-preferred entries do not auto-migrate into multiday spreads [SPRD-193]
+- Automatic migration feedback uses structural motion plus a lightweight anchored cue. When possible, the current surface reveals and highlights the destination locally; otherwise the app changes selection to reveal the destination spread. [SPRD-186]
+- Year spread layout: [SPRD-186]
+  - A year spread is a vertical surface composed of:
+    - a top section for entries currently assigned to that year whose preferred period is `year`
+    - a vertical list of month cards beneath it
+  - Each month card contains:
+    - month title/header
+    - a simple read-only month grid with weekday headers and date numbers
+    - no tap targets inside the mini calendar
+    - solid border when an explicit month spread exists, dashed border when it does not
+    - current-month emphasis distinct from ordinary created/uncreated styling
+    - a bottom action of `View Spread` when the explicit month spread exists or `Create Spread` when it does not
+  - Month cards may also render tasks and notes currently assigned to the year whose dates belong to that month because a more granular explicit spread is not yet available.
+  - Entries inside a month card are not sectioned. When an entry has a concrete day date, the row shows a small day number beside it.
+  - Month card density is adaptive: sparse cards stay compact, while dense cards use a preview threshold plus overflow treatment instead of forcing unbounded card height. [SPRD-186]
+- Month spread layout: [SPRD-186]
+  - A month spread contains:
+    - the month calendar at the top
+    - a dedicated month-entry section for entries currently assigned to that month whose preferred period is `month`
+    - a plain list of day sections beneath it
+  - Day sections show non-empty currently assigned day content by default.
+  - If an explicit day spread exists for a date, that date still renders a section even when no currently assigned entries remain there.
+  - The day-section header itself is the clickthrough to the explicit day spread.
+- Day spread layout: [SPRD-186]
+  - Day spreads remain primarily list-first surfaces with a stronger shared visual treatment, rather than becoming card-composed pages. [SPRD-186]
+- Multiday spread layout: [SPRD-186]
+  - Multiday spreads keep every day in their covered range visible.
+  - Entries currently assigned to the multiday spread with preferred period `multiday` render in a dedicated spread-level section above the day sections.
+  - Day-preferred entries currently assigned to the multiday spread render only in the section for their preferred day.
+  - Empty days remain visible but use a lighter empty state rather than disappearing.
+- Navigation surface alignment: [SPRD-186]
+  - Rooted navigator and related spread-preview surfaces adopt the same existence/content semantics and broader visual grammar as the main spread pages, but with lighter information density.
+  - Conventional navigator month grids continue to use explicit day-spread existence for created/uncreated borders, while multiday coverage remains a decorative overlay lane rather than turning day cells into created day spreads.
+  - Recommended spread behavior: [SPRD-137]
+    - In conventional mode only, recommended spreads to create are surfaced inside the rooted navigator surface rather than as a persistent trailing inset in the top bar.
     - Recommendations are based on `today`, not on the currently selected spread.
     - The recommendation engine is defined by an injected protocol so recommendation derivation can be unit tested independently of the view.
     - The protocol returns semantic recommendations only; the navigator view continues to derive label presentation using the existing spread-title formatting system.
     - Recommendations cover missing explicit `year`, `month`, and `day` spreads for today's current year, month, and day.
+    - Recommendations never include multiday spreads.
     - A multiday spread containing today does not satisfy the `day` recommendation; only an explicit day spread does.
     - When multiple recommendations are present, they are shown in `year`, `month`, `day` order.
-    - The recommendation inset is not part of the scrollable strip content; it stays fixed on the trailing side while the existing spread strip continues to scroll independently.
-    - If no recommendations are available, the trailing inset disappears entirely and does not reserve empty space.
-    - Recommended spreads use the same compact label language as ordinary strip items and are visually distinguished with the shimmering recommendation treatment.
-    - Recommendation cards remove the ordinary inner horizontal padding and use a shared fixed `3:5` aspect ratio.
-    - All visible recommendation cards share the same size.
-    - On iPad, all recommendations continue to appear directly in the trailing inset; they do not collapse into a menu.
-    - On iPhone, a single recommendation still appears as a direct tappable recommendation card.
-    - On iPhone, when more than one recommendation exists, the trailing inset collapses to a single shimmering down-chevron card instead of showing multiple direct cards.
-    - The iPhone multi-recommendation chevron card uses the same shared size as the direct recommendation cards.
-    - Tapping the iPhone chevron card opens a `Menu` whose items use full spread date/title labels.
+    - If no recommendations are available, the recommendation section is omitted entirely from the rooted navigator surface.
+    - Recommended spreads use the same compact label language as ordinary navigator destinations but are visually distinguished with the shimmering recommendation treatment.
+    - Recommendation cards or rows may adapt by size class, but they no longer reserve persistent horizontal chrome space beside the compact context bar.
     - Tapping a recommendation opens the existing create-spread flow prefilled for that recommendation rather than creating the spread immediately.
     - A recommendation remains visible while the create-spread flow is open and disappears only after successful spread creation.
   - Rooted spread navigator behavior: [SPRD-125, SPRD-139, SPRD-177]
-    - A fixed leading chevron affordance in `SpreadTitleNavigatorView` opens the rooted spread navigator: as a popover on iPad and as a large sheet on iPhone.
-    - `SpreadHeaderView` does not own or duplicate the rooted navigator trigger once the title navigator leading affordance is present.
+    - A fixed leading chevron affordance in the compact spread context bar opens the rooted spread navigator: as a popover on iPad and as a large sheet on iPhone.
+    - `SpreadHeaderView` does not own or duplicate the rooted navigator trigger once the compact bar leading affordance is present.
     - The spread header shows the period type in the existing small-caps style above the main title.
     - Year spread headers use the year as the main title and reserve subtitle space without rendering subtitle text.
     - Month spread headers use the month name as the main title and the year as the subtitle.
     - Day spread headers keep the long-form date as the main title and show the weekday as the subtitle.
     - Multiday spread headers use `DD MMM - DD MMM` as the main title regardless of whether the start and end dates share a month, and show the weekday range as the subtitle.
-    - The rooted navigator chevron is fixed in the title navigator's leading inset rather than attached to the centered spread header title block.
+    - The rooted navigator chevron is fixed in the compact context bar rather than attached to the spread header title block.
     - The rooted navigator is a horizontal paging scroll view of year pages ordered chronologically from left to right.
     - Each page is a separate injected year view configured with the spreads for one specific year.
     - The initially visible page is the year of the currently selected spread.
@@ -578,34 +678,36 @@
     - In traditional mode, a year page shows all months.
     - Expanding a month shows that month's calendar grid.
     - Calendar grids in the rooted navigator are rendered using `MonthCalendarView` from `johnnyo-foundation` with a dedicated `CalendarContentGenerator`; out-of-month (peripheral) dates are not shown. [SPRD-166]
-    - Day cells use a three-state visual treatment that matches the multiday day card: today (accent fill + solid accent border), created/selectable (solid secondary border, transparent fill), uncreated/no targets (dashed secondary border, transparent fill). The fill, border color, and stroke style for each state are defined as shared properties on `MultidayDayCardVisualState` and referenced by both the multiday card and the navigator calendar generator. [SPRD-166]
-    - In conventional mode, a day cell is "created" if it has at least one selection target; otherwise it is "uncreated". In traditional mode, every day cell is always "created" since all days are navigable. [SPRD-166]
+    - Day cells use shared existence/content semantics that match the refreshed spread system: explicit day-spread existence determines created/uncreated border state, while secondary indicators communicate currently assigned content. Today/current-period emphasis layers on top of the created/uncreated state rather than replacing it. [SPRD-166, SPRD-186]
+    - In conventional mode, a day cell is "created" only when that exact date has an explicit day spread target; multiday coverage alone does not make the day cell appear created. In traditional mode, every day cell is always "created" since all days are navigable. [SPRD-166]
     - Calendar days with no selectable target are disabled and not tappable.
     - A day with exactly one target selects that spread immediately and dismisses the rooted navigator.
     - A day with multiple targets presents a native confirmation dialog so the user can choose among the day spread and any covering multiday spread targets.
     - In conventional mode, multiday spreads count as sub-spreads for determining whether a month is shown.
     - If an expanded month has an explicit month spread, that row also shows a `View Month` button.
     - `View Month` is the only control that selects the month spread from an expanded month row.
-- Horizontal spread-content paging behavior: [SPRD-128, SPRD-176]
-  - Spread content pages are presented in a separate horizontal pager beneath the title strip; the title strip remains the navigation chrome and stays synchronized with the selected page. [SPRD-128]
-  - The pager uses the complete ordered selected-year navigation sequence for the current mode, not the filtered title-strip presentation sequence. In conventional `Relevant Past Only` mode, a past spread may be hidden from the title strip while still remaining selectable and pageable through the complete pager/rooted navigator sequence. [SPRD-128, SPRD-176]
+- Horizontal spread-content paging behavior: [SPRD-128]
+  - Spread content pages are presented in a separate horizontal pager beneath the compact context bar; the bar remains the persistent navigation chrome and stays synchronized with the selected page. [SPRD-128]
+  - The pager uses the complete ordered selected-year navigation sequence for the current mode, matching the rooted navigator's complete browsing model rather than any inline filtered-strip presentation. [SPRD-128]
   - The pager includes the full current sequence inline, including year, month, day, and multiday spreads in conventional mode and year, month, and day destinations in traditional mode. [SPRD-128]
   - Horizontal page swiping changes the selected spread only after the paging gesture settles on a new page. [SPRD-128]
   - The pager rests on a single full-width selected page; adjacent pages do not remain peeked into view at rest. [SPRD-128]
-  - When selection changes from the title strip or rooted navigator surface within the same selected-year sequence, the pager animates to the selected page. [SPRD-128]
+  - When selection changes from the compact context bar actions or rooted navigator surface within the same selected-year sequence, the pager animates to the selected page. [SPRD-128]
   - When selection changes to a spread in a different year, the pager rebuilds to the new selected-year sequence and jumps to the selected page without cross-year scrolling animation. [SPRD-128]
-  - When the pager settles on a new page, the horizontal spread-title navigator updates selection state to that page but preserves its current browse offset instead of automatically recentering. [SPRD-128, SPRD-136]
+  - When the pager settles on a new page, the compact context bar updates to that page immediately. No separate inline browse offset or recenter behavior exists. [SPRD-128]
   - The pager preserves the full existing spread view for each page rather than rendering preview-only variants. [SPRD-128]
   - The implementation must avoid instantiating the full selected-year content view set at once. Use native lazy containers where feasible and keep only a small live window of pages around the selected spread, with a small nearby cache. [SPRD-128]
   - For this task, the live page window keeps the current page plus two neighboring pages on each side available, and pages outside that window may be torn down and rebuilt, losing transient local view state. [SPRD-128]
   - The pager supports swipe navigation and external programmatic selection only; it does not add separate previous/next arrow buttons. [SPRD-128]
+  - When the user navigates from a multiday spread to a day spread via a multiday day card (footer button or peek sheet), a "Go Back" liquid glass button appears centered in `SpreadHeaderView` on the destination page. Pressing it navigates back to the originating multiday spread. [WKFLW-18]
+  - The "Go Back" button disappears on any subsequent navigation: selecting another destination from the rooted navigator, swiping to another page, pressing "Today", or selecting a favorite all clear the back destination. [WKFLW-18]
 - Traditional mode uses calendar-style navigation (year → month → day). [SPRD-35, SPRD-38]
 - Traditional navigation mirrors iOS Calendar-style drill-in. [SPRD-35, SPRD-38]
 - Spread navigator surface: [SPRD-125, SPRD-126, SPRD-177]
-  - The navigator surface is opened from the fixed leading chevron affordance in the horizontal spread-title navigator on both iPad and iPhone.
+  - The navigator surface is opened from the fixed leading chevron affordance in the compact spread context bar on both iPad and iPhone.
   - On iPad, tapping the leading chevron opens a popover navigator rooted on that affordance.
   - On iPhone, tapping the leading chevron opens a large sheet presenting the same rooted navigator content.
-  - The selected spread title item itself is not an opener for the rooted navigator; selected state is communicated through the indicator dot and text styling.
+  - The current spread title area itself is tappable as an alternate opener for the rooted navigator, but it does not attempt inline browsing or secondary actions.
   - The iPad popover uses a bounded designed size rather than fully content-driven sizing; exact dimensions are implementation-defined.
   - The navigator always presents a single rooted hierarchy view rather than drill-in navigation. Expanding and collapsing sections is sufficient to traverse the hierarchy in this task.
   - Root content:
@@ -615,12 +717,12 @@
     - year sections rendered as table-style rows
     - month sections rendered as table-style rows nested under expanded years
     - day tiles rendered in a grid nested under expanded months
-    - explicit multiday tiles rendered in the same month grid in conventional mode only
+    - decorative multiday overlay lanes rendered across the conventional-mode month grid only
   - The presented navigator opens with the relevant current context already revealed inside that rooted hierarchy:
     - from a year spread, expand the current year
     - from a month spread, expand the current year and current month
     - from a day spread, expand the current year and current month and visibly select the current day tile
-    - from a multiday spread, expand the current year and current month and visibly select the current multiday tile
+    - from a multiday spread, expand the current year and current month and visibly highlight the covered dates plus the decorative multiday overlay lanes
   - Accordion behavior applies at each hierarchy level:
     - only one year section is expanded at a time
     - within the expanded year, only one month section is expanded at a time
@@ -629,64 +731,71 @@
     - tapping the row body navigates immediately when the row represents a valid destination
     - a trailing disclosure control expands or collapses that section
     - derived conventional year/month rows that do not exist as explicit spreads are disclosure-only and do not attempt direct app navigation
-  - Month detail renders a single mixed grid ordered strictly by spread start date.
-  - In conventional mode, day and multiday tiles share the same grid, and multiday tiles use a subtle alternate tint or border plus a date-range label to distinguish them.
-  - In traditional mode, month grids show every calendar day in the month and do not include multiday tiles in v1.
-  - Selecting a spread row/tile immediately navigates the main app to that spread and dismisses the current navigator surface. If the selected spread is visible under the current title-strip display preference, the horizontal spread-title navigator recenters on it; if it is hidden by `Relevant Past Only`, the leading chevron shows selected styling and the selected indicator dot as the proxy location.
+  - Month detail renders a calendar-style day grid for the visible month.
+  - In conventional mode, the grid always shows the month's day cells, while explicit multiday spreads render as decorative row-bounded overlay lanes across those day cells.
+  - In traditional mode, month grids show every calendar day in the month and do not include multiday overlays in v1.
+  - Selecting a spread row/tile immediately navigates the main app to that spread and dismisses the current navigator surface. The compact context bar updates to the newly selected spread with no additional inline recenter logic.
   - The current spread is indicated with a light shape background; no checkmark badge is used.
   - Conventional-mode availability rules:
     - derived years and derived months use subtle styling to indicate they are not explicitly created at that level
-    - month grids show only explicit created day and multiday spreads
+    - a conventional day cell uses created styling only when an explicit day spread exists for that date; multiday coverage alone keeps the day cell in the uncreated dotted-outline state
+    - when peripheral dates are hidden, multiday overlay lanes fade at the month boundary instead of rendering hidden peripheral date cells
+    - when the current spread is a multiday spread, the selected styling belongs to the multiday overlay lane itself rather than to every covered day cell
   - Traditional-mode availability rules:
     - year/month/day navigation follows the full calendar structure implied by traditional mode rather than created-spread existence
     - the root year list starts at the earliest year that has either entry data or an explicitly created conventional spread
-    - month grids show every calendar day in the month and do not show multiday tiles in v1
-- Spread content view shows active entries and migrated entries section (conventional). [SPRD-27, SPRD-29]
-  - Year and month spreads use spread-specific task sectioning rather than generic source-based sectioning. [SPRD-138]
+    - month grids show every calendar day in the month and do not show multiday overlays in v1
+- Spread content view shows only currently assigned entries for the selected spread. Conventional spread content no longer includes a migrated entries subsection or source-history rows. [SPRD-186]
+  - Year and month spreads use spread-specific current-assignment presentation rather than generic source-based sectioning. [SPRD-186]
   - On a year spread:
-    - tasks assigned directly to that year appear in an untitled top section because they belong to the current spread
-    - tasks assigned to months appear under titled month sections
-    - tasks assigned to days also appear inside their containing month sections and show the day number next to the task
+    - entries currently assigned to that year with preferred period `year` appear in the top year section
+    - entries currently assigned to that year whose dates belong to a month appear inside that month's card
+    - tasks and notes both follow this rule
   - On a month spread:
-    - tasks assigned directly to that month appear in an untitled top section because they belong to the current spread
-    - tasks assigned to days in that month appear in the same list and show the day number next to the task
-  - Day and multiday spreads do not use this year/month sectioning rule; they continue to show their normal flat task presentation for the current spread. [SPRD-138]
+    - entries currently assigned to that month with preferred period `month` appear in the dedicated month-entry section
+    - entries currently assigned to that month with preferred period `day` appear under their day sections
+    - if a more granular explicit day spread is later created, eligible day-period tasks and notes auto-migrate there and no longer remain on the month spread
+  - Day and multiday spreads remain current-assignment surfaces for their own destination. [SPRD-186]
   - Multiday day cards support normal created, uncreated, and today visual states; the fill, border color, and stroke style for each state are defined as shared properties on `MultidayDayCardVisualState` and reused by the rooted navigator calendar grid. [SPRD-149, SPRD-166]
   - If a multiday card's date is today, it shows a `Today` label above the weekday, left-aligned with the weekday and matching the structural style role of the short month label above the date. [SPRD-149]
   - If a multiday card's corresponding explicit day spread does not exist, the card uses an uncreated treatment via a dashed outline rather than a distinct grey text or fill color treatment. [SPRD-149]
   - If a multiday card is both today and uncreated, the today treatment fully wins and suppresses the uncreated styling. [SPRD-149]
   - Every multiday day card includes an always-visible footer with a single trailing filled circular icon button. [SPRD-149]
-  - If that day's explicit day spread exists, the footer button navigates using the normal spread-selection path to that day spread. [SPRD-149]
+  - If that day's explicit day spread exists, the footer button navigates to that day spread and sets the "Go Back" source to the originating multiday spread. [SPRD-149, WKFLW-18]
   - If that day's explicit day spread does not exist, the footer button opens the create-spread sheet preconfigured for that exact day spread. [SPRD-149]
   - Both footer button states share the same filled circular treatment with a white-tinted background and blue iconography, with the create-day state using `calendar.badge.plus` and the open-day state using a navigation icon. [SPRD-149]
   - After creating a day spread from that multiday footer flow, the app immediately navigates into the newly created day spread. [SPRD-149]
   - Multiday day cards can show an overdue count badge at the top-right, using the same count-badge language as the spread title navigator. [SPRD-149]
-- Conventional-mode inline migration UI: [SPRD-140]
-  - Year, month, and day spreads may show the bottom `Migrate tasks` section when at least one task is eligible to move into that spread.
-  - Multiday spreads never show migration UI.
-  - Traditional mode never shows migration UI because all calendar spreads are navigable without created conventional spread records.
+  - When a day's explicit day spread exists, the card summary tile shows an eye (peek) icon button on the leading edge of the footer. Tapping it presents a modal sheet for that day spread. [WKFLW-18]
+  - The peek sheet is a standard modal sheet (`.sheet`) containing a `NavigationStack`. It shows open tasks in a "Tasks" section followed by all-day events then timed events in an "Events" section, rendered as read-only rows. No editing is allowed in the peek sheet. [WKFLW-18]
+  - The peek sheet header provides a dismiss button (×) and a navigate button (→) that closes the sheet and navigates to the day spread, setting the "Go Back" source to the originating multiday spread. [WKFLW-18]
+  - Tapping an individual task row in the peek sheet closes the sheet, navigates to the day spread, sets the "Go Back" source, and immediately opens the task detail editor for that task. [WKFLW-18]
+- Conventional-mode inline migration UI: [SPRD-140, SPRD-186]
+  - Spread content itself no longer retains migrated-history presentation.
+  - Migration affordances remain dedicated workflow controls rather than spread-content history sections.
+  - Year, month, and day spread creation may auto-migrate eligible tasks and notes into the newly created explicit spread under the year/month/day hierarchy rules above.
+  - Multiday spreads never participate in auto-migration as a destination under this rule.
+  - Traditional mode does not expose conventional migration history sections in spread content.
 - Source spreads expose per-task trailing-arrow migration actions with destination-naming confirmation alerts.
 - Destination spreads expose per-task tap-to-migrate rows plus a header-level `Migrate All` action scoped to that destination spread.
 - The inline migration UI lists only tasks, never notes.
 - A task may be both overdue on its current spread and eligible for conventional inline migration into a finer spread at the same time.
-- On a source spread, tapping a task in the disabled `Migrated tasks` subsection first navigates to that task's most granular current open destination spread and then immediately opens the task edit sheet there. If no valid destination spread can be resolved, it falls back to opening the edit sheet on the current spread. [SPRD-146]
 - Inline task-row state presentation and reassignment: [SPRD-150]
   - The inline reassignment menu shown from task rows ends with a `Custom...` option.
   - Selecting `Custom...` exits inline editing and opens the full task edit sheet.
-  - Cancelled and migrated tasks remain visible in normal task lists everywhere task rows render, including multiday day sections.
-  - Existing list ordering is preserved; cancelled and migrated rows remain in-place rather than being regrouped.
-  - Cancelled and migrated rows are visually greyed out and do not use inline row editing.
+  - Cancelled tasks remain visible in normal task lists everywhere task rows render, including multiday day sections.
+  - Migrated-history tasks do not remain visible in spread content once their current assignment has moved elsewhere. Migration follow-up belongs to dedicated migration feedback and edit-navigation flows instead of ordinary spread rows. [SPRD-186]
+  - Existing list ordering is preserved for visible rows; cancelled rows remain in-place rather than being regrouped.
+  - Cancelled rows are visually greyed out and do not use inline row editing.
   - Cancelled task rows use a continuous strike line that visually runs from the status icon through the title text.
-  - Migrated task rows use a task-sized dot overlaid with a right arrow that extends beyond the dot bounds.
   - Tapping a cancelled row opens the task edit sheet.
-  - Tapping a migrated row follows the migrated-task navigation rule to the task's current spread before opening edit. [SPRD-146]
-- Spread title navigator badges: [SPRD-147, SPRD-178]
-  - Overdue spread signaling moves from a global toolbar button/sheet into per-spread badges in the spread title navigator.
+- Spread navigator badges: [SPRD-147, SPRD-178]
+  - Overdue spread signaling moves from a global toolbar button/sheet into per-spread badges in the rooted spread navigator rather than the persistent compact bar.
   - Each spread item can show at most one top-right badge through a prioritized badge enum. `overdue(count)` takes priority over `favorite`.
   - Overdue badge counts include only open tasks whose preferred assignment date/period has passed under the existing overdue threshold rules. Completed, cancelled, and migrated-history-only tasks do not count.
   - For conventional year/month/day spreads, overdue counts follow the existing current-spread/source semantics for the task's open assignment. Ancestor spread badges do not receive propagated counts merely because a child spread is overdue.
-  - For conventional multiday spreads, overdue counts include open tasks whose preferred assignment date falls inside the multiday range and whose preferred assignment period has passed. This explains past multiday spreads retained by the relevance filter because overdue work exists in contained days.
-  - Overdue tasks still in `Inbox` because no spread assignment/source exists remain excluded from year/month/day spread overdue badges. They may still contribute to a conventional multiday badge when their preferred assignment date falls inside that multiday range, because multiday spreads aggregate date ranges rather than direct assignments.
+  - For conventional multiday spreads, overdue counts include only open tasks whose current assignment is that multiday spread and whose multiday end date has passed.
+  - Overdue tasks still in `Inbox` because no spread assignment/source exists remain excluded from year/month/day/multiday spread overdue badges.
   - Traditional year/month/day items can use the same `overdue(count)` badge enum path for existing traditional overdue counts. Traditional virtual destinations never show favorite badges.
   - Conventional explicit spreads with no overdue badge show a `favorite` star badge when favorited. If a favorited spread also has overdue work, only the overdue count badge is shown.
   - Badge counts are exact and uncapped.
@@ -713,11 +822,7 @@
 - First day of week preference: System Default, Sunday, Monday. [SPRD-49]
   - System Default uses device locale. [SPRD-49]
   - Affects multiday preset calculations. [SPRD-49]
-- Title-strip display preference: `Relevant Past Only` vs `Show All Spreads`. [SPRD-176]
-  - Default is `Relevant Past Only`. [SPRD-176]
-  - The setting is conventional-mode UI behavior only; traditional mode remains unchanged. [SPRD-176]
-  - Settings copy explains that filtered mode keeps current/future spreads plus favorited or open-task past spreads visible, and that the chevron navigator remains available for complete navigation when a spread is not immediately visible. [SPRD-176, SPRD-177]
-- Persist settings locally via UserDefaults/@AppStorage. Synced settings such as BuJo mode and first day of week sync via Supabase when signed in; local-only display preferences such as title-strip display do not sync and must not require schema changes. [SPRD-20, SPRD-88, SPRD-176]
+- The previous title-strip display preference is removed. The compact bar shows only the current selection, and the rooted navigator remains the complete browsing surface in both modes. [SPRD-126, SPRD-176, SPRD-177]
 
 ### Modes
 - Conventional: [SPRD-13, SPRD-14, SPRD-25, SPRD-31]
@@ -733,7 +838,7 @@
   - Migrating updates the preferred date/period; conventional assignments recomputed. [SPRD-17, SPRD-15]
   - If no conventional spread exists for migration target, assign to nearest parent or Inbox. [SPRD-17, SPRD-14]
   - Traditional mode does not show migration prompts because all calendar spreads are navigable without waiting for created conventional spreads. [SPRD-110]
-- Traditional mode does not gain any separate overdue review affordance; overdue spread badges are only shown where the spread title navigator is present. [SPRD-147]
+- Traditional mode does not gain any separate overdue review affordance; overdue spread badges are only shown in navigator surfaces where spread destinations are listed. [SPRD-147]
 
 ### Collections
 - Collections are plain text pages (title + content). [SPRD-39]
@@ -887,12 +992,13 @@
 
 ### Testing
 - Automated testing is split between deterministic unit tests for isolated logic and localhost-backed UI scenario tests for user-visible flows. [SPRD-113, SPRD-114]
-- Logic-heavy user scenarios must be exercised through Debug `localhost` launches with seeded mock data and a fixed `today` date so results remain deterministic. [SPRD-114]
+- Logic-heavy user scenarios must be exercised through Debug `localhost` launches with seeded mock data and deterministic temporal context. The shared harness must support both startup-fixed temporal context and runtime-controlled AppClock changes so scenarios can verify behavior before and after day/time/context transitions without relaunching. [SPRD-114, SPRD-181]
 - UI scenario tests are additive to existing unit coverage; they do not replace unit tests for JournalManager, assignment logic, migration revalidation, or overdue computation. [SPRD-114]
 - Scenario UI tests focus on conventional-mode logic-heavy flows first: assignment fallback, Inbox resolution, migration prompting/review, overdue badge visibility, and edit-time reassignment. [SPRD-114]
 - UI scenario fixtures may seed the starting state, but the user action under test must still be performed through the UI. [SPRD-114]
 - A shared localhost scenario harness is required for UI tests. It must centralize:
-  - app launch with `localhost`, scenario dataset selection, and fixed `today`
+  - app launch with `localhost`, scenario dataset selection, and startup-fixed temporal context
+  - runtime AppClock controls for advancing time and changing time zone/locale/calendar context during a running scenario
   - spread navigation
   - migration banner/review interactions
   - overdue badge interactions
@@ -905,6 +1011,12 @@
   - any supporting source/destination labels needed to assert assignment and migration outcomes
 - UI scenario assertions should prefer user-visible outcomes. Localhost-only debug inspection may be used only when the UI cannot distinguish a required state clearly enough. [SPRD-114]
 - Focused unit tests still backstop exclusion-only and revalidation-heavy rules where UI coverage would otherwise become brittle, but user-visible scenario coverage remains the primary integration signal for assignment, migration, reassignment, and overdue.
+- AppClock coverage is required at multiple levels:
+  - unit tests for temporal-context refresh classification, day-boundary detection, and notification/lifecycle bridging
+  - unit tests for pure rule helpers receiving explicit temporal input
+  - JournalManager/view-model tests proving temporal refresh updates shared semantics without mutating user selection unexpectedly
+  - localhost UI scenarios where the app remains open while time crosses midnight or temporal context changes
+  - regression tests proving open forms keep their draft/default state stable while surrounding display semantics update [SPRD-179, SPRD-180, SPRD-181]
 - Scenario coverage matrix required for v1: [SPRD-114, SPRD-115, SPRD-116, SPRD-117, SPRD-118]
 
 | Scenario area | Required localhost UI coverage | Key assertion |
@@ -935,10 +1047,10 @@
 | --- | --- | --- |
 | Direct assignment durability | Create a task/note on an existing spread, sync, wipe local state, rebuild from server. | The entry returns on the same spread with the same assignment status/history. |
 | Inbox fallback durability | Create a task/note with no matching spread so it lands in Inbox, sync, wipe local state, rebuild from server. | The entry returns in Inbox with the same desired assignment and no phantom spread assignment. |
-| Migration durability | Migrate a task/note, sync, wipe local state, rebuild from server. | The destination remains active and the source spread still shows migrated history after rebuild. |
-| Reassignment durability | Edit preferred date/period to trigger reassignment, sync, wipe local state, rebuild from server. | The entry appears on the same destination, disappears from the old active list, and the old source history remains visible after rebuild. |
+| Migration durability | Migrate a task/note, sync, wipe local state, rebuild from server. | The destination remains active, the old spread no longer shows the entry in spread content, and assignment history survives rebuild. |
+| Reassignment durability | Edit preferred date/period to trigger reassignment, sync, wipe local state, rebuild from server. | The entry appears on the same destination, disappears from the old spread content, and assignment history survives rebuild. |
 | Spread deletion durability | Delete a spread that causes reassignment to parent or Inbox, sync, wipe local state, rebuild from server. | Reassigned destinations and preserved histories match the pre-wipe state exactly. |
-| Cross-device parity | Apply assignment-changing actions on one signed-in client, then rebuild a second clean client from server data. | The second client reproduces the same visible placement and source-history UI. |
+| Cross-device parity | Apply assignment-changing actions on one signed-in client, then rebuild a second clean client from server data. | The second client reproduces the same visible placement and preserved assignment history without resurrecting source-spread content. |
 | Assignment tombstone durability | Delete an entry or remove/supersede an assignment path, sync, wipe local state, rebuild from server. | Removed assignments do not reappear and surviving history remains intact. |
 | Safe backfill recovery | Start from an entry with local assignment history and zero server assignment rows, run repair, then rebuild from server. | Full assignment history is backfilled once and survives subsequent rebuilds. |
 | Note parity | Repeat durability/rebuild scenarios for notes where assignment behavior exists. | `note_assignments` round-trip with the same guarantees as `task_assignments`. |
@@ -1018,19 +1130,19 @@
 - On multiday spreads, only the section for today's date receives passive today emphasis. Its header text, outline, and card background use the shared configurable today-emphasis color family; other day sections remain unchanged. [SPRD-144]
 
 ### Header Spread Navigator
-- The fixed leading chevron affordance in the horizontal spread-title navigator presents the same rooted spread navigator on both platforms: as a popover on iPad and as a large sheet on iPhone. The selected spread title item itself does not present the rooted navigator. [SPRD-125, SPRD-126, SPRD-177]
+- The fixed leading chevron affordance in the compact spread context bar presents the same rooted spread navigator on both platforms: as a popover on iPad and as a large sheet on iPhone. The current title area may also open the same surface, but it does not expose inline scrolling or alternate navigation behavior. [SPRD-125, SPRD-126, SPRD-177]
 - The navigator always presents a single rooted hierarchy view with no push navigation in v1. Current context is revealed by expanded sections inside that rooted view rather than by drilling into another screen. [SPRD-125]
 - Years and months are presented as collapsible table rows; month contents are presented as grid tiles within the expanded month section. [SPRD-125]
 - Year and month rows use split interaction: row-body tap navigates when the row is a valid destination, while a trailing disclosure expands or collapses that section. Derived conventional rows use disclosure-only behavior. [SPRD-125]
 - The hierarchy uses accordion behavior: only one year is expanded at a time, and only one month is expanded within that year. [SPRD-125]
-- The month grid mixes day and multiday tiles chronologically in conventional mode, visually distinguishing multiday tiles with a subtle alternate treatment; traditional-mode month grids show all calendar days and no multiday tiles in v1. [SPRD-125]
+- The month grid always shows calendar day cells. In conventional mode, explicit multiday spreads are shown as decorative row-bounded overlay lanes rather than as separate tiles; traditional-mode month grids show all calendar days and no multiday overlays in v1. [SPRD-125]
 - The current spread opens with its year/month context already expanded and is highlighted with a light shape background. [SPRD-125]
-- Conventional mode derives root years and month rows when child spreads make them navigable, but day/multiday tiles remain explicit-created-spread only. [SPRD-125]
-- Traditional mode uses the full calendar structure, with the root year list spanning from the first year with entry data or created spreads through current year plus ten years, and month grids showing all calendar days with no multiday tiles in v1. [SPRD-125]
+- Conventional mode derives root years and month rows when child spreads make them navigable, but explicit day spread existence alone controls whether a day cell appears created; multiday coverage is decorative and does not make a day cell appear created by itself. [SPRD-125]
+- Traditional mode uses the full calendar structure, with the root year list spanning from the first year with entry data or created spreads through current year plus ten years, and month grids showing all calendar days with no multiday overlays in v1. [SPRD-125]
 - Keyboard/trackpad-specific navigation enhancements are deferred from the initial implementation. [SPRD-125]
 - The rooted navigator surface should be implemented with a separable model/support layer so hierarchy derivation, expansion state, and current-context opening rules can be unit tested independently from the popover/sheet view. [SPRD-125]
-- The horizontal spread-title navigator should also use a separable support/model layer so ordered spread sequencing, selection state, adaptive visible-slot behavior, browse-state rules, offscreen-selected detection, and recenter rules can be unit tested independently from the scrolling view. [SPRD-126, SPRD-127]
-- Required coverage includes iPhone and iPad UI tests plus lower-level unit tests for navigator state/data derivation, centered-strip behavior, browse-only scrolling, and return-to-selected behavior. [SPRD-125, SPRD-126, SPRD-127]
+- The compact spread context bar should use a separable support/model layer so current-selection title derivation, personalized/canonical secondary context, compact sizing rules, and rooted-navigator trigger behavior can be unit tested independently from the SwiftUI view. [SPRD-126]
+- Required coverage includes iPhone and iPad UI tests plus lower-level unit tests for navigator state/data derivation, compact-bar sizing behavior, rooted-navigator opening, recommendations, and pager synchronization. [SPRD-125, SPRD-126, SPRD-137]
 
 ### Error Handling UX
 - **Sign-in errors**: Error messages are displayed inline on the login sheet below the password field. Error text is human-readable and maps from auth error types: [SPRD-84]
@@ -1067,26 +1179,60 @@
 - Habit/mood trackers. [SPRD-56]
 - Review/reflection. [SPRD-56]
 - Search, filters, tagging. [SPRD-56]
-- Event logging with calendar integration (EventKit and/or Google). [SPRD-57]
+- Event logging with Google Calendar OAuth integration. [SPRD-57]
 
 ---
 
-## Events (v2 - Calendar Integration)
-- Events are calendar-backed date-range entries that appear alongside tasks/notes on spreads. [SPRD-57]
-- Supported sources (decide at v2 kickoff): EventKit (device calendars) and/or Google Calendar via OAuth. [SPRD-57]
-- Event data is cached locally for offline display; cache mirrors external source and is treated as read-only unless write-back is explicitly in scope. [SPRD-59]
-- Event visibility is computed from date-range overlap with spreads (no assignments). [SPRD-33]
-- Timing modes: single-day, all-day, timed, multi-day; time zone handling is explicit and source-driven. [SPRD-60]
-- UI considerations: show source calendar color/label, allow per-calendar visibility toggles, and handle permission/authorization states gracefully. [SPRD-60]
+## Events (EventKit Integration — v1)
+
+### Decisions
+- Source: EventKit only (device calendars — iCloud, Exchange, Google via iOS Settings). Google Calendar OAuth is deferred to v2. [SPRD-57, SPRD-194]
+- Persistence: None. Events are live-fetched from EventKit on each spread display. No SwiftData model, no Supabase sync. [SPRD-194]
+- Spread scope: Day and multiday spreads only. Month and year spread aggregation is deferred. [SPRD-195]
+- Calendar filtering: None in v1 — all authorized calendars are shown. Per-calendar toggles are deferred to a follow-on task. [SPRD-60]
+- Write-back: None. Events are read-only; the app opens them for viewing, not editing. [SPRD-59]
+
+### Data Model
+- `CalendarEvent` is a value type (struct) wrapping EventKit data relevant for display: event identifier, title, start date, end date, `isAllDay`, calendar title, and calendar color. [SPRD-194]
+- `CalendarEvent` is not part of the Entry protocol hierarchy and has no assignments. [SPRD-194]
+
+### EventKit Service
+- `EventKitService` protocol exposes: authorization status, `requestAuthorization()`, `fetchEvents(from:to:)`, and `openEvent(_:)`. [SPRD-194]
+- `LiveEventKitService` implements the protocol using `EKEventStore`. [SPRD-194]
+- `MockEventKitService` supports testing without system EventStore access. [SPRD-194]
+- Injected via `DependencyContainer`; spread views receive it through the environment or init injection. [SPRD-194]
+
+### Permission Handling
+- Authorization is requested the first time the user views a day or multiday spread. [SPRD-195]
+- If denied or restricted, the events section is silently hidden — no error state is shown. [SPRD-195]
+- No in-app Settings nudge or re-prompt UI in v1. [SPRD-195]
+
+### UI
+- Events appear in a dedicated **Events** section below the task list on day spreads, sorted by start time (all-day events first). [SPRD-195]
+- On multiday spreads, events appear within each day section for every day they overlap. [SPRD-195]
+- Each event row shows: calendar color indicator, event title, time range or "All Day" label, and calendar name. [SPRD-195]
+- Tapping an event row presents an `EKEventViewController` in a sheet, showing native iOS event detail. [SPRD-195]
+- The events section is omitted entirely when there are no events for the period or when permission is not granted. [SPRD-195]
+
+### Event Visibility
+- Event visibility on a day spread: start date ≤ spread date ≤ end date (inclusive, date comparison only). [SPRD-33]
+- For multiday spread day sections: event overlaps the day using the same date-range comparison. [SPRD-33]
+
+## Events (v2 - Future Calendar Integration)
+- Manual event creation in the app. [SPRD-57]
+- Google Calendar OAuth integration. [SPRD-57]
+- Per-calendar visibility toggles in Settings. [SPRD-60]
+- Events on month and year spreads with appropriate aggregation. [SPRD-57]
+- Offline caching and cross-device sync for calendar events. [SPRD-59]
 
 ## Edge Cases (Resolved)
 - Date normalization: Use Calendar API with user's firstWeekday setting. [SPRD-7, SPRD-49]
 - Entries with no matching spread: Go to Inbox; auto-resolve on spread creation. [SPRD-13, SPRD-14]
 - Migration when destination has assignment: Update existing assignment status. [SPRD-15, SPRD-52]
 - Deleting year/month/day spread with entries: Reassign all entries to parent or Inbox; never delete entries. [SPRD-15]
-- Deleting multiday spread: Simple delete with no reassignment (no direct assignments to multiday). [SPRD-18]
-- Overlapping multiday spreads: Each multiday is independent; entries appear on all applicable. [SPRD-8, SPRD-49]
-- Editing multiday spread dates: exact duplicate ranges with another multiday spread are blocked; partial overlaps remain allowed. Date edits keep the same spread selected after save and trigger a structural navigator/content rebuild if the range moves within or across years. [SPRD-175]
+- Deleting multiday spread: Reassign all entries using the normal non-multiday fallback hierarchy; never delete entries. [SPRD-18, SPRD-193]
+- Overlapping multiday spreads: New overlaps are blocked. Pre-existing overlapping multiday spreads in legacy local/synced data remain readable, and automatic resolution among those legacy overlaps prefers the narrowest containing range then chronological ordering. [SPRD-8, SPRD-49, SPRD-193]
+- Editing multiday spread dates: overlap with another multiday spread is blocked for newly saved ranges. Date edits keep the same spread selected after save, preserve direct multiday assignments by spread identity, and trigger a structural navigator/content rebuild if the range moves within or across years. [SPRD-175, SPRD-193]
 - Past-dated entries: Blocked in v1; validation prevents creation. [SPRD-23, SPRD-56]
 - Entry date change: Old assignments marked migrated; new assignment on best spread or Inbox. [SPRD-24]
 - Entry period change: Same reassignment logic as date change; period is independently editable. [SPRD-24]
@@ -1122,9 +1268,83 @@
 - Minimum accessibility baseline for v1: VoiceOver labels, standard Dynamic Type, contrast ratios. [SPRD-TBD]
 
 ## Open Questions
-- For v2 events: EventKit only or EventKit + Google? [SPRD-57]
+- For v2 events: add Google Calendar OAuth or EventKit only for the foreseeable future? [SPRD-57]
 - For v2 events: read-only import vs write-back edits? [SPRD-57]
 - For v2 events: local manual events in addition to integrations, or integrations only? [SPRD-57]
+
+---
+
+## Compact Spread Context Bar and Rooted Navigator [SPRD-199]
+
+**Status**: Draft
+**Date**: 2026-05-06
+
+### Overview
+Replace the persistent horizontal title strip with a compact spread context bar that shows only the current spread and opens a richer rooted navigator surface for all chronological browsing.
+
+### Problem Statement
+The inline title strip is trying to serve too many responsibilities at once: current-context display, chronological browsing, filtered visibility, recommendation surfacing, and hidden-range recovery. That produces excessive chrome height, brittle centering behavior, and high implementation complexity without a clear UX payoff.
+
+### Goals
+- Keep the persistent spread-navigation chrome compact, stable, and easy to scan
+- Preserve fast access to full chronological browsing through the rooted navigator surface
+- Move recommendations and passive cross-spread cues into the richer navigator surface where they have room to breathe
+- Reduce coupling between current-selection display and timeline-browsing behavior
+
+### Non-Goals
+- Reintroducing any inline horizontally scrolling title timeline
+- Preserving hidden-group proxy behavior from the old filtered strip design
+- Adding a second persistent row of chips, breadcrumbs, or segmented controls in v1
+
+### Functional Requirements
+1. The persistent top spread-navigation chrome is a compact context bar, not a horizontally scrolling strip. [SPRD-199]
+2. The bar always shows the current selected spread only, with primary title and compact secondary date context as needed. [SPRD-199]
+3. The fixed leading chevron opens the rooted navigator surface on both platforms; tapping the current title area may also open the same surface. [SPRD-199]
+4. The rooted navigator remains the only full chronological browsing surface in v1. [SPRD-199]
+5. Recommended missing explicit year/month/day spreads for today are shown inside the rooted navigator surface in conventional mode rather than beside the persistent bar. [SPRD-199]
+6. Pager swipes continue to change the current spread after settle, and the compact bar updates directly to the new selection with no inline recenter behavior. [SPRD-199]
+7. The old local title-strip visibility preference is removed because the persistent bar no longer renders a filterable spread sequence. [SPRD-199]
+
+### Technical Design
+
+#### Architecture
+- `SpreadTitleNavigatorView.swift` should be simplified into a compact bar view that renders:
+  - a fixed rooted-navigator trigger
+  - a tappable current-selection title/context region
+  - the existing trailing create affordance
+- `SpreadTitleNavigatorSupport.swift` should shift from strip-centering and hidden-group support toward compact-label derivation and bar sizing support.
+- Recommendation rendering should move into the rooted navigator presentation layer and reuse the existing recommendation provider protocol.
+
+#### State & Data Flow
+- The compact bar derives its content from the same current `selection` and `SpreadTitleNavigatorModel`.
+- The rooted navigator remains the owner of full-sequence browsing and explicit destination selection.
+- The pager remains synchronized by current selection only; there is no separate inline browse position state.
+
+#### Animation
+- The compact bar should animate only lightweight current-context transitions, such as text/content swaps and navigator presentation.
+- There is no persistent inline horizontal scroll animation path.
+
+#### Edge Cases
+- Personalized spread names still show canonical context when needed to avoid ambiguity.
+- Long labels should compress gracefully without increasing the bar into a second large chrome band.
+- Recommendations can adapt layout by size class inside the rooted navigator without affecting persistent bar height.
+
+#### Security Considerations
+None — purely local UI composition and interaction behavior.
+
+#### Testing Strategy
+- Unit tests for current-selection title/context derivation and compact sizing rules.
+- Unit tests for recommendation derivation remaining independent of the persistent bar implementation.
+- UI tests for rooted navigator opening from the chevron and title area, pager-to-bar synchronization, and compact-height behavior on iPhone and iPad.
+
+### Acceptance Criteria
+- [ ] The persistent spread-navigation UI no longer renders a horizontally scrolling title timeline.
+- [ ] The compact bar remains visually short and does not absorb excess vertical space.
+- [ ] The current spread identity remains clear through primary title plus compact secondary context where needed.
+- [ ] The rooted navigator remains the complete browsing surface on both iPhone and iPad.
+- [ ] Recommendations are visible in the rooted navigator in conventional mode and are no longer rendered as persistent trailing inset cards.
+- [ ] Pager swipes keep the compact bar synchronized without any inline recenter or hidden-group behavior.
+- [ ] The old local title-strip display preference is removed from settings and supporting state.
 
 ---
 

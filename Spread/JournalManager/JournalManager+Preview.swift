@@ -16,6 +16,12 @@ extension JournalManager {
 
         let today = Date()
         let policy = StandardCreationPolicy(today: today, firstWeekday: .sunday)
+        let appClock = AppClock.fixed(
+            now: today,
+            calendar: calendar,
+            timeZone: calendar.timeZone,
+            locale: calendar.locale ?? Locale(identifier: "en_US_POSIX")
+        )
 
         // Create sample inbox entries (no assignments = appears in inbox)
         let sampleTasks = [
@@ -27,8 +33,7 @@ extension JournalManager {
         ]
 
         return JournalManager(
-            calendar: calendar,
-            today: today,
+            appClock: appClock,
             taskRepository: InMemoryTaskRepository(tasks: sampleTasks),
             spreadRepository: InMemorySpreadRepository(),
             eventRepository: InMemoryEventRepository(),
@@ -52,10 +57,15 @@ extension JournalManager {
 
         let today = Date()
         let policy = StandardCreationPolicy(today: today, firstWeekday: .sunday)
+        let appClock = AppClock.fixed(
+            now: today,
+            calendar: calendar,
+            timeZone: calendar.timeZone,
+            locale: calendar.locale ?? Locale(identifier: "en_US_POSIX")
+        )
 
         return JournalManager(
-            calendar: calendar,
-            today: today,
+            appClock: appClock,
             taskRepository: InMemoryTaskRepository(),
             spreadRepository: InMemorySpreadRepository(),
             eventRepository: InMemoryEventRepository(),

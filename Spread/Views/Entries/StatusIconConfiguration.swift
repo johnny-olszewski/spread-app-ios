@@ -95,6 +95,11 @@ struct StatusIconConfiguration: Sendable {
         }
     }
 
+    // TODO: remove overlayScale, overlayOffset, overlayLeadingExtension, overlayTrailingExtension
+    // after EntryIcon migration — these are dead code now that StatusIcon delegates to
+    // EntryIconFactory. Keeping them here to avoid breaking existing unit tests that assert
+    // on overlaySymbol alongside these properties.
+
     /// The scale factor for the overlay symbol relative to the base symbol.
     ///
     /// The overlay is rendered larger than the base circle so status marks

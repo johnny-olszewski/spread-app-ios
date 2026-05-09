@@ -81,6 +81,15 @@ final class SpreadsViewModel {
     /// The currently active alert, or nil if no alert is presented.
     var activeAlert: AlertDestination?
 
+    /// Transient feedback for automatic explicit-spread migration.
+    var autoMigrationFeedback: SpreadAutoMigrationFeedback?
+
+    /// The spread the user navigated from via a peek action. Non-nil enables the "Go Back" button
+    /// in `SpreadHeaderView`. Cleared by any navigation that is not a peek-initiated jump.
+    var peekNavigationSource: DataModel.Spread?
+
+    private var autoMigrationFeedbackDismissTask: Task<Void, Never>?
+
     // MARK: - Actions
 
     /// Presents the spread creation sheet.
@@ -104,6 +113,38 @@ final class SpreadsViewModel {
         recenterToken += 1
     }
 
+    /// Applies explicit spread-creation behavior, including auto-migration reveal routing.
+    func finishSpreadCreation(
+        _ result: SpreadCreationOperationResult,
+        currentSelection: SpreadHeaderNavigatorModel.Selection,
+        calendar: Calendar
+    ) {
+        let destinationSelection = SpreadHeaderNavigatorModel.Selection.conventional(result.spread)
+
+        if let feedback = SpreadAutoMigrationFeedbackSupport.feedback(
+            currentSelection: currentSelection,
+            creationResult: result,
+            calendar: calendar
+        ) {
+            switch SpreadAutoMigrationFeedbackSupport.revealBehavior(
+                currentSelection: currentSelection,
+                creationResult: result,
+                calendar: calendar
+            ) {
+            case .local:
+                break
+            case .navigate:
+                selectedSelection = destinationSelection
+                recenterToken += 1
+            }
+            presentAutoMigrationFeedback(feedback)
+            return
+        }
+
+        selectedSelection = destinationSelection
+        recenterToken += 1
+    }
+
     /// Presents spread deletion confirmation for a conventional explicit spread.
     func showSpreadDeleteConfirmation(_ spread: DataModel.Spread) {
         activeAlert = .deleteSpreadConfirmation(spread)
@@ -122,6 +163,19 @@ final class SpreadsViewModel {
     /// Presents the note creation sheet.
     func showNoteCreation() {
         activeSheet = .noteCreation
+    }
+
+    /// Navigates to `destination` and records `source` as the peek navigation origin,
+    /// enabling the "Go Back" button in `SpreadHeaderView`.
+    func navigateViaPeek(to destination: DataModel.Spread, from source: DataModel.Spread) {
+        selectedSelection = .conventional(destination)
+        recenterToken += 1
+        peekNavigationSource = source
+    }
+
+    /// Clears the peek navigation source, hiding the "Go Back" button.
+    func clearPeekNavigationSource() {
+        peekNavigationSource = nil
     }
 
     /// Presents the task detail sheet for editing.
@@ -147,5 +201,22 @@ final class SpreadsViewModel {
     /// Dismisses the currently active alert.
     func dismissAlert() {
         activeAlert = nil
+    }
+
+    func clearAutoMigrationFeedback() {
+        autoMigrationFeedbackDismissTask?.cancel()
+        autoMigrationFeedbackDismissTask = nil
+        autoMigrationFeedback = nil
+    }
+
+    private func presentAutoMigrationFeedback(_ feedback: SpreadAutoMigrationFeedback) {
+        autoMigrationFeedbackDismissTask?.cancel()
+        autoMigrationFeedback = feedback
+        autoMigrationFeedbackDismissTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            self?.autoMigrationFeedback = nil
+            self?.autoMigrationFeedbackDismissTask = nil
+        }
     }
 }

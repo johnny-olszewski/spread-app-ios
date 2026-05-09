@@ -121,4 +121,71 @@ struct OverdueEvaluatorTests {
 
         #expect(items.isEmpty)
     }
+
+    @Test func testEvaluatorUsesAssignedMultidayEndDateForOverdueChecks() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 12)
+        let multidaySpread = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 8),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 11),
+            calendar: Self.calendar
+        )
+        let task = DataModel.Task(
+            title: "Range overdue",
+            date: Self.makeDate(year: 2026, month: 4, day: 9),
+            period: .multiday,
+            status: .open,
+            assignments: [
+                TaskAssignment(
+                    period: .multiday,
+                    date: multidaySpread.date,
+                    spreadID: multidaySpread.id,
+                    status: .open
+                )
+            ]
+        )
+
+        let evaluator = StandardOverdueEvaluator(
+            calendar: Self.calendar,
+            today: today,
+            migrationPlanner: StandardMigrationPlanner(calendar: Self.calendar)
+        )
+
+        let items = evaluator.overdueTaskItems(tasks: [task], spreads: [multidaySpread])
+
+        #expect(items.count == 1)
+        #expect(items.first?.sourceKey.id == "spread-\(multidaySpread.id.uuidString)")
+    }
+
+    @Test func testEvaluatorDoesNotMarkAssignedMultidayTaskOverdueBeforeRangeEnds() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 11)
+        let multidaySpread = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 8),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 11),
+            calendar: Self.calendar
+        )
+        let task = DataModel.Task(
+            title: "Range active",
+            date: Self.makeDate(year: 2026, month: 4, day: 9),
+            period: .multiday,
+            status: .open,
+            assignments: [
+                TaskAssignment(
+                    period: .multiday,
+                    date: multidaySpread.date,
+                    spreadID: multidaySpread.id,
+                    status: .open
+                )
+            ]
+        )
+
+        let evaluator = StandardOverdueEvaluator(
+            calendar: Self.calendar,
+            today: today,
+            migrationPlanner: StandardMigrationPlanner(calendar: Self.calendar)
+        )
+
+        let items = evaluator.overdueTaskItems(tasks: [task], spreads: [multidaySpread])
+
+        #expect(items.isEmpty)
+    }
 }

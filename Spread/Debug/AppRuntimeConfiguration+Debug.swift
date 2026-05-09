@@ -2,6 +2,18 @@
 import SwiftUI
 
 extension AppRuntimeConfiguration {
+    @MainActor
+    static func appClock(for launchConfiguration: AppLaunchConfiguration) -> AppClock {
+        guard let startupClockContext = launchConfiguration.startupClockContext else {
+            return .live()
+        }
+
+        return AppClock(
+            source: .live(fixedContext: startupClockContext),
+            notificationBridge: AppClockNotificationBridge.live()
+        )
+    }
+
     static func mockDataSetToLoad(
         environment: DataEnvironment,
         launchConfiguration: AppLaunchConfiguration
@@ -27,8 +39,8 @@ extension AppRuntimeConfiguration {
             makeSyncPolicy: {
                 DebugSyncPolicy()
             },
-            resolveToday: {
-                AppLaunchConfiguration.current.today ?? .now
+            makeAppClock: {
+                appClock(for: AppLaunchConfiguration.current)
             },
             loadMockDataSet: { journalManager in
                 if let dataSet = mockDataSetToLoad(
@@ -41,13 +53,14 @@ extension AppRuntimeConfiguration {
                     journalManager.bujoMode = bujoMode
                 }
             },
-            makeDebugMenuView: { dependencies, journalManager, authManager, syncEngine in
+            makeDebugMenuView: { dependencies, journalManager, authManager, syncEngine, appClock in
                 AnyView(
                     DebugMenuView(
                         dependencies: dependencies,
                         journalManager: journalManager,
                         authManager: authManager,
-                        syncEngine: syncEngine
+                        syncEngine: syncEngine,
+                        appClock: appClock
                     )
                 )
             },

@@ -18,7 +18,7 @@ extension JournalManager: SpreadTitleNavigatorProviding {
                     firstWeekday: firstWeekday,
                     spreads: spreads,
                     tasks: tasks,
-                    notes: [],
+                    notes: notes,
                     events: []
                 ),
                 overdueItems: overdueTaskItems

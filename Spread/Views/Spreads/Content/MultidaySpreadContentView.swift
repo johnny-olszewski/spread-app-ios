@@ -7,8 +7,11 @@ struct MultidaySpreadContentView: View {
     let journalManager: JournalManager
     let viewModel: SpreadsViewModel
     let syncEngine: SyncEngine?
-    var entryListConfiguration: EntryListConfiguration = .init()
+    var entryListConfiguration: EntryListConfiguration = .init(showsMigrationHistory: false)
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
+
+    @Environment(\.eventKitService) private var eventKitService
+    @State private var calendarEvents: [CalendarEvent] = []
 
     var body: some View {
         if let dataModel = spreadDataModel {
@@ -17,6 +20,7 @@ struct MultidaySpreadContentView: View {
                 calendar: journalManager.calendar,
                 today: journalManager.today,
                 configuration: entryListConfiguration,
+                calendarEvents: calendarEvents,
                 onEdit: { entry in
                     if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
                     else if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
@@ -54,12 +58,39 @@ struct MultidaySpreadContentView: View {
                     Task { @MainActor in await syncEngine?.syncNow() }
                 },
                 explicitDaySpreadForDate: explicitDaySpreadForDate,
+                onSelectSpread: { daySpread in
+                    viewModel.navigateViaPeek(to: daySpread, from: spread)
+                },
+                onCreateSpread: { date in
+                    viewModel.showSpreadCreation(prefill: .init(period: .day, date: date))
+                }, openTaskCountForDaySpread: { spread in
+                    let key = SpreadDataModelKey(spread: spread, calendar: journalManager.calendar)
+                    return journalManager.dataModel[key: key]?.tasks.filter { $0.status == .open }.count ?? 0
+                }, peekDataForDaySpread: { spread in
+                    let key = SpreadDataModelKey(spread: spread, calendar: journalManager.calendar)
+                    guard let dataModel = journalManager.dataModel[key: key] else { return nil }
+                    let dayStart = spread.date.startOfDay(calendar: journalManager.calendar)
+                    guard let dayEnd = journalManager.calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+                        return nil
+                    }
+                    let dayEvents = calendarEvents.filter { $0.startDate < dayEnd && $0.endDate > dayStart }
+                    return MultidayPeekData(spread: spread, spreadDataModel: dataModel, calendarEvents: dayEvents)
+                }, onPeekTaskTap: { daySpread, task in
+                    viewModel.navigateViaPeek(to: daySpread, from: spread)
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(150))
+                        viewModel.showTaskDetail(task)
+                    }
+                },
                 onRefresh: {
                     guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
                     await engine.syncNow()
                 },
                 syncStatus: syncEngine?.status
             )
+            .task(id: spread.id) {
+                await fetchCalendarEvents()
+            }
         } else {
             ContentUnavailableView {
                 Label("No Data", systemImage: "tray")
@@ -67,5 +98,24 @@ struct MultidaySpreadContentView: View {
                 Text("Unable to load spread data.")
             }
         }
+    }
+
+    // MARK: - Private
+
+    private func fetchCalendarEvents() async {
+        guard let service = eventKitService,
+              let startDate = spread.startDate,
+              let endDate = spread.endDate else { return }
+        if service.authorizationStatus == .notDetermined {
+            _ = await service.requestAuthorization()
+        }
+        guard service.authorizationStatus == .authorized else {
+            calendarEvents = []
+            return
+        }
+        let cal = journalManager.calendar
+        let start = startDate.startOfDay(calendar: cal)
+        guard let end = cal.date(byAdding: .day, value: 1, to: endDate.startOfDay(calendar: cal)) else { return }
+        calendarEvents = service.fetchEvents(from: start, to: end)
     }
 }

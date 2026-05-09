@@ -9,6 +9,25 @@ import SwiftUI
 /// - Inline validation with Create button visibility rules
 struct TaskCreationSheet: View {
 
+    // MARK: - ViewModel
+
+    @Observable @MainActor final class ViewModel {
+        var presentedTemporalContext: PresentedTemporalContext
+        var formModel: TaskEditorFormModel
+        var isCreating = false
+        var isShowingSpreadPicker = false
+
+        init(journalManager: JournalManager, selectedSpread: DataModel.Spread?) {
+            let context = PresentedTemporalContext(journalManager: journalManager)
+            presentedTemporalContext = context
+            let configuration = TaskCreationConfiguration(
+                calendar: context.calendar,
+                today: context.today
+            )
+            formModel = TaskEditorFormModel(configuration: configuration, selectedSpread: selectedSpread)
+        }
+    }
+
     // MARK: - Environment
 
     @Environment(\.dismiss) private var dismiss
@@ -26,9 +45,7 @@ struct TaskCreationSheet: View {
 
     // MARK: - State
 
-    @State private var formModel: TaskEditorFormModel
-    @State private var isCreating = false
-    @State private var isShowingSpreadPicker = false
+    @State private var viewModel: ViewModel
     @FocusState private var isTitleFocused: Bool
 
     init(
@@ -39,77 +56,26 @@ struct TaskCreationSheet: View {
         self.journalManager = journalManager
         self.selectedSpread = selectedSpread
         self.onTaskCreated = onTaskCreated
-        let configuration = TaskCreationConfiguration(
-            calendar: journalManager.calendar,
-            today: journalManager.today
-        )
-        _formModel = State(
-            initialValue: TaskEditorFormModel(
-                configuration: configuration,
-                selectedSpread: selectedSpread
-            )
-        )
+        _viewModel = State(initialValue: ViewModel(journalManager: journalManager, selectedSpread: selectedSpread))
     }
 
     // MARK: - Computed Properties
 
     private var configuration: TaskCreationConfiguration {
-        formModel.configuration
-    }
-
-    private var titleBinding: Binding<String> {
-        Binding(
-            get: { formModel.title },
-            set: { formModel.title = $0 }
-        )
-    }
-
-    private var periodBinding: Binding<Period> {
-        Binding(
-            get: { formModel.selectedPeriod },
-            set: { formModel.setPeriod($0) }
-        )
-    }
-
-    private var dateBinding: Binding<Date> {
-        Binding(
-            get: { formModel.selectedDate },
-            set: { formModel.selectedDate = $0 }
-        )
+        viewModel.formModel.configuration
     }
 
     private var assignmentBinding: Binding<Bool> {
         Binding(
-            get: { formModel.hasPreferredAssignment },
-            set: { formModel.setPreferredAssignmentEnabled($0) }
-        )
-    }
-
-    private var bodyBinding: Binding<String> {
-        Binding(
-            get: { formModel.body },
-            set: { formModel.body = $0 }
-        )
-    }
-
-    private var priorityBinding: Binding<DataModel.Task.Priority> {
-        Binding(
-            get: { formModel.priority },
-            set: { formModel.priority = $0 }
-        )
-    }
-
-    private var dueDateEnabledBinding: Binding<Bool> {
-        Binding(
-            get: { formModel.hasDueDate },
-            set: { formModel.hasDueDate = $0 }
+            get: { viewModel.formModel.hasPreferredAssignment },
+            set: { viewModel.formModel.setPreferredAssignmentEnabled($0) }
         )
     }
 
     private var dueDateBinding: Binding<Date> {
         Binding(
-            get: { formModel.dueDate },
-            set: { formModel.dueDate = $0.startOfDay(calendar: journalManager.calendar) }
+            get: { viewModel.formModel.dueDate },
+            set: { viewModel.formModel.dueDate = $0.startOfDay(calendar: viewModel.presentedTemporalContext.calendar) }
         )
     }
 
@@ -117,24 +83,13 @@ struct TaskCreationSheet: View {
     ///
     /// Hidden until title is edited once; then always visible.
     private var isCreateButtonVisible: Bool {
-        formModel.isCreateButtonVisible
-    }
-
-    /// Whether the form has any validation errors.
-    private var hasValidationErrors: Bool {
-        !configuration.validateTitle(formModel.title).isValid ||
-        (
-            formModel.hasPreferredAssignment &&
-            !configuration.validateDate(
-                period: formModel.selectedPeriod,
-                date: formModel.effectiveSelectedDate
-            ).isValid
-        )
+        viewModel.formModel.isCreateButtonVisible
     }
 
     // MARK: - Body
 
     var body: some View {
+        @Bindable var viewModel = viewModel
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -149,17 +104,16 @@ struct TaskCreationSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .sheet(isPresented: $isShowingSpreadPicker) {
-                    SpreadPickerView(
-                        spreads: journalManager.spreads,
-                        calendar: journalManager.calendar,
-                        today: journalManager.today,
-                        onSpreadSelected: { period, date in
-                            formModel.applySpreadSelection(period: period, date: date)
-                        },
-                        onChooseCustomDate: {
-                            // Stay on custom date entry - no action needed
-                    }
+            .sheet(isPresented: $viewModel.isShowingSpreadPicker) {
+                SpreadPickerView(
+                    spreads: journalManager.spreads,
+                    calendar: viewModel.presentedTemporalContext.calendar,
+                    today: viewModel.presentedTemporalContext.today,
+                    focusDate: viewModel.formModel.effectiveSelectedDate,
+                    onSpreadSelected: { selection in
+                        viewModel.formModel.applySpreadSelection(selection)
+                    },
+                    onChooseCustomDate: {}
                 )
             }
             .navigationTitle("New Task")
@@ -176,7 +130,7 @@ struct TaskCreationSheet: View {
                         Button("Create") {
                             attemptCreate()
                         }
-                        .disabled(isCreating)
+                        .disabled(viewModel.isCreating)
                         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.createButton)
                     }
                 }
@@ -185,6 +139,12 @@ struct TaskCreationSheet: View {
                 isTitleFocused = true
             }
         }
+        .localhostTemporalHarness(
+            presentedDiagnostics: LocalhostTemporalHarnessPresentedDiagnostics(
+                calendarIdentifier: viewModel.presentedTemporalContext.calendar.identifier,
+                today: viewModel.presentedTemporalContext.today
+            )
+        )
     }
 
     // MARK: - Sections
@@ -192,14 +152,14 @@ struct TaskCreationSheet: View {
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Title")
-            TextField("Task title", text: titleBinding)
+            TextField("Task title", text: $viewModel.formModel.title)
                 .focused($isTitleFocused)
-                .onChange(of: formModel.title) { _, _ in
-                    formModel.handleTitleChange()
+                .onChange(of: viewModel.formModel.title) { _, _ in
+                    viewModel.formModel.handleTitleChange()
                 }
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.titleField)
 
-            if formModel.showValidationErrors, let error = formModel.titleError {
+            if viewModel.formModel.showValidationErrors, let error = viewModel.formModel.titleError {
                 validationErrorRow(message: error.message)
             }
         }
@@ -209,7 +169,7 @@ struct TaskCreationSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Spread")
             Button {
-                isShowingSpreadPicker = true
+                viewModel.isShowingSpreadPicker = true
             } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -233,7 +193,7 @@ struct TaskCreationSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader("Metadata")
 
-            Picker("Priority", selection: priorityBinding) {
+            Picker("Priority", selection: $viewModel.formModel.priority) {
                 ForEach(DataModel.Task.Priority.allCases, id: \.self) { priority in
                     Text(priority.displayName).tag(priority)
                 }
@@ -241,10 +201,10 @@ struct TaskCreationSheet: View {
             .pickerStyle(.menu)
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.priorityPicker)
 
-            Toggle("Due date", isOn: dueDateEnabledBinding)
+            Toggle("Due date", isOn: $viewModel.formModel.hasDueDate)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.dueDateToggle)
 
-            if formModel.hasDueDate {
+            if viewModel.formModel.hasDueDate {
                 DatePicker(
                     "Due",
                     selection: dueDateBinding,
@@ -256,8 +216,8 @@ struct TaskCreationSheet: View {
     }
 
     private var detailsSection: some View {
-        DisclosureGroup("Details", isExpanded: $formModel.isDetailsExpanded) {
-            TextEditor(text: bodyBinding)
+        DisclosureGroup("Details", isExpanded: $viewModel.formModel.isDetailsExpanded) {
+            TextEditor(text: $viewModel.formModel.body)
                 .frame(minHeight: 96)
                 .scrollContentBackground(.hidden)
                 .background(Color(uiColor: .secondarySystemBackground))
@@ -271,12 +231,12 @@ struct TaskCreationSheet: View {
             Toggle("Assign to spread", isOn: assignmentBinding)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.assignmentToggle)
 
-            if formModel.hasPreferredAssignment {
+            if viewModel.formModel.hasPreferredAssignment {
                 spreadSelectionSection
                 periodSection
                 dateSection
             } else {
-                Text(formModel.periodDescription)
+                Text(viewModel.formModel.periodDescription)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -287,14 +247,17 @@ struct TaskCreationSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Period")
             TaskPeriodControl(
-                selection: periodBinding,
+                selection: Binding(
+                    get: { viewModel.formModel.selectedPeriod },
+                    set: { viewModel.formModel.setPeriod($0) }
+                ),
                 pickerIdentifier: Definitions.AccessibilityIdentifiers.TaskCreationSheet.periodPicker,
                 segmentIdentifier: {
                     Definitions.AccessibilityIdentifiers.TaskCreationSheet.periodSegment($0.rawValue)
                 }
             )
 
-            Text(formModel.periodDescription)
+            Text(viewModel.formModel.periodDescription)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -303,22 +266,28 @@ struct TaskCreationSheet: View {
     private var dateSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Date")
-            PeriodDatePicker(
-                period: formModel.selectedPeriod,
-                selectedDate: dateBinding,
-                calendar: journalManager.calendar,
-                today: journalManager.today,
-                minimumDate: configuration.minimumDate(for: .day),
-                maximumDate: configuration.maximumDate,
-                accessibilityIdentifiers: .init(
-                    dayPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.datePicker,
-                    yearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.yearPicker,
-                    monthPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthPicker,
-                    monthYearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthYearPicker
+            if viewModel.formModel.selectedPeriod == .multiday {
+                Text(selectedMultidaySummary)
+                    .font(.subheadline)
+                    .foregroundStyle(viewModel.formModel.selectedSpreadID == nil ? .secondary : .primary)
+            } else {
+                PeriodDatePicker(
+                    period: viewModel.formModel.selectedPeriod,
+                    selectedDate: $viewModel.formModel.selectedDate,
+                    calendar: viewModel.presentedTemporalContext.calendar,
+                    today: viewModel.presentedTemporalContext.today,
+                    minimumDate: configuration.minimumDate(for: .day),
+                    maximumDate: configuration.maximumDate,
+                    accessibilityIdentifiers: .init(
+                        dayPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.datePicker,
+                        yearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.yearPicker,
+                        monthPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthPicker,
+                        monthYearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthYearPicker
+                    )
                 )
-            )
+            }
 
-            if formModel.showValidationErrors, let error = formModel.dateError {
+            if viewModel.formModel.showValidationErrors, let error = viewModel.formModel.dateError {
                 validationErrorRow(message: error.message)
             }
         }
@@ -345,10 +314,24 @@ struct TaskCreationSheet: View {
             .foregroundStyle(.secondary)
     }
 
+    private var selectedMultidaySummary: String {
+        guard let spreadID = viewModel.formModel.selectedSpreadID,
+              let spread = journalManager.spreads.first(where: { $0.id == spreadID }) else {
+            return "Select an existing multiday spread above"
+        }
+
+        return SpreadPickerConfiguration(
+            spreads: journalManager.spreads,
+            calendar: viewModel.presentedTemporalContext.calendar,
+            today: viewModel.presentedTemporalContext.today
+        )
+        .displayLabel(for: spread)
+    }
+
     // MARK: - Actions
 
     private func attemptCreate() {
-        guard formModel.validateForSubmission() else {
+        guard viewModel.formModel.validateForSubmission() else {
             return
         }
 
@@ -356,18 +339,19 @@ struct TaskCreationSheet: View {
     }
 
     private func createTask() {
-        isCreating = true
+        viewModel.isCreating = true
 
         Task {
             do {
                 let task = try await journalManager.addTask(
-                    title: formModel.title,
-                    date: formModel.effectiveSelectedDate,
-                    period: formModel.selectedPeriod,
-                    hasPreferredAssignment: formModel.hasPreferredAssignment,
-                    body: formModel.sanitizedBody,
-                    priority: formModel.priority,
-                    dueDate: formModel.effectiveDueDate
+                    title: viewModel.formModel.title,
+                    date: viewModel.formModel.effectiveSelectedDate,
+                    period: viewModel.formModel.selectedPeriod,
+                    preferredSpreadID: viewModel.formModel.selectedSpreadID,
+                    hasPreferredAssignment: viewModel.formModel.hasPreferredAssignment,
+                    body: viewModel.formModel.sanitizedBody,
+                    priority: viewModel.formModel.priority,
+                    dueDate: viewModel.formModel.effectiveDueDate
                 )
                 await MainActor.run {
                     onTaskCreated(task)
@@ -375,8 +359,7 @@ struct TaskCreationSheet: View {
                 }
             } catch {
                 await MainActor.run {
-                    // Show error (could add alert here)
-                    isCreating = false
+                    viewModel.isCreating = false
                 }
             }
         }

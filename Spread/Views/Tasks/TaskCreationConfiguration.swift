@@ -8,6 +8,9 @@ enum TaskCreationError: Equatable {
     /// The selected date is in the past.
     case pastDate
 
+    /// Multiday assignment requires choosing an existing multiday spread.
+    case missingMultidaySpread
+
     /// User-facing error message.
     var message: String {
         switch self {
@@ -15,6 +18,8 @@ enum TaskCreationError: Equatable {
             return "Title is required"
         case .pastDate:
             return "You can only create tasks for present or future dates"
+        case .missingMultidaySpread:
+            return "Select an existing multiday spread"
         }
     }
 }
@@ -136,6 +141,9 @@ struct TaskCreationConfiguration {
     /// effective preferred assignment.
     func adjustedDate(_ date: Date, for period: Period) -> Date {
         let normalizedDate = period.normalizeDate(date, calendar: calendar)
+        if period == .multiday {
+            return normalizedDate
+        }
         let minimumDate = minimumDate(for: period)
         return normalizedDate < minimumDate ? minimumDate : normalizedDate
     }
@@ -165,17 +173,13 @@ struct TaskCreationConfiguration {
             return (.day, today)
         }
 
-        // Multiday spreads can't have tasks assigned, default to day
-        let period: Period = spread.period == .multiday ? .day : spread.period
-
-        // For multiday, use the start date; otherwise use the spread's date
-        let date = spread.period == .multiday ? (spread.startDate ?? today) : spread.date
-
+        let period = spread.period
+        let date = spread.period == .multiday ? (spread.startDate ?? spread.date) : spread.date
         return (period, date)
     }
 
-    /// Returns the assignable periods (excludes multiday).
+    /// Returns the assignable periods.
     static var assignablePeriods: [Period] {
-        [.year, .month, .day]
+        [.year, .month, .multiday, .day]
     }
 }

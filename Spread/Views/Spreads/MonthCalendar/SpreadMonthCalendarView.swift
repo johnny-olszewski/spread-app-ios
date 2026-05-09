@@ -1,5 +1,6 @@
 import SwiftUI
 import JohnnyOFoundationUI
+import JohnnyOFoundationCore
 
 private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
     typealias HeaderContent = AnyView
@@ -9,7 +10,10 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
     typealias WeekBackgroundContent = AnyView
 
     let calendar: Calendar
-    let entryCountsByDate: [Date: Int]
+    let dayStateByDate: [Date: SpreadMonthCalendarDayState]
+    let calendarActionsByDate: [Date: MonthSpreadCalendarDayAction]
+    let mode: SpreadMonthCalendarView.Mode
+    let onViewDaySpread: ((DataModel.Spread) -> Void)?
 
     func headerView(context: MonthCalendarHeaderContext) -> AnyView {
         AnyView(EmptyView().frame(height: 0))
@@ -27,8 +31,9 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
 
     func dayCellView(context: MonthCalendarDayContext) -> AnyView {
         let normalizedDate = Period.day.normalizeDate(context.date, calendar: calendar)
-        let entryCount = entryCountsByDate[normalizedDate] ?? 0
-        let visualState = dayVisualState(for: context, entryCount: entryCount)
+        let dayState = dayStateByDate[normalizedDate] ?? .init(hasExplicitDaySpread: false, contentCount: 0)
+        let action = mode == .conventional ? calendarActionsByDate[normalizedDate] : nil
+        let visualState = dayVisualState(for: context, dayState: dayState)
         let foreground: Color = context.isPeripheral ? .secondary : .primary
 
         return AnyView(
@@ -47,20 +52,31 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
                     .fontWeight(context.isToday ? .semibold : .regular)
                     .foregroundStyle(context.isToday ? SpreadTheme.Accent.todayEmphasis : foreground)
 
-                if entryCount > 0 {
-                    HStack(spacing: 3) {
-                        ForEach(0..<min(entryCount, 3), id: \.self) { _ in
-                            Circle()
-                                .fill(SpreadTheme.Accent.todaySelectedEmphasis)
-                                .frame(width: 4, height: 4)
+                if case .revealSection? = action {
+                    Text("Assigned")
+                        .font(.system(size: 9, weight: .semibold, design: .default))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                } else if case .view(let spread)? = action {
+                    HStack {
+                        Spacer()
+
+                        Button {
+                            onViewDaySpread?(spread)
+                        } label: {
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(SpreadTheme.Accent.todaySelectedEmphasis)
+                                .frame(width: 24, height: 24)
+                                .background(
+                                    Circle()
+                                        .fill(.white.opacity(0.94))
+                                )
                         }
-                        if entryCount > 3 {
-                            Text("+")
-                                .font(.system(size: 8, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Open day spread")
                     }
-                    .frame(height: 8)
                 } else {
                     Spacer(minLength: 8)
                 }
@@ -84,10 +100,20 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
 
     private func dayVisualState(
         for context: MonthCalendarDayContext,
-        entryCount: Int
+        dayState: SpreadMonthCalendarDayState
     ) -> MultidayDayCardVisualState {
-        if context.isToday { return .today }
-        return entryCount > 0 ? .created : .uncreated
+        switch mode {
+        case .conventional:
+            return MultidayDayCardSupport.visualState(
+                isToday: context.isToday,
+                isCreated: dayState.hasExplicitDaySpread
+            )
+        case .traditional:
+            return MultidayDayCardSupport.visualState(
+                isToday: context.isToday,
+                isCreated: true
+            )
+        }
     }
 
     private func cellFill(
@@ -95,11 +121,8 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
         isPeripheral: Bool
     ) -> Color {
         if isPeripheral { return Color.clear }
-        switch visualState {
-        case .today: return visualState.fill
-        case .created: return Color.primary.opacity(0.04)
-        case .uncreated: return Color.clear
-        }
+        if visualState.isToday { return visualState.fill }
+        return visualState.isCreated ? Color.primary.opacity(0.04) : Color.clear
     }
 
     func placeholderCellView(context: MonthCalendarPlaceholderContext) -> AnyView {
@@ -123,7 +146,22 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
 }
 
 struct SpreadMonthCalendarView: View {
-    enum Mode {
+    private struct CalendarDelegate: MonthCalendarActionDelegate {
+        let calendar: Calendar
+        let calendarActionsByDate: [Date: MonthSpreadCalendarDayAction]
+        let onRevealMonthDaySection: (Date) -> Void
+
+        func monthCalendarDidTapDay(_ context: MonthCalendarDayContext) {
+            let normalizedDate = Period.day.normalizeDate(context.date, calendar: calendar)
+            guard case .revealSection(let sectionDate)? = calendarActionsByDate[normalizedDate] else {
+                return
+            }
+
+            onRevealMonthDaySection(sectionDate)
+        }
+    }
+
+    enum Mode: Equatable {
         case conventional
         case traditional
     }
@@ -131,22 +169,27 @@ struct SpreadMonthCalendarView: View {
     let monthDate: Date
     let mode: Mode
     let journalManager: JournalManager
+    var calendarActionsByDate: [Date: MonthSpreadCalendarDayAction] = [:]
+    var onViewDaySpread: ((DataModel.Spread) -> Void)? = nil
+    var onRevealMonthDaySection: ((Date) -> Void)? = nil
 
     private var calendar: Calendar {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
     }
 
-    private var entryCountsByDate: [Date: Int] {
+    private var dayStateByDate: [Date: SpreadMonthCalendarDayState] {
         switch mode {
         case .conventional:
-            return SpreadMonthCalendarSupport.conventionalEntryCountsByDate(
+            let monthStart = Period.month.normalizeDate(monthDate, calendar: calendar)
+            return SpreadMonthCalendarSupport.conventionalDayStateByDate(
                 monthDate: monthDate,
                 spreads: journalManager.spreads,
                 dataModel: journalManager.dataModel,
+                monthSpreadDataModel: journalManager.dataModel[.month]?[monthStart],
                 calendar: calendar
             )
         case .traditional:
-            return SpreadMonthCalendarSupport.traditionalEntryCountsByDate(
+            return SpreadMonthCalendarSupport.traditionalDayStateByDate(
                 monthDate: monthDate,
                 tasks: journalManager.tasks,
                 notes: journalManager.notes,
@@ -164,12 +207,29 @@ struct SpreadMonthCalendarView: View {
             configuration: .init(showsPeripheralDates: true),
             contentGenerator: SpreadMonthCalendarContentGenerator(
                 calendar: calendar,
-                entryCountsByDate: entryCountsByDate
-            )
+                dayStateByDate: dayStateByDate,
+                calendarActionsByDate: calendarActionsByDate,
+                mode: mode,
+                onViewDaySpread: onViewDaySpread
+            ),
+            actionDelegate: monthCalendarActionDelegate
         )
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 8)
         .accessibilityIdentifier("spreads.month.calendar")
+    }
+
+    private var monthCalendarActionDelegate: (any MonthCalendarActionDelegate)? {
+        guard mode == .conventional,
+              let onRevealMonthDaySection else {
+            return nil
+        }
+
+        return CalendarDelegate(
+            calendar: calendar,
+            calendarActionsByDate: calendarActionsByDate,
+            onRevealMonthDaySection: onRevealMonthDaySection
+        )
     }
 }

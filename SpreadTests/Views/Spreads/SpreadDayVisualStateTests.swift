@@ -10,12 +10,21 @@ struct SpreadDayVisualStateTests {
 
     // MARK: - MultidayDayCardVisualState shared properties
 
-    /// Condition: .today state.
+    /// Condition: a created today state.
     /// Expected: fill is a tinted accent color (non-clear), border is solid (no dash), border color is todayEmphasisBorder.
-    @Test("today state has tinted fill and solid border")
-    func testTodayStateStyle() {
-        let state = MultidayDayCardVisualState.today
+    @Test("today created state has tinted fill and solid border")
+    func testTodayCreatedStateStyle() {
+        let state = MultidayDayCardVisualState.todayCreated
         #expect(state.borderStyle.dash.isEmpty)
+        #expect(state.borderStyle.lineWidth == 1.5)
+    }
+
+    /// Condition: an uncreated today state.
+    /// Expected: the border remains dashed even though the day still uses today emphasis.
+    @Test("today uncreated state keeps dashed border")
+    func testTodayUncreatedStateStyle() {
+        let state = MultidayDayCardVisualState.todayUncreated
+        #expect(!state.borderStyle.dash.isEmpty)
         #expect(state.borderStyle.lineWidth == 1.5)
     }
 
@@ -37,11 +46,11 @@ struct SpreadDayVisualStateTests {
         #expect(state.borderStyle.lineWidth == 1.0)
     }
 
-    /// Condition: each state has a distinct border color from the others.
-    /// Expected: today, created, and uncreated all return different border colors.
+    /// Condition: today-emphasis and created/uncreated states have distinct border colors.
+    /// Expected: today-created uses the today-emphasis tint while created/uncreated retain their neutral tones.
     @Test("each state produces a distinct border color")
     func testDistinctBorderColors() {
-        let today = MultidayDayCardVisualState.today.borderColor
+        let today = MultidayDayCardVisualState.todayCreated.borderColor
         let created = MultidayDayCardVisualState.created.borderColor
         let uncreated = MultidayDayCardVisualState.uncreated.borderColor
 
@@ -50,16 +59,18 @@ struct SpreadDayVisualStateTests {
         #expect(created != uncreated)
     }
 
-    /// Condition: today and created/uncreated have distinct fills.
-    /// Expected: today fill differs from created/uncreated fills.
-    @Test("today state has distinct fill from other states")
+    /// Condition: today-emphasis and created/uncreated have distinct fills.
+    /// Expected: both today variants share the same fill, which differs from created/uncreated fills.
+    @Test("today states have distinct fill from other states")
     func testTodayFillDistinct() {
-        let todayFill = MultidayDayCardVisualState.today.fill
+        let todayCreatedFill = MultidayDayCardVisualState.todayCreated.fill
+        let todayUncreatedFill = MultidayDayCardVisualState.todayUncreated.fill
         let createdFill = MultidayDayCardVisualState.created.fill
         let uncreatedFill = MultidayDayCardVisualState.uncreated.fill
 
-        #expect(todayFill != createdFill)
-        #expect(todayFill != uncreatedFill)
+        #expect(todayCreatedFill == todayUncreatedFill)
+        #expect(todayCreatedFill != createdFill)
+        #expect(todayCreatedFill != uncreatedFill)
     }
 
     // MARK: - Visual state mapping helpers
@@ -74,67 +85,41 @@ struct SpreadDayVisualStateTests {
         calendar.date(from: DateComponents(year: year, month: month, day: day))!
     }
 
-    private func makeConventionalModel(today: Date) -> SpreadHeaderNavigatorModel {
-        SpreadHeaderNavigatorModel(
-            mode: .conventional,
-            calendar: Self.calendar,
-            today: today,
-            spreads: [],
-            tasks: [],
-            notes: [],
-            events: []
-        )
-    }
-
-    private func makeTraditionalModel(today: Date) -> SpreadHeaderNavigatorModel {
-        SpreadHeaderNavigatorModel(
-            mode: .traditional,
-            calendar: Self.calendar,
-            today: today,
-            spreads: [],
-            tasks: [],
-            notes: [],
-            events: []
-        )
-    }
-
-    private func visualState(
-        isToday: Bool,
-        mode: SpreadHeaderNavigatorModel.Mode,
-        hasTargets: Bool,
-        today: Date
-    ) -> MultidayDayCardVisualState {
-        if isToday { return .today }
-        if mode == .traditional || hasTargets { return .created }
-        return .uncreated
-    }
-
     // MARK: - Conventional mode mapping
 
     /// Condition: Conventional mode, today's date.
     /// Expected: visual state is .today regardless of targets.
     @Test("Conventional mode: today date maps to .today")
     func testConventionalTodayMapsToToday() {
-        let today = Self.makeDate(year: 2026, month: 4, day: 13)
-        let state = visualState(isToday: true, mode: .conventional, hasTargets: false, today: today)
-        #expect(state == .today)
+        let state = SpreadHeaderNavigatorCalendarGenerator.visualState(
+            isToday: true,
+            mode: .conventional,
+            hasExplicitDayTarget: false
+        )
+        #expect(state == .todayUncreated)
     }
 
-    /// Condition: Conventional mode, non-today date with selection targets.
+    /// Condition: Conventional mode, non-today date with an explicit day target.
     /// Expected: visual state is .created.
-    @Test("Conventional mode: date with targets maps to .created")
-    func testConventionalWithTargetsMapsToCreated() {
-        let today = Self.makeDate(year: 2026, month: 4, day: 13)
-        let state = visualState(isToday: false, mode: .conventional, hasTargets: true, today: today)
+    @Test("Conventional mode: date with explicit day target maps to .created")
+    func testConventionalWithExplicitDayTargetMapsToCreated() {
+        let state = SpreadHeaderNavigatorCalendarGenerator.visualState(
+            isToday: false,
+            mode: .conventional,
+            hasExplicitDayTarget: true
+        )
         #expect(state == .created)
     }
 
-    /// Condition: Conventional mode, non-today date with no selection targets.
-    /// Expected: visual state is .uncreated.
-    @Test("Conventional mode: date with no targets maps to .uncreated")
-    func testConventionalNoTargetsMapsToUncreated() {
-        let today = Self.makeDate(year: 2026, month: 4, day: 13)
-        let state = visualState(isToday: false, mode: .conventional, hasTargets: false, today: today)
+    /// Condition: Conventional mode, non-today date with only multiday targets.
+    /// Expected: visual state is .uncreated because multiday coverage alone does not create a day spread.
+    @Test("Conventional mode: multiday-only target maps to .uncreated")
+    func testConventionalMultidayOnlyTargetMapsToUncreated() {
+        let state = SpreadHeaderNavigatorCalendarGenerator.visualState(
+            isToday: false,
+            mode: .conventional,
+            hasExplicitDayTarget: false
+        )
         #expect(state == .uncreated)
     }
 
@@ -144,17 +129,23 @@ struct SpreadDayVisualStateTests {
     /// Expected: visual state is .today.
     @Test("Traditional mode: today date maps to .today")
     func testTraditionalTodayMapsToToday() {
-        let today = Self.makeDate(year: 2026, month: 4, day: 13)
-        let state = visualState(isToday: true, mode: .traditional, hasTargets: false, today: today)
-        #expect(state == .today)
+        let state = SpreadHeaderNavigatorCalendarGenerator.visualState(
+            isToday: true,
+            mode: .traditional,
+            hasExplicitDayTarget: false
+        )
+        #expect(state == .todayCreated)
     }
 
     /// Condition: Traditional mode, non-today date with no targets.
     /// Expected: visual state is .created (all traditional days are navigable).
     @Test("Traditional mode: date without targets still maps to .created")
     func testTraditionalAlwaysCreated() {
-        let today = Self.makeDate(year: 2026, month: 4, day: 13)
-        let state = visualState(isToday: false, mode: .traditional, hasTargets: false, today: today)
+        let state = SpreadHeaderNavigatorCalendarGenerator.visualState(
+            isToday: false,
+            mode: .traditional,
+            hasExplicitDayTarget: false
+        )
         #expect(state == .created)
     }
 
@@ -162,8 +153,49 @@ struct SpreadDayVisualStateTests {
     /// Expected: visual state is .created.
     @Test("Traditional mode: date with targets maps to .created")
     func testTraditionalWithTargetsMapsToCreated() {
-        let today = Self.makeDate(year: 2026, month: 4, day: 13)
-        let state = visualState(isToday: false, mode: .traditional, hasTargets: true, today: today)
+        let state = SpreadHeaderNavigatorCalendarGenerator.visualState(
+            isToday: false,
+            mode: .traditional,
+            hasExplicitDayTarget: true
+        )
         #expect(state == .created)
+    }
+
+    /// Condition: a target list contains only multiday selections.
+    /// Expected: the helper reports no explicit day target.
+    @Test("Target helper ignores multiday-only selections")
+    func testHasExplicitDayTargetIgnoresMultidayOnlySelections() {
+        let multidayOnlyTargets = [
+            SpreadHeaderNavigatorModel.SelectionTarget(
+                id: "multiday-only",
+                selection: .traditionalDay(Self.makeDate(year: 2026, month: 4, day: 13)),
+                title: "Multiday",
+                isMultiday: true
+            )
+        ]
+
+        #expect(!SpreadHeaderNavigatorCalendarGenerator.hasExplicitDayTarget(multidayOnlyTargets))
+    }
+
+    /// Condition: a target list contains an explicit day selection before multiday selections.
+    /// Expected: the helper reports that the date has an explicit day target.
+    @Test("Target helper detects explicit day selection")
+    func testHasExplicitDayTargetDetectsDaySelection() {
+        let mixedTargets = [
+            SpreadHeaderNavigatorModel.SelectionTarget(
+                id: "day",
+                selection: .traditionalDay(Self.makeDate(year: 2026, month: 4, day: 13)),
+                title: "View Day",
+                isMultiday: false
+            ),
+            SpreadHeaderNavigatorModel.SelectionTarget(
+                id: "multiday",
+                selection: .traditionalDay(Self.makeDate(year: 2026, month: 4, day: 13)),
+                title: "Multiday",
+                isMultiday: true
+            )
+        ]
+
+        #expect(SpreadHeaderNavigatorCalendarGenerator.hasExplicitDayTarget(mixedTargets))
     }
 }

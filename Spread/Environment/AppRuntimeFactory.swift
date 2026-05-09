@@ -12,7 +12,13 @@ enum AppRuntimeFactory {
     ///
     /// - Parameter configuration: Optional overrides for debug/QA builds.
     @MainActor
-    static func makeLive(configuration: AppRuntimeConfiguration = AppRuntimeConfiguration()) async throws -> AppRuntime {
+    static func makeLive() async throws -> AppRuntime {
+        try await makeLive(configuration: AppRuntimeConfiguration())
+    }
+
+    /// Creates a live runtime for app launch with explicit configuration overrides.
+    @MainActor
+    static func makeLive(configuration: AppRuntimeConfiguration) async throws -> AppRuntime {
         let currentEnvironment = DataEnvironment.current
 
         if DataEnvironment.requiresWipeOnLaunch(current: currentEnvironment) {
@@ -47,9 +53,18 @@ enum AppRuntimeFactory {
     ///   - dependencies: The app dependencies to use.
     ///   - configuration: Optional overrides for debug/QA builds.
     @MainActor
+    static func make(dependencies: AppDependencies) async throws -> AppRuntime {
+        try await make(
+            dependencies: dependencies,
+            configuration: AppRuntimeConfiguration()
+        )
+    }
+
+    /// Creates a runtime from injected dependencies with explicit configuration overrides.
+    @MainActor
     static func make(
         dependencies: AppDependencies,
-        configuration: AppRuntimeConfiguration = AppRuntimeConfiguration()
+        configuration: AppRuntimeConfiguration
     ) async throws -> AppRuntime {
         let currentEnvironment = DataEnvironment.current
         return try await makeRuntime(
@@ -69,8 +84,7 @@ enum AppRuntimeFactory {
     ) async throws -> AppRuntime {
         let authService = configuration.makeAuthService?(dependencies) ?? SupabaseAuthService()
         let authManager = AuthManager(service: authService)
-
-        let today = configuration.resolveToday?() ?? .now
+        let appClock = configuration.makeAppClock?() ?? .live()
 
         // Load persisted settings to configure JournalManager
         let savedSettings = await dependencies.settingsRepository.getSettings()
@@ -78,7 +92,7 @@ enum AppRuntimeFactory {
         let firstWeekday = savedSettings.flatMap { FirstWeekday.from(weekdayValue: $0.firstWeekday) } ?? .systemDefault
 
         let journalManager = try await dependencies.makeJournalManager(
-            today: today,
+            appClock: appClock,
             bujoMode: bujoMode,
             firstWeekday: firstWeekday
         )
@@ -104,6 +118,7 @@ enum AppRuntimeFactory {
 
         return AppRuntime(
             dependencies: dependencies,
+            appClock: appClock,
             journalManager: journalManager,
             authManager: authManager,
             syncEngine: syncEngine,
