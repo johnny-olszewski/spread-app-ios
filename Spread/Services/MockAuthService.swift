@@ -41,6 +41,34 @@ final class MockAuthService: AuthService {
         currentEmail = nil
     }
 
+    func handle(url: URL) async throws -> AuthDeepLinkResult {
+        var params: [String: String] = [:]
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            if let fragment = components.fragment {
+                fragment.split(separator: "&").forEach {
+                    let kv = $0.split(separator: "=", maxSplits: 1)
+                    if kv.count == 2 { params[String(kv[0])] = String(kv[1]) }
+                }
+            }
+            components.queryItems?.forEach { params[$0.name] = $0.value ?? "" }
+        }
+        if params["type"] == "recovery" { return .recoverySession }
+        let email = currentEmail ?? Self.localhostEmail
+        return .emailConfirmed(AuthSuccess(user: makeLocalhostUser(email: email)))
+    }
+
+    func updatePassword(newPassword: String) async throws {
+        // No-op for mock
+    }
+
+    func resendVerification(email: String) async throws {
+        // No-op for mock
+    }
+
+    var authStateChanges: AsyncStream<AuthChangeEvent> {
+        AsyncStream { _ in }
+    }
+
     // MARK: - Mock User
 
     /// Creates a mock User for localhost sign-in.
