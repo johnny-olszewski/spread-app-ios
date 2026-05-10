@@ -1,5 +1,7 @@
 #if DEBUG
 
+import Foundation
+
 /// Debug decorator that injects forced auth errors and network blocking before delegating.
 ///
 /// Wraps any `AuthService` and checks `forcedAuthError` and the network monitor's
@@ -62,6 +64,22 @@ final class DebugAuthService: AuthService {
 
     func signOut() async throws {
         try await wrapped.signOut()
+    }
+
+    func handle(url: URL) async throws -> AuthDeepLinkResult {
+        try await wrapped.handle(url: url)
+    }
+
+    func updatePassword(newPassword: String) async throws {
+        try await wrapped.updatePassword(newPassword: newPassword)
+    }
+
+    func resendVerification(email: String) async throws {
+        try await wrapped.resendVerification(email: email)
+    }
+
+    var authStateChanges: AsyncStream<AuthChangeEvent> {
+        wrapped.authStateChanges
     }
 }
 

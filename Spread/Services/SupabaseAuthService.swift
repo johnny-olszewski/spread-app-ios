@@ -1,3 +1,4 @@
+import Foundation
 import Supabase
 
 /// Production auth service that authenticates with Supabase.
@@ -61,5 +62,47 @@ struct SupabaseAuthService: AuthService {
 
     func signOut() async throws {
         try await client.auth.signOut()
+    }
+
+    func handle(url: URL) async throws -> AuthDeepLinkResult {
+        let session = try await client.auth.session(from: url)
+        var params: [String: String] = [:]
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            if let fragment = components.fragment {
+                fragment.split(separator: "&").forEach {
+                    let kv = $0.split(separator: "=", maxSplits: 1)
+                    if kv.count == 2 { params[String(kv[0])] = String(kv[1]) }
+                }
+            }
+            components.queryItems?.forEach { params[$0.name] = $0.value ?? "" }
+        }
+        if params["type"] == "recovery" {
+            return .recoverySession
+        }
+        return .emailConfirmed(AuthSuccess(user: session.user))
+    }
+
+    func updatePassword(newPassword: String) async throws {
+        _ = try await client.auth.update(user: UserAttributes(password: newPassword))
+    }
+
+    func resendVerification(email: String) async throws {
+        try await client.auth.resend(email: email, type: .signup)
+    }
+
+    var authStateChanges: AsyncStream<AuthChangeEvent> {
+        AsyncStream { continuation in
+            Task {
+                for await (event, _) in client.auth.authStateChanges {
+                    switch event {
+                    case .signedOut, .userDeleted:
+                        continuation.yield(.signedOut)
+                    default:
+                        break
+                    }
+                }
+                continuation.finish()
+            }
+        }
     }
 }

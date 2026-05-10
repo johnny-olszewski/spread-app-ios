@@ -1,3 +1,4 @@
+import Foundation
 import struct Auth.User
 
 /// Successful authentication outcome.
@@ -48,4 +49,29 @@ protocol AuthService: Sendable {
     ///
     /// - Throws: An error if sign-out fails.
     func signOut() async throws
+
+    /// Exchanges a Supabase auth callback URL for a session.
+    ///
+    /// - Parameter url: The deeplink URL delivered via `onOpenURL`.
+    /// - Returns: The deeplink result indicating email confirmation or password recovery.
+    /// - Throws: An error if the token exchange fails.
+    func handle(url: URL) async throws -> AuthDeepLinkResult
+
+    /// Updates the current signed-in user's password.
+    ///
+    /// - Parameter newPassword: The replacement password.
+    /// - Throws: An error if the update fails.
+    func updatePassword(newPassword: String) async throws
+
+    /// Resends the verification email to the given address.
+    ///
+    /// - Parameter email: The email address to resend verification to.
+    /// - Throws: An error if the request fails.
+    func resendVerification(email: String) async throws
+
+    /// Async stream of externally-triggered auth state changes.
+    ///
+    /// Emits `.signedOut` when the session is terminated outside the app
+    /// (e.g., token expiry, account deletion). Never emits for manual sign-out.
+    var authStateChanges: AsyncStream<AuthChangeEvent> { get }
 }
