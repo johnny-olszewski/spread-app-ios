@@ -54,6 +54,9 @@ final class AuthManager {
     /// Callback for when sign-in completes (to start sync).
     var onSignIn: ((User) async -> Void)?
 
+    /// Stored task observing `service.authStateChanges` for externally-triggered sign-outs.
+    private var authStateObservationTask: Task<Void, Never>?
+
     // MARK: - Initialization
 
     /// Creates an AuthManager with the specified auth service.
@@ -65,6 +68,10 @@ final class AuthManager {
         Task {
             await checkSession()
         }
+
+        authStateObservationTask = Task {
+            await observeAuthStateChanges()
+        }
     }
 
     // MARK: - Session Management
@@ -75,6 +82,20 @@ final class AuthManager {
             state = .signedIn(result.user)
         } else {
             state = .signedOut
+        }
+    }
+
+    /// Observes `service.authStateChanges` and transitions state on external sign-out events.
+    ///
+    /// Mirrors the manual sign-out path so `AuthLifecycleCoordinator` handles data wipe
+    /// and sync reset automatically.
+    private func observeAuthStateChanges() async {
+        for await event in service.authStateChanges {
+            switch event {
+            case .signedOut:
+                state = .signedOut
+                await onSignOut?()
+            }
         }
     }
 
@@ -163,6 +184,51 @@ final class AuthManager {
             throw error
         } catch {
             errorMessage = "Failed to send reset email. Please try again."
+            throw error
+        }
+    }
+
+    // MARK: - Update Password
+
+    /// Updates the current signed-in user's password.
+    ///
+    /// - Parameter newPassword: The replacement password.
+    /// - Throws: An error if the update fails.
+    func updatePassword(newPassword: String) async throws {
+        isLoading = true
+        errorMessage = nil
+
+        defer { isLoading = false }
+
+        do {
+            try await service.updatePassword(newPassword: newPassword)
+        } catch let error as AuthError {
+            errorMessage = mapAuthError(error)
+            throw error
+        } catch {
+            errorMessage = "Failed to update password. Please try again."
+            throw error
+        }
+    }
+
+    // MARK: - Resend Verification
+
+    /// Resends the verification email to the given address.
+    ///
+    /// On success no state change is needed — the user remains unconfirmed until they tap the link.
+    ///
+    /// - Parameter email: The email address to resend verification to.
+    /// - Throws: An error if the request fails.
+    func resendVerification(email: String) async throws {
+        isLoading = true
+        errorMessage = nil
+
+        defer { isLoading = false }
+
+        do {
+            try await service.resendVerification(email: email)
+        } catch {
+            errorMessage = "Failed to resend verification email. Please try again."
             throw error
         }
     }
