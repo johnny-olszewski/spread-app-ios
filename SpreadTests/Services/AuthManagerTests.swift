@@ -94,6 +94,43 @@ struct AuthManagerTests {
         var authStateChanges: AsyncStream<AuthChangeEvent> { AsyncStream { _ in } }
     }
 
+    /// Auth service whose `authStateChanges` immediately emits a single `.signedOut` event.
+    private final class SignedOutStreamAuthService: AuthService {
+        func checkSession() async -> AuthSuccess? { nil }
+        func signIn(email: String, password: String) async throws -> AuthSuccess { fatalError("not used") }
+        func signUp(email: String, password: String) async throws -> AuthSuccess { fatalError("not used") }
+        func resetPassword(email: String) async throws {}
+        func signOut() async throws {}
+        func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
+        func updatePassword(newPassword: String) async throws {}
+        func resendVerification(email: String) async throws {}
+        var authStateChanges: AsyncStream<AuthChangeEvent> {
+            AsyncStream { continuation in
+                continuation.yield(.signedOut)
+                continuation.finish()
+            }
+        }
+    }
+
+    /// Auth service that throws on `resendVerification`.
+    private final class FailingResendAuthService: AuthService {
+        let error: Error
+
+        init(error: Error) {
+            self.error = error
+        }
+
+        func checkSession() async -> AuthSuccess? { nil }
+        func signIn(email: String, password: String) async throws -> AuthSuccess { fatalError("not used") }
+        func signUp(email: String, password: String) async throws -> AuthSuccess { fatalError("not used") }
+        func resetPassword(email: String) async throws {}
+        func signOut() async throws {}
+        func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
+        func updatePassword(newPassword: String) async throws {}
+        func resendVerification(email: String) async throws { throw error }
+        var authStateChanges: AsyncStream<AuthChangeEvent> { AsyncStream { _ in } }
+    }
+
     // MARK: - Sign In Success
 
     /// Conditions: Service returns success.
@@ -226,5 +263,61 @@ struct AuthManagerTests {
 
         #expect(!authManager.state.isSignedIn)
         #expect(signOutCalled)
+    }
+
+    // MARK: - Auth State Observation
+
+    /// Conditions: The injected service's `authStateChanges` stream emits `.signedOut`.
+    /// Expected: `AuthManager.state` transitions to `.signedOut` and `onSignOut` is called.
+    @Test func authStateChangesSignedOutEventTransitionsStateAndCallsCallback() async {
+        let service = SignedOutStreamAuthService()
+        let authManager = AuthManager(service: service)
+        var signOutCalled = false
+
+        authManager.onSignOut = {
+            signOutCalled = true
+        }
+
+        // Yield the current task multiple times to let the observation and checkSession tasks run.
+        // Each async hop (task start, for-await next, await onSignOut?()) requires a yield.
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+
+        #expect(!authManager.state.isSignedIn)
+        #expect(signOutCalled)
+    }
+
+    // MARK: - Update Password
+
+    /// Conditions: `updatePassword` succeeds.
+    /// Expected: `isLoading` is false after the call and no error message is set.
+    @Test func updatePasswordSuccessClearsLoadingAndNoError() async throws {
+        let service = SuccessfulAuthService()
+        let authManager = AuthManager(service: service)
+
+        try await authManager.updatePassword(newPassword: "newSecurePass1!")
+
+        #expect(!authManager.isLoading)
+        #expect(authManager.errorMessage == nil)
+    }
+
+    // MARK: - Resend Verification
+
+    /// Conditions: `resendVerification` fails.
+    /// Expected: `errorMessage` is set and `isLoading` returns to false.
+    @Test func resendVerificationFailureSetsErrorMessage() async {
+        let service = FailingResendAuthService(error: ForcedAuthSignInError(forced: .networkTimeout))
+        let authManager = AuthManager(service: service)
+
+        do {
+            try await authManager.resendVerification(email: "user@example.com")
+            #expect(Bool(false), "Expected error.")
+        } catch {
+            // Expected
+        }
+
+        #expect(authManager.errorMessage != nil)
+        #expect(!authManager.isLoading)
     }
 }
