@@ -116,6 +116,11 @@ enum AppRuntimeFactory {
         coordinator.wireAuthCallbacks()
         await coordinator.handleInitialAuthState()
 
+        let deepLinkCoordinator = AuthDeepLinkCoordinator(
+            service: authService,
+            authManager: authManager
+        )
+
         return AppRuntime(
             dependencies: dependencies,
             appClock: appClock,
@@ -123,6 +128,7 @@ enum AppRuntimeFactory {
             authManager: authManager,
             syncEngine: syncEngine,
             authCoordinator: coordinator,
+            deepLinkCoordinator: deepLinkCoordinator,
             makeDebugMenuView: configuration.makeDebugMenuView
         )
     }
