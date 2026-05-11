@@ -42,7 +42,6 @@ struct ForgotPasswordSheet: View {
                 } else {
                     emailSection
                     validationSection
-                    serverErrorSection
                 }
             }
             .overlay {
@@ -63,6 +62,14 @@ struct ForgotPasswordSheet: View {
                         sendButton
                     }
                 }
+            }
+            .alert("Error", isPresented: Binding(
+                get: { authManager.errorMessage != nil },
+                set: { if !$0 { authManager.clearError() } }
+            )) {
+                Button("OK") { authManager.clearError() }
+            } message: {
+                Text(authManager.errorMessage ?? "")
             }
             .onDisappear {
                 authManager.clearError()
@@ -94,17 +101,6 @@ struct ForgotPasswordSheet: View {
             Section {
                 Text(error)
                     .foregroundStyle(.orange)
-                    .font(.callout)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var serverErrorSection: some View {
-        if let errorMessage = authManager.errorMessage {
-            Section {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
                     .font(.callout)
             }
         }
