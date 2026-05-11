@@ -113,7 +113,7 @@ struct SpreadsView: View {
                 selection: selectionBinding
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .dotGridBackground(.paper, ignoresSafeAreaEdges: .bottom)
+            .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
         } else {
             ContentUnavailableView {
                 Label("No Spread Selected", systemImage: "book")
@@ -121,7 +121,7 @@ struct SpreadsView: View {
                 Text("Select a spread from the bar above.")
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .dotGridBackground(.paper, ignoresSafeAreaEdges: .bottom)
+            .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
         }
     }
 
