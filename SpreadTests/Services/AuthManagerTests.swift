@@ -174,21 +174,23 @@ struct AuthManagerTests {
     // MARK: - Sign Up
 
     /// Conditions: Service returns success for sign-up.
-    /// Expected: Auth succeeds, state is signed in, and onSignIn callback is called.
-    @Test func signUpSuccessSetsStateAndCallsCallback() async throws {
+    /// Expected: Auth succeeds without transitioning to signedIn — email confirmation
+    /// is required first. `onSignIn` is not called; state remains signedOut.
+    @Test func signUpSuccessDoesNotAutoSignIn() async throws {
         let service = SuccessfulAuthService()
         let authManager = AuthManager(service: service)
-        var callbackEmail: String?
+        var callbackCalled = false
 
-        authManager.onSignIn = { user in
-            callbackEmail = user.email
+        authManager.onSignIn = { _ in
+            callbackCalled = true
         }
 
         try await authManager.signUp(email: "new@example.com", password: "password123")
 
-        #expect(authManager.state.isSignedIn)
-        #expect(callbackEmail == "new@example.com")
+        #expect(!authManager.state.isSignedIn)
+        #expect(!callbackCalled)
         #expect(service.lastSignUpEmail == "new@example.com")
+        #expect(authManager.errorMessage == nil)
     }
 
     /// Conditions: Service throws a forced error on sign-up.
