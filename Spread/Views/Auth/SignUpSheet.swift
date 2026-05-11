@@ -138,7 +138,27 @@ struct SignUpSheet: View {
                     hasEditedConfirmPassword = true
                     authManager.clearError()
                 }
+        } footer: {
+            legalFooter
         }
+    }
+
+    private var legalFooter: some View {
+        HStack(spacing: 0) {
+            Text("By creating an account you agree to our ")
+            Link("Terms of Service", destination: LegalLinks.termsOfService)
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.LegalLinks.signUpTermsOfService
+                )
+            Text(" and ")
+            Link("Privacy Policy", destination: LegalLinks.privacyPolicy)
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.LegalLinks.signUpPrivacyPolicy
+                )
+            Text(".")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 
     @ViewBuilder
@@ -241,6 +261,16 @@ struct SignUpSheet: View {
                 TextField("Email", text: .constant(""))
                 PasswordField(placeholder: "Password", text: .constant(""), isNewPassword: true)
                 PasswordField(placeholder: "Confirm Password", text: .constant(""), isNewPassword: true)
+            } footer: {
+                HStack(spacing: 0) {
+                    Text("By creating an account you agree to our ")
+                    Link("Terms of Service", destination: LegalLinks.termsOfService)
+                    Text(" and ")
+                    Link("Privacy Policy", destination: LegalLinks.privacyPolicy)
+                    Text(".")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
         }
         .overlay {

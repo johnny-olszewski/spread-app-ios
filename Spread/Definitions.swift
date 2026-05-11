@@ -394,6 +394,13 @@ struct Definitions {
             static let saveButton = "auth.changePassword.save"
         }
 
+        struct LegalLinks {
+            static let signUpTermsOfService = "auth.signUp.legal.terms"
+            static let signUpPrivacyPolicy = "auth.signUp.legal.privacy"
+            static let profileTermsOfService = "auth.profile.legal.terms"
+            static let profilePrivacyPolicy = "auth.profile.legal.privacy"
+        }
+
         struct Debug {
             static let temporalHarness = "debug.temporal.harness"
             static let temporalNow = "debug.temporal.now"
