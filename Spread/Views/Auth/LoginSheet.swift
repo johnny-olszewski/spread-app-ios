@@ -106,8 +106,7 @@ struct LoginSheet: View {
                     authManager.clearError()
                 }
 
-            SecureField("Password", text: $password)
-                .textContentType(.password)
+            PasswordField(placeholder: "Password", text: $password)
                 .onChange(of: password) { _, _ in
                     hasEditedPassword = true
                     authManager.clearError()
@@ -185,7 +184,7 @@ struct LoginSheet: View {
         Form {
             Section {
                 TextField("Email", text: .constant(""))
-                SecureField("Password", text: .constant(""))
+                PasswordField(placeholder: "Password", text: .constant(""))
             }
         }
         .overlay {

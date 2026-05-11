@@ -127,15 +127,13 @@ struct SignUpSheet: View {
                     authManager.clearError()
                 }
 
-            SecureField("Password", text: $password)
-                .textContentType(.newPassword)
+            PasswordField(placeholder: "Password", text: $password, isNewPassword: true)
                 .onChange(of: password) { _, _ in
                     hasEditedPassword = true
                     authManager.clearError()
                 }
 
-            SecureField("Confirm Password", text: $confirmPassword)
-                .textContentType(.newPassword)
+            PasswordField(placeholder: "Confirm Password", text: $confirmPassword, isNewPassword: true)
                 .onChange(of: confirmPassword) { _, _ in
                     hasEditedConfirmPassword = true
                     authManager.clearError()
@@ -241,8 +239,8 @@ struct SignUpSheet: View {
         Form {
             Section {
                 TextField("Email", text: .constant(""))
-                SecureField("Password", text: .constant(""))
-                SecureField("Confirm Password", text: .constant(""))
+                PasswordField(placeholder: "Password", text: .constant(""), isNewPassword: true)
+                PasswordField(placeholder: "Confirm Password", text: .constant(""), isNewPassword: true)
             }
         }
         .overlay {

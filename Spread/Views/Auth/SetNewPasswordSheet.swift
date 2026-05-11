@@ -78,15 +78,13 @@ struct SetNewPasswordSheet: View {
 
     private var fieldsSection: some View {
         Section {
-            SecureField("New Password", text: $password)
-                .textContentType(.newPassword)
+            PasswordField(placeholder: "New Password", text: $password, isNewPassword: true)
                 .onChange(of: password) { _, _ in
                     hasEditedPassword = true
                     authManager.clearError()
                 }
 
-            SecureField("Confirm Password", text: $confirmPassword)
-                .textContentType(.newPassword)
+            PasswordField(placeholder: "Confirm Password", text: $confirmPassword, isNewPassword: true)
                 .onChange(of: confirmPassword) { _, _ in
                     hasEditedConfirmPassword = true
                     authManager.clearError()
@@ -162,10 +160,8 @@ struct SetNewPasswordSheet: View {
     NavigationStack {
         Form {
             Section {
-                SecureField("New Password", text: .constant(""))
-                    .textContentType(.newPassword)
-                SecureField("Confirm Password", text: .constant(""))
-                    .textContentType(.newPassword)
+                PasswordField(placeholder: "New Password", text: .constant(""), isNewPassword: true)
+                PasswordField(placeholder: "Confirm Password", text: .constant(""), isNewPassword: true)
             }
         }
         .overlay {
