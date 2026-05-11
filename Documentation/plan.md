@@ -5722,15 +5722,15 @@ Supabase: SPRD-85A -> SPRD-85C
   - Visual inspection across all sheet types on simulator.
 - **Dependencies**: None
 
-### [SPRD-217] Visual: toolbar and action button review
+### [x] [SPRD-217] Visual: toolbar and action button review
 - **Context**: Toolbar buttons across spread types have inconsistent icon choices and placement. Some action buttons are smaller than the 44 pt minimum tap target. Backlog item TF-33.
 - **Description**: Review all toolbar and icon-only action buttons across spread types. Standardize icon choices for shared actions (create, migrate, favorite, delete). Verify and fix minimum tap-target sizing.
 - **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Toolbar and Action Button Standards
 - **Acceptance Criteria**:
-  - [ ] All toolbar and icon-only buttons have a minimum 44 pt tap target (via `.frame(minWidth: 44, minHeight: 44)` or `.contentShape` padding where needed).
-  - [ ] The same action uses the same SF Symbol across all spread types.
-  - [ ] No buttons are visually cropped or overlap adjacent controls.
-  - [ ] `SpreadTheme.IconSize` constants are used for SF Symbol font sizes.
+  - [x] All toolbar and icon-only buttons have a minimum 44 pt tap target (via `.frame(minWidth: 44, minHeight: 44)` or `.contentShape` padding where needed).
+  - [x] The same action uses the same SF Symbol across all spread types.
+  - [x] No buttons are visually cropped or overlap adjacent controls.
+  - [x] `SpreadTheme.IconSize` constants are used for SF Symbol font sizes.
 - **Tests**:
   - Visual inspection on simulator across day, month, year, and multiday spread types.
 - **Dependencies**: SPRD-213
