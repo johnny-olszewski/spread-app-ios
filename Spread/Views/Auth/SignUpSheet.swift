@@ -5,6 +5,10 @@ import SwiftUI
 /// Validates email format, password length, and password confirmation
 /// before enabling the Create Account button. Shows inline validation
 /// errors and server-side error messages.
+///
+/// After a successful sign-up, transitions to a confirmation state that
+/// prompts the user to verify their email. The form does not dismiss —
+/// the user can resend the verification email or tap Done to close.
 struct SignUpSheet: View {
 
     // MARK: - Environment
@@ -26,6 +30,9 @@ struct SignUpSheet: View {
     @State private var hasEditedEmail = false
     @State private var hasEditedPassword = false
     @State private var hasEditedConfirmPassword = false
+
+    /// Set after a successful sign-up to show the email confirmation state.
+    @State private var submittedEmail: String?
 
     // MARK: - Computed Validation
 
@@ -61,20 +68,33 @@ struct SignUpSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                fieldsSection
-                validationErrorsSection
-                serverErrorSection
+                if let submitted = submittedEmail {
+                    confirmationSection(email: submitted)
+                    resendSection(email: submitted)
+                } else {
+                    fieldsSection
+                    validationErrorsSection
+                    serverErrorSection
+                }
             }
             .navigationTitle("Create Account")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
+                if submittedEmail != nil {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            dismiss()
+                        }
                     }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    createAccountButton
+                } else {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            dismiss()
+                        }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        createAccountButton
+                    }
                 }
             }
             .onChange(of: authManager.state) { _, newState in
@@ -88,7 +108,7 @@ struct SignUpSheet: View {
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Form Sections
 
     private var fieldsSection: some View {
         Section {
@@ -143,12 +163,52 @@ struct SignUpSheet: View {
         }
     }
 
+    // MARK: - Confirmation Sections
+
+    private func confirmationSection(email: String) -> some View {
+        Section {
+            Label {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Check Your Email")
+                        .fontWeight(.medium)
+                    Text("We sent a verification link to \(email). Tap it to confirm your account.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            } icon: {
+                Image(systemName: "envelope.badge.fill")
+                    .foregroundStyle(.green)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func resendSection(email: String) -> some View {
+        Section {
+            Button("Resend Email") {
+                Task {
+                    try? await authManager.resendVerification(email: email)
+                }
+            }
+            if let errorMessage = authManager.errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+                    .font(.callout)
+            }
+        }
+    }
+
     // MARK: - Create Account Button
 
     private var createAccountButton: some View {
         Button("Create") {
             Task {
-                try? await authManager.signUp(email: email, password: password)
+                do {
+                    try await authManager.signUp(email: email, password: password)
+                    submittedEmail = email
+                } catch {
+                    // Error shown via authManager.errorMessage
+                }
             }
         }
         .disabled(!isFormValid || authManager.isLoading)
@@ -159,4 +219,37 @@ struct SignUpSheet: View {
 
 #Preview("Empty") {
     SignUpSheet(authManager: .makeForPreview())
+}
+
+#Preview("Confirmation State") {
+    // Shows the post-signup confirmation layout; submittedEmail is @State private
+    // so the confirmation sections are rendered directly here for preview purposes.
+    NavigationStack {
+        Form {
+            Section {
+                Label {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Check Your Email")
+                            .fontWeight(.medium)
+                        Text("We sent a verification link to user@example.com. Tap it to confirm your account.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "envelope.badge.fill")
+                        .foregroundStyle(.green)
+                }
+            }
+            Section {
+                Button("Resend Email") {}
+            }
+        }
+        .navigationTitle("Create Account")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") {}
+            }
+        }
+    }
 }
