@@ -267,6 +267,16 @@ enum SpreadTheme {
         static let entryIconSpacing: CGFloat = 8
     }
 
+    // MARK: - Overlay
+
+    /// Colors for modal and loading overlay surfaces.
+    enum Overlay {
+        /// Semi-transparent dim for loading overlays.
+        /// Uses `Color(.label)` at 20% so it is visible in both light and dark mode:
+        /// black in light mode, white in dark mode.
+        static let dim = Color(.label).opacity(0.2)
+    }
+
     // MARK: - Corner Radius
 
     /// Named corner radius values. Pair with `.continuous` style on `RoundedRectangle` for smooth curves.
