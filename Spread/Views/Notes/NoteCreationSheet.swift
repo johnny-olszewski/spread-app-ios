@@ -406,9 +406,7 @@ struct NoteCreationSheet: View {
     NoteCreationSheet(
         journalManager: .previewInstance,
         selectedSpread: nil,
-        onNoteCreated: { note in
-            print("Created note: \(note.title)")
-        }
+        onNoteCreated: { _ in }
     )
 }
 
@@ -424,8 +422,6 @@ struct NoteCreationSheet: View {
     return NoteCreationSheet(
         journalManager: .previewInstance,
         selectedSpread: spread,
-        onNoteCreated: { note in
-            print("Created note: \(note.title)")
-        }
+        onNoteCreated: { _ in }
     )
 }
