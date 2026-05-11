@@ -5653,7 +5653,7 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-213] Design: expand SpreadTheme with palette system, token enums, and scheme launch arguments
+### [x] [SPRD-213] Design: expand SpreadTheme with palette system, token enums, and scheme launch arguments
 - **Context**: `SpreadTheme` covers colors, typography, and spacing but has no support for multiple color schemes or named token categories. Corner radii, animation durations, opacity levels, and icon sizes appear as magic numbers scattered across ~90 view files. WKFLW-20 needs a stronger foundation before the polish pass to avoid introducing new inconsistencies. Palette switching must be an engineering/QA-only facility — no in-app runtime UI — so launch arguments are the right mechanism.
 - **Description**: Add a `Palette` enum with three named schemes (ocean, forest, ink), wire `activePalette` to a UserDefaults key resolved from the `-SpreadPalette` launch argument, refactor existing color computed vars to delegate to the active palette, and add `CornerRadius`, `Motion`, `Opacity`, and `IconSize` token enums. Add disabled palette launch args to all three Xcode schemes.
 - **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Design System
