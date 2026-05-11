@@ -126,6 +126,9 @@ final class AuthManager {
         } catch let error as AuthError {
             errorMessage = mapAuthError(error)
             throw error
+        } catch let error as URLError {
+            errorMessage = "No internet connection. Please check your network and try again."
+            throw error
         } catch {
             errorMessage = "An unexpected error occurred. Please try again."
             throw error
@@ -147,17 +150,18 @@ final class AuthManager {
         defer { isLoading = false }
 
         do {
-            let result = try await service.signUp(email: email, password: password)
-
-            state = .signedIn(result.user)
-
-            await onSignIn?(result.user)
+            // Sign-up always requires email verification; state transitions to signedIn
+            // only after the user taps the confirmation link (handled via deeplink).
+            _ = try await service.signUp(email: email, password: password)
 
         } catch let error as ForcedAuthSignInError {
             errorMessage = error.forced.userMessage
             throw error
         } catch let error as AuthError {
             errorMessage = mapAuthError(error)
+            throw error
+        } catch let error as URLError {
+            errorMessage = "No internet connection. Please check your network and try again."
             throw error
         } catch {
             errorMessage = "An unexpected error occurred. Please try again."
@@ -181,6 +185,12 @@ final class AuthManager {
             try await service.resetPassword(email: email)
         } catch let error as ForcedAuthSignInError {
             errorMessage = error.forced.userMessage
+            throw error
+        } catch let error as AuthError {
+            errorMessage = mapAuthError(error)
+            throw error
+        } catch let error as URLError {
+            errorMessage = "No internet connection. Please check your network and try again."
             throw error
         } catch {
             errorMessage = "Failed to send reset email. Please try again."
@@ -280,6 +290,12 @@ final class AuthManager {
                 return "No account found with this email."
             case .sessionExpired, .sessionNotFound:
                 return "Session expired. Please sign in again."
+            case .emailNotConfirmed:
+                return "Please verify your email first. Check your inbox."
+            case .userAlreadyExists, .emailExists:
+                return "An account with this email already exists."
+            case .overRequestRateLimit, .overEmailSendRateLimit, .overSMSSendRateLimit:
+                return "Too many attempts. Please try again later."
             default:
                 return "Authentication failed. Please try again."
             }
