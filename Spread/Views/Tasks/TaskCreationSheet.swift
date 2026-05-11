@@ -220,7 +220,7 @@ struct TaskCreationSheet: View {
             TextEditor(text: $viewModel.formModel.body)
                 .frame(minHeight: 96)
                 .scrollContentBackground(.hidden)
-                .background(Color(uiColor: .secondarySystemBackground))
+                .background(SpreadTheme.Paper.secondary)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.bodyField)
         }
