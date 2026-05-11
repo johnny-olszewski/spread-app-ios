@@ -6,6 +6,7 @@
 - Day timeline visualization is in v1 scope: a fixed-height time-ruler card with EventKit event blocks appears above the entry list on day spreads. The layout component lives in `johnnyo-foundation` as a generic, provider-driven `DayTimelineView`; the Spread app supplies a `SpreadDayTimelineProvider` conformance that renders events using `CalendarEvent`. [SPRD-196, SPRD-197]
 - `WKFLW-17` is the active workflow branch for a bundled spread/task enhancement pass so schema-affecting decisions land together instead of through piecemeal migrations. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-176, SPRD-177, SPRD-178]
 - `WKFLW-19` brings the authentication flow to TestFlight quality: email confirmation after sign-up with an in-sheet confirmation state, deeplink handling for email verification and password reset via the `spread://` custom URL scheme, loading state indicators on all auth sheets, expanded error message mapping, and mid-session token expiry handling. All Supabase configuration changes (redirect URLs, etc.) must be applied to both `spread-prod` and `spread-dev`. [SPRD-200, SPRD-201, SPRD-202, SPRD-203, SPRD-204, SPRD-205, SPRD-206, SPRD-207]
+- `WKFLW-20` is the active workflow branch for a UI polish and design system foundation pass for TestFlight readiness. The pass establishes named palette support and token categories in `SpreadTheme`, audits and resolves dark mode correctness across all surfaces, polishes the launch experience and sheet/toolbar consistency, and adds high-priority accessibility labels to entry rows and icon-only action buttons. [SPRD-213, SPRD-214, SPRD-215, SPRD-216, SPRD-217, SPRD-218]
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
@@ -1467,6 +1468,47 @@ The following Supabase error cases must produce specific human-readable messages
 
 - Automated smoke tests cover: login success and failure (wrong password, unconfirmed email), sign-up confirmation state, sign-up failure (email already exists), forgot-password submission success and error, password update success, session expiry state transition, and URL parsing for both deeplink types. [SPRD-207]
 - Flows that require a real Supabase backend and a live email inbox cannot be covered by automated tests. These are documented in `Documentation/ManualTests.md`.
+
+---
+
+## UI Polish and Design System Foundation (WKFLW-20)
+
+### Design System
+
+`SpreadTheme` is the single source of truth for all visual tokens. WKFLW-20 expands it beyond its original colors, typography, and spacing to include: [SPRD-213]
+
+- **Palette system**: three named palettes (`ocean`, `forest`, `ink`) each defining adaptive light/dark paper tones, accent colors, and today emphasis colors. The active palette is resolved from the `-SpreadPalette` launch argument (UserDefaults key `SpreadPalette`), defaulting to `ocean`. All three options are pre-configured as disabled launch arguments in every Xcode scheme for one-click switching.
+- **Corner radius tokens** (`SpreadTheme.CornerRadius`): named constants from `hairline` (1.5 pt) to `large` (20 pt) replacing scattered magic numbers.
+- **Motion tokens** (`SpreadTheme.Motion`): `quick`, `standard`, and `spring` animation constants.
+- **Opacity tokens** (`SpreadTheme.Opacity`): `hint`, `subtle`, `muted`, `todayBorder`, and `strong` levels.
+- **Icon size tokens** (`SpreadTheme.IconSize`): `small` through `extraLarge` SF Symbol sizing constants.
+
+### Dark Mode
+
+All app surfaces must render correctly in both light and dark mode using `SpreadTheme` color tokens. Hardcoded `Color` literals and raw hex values in view files must be replaced with theme tokens or semantic system colors. The dot grid, paper backgrounds, accent surfaces, entry row icons, and badge colors are the highest-priority areas. [SPRD-214]
+
+### Launch Experience
+
+The app startup loading screen must show the app name or wordmark rather than a generic `ProgressView("Loading...")`. The loading state should clearly communicate that the app is initializing, not broken. [SPRD-215]
+
+### Sheet Presentation Consistency
+
+All modal sheets (task creation, note creation, spread creation, auth sheets, profile) must follow a consistent pattern: [SPRD-216]
+- Navigation title and toolbar action placement (leading Cancel / trailing primary action).
+- Primary action button disabled during loading.
+- Error feedback via `.alert` or inline text — no silent failures.
+- `interactiveDismissDisabled` applied where user data would be lost on accidental dismissal.
+
+### Toolbar and Action Button Standards
+
+All toolbar buttons must meet minimum 44 pt tap-target requirements. Icon choices must be consistent across spread types for the same action (e.g., create, migrate, favorite). [SPRD-217]
+
+### Accessibility Labels
+
+Entry rows and icon-only action buttons are the highest-priority accessibility surfaces for TestFlight: [SPRD-218]
+
+- **Entry rows** (`EntryRowView`): `.accessibilityLabel` must combine title, type (task/note), and status (open, complete, migrated, cancelled). `.accessibilityValue` exposes priority (if non-none) and due date (if set).
+- **Icon-only buttons**: Status toggle, create, migrate, delete, and favorite buttons must have `.accessibilityLabel` values that clearly identify the action. Button role (`.destructive` for delete) must be set where appropriate.
 
 ---
 
