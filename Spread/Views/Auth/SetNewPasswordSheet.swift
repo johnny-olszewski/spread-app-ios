@@ -137,7 +137,7 @@ struct SetNewPasswordSheet: View {
 
     private var loadingOverlay: some View {
         ZStack {
-            Color.black.opacity(0.2)
+            SpreadTheme.Overlay.dim
             ProgressView()
         }
         .ignoresSafeArea()
@@ -166,7 +166,7 @@ struct SetNewPasswordSheet: View {
         }
         .overlay {
             ZStack {
-                Color.black.opacity(0.2)
+                SpreadTheme.Overlay.dim
                 ProgressView()
             }
             .ignoresSafeArea()
