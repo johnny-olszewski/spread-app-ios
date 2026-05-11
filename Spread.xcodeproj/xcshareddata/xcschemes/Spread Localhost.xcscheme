@@ -137,6 +137,18 @@
             argument = "-AppEnvironment testing"
             isEnabled = "NO">
          </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-SpreadPalette ocean"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-SpreadPalette forest"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-SpreadPalette ink"
+            isEnabled = "NO">
+         </CommandLineArgument>
       </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
