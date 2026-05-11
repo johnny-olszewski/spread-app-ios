@@ -384,6 +384,14 @@ struct Definitions {
             static let verificationSentConfirmation = "auth.login.verificationSent"
         }
 
+        struct ProfileSheet {
+            static let changePasswordRow = "auth.profile.changePassword"
+        }
+
+        struct ChangePasswordSheet {
+            static let saveButton = "auth.changePassword.save"
+        }
+
         struct Debug {
             static let temporalHarness = "debug.temporal.harness"
             static let temporalNow = "debug.temporal.now"

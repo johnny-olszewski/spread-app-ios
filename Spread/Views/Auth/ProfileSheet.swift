@@ -18,6 +18,7 @@ struct ProfileSheet: View {
     // MARK: - State
 
     @State private var showSignOutConfirmation = false
+    @State private var isShowingChangePassword = false
 
     // MARK: - Body
 
@@ -57,6 +58,9 @@ struct ProfileSheet: View {
                     dismiss()
                 }
             }
+            .sheet(isPresented: $isShowingChangePassword) {
+                ChangePasswordSheet(authManager: authManager)
+            }
         }
     }
 
@@ -67,6 +71,12 @@ struct ProfileSheet: View {
             if let email = authManager.userEmail {
                 LabeledContent("Email", value: email)
             }
+
+            Button("Change Password") {
+                isShowingChangePassword = true
+            }
+            .disabled(authManager.isLoading)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.ProfileSheet.changePasswordRow)
         }
     }
 }
