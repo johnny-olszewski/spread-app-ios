@@ -241,7 +241,7 @@ struct SignUpSheet: View {
 
     private var loadingOverlay: some View {
         ZStack {
-            Color.black.opacity(0.2)
+            SpreadTheme.Overlay.dim
             ProgressView()
         }
         .ignoresSafeArea()
@@ -275,7 +275,7 @@ struct SignUpSheet: View {
         }
         .overlay {
             ZStack {
-                Color.black.opacity(0.2)
+                SpreadTheme.Overlay.dim
                 ProgressView()
             }
             .ignoresSafeArea()
