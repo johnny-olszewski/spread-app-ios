@@ -183,12 +183,8 @@ struct SpreadPickerView: View {
         calendar: calendar,
         today: today,
         focusDate: today,
-        onSpreadSelected: { selection in
-            print("Selected: \(selection.period.displayName) - \(selection.date)")
-        },
-        onChooseCustomDate: {
-            print("Choose custom date")
-        }
+        onSpreadSelected: { _ in },
+        onChooseCustomDate: {}
     )
 }
 

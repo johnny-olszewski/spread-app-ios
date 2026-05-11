@@ -642,7 +642,7 @@ struct EntryRowView: View {
             onMigrate: {},
             onEdit: {},
             onDelete: {},
-            onTitleCommit: { print("Committed: \($0)") }
+            onTitleCommit: { _ in }
         )
     }
 }
@@ -729,7 +729,7 @@ struct EntryRowView: View {
                 task: DataModel.Task(title: "Open task", status: .open),
                 onComplete: {},
                 onMigrate: {},
-                onTitleCommit: { print("Committed: \($0)") }
+                onTitleCommit: { _ in }
             )
             EntryRowView(
                 task: DataModel.Task(title: "Complete task (greyed)", status: .complete)
