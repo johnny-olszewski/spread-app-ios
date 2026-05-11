@@ -373,6 +373,12 @@ struct Definitions {
             }
         }
 
+        struct PasswordField {
+            static let secureField = "auth.passwordField.secureField"
+            static let textField = "auth.passwordField.textField"
+            static let visibilityToggle = "auth.passwordField.visibilityToggle"
+        }
+
         struct Debug {
             static let temporalHarness = "debug.temporal.harness"
             static let temporalNow = "debug.temporal.now"
