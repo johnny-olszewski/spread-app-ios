@@ -45,6 +45,11 @@ struct ForgotPasswordSheet: View {
                     serverErrorSection
                 }
             }
+            .overlay {
+                if authManager.isLoading {
+                    loadingOverlay
+                }
+            }
             .navigationTitle("Reset Password")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -122,6 +127,16 @@ struct ForgotPasswordSheet: View {
         }
     }
 
+    // MARK: - Loading Overlay
+
+    private var loadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.2)
+            ProgressView()
+        }
+        .ignoresSafeArea()
+    }
+
     // MARK: - Send Button
 
     private var sendButton: some View {
@@ -143,4 +158,33 @@ struct ForgotPasswordSheet: View {
 
 #Preview("Empty") {
     ForgotPasswordSheet(authManager: .makeForPreview())
+}
+
+#Preview("Loading") {
+    NavigationStack {
+        Form {
+            Section {
+                TextField("Email", text: .constant(""))
+            } footer: {
+                Text("Enter the email associated with your account and we'll send a password reset link.")
+            }
+        }
+        .overlay {
+            ZStack {
+                Color.black.opacity(0.2)
+                ProgressView()
+            }
+            .ignoresSafeArea()
+        }
+        .navigationTitle("Reset Password")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") {}
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Send") {}.disabled(true)
+            }
+        }
+    }
 }
