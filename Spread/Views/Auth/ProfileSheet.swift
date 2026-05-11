@@ -27,6 +27,7 @@ struct ProfileSheet: View {
         NavigationStack {
             Form {
                 accountSection
+                legalSection
                 deleteAccountSection
             }
             .navigationTitle("Profile")
@@ -92,6 +93,32 @@ struct ProfileSheet: View {
     }
 
     // MARK: - Sections
+
+    private var legalSection: some View {
+        Section("Legal") {
+            Link(destination: LegalLinks.termsOfService) {
+                HStack {
+                    Text("Terms of Service")
+                    Spacer()
+                    Image(systemName: "safari")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .foregroundStyle(.primary)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.LegalLinks.profileTermsOfService)
+
+            Link(destination: LegalLinks.privacyPolicy) {
+                HStack {
+                    Text("Privacy Policy")
+                    Spacer()
+                    Image(systemName: "safari")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .foregroundStyle(.primary)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.LegalLinks.profilePrivacyPolicy)
+        }
+    }
 
     private var deleteAccountSection: some View {
         Section {
