@@ -65,6 +65,7 @@ struct NoteCreationSheet: View {
     // MARK: - State
 
     @State private var viewModel: ViewModel
+    @State private var errorMessage: String?
     @FocusState private var isTitleFocused: Bool
 
     init(
@@ -156,6 +157,20 @@ struct NoteCreationSheet: View {
                 adjustDateForPeriod(newPeriod)
                 clearDateError()
             }
+        }
+        .overlay {
+            if viewModel.isCreating {
+                loadingOverlay
+            }
+        }
+        .interactiveDismissDisabled(isCreateButtonVisible)
+        .alert("Error", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
         }
         .localhostTemporalHarness(
             presentedDiagnostics: LocalhostTemporalHarnessPresentedDiagnostics(
@@ -290,6 +305,14 @@ struct NoteCreationSheet: View {
         }
     }
 
+    private var loadingOverlay: some View {
+        ZStack {
+            SpreadTheme.Overlay.dim
+            ProgressView()
+        }
+        .ignoresSafeArea()
+    }
+
     private var compactDivider: some View {
         Divider()
             .padding(.vertical, 2)
@@ -394,6 +417,7 @@ struct NoteCreationSheet: View {
             } catch {
                 await MainActor.run {
                     viewModel.isCreating = false
+                    errorMessage = error.localizedDescription
                 }
             }
         }

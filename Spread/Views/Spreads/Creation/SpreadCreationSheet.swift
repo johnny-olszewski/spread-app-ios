@@ -213,6 +213,12 @@ struct SpreadCreationSheet: View {
                 adjustDatesForPeriod(newPeriod)
             }
         }
+        .overlay {
+            if isCreating {
+                loadingOverlay
+            }
+        }
+        .interactiveDismissDisabled(isCreating)
         .localhostTemporalHarness(
             presentedDiagnostics: LocalhostTemporalHarnessPresentedDiagnostics(
                 calendarIdentifier: presentedTemporalContext.calendar.identifier,
@@ -391,6 +397,14 @@ struct SpreadCreationSheet: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private var loadingOverlay: some View {
+        ZStack {
+            SpreadTheme.Overlay.dim
+            ProgressView()
+        }
+        .ignoresSafeArea()
     }
 
     private var compactDivider: some View {
