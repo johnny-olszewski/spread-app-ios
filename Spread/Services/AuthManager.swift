@@ -284,6 +284,37 @@ final class AuthManager {
         }
     }
 
+    // MARK: - Delete Account
+
+    /// Permanently deletes the current user's account and all associated data.
+    ///
+    /// Calls the `delete-user` Edge Function via the injected service. On success,
+    /// transitions state to `.signedOut` and fires `onSignOut` so
+    /// `AuthLifecycleCoordinator` can wipe local data.
+    func deleteAccount() async throws {
+        isLoading = true
+        errorMessage = nil
+
+        defer { isLoading = false }
+
+        do {
+            try await service.deleteAccount()
+            state = .signedOut
+            await onSignOut?()
+        } catch let error as AuthError {
+            errorMessage = mapAuthError(error)
+            throw error
+        } catch let error as URLError {
+            Self.logger.error("deleteAccount: URLError \(error.code.rawValue) — \(error.localizedDescription)")
+            errorMessage = "No internet connection. Please check your network and try again."
+            throw error
+        } catch {
+            Self.logger.error("deleteAccount: unexpected error — \(error)")
+            errorMessage = "Could not delete account. Please try again or contact support."
+            throw error
+        }
+    }
+
     // MARK: - Sign Out
 
     /// Signs out the current user.

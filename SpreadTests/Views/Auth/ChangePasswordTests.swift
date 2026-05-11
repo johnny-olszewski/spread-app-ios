@@ -24,6 +24,7 @@ struct ChangePasswordTests {
         func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
         func updatePassword(newPassword: String) async throws { throw error }
         func resendVerification(email: String) async throws {}
+        func deleteAccount() async throws {}
         var authStateChanges: AsyncStream<Spread.AuthChangeEvent> { AsyncStream { _ in } }
     }
 
