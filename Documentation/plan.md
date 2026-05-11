@@ -5691,15 +5691,15 @@ Supabase: SPRD-85A -> SPRD-85C
   - Manual dark mode review on iPhone simulator for each major surface (spreads list, day/month/year spread, entry creation sheets, settings, auth).
 - **Dependencies**: SPRD-213
 
-### [SPRD-215] Visual: launch screen branding
+### [x] [SPRD-215] Visual: launch screen branding
 - **Context**: The app startup loading screen shows `ProgressView("Loading...")` — a generic indicator that gives no signal about what app is loading. Backlog item TF-30.
 - **Description**: Replace the bare loading screen with a branded layout showing the app name (and/or wordmark) alongside a minimal loading indicator.
 - **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Launch Experience
 - **Acceptance Criteria**:
-  - [ ] The launch/loading screen shows the app name "Spread" (or wordmark if assets are available) in `SpreadTheme.Typography.largeTitle` style.
-  - [ ] A `ProgressView` or subtle activity indicator is present but secondary to the wordmark.
-  - [ ] The screen uses `SpreadTheme.Paper.primary` as the background.
-  - [ ] The layout is centered and renders correctly on both iPhone and iPad.
+  - [x] The launch/loading screen shows the app name "Spread" (or wordmark if assets are available) in `SpreadTheme.Typography.largeTitle` style.
+  - [x] A `ProgressView` or subtle activity indicator is present but secondary to the wordmark.
+  - [x] The screen uses `SpreadTheme.Paper.primary` as the background.
+  - [x] The layout is centered and renders correctly on both iPhone and iPad.
 - **Tests**:
   - Visual inspection on simulator.
 - **Dependencies**: SPRD-213
