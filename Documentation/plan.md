@@ -5679,7 +5679,7 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**: No automated tests required — visual token values are verified through build success and manual scheme-switching.
 - **Dependencies**: None
 
-### [SPRD-214] Visual: dark mode audit and hardcoded color replacement
+### [x] [SPRD-214] Visual: dark mode audit and hardcoded color replacement
 - **Context**: TestFlight users frequently run dark mode; broken or washed-out colors are visually disqualifying. The current codebase contains hardcoded `Color` literals and raw hex values that ignore dark mode. Backlog item TF-31.
 - **Description**: Perform a systematic audit of all view files for hardcoded colors. Replace any `Color(...)` or `.foregroundColor(.black/.white)` literals with `SpreadTheme` tokens or semantic system colors.
 - **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Dark Mode
