@@ -5366,12 +5366,12 @@ Supabase: SPRD-85A -> SPRD-85C
   - Do not change button disabled states — those remain as-is.
   - Consistent visual style across all three sheets.
 - **Acceptance Criteria**:
-  - [ ] `LoginSheet` shows a `ProgressView` overlay when `authManager.isLoading`.
-  - [ ] `SignUpSheet` shows a `ProgressView` overlay when `authManager.isLoading`.
-  - [ ] `ForgotPasswordSheet` shows a `ProgressView` overlay when `authManager.isLoading`.
-  - [ ] The overlay does not cover the navigation bar.
-  - [ ] The visual style is consistent across all three sheets.
-  - [ ] Preview for each sheet includes a loading state example.
+  - [x] `LoginSheet` shows a `ProgressView` overlay when `authManager.isLoading`.
+  - [x] `SignUpSheet` shows a `ProgressView` overlay when `authManager.isLoading`.
+  - [x] `ForgotPasswordSheet` shows a `ProgressView` overlay when `authManager.isLoading`.
+  - [x] The overlay does not cover the navigation bar.
+  - [x] The visual style is consistent across all three sheets.
+  - [x] Preview for each sheet includes a loading state example.
 - **Tests**:
   - Unit tests for overlay visibility driven by `isLoading` on each sheet.
 - **Dependencies**: SPRD-201
