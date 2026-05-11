@@ -311,10 +311,15 @@ final class AuthManager {
     // MARK: - Error Mapping
 
     /// Maps Supabase auth errors to user-friendly messages.
+    ///
+    /// Curated messages are returned for known error codes. For unmapped 4xx API errors
+    /// the raw Supabase message is cleaned up and forwarded — it is a client error with
+    /// a meaningful reason. 5xx errors and non-API errors fall back to a generic message
+    /// to avoid exposing server internals.
     private func mapAuthError(_ error: AuthError) -> String {
         switch error {
-        case .api(let message, let errorCode, _, _):
-            Self.logger.error("mapAuthError: API error code='\(errorCode.rawValue)' message='\(message)'")
+        case .api(let message, let errorCode, _, let response):
+            Self.logger.error("mapAuthError: API error code='\(errorCode.rawValue)' status=\(response.statusCode) message='\(message)'")
             switch errorCode {
             case .invalidCredentials:
                 return "Invalid email or password."
@@ -329,13 +334,25 @@ final class AuthManager {
             case .overRequestRateLimit, .overEmailSendRateLimit, .overSMSSendRateLimit:
                 return "Too many attempts. Please try again later."
             default:
-                Self.logger.error("mapAuthError: unmapped error code='\(errorCode.rawValue)' — returning generic message")
+                if (400..<500).contains(response.statusCode) && !message.isEmpty {
+                    let cleaned = cleanAPIMessage(message)
+                    Self.logger.error("mapAuthError: forwarding unmapped 4xx message for code='\(errorCode.rawValue)': '\(cleaned)'")
+                    return cleaned
+                }
+                Self.logger.error("mapAuthError: unmapped error code='\(errorCode.rawValue)' status=\(response.statusCode) — returning generic message")
                 return "Authentication failed. Please try again."
             }
         default:
             Self.logger.error("mapAuthError: non-API AuthError — \(String(describing: error))")
             return "Authentication failed. Please try again."
         }
+    }
+
+    /// Capitalises the first letter of a Supabase API message and ensures it ends with a period.
+    private func cleanAPIMessage(_ message: String) -> String {
+        guard !message.isEmpty else { return message }
+        let sentence = message.prefix(1).uppercased() + message.dropFirst()
+        return sentence.hasSuffix(".") ? sentence : sentence + "."
     }
 
     // MARK: - Helpers
