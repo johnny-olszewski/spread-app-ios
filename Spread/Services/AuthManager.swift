@@ -44,6 +44,12 @@ final class AuthManager {
     /// The last error message, if any.
     private(set) var errorMessage: String?
 
+    /// Whether the last sign-in attempt failed because the email is not yet confirmed.
+    ///
+    /// Set to `true` when sign-in returns an `emailNotConfirmed` error.
+    /// Reset to `false` on any other sign-in outcome, on `clearError()`, and on sign-out.
+    private(set) var requiresEmailVerification = false
+
     // MARK: - Logging
 
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "AuthManager")
@@ -115,6 +121,7 @@ final class AuthManager {
     func signIn(email: String, password: String) async throws {
         isLoading = true
         errorMessage = nil
+        requiresEmailVerification = false
 
         defer { isLoading = false }
 
@@ -135,6 +142,9 @@ final class AuthManager {
             throw error
         } catch let error as AuthError {
             Self.logger.error("signIn: AuthError — \(String(describing: error))")
+            if case .api(_, let errorCode, _, _) = error, errorCode == .emailNotConfirmed {
+                requiresEmailVerification = true
+            }
             errorMessage = mapAuthError(error)
             throw error
         } catch let error as URLError {
@@ -357,9 +367,10 @@ final class AuthManager {
 
     // MARK: - Helpers
 
-    /// Clears any error message.
+    /// Clears any error message and resets email-verification state.
     func clearError() {
         errorMessage = nil
+        requiresEmailVerification = false
     }
 
     /// The current user's email, if signed in.
