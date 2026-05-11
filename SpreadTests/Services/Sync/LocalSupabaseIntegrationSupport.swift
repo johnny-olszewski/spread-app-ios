@@ -169,6 +169,33 @@ struct LocalSupabaseAdmin {
             .execute()
             .value
     }
+
+    // MARK: - Auth Admin
+
+    /// Confirms the given user's email address without requiring them to click the link.
+    func confirmUserEmail(userId: UUID) async throws {
+        _ = try await client.auth.admin.updateUserById(
+            userId,
+            attributes: AdminUserAttributes(emailConfirm: true)
+        )
+    }
+
+    /// Creates a user via the service-role API, optionally confirming their email immediately.
+    @discardableResult
+    func createUser(email: String, password: String, emailConfirm: Bool = false) async throws -> User {
+        try await client.auth.admin.createUser(
+            attributes: AdminUserAttributes(
+                email: email,
+                emailConfirm: emailConfirm,
+                password: password
+            )
+        )
+    }
+
+    /// Deletes the given user by ID, removing them from Supabase Auth entirely.
+    func deleteUser(userId: UUID) async throws {
+        try await client.auth.admin.deleteUser(id: userId)
+    }
 }
 
 @MainActor

@@ -66,6 +66,18 @@ struct ContentView: View {
                 onboardingStore.markCompleted()
             }
         }
+        .sheet(isPresented: recoverySessionBinding) {
+            if let runtime = runtimeStore.runtime {
+                SetNewPasswordSheet(
+                    authManager: runtime.authManager,
+                    coordinator: runtime.deepLinkCoordinator
+                )
+            }
+        }
+        .onOpenURL { url in
+            guard let coordinator = runtimeStore.runtime?.deepLinkCoordinator else { return }
+            Task { await coordinator.handle(url: url) }
+        }
     }
 
     // MARK: - Loading View
@@ -98,6 +110,13 @@ struct ContentView: View {
     private var onboardingBinding: Binding<Bool> {
         Binding(
             get: { activeOverlay == .onboarding },
+            set: { _ in }
+        )
+    }
+
+    private var recoverySessionBinding: Binding<Bool> {
+        Binding(
+            get: { runtimeStore.runtime?.deepLinkCoordinator.isRecoverySession ?? false },
             set: { _ in }
         )
     }

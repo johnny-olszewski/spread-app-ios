@@ -18,6 +18,9 @@ struct AppRuntime {
     let syncEngine: SyncEngine
     let authCoordinator: AuthLifecycleCoordinator
 
+    /// Coordinator that handles Supabase auth deeplinks (email confirmation and password recovery).
+    let deepLinkCoordinator: AuthDeepLinkCoordinator
+
     /// Repository for persisting user settings changes.
     var settingsRepository: any SettingsRepository {
         dependencies.settingsRepository

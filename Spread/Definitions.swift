@@ -373,6 +373,34 @@ struct Definitions {
             }
         }
 
+        struct PasswordField {
+            static let secureField = "auth.passwordField.secureField"
+            static let textField = "auth.passwordField.textField"
+            static let visibilityToggle = "auth.passwordField.visibilityToggle"
+        }
+
+        struct LoginSheet {
+            static let resendVerificationButton = "auth.login.resendVerification"
+            static let verificationSentConfirmation = "auth.login.verificationSent"
+        }
+
+        struct ProfileSheet {
+            static let changePasswordRow = "auth.profile.changePassword"
+            static let deleteAccountRow = "auth.profile.deleteAccount"
+            static let deleteAccountConfirmButton = "auth.profile.deleteAccount.confirm"
+        }
+
+        struct ChangePasswordSheet {
+            static let saveButton = "auth.changePassword.save"
+        }
+
+        struct LegalLinks {
+            static let signUpTermsOfService = "auth.signUp.legal.terms"
+            static let signUpPrivacyPolicy = "auth.signUp.legal.privacy"
+            static let profileTermsOfService = "auth.profile.legal.terms"
+            static let profilePrivacyPolicy = "auth.profile.legal.privacy"
+        }
+
         struct Debug {
             static let temporalHarness = "debug.temporal.harness"
             static let temporalNow = "debug.temporal.now"

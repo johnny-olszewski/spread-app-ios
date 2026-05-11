@@ -515,9 +515,7 @@ struct SpreadCreationSheet: View {
         SpreadCreationSheet(
             journalManager: .previewInstance,
             firstWeekday: .sunday,
-            onSpreadCreated: { result in
-                print("Created spread: \(result.spread.period)")
-            }
+            onSpreadCreated: { _ in }
         )
     }
 }

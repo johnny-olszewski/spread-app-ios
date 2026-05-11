@@ -28,6 +28,7 @@ struct LoginSheet: View {
     @State private var hasEditedPassword = false
     @State private var isShowingSignUp = false
     @State private var isShowingForgotPassword = false
+    @State private var resentEmail = false
 
     // MARK: - Computed Validation
 
@@ -55,6 +56,11 @@ struct LoginSheet: View {
                 validationSection
                 errorSection
                 linksSection
+            }
+            .overlay {
+                if authManager.isLoading {
+                    loadingOverlay
+                }
             }
             .navigationTitle("Sign In")
             .navigationBarTitleDisplayMode(.inline)
@@ -98,11 +104,11 @@ struct LoginSheet: View {
                 .textInputAutocapitalization(.never)
                 .onChange(of: email) { _, _ in
                     hasEditedEmail = true
+                    resentEmail = false
                     authManager.clearError()
                 }
 
-            SecureField("Password", text: $password)
-                .textContentType(.password)
+            PasswordField(placeholder: "Password", text: $password)
                 .onChange(of: password) { _, _ in
                     hasEditedPassword = true
                     authManager.clearError()
@@ -131,6 +137,28 @@ struct LoginSheet: View {
                 Text(errorMessage)
                     .foregroundStyle(.red)
                     .font(.callout)
+
+                if authManager.requiresEmailVerification {
+                    if resentEmail {
+                        Text("Verification email sent.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier(
+                                Definitions.AccessibilityIdentifiers.LoginSheet.verificationSentConfirmation
+                            )
+                    } else {
+                        Button("Resend verification email") {
+                            Task {
+                                try? await authManager.resendVerification(email: email)
+                                resentEmail = true
+                            }
+                        }
+                        .font(.callout)
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.LoginSheet.resendVerificationButton
+                        )
+                    }
+                }
             }
         }
     }
@@ -145,6 +173,16 @@ struct LoginSheet: View {
                 isShowingForgotPassword = true
             }
         }
+    }
+
+    // MARK: - Loading Overlay
+
+    private var loadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.2)
+            ProgressView()
+        }
+        .ignoresSafeArea()
     }
 
     // MARK: - Sign In Button
@@ -163,4 +201,29 @@ struct LoginSheet: View {
 
 #Preview("Empty") {
     LoginSheet(authManager: .makeForPreview(), showsCancelButton: true)
+}
+
+#Preview("Loading") {
+    NavigationStack {
+        Form {
+            Section {
+                TextField("Email", text: .constant(""))
+                PasswordField(placeholder: "Password", text: .constant(""))
+            }
+        }
+        .overlay {
+            ZStack {
+                Color.black.opacity(0.2)
+                ProgressView()
+            }
+            .ignoresSafeArea()
+        }
+        .navigationTitle("Sign In")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Sign In") {}.disabled(true)
+            }
+        }
+    }
 }
