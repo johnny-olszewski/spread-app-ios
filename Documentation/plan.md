@@ -5628,3 +5628,128 @@ Supabase: SPRD-85A -> SPRD-85C
     - `profileSheet_legalSectionAccessibilityIdentifiers_present` — verify accessibility identifier constants for both legal rows exist.
   - No integration tests required — link validity and presence are fully covered by unit tests.
 - **Dependencies**: None
+
+---
+
+## Story: UI polish and design system foundation — TestFlight readiness (WKFLW-20)
+
+### User Story
+- As a developer, I want a centralized design system with named palette and token support so styling is consistent and theme switching requires no code changes.
+- As a user running dark mode, I want every screen to render correctly with sufficient contrast and no broken colors.
+- As a first-time user, I want the launch screen to clearly identify the app rather than showing a generic loading indicator.
+- As a user navigating sheets and toolbars, I want consistent button placement, loading states, and error feedback across all surfaces.
+- As a VoiceOver user, I want entry rows and icon-only action buttons to have clear accessibility labels so I can use the app without visual cues.
+
+### Definition of Done
+- `SpreadTheme` exposes three named palettes (ocean, forest, ink) switchable via launch argument; all existing color properties delegate to the active palette.
+- `SpreadTheme` defines `CornerRadius`, `Motion`, `Opacity`, and `IconSize` token enums.
+- All three Xcode schemes have disabled `-SpreadPalette` launch arguments for one-click switching.
+- All screens pass dark mode inspection: no hardcoded color literals, paper/accent/badge colors use `SpreadTheme` tokens throughout.
+- App startup loading screen shows the app wordmark or name — not a bare `ProgressView("Loading...")`.
+- All modal sheets follow the consistent sheet pattern: `Cancel` / primary action toolbar placement, loading overlay, error alert.
+- All toolbar icon buttons meet the 44 pt minimum tap-target requirement.
+- `EntryRowView` has `.accessibilityLabel` combining title, type, and status; `.accessibilityValue` exposes priority and due date when set.
+- All icon-only action buttons (status toggle, create, migrate, delete, favorite) have `.accessibilityLabel` values.
+
+---
+
+### [SPRD-213] Design: expand SpreadTheme with palette system, token enums, and scheme launch arguments
+- **Context**: `SpreadTheme` covers colors, typography, and spacing but has no support for multiple color schemes or named token categories. Corner radii, animation durations, opacity levels, and icon sizes appear as magic numbers scattered across ~90 view files. WKFLW-20 needs a stronger foundation before the polish pass to avoid introducing new inconsistencies. Palette switching must be an engineering/QA-only facility — no in-app runtime UI — so launch arguments are the right mechanism.
+- **Description**: Add a `Palette` enum with three named schemes (ocean, forest, ink), wire `activePalette` to a UserDefaults key resolved from the `-SpreadPalette` launch argument, refactor existing color computed vars to delegate to the active palette, and add `CornerRadius`, `Motion`, `Opacity`, and `IconSize` token enums. Add disabled palette launch args to all three Xcode schemes.
+- **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Design System
+- **Implementation Details**:
+  - `SpreadTheme.Palette` enum: `.ocean` (current warm paper + blue), `.forest` (warm paper + sage green), `.ink` (neutral paper + near-black). Each case exposes `paperPrimary`, `paperSecondary`, `accentPrimary`, `accentTodayEmphasis` as computed `Color` properties with adaptive `UIColor { traits in }` closures.
+  - `SpreadTheme.activePalette`: read-only static var, reads `UserDefaults.standard.string(forKey: "SpreadPalette")`, defaults to `.ocean`. No setter — palette selection is launch-argument only.
+  - Refactored `Paper.primary`, `Accent.primary`, `Accent.todayEmphasis`, `Accent.todaySelectedEmphasis`, `DotGrid.dots` delegate to `activePalette` in the non-debug path. Existing `default*` constants and `#if DEBUG` guard blocks preserved for `SpreadTheme+Debug.swift` compatibility.
+  - `Paper.secondary` becomes a computed var delegating to `activePalette.paperSecondary`.
+  - `selectedSurface` / `selectedSurfaceBorder` remain constant warm yellow across all palettes.
+  - `CornerRadius`: `hairline` (1.5), `tiny` (2), `badge` (4), `standard` (8), `card` (12), `section` (16), `large` (20).
+  - `Motion`: `quick` (`.easeInOut(0.15)`), `standard` (`.easeInOut(0.25)`), `spring` (`.spring(response: 0.35, dampingFraction: 0.7)`). Named `Motion` not `Animation` to avoid shadowing SwiftUI.
+  - `Opacity`: `hint` (0.08), `subtle` (0.12), `muted` (0.35), `todayBorder` (0.34), `strong` (0.95).
+  - `IconSize`: `small` (14), `medium` (18), `large` (22), `extraLarge` (28).
+  - Each scheme (`Spread Localhost`, `Spread Prod`, `Spread QA`) gets three disabled `CommandLineArguments` entries: `-SpreadPalette ocean`, `-SpreadPalette forest`, `-SpreadPalette ink`.
+- **Acceptance Criteria**:
+  - [x] `SpreadTheme.Palette` has `.ocean`, `.forest`, `.ink` with correct adaptive colors per the design doc.
+  - [x] `SpreadTheme.activePalette` reads from `UserDefaults` key `SpreadPalette`; no setter exists.
+  - [x] All existing color computed vars (`Paper.primary`, `Accent.primary`, `todayEmphasis`, `todaySelectedEmphasis`, `DotGrid.dots`) delegate to `activePalette` in the non-debug path.
+  - [x] `SpreadTheme+Debug.swift` still compiles with no changes; debug overrides continue to work.
+  - [x] `CornerRadius`, `Motion`, `Opacity`, and `IconSize` enums exist with the specified constants.
+  - [x] All three Xcode schemes contain three disabled `-SpreadPalette` launch argument entries.
+  - [x] Build succeeds with no new errors.
+- **Tests**: No automated tests required — visual token values are verified through build success and manual scheme-switching.
+- **Dependencies**: None
+
+### [SPRD-214] Visual: dark mode audit and hardcoded color replacement
+- **Context**: TestFlight users frequently run dark mode; broken or washed-out colors are visually disqualifying. The current codebase contains hardcoded `Color` literals and raw hex values that ignore dark mode. Backlog item TF-31.
+- **Description**: Perform a systematic audit of all view files for hardcoded colors. Replace any `Color(...)` or `.foregroundColor(.black/.white)` literals with `SpreadTheme` tokens or semantic system colors.
+- **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Dark Mode
+- **Acceptance Criteria**:
+  - [ ] All view files use `SpreadTheme.Paper`, `SpreadTheme.Accent`, or semantic system colors (`Color.primary`, `Color.secondary`, etc.) — no hardcoded hex or `Color(red:green:blue:)` literals outside of `SpreadTheme.swift`.
+  - [ ] The dot grid, paper backgrounds, badge colors, entry row icon tints, and selection highlights render correctly in both light and dark mode.
+  - [ ] A build with `-SpreadPalette forest` and `-SpreadPalette ink` in dark mode shows no broken surfaces.
+- **Tests**:
+  - Manual dark mode review on iPhone simulator for each major surface (spreads list, day/month/year spread, entry creation sheets, settings, auth).
+- **Dependencies**: SPRD-213
+
+### [SPRD-215] Visual: launch screen branding
+- **Context**: The app startup loading screen shows `ProgressView("Loading...")` — a generic indicator that gives no signal about what app is loading. Backlog item TF-30.
+- **Description**: Replace the bare loading screen with a branded layout showing the app name (and/or wordmark) alongside a minimal loading indicator.
+- **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Launch Experience
+- **Acceptance Criteria**:
+  - [ ] The launch/loading screen shows the app name "Spread" (or wordmark if assets are available) in `SpreadTheme.Typography.largeTitle` style.
+  - [ ] A `ProgressView` or subtle activity indicator is present but secondary to the wordmark.
+  - [ ] The screen uses `SpreadTheme.Paper.primary` as the background.
+  - [ ] The layout is centered and renders correctly on both iPhone and iPad.
+- **Tests**:
+  - Visual inspection on simulator.
+- **Dependencies**: SPRD-213
+
+### [SPRD-216] Visual: consistent sheet presentation audit
+- **Context**: Task creation, note creation, spread creation, auth, and profile sheets were built independently and have diverged in chrome: some have leading Cancel, some trailing; some have loading states, some don't; some use `.alert` for errors, some silently discard. Backlog item TF-32.
+- **Description**: Audit all sheets for consistent header layout, dismiss affordances, loading state coverage, and error surfacing. Apply fixes to bring all sheets into alignment.
+- **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Sheet Presentation Consistency
+- **Implementation Details**:
+  - Sheets to audit: `TaskCreationSheet`, `NoteCreationSheet`, `SpreadCreationSheet`, `LoginSheet`, `SignUpSheet`, `ForgotPasswordSheet`, `SetNewPasswordSheet`, `ChangePasswordSheet`, `ProfileSheet`.
+  - Standard pattern: leading `Cancel` button, trailing primary action (disabled when form invalid or loading), `ProgressView` overlay when loading, `.alert` for errors.
+  - `interactiveDismissDisabled(true)` on sheets where accidental dismissal would lose user input (creation sheets, change-password sheet).
+- **Acceptance Criteria**:
+  - [ ] All sheets have a leading `Cancel` toolbar button and a trailing primary-action toolbar button.
+  - [ ] All sheets disable the primary action button during loading.
+  - [ ] All sheets show a `ProgressView` overlay when an async operation is in flight.
+  - [ ] All sheets surface repository/service errors via `.alert` — no silent failures on save.
+  - [ ] All creation sheets have `interactiveDismissDisabled(true)` when the form has unsaved user input.
+- **Tests**:
+  - Visual inspection across all sheet types on simulator.
+- **Dependencies**: None
+
+### [SPRD-217] Visual: toolbar and action button review
+- **Context**: Toolbar buttons across spread types have inconsistent icon choices and placement. Some action buttons are smaller than the 44 pt minimum tap target. Backlog item TF-33.
+- **Description**: Review all toolbar and icon-only action buttons across spread types. Standardize icon choices for shared actions (create, migrate, favorite, delete). Verify and fix minimum tap-target sizing.
+- **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Toolbar and Action Button Standards
+- **Acceptance Criteria**:
+  - [ ] All toolbar and icon-only buttons have a minimum 44 pt tap target (via `.frame(minWidth: 44, minHeight: 44)` or `.contentShape` padding where needed).
+  - [ ] The same action uses the same SF Symbol across all spread types.
+  - [ ] No buttons are visually cropped or overlap adjacent controls.
+  - [ ] `SpreadTheme.IconSize` constants are used for SF Symbol font sizes.
+- **Tests**:
+  - Visual inspection on simulator across day, month, year, and multiday spread types.
+- **Dependencies**: SPRD-213
+
+### [SPRD-218] Accessibility: entry row and icon-only button labels
+- **Context**: `EntryRowView` rows announce only a flat title string to VoiceOver users with no status or type context. Icon-only action buttons (status toggle, create, migrate, delete, favorite) have no accessibility labels, making them unidentifiable to screen reader users. Backlog items TF-20, TF-21.
+- **Description**: Add `.accessibilityLabel` and `.accessibilityValue` to `EntryRowView`. Add `.accessibilityLabel` (and `.accessibilityRole(.button)` with `.accessibilityAddTraits(.isDestructive)` where appropriate) to all icon-only action buttons.
+- **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Accessibility Labels
+- **Acceptance Criteria**:
+  - [ ] `EntryRowView` `.accessibilityLabel` combines: entry title, type ("Task" / "Note"), and status ("Open", "Complete", "Migrated", "Cancelled").
+  - [ ] `EntryRowView` `.accessibilityValue` includes priority label (if non-none) and due date in a readable format (if set).
+  - [ ] Status toggle button has a label describing both the action and current state, e.g. "Mark complete" / "Reopen".
+  - [ ] Create, migrate, delete, and favorite buttons each have a clear `.accessibilityLabel`.
+  - [ ] Delete button has `.accessibilityAddTraits(.isDestructive)`.
+- **Tests**:
+  - Unit tests in `SpreadTests/Views/Entries/EntryRowAccessibilityTests.swift`:
+    - `taskRow_openStatus_accessibilityLabel_includesTitleTypeAndStatus`
+    - `taskRow_completeStatus_accessibilityLabel_includesCompleteStatus`
+    - `taskRow_highPriority_accessibilityValue_includesPriority`
+    - `taskRow_withDueDate_accessibilityValue_includesDueDate`
+  - Manual VoiceOver verification on simulator.
+- **Dependencies**: None
