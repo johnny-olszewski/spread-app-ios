@@ -954,10 +954,17 @@
   - Inline error message display for failed login attempts
   - In-sheet navigation to Sign Up and Forgot Password
   - Sheet dismisses on successful login
+- All password inputs (`SecureField`) across `LoginSheet`, `SignUpSheet`, and `SetNewPasswordSheet` include a show/hide toggle button (eye icon) so users can verify what they have typed. The toggle is inline at the trailing edge of each password field. [SPRD-208]
+- When sign-in fails because the user's email is not yet confirmed, the error section in `LoginSheet` displays an additional "Resend verification email" button inline below the error message. Tapping it calls `resendVerification` using the current email field value. Loading state and errors from the resend call are shown inline. [SPRD-209]
 - Logged in state: tapping button opens profile sheet. [SPRD-84]
   - Shows user email
   - Sign Out button in toolbar
   - Sign out requires confirmation alert (warns that local data will be wiped)
+  - "Change Password" row navigates to `ChangePasswordSheet`. [SPRD-210]
+  - "Delete Account" row in a separate destructive section presents a two-step confirmation before permanently deleting the account and all associated data. [SPRD-211]
+  - "Legal" section contains links to Terms of Service and Privacy Policy, opening in Safari. [SPRD-212]
+- Sign-up sheet footer displays "By creating an account you agree to our Terms of Service and Privacy Policy" with tappable links opening each document in Safari. [SPRD-212]
+- `ChangePasswordSheet`: new password and confirm-password fields with visibility toggle; validation via `AuthFormValidator`; "Save Password" disabled until form valid or loading; `ProgressView` overlay during operation; errors shown inline; accessible via "Change Password" in `ProfileSheet`. No current-password field is required — the active authenticated session authorises the update. [SPRD-210]
 - Apple and Google sign-in are not part of v1. [SPRD-108]
 - If a previously authenticated user launches offline and the app has not definitively determined that the session is invalid, cached local data remains accessible and sync resumes when connectivity returns. [SPRD-106]
 - If the app later determines online that the session is invalid or expired, it returns to the auth gate. [SPRD-106]
@@ -1146,17 +1153,48 @@
 - Required coverage includes iPhone and iPad UI tests plus lower-level unit tests for navigator state/data derivation, compact-bar sizing behavior, rooted-navigator opening, recommendations, and pager synchronization. [SPRD-125, SPRD-126, SPRD-137]
 
 ### Error Handling UX
-- **Sign-in errors**: Error messages are displayed inline on the login sheet below the password field. Error text is human-readable and maps from auth error types: [SPRD-84]
-  - Invalid credentials: "Incorrect email or password."
-  - Email not confirmed: "Please check your email to confirm your account."
-  - User not found: "No account found with that email."
+- **Sign-in errors**: Error messages are displayed inline on the login sheet below the password field. Error text is human-readable and maps from auth error types: [SPRD-84, SPRD-206]
+  - Invalid credentials: "Invalid email or password."
+  - Email not confirmed: "Please verify your email first. Check your inbox." — followed by an inline "Resend verification email" button. [SPRD-209]
+  - User not found: "No account found with this email."
   - Rate limited: "Too many attempts. Please try again later."
-  - Network timeout: "Unable to connect. Check your internet connection."
+  - Network error: "No internet connection. Please check your network and try again."
+  - Unmapped Supabase 4xx error: the Supabase message is cleaned (sentence-cased, trailing period added) and surfaced directly so users see specific API feedback for error codes not explicitly handled.
+  - Any other failure: "Authentication failed. Please try again."
 - **Sync errors**: Sync failures are non-blocking. Automatic retry occurs with exponential backoff (2s base, 300s max). A non-tappable error banner appears below the navigator strip with text "Last sync failed · Pull down to retry"; it clears on next successful sync. [SPRD-85, SPRD-134, SPRD-135]
 - **Network errors**: When offline, the app continues to function normally with local data. When connectivity returns, sync resumes automatically. Offline state is surfaced in the pull-to-refresh indicator only ("Offline"); no persistent banner is shown. [SPRD-85, SPRD-134, SPRD-135]
 - **App initialization errors**: If the SwiftData container fails to create on launch, the app shows a fatal error screen with a message to restart the app. No recovery is attempted. [SPRD-TBD]
 - **Entry deletion**: Requires confirmation via a standard destructive alert ("Delete this task? This cannot be undone."). [SPRD-24]
 - **Spread deletion**: Requires confirmation with a message explaining that entries will be reassigned, not deleted. [SPRD-15]
+
+### Account Management (v1)
+
+#### Change Password
+- Authenticated users can change their password via a "Change Password" row in `ProfileSheet`. [SPRD-210]
+- Tapping "Change Password" presents `ChangePasswordSheet` as a modal sheet.
+- `ChangePasswordSheet` contains a new-password `SecureField` and a confirm-password `SecureField`, each with a show/hide toggle. Validation uses `AuthFormValidator.validatePassword` and `AuthFormValidator.validatePasswordConfirmation`.
+- "Save Password" is disabled until both fields pass validation and no operation is in progress.
+- A `ProgressView` overlay covers the form during the save operation.
+- On success, the sheet dismisses automatically.
+- Errors are shown inline within the sheet (same pattern as `SetNewPasswordSheet`).
+- No current-password field is required; the active authenticated session authorises the update.
+
+#### Delete Account
+- Authenticated users can permanently delete their account via a "Delete Account" row in a dedicated destructive section of `ProfileSheet`. [SPRD-211]
+- Tapping "Delete Account" presents a confirmation alert: "Delete Account?" with message "This will permanently delete your account and all associated data. This cannot be undone." and a destructive "Delete Account" action.
+- If confirmed, the app calls a server-side `deleteAccount` operation (Supabase Edge Function `delete-user`), which deletes the Supabase auth record and cascades to all user data via RLS.
+- On success, the local store is wiped and the app returns to the auth gate (same path as sign-out).
+- Errors during deletion are surfaced via an alert: "Could not delete account. Please try again or contact support."
+- The `ProfileSheet` "Delete Account" row and confirmation alert are gated behind the same `authManager.isLoading` guard so the action is disabled during any in-progress operation.
+- `AuthService` gains a `deleteAccount()` method; `SupabaseAuthService` calls the `delete-user` Edge Function using the authenticated session; `MockAuthService` provides a no-op stub; `DebugAuthService` delegates to the wrapped service.
+- `AuthManager` gains a `deleteAccount() async throws` method following the `isLoading`/`errorMessage`/`defer` pattern, and on success calls the existing sign-out path (`state = .signedOut`, `onSignOut()`).
+- The `delete-user` Edge Function runs under the Supabase service role and deletes the calling user by extracting the user ID from the request's JWT. It must be deployed to both `spread-prod` and `spread-dev`.
+
+#### Legal Links
+- `SignUpSheet` shows a footer: "By creating an account you agree to our [Terms of Service] and [Privacy Policy]." Both are `Link` views that open the respective URL in Safari. [SPRD-212]
+- `ProfileSheet` contains a "Legal" section with two rows: "Terms of Service" and "Privacy Policy", each opening the respective URL in Safari. [SPRD-212]
+- URLs are defined in a single `LegalLinks` namespace (`enum LegalLinks`) to avoid duplication and make the pre-App Store URL update a one-line change.
+- Placeholder URLs (`https://example.com/terms`, `https://example.com/privacy`) are used until production documents are published; a code comment marks each as a `TODO: replace before App Store submission`.
 
 ### Accessibility (v1)
 - **VoiceOver**: All interactive elements (buttons, list rows, toggles, pickers) must have descriptive accessibility labels. Entry rows announce entry type, title, and status (e.g., "Task, Buy groceries, open"). [SPRD-TBD]

@@ -5423,3 +5423,236 @@ Supabase: SPRD-85A -> SPRD-85C
   - [x] Tests use `MockAuthService`; no production Supabase credentials are required.
 - **Tests**: This task is the tests.
 - **Dependencies**: SPRD-200, SPRD-201, SPRD-202, SPRD-203, SPRD-204, SPRD-205, SPRD-206
+
+---
+
+## Story: Auth UX polish — TestFlight readiness (TF-07/08/09)
+
+### User Story
+- As a user, I want to verify what I've typed in password fields so I don't get locked out by a typo.
+- As a user who hasn't confirmed my email, I want a quick way to resend the verification link directly from the sign-in error rather than navigating back to sign-up.
+- As a signed-in user, I want to change my password from within the app without having to sign out and use the forgot-password flow.
+
+### Definition of Done
+- All password `SecureField` inputs across `LoginSheet`, `SignUpSheet`, and `SetNewPasswordSheet` have a show/hide toggle.
+- When sign-in fails with an email-not-confirmed error, a "Resend verification email" button appears inline in `LoginSheet`.
+- `ProfileSheet` has a "Change Password" row that opens `ChangePasswordSheet`.
+- All new flows have loading overlays, inline error display, and unit tests.
+
+---
+
+### [SPRD-208] View: password visibility toggle on all SecureField password inputs
+- **Context**: `LoginSheet`, `SignUpSheet`, and `SetNewPasswordSheet` all use `SecureField` for password inputs. Users have no way to verify what they have typed, which leads to frustration on failed sign-in or sign-up attempts.
+- **Description**: Add a show/hide eye-icon toggle button to each `SecureField` across the three auth sheets. Extract a `PasswordField` reusable view to avoid duplicating the conditional `SecureField`/`TextField` swap.
+- **Spec**: Auth UI (v1) — password visibility toggle
+- **Implementation Details**:
+  - Create `Spread/Views/Auth/PasswordField.swift`. This is a `View` struct that wraps a single password input with:
+    - `@Binding var text: String`
+    - `let placeholder: String`
+    - `let contentType: UITextContentType` (defaults to `.password`)
+    - `@State private var isVisible = false`
+    - Body: `HStack` containing either a `TextField` or `SecureField` based on `isVisible`, plus a trailing `.plain`-style `Button` with `Image(systemName: isVisible ? "eye.slash" : "eye").foregroundStyle(.secondary)`. The button toggles `isVisible`.
+    - Forwards `.textContentType`, `.autocorrectionDisabled()`, and `.textInputAutocapitalization(.never)`.
+    - Exposes `.accessibilityIdentifier` on both the field and the toggle button so tests can assert each.
+  - Replace all `SecureField` usages in `LoginSheet` (password), `SignUpSheet` (password + confirmPassword), and `SetNewPasswordSheet` (password + confirmPassword) with `PasswordField`.
+  - `textContentType` for each field stays as-is (`.password` for login, `.newPassword` for sign-up/set-new-password confirm fields).
+  - Add accessibility identifiers for the toggle buttons to `Definitions.AccessibilityIdentifiers`.
+  - Update previews in each sheet to show a state with visible password text.
+- **Acceptance Criteria**:
+  - [ ] `PasswordField` is defined in `Views/Auth/PasswordField.swift` and used in `LoginSheet`, `SignUpSheet`, and `SetNewPasswordSheet`.
+  - [ ] The eye icon button is visible at the trailing edge of each password field.
+  - [ ] Tapping the toggle switches between obscured and visible text.
+  - [ ] `textContentType` is preserved correctly for each field (`.password` for login, `.newPassword` elsewhere).
+  - [ ] Accessibility identifiers are added for the toggle buttons.
+  - [ ] Previews in each sheet include a visible-password state.
+- **Tests**:
+  - Unit tests in `SpreadTests/Views/Auth/PasswordVisibilityTests.swift` (`@MainActor struct`):
+    - `passwordFieldStartsObscured` — `isVisible` is `false` by default (verify via accessibility identifier of the visible `SecureField` identifier).
+    - `passwordFieldTogglesVisibility` — after a simulated toggle, the visible field identifier is present.
+    - Note: view-layer tests are limited without ViewInspector; focus tests on `PasswordField`'s `isVisible` state being driven correctly by identifying the accessible element. Tests may use `@Test` with `AuthManager` smoke-driven approaches consistent with existing auth tests.
+- **Dependencies**: None
+
+### [SPRD-209] View/Manager: resend verification email from sign-in error
+- **Context**: When a user tries to sign in before confirming their email, `AuthManager` shows "Please verify your email first. Check your inbox." but provides no quick path to resend the email. The user must back out, tap "Create Account", and re-enter their credentials to reach the resend button in `SignUpSheet`.
+- **Description**: Add `requiresEmailVerification: Bool` to `AuthManager`, set it when a sign-in attempt returns `emailNotConfirmed`, and use it in `LoginSheet` to show an inline "Resend verification email" button below the error text.
+- **Spec**: Auth UI (v1) — resend verification from sign-in error; Error Handling UX — email not confirmed
+- **Implementation Details**:
+  - Add `private(set) var requiresEmailVerification = false` to `AuthManager`.
+  - In the `signIn` method, reset `requiresEmailVerification = false` at the start (before the network call) and set `requiresEmailVerification = true` in the catch block when the resolved error code is `.emailNotConfirmed`.
+  - In `clearError()`, also set `requiresEmailVerification = false`.
+  - In `LoginSheet`:
+    - Add a `@State private var resentEmail = false` to track successful resend for one-time confirmation text.
+    - In `errorSection`, when `authManager.requiresEmailVerification` is true, display below the error text:
+      - A `Button("Resend verification email")` that calls `Task { try? await authManager.resendVerification(email: email) }` and on success sets `resentEmail = true`.
+      - When `resentEmail` is true, replace the button with `Text("Verification email sent.")` in `.secondary` style.
+    - `email` in this context is the `@State private var email` field on `LoginSheet` (the value the user typed when they attempted sign-in).
+    - Clear `resentEmail` in `onChange(of: email)` so a fresh attempt resets the one-time confirmation.
+  - Add accessibility identifiers for the resend button and sent-confirmation text.
+- **Acceptance Criteria**:
+  - [ ] `AuthManager.requiresEmailVerification` is `true` after a sign-in attempt that returns `emailNotConfirmed` and `false` after any other outcome (success, different error, `clearError()`).
+  - [ ] `LoginSheet` shows a "Resend verification email" button when `authManager.requiresEmailVerification` is `true`.
+  - [ ] Tapping "Resend verification email" calls `authManager.resendVerification(email:)` with the current email field value.
+  - [ ] After a successful resend, the button is replaced with a "Verification email sent." confirmation.
+  - [ ] The button does not appear for other error types (wrong password, user not found, etc.).
+- **Tests**:
+  - Unit tests in `SpreadTests/Auth/AuthFlowTests.swift` (add to existing suite):
+    - `signInEmailNotConfirmed_setsRequiresEmailVerification` — `FailingSignInService(emailNotConfirmed)` → `authManager.requiresEmailVerification == true`.
+    - `signInWrongPassword_doesNotSetRequiresEmailVerification` — `FailingSignInService(invalidCredentials)` → `authManager.requiresEmailVerification == false`.
+    - `clearError_clearsRequiresEmailVerification` — set `requiresEmailVerification` via a failing sign-in, call `clearError()`, verify it is `false`.
+    - `resendVerification_succeeds_clearsError` — `MockAuthService` → `resendVerification` succeeds, `errorMessage` is nil.
+  - Integration test in `AuthIntegrationTests.swift`:
+    - `testSignIn_unconfirmedEmail_setsRequiresEmailVerification` — admin create unconfirmed user → attempt sign-in → `requiresEmailVerification == true`.
+- **Dependencies**: SPRD-200, SPRD-201
+
+### [SPRD-210] View: change password from ProfileSheet
+- **Context**: `AuthManager.updatePassword` exists but is only reachable via the password-reset deeplink. Users who want to change their password while authenticated have no in-app path. They must sign out and use the forgot-password email flow.
+- **Description**: Create `ChangePasswordSheet` and add a "Change Password" row to `ProfileSheet` that opens it.
+- **Spec**: Auth UI (v1) — Change Password; Account Management — Change Password
+- **Implementation Details**:
+  - Create `Spread/Views/Auth/ChangePasswordSheet.swift`:
+    - Dependencies: injected `AuthManager`.
+    - Fields: new password and confirm-password, both using `PasswordField` (from SPRD-208).
+    - `@State private var hasEditedPassword`, `@State private var hasEditedConfirmPassword` guards on error display.
+    - Validation using `AuthFormValidator.validatePassword` and `AuthFormValidator.validatePasswordConfirmation`.
+    - Toolbar: "Cancel" (cancellation action) dismisses; "Save Password" (confirmation action) disabled when form invalid or loading.
+    - On save: `Task { do { try await authManager.updatePassword(newPassword: password); dismiss() } catch { /* error shown via authManager.errorMessage */ } }`.
+    - `ProgressView` overlay when `authManager.isLoading` (same pattern as `SetNewPasswordSheet`).
+    - Errors shown inline via `errorSection`.
+    - `interactiveDismissDisabled` is **not** set — unlike the recovery-session sheet, the user chose to open this voluntarily and can cancel freely.
+    - `.onDisappear { authManager.clearError() }`.
+    - Previews: empty state, loading state.
+  - In `ProfileSheet`:
+    - Add `@State private var isShowingChangePassword = false`.
+    - Add a "Change Password" `Button` row to `accountSection` that sets `isShowingChangePassword = true`.
+    - Add `.sheet(isPresented: $isShowingChangePassword) { ChangePasswordSheet(authManager: authManager) }`.
+    - The "Change Password" row is disabled when `authManager.isLoading`.
+  - Add accessibility identifiers for the "Change Password" row in `ProfileSheet` and the "Save Password" button in `ChangePasswordSheet`.
+- **Acceptance Criteria**:
+  - [ ] `ChangePasswordSheet` is defined in `Views/Auth/ChangePasswordSheet.swift` using `PasswordField` (SPRD-208).
+  - [ ] `ProfileSheet` has a "Change Password" row that opens `ChangePasswordSheet`.
+  - [ ] "Save Password" is disabled until new password and confirmation both pass validation.
+  - [ ] Successful password update dismisses the sheet; errors are shown inline.
+  - [ ] `ProgressView` overlay appears during `authManager.isLoading`.
+  - [ ] `authManager.clearError()` is called on disappear.
+  - [ ] Previews cover empty and loading states.
+- **Tests**:
+  - Unit tests in `SpreadTests/Views/Auth/ChangePasswordTests.swift` (`@MainActor struct`):
+    - `changePassword_success_dismisses` — successful `updatePassword` clears `isLoading` and `errorMessage`.
+    - `changePassword_mismatch_showsError` — confirm password differs from new password → `isFormValid` false (tested via `AuthFormValidator` directly or via `AuthManager` state).
+    - `changePassword_failure_setsErrorMessage` — `FailingUpdatePasswordService` → `authManager.errorMessage != nil` after attempt.
+  - Integration test in `AuthIntegrationTests.swift` (extend `testPasswordUpdate_changesPassword` or add):
+    - `testChangePassword_fromSignedInState_succeeds` — sign in → open `ChangePasswordSheet` equivalent (call `authManager.updatePassword`) → verify sign-out → sign in with new password → restore original. The existing `testPasswordUpdate_changesPassword` already covers this path; add a note referencing it as the integration coverage for SPRD-210.
+- **Dependencies**: SPRD-201, SPRD-208
+
+---
+
+## Story: Account management — Pre-App Store (AS-13/14)
+
+### User Story
+- As a user, I want to permanently delete my account and all my data so I have full control over my information.
+- As a new user reading the sign-up form, I want to see links to the app's Terms of Service and Privacy Policy before I commit to creating an account.
+- As a signed-in user, I want to access legal documents from within the app without searching for them externally.
+
+### Definition of Done
+- A delete-account flow exists in `ProfileSheet` behind a two-step confirmation; successful deletion wipes local data and returns to the auth gate.
+- A `delete-user` Supabase Edge Function is deployed to both `spread-prod` and `spread-dev`.
+- `SignUpSheet` footer contains Terms of Service and Privacy Policy links.
+- `ProfileSheet` contains a "Legal" section with both links.
+- All flows have unit and integration tests.
+
+---
+
+### [SPRD-211] Feature: delete account
+- **Context**: App Store guidelines require that apps with account creation also provide a way to delete the account and all associated data. The current `ProfileSheet` has no delete-account path.
+- **Description**: Add a `deleteAccount()` method to `AuthService` backed by a Supabase Edge Function, wire it through `AuthManager`, and add a destructive "Delete Account" flow to `ProfileSheet`.
+- **Spec**: Account Management (v1) — Delete Account
+- **Implementation Details**:
+  - **Edge Function** (`supabase/functions/delete-user/index.ts`):
+    - Receives an authenticated request (Bearer JWT in `Authorization` header).
+    - Extracts the user ID from the JWT using the service-role Supabase client.
+    - Calls `supabase.auth.admin.deleteUser(userId)` to hard-delete the user and all cascade-deleted data.
+    - Returns `{ "success": true }` on success or a JSON error with appropriate HTTP status.
+    - Deploy to `spread-prod` and `spread-dev` via `supabase functions deploy delete-user`.
+  - **`AuthService` protocol** (`Spread/Services/AuthService.swift`):
+    - Add `func deleteAccount() async throws`.
+  - **`SupabaseAuthService`** (`Spread/Services/SupabaseAuthService.swift`):
+    - `func deleteAccount() async throws { _ = try await client.functions.invoke("delete-user") }`.
+  - **`MockAuthService`** (`Spread/Services/MockAuthService.swift`):
+    - No-op stub: `func deleteAccount() async throws {}`.
+  - **`DebugAuthService`** (`Spread/Debug/DebugAuthService.swift`):
+    - Delegating stub: `func deleteAccount() async throws { try await wrapped.deleteAccount() }`.
+  - **`AuthManager`** (`Spread/Services/AuthManager.swift`):
+    - Add `func deleteAccount() async throws` following the `isLoading`/`errorMessage`/`defer` pattern.
+    - On success: `state = .signedOut` then `await onSignOut?()` — this triggers `AuthLifecycleCoordinator` to wipe the local store.
+    - Error mapping: wrap in `mapAuthError` for `AuthError`; catch `URLError` for network; generic fallback with message "Could not delete account. Please try again or contact support."
+  - **`ProfileSheet`** (`Spread/Views/Auth/ProfileSheet.swift`):
+    - Add `@State private var showDeleteConfirmation = false`.
+    - Add a new `Section` below the account section with a single `Button("Delete Account", role: .destructive)` that sets `showDeleteConfirmation = true`. Disabled when `authManager.isLoading`.
+    - Add `.confirmationDialog("Delete Account?", isPresented: $showDeleteConfirmation, titleVisibility: .visible)` with message "This will permanently delete your account and all associated data. This cannot be undone." and a destructive "Delete Account" action that calls `Task { try? await authManager.deleteAccount() }`.
+    - Errors from `deleteAccount` are surfaced via `authManager.errorMessage`. Add an `.alert` to `ProfileSheet` bound to a computed `showsDeleteError: Bool` from `authManager.errorMessage != nil`.
+  - Add accessibility identifiers for the "Delete Account" row and the confirmation action.
+- **Acceptance Criteria**:
+  - [ ] `AuthService` declares `deleteAccount()`.
+  - [ ] `SupabaseAuthService` calls the `delete-user` Edge Function.
+  - [ ] `MockAuthService` and `DebugAuthService` satisfy the protocol with no-op / delegating implementations.
+  - [ ] `AuthManager.deleteAccount()` sets `isLoading`, calls `service.deleteAccount()`, then on success transitions to `.signedOut` and calls `onSignOut()`.
+  - [ ] `ProfileSheet` has a destructive "Delete Account" row in a separate section.
+  - [ ] A confirmation dialog asks the user to confirm before proceeding.
+  - [ ] Errors are surfaced inline in `ProfileSheet`.
+  - [ ] The `delete-user` Edge Function is deployed to both `spread-prod` and `spread-dev`.
+- **Tests**:
+  - Unit tests in `SpreadTests/Auth/AuthFlowTests.swift` (add to existing suite):
+    - `deleteAccount_success_transitionsToSignedOut` — `MockAuthService` → `deleteAccount()` → `state == .signedOut`.
+    - `deleteAccount_success_callsOnSignOut` — `MockAuthService` → `deleteAccount()` → `onSignOut` callback invoked.
+    - `deleteAccount_failure_setsErrorMessage` — service throws → `authManager.errorMessage != nil`, `state` unchanged.
+  - Integration test in `AuthIntegrationTests.swift`:
+    - `testDeleteAccount_removesUserAndSignsOut` — admin create temp user → sign in → `authManager.deleteAccount()` → `state == .signedOut` → admin `listUsers` does not contain the deleted user's ID.
+- **Dependencies**: SPRD-200, SPRD-201
+
+### [SPRD-212] View: Terms of Service and Privacy Policy links
+- **Context**: App Store guidelines require that apps collecting user data provide links to Terms of Service and Privacy Policy. These links are currently absent from the sign-up flow and from the app's settings/profile surface.
+- **Description**: Add a `LegalLinks` namespace with URL constants, a footer to `SignUpSheet` referencing both documents, and a "Legal" section in `ProfileSheet` with rows for each link.
+- **Spec**: Account Management (v1) — Legal Links
+- **Implementation Details**:
+  - Create `Spread/Additions/LegalLinks.swift`:
+    ```swift
+    /// URL constants for legal documents.
+    ///
+    /// TODO: Replace placeholder URLs before App Store submission.
+    enum LegalLinks {
+        static let termsOfService = URL(string: "https://example.com/terms")!
+        static let privacyPolicy  = URL(string: "https://example.com/privacy")!
+    }
+    ```
+  - **`SignUpSheet`**: In the `fieldsSection`, change from `Section { ... }` to `Section { ... } footer: { legalFooter }`.
+    - `private var legalFooter: some View` returns a `Text` using `AttributedString` or inline `Link` views:
+      ```swift
+      HStack(spacing: 0) {
+          Text("By creating an account you agree to our ")
+          Link("Terms of Service", destination: LegalLinks.termsOfService)
+          Text(" and ")
+          Link("Privacy Policy", destination: LegalLinks.privacyPolicy)
+          Text(".")
+      }
+      .font(.caption)
+      .foregroundStyle(.secondary)
+      ```
+    - Both `Link` views receive accessibility identifiers.
+  - **`ProfileSheet`**: Add a `legalSection: some View` returning a `Section("Legal")` with two `Link` rows: "Terms of Service" and "Privacy Policy", each opening the respective `LegalLinks` URL and displaying a trailing `Image(systemName: "safari")` icon.
+    - Add accessibility identifiers for both rows.
+  - Update `SignUpSheet` and `ProfileSheet` previews to show the new sections.
+- **Acceptance Criteria**:
+  - [ ] `LegalLinks` enum defined in `Spread/Additions/LegalLinks.swift` with `termsOfService` and `privacyPolicy` URL constants and a `TODO` comment.
+  - [ ] `SignUpSheet` fields section has a footer with tappable Terms of Service and Privacy Policy links.
+  - [ ] `ProfileSheet` has a "Legal" section with a "Terms of Service" row and a "Privacy Policy" row.
+  - [ ] Both surfaces use `LegalLinks` constants (no inline URL strings).
+  - [ ] Accessibility identifiers are present for all four link elements (two in each view).
+  - [ ] Previews updated to show the legal footer/section.
+- **Tests**:
+  - Unit tests in `SpreadTests/Views/Auth/LegalLinksTests.swift` (`@MainActor struct`):
+    - `legalLinks_termsURL_isValid` — `LegalLinks.termsOfService` is a valid URL (non-nil, scheme is `https`).
+    - `legalLinks_privacyURL_isValid` — `LegalLinks.privacyPolicy` is a valid URL.
+    - `signUpSheet_legalFooterAccessibilityIdentifiers_present` — verify accessibility identifier constants exist for both link elements.
+    - `profileSheet_legalSectionAccessibilityIdentifiers_present` — verify accessibility identifier constants for both legal rows exist.
+  - No integration tests required — link validity and presence are fully covered by unit tests.
+- **Dependencies**: None
