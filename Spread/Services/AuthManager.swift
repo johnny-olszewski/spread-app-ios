@@ -256,6 +256,17 @@ final class AuthManager {
         }
     }
 
+    // MARK: - Deeplink Coordination
+
+    /// Called by `AuthDeepLinkCoordinator` after successful email confirmation.
+    ///
+    /// Sets the signed-in state and fires `onSignIn` so `AuthLifecycleCoordinator`
+    /// can start sync — mirroring the manual sign-in path.
+    func handleEmailConfirmed(_ result: AuthSuccess) async {
+        state = .signedIn(result.user)
+        await onSignIn?(result.user)
+    }
+
     // MARK: - Error Mapping
 
     /// Maps Supabase auth errors to user-friendly messages.

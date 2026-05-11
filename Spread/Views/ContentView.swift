@@ -66,6 +66,10 @@ struct ContentView: View {
                 onboardingStore.markCompleted()
             }
         }
+        .onOpenURL { url in
+            guard let coordinator = runtimeStore.runtime?.deepLinkCoordinator else { return }
+            Task { await coordinator.handle(url: url) }
+        }
     }
 
     // MARK: - Loading View
