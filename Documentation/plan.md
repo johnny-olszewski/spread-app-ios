@@ -5207,3 +5207,424 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit tests for recommendation derivation remaining unchanged while recommendation placement moves into the rooted navigator.
   - UI tests on iPhone and iPad covering compact bar height, rooted navigator opening from the chevron/title area, pager-to-bar synchronization, and recommendation visibility inside the rooted navigator.
 - **Dependencies**: SPRD-125, SPRD-128, SPRD-137, SPRD-151
+
+## Story: Auth flow — TestFlight readiness (WKFLW-19) - [x] Complete
+
+### User Story
+- As a new user, I want to sign up, verify my email, and access the app without hitting a broken or confusing state.
+- As an existing user, I want to reset my password entirely inside the app without being sent to a web page.
+- As any user, I want clear feedback when an auth operation is in progress or fails.
+- As a user entering a password, I want a show/hide toggle so I can verify what I typed.
+- As a user whose sign-in fails because my email is unconfirmed, I want a quick way to resend the verification link without leaving the login screen.
+- As a signed-in user, I want to change my password, delete my account, and access legal documents directly from the app.
+
+### Definition of Done
+- Email confirmation after sign-up shows an in-sheet "Check your email" state.
+- Email verification and password reset deeplinks route back into the app via `spread://auth/callback` and complete fully in-app.
+- All three auth sheets show a `ProgressView` loading overlay during async operations.
+- All auth error cases produce specific, human-readable messages.
+- Session expiry while the app is running transitions the user to the auth gate.
+- Supabase redirect URL configuration (`spread://auth/callback`) is applied to both `spread-prod` and `spread-dev`.
+- All password `SecureField` inputs have a show/hide visibility toggle.
+- Sign-in with an unconfirmed email surfaces an inline "Resend verification email" action.
+- `ProfileSheet` exposes Change Password, Delete Account, and Legal links.
+- `SignUpSheet` footer links to Terms of Service and Privacy Policy.
+- Automated smoke and integration tests pass. Manual test cases are documented in `Documentation/ManualTests.md`.
+
+---
+
+### [SPRD-200] Infra/Protocol: extend AuthService with deeplink handling, password update, resend, and session stream - [x] Complete
+- **Context**: The current `AuthService` protocol covers sign-in, sign-up, password reset email, sign-out, and session check. Four new capabilities are required for WKFLW-19: token exchange from deeplink URLs, in-app password update, resend verification email, and an async stream of externally-triggered auth state changes.
+- **Description**: Add four new members to `AuthService`. Implement all in `SupabaseAuthService`. Add no-op/stub implementations in `MockAuthService`. Define the supporting value types `AuthDeepLinkResult` and `AuthChangeEvent`.
+- **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — AuthService Protocol Additions
+- **Implementation Details**:
+  - Add `AuthDeepLinkResult` enum: `.emailConfirmed(AuthSuccess)` and `.recoverySession`.
+  - Add `AuthChangeEvent` enum: `.signedOut`.
+  - Add `func handle(url: URL) async throws -> AuthDeepLinkResult` to the protocol. In `SupabaseAuthService`, call `client.auth.session(from: url)` to exchange the token; inspect the URL `type` parameter (`signup` → `.emailConfirmed`, `recovery` → `.recoverySession`).
+  - Add `func updatePassword(newPassword: String) async throws` to the protocol. In `SupabaseAuthService`, call `client.auth.update(user: UserAttributes(password: newPassword))`.
+  - Add `func resendVerification(email: String) async throws` to the protocol. In `SupabaseAuthService`, call `client.auth.resend(email: email, type: .signup)`.
+  - Add `var authStateChanges: AsyncStream<AuthChangeEvent>` to the protocol. In `SupabaseAuthService`, wrap `client.auth.authStateChanges` and emit `.signedOut` on `signedOut` and `userDeleted` events; ignore all other events. In `MockAuthService`, return a stream that never emits (for baseline test use).
+  - All new types live in the `Services/` layer alongside existing `AuthService.swift`; each new value type gets its own file.
+- **Acceptance Criteria**:
+  - [x] `AuthService` protocol declares `handle(url:)`, `updatePassword(newPassword:)`, `resendVerification(email:)`, and `authStateChanges`.
+  - [x] `SupabaseAuthService` implements all four using the Supabase Swift SDK.
+  - [x] `MockAuthService` provides stub implementations that compile and satisfy the protocol.
+  - [x] `AuthDeepLinkResult` and `AuthChangeEvent` are defined as enums in the `Services/` layer.
+  - [x] `handle(url:)` correctly returns `.recoverySession` when `type=recovery` is present in the URL and `.emailConfirmed` for `type=signup`.
+- **Tests**:
+  - Unit tests for `handle(url:)` URL type parsing using mock URLs (no network required).
+  - Unit tests verifying `MockAuthService` satisfies the protocol at compile time.
+- **Dependencies**: None
+
+### [SPRD-201] Manager: extend AuthManager with updatePassword, resendVerification, and auth state change observation - [x] Complete
+- **Context**: `AuthManager` coordinates auth operations and owns `isLoading` and `errorMessage` state. It needs three additions: a `updatePassword` operation, a `resendVerification` operation, and a stored-`Task` that observes `service.authStateChanges` to handle session expiry.
+- **Description**: Add `updatePassword(newPassword:)` and `resendVerification(email:)` to `AuthManager`. Start a stored `Task` in `init` that iterates `service.authStateChanges` and calls the existing sign-out path on a `.signedOut` event.
+- **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — Session Expiry; AuthService Protocol Additions
+- **Implementation Details**:
+  - Add `private var authStateObservationTask: Task<Void, Never>?` stored property.
+  - In `init`, assign `authStateObservationTask = Task { await observeAuthStateChanges() }`.
+  - `observeAuthStateChanges()` is a `private func` that iterates `service.authStateChanges` and on `.signedOut` sets `state = .signedOut` then calls `await onSignOut?()`. This matches the manual sign-out path so `AuthLifecycleCoordinator` handles data wipe and sync reset automatically.
+  - Add `func updatePassword(newPassword: String) async throws` following the same `isLoading`/`errorMessage`/`defer` pattern as existing methods.
+  - Add `func resendVerification(email: String) async throws` following the same pattern. On success, no state change is needed (the user remains unconfirmed). On failure, set `errorMessage`.
+  - `AuthManager` already exceeds 200 lines; no further extension of the class is needed beyond these additions. If the file grows past 300 lines, extract the error-mapping logic into a separate `AuthErrorMapper` helper.
+- **Acceptance Criteria**:
+  - [x] `AuthManager.init` starts a stored `Task` observing `service.authStateChanges`.
+  - [x] A `.signedOut` stream event transitions `AuthManager.state` to `.signedOut` and calls `onSignOut`.
+  - [x] `updatePassword(newPassword:)` is implemented with `isLoading`, `errorMessage`, and `defer` guards matching existing methods.
+  - [x] `resendVerification(email:)` is implemented with the same guards.
+  - [x] The observation `Task` is stored (not fire-and-forget) per the Swift 6 concurrency guidelines in `CLAUDE.md`.
+- **Tests**:
+  - Unit test: injecting a `MockAuthService` whose `authStateChanges` emits `.signedOut` verifies that `AuthManager.state` transitions to `.signedOut` and `onSignOut` is called.
+  - Unit test: `updatePassword` sets `isLoading` during the call and clears it after.
+  - Unit test: `resendVerification` failure sets `errorMessage`.
+- **Dependencies**: SPRD-200
+
+### [SPRD-202] Infra/UI: URL scheme registration, AuthDeepLinkCoordinator, and app-root onOpenURL wiring - [x] Complete
+- **Context**: iOS delivers deeplinks to the app via the `onOpenURL` environment action. Neither the `spread://` URL scheme nor a handler exist yet. This task adds the scheme, the coordinator that owns routing state, and the wiring in the app root.
+- **Description**: Register the `spread` URL scheme in `Info.plist`. Create `AuthDeepLinkCoordinator`. Wire `.onOpenURL` in the app's root view to call the coordinator. Document the Supabase dashboard configuration step in spec.
+- **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — URL Scheme and Deeplink Routing
+- **Implementation Details**:
+  - Add `CFBundleURLTypes` entry to `Info.plist` with `CFBundleURLSchemes: ["spread"]`.
+  - Create `AuthDeepLinkCoordinator.swift` in `Services/`:
+    - `@Observable @MainActor final class AuthDeepLinkCoordinator`
+    - Properties: `private(set) var isRecoverySession = false`
+    - Dependencies: injected `AuthService` and `AuthManager`
+    - Method: `func handle(url: URL) async` — calls `service.handle(url: url)`. On `.emailConfirmed(let result)`: calls `authManager` session update path (sign-in via existing callback). On `.recoverySession`: sets `isRecoverySession = true`.
+    - Method: `func clearRecoverySession()` — sets `isRecoverySession = false`. Called by `SetNewPasswordSheet` on cancel or after successful password update.
+  - In the app root view (or scene entry point), inject `AuthDeepLinkCoordinator` via `@Environment` or `@State` and add `.onOpenURL { url in Task { await coordinator.handle(url: url) } }`.
+  - Supabase config note: `spread://auth/callback` must be added to Authentication → URL Configuration → Redirect URLs in both `spread-prod` and `spread-dev` Supabase dashboards. This is a manual step documented in `Documentation/ManualTests.md`.
+- **Acceptance Criteria**:
+  - [x] `Info.plist` declares the `spread` URL scheme.
+  - [x] `AuthDeepLinkCoordinator` is an `@Observable @MainActor final class` with `isRecoverySession` state.
+  - [x] `.onOpenURL` in the app root routes all URLs to `coordinator.handle(url:)`.
+  - [x] `isRecoverySession` becomes `true` when a `type=recovery` URL is handled and clears after cancel or success.
+  - [x] Email-confirmation URLs auto-sign the user in without setting `isRecoverySession`.
+- **Tests**:
+  - Unit test: `AuthDeepLinkCoordinator.handle(url:)` with a mock `type=recovery` URL sets `isRecoverySession = true`.
+  - Unit test: `handle(url:)` with a mock `type=signup` URL does not set `isRecoverySession`.
+  - Manual test: full end-to-end deeplink flows documented in `Documentation/ManualTests.md`.
+- **Dependencies**: SPRD-200, SPRD-201
+
+### [SPRD-203] View: update SignUpSheet with in-sheet email confirmation state - [x] Complete
+- **Context**: `SignUpSheet` currently calls `onSignIn` immediately after `signUp()` succeeds. With email confirmation enabled in Supabase, `signUp()` succeeds but no session is returned. The sheet must not dismiss and must instead show a confirmation state.
+- **Description**: Update `SignUpSheet` to capture the submitted email after `signUp()` and show an in-sheet "Check your email" confirmation state. Add a Resend button and a Done dismiss button.
+- **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — Sign-Up Flow (with Email Confirmation)
+- **Implementation Details**:
+  - Add `@State private var submittedEmail: String?` to `SignUpSheet`.
+  - After a successful `authManager.signUp(email:password:)` call (no error thrown), set `submittedEmail = email` instead of relying on `authManager.state` change to dismiss.
+  - When `submittedEmail != nil`, replace the form content with the confirmation state view:
+    - `Label` with `envelope.badge.fill` icon (green) and "Check Your Email" title, matching the `ForgotPasswordSheet` success pattern.
+    - Text: "We sent a verification link to [email]. Tap it to confirm your account."
+    - "Resend Email" button: calls `authManager.resendVerification(email: submittedEmail)`. Shows `authManager.errorMessage` below it on failure.
+    - Toolbar: replace "Cancel"/"Create" with a single "Done" trailing button that dismisses.
+  - Keep the existing `.onChange(of: authManager.state)` dismiss path so that if the user verifies their email while the sheet is still open (same device, background app), the sheet dismisses automatically.
+  - Keep `.onDisappear { authManager.clearError() }`.
+- **Acceptance Criteria**:
+  - [x] Successful `signUp()` transitions the sheet to the confirmation state without dismissing.
+  - [x] The confirmation state shows the submitted email address, verification instructions, and a "Resend Email" button.
+  - [x] "Resend Email" calls `authManager.resendVerification(email:)` and surfaces errors via `authManager.errorMessage`.
+  - [x] The "Done" button dismisses the sheet from the confirmation state.
+  - [x] If `authManager.state` transitions to `.signedIn` while the sheet is open, it still dismisses normally.
+  - [x] Preview includes both the empty/default state and the post-submission confirmation state.
+- **Tests**:
+  - Unit test: after `signUp()` succeeds, `submittedEmail` is set and the form content is replaced.
+  - Unit test: "Resend Email" invokes `resendVerification(email:)` on the auth manager.
+- **Dependencies**: SPRD-200, SPRD-201
+
+### [SPRD-204] View: add SetNewPasswordSheet - [x] Complete
+- **Context**: When a password reset deeplink is handled, `AuthDeepLinkCoordinator.isRecoverySession` is set to `true`. The app root must present a sheet where the user can enter and confirm a new password. This view does not yet exist.
+- **Description**: Create `SetNewPasswordSheet`. Present it from the app root when `coordinator.isRecoverySession == true`. On success, clear the recovery session and the user lands in journal content.
+- **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — Password Reset Flow
+- **Implementation Details**:
+  - Create `SetNewPasswordSheet.swift` in `Views/Auth/`.
+  - Dependencies: injected `AuthManager` and `AuthDeepLinkCoordinator`.
+  - Fields: new password (`textContentType(.newPassword)`) and confirm password. Both use `@State private var hasEdited` guards before showing validation errors, consistent with `SignUpSheet`.
+  - Validation via `AuthFormValidator.validatePassword` and `AuthFormValidator.validatePasswordConfirmation`.
+  - Toolbar: `Cancel` (cancellation action) and `Save Password` (confirmation action, disabled when form invalid or `authManager.isLoading`).
+  - Cancel action: calls `coordinator.clearRecoverySession()` and dismisses. Returns the user to the auth gate.
+  - Save action: calls `authManager.updatePassword(newPassword: password)`. On success, calls `coordinator.clearRecoverySession()` and dismisses. On error, shows `authManager.errorMessage` inline.
+  - `ProgressView` overlay when `authManager.isLoading`.
+  - `interactiveDismissDisabled(true)` — users must explicitly cancel or save.
+  - Present from the app root as `.sheet(isPresented: $coordinator.isRecoverySession) { SetNewPasswordSheet(...) }`.
+  - Preview includes empty state and loading state.
+- **Acceptance Criteria**:
+  - [x] `SetNewPasswordSheet` is presented when `coordinator.isRecoverySession == true`.
+  - [x] New password and confirm password fields validate using `AuthFormValidator`.
+  - [x] "Save Password" is disabled until the form is valid and not loading.
+  - [x] Successful password update calls `coordinator.clearRecoverySession()` and dismisses.
+  - [x] Cancel calls `coordinator.clearRecoverySession()`, dismisses, and returns the user to the auth gate.
+  - [x] `ProgressView` overlay appears during `authManager.isLoading`.
+  - [x] Interactive dismiss is disabled.
+  - [x] Preview covers both empty and loading states.
+- **Tests**:
+  - Unit test: successful `updatePassword` clears `isRecoverySession` and dismisses.
+  - Unit test: cancel clears `isRecoverySession` without calling `updatePassword`.
+  - Unit test: "Save Password" disabled when password fields are empty or mismatched.
+- **Dependencies**: SPRD-200, SPRD-201, SPRD-202
+
+### [SPRD-205] View: add ProgressView loading overlays to LoginSheet, SignUpSheet, and ForgotPasswordSheet - [x] Complete
+- **Context**: Auth operations already disable buttons via `authManager.isLoading`, but there is no visual indication that something is happening. Users have no feedback between tapping a button and receiving a result.
+- **Description**: Add a `ProgressView` overlay to `LoginSheet`, `SignUpSheet`, and `ForgotPasswordSheet` that appears while `authManager.isLoading` is true.
+- **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — Loading States
+- **Implementation Details**:
+  - For each of the three sheets, add a computed property `private var loadingOverlay: some View` that returns a `ZStack` containing a semi-transparent background and a centered `ProgressView()`. Alternatively, use `.overlay` directly on the `Form`.
+  - Apply the overlay only when `authManager.isLoading`.
+  - The overlay sits above the form content but does not cover the navigation bar.
+  - Do not change button disabled states — those remain as-is.
+  - Consistent visual style across all three sheets.
+- **Acceptance Criteria**:
+  - [x] `LoginSheet` shows a `ProgressView` overlay when `authManager.isLoading`.
+  - [x] `SignUpSheet` shows a `ProgressView` overlay when `authManager.isLoading`.
+  - [x] `ForgotPasswordSheet` shows a `ProgressView` overlay when `authManager.isLoading`.
+  - [x] The overlay does not cover the navigation bar.
+  - [x] The visual style is consistent across all three sheets.
+  - [x] Preview for each sheet includes a loading state example.
+- **Tests**:
+  - Unit tests for overlay visibility driven by `isLoading` on each sheet.
+- **Dependencies**: SPRD-201
+
+### [SPRD-206] Error: expand AuthManager error message mapping - [x] Complete
+- **Context**: `AuthManager.mapAuthError` currently handles `invalidCredentials`, `userNotFound`, `sessionExpired`, and `sessionNotFound`. Several common failure modes have no specific mapping and fall through to a generic "Authentication failed" message. These include unconfirmed email, duplicate registration, rate limiting, and network errors.
+- **Description**: Expand `mapAuthError` and the catch hierarchy in each `AuthManager` method to produce specific messages for all common auth failure modes.
+- **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — Error Message Additions
+- **Implementation Details**:
+  - Add cases to the `mapAuthError` switch for: `emailNotConfirmed` → "Please verify your email first. Check your inbox.", `userAlreadyExists` (or the applicable Supabase error code for duplicate sign-up) → "An account with this email already exists.", rate limiting → "Too many attempts. Please try again later."
+  - In `signIn`, `signUp`, and `resetPassword`, add a dedicated `catch` for `URLError` or network-level errors before the generic `catch` → "No internet connection. Please check your network and try again."
+  - Verify the exact Supabase Swift SDK error codes against the SDK source for `emailNotConfirmed` and `userAlreadyExists` — use the SDK enum cases, not string matching.
+  - Update the `signUp` method: since a successful `signUp` with email confirmation enabled does NOT return a session, the success path must set `submittedEmail` state rather than calling `onSignIn`. Coordinate with `SPRD-203` to ensure the correct success detection.
+- **Acceptance Criteria**:
+  - [x] "Please verify your email first. Check your inbox." appears when a user attempts to sign in before confirming their email.
+  - [x] "An account with this email already exists." appears on sign-up with a duplicate email.
+  - [x] "Too many attempts. Please try again later." appears when Supabase rate-limits the request.
+  - [x] "No internet connection. Please check your network and try again." appears on network failure.
+  - [x] Existing error messages for invalid credentials and user not found are preserved.
+  - [x] No string-matching on error messages — all cases use SDK enum comparisons.
+- **Tests**:
+  - Unit tests for each new error case using `MockAuthService` configured to throw the corresponding error type.
+- **Dependencies**: SPRD-200, SPRD-201
+
+### [SPRD-207] Test: auth flow smoke tests - [x] Complete
+- **Context**: Backlog item TF-40 called for smoke tests covering login success, login failure (wrong password), sign-up success, and forgot-password submission using a mock auth service. WKFLW-19 expands the required coverage significantly.
+- **Description**: Add Swift Testing smoke tests for all auth flows that can be exercised with a mock auth service. Flows requiring a real backend or live email inbox are documented in `Documentation/ManualTests.md` instead.
+- **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — Testing; Backlog TF-40
+- **Implementation Details**:
+  - Test file: `SpreadTests/Auth/AuthFlowTests.swift`. Mirror the source folder structure per `CLAUDE.md`.
+  - Use `MockAuthService` for all tests. No network calls.
+  - Each test includes a comment describing conditions and expected behavior per `CLAUDE.md` testing guidelines.
+  - Flows to cover:
+    - Login success: valid credentials → `AuthManager.state` transitions to `.signedIn`, `onSignIn` called.
+    - Login failure (wrong password): `MockAuthService` throws `invalidCredentials` → `errorMessage` is "Invalid email or password."
+    - Login failure (unconfirmed email): `MockAuthService` throws `emailNotConfirmed` → `errorMessage` is "Please verify your email first. Check your inbox."
+    - Sign-up success (confirmation state): `MockAuthService.signUp` returns success without session → `AuthManager` does not call `onSignIn`, `submittedEmail` is set in `SignUpSheet`.
+    - Sign-up failure (duplicate email): `MockAuthService` throws `userAlreadyExists` → `errorMessage` is "An account with this email already exists."
+    - Forgot password success: `resetPassword` succeeds → no error, `didSendReset` is true in `ForgotPasswordSheet`.
+    - Forgot password failure: `MockAuthService.resetPassword` throws → `errorMessage` is set.
+    - Password update success: `updatePassword` succeeds → `isRecoverySession` clears via `AuthDeepLinkCoordinator`.
+    - Session expiry: injecting a `MockAuthService` whose `authStateChanges` emits `.signedOut` → `AuthManager.state` transitions to `.signedOut` and `onSignOut` is called.
+    - Deeplink URL parsing (email confirmation): `type=signup` URL → `AuthDeepLinkCoordinator.isRecoverySession` remains false.
+    - Deeplink URL parsing (recovery): `type=recovery` URL → `AuthDeepLinkCoordinator.isRecoverySession` becomes true.
+- **Acceptance Criteria**:
+  - [x] All listed test cases exist in `SpreadTests/Auth/AuthFlowTests.swift`.
+  - [x] Every test has a describing comment per `CLAUDE.md`.
+  - [x] All tests pass with no network calls.
+  - [x] Tests use `MockAuthService`; no production Supabase credentials are required.
+- **Tests**: This task is the tests.
+- **Dependencies**: SPRD-200, SPRD-201, SPRD-202, SPRD-203, SPRD-204, SPRD-205, SPRD-206
+
+### [x] [SPRD-208] View: password visibility toggle on all SecureField password inputs
+- **Context**: `LoginSheet`, `SignUpSheet`, and `SetNewPasswordSheet` all use `SecureField` for password inputs. Users have no way to verify what they have typed, which leads to frustration on failed sign-in or sign-up attempts.
+- **Description**: Add a show/hide eye-icon toggle button to each `SecureField` across the three auth sheets. Extract a `PasswordField` reusable view to avoid duplicating the conditional `SecureField`/`TextField` swap.
+- **Spec**: Auth UI (v1) — password visibility toggle
+- **Implementation Details**:
+  - Create `Spread/Views/Auth/PasswordField.swift`. This is a `View` struct that wraps a single password input with:
+    - `@Binding var text: String`
+    - `let placeholder: String`
+    - `let contentType: UITextContentType` (defaults to `.password`)
+    - `@State private var isVisible = false`
+    - Body: `HStack` containing either a `TextField` or `SecureField` based on `isVisible`, plus a trailing `.plain`-style `Button` with `Image(systemName: isVisible ? "eye.slash" : "eye").foregroundStyle(.secondary)`. The button toggles `isVisible`.
+    - Forwards `.textContentType`, `.autocorrectionDisabled()`, and `.textInputAutocapitalization(.never)`.
+    - Exposes `.accessibilityIdentifier` on both the field and the toggle button so tests can assert each.
+  - Replace all `SecureField` usages in `LoginSheet` (password), `SignUpSheet` (password + confirmPassword), and `SetNewPasswordSheet` (password + confirmPassword) with `PasswordField`.
+  - `textContentType` for each field stays as-is (`.password` for login, `.newPassword` for sign-up/set-new-password confirm fields).
+  - Add accessibility identifiers for the toggle buttons to `Definitions.AccessibilityIdentifiers`.
+  - Update previews in each sheet to show a state with visible password text.
+- **Acceptance Criteria**:
+  - [ ] `PasswordField` is defined in `Views/Auth/PasswordField.swift` and used in `LoginSheet`, `SignUpSheet`, and `SetNewPasswordSheet`.
+  - [ ] The eye icon button is visible at the trailing edge of each password field.
+  - [ ] Tapping the toggle switches between obscured and visible text.
+  - [ ] `textContentType` is preserved correctly for each field (`.password` for login, `.newPassword` elsewhere).
+  - [ ] Accessibility identifiers are added for the toggle buttons.
+  - [ ] Previews in each sheet include a visible-password state.
+- **Tests**:
+  - Unit tests in `SpreadTests/Views/Auth/PasswordVisibilityTests.swift` (`@MainActor struct`):
+    - `passwordFieldStartsObscured` — `isVisible` is `false` by default (verify via accessibility identifier of the visible `SecureField` identifier).
+    - `passwordFieldTogglesVisibility` — after a simulated toggle, the visible field identifier is present.
+    - Note: view-layer tests are limited without ViewInspector; focus tests on `PasswordField`'s `isVisible` state being driven correctly by identifying the accessible element. Tests may use `@Test` with `AuthManager` smoke-driven approaches consistent with existing auth tests.
+- **Dependencies**: None
+
+### [x] [SPRD-209] View/Manager: resend verification email from sign-in error
+- **Context**: When a user tries to sign in before confirming their email, `AuthManager` shows "Please verify your email first. Check your inbox." but provides no quick path to resend the email. The user must back out, tap "Create Account", and re-enter their credentials to reach the resend button in `SignUpSheet`.
+- **Description**: Add `requiresEmailVerification: Bool` to `AuthManager`, set it when a sign-in attempt returns `emailNotConfirmed`, and use it in `LoginSheet` to show an inline "Resend verification email" button below the error text.
+- **Spec**: Auth UI (v1) — resend verification from sign-in error; Error Handling UX — email not confirmed
+- **Implementation Details**:
+  - Add `private(set) var requiresEmailVerification = false` to `AuthManager`.
+  - In the `signIn` method, reset `requiresEmailVerification = false` at the start (before the network call) and set `requiresEmailVerification = true` in the catch block when the resolved error code is `.emailNotConfirmed`.
+  - In `clearError()`, also set `requiresEmailVerification = false`.
+  - In `LoginSheet`:
+    - Add a `@State private var resentEmail = false` to track successful resend for one-time confirmation text.
+    - In `errorSection`, when `authManager.requiresEmailVerification` is true, display below the error text:
+      - A `Button("Resend verification email")` that calls `Task { try? await authManager.resendVerification(email: email) }` and on success sets `resentEmail = true`.
+      - When `resentEmail` is true, replace the button with `Text("Verification email sent.")` in `.secondary` style.
+    - `email` in this context is the `@State private var email` field on `LoginSheet` (the value the user typed when they attempted sign-in).
+    - Clear `resentEmail` in `onChange(of: email)` so a fresh attempt resets the one-time confirmation.
+  - Add accessibility identifiers for the resend button and sent-confirmation text.
+- **Acceptance Criteria**:
+  - [ ] `AuthManager.requiresEmailVerification` is `true` after a sign-in attempt that returns `emailNotConfirmed` and `false` after any other outcome (success, different error, `clearError()`).
+  - [ ] `LoginSheet` shows a "Resend verification email" button when `authManager.requiresEmailVerification` is `true`.
+  - [ ] Tapping "Resend verification email" calls `authManager.resendVerification(email:)` with the current email field value.
+  - [ ] After a successful resend, the button is replaced with a "Verification email sent." confirmation.
+  - [ ] The button does not appear for other error types (wrong password, user not found, etc.).
+- **Tests**:
+  - Unit tests in `SpreadTests/Auth/AuthFlowTests.swift` (add to existing suite):
+    - `signInEmailNotConfirmed_setsRequiresEmailVerification` — `FailingSignInService(emailNotConfirmed)` → `authManager.requiresEmailVerification == true`.
+    - `signInWrongPassword_doesNotSetRequiresEmailVerification` — `FailingSignInService(invalidCredentials)` → `authManager.requiresEmailVerification == false`.
+    - `clearError_clearsRequiresEmailVerification` — set `requiresEmailVerification` via a failing sign-in, call `clearError()`, verify it is `false`.
+    - `resendVerification_succeeds_clearsError` — `MockAuthService` → `resendVerification` succeeds, `errorMessage` is nil.
+  - Integration test in `AuthIntegrationTests.swift`:
+    - `testSignIn_unconfirmedEmail_setsRequiresEmailVerification` — admin create unconfirmed user → attempt sign-in → `requiresEmailVerification == true`.
+- **Dependencies**: SPRD-200, SPRD-201
+
+### [x] [SPRD-210] View: change password from ProfileSheet
+- **Context**: `AuthManager.updatePassword` exists but is only reachable via the password-reset deeplink. Users who want to change their password while authenticated have no in-app path. They must sign out and use the forgot-password email flow.
+- **Description**: Create `ChangePasswordSheet` and add a "Change Password" row to `ProfileSheet` that opens it.
+- **Spec**: Auth UI (v1) — Change Password; Account Management — Change Password
+- **Implementation Details**:
+  - Create `Spread/Views/Auth/ChangePasswordSheet.swift`:
+    - Dependencies: injected `AuthManager`.
+    - Fields: new password and confirm-password, both using `PasswordField` (from SPRD-208).
+    - `@State private var hasEditedPassword`, `@State private var hasEditedConfirmPassword` guards on error display.
+    - Validation using `AuthFormValidator.validatePassword` and `AuthFormValidator.validatePasswordConfirmation`.
+    - Toolbar: "Cancel" (cancellation action) dismisses; "Save Password" (confirmation action) disabled when form invalid or loading.
+    - On save: `Task { do { try await authManager.updatePassword(newPassword: password); dismiss() } catch { /* error shown via authManager.errorMessage */ } }`.
+    - `ProgressView` overlay when `authManager.isLoading` (same pattern as `SetNewPasswordSheet`).
+    - Errors shown inline via `errorSection`.
+    - `interactiveDismissDisabled` is **not** set — unlike the recovery-session sheet, the user chose to open this voluntarily and can cancel freely.
+    - `.onDisappear { authManager.clearError() }`.
+    - Previews: empty state, loading state.
+  - In `ProfileSheet`:
+    - Add `@State private var isShowingChangePassword = false`.
+    - Add a "Change Password" `Button` row to `accountSection` that sets `isShowingChangePassword = true`.
+    - Add `.sheet(isPresented: $isShowingChangePassword) { ChangePasswordSheet(authManager: authManager) }`.
+    - The "Change Password" row is disabled when `authManager.isLoading`.
+  - Add accessibility identifiers for the "Change Password" row in `ProfileSheet` and the "Save Password" button in `ChangePasswordSheet`.
+- **Acceptance Criteria**:
+  - [ ] `ChangePasswordSheet` is defined in `Views/Auth/ChangePasswordSheet.swift` using `PasswordField` (SPRD-208).
+  - [ ] `ProfileSheet` has a "Change Password" row that opens `ChangePasswordSheet`.
+  - [ ] "Save Password" is disabled until new password and confirmation both pass validation.
+  - [ ] Successful password update dismisses the sheet; errors are shown inline.
+  - [ ] `ProgressView` overlay appears during `authManager.isLoading`.
+  - [ ] `authManager.clearError()` is called on disappear.
+  - [ ] Previews cover empty and loading states.
+- **Tests**:
+  - Unit tests in `SpreadTests/Views/Auth/ChangePasswordTests.swift` (`@MainActor struct`):
+    - `changePassword_success_dismisses` — successful `updatePassword` clears `isLoading` and `errorMessage`.
+    - `changePassword_mismatch_showsError` — confirm password differs from new password → `isFormValid` false (tested via `AuthFormValidator` directly or via `AuthManager` state).
+    - `changePassword_failure_setsErrorMessage` — `FailingUpdatePasswordService` → `authManager.errorMessage != nil` after attempt.
+  - Integration test in `AuthIntegrationTests.swift` (extend `testPasswordUpdate_changesPassword` or add):
+    - `testChangePassword_fromSignedInState_succeeds` — sign in → open `ChangePasswordSheet` equivalent (call `authManager.updatePassword`) → verify sign-out → sign in with new password → restore original. The existing `testPasswordUpdate_changesPassword` already covers this path; add a note referencing it as the integration coverage for SPRD-210.
+- **Dependencies**: SPRD-201, SPRD-208
+
+### [x] [SPRD-211] Feature: delete account
+- **Context**: App Store guidelines require that apps with account creation also provide a way to delete the account and all associated data. The current `ProfileSheet` has no delete-account path.
+- **Description**: Add a `deleteAccount()` method to `AuthService` backed by a Supabase Edge Function, wire it through `AuthManager`, and add a destructive "Delete Account" flow to `ProfileSheet`.
+- **Spec**: Account Management (v1) — Delete Account
+- **Implementation Details**:
+  - **Edge Function** (`supabase/functions/delete-user/index.ts`):
+    - Receives an authenticated request (Bearer JWT in `Authorization` header).
+    - Extracts the user ID from the JWT using the service-role Supabase client.
+    - Calls `supabase.auth.admin.deleteUser(userId)` to hard-delete the user and all cascade-deleted data.
+    - Returns `{ "success": true }` on success or a JSON error with appropriate HTTP status.
+    - Deploy to `spread-prod` and `spread-dev` via `supabase functions deploy delete-user`.
+  - **`AuthService` protocol** (`Spread/Services/AuthService.swift`):
+    - Add `func deleteAccount() async throws`.
+  - **`SupabaseAuthService`** (`Spread/Services/SupabaseAuthService.swift`):
+    - `func deleteAccount() async throws { _ = try await client.functions.invoke("delete-user") }`.
+  - **`MockAuthService`** (`Spread/Services/MockAuthService.swift`):
+    - No-op stub: `func deleteAccount() async throws {}`.
+  - **`DebugAuthService`** (`Spread/Debug/DebugAuthService.swift`):
+    - Delegating stub: `func deleteAccount() async throws { try await wrapped.deleteAccount() }`.
+  - **`AuthManager`** (`Spread/Services/AuthManager.swift`):
+    - Add `func deleteAccount() async throws` following the `isLoading`/`errorMessage`/`defer` pattern.
+    - On success: `state = .signedOut` then `await onSignOut?()` — this triggers `AuthLifecycleCoordinator` to wipe the local store.
+    - Error mapping: wrap in `mapAuthError` for `AuthError`; catch `URLError` for network; generic fallback with message "Could not delete account. Please try again or contact support."
+  - **`ProfileSheet`** (`Spread/Views/Auth/ProfileSheet.swift`):
+    - Add `@State private var showDeleteConfirmation = false`.
+    - Add a new `Section` below the account section with a single `Button("Delete Account", role: .destructive)` that sets `showDeleteConfirmation = true`. Disabled when `authManager.isLoading`.
+    - Add `.confirmationDialog("Delete Account?", isPresented: $showDeleteConfirmation, titleVisibility: .visible)` with message "This will permanently delete your account and all associated data. This cannot be undone." and a destructive "Delete Account" action that calls `Task { try? await authManager.deleteAccount() }`.
+    - Errors from `deleteAccount` are surfaced via `authManager.errorMessage`. Add an `.alert` to `ProfileSheet` bound to a computed `showsDeleteError: Bool` from `authManager.errorMessage != nil`.
+  - Add accessibility identifiers for the "Delete Account" row and the confirmation action.
+- **Acceptance Criteria**:
+  - [ ] `AuthService` declares `deleteAccount()`.
+  - [ ] `SupabaseAuthService` calls the `delete-user` Edge Function.
+  - [ ] `MockAuthService` and `DebugAuthService` satisfy the protocol with no-op / delegating implementations.
+  - [ ] `AuthManager.deleteAccount()` sets `isLoading`, calls `service.deleteAccount()`, then on success transitions to `.signedOut` and calls `onSignOut()`.
+  - [ ] `ProfileSheet` has a destructive "Delete Account" row in a separate section.
+  - [ ] A confirmation dialog asks the user to confirm before proceeding.
+  - [ ] Errors are surfaced inline in `ProfileSheet`.
+  - [ ] The `delete-user` Edge Function is deployed to both `spread-prod` and `spread-dev`.
+- **Tests**:
+  - Unit tests in `SpreadTests/Auth/AuthFlowTests.swift` (add to existing suite):
+    - `deleteAccount_success_transitionsToSignedOut` — `MockAuthService` → `deleteAccount()` → `state == .signedOut`.
+    - `deleteAccount_success_callsOnSignOut` — `MockAuthService` → `deleteAccount()` → `onSignOut` callback invoked.
+    - `deleteAccount_failure_setsErrorMessage` — service throws → `authManager.errorMessage != nil`, `state` unchanged.
+  - Integration test in `AuthIntegrationTests.swift`:
+    - `testDeleteAccount_removesUserAndSignsOut` — admin create temp user → sign in → `authManager.deleteAccount()` → `state == .signedOut` → admin `listUsers` does not contain the deleted user's ID.
+- **Dependencies**: SPRD-200, SPRD-201
+
+### [x] [SPRD-212] View: Terms of Service and Privacy Policy links
+- **Context**: App Store guidelines require that apps collecting user data provide links to Terms of Service and Privacy Policy. These links are currently absent from the sign-up flow and from the app's settings/profile surface.
+- **Description**: Add a `LegalLinks` namespace with URL constants, a footer to `SignUpSheet` referencing both documents, and a "Legal" section in `ProfileSheet` with rows for each link.
+- **Spec**: Account Management (v1) — Legal Links
+- **Implementation Details**:
+  - Create `Spread/Additions/LegalLinks.swift`:
+    ```swift
+    /// URL constants for legal documents.
+    ///
+    /// TODO: Replace placeholder URLs before App Store submission.
+    enum LegalLinks {
+        static let termsOfService = URL(string: "https://example.com/terms")!
+        static let privacyPolicy  = URL(string: "https://example.com/privacy")!
+    }
+    ```
+  - **`SignUpSheet`**: In the `fieldsSection`, change from `Section { ... }` to `Section { ... } footer: { legalFooter }`.
+    - `private var legalFooter: some View` returns a `Text` using `AttributedString` or inline `Link` views:
+      ```swift
+      HStack(spacing: 0) {
+          Text("By creating an account you agree to our ")
+          Link("Terms of Service", destination: LegalLinks.termsOfService)
+          Text(" and ")
+          Link("Privacy Policy", destination: LegalLinks.privacyPolicy)
+          Text(".")
+      }
+      .font(.caption)
+      .foregroundStyle(.secondary)
+      ```
+    - Both `Link` views receive accessibility identifiers.
+  - **`ProfileSheet`**: Add a `legalSection: some View` returning a `Section("Legal")` with two `Link` rows: "Terms of Service" and "Privacy Policy", each opening the respective `LegalLinks` URL and displaying a trailing `Image(systemName: "safari")` icon.
+    - Add accessibility identifiers for both rows.
+  - Update `SignUpSheet` and `ProfileSheet` previews to show the new sections.
+- **Acceptance Criteria**:
+  - [ ] `LegalLinks` enum defined in `Spread/Additions/LegalLinks.swift` with `termsOfService` and `privacyPolicy` URL constants and a `TODO` comment.
+  - [ ] `SignUpSheet` fields section has a footer with tappable Terms of Service and Privacy Policy links.
+  - [ ] `ProfileSheet` has a "Legal" section with a "Terms of Service" row and a "Privacy Policy" row.
+  - [ ] Both surfaces use `LegalLinks` constants (no inline URL strings).
+  - [ ] Accessibility identifiers are present for all four link elements (two in each view).
+  - [ ] Previews updated to show the legal footer/section.
+- **Tests**:
+  - Unit tests in `SpreadTests/Views/Auth/LegalLinksTests.swift` (`@MainActor struct`):
+    - `legalLinks_termsURL_isValid` — `LegalLinks.termsOfService` is a valid URL (non-nil, scheme is `https`).
+    - `legalLinks_privacyURL_isValid` — `LegalLinks.privacyPolicy` is a valid URL.
+    - `signUpSheet_legalFooterAccessibilityIdentifiers_present` — verify accessibility identifier constants exist for both link elements.
+    - `profileSheet_legalSectionAccessibilityIdentifiers_present` — verify accessibility identifier constants for both legal rows exist.
+  - No integration tests required — link validity and presence are fully covered by unit tests.
+- **Dependencies**: None

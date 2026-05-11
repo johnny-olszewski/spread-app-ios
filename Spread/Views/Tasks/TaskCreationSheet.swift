@@ -372,9 +372,7 @@ struct TaskCreationSheet: View {
     TaskCreationSheet(
         journalManager: .previewInstance,
         selectedSpread: nil,
-        onTaskCreated: { task in
-            print("Created task: \(task.title)")
-        }
+        onTaskCreated: { _ in }
     )
 }
 
@@ -390,8 +388,6 @@ struct TaskCreationSheet: View {
     return TaskCreationSheet(
         journalManager: .previewInstance,
         selectedSpread: spread,
-        onTaskCreated: { task in
-            print("Created task: \(task.title)")
-        }
+        onTaskCreated: { _ in }
     )
 }
