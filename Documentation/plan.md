@@ -5735,16 +5735,16 @@ Supabase: SPRD-85A -> SPRD-85C
   - Visual inspection on simulator across day, month, year, and multiday spread types.
 - **Dependencies**: SPRD-213
 
-### [SPRD-218] Accessibility: entry row and icon-only button labels
+### [x] [SPRD-218] Accessibility: entry row and icon-only button labels
 - **Context**: `EntryRowView` rows announce only a flat title string to VoiceOver users with no status or type context. Icon-only action buttons (status toggle, create, migrate, delete, favorite) have no accessibility labels, making them unidentifiable to screen reader users. Backlog items TF-20, TF-21.
 - **Description**: Add `.accessibilityLabel` and `.accessibilityValue` to `EntryRowView`. Add `.accessibilityLabel` (and `.accessibilityRole(.button)` with `.accessibilityAddTraits(.isDestructive)` where appropriate) to all icon-only action buttons.
 - **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Accessibility Labels
 - **Acceptance Criteria**:
-  - [ ] `EntryRowView` `.accessibilityLabel` combines: entry title, type ("Task" / "Note"), and status ("Open", "Complete", "Migrated", "Cancelled").
-  - [ ] `EntryRowView` `.accessibilityValue` includes priority label (if non-none) and due date in a readable format (if set).
-  - [ ] Status toggle button has a label describing both the action and current state, e.g. "Mark complete" / "Reopen".
-  - [ ] Create, migrate, delete, and favorite buttons each have a clear `.accessibilityLabel`.
-  - [ ] Delete button has `.accessibilityAddTraits(.isDestructive)`.
+  - [x] `EntryRowView` `.accessibilityLabel` combines: entry title, type ("Task" / "Note"), and status ("Open", "Complete", "Migrated", "Cancelled").
+  - [x] `EntryRowView` `.accessibilityValue` includes priority label (if non-none) and due date in a readable format (if set).
+  - [x] Status toggle button has a label describing both the action and current state, e.g. "Mark complete" / "Reopen".
+  - [x] Create, migrate, delete, and favorite buttons each have a clear `.accessibilityLabel`.
+  - [x] Delete button destructive role conveys destructive trait (via `Button(role: .destructive)` — `AccessibilityTraits.isDestructive` does not exist in SwiftUI).
 - **Tests**:
   - Unit tests in `SpreadTests/Views/Entries/EntryRowAccessibilityTests.swift`:
     - `taskRow_openStatus_accessibilityLabel_includesTitleTypeAndStatus`
