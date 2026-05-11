@@ -114,11 +114,7 @@ enum SpreadTheme {
 
         /// Primary paper color for spread content backgrounds.
         static var primary: Color {
-            #if DEBUG
-            return debugPrimary
-            #else
-            return SpreadTheme.activePalette.paperPrimary
-            #endif
+            SpreadTheme.activePalette.paperPrimary
         }
 
         /// Secondary paper tone for navigation chrome.
@@ -137,13 +133,9 @@ enum SpreadTheme {
         /// Hex: #5B7A99
         static let defaultPrimary = Color(red: 91/255, green: 122/255, blue: 153/255)
 
-        /// Primary accent color, using debug overrides when available.
+        /// Primary accent color for the active palette.
         static var primary: Color {
-            #if DEBUG
-            return debugPrimary
-            #else
-            return SpreadTheme.activePalette.accentPrimary
-            #endif
+            SpreadTheme.activePalette.accentPrimary
         }
 
         /// Default vibrant blue used for passive today emphasis (Ocean palette).
@@ -151,20 +143,12 @@ enum SpreadTheme {
 
         /// Passive today emphasis color for unselected contextual highlighting.
         static var todayEmphasis: Color {
-            #if DEBUG
-            return debugPrimary.opacity(0.95)
-            #else
-            return SpreadTheme.activePalette.accentTodayEmphasis.opacity(0.95)
-            #endif
+            SpreadTheme.activePalette.accentTodayEmphasis.opacity(0.95)
         }
 
         /// Stronger today emphasis color when the today item is also selected.
         static var todaySelectedEmphasis: Color {
-            #if DEBUG
-            return debugPrimary
-            #else
-            return SpreadTheme.activePalette.accentTodayEmphasis
-            #endif
+            SpreadTheme.activePalette.accentTodayEmphasis
         }
 
         /// Border tint for today emphasis on passive surfaces.
