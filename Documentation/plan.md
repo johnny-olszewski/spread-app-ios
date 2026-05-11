@@ -5208,12 +5208,15 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests on iPhone and iPad covering compact bar height, rooted navigator opening from the chevron/title area, pager-to-bar synchronization, and recommendation visibility inside the rooted navigator.
 - **Dependencies**: SPRD-125, SPRD-128, SPRD-137, SPRD-151
 
-## Story: Auth flow — TestFlight readiness (WKFLW-19) - [x] Complete
+## Story: Auth flow — TestFlight readiness (WKFLW-19)
 
 ### User Story
 - As a new user, I want to sign up, verify my email, and access the app without hitting a broken or confusing state.
 - As an existing user, I want to reset my password entirely inside the app without being sent to a web page.
 - As any user, I want clear feedback when an auth operation is in progress or fails.
+- As a user entering a password, I want a show/hide toggle so I can verify what I typed.
+- As a user whose sign-in fails because my email is unconfirmed, I want a quick way to resend the verification link without leaving the login screen.
+- As a signed-in user, I want to change my password, delete my account, and access legal documents directly from the app.
 
 ### Definition of Done
 - Email confirmation after sign-up shows an in-sheet "Check your email" state.
@@ -5222,7 +5225,11 @@ Supabase: SPRD-85A -> SPRD-85C
 - All auth error cases produce specific, human-readable messages.
 - Session expiry while the app is running transitions the user to the auth gate.
 - Supabase redirect URL configuration (`spread://auth/callback`) is applied to both `spread-prod` and `spread-dev`.
-- Automated smoke tests pass. Manual test cases are documented in `Documentation/ManualTests.md`.
+- All password `SecureField` inputs have a show/hide visibility toggle.
+- Sign-in with an unconfirmed email surfaces an inline "Resend verification email" action.
+- `ProfileSheet` exposes Change Password, Delete Account, and Legal links.
+- `SignUpSheet` footer links to Terms of Service and Privacy Policy.
+- Automated smoke and integration tests pass. Manual test cases are documented in `Documentation/ManualTests.md`.
 
 ---
 
@@ -5424,23 +5431,6 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**: This task is the tests.
 - **Dependencies**: SPRD-200, SPRD-201, SPRD-202, SPRD-203, SPRD-204, SPRD-205, SPRD-206
 
----
-
-## Story: Auth UX polish — TestFlight readiness (TF-07/08/09)
-
-### User Story
-- As a user, I want to verify what I've typed in password fields so I don't get locked out by a typo.
-- As a user who hasn't confirmed my email, I want a quick way to resend the verification link directly from the sign-in error rather than navigating back to sign-up.
-- As a signed-in user, I want to change my password from within the app without having to sign out and use the forgot-password flow.
-
-### Definition of Done
-- All password `SecureField` inputs across `LoginSheet`, `SignUpSheet`, and `SetNewPasswordSheet` have a show/hide toggle.
-- When sign-in fails with an email-not-confirmed error, a "Resend verification email" button appears inline in `LoginSheet`.
-- `ProfileSheet` has a "Change Password" row that opens `ChangePasswordSheet`.
-- All new flows have loading overlays, inline error display, and unit tests.
-
----
-
 ### [SPRD-208] View: password visibility toggle on all SecureField password inputs
 - **Context**: `LoginSheet`, `SignUpSheet`, and `SetNewPasswordSheet` all use `SecureField` for password inputs. Users have no way to verify what they have typed, which leads to frustration on failed sign-in or sign-up attempts.
 - **Description**: Add a show/hide eye-icon toggle button to each `SecureField` across the three auth sheets. Extract a `PasswordField` reusable view to avoid duplicating the conditional `SecureField`/`TextField` swap.
@@ -5543,24 +5533,6 @@ Supabase: SPRD-85A -> SPRD-85C
   - Integration test in `AuthIntegrationTests.swift` (extend `testPasswordUpdate_changesPassword` or add):
     - `testChangePassword_fromSignedInState_succeeds` — sign in → open `ChangePasswordSheet` equivalent (call `authManager.updatePassword`) → verify sign-out → sign in with new password → restore original. The existing `testPasswordUpdate_changesPassword` already covers this path; add a note referencing it as the integration coverage for SPRD-210.
 - **Dependencies**: SPRD-201, SPRD-208
-
----
-
-## Story: Account management — Pre-App Store (AS-13/14)
-
-### User Story
-- As a user, I want to permanently delete my account and all my data so I have full control over my information.
-- As a new user reading the sign-up form, I want to see links to the app's Terms of Service and Privacy Policy before I commit to creating an account.
-- As a signed-in user, I want to access legal documents from within the app without searching for them externally.
-
-### Definition of Done
-- A delete-account flow exists in `ProfileSheet` behind a two-step confirmation; successful deletion wipes local data and returns to the auth gate.
-- A `delete-user` Supabase Edge Function is deployed to both `spread-prod` and `spread-dev`.
-- `SignUpSheet` footer contains Terms of Service and Privacy Policy links.
-- `ProfileSheet` contains a "Legal" section with both links.
-- All flows have unit and integration tests.
-
----
 
 ### [SPRD-211] Feature: delete account
 - **Context**: App Store guidelines require that apps with account creation also provide a way to delete the account and all associated data. The current `ProfileSheet` has no delete-account path.
