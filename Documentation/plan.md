@@ -5753,3 +5753,16 @@ Supabase: SPRD-85A -> SPRD-85C
     - `taskRow_withDueDate_accessibilityValue_includesDueDate`
   - Manual VoiceOver verification on simulator.
 - **Dependencies**: None
+
+### [x] [SPRD-219] Visual: liquid glass nav bar integration for spread title strip
+- **Context**: iOS 26 renders navigation bars with liquid glass. The spread title navigator strip was placed in the content VStack with a custom background and fixed height, preventing the glass effect from compositing correctly. The dot grid background also didn't extend behind the system bars. Tracked as part of WKFLW-20; initially committed under the mislabeled SPRD-216 tag (commits `e4b02c5`, `f6f430b`).
+- **Description**: Move `SpreadTitleNavigatorView` into the `.principal` toolbar slot so iOS 26 renders it natively inside the liquid glass nav bar. Extend the dot grid to bleed behind all safe-area edges so the pattern shows through the glass.
+- **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Liquid Glass Nav Bar
+- **Acceptance Criteria**:
+  - [x] `SpreadTitleNavigatorView` rendered as `.principal` toolbar item, not in content VStack.
+  - [x] Custom 52 pt height frame and `secondaryPaperBackground` removed from navigator; bar sizing delegated to system.
+  - [x] Trigger and title buttons merged into single button with trailing chevron; accessibility identifiers preserved.
+  - [x] Dot grid `ignoresSafeAreaEdges` set to `.all` so pattern extends behind nav and tab bars.
+- **Tests**:
+  - Visual inspection on simulator with iOS 26 liquid glass.
+- **Dependencies**: SPRD-213
