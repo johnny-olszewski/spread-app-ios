@@ -5208,7 +5208,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests on iPhone and iPad covering compact bar height, rooted navigator opening from the chevron/title area, pager-to-bar synchronization, and recommendation visibility inside the rooted navigator.
 - **Dependencies**: SPRD-125, SPRD-128, SPRD-137, SPRD-151
 
-## Story: Auth flow — TestFlight readiness (WKFLW-19)
+## Story: Auth flow — TestFlight readiness (WKFLW-19) - [x] Complete
 
 ### User Story
 - As a new user, I want to sign up, verify my email, and access the app without hitting a broken or confusing state.
@@ -5431,7 +5431,7 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**: This task is the tests.
 - **Dependencies**: SPRD-200, SPRD-201, SPRD-202, SPRD-203, SPRD-204, SPRD-205, SPRD-206
 
-### [SPRD-208] View: password visibility toggle on all SecureField password inputs
+### [x] [SPRD-208] View: password visibility toggle on all SecureField password inputs
 - **Context**: `LoginSheet`, `SignUpSheet`, and `SetNewPasswordSheet` all use `SecureField` for password inputs. Users have no way to verify what they have typed, which leads to frustration on failed sign-in or sign-up attempts.
 - **Description**: Add a show/hide eye-icon toggle button to each `SecureField` across the three auth sheets. Extract a `PasswordField` reusable view to avoid duplicating the conditional `SecureField`/`TextField` swap.
 - **Spec**: Auth UI (v1) — password visibility toggle
@@ -5462,7 +5462,7 @@ Supabase: SPRD-85A -> SPRD-85C
     - Note: view-layer tests are limited without ViewInspector; focus tests on `PasswordField`'s `isVisible` state being driven correctly by identifying the accessible element. Tests may use `@Test` with `AuthManager` smoke-driven approaches consistent with existing auth tests.
 - **Dependencies**: None
 
-### [SPRD-209] View/Manager: resend verification email from sign-in error
+### [x] [SPRD-209] View/Manager: resend verification email from sign-in error
 - **Context**: When a user tries to sign in before confirming their email, `AuthManager` shows "Please verify your email first. Check your inbox." but provides no quick path to resend the email. The user must back out, tap "Create Account", and re-enter their credentials to reach the resend button in `SignUpSheet`.
 - **Description**: Add `requiresEmailVerification: Bool` to `AuthManager`, set it when a sign-in attempt returns `emailNotConfirmed`, and use it in `LoginSheet` to show an inline "Resend verification email" button below the error text.
 - **Spec**: Auth UI (v1) — resend verification from sign-in error; Error Handling UX — email not confirmed
@@ -5494,7 +5494,7 @@ Supabase: SPRD-85A -> SPRD-85C
     - `testSignIn_unconfirmedEmail_setsRequiresEmailVerification` — admin create unconfirmed user → attempt sign-in → `requiresEmailVerification == true`.
 - **Dependencies**: SPRD-200, SPRD-201
 
-### [SPRD-210] View: change password from ProfileSheet
+### [x] [SPRD-210] View: change password from ProfileSheet
 - **Context**: `AuthManager.updatePassword` exists but is only reachable via the password-reset deeplink. Users who want to change their password while authenticated have no in-app path. They must sign out and use the forgot-password email flow.
 - **Description**: Create `ChangePasswordSheet` and add a "Change Password" row to `ProfileSheet` that opens it.
 - **Spec**: Auth UI (v1) — Change Password; Account Management — Change Password
@@ -5534,7 +5534,7 @@ Supabase: SPRD-85A -> SPRD-85C
     - `testChangePassword_fromSignedInState_succeeds` — sign in → open `ChangePasswordSheet` equivalent (call `authManager.updatePassword`) → verify sign-out → sign in with new password → restore original. The existing `testPasswordUpdate_changesPassword` already covers this path; add a note referencing it as the integration coverage for SPRD-210.
 - **Dependencies**: SPRD-201, SPRD-208
 
-### [SPRD-211] Feature: delete account
+### [x] [SPRD-211] Feature: delete account
 - **Context**: App Store guidelines require that apps with account creation also provide a way to delete the account and all associated data. The current `ProfileSheet` has no delete-account path.
 - **Description**: Add a `deleteAccount()` method to `AuthService` backed by a Supabase Edge Function, wire it through `AuthManager`, and add a destructive "Delete Account" flow to `ProfileSheet`.
 - **Spec**: Account Management (v1) — Delete Account
@@ -5581,7 +5581,7 @@ Supabase: SPRD-85A -> SPRD-85C
     - `testDeleteAccount_removesUserAndSignsOut` — admin create temp user → sign in → `authManager.deleteAccount()` → `state == .signedOut` → admin `listUsers` does not contain the deleted user's ID.
 - **Dependencies**: SPRD-200, SPRD-201
 
-### [SPRD-212] View: Terms of Service and Privacy Policy links
+### [x] [SPRD-212] View: Terms of Service and Privacy Policy links
 - **Context**: App Store guidelines require that apps collecting user data provide links to Terms of Service and Privacy Policy. These links are currently absent from the sign-up flow and from the app's settings/profile surface.
 - **Description**: Add a `LegalLinks` namespace with URL constants, a footer to `SignUpSheet` referencing both documents, and a "Legal" section in `ProfileSheet` with rows for each link.
 - **Spec**: Account Management (v1) — Legal Links
