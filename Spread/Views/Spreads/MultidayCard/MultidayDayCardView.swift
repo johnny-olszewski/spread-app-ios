@@ -130,10 +130,12 @@ struct MultidayDayCardView<Content: View>: View {
             if let onPeek {
                 Button(action: onPeek) {
                     Image(systemName: "eye")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
                         .foregroundStyle(.secondary)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)
+                .contentShape(Rectangle())
                 .accessibilityLabel("Preview day spread")
                 .accessibilityIdentifier(
                     Definitions.AccessibilityIdentifiers.SpreadContent.multidayPeekButton(dateID)
@@ -144,15 +146,14 @@ struct MultidayDayCardView<Content: View>: View {
 
             Button(action: onFooterTap) {
                 Image(systemName: footerAction.iconName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
                     .foregroundStyle(SpreadTheme.Accent.todaySelectedEmphasis)
                     .frame(width: 30, height: 30)
-                    .background(
-                        Circle()
-                            .fill(.white.opacity(0.94))
-                    )
+                    .background(Circle().fill(.white.opacity(0.94)))
             }
             .buttonStyle(.plain)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(footerAccessibilityLabel)
             .accessibilityIdentifier(

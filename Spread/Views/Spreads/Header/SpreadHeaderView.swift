@@ -87,9 +87,9 @@ struct SpreadHeaderView: View {
             if let onFavoriteToggle {
                 Button(action: onFavoriteToggle) {
                     Image(systemName: configuration.spread.isFavorite ? "star.fill" : "star")
-                        .font(.body.weight(.semibold))
+                        .font(.system(size: SpreadTheme.IconSize.large, weight: .semibold))
                         .foregroundStyle(configuration.spread.isFavorite ? Color.yellow : Color.secondary)
-                        .frame(width: 32, height: 32)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(configuration.spread.isFavorite ? "Unfavorite Spread" : "Favorite Spread")
@@ -131,9 +131,9 @@ struct SpreadHeaderView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .font(.body.weight(.semibold))
+                        .font(.system(size: SpreadTheme.IconSize.large, weight: .semibold))
                         .foregroundStyle(Color.secondary)
-                        .frame(width: 32, height: 32)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .accessibilityLabel("Spread Actions")
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.spreadActionsMenu)

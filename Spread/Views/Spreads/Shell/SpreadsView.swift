@@ -158,7 +158,7 @@ struct SpreadsView: View {
             } label: {
                 Image(systemName: "plus")
                     .padding(8)
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.system(size: SpreadTheme.IconSize.extraLarge, weight: .semibold))
                     .foregroundStyle(.white)
                     .glassEffect(.regular.tint(SpreadTheme.Accent.todaySelectedEmphasis), in: Circle())
             }
