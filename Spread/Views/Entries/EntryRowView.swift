@@ -230,6 +230,8 @@ struct EntryRowView: View {
         }
         .animation(.easeInOut(duration: 0.18), value: isInlineActive)
         .accessibilityElement(children: .contain)
+        .accessibilityLabel(configuration.accessibilityLabel)
+        .accessibilityValue(configuration.accessibilityValue ?? "")
     }
 
     // MARK: - Subviews
@@ -424,6 +426,7 @@ struct EntryRowView: View {
                             .frame(minWidth: 44, minHeight: 44)
                     }
                     .contentShape(Rectangle())
+                    .accessibilityLabel("Migrate task")
                     .accessibilityIdentifier(
                         Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu(configuration.title)
                     )

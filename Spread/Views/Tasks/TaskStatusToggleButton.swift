@@ -34,9 +34,9 @@ struct TaskStatusToggleButton: View {
     private var accessibilityLabel: String {
         switch status {
         case .open:
-            return "Mark task complete"
+            return "Mark complete"
         case .complete:
-            return "Mark task open"
+            return "Reopen"
         case .migrated:
             return "Migrated task"
         case .cancelled:
