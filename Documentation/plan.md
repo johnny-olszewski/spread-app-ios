@@ -5704,7 +5704,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Visual inspection on simulator.
 - **Dependencies**: SPRD-213
 
-### [SPRD-216] Visual: consistent sheet presentation audit
+### [x] [SPRD-216] Visual: consistent sheet presentation audit
 - **Context**: Task creation, note creation, spread creation, auth, and profile sheets were built independently and have diverged in chrome: some have leading Cancel, some trailing; some have loading states, some don't; some use `.alert` for errors, some silently discard. Backlog item TF-32.
 - **Description**: Audit all sheets for consistent header layout, dismiss affordances, loading state coverage, and error surfacing. Apply fixes to bring all sheets into alignment.
 - **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Sheet Presentation Consistency
@@ -5713,11 +5713,11 @@ Supabase: SPRD-85A -> SPRD-85C
   - Standard pattern: leading `Cancel` button, trailing primary action (disabled when form invalid or loading), `ProgressView` overlay when loading, `.alert` for errors.
   - `interactiveDismissDisabled(true)` on sheets where accidental dismissal would lose user input (creation sheets, change-password sheet).
 - **Acceptance Criteria**:
-  - [ ] All sheets have a leading `Cancel` toolbar button and a trailing primary-action toolbar button.
-  - [ ] All sheets disable the primary action button during loading.
-  - [ ] All sheets show a `ProgressView` overlay when an async operation is in flight.
-  - [ ] All sheets surface repository/service errors via `.alert` — no silent failures on save.
-  - [ ] All creation sheets have `interactiveDismissDisabled(true)` when the form has unsaved user input.
+  - [x] All sheets have a leading `Cancel` toolbar button and a trailing primary-action toolbar button.
+  - [x] All sheets disable the primary action button during loading.
+  - [x] All sheets show a `ProgressView` overlay when an async operation is in flight.
+  - [x] All sheets surface repository/service errors via `.alert` — no silent failures on save.
+  - [x] All creation sheets have `interactiveDismissDisabled(true)` when the form has unsaved user input.
 - **Tests**:
   - Visual inspection across all sheet types on simulator.
 - **Dependencies**: None
