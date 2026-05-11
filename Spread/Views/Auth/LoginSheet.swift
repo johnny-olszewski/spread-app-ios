@@ -56,6 +56,11 @@ struct LoginSheet: View {
                 errorSection
                 linksSection
             }
+            .overlay {
+                if authManager.isLoading {
+                    loadingOverlay
+                }
+            }
             .navigationTitle("Sign In")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -147,6 +152,16 @@ struct LoginSheet: View {
         }
     }
 
+    // MARK: - Loading Overlay
+
+    private var loadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.2)
+            ProgressView()
+        }
+        .ignoresSafeArea()
+    }
+
     // MARK: - Sign In Button
 
     private var signInButton: some View {
@@ -163,4 +178,29 @@ struct LoginSheet: View {
 
 #Preview("Empty") {
     LoginSheet(authManager: .makeForPreview(), showsCancelButton: true)
+}
+
+#Preview("Loading") {
+    NavigationStack {
+        Form {
+            Section {
+                TextField("Email", text: .constant(""))
+                SecureField("Password", text: .constant(""))
+            }
+        }
+        .overlay {
+            ZStack {
+                Color.black.opacity(0.2)
+                ProgressView()
+            }
+            .ignoresSafeArea()
+        }
+        .navigationTitle("Sign In")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Sign In") {}.disabled(true)
+            }
+        }
+    }
 }

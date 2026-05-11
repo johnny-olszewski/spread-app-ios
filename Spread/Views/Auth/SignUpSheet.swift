@@ -77,6 +77,11 @@ struct SignUpSheet: View {
                     serverErrorSection
                 }
             }
+            .overlay {
+                if authManager.isLoading {
+                    loadingOverlay
+                }
+            }
             .navigationTitle("Create Account")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -213,12 +218,51 @@ struct SignUpSheet: View {
         }
         .disabled(!isFormValid || authManager.isLoading)
     }
+
+    // MARK: - Loading Overlay
+
+    private var loadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.2)
+            ProgressView()
+        }
+        .ignoresSafeArea()
+    }
 }
 
 // MARK: - Previews
 
 #Preview("Empty") {
     SignUpSheet(authManager: .makeForPreview())
+}
+
+#Preview("Loading") {
+    NavigationStack {
+        Form {
+            Section {
+                TextField("Email", text: .constant(""))
+                SecureField("Password", text: .constant(""))
+                SecureField("Confirm Password", text: .constant(""))
+            }
+        }
+        .overlay {
+            ZStack {
+                Color.black.opacity(0.2)
+                ProgressView()
+            }
+            .ignoresSafeArea()
+        }
+        .navigationTitle("Create Account")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") {}
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Create") {}.disabled(true)
+            }
+        }
+    }
 }
 
 #Preview("Confirmation State") {
