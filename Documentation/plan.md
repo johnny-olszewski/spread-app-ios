@@ -5386,12 +5386,12 @@ Supabase: SPRD-85A -> SPRD-85C
   - Verify the exact Supabase Swift SDK error codes against the SDK source for `emailNotConfirmed` and `userAlreadyExists` — use the SDK enum cases, not string matching.
   - Update the `signUp` method: since a successful `signUp` with email confirmation enabled does NOT return a session, the success path must set `submittedEmail` state rather than calling `onSignIn`. Coordinate with `SPRD-203` to ensure the correct success detection.
 - **Acceptance Criteria**:
-  - [ ] "Please verify your email first. Check your inbox." appears when a user attempts to sign in before confirming their email.
-  - [ ] "An account with this email already exists." appears on sign-up with a duplicate email.
-  - [ ] "Too many attempts. Please try again later." appears when Supabase rate-limits the request.
-  - [ ] "No internet connection. Please check your network and try again." appears on network failure.
-  - [ ] Existing error messages for invalid credentials and user not found are preserved.
-  - [ ] No string-matching on error messages — all cases use SDK enum comparisons.
+  - [x] "Please verify your email first. Check your inbox." appears when a user attempts to sign in before confirming their email.
+  - [x] "An account with this email already exists." appears on sign-up with a duplicate email.
+  - [x] "Too many attempts. Please try again later." appears when Supabase rate-limits the request.
+  - [x] "No internet connection. Please check your network and try again." appears on network failure.
+  - [x] Existing error messages for invalid credentials and user not found are preserved.
+  - [x] No string-matching on error messages — all cases use SDK enum comparisons.
 - **Tests**:
   - Unit tests for each new error case using `MockAuthService` configured to throw the corresponding error type.
 - **Dependencies**: SPRD-200, SPRD-201
