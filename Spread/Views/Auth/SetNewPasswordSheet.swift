@@ -51,7 +51,6 @@ struct SetNewPasswordSheet: View {
             Form {
                 fieldsSection
                 validationSection
-                errorSection
             }
             .overlay {
                 if authManager.isLoading {
@@ -69,6 +68,14 @@ struct SetNewPasswordSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     saveButton
                 }
+            }
+            .alert("Error", isPresented: Binding(
+                get: { authManager.errorMessage != nil },
+                set: { if !$0 { authManager.clearError() } }
+            )) {
+                Button("OK") { authManager.clearError() }
+            } message: {
+                Text(authManager.errorMessage ?? "")
             }
             .interactiveDismissDisabled(true)
         }
@@ -102,17 +109,6 @@ struct SetNewPasswordSheet: View {
                         .foregroundStyle(.orange)
                         .font(.callout)
                 }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var errorSection: some View {
-        if let errorMessage = authManager.errorMessage {
-            Section {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.callout)
             }
         }
     }

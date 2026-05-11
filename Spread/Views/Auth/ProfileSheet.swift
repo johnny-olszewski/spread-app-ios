@@ -30,6 +30,15 @@ struct ProfileSheet: View {
                 legalSection
                 deleteAccountSection
             }
+            .overlay {
+                if authManager.isLoading {
+                    ZStack {
+                        SpreadTheme.Overlay.dim
+                        ProgressView()
+                    }
+                    .ignoresSafeArea()
+                }
+            }
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

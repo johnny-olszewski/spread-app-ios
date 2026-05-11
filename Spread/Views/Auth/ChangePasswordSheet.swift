@@ -54,7 +54,6 @@ struct ChangePasswordSheet: View {
             Form {
                 fieldsSection
                 validationSection
-                errorSection
             }
             .overlay {
                 if authManager.isLoading {
@@ -73,6 +72,15 @@ struct ChangePasswordSheet: View {
                     saveButton
                 }
             }
+            .alert("Error", isPresented: Binding(
+                get: { authManager.errorMessage != nil },
+                set: { if !$0 { authManager.clearError() } }
+            )) {
+                Button("OK") { authManager.clearError() }
+            } message: {
+                Text(authManager.errorMessage ?? "")
+            }
+            .interactiveDismissDisabled(hasEditedPassword || hasEditedConfirmPassword)
             .onDisappear {
                 authManager.clearError()
             }
@@ -111,16 +119,6 @@ struct ChangePasswordSheet: View {
         }
     }
 
-    @ViewBuilder
-    private var errorSection: some View {
-        if let errorMessage = authManager.errorMessage {
-            Section {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.callout)
-            }
-        }
-    }
 
     // MARK: - Save Button
 

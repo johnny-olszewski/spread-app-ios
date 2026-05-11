@@ -74,7 +74,6 @@ struct SignUpSheet: View {
                 } else {
                     fieldsSection
                     validationErrorsSection
-                    serverErrorSection
                 }
             }
             .overlay {
@@ -106,6 +105,14 @@ struct SignUpSheet: View {
                 if newState.isSignedIn {
                     dismiss()
                 }
+            }
+            .alert("Error", isPresented: Binding(
+                get: { authManager.errorMessage != nil },
+                set: { if !$0 { authManager.clearError() } }
+            )) {
+                Button("OK") { authManager.clearError() }
+            } message: {
+                Text(authManager.errorMessage ?? "")
             }
             .onDisappear {
                 authManager.clearError()
@@ -171,17 +178,6 @@ struct SignUpSheet: View {
                         .foregroundStyle(.orange)
                         .font(.callout)
                 }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var serverErrorSection: some View {
-        if let errorMessage = authManager.errorMessage {
-            Section {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.callout)
             }
         }
     }
