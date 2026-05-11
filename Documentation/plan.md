@@ -5208,7 +5208,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests on iPhone and iPad covering compact bar height, rooted navigator opening from the chevron/title area, pager-to-bar synchronization, and recommendation visibility inside the rooted navigator.
 - **Dependencies**: SPRD-125, SPRD-128, SPRD-137, SPRD-151
 
-## Story: Auth flow — TestFlight readiness (WKFLW-19)
+## Story: Auth flow — TestFlight readiness (WKFLW-19) - [x] Complete
 
 ### User Story
 - As a new user, I want to sign up, verify my email, and access the app without hitting a broken or confusing state.
@@ -5226,7 +5226,7 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-200] Infra/Protocol: extend AuthService with deeplink handling, password update, resend, and session stream
+### [SPRD-200] Infra/Protocol: extend AuthService with deeplink handling, password update, resend, and session stream - [x] Complete
 - **Context**: The current `AuthService` protocol covers sign-in, sign-up, password reset email, sign-out, and session check. Four new capabilities are required for WKFLW-19: token exchange from deeplink URLs, in-app password update, resend verification email, and an async stream of externally-triggered auth state changes.
 - **Description**: Add four new members to `AuthService`. Implement all in `SupabaseAuthService`. Add no-op/stub implementations in `MockAuthService`. Define the supporting value types `AuthDeepLinkResult` and `AuthChangeEvent`.
 - **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — AuthService Protocol Additions
@@ -5239,17 +5239,17 @@ Supabase: SPRD-85A -> SPRD-85C
   - Add `var authStateChanges: AsyncStream<AuthChangeEvent>` to the protocol. In `SupabaseAuthService`, wrap `client.auth.authStateChanges` and emit `.signedOut` on `signedOut` and `userDeleted` events; ignore all other events. In `MockAuthService`, return a stream that never emits (for baseline test use).
   - All new types live in the `Services/` layer alongside existing `AuthService.swift`; each new value type gets its own file.
 - **Acceptance Criteria**:
-  - [ ] `AuthService` protocol declares `handle(url:)`, `updatePassword(newPassword:)`, `resendVerification(email:)`, and `authStateChanges`.
-  - [ ] `SupabaseAuthService` implements all four using the Supabase Swift SDK.
-  - [ ] `MockAuthService` provides stub implementations that compile and satisfy the protocol.
-  - [ ] `AuthDeepLinkResult` and `AuthChangeEvent` are defined as enums in the `Services/` layer.
-  - [ ] `handle(url:)` correctly returns `.recoverySession` when `type=recovery` is present in the URL and `.emailConfirmed` for `type=signup`.
+  - [x] `AuthService` protocol declares `handle(url:)`, `updatePassword(newPassword:)`, `resendVerification(email:)`, and `authStateChanges`.
+  - [x] `SupabaseAuthService` implements all four using the Supabase Swift SDK.
+  - [x] `MockAuthService` provides stub implementations that compile and satisfy the protocol.
+  - [x] `AuthDeepLinkResult` and `AuthChangeEvent` are defined as enums in the `Services/` layer.
+  - [x] `handle(url:)` correctly returns `.recoverySession` when `type=recovery` is present in the URL and `.emailConfirmed` for `type=signup`.
 - **Tests**:
   - Unit tests for `handle(url:)` URL type parsing using mock URLs (no network required).
   - Unit tests verifying `MockAuthService` satisfies the protocol at compile time.
 - **Dependencies**: None
 
-### [SPRD-201] Manager: extend AuthManager with updatePassword, resendVerification, and auth state change observation
+### [SPRD-201] Manager: extend AuthManager with updatePassword, resendVerification, and auth state change observation - [x] Complete
 - **Context**: `AuthManager` coordinates auth operations and owns `isLoading` and `errorMessage` state. It needs three additions: a `updatePassword` operation, a `resendVerification` operation, and a stored-`Task` that observes `service.authStateChanges` to handle session expiry.
 - **Description**: Add `updatePassword(newPassword:)` and `resendVerification(email:)` to `AuthManager`. Start a stored `Task` in `init` that iterates `service.authStateChanges` and calls the existing sign-out path on a `.signedOut` event.
 - **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — Session Expiry; AuthService Protocol Additions
@@ -5261,18 +5261,18 @@ Supabase: SPRD-85A -> SPRD-85C
   - Add `func resendVerification(email: String) async throws` following the same pattern. On success, no state change is needed (the user remains unconfirmed). On failure, set `errorMessage`.
   - `AuthManager` already exceeds 200 lines; no further extension of the class is needed beyond these additions. If the file grows past 300 lines, extract the error-mapping logic into a separate `AuthErrorMapper` helper.
 - **Acceptance Criteria**:
-  - [ ] `AuthManager.init` starts a stored `Task` observing `service.authStateChanges`.
-  - [ ] A `.signedOut` stream event transitions `AuthManager.state` to `.signedOut` and calls `onSignOut`.
-  - [ ] `updatePassword(newPassword:)` is implemented with `isLoading`, `errorMessage`, and `defer` guards matching existing methods.
-  - [ ] `resendVerification(email:)` is implemented with the same guards.
-  - [ ] The observation `Task` is stored (not fire-and-forget) per the Swift 6 concurrency guidelines in `CLAUDE.md`.
+  - [x] `AuthManager.init` starts a stored `Task` observing `service.authStateChanges`.
+  - [x] A `.signedOut` stream event transitions `AuthManager.state` to `.signedOut` and calls `onSignOut`.
+  - [x] `updatePassword(newPassword:)` is implemented with `isLoading`, `errorMessage`, and `defer` guards matching existing methods.
+  - [x] `resendVerification(email:)` is implemented with the same guards.
+  - [x] The observation `Task` is stored (not fire-and-forget) per the Swift 6 concurrency guidelines in `CLAUDE.md`.
 - **Tests**:
   - Unit test: injecting a `MockAuthService` whose `authStateChanges` emits `.signedOut` verifies that `AuthManager.state` transitions to `.signedOut` and `onSignOut` is called.
   - Unit test: `updatePassword` sets `isLoading` during the call and clears it after.
   - Unit test: `resendVerification` failure sets `errorMessage`.
 - **Dependencies**: SPRD-200
 
-### [SPRD-202] Infra/UI: URL scheme registration, AuthDeepLinkCoordinator, and app-root onOpenURL wiring
+### [SPRD-202] Infra/UI: URL scheme registration, AuthDeepLinkCoordinator, and app-root onOpenURL wiring - [x] Complete
 - **Context**: iOS delivers deeplinks to the app via the `onOpenURL` environment action. Neither the `spread://` URL scheme nor a handler exist yet. This task adds the scheme, the coordinator that owns routing state, and the wiring in the app root.
 - **Description**: Register the `spread` URL scheme in `Info.plist`. Create `AuthDeepLinkCoordinator`. Wire `.onOpenURL` in the app's root view to call the coordinator. Document the Supabase dashboard configuration step in spec.
 - **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — URL Scheme and Deeplink Routing
@@ -5287,18 +5287,18 @@ Supabase: SPRD-85A -> SPRD-85C
   - In the app root view (or scene entry point), inject `AuthDeepLinkCoordinator` via `@Environment` or `@State` and add `.onOpenURL { url in Task { await coordinator.handle(url: url) } }`.
   - Supabase config note: `spread://auth/callback` must be added to Authentication → URL Configuration → Redirect URLs in both `spread-prod` and `spread-dev` Supabase dashboards. This is a manual step documented in `Documentation/ManualTests.md`.
 - **Acceptance Criteria**:
-  - [ ] `Info.plist` declares the `spread` URL scheme.
-  - [ ] `AuthDeepLinkCoordinator` is an `@Observable @MainActor final class` with `isRecoverySession` state.
-  - [ ] `.onOpenURL` in the app root routes all URLs to `coordinator.handle(url:)`.
-  - [ ] `isRecoverySession` becomes `true` when a `type=recovery` URL is handled and clears after cancel or success.
-  - [ ] Email-confirmation URLs auto-sign the user in without setting `isRecoverySession`.
+  - [x] `Info.plist` declares the `spread` URL scheme.
+  - [x] `AuthDeepLinkCoordinator` is an `@Observable @MainActor final class` with `isRecoverySession` state.
+  - [x] `.onOpenURL` in the app root routes all URLs to `coordinator.handle(url:)`.
+  - [x] `isRecoverySession` becomes `true` when a `type=recovery` URL is handled and clears after cancel or success.
+  - [x] Email-confirmation URLs auto-sign the user in without setting `isRecoverySession`.
 - **Tests**:
   - Unit test: `AuthDeepLinkCoordinator.handle(url:)` with a mock `type=recovery` URL sets `isRecoverySession = true`.
   - Unit test: `handle(url:)` with a mock `type=signup` URL does not set `isRecoverySession`.
   - Manual test: full end-to-end deeplink flows documented in `Documentation/ManualTests.md`.
 - **Dependencies**: SPRD-200, SPRD-201
 
-### [SPRD-203] View: update SignUpSheet with in-sheet email confirmation state
+### [SPRD-203] View: update SignUpSheet with in-sheet email confirmation state - [x] Complete
 - **Context**: `SignUpSheet` currently calls `onSignIn` immediately after `signUp()` succeeds. With email confirmation enabled in Supabase, `signUp()` succeeds but no session is returned. The sheet must not dismiss and must instead show a confirmation state.
 - **Description**: Update `SignUpSheet` to capture the submitted email after `signUp()` and show an in-sheet "Check your email" confirmation state. Add a Resend button and a Done dismiss button.
 - **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — Sign-Up Flow (with Email Confirmation)
@@ -5313,18 +5313,18 @@ Supabase: SPRD-85A -> SPRD-85C
   - Keep the existing `.onChange(of: authManager.state)` dismiss path so that if the user verifies their email while the sheet is still open (same device, background app), the sheet dismisses automatically.
   - Keep `.onDisappear { authManager.clearError() }`.
 - **Acceptance Criteria**:
-  - [ ] Successful `signUp()` transitions the sheet to the confirmation state without dismissing.
-  - [ ] The confirmation state shows the submitted email address, verification instructions, and a "Resend Email" button.
-  - [ ] "Resend Email" calls `authManager.resendVerification(email:)` and surfaces errors via `authManager.errorMessage`.
-  - [ ] The "Done" button dismisses the sheet from the confirmation state.
-  - [ ] If `authManager.state` transitions to `.signedIn` while the sheet is open, it still dismisses normally.
-  - [ ] Preview includes both the empty/default state and the post-submission confirmation state.
+  - [x] Successful `signUp()` transitions the sheet to the confirmation state without dismissing.
+  - [x] The confirmation state shows the submitted email address, verification instructions, and a "Resend Email" button.
+  - [x] "Resend Email" calls `authManager.resendVerification(email:)` and surfaces errors via `authManager.errorMessage`.
+  - [x] The "Done" button dismisses the sheet from the confirmation state.
+  - [x] If `authManager.state` transitions to `.signedIn` while the sheet is open, it still dismisses normally.
+  - [x] Preview includes both the empty/default state and the post-submission confirmation state.
 - **Tests**:
   - Unit test: after `signUp()` succeeds, `submittedEmail` is set and the form content is replaced.
   - Unit test: "Resend Email" invokes `resendVerification(email:)` on the auth manager.
 - **Dependencies**: SPRD-200, SPRD-201
 
-### [SPRD-204] View: add SetNewPasswordSheet
+### [SPRD-204] View: add SetNewPasswordSheet - [x] Complete
 - **Context**: When a password reset deeplink is handled, `AuthDeepLinkCoordinator.isRecoverySession` is set to `true`. The app root must present a sheet where the user can enter and confirm a new password. This view does not yet exist.
 - **Description**: Create `SetNewPasswordSheet`. Present it from the app root when `coordinator.isRecoverySession == true`. On success, clear the recovery session and the user lands in journal content.
 - **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — Password Reset Flow
@@ -5341,21 +5341,21 @@ Supabase: SPRD-85A -> SPRD-85C
   - Present from the app root as `.sheet(isPresented: $coordinator.isRecoverySession) { SetNewPasswordSheet(...) }`.
   - Preview includes empty state and loading state.
 - **Acceptance Criteria**:
-  - [ ] `SetNewPasswordSheet` is presented when `coordinator.isRecoverySession == true`.
-  - [ ] New password and confirm password fields validate using `AuthFormValidator`.
-  - [ ] "Save Password" is disabled until the form is valid and not loading.
-  - [ ] Successful password update calls `coordinator.clearRecoverySession()` and dismisses.
-  - [ ] Cancel calls `coordinator.clearRecoverySession()`, dismisses, and returns the user to the auth gate.
-  - [ ] `ProgressView` overlay appears during `authManager.isLoading`.
-  - [ ] Interactive dismiss is disabled.
-  - [ ] Preview covers both empty and loading states.
+  - [x] `SetNewPasswordSheet` is presented when `coordinator.isRecoverySession == true`.
+  - [x] New password and confirm password fields validate using `AuthFormValidator`.
+  - [x] "Save Password" is disabled until the form is valid and not loading.
+  - [x] Successful password update calls `coordinator.clearRecoverySession()` and dismisses.
+  - [x] Cancel calls `coordinator.clearRecoverySession()`, dismisses, and returns the user to the auth gate.
+  - [x] `ProgressView` overlay appears during `authManager.isLoading`.
+  - [x] Interactive dismiss is disabled.
+  - [x] Preview covers both empty and loading states.
 - **Tests**:
   - Unit test: successful `updatePassword` clears `isRecoverySession` and dismisses.
   - Unit test: cancel clears `isRecoverySession` without calling `updatePassword`.
   - Unit test: "Save Password" disabled when password fields are empty or mismatched.
 - **Dependencies**: SPRD-200, SPRD-201, SPRD-202
 
-### [SPRD-205] View: add ProgressView loading overlays to LoginSheet, SignUpSheet, and ForgotPasswordSheet
+### [SPRD-205] View: add ProgressView loading overlays to LoginSheet, SignUpSheet, and ForgotPasswordSheet - [x] Complete
 - **Context**: Auth operations already disable buttons via `authManager.isLoading`, but there is no visual indication that something is happening. Users have no feedback between tapping a button and receiving a result.
 - **Description**: Add a `ProgressView` overlay to `LoginSheet`, `SignUpSheet`, and `ForgotPasswordSheet` that appears while `authManager.isLoading` is true.
 - **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — Loading States
@@ -5376,7 +5376,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit tests for overlay visibility driven by `isLoading` on each sheet.
 - **Dependencies**: SPRD-201
 
-### [SPRD-206] Error: expand AuthManager error message mapping
+### [SPRD-206] Error: expand AuthManager error message mapping - [x] Complete
 - **Context**: `AuthManager.mapAuthError` currently handles `invalidCredentials`, `userNotFound`, `sessionExpired`, and `sessionNotFound`. Several common failure modes have no specific mapping and fall through to a generic "Authentication failed" message. These include unconfirmed email, duplicate registration, rate limiting, and network errors.
 - **Description**: Expand `mapAuthError` and the catch hierarchy in each `AuthManager` method to produce specific messages for all common auth failure modes.
 - **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — Error Message Additions
@@ -5396,7 +5396,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit tests for each new error case using `MockAuthService` configured to throw the corresponding error type.
 - **Dependencies**: SPRD-200, SPRD-201
 
-### [SPRD-207] Test: auth flow smoke tests
+### [SPRD-207] Test: auth flow smoke tests - [x] Complete
 - **Context**: Backlog item TF-40 called for smoke tests covering login success, login failure (wrong password), sign-up success, and forgot-password submission using a mock auth service. WKFLW-19 expands the required coverage significantly.
 - **Description**: Add Swift Testing smoke tests for all auth flows that can be exercised with a mock auth service. Flows requiring a real backend or live email inbox are documented in `Documentation/ManualTests.md` instead.
 - **Spec**: Authentication Flow — Email Confirmation and Deeplinks (WKFLW-19) — Testing; Backlog TF-40
