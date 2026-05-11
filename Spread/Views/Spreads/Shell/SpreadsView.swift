@@ -49,15 +49,6 @@ struct SpreadsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SpreadTitleNavigatorView(
-                stripModel: stripModel,
-                onRecommendedSpreadTapped: onRecommendedSpreadTapped,
-                recommendationProvider: recommendationProvider,
-                selection: selectionBinding
-            )
-
-            Divider()
-
             if case .error = syncEngine?.status {
                 SyncErrorBanner()
             }
@@ -66,7 +57,16 @@ struct SpreadsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .localhostTemporalHarness(spreadDiagnostics: currentSpreadDiagnostics)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                SpreadTitleNavigatorView(
+                    stripModel: stripModel,
+                    onRecommendedSpreadTapped: onRecommendedSpreadTapped,
+                    recommendationProvider: recommendationProvider,
+                    selection: selectionBinding
+                )
+            }
             if journalManager.bujoMode == .conventional {
                 ToolbarItem(placement: .primaryAction) {
                     favoritesMenu
