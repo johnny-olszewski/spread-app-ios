@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Observation
 import Supabase
 
@@ -42,6 +43,10 @@ final class AuthManager {
 
     /// The last error message, if any.
     private(set) var errorMessage: String?
+
+    // MARK: - Logging
+
+    private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "AuthManager")
 
     // MARK: - Dependencies
 
@@ -113,23 +118,31 @@ final class AuthManager {
 
         defer { isLoading = false }
 
+        let email = email.trimmingCharacters(in: .whitespaces)
+        Self.logger.info("signIn: attempting for \(email, privacy: .private)")
+
         do {
             let result = try await service.signIn(email: email, password: password)
 
             state = .signedIn(result.user)
+            Self.logger.info("signIn: succeeded for \(email, privacy: .private)")
 
             await onSignIn?(result.user)
 
         } catch let error as ForcedAuthSignInError {
+            Self.logger.warning("signIn: forced error — \(error.forced.userMessage)")
             errorMessage = error.forced.userMessage
             throw error
         } catch let error as AuthError {
+            Self.logger.error("signIn: AuthError — \(String(describing: error))")
             errorMessage = mapAuthError(error)
             throw error
         } catch let error as URLError {
+            Self.logger.error("signIn: URLError \(error.code.rawValue) — \(error.localizedDescription)")
             errorMessage = "No internet connection. Please check your network and try again."
             throw error
         } catch {
+            Self.logger.error("signIn: unexpected error — \(error)")
             errorMessage = "An unexpected error occurred. Please try again."
             throw error
         }
@@ -149,21 +162,29 @@ final class AuthManager {
 
         defer { isLoading = false }
 
+        let email = email.trimmingCharacters(in: .whitespaces)
+        Self.logger.info("signUp: attempting for \(email, privacy: .private)")
+
         do {
             // Sign-up always requires email verification; state transitions to signedIn
             // only after the user taps the confirmation link (handled via deeplink).
             _ = try await service.signUp(email: email, password: password)
+            Self.logger.info("signUp: succeeded for \(email, privacy: .private) — awaiting email confirmation")
 
         } catch let error as ForcedAuthSignInError {
+            Self.logger.warning("signUp: forced error — \(error.forced.userMessage)")
             errorMessage = error.forced.userMessage
             throw error
         } catch let error as AuthError {
+            Self.logger.error("signUp: AuthError — \(String(describing: error))")
             errorMessage = mapAuthError(error)
             throw error
         } catch let error as URLError {
+            Self.logger.error("signUp: URLError \(error.code.rawValue) — \(error.localizedDescription)")
             errorMessage = "No internet connection. Please check your network and try again."
             throw error
         } catch {
+            Self.logger.error("signUp: unexpected error — \(error)")
             errorMessage = "An unexpected error occurred. Please try again."
             throw error
         }
@@ -181,18 +202,26 @@ final class AuthManager {
 
         defer { isLoading = false }
 
+        let email = email.trimmingCharacters(in: .whitespaces)
+        Self.logger.info("resetPassword: requesting for \(email, privacy: .private)")
+
         do {
             try await service.resetPassword(email: email)
+            Self.logger.info("resetPassword: succeeded for \(email, privacy: .private)")
         } catch let error as ForcedAuthSignInError {
+            Self.logger.warning("resetPassword: forced error — \(error.forced.userMessage)")
             errorMessage = error.forced.userMessage
             throw error
         } catch let error as AuthError {
+            Self.logger.error("resetPassword: AuthError — \(String(describing: error))")
             errorMessage = mapAuthError(error)
             throw error
         } catch let error as URLError {
+            Self.logger.error("resetPassword: URLError \(error.code.rawValue) — \(error.localizedDescription)")
             errorMessage = "No internet connection. Please check your network and try again."
             throw error
         } catch {
+            Self.logger.error("resetPassword: unexpected error — \(error)")
             errorMessage = "Failed to send reset email. Please try again."
             throw error
         }
@@ -234,6 +263,8 @@ final class AuthManager {
         errorMessage = nil
 
         defer { isLoading = false }
+
+        let email = email.trimmingCharacters(in: .whitespaces)
 
         do {
             try await service.resendVerification(email: email)
@@ -282,7 +313,8 @@ final class AuthManager {
     /// Maps Supabase auth errors to user-friendly messages.
     private func mapAuthError(_ error: AuthError) -> String {
         switch error {
-        case .api(_, let errorCode, _, _):
+        case .api(let message, let errorCode, _, _):
+            Self.logger.error("mapAuthError: API error code='\(errorCode.rawValue)' message='\(message)'")
             switch errorCode {
             case .invalidCredentials:
                 return "Invalid email or password."
@@ -297,9 +329,11 @@ final class AuthManager {
             case .overRequestRateLimit, .overEmailSendRateLimit, .overSMSSendRateLimit:
                 return "Too many attempts. Please try again later."
             default:
+                Self.logger.error("mapAuthError: unmapped error code='\(errorCode.rawValue)' — returning generic message")
                 return "Authentication failed. Please try again."
             }
         default:
+            Self.logger.error("mapAuthError: non-API AuthError — \(String(describing: error))")
             return "Authentication failed. Please try again."
         }
     }
