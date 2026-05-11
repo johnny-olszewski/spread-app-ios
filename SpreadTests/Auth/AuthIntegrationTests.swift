@@ -197,6 +197,26 @@ final class AuthIntegrationTests: XCTestCase {
         XCTAssertNil(authManager.errorMessage)
     }
 
+    // MARK: - Resend Verification: requiresEmailVerification state
+
+    /// Conditions: Admin creates a user without email confirmation.
+    /// A sign-in attempt is made before the user confirms their email.
+    /// Expected: `AuthManager.requiresEmailVerification` is `true` after the failed attempt.
+    func testSignIn_unconfirmedEmail_setsRequiresEmailVerification() async throws {
+        let email = uniqueEmail(label: "unconfirmed-verify")
+        let user = try await admin.createUser(email: email, password: configuration.password, emailConfirm: false)
+
+        defer {
+            Task { try? await admin.deleteUser(userId: user.id) }
+        }
+
+        let authManager = makeAuthManager()
+        try? await authManager.signIn(email: email, password: configuration.password)
+
+        XCTAssertTrue(authManager.requiresEmailVerification)
+        XCTAssertFalse(authManager.state.isSignedIn)
+    }
+
     // MARK: - Private Helpers
 
     /// Looks up the UUID of a user by email via the admin `listUsers` API.

@@ -379,6 +379,11 @@ struct Definitions {
             static let visibilityToggle = "auth.passwordField.visibilityToggle"
         }
 
+        struct LoginSheet {
+            static let resendVerificationButton = "auth.login.resendVerification"
+            static let verificationSentConfirmation = "auth.login.verificationSent"
+        }
+
         struct Debug {
             static let temporalHarness = "debug.temporal.harness"
             static let temporalNow = "debug.temporal.now"

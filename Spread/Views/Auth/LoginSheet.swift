@@ -28,6 +28,7 @@ struct LoginSheet: View {
     @State private var hasEditedPassword = false
     @State private var isShowingSignUp = false
     @State private var isShowingForgotPassword = false
+    @State private var resentEmail = false
 
     // MARK: - Computed Validation
 
@@ -103,6 +104,7 @@ struct LoginSheet: View {
                 .textInputAutocapitalization(.never)
                 .onChange(of: email) { _, _ in
                     hasEditedEmail = true
+                    resentEmail = false
                     authManager.clearError()
                 }
 
@@ -135,6 +137,28 @@ struct LoginSheet: View {
                 Text(errorMessage)
                     .foregroundStyle(.red)
                     .font(.callout)
+
+                if authManager.requiresEmailVerification {
+                    if resentEmail {
+                        Text("Verification email sent.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier(
+                                Definitions.AccessibilityIdentifiers.LoginSheet.verificationSentConfirmation
+                            )
+                    } else {
+                        Button("Resend verification email") {
+                            Task {
+                                try? await authManager.resendVerification(email: email)
+                                resentEmail = true
+                            }
+                        }
+                        .font(.callout)
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.LoginSheet.resendVerificationButton
+                        )
+                    }
+                }
             }
         }
     }

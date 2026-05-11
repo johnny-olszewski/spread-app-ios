@@ -278,4 +278,54 @@ struct AuthFlowTests {
         #expect(coordinator.isRecoverySession)
         #expect(!authManager.state.isSignedIn)
     }
+
+    // MARK: - Resend Verification: requiresEmailVerification state
+
+    /// Conditions: Sign-in fails with `emailNotConfirmed`.
+    /// Expected: `requiresEmailVerification` is `true` after the attempt.
+    @Test func signInEmailNotConfirmed_setsRequiresEmailVerification() async {
+        let service = FailingSignInService(error: makeAPIError(code: .emailNotConfirmed))
+        let authManager = AuthManager(service: service)
+
+        try? await authManager.signIn(email: "unverified@example.com", password: "pass")
+
+        #expect(authManager.requiresEmailVerification == true)
+    }
+
+    /// Conditions: Sign-in fails with `invalidCredentials` (wrong password), not `emailNotConfirmed`.
+    /// Expected: `requiresEmailVerification` remains `false`.
+    @Test func signInWrongPassword_doesNotSetRequiresEmailVerification() async {
+        let service = FailingSignInService(error: makeAPIError(code: .invalidCredentials))
+        let authManager = AuthManager(service: service)
+
+        try? await authManager.signIn(email: "user@example.com", password: "wrongpass")
+
+        #expect(authManager.requiresEmailVerification == false)
+    }
+
+    /// Conditions: `requiresEmailVerification` was set by a prior failing sign-in;
+    /// `clearError()` is called.
+    /// Expected: `requiresEmailVerification` returns to `false`.
+    @Test func clearError_clearsRequiresEmailVerification() async {
+        let service = FailingSignInService(error: makeAPIError(code: .emailNotConfirmed))
+        let authManager = AuthManager(service: service)
+        try? await authManager.signIn(email: "unverified@example.com", password: "pass")
+        #expect(authManager.requiresEmailVerification == true)
+
+        authManager.clearError()
+
+        #expect(authManager.requiresEmailVerification == false)
+    }
+
+    /// Conditions: `resendVerification` is called on `MockAuthService` (always succeeds).
+    /// Expected: `errorMessage` is nil after the call (no error set on success).
+    @Test func resendVerification_success_leavesNoError() async throws {
+        let service = MockAuthService()
+        let authManager = AuthManager(service: service)
+
+        try await authManager.resendVerification(email: "unverified@example.com")
+
+        #expect(authManager.errorMessage == nil)
+        #expect(!authManager.isLoading)
+    }
 }
