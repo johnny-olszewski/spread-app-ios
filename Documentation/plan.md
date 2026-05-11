@@ -5417,9 +5417,9 @@ Supabase: SPRD-85A -> SPRD-85C
     - Deeplink URL parsing (email confirmation): `type=signup` URL → `AuthDeepLinkCoordinator.isRecoverySession` remains false.
     - Deeplink URL parsing (recovery): `type=recovery` URL → `AuthDeepLinkCoordinator.isRecoverySession` becomes true.
 - **Acceptance Criteria**:
-  - [ ] All listed test cases exist in `SpreadTests/Auth/AuthFlowTests.swift`.
-  - [ ] Every test has a describing comment per `CLAUDE.md`.
-  - [ ] All tests pass with no network calls.
-  - [ ] Tests use `MockAuthService`; no production Supabase credentials are required.
+  - [x] All listed test cases exist in `SpreadTests/Auth/AuthFlowTests.swift`.
+  - [x] Every test has a describing comment per `CLAUDE.md`.
+  - [x] All tests pass with no network calls.
+  - [x] Tests use `MockAuthService`; no production Supabase credentials are required.
 - **Tests**: This task is the tests.
 - **Dependencies**: SPRD-200, SPRD-201, SPRD-202, SPRD-203, SPRD-204, SPRD-205, SPRD-206
