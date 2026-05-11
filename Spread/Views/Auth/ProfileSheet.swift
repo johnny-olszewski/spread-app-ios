@@ -18,6 +18,7 @@ struct ProfileSheet: View {
     // MARK: - State
 
     @State private var showSignOutConfirmation = false
+    @State private var showDeleteConfirmation = false
     @State private var isShowingChangePassword = false
 
     // MARK: - Body
@@ -26,6 +27,7 @@ struct ProfileSheet: View {
         NavigationStack {
             Form {
                 accountSection
+                deleteAccountSection
             }
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
@@ -42,6 +44,23 @@ struct ProfileSheet: View {
                     .disabled(authManager.isLoading)
                 }
             }
+            .confirmationDialog(
+                "Delete Account?",
+                isPresented: $showDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete Account", role: .destructive) {
+                    Task {
+                        try? await authManager.deleteAccount()
+                    }
+                }
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.ProfileSheet.deleteAccountConfirmButton
+                )
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will permanently delete your account and all associated data. This cannot be undone.")
+            }
             .alert("Sign Out?", isPresented: $showSignOutConfirmation) {
                 Button("Cancel", role: .cancel) {}
                 Button("Sign Out", role: .destructive) {
@@ -52,6 +71,14 @@ struct ProfileSheet: View {
                 }
             } message: {
                 Text("Signing out will remove all local data from this device. Your data will remain safe in the cloud and will sync again when you sign back in.")
+            }
+            .alert("Deletion Failed", isPresented: Binding(
+                get: { authManager.errorMessage != nil },
+                set: { if !$0 { authManager.clearError() } }
+            )) {
+                Button("OK") { authManager.clearError() }
+            } message: {
+                Text(authManager.errorMessage ?? "")
             }
             .onChange(of: authManager.state) { _, newState in
                 if !newState.isSignedIn {
@@ -65,6 +92,16 @@ struct ProfileSheet: View {
     }
 
     // MARK: - Sections
+
+    private var deleteAccountSection: some View {
+        Section {
+            Button("Delete Account", role: .destructive) {
+                showDeleteConfirmation = true
+            }
+            .disabled(authManager.isLoading)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.ProfileSheet.deleteAccountRow)
+        }
+    }
 
     private var accountSection: some View {
         Section("Account") {

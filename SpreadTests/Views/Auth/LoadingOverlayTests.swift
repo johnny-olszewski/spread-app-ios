@@ -26,6 +26,7 @@ struct LoadingOverlayTests {
         func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
         func updatePassword(newPassword: String) async throws {}
         func resendVerification(email: String) async throws {}
+        func deleteAccount() async throws {}
         var authStateChanges: AsyncStream<AuthChangeEvent> { AsyncStream { _ in } }
 
         func signIn(email: String, password: String) async throws -> AuthSuccess {

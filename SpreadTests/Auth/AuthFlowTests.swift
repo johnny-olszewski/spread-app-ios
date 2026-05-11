@@ -46,6 +46,7 @@ struct AuthFlowTests {
         func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
         func updatePassword(newPassword: String) async throws {}
         func resendVerification(email: String) async throws {}
+        func deleteAccount() async throws {}
         var authStateChanges: AsyncStream<Spread.AuthChangeEvent> { AsyncStream { _ in } }
     }
 
@@ -62,6 +63,7 @@ struct AuthFlowTests {
         func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
         func updatePassword(newPassword: String) async throws {}
         func resendVerification(email: String) async throws {}
+        func deleteAccount() async throws {}
         var authStateChanges: AsyncStream<Spread.AuthChangeEvent> { AsyncStream { _ in } }
     }
 
@@ -78,6 +80,7 @@ struct AuthFlowTests {
         func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
         func updatePassword(newPassword: String) async throws {}
         func resendVerification(email: String) async throws {}
+        func deleteAccount() async throws {}
         var authStateChanges: AsyncStream<Spread.AuthChangeEvent> { AsyncStream { _ in } }
     }
 
@@ -91,6 +94,7 @@ struct AuthFlowTests {
         func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
         func updatePassword(newPassword: String) async throws {}
         func resendVerification(email: String) async throws {}
+        func deleteAccount() async throws {}
         var authStateChanges: AsyncStream<Spread.AuthChangeEvent> {
             AsyncStream { continuation in
                 continuation.yield(.signedOut)
@@ -277,6 +281,74 @@ struct AuthFlowTests {
 
         #expect(coordinator.isRecoverySession)
         #expect(!authManager.state.isSignedIn)
+    }
+
+    // MARK: - Delete Account
+
+    /// An `AuthService` that delegates all operations to `MockAuthService` except
+    /// `deleteAccount`, which throws the supplied error.
+    private final class FailingDeleteAccountService: AuthService {
+        let error: Error
+        private let mock = MockAuthService()
+        init(error: Error) { self.error = error }
+
+        func checkSession() async -> AuthSuccess? { await mock.checkSession() }
+        func signIn(email: String, password: String) async throws -> AuthSuccess {
+            try await mock.signIn(email: email, password: password)
+        }
+        func signUp(email: String, password: String) async throws -> AuthSuccess {
+            try await mock.signUp(email: email, password: password)
+        }
+        func resetPassword(email: String) async throws {}
+        func signOut() async throws {}
+        func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
+        func updatePassword(newPassword: String) async throws {}
+        func resendVerification(email: String) async throws {}
+        func deleteAccount() async throws { throw error }
+        var authStateChanges: AsyncStream<Spread.AuthChangeEvent> { AsyncStream { _ in } }
+    }
+
+    /// Conditions: `deleteAccount()` is called on `MockAuthService` (always succeeds).
+    /// Expected: `AuthManager.state` transitions to `.signedOut`.
+    @Test func deleteAccount_success_transitionsToSignedOut() async throws {
+        let service = MockAuthService()
+        let authManager = AuthManager(service: service)
+        // Sign in first to put the manager in a signed-in state.
+        try await authManager.signIn(email: "user@example.com", password: "pass")
+        #expect(authManager.state.isSignedIn)
+
+        try await authManager.deleteAccount()
+
+        #expect(!authManager.state.isSignedIn)
+    }
+
+    /// Conditions: `deleteAccount()` is called on `MockAuthService`.
+    /// Expected: `onSignOut` callback is invoked after deletion.
+    @Test func deleteAccount_success_callsOnSignOut() async throws {
+        let service = MockAuthService()
+        let authManager = AuthManager(service: service)
+        try await authManager.signIn(email: "user@example.com", password: "pass")
+        var onSignOutCalled = false
+        authManager.onSignOut = { onSignOutCalled = true }
+
+        try await authManager.deleteAccount()
+
+        #expect(onSignOutCalled)
+    }
+
+    /// Conditions: `deleteAccount()` throws a generic error.
+    /// Expected: `authManager.errorMessage` is non-nil and `state` remains signed-in.
+    @Test func deleteAccount_failure_setsErrorMessage() async throws {
+        let deleteService = FailingDeleteAccountService(error: URLError(.notConnectedToInternet))
+        let authManager = AuthManager(service: deleteService)
+        // Sign in via the delegating mock to establish signed-in state.
+        try await authManager.signIn(email: "user@example.com", password: "pass")
+        #expect(authManager.state.isSignedIn)
+
+        try? await authManager.deleteAccount()
+
+        #expect(authManager.errorMessage != nil)
+        #expect(authManager.state.isSignedIn)
     }
 
     // MARK: - Resend Verification: requiresEmailVerification state

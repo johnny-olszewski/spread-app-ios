@@ -69,6 +69,13 @@ protocol AuthService: Sendable {
     /// - Throws: An error if the request fails.
     func resendVerification(email: String) async throws
 
+    /// Permanently deletes the current user's account and all associated data.
+    ///
+    /// Calls the `delete-user` Supabase Edge Function which uses service-role
+    /// permissions to hard-delete the user via `auth.admin.deleteUser`.
+    /// - Throws: An error if the deletion fails.
+    func deleteAccount() async throws
+
     /// Async stream of externally-triggered auth state changes.
     ///
     /// Emits `.signedOut` when the session is terminated outside the app

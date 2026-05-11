@@ -65,6 +65,11 @@ final class MockAuthService: AuthService {
         // No-op for mock
     }
 
+    func deleteAccount() async throws {
+        // No-op for mock
+        currentEmail = nil
+    }
+
     var authStateChanges: AsyncStream<AuthChangeEvent> {
         AsyncStream { _ in }
     }

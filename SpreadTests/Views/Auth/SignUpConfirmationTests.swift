@@ -27,6 +27,7 @@ struct SignUpConfirmationTests {
         func signOut() async throws {}
         func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
         func updatePassword(newPassword: String) async throws {}
+        func deleteAccount() async throws {}
         func resendVerification(email: String) async throws {
             resendCalledWith = email
             if shouldFailResend { throw URLError(.notConnectedToInternet) }

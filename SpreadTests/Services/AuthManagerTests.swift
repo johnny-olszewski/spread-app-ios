@@ -39,6 +39,7 @@ struct AuthManagerTests {
         func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
         func updatePassword(newPassword: String) async throws {}
         func resendVerification(email: String) async throws {}
+        func deleteAccount() async throws {}
         var authStateChanges: AsyncStream<AuthChangeEvent> { AsyncStream { _ in } }
 
         private func makeUser(email: String) -> User {
@@ -91,6 +92,7 @@ struct AuthManagerTests {
         func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
         func updatePassword(newPassword: String) async throws {}
         func resendVerification(email: String) async throws {}
+        func deleteAccount() async throws {}
         var authStateChanges: AsyncStream<AuthChangeEvent> { AsyncStream { _ in } }
     }
 
@@ -104,6 +106,7 @@ struct AuthManagerTests {
         func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
         func updatePassword(newPassword: String) async throws {}
         func resendVerification(email: String) async throws {}
+        func deleteAccount() async throws {}
         var authStateChanges: AsyncStream<AuthChangeEvent> {
             AsyncStream { continuation in
                 continuation.yield(.signedOut)
@@ -128,6 +131,7 @@ struct AuthManagerTests {
         func handle(url: URL) async throws -> AuthDeepLinkResult { .recoverySession }
         func updatePassword(newPassword: String) async throws {}
         func resendVerification(email: String) async throws { throw error }
+        func deleteAccount() async throws {}
         var authStateChanges: AsyncStream<AuthChangeEvent> { AsyncStream { _ in } }
     }
 

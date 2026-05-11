@@ -90,6 +90,10 @@ struct SupabaseAuthService: AuthService {
         try await client.auth.resend(email: email, type: .signup)
     }
 
+    func deleteAccount() async throws {
+        _ = try await client.functions.invoke("delete-user")
+    }
+
     var authStateChanges: AsyncStream<AuthChangeEvent> {
         AsyncStream { continuation in
             Task {

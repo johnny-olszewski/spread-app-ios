@@ -386,6 +386,8 @@ struct Definitions {
 
         struct ProfileSheet {
             static let changePasswordRow = "auth.profile.changePassword"
+            static let deleteAccountRow = "auth.profile.deleteAccount"
+            static let deleteAccountConfirmButton = "auth.profile.deleteAccount.confirm"
         }
 
         struct ChangePasswordSheet {

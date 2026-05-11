@@ -78,6 +78,10 @@ final class DebugAuthService: AuthService {
         try await wrapped.resendVerification(email: email)
     }
 
+    func deleteAccount() async throws {
+        try await wrapped.deleteAccount()
+    }
+
     var authStateChanges: AsyncStream<AuthChangeEvent> {
         wrapped.authStateChanges
     }

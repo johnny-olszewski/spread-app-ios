@@ -27,6 +27,7 @@ struct SetNewPasswordTests {
             if shouldFail { throw URLError(.notConnectedToInternet) }
         }
         func resendVerification(email: String) async throws {}
+        func deleteAccount() async throws {}
         var authStateChanges: AsyncStream<AuthChangeEvent> { AsyncStream { _ in } }
     }
 

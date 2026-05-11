@@ -197,6 +197,29 @@ final class AuthIntegrationTests: XCTestCase {
         XCTAssertNil(authManager.errorMessage)
     }
 
+    // MARK: - Delete Account
+
+    /// Conditions: A temporary user is created via admin, signs in, and calls `deleteAccount()`.
+    /// Expected: `state` transitions to `.signedOut` and admin `listUsers` no longer contains the user.
+    func testDeleteAccount_removesUserAndSignsOut() async throws {
+        let email = uniqueEmail(label: "delete-acct")
+        let user = try await admin.createUser(email: email, password: configuration.password, emailConfirm: true)
+
+        let authManager = makeAuthManager()
+        try await authManager.signIn(email: email, password: configuration.password)
+        XCTAssertTrue(authManager.state.isSignedIn)
+
+        try await authManager.deleteAccount()
+
+        XCTAssertFalse(authManager.state.isSignedIn)
+
+        // Verify the user no longer exists in Supabase.
+        let adminClient = configuration.makeServiceRoleClient()
+        let users = try await adminClient.auth.admin.listUsers()
+        let stillExists = users.users.contains { $0.id == user.id }
+        XCTAssertFalse(stillExists, "Deleted user should not appear in admin listUsers")
+    }
+
     // MARK: - Resend Verification: requiresEmailVerification state
 
     /// Conditions: Admin creates a user without email confirmation.
