@@ -5767,24 +5767,24 @@ Supabase: SPRD-85A -> SPRD-85C
   - Visual inspection on simulator with iOS 26 liquid glass.
 - **Dependencies**: SPRD-213
 
-### [ ] [SPRD-220] Visual: spread header toolbar migration — sync icon and spread actions to nav bar
+### [x] [SPRD-220] Visual: spread header toolbar migration — sync icon and spread actions to nav bar
 - **Context**: `SpreadHeaderView` renders a dedicated row with a leading sync ring and trailing favorite + ellipsis buttons. This creates an empty horizontal gap in the middle and consumes vertical space that could be used for content. iOS convention places per-screen secondary actions in the navigation bar toolbar.
 - **Description**: Replace the custom sync ring with an SF Symbol-based sync icon button, move it and the ellipsis menu into the nav bar toolbar slots, fold the favorite toggle into the ellipsis menu, and strip the dedicated action row from `SpreadHeaderView`.
 - **Spec**: UI Polish and Design System Foundation (WKFLW-20) — Spread Header Toolbar Integration
 - **Acceptance Criteria**:
-  - [ ] New `SyncIconButton` view in `Spread/Views/Components/`:
+  - [x] New `SyncIconButton` view in `Spread/Views/Components/`:
     - Uses `arrow.triangle.2.circlepath` when idle or syncing; `exclamationmark.arrow.triangle.2.circlepath` when `status` is `.error`.
     - Continuous `rotationEffect` animation (linear, 1 s, repeat forever) applied only when syncing.
     - Color: idle (clean) → `.secondary`; syncing → `SpreadTheme.Accent.todaySelectedEmphasis`; error → `.orange`; offline → `.secondary.opacity(0.4)`.
     - Tappable to trigger a manual sync when `status.shouldTriggerSync`; same `.accessibilityLabel` and `.accessibilityHint` semantics as `SyncRingView`.
     - Symbol at `SpreadTheme.IconSize.medium` font size; tap target `.frame(minWidth: 44, minHeight: 44)`.
     - Hidden (not rendered) when `status == .localOnly`.
-  - [ ] `SyncIconButton` placed in `.toolbar` with `.topBarLeading` placement in `SpreadContentPagerView` (or the view that owns the toolbar for the spread surface).
-  - [ ] Ellipsis `Menu` placed in `.toolbar` with `.topBarTrailing` placement in the same view.
-  - [ ] Favorite toggle folded into the ellipsis menu: "Add to Favorites" (Label with `star` symbol) when not favorited; "Remove from Favorites" (Label with `star.fill` symbol) when favorited. Appears as the first item above Edit Name / Edit Dates / Delete Spread.
-  - [ ] `SpreadHeaderView` `syncRing` and `headerActions` computed properties and their backing callbacks removed. Outer `ZStack`/`HStack` replaced with direct rendering of the Go Back button only (or `EmptyView` when no back destination). Padding and frame retained only as needed for the Go Back button.
-  - [ ] `SyncRingView` is retained but no longer referenced by `SpreadHeaderView`.
-  - [ ] No dedicated action row appears below the title navigator strip; vertical space is fully reclaimed for content.
+  - [x] `SyncIconButton` placed in `.toolbar` with `.topBarLeading` placement in `SpreadsView`.
+  - [x] Ellipsis `Menu` placed in `.toolbar` with `.primaryAction` placement in `SpreadsView`.
+  - [x] Favorite toggle folded into the ellipsis menu: "Add to Favorites" (Label with `star` symbol) when not favorited; "Remove from Favorites" (Label with `star.fill` symbol) when favorited. Appears as the first item above Edit Name / Edit Dates / Delete Spread.
+  - [x] `SpreadHeaderView` `syncRing` and `headerActions` computed properties and their backing callbacks removed. Body renders Go Back button only (empty when no back destination).
+  - [x] `SyncRingView` is retained but no longer referenced by `SpreadHeaderView`.
+  - [x] No dedicated action row appears below the title navigator strip; vertical space is fully reclaimed for content.
 - **Tests**:
   - Visual inspection: toolbar shows sync icon (leading) and ellipsis (trailing) on spread surfaces.
   - Ellipsis menu shows favorite item and toggles correctly.
