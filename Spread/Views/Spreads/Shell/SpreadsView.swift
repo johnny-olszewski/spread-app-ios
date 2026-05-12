@@ -67,6 +67,15 @@ struct SpreadsView: View {
                     selection: selectionBinding
                 )
             }
+            ToolbarItem(placement: .topBarLeading) {
+                if let syncEngine {
+                    SyncIconButton(
+                        status: syncEngine.status,
+                        outboxCount: syncEngine.outboxCount,
+                        onSyncNow: { Task { @MainActor in await syncEngine.syncNow() } }
+                    )
+                }
+            }
             if journalManager.bujoMode == .conventional {
                 ToolbarItem(placement: .primaryAction) {
                     favoritesMenu
@@ -74,6 +83,11 @@ struct SpreadsView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 AuthButton(isSignedIn: authManager.state.isSignedIn, action: { viewModel.showAuth() })
+            }
+            if let spread = currentConventionalSpread {
+                ToolbarItem(placement: .primaryAction) {
+                    spreadActionsMenu(for: spread)
+                }
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -207,6 +221,60 @@ struct SpreadsView: View {
             viewModel.showSpreadCreation(
                 prefill: .init(period: recommendation.period, date: recommendation.date)
             )
+        }
+    }
+
+    // MARK: - Spread Actions
+
+    private var currentConventionalSpread: DataModel.Spread? {
+        guard case .conventional(let spread) = currentSelection else { return nil }
+        return spread
+    }
+
+    private func spreadActionsMenu(for spread: DataModel.Spread) -> some View {
+        Menu {
+            Button {
+                toggleFavorite(for: spread)
+            } label: {
+                Label(
+                    spread.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                    systemImage: spread.isFavorite ? "star.fill" : "star"
+                )
+            }
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
+
+            Button {
+                viewModel.showSpreadNameEdit(spread)
+            } label: {
+                Label("Edit Name", systemImage: "pencil")
+            }
+
+            if spread.period == .multiday {
+                Button {
+                    viewModel.showSpreadDateEdit(spread)
+                } label: {
+                    Label("Edit Dates", systemImage: "calendar")
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.editDatesButton)
+            }
+
+            Button(role: .destructive) {
+                viewModel.showSpreadDeleteConfirmation(spread)
+            } label: {
+                Label("Delete Spread", systemImage: "trash")
+            }
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.deleteSpreadButton)
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .accessibilityLabel("Spread Actions")
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.spreadActionsMenu)
+    }
+
+    private func toggleFavorite(for spread: DataModel.Spread) {
+        Task { @MainActor in
+            try? await journalManager.updateSpreadFavorite(spread, isFavorite: !spread.isFavorite)
+            await syncEngine?.syncNow()
         }
     }
 
