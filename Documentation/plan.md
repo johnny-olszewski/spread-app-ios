@@ -1,5 +1,27 @@
 # Bulleted Implementation Plan (v1.0)
 
+## Task Template
+
+Use this format for every new `SPRD-##` task block:
+
+```markdown
+### [SPRD-###] Feature: <short description> - [ ] Pending
+
+- **Context**: Why this task exists; what prompted it.
+- **Description**: What is being built or changed.
+- **Spec**: `Documentation/Specs/FeatureName.md` — Section name
+- **Acceptance Criteria**:
+  - AC1
+  - AC2
+- **Tests**:
+  - Test description
+- **Dependencies**: SPRD-## (if any)
+```
+
+The `Spec:` field is required — it tells Claude which spec file to load for this task's context.
+
+---
+
 ## Scope Update
 - Events are deferred to v2; v1 ships without event creation or display. [SPRD-69]
 - Existing event scaffolding must be stubbed/hidden for v1 and kept ready for v2 integration. [SPRD-69]
