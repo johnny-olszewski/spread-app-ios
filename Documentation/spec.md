@@ -6,7 +6,7 @@
 - Day timeline visualization is in v1 scope: a fixed-height time-ruler card with EventKit event blocks appears above the entry list on day spreads. The layout component lives in `johnnyo-foundation` as a generic, provider-driven `DayTimelineView`; the Spread app supplies a `SpreadDayTimelineProvider` conformance that renders events using `CalendarEvent`. [SPRD-196, SPRD-197]
 - `WKFLW-17` is the active workflow branch for a bundled spread/task enhancement pass so schema-affecting decisions land together instead of through piecemeal migrations. [SPRD-167, SPRD-168, SPRD-169, SPRD-170, SPRD-171, SPRD-176, SPRD-177, SPRD-178]
 - `WKFLW-19` brings the authentication flow to TestFlight quality: email confirmation after sign-up with an in-sheet confirmation state, deeplink handling for email verification and password reset via the `spread://` custom URL scheme, loading state indicators on all auth sheets, expanded error message mapping, and mid-session token expiry handling. All Supabase configuration changes (redirect URLs, etc.) must be applied to both `spread-prod` and `spread-dev`. [SPRD-200, SPRD-201, SPRD-202, SPRD-203, SPRD-204, SPRD-205, SPRD-206, SPRD-207]
-- `WKFLW-20` is the active workflow branch for a UI polish and design system foundation pass for TestFlight readiness. The pass establishes named palette support and token categories in `SpreadTheme`, audits and resolves dark mode correctness across all surfaces, polishes the launch experience and sheet/toolbar consistency, and adds high-priority accessibility labels to entry rows and icon-only action buttons. [SPRD-213, SPRD-214, SPRD-215, SPRD-216, SPRD-217, SPRD-218]
+- `WKFLW-20` is the active workflow branch for a UI polish and design system foundation pass for TestFlight readiness. The pass establishes named palette support and token categories in `SpreadTheme`, audits and resolves dark mode correctness across all surfaces, polishes the launch experience and sheet/toolbar consistency, adds high-priority accessibility labels to entry rows and icon-only action buttons, migrates spread secondary actions (sync indicator, favorite, ellipsis menu) into the navigation bar toolbar, and replaces the custom sync ring with an SF Symbol-based icon. [SPRD-213, SPRD-214, SPRD-215, SPRD-216, SPRD-217, SPRD-218, SPRD-219, SPRD-220]
 
 ## Project Summary
 - Multiplatform app (iPadOS primary, iOS) built in SwiftUI with SwiftData local storage + Supabase sync. [SPRD-1, SPRD-5, SPRD-80]
@@ -1509,6 +1509,14 @@ Entry rows and icon-only action buttons are the highest-priority accessibility s
 
 - **Entry rows** (`EntryRowView`): `.accessibilityLabel` must combine title, type (task/note), and status (open, complete, migrated, cancelled). `.accessibilityValue` exposes priority (if non-none) and due date (if set).
 - **Icon-only buttons**: Status toggle, create, migrate, delete, and favorite buttons must have `.accessibilityLabel` values that clearly identify the action. Button role (`.destructive` for delete) must be set where appropriate.
+
+### Spread Header Toolbar Integration
+
+The dedicated spread action row in `SpreadHeaderView` (sync ring + favorite button + ellipsis menu) is eliminated in favour of native nav bar toolbar placement: [SPRD-220]
+
+- **Sync icon** (`.topBarLeading`): An SF Symbol button replacing the custom `SyncRingView` ring. Uses `arrow.triangle.2.circlepath` for idle and syncing states; `exclamationmark.arrow.triangle.2.circlepath` for error. The icon rotates continuously during active sync and is static at all other times. Hidden when sync is local-only. Color follows the same semantic conventions as the existing sync ring (accent for syncing, orange for error, muted secondary for idle/offline).
+- **Spread actions menu** (`.topBarTrailing`): The `ellipsis.circle` menu button moves to the nav bar trailing slot. Favorite is no longer a standalone button — it is the first item in the menu. "Add to Favorites" (star symbol) appears when the spread is not favorited; "Remove from Favorites" (star.fill symbol) appears when it is. The remaining actions (Edit Name, Edit Dates, Delete Spread) follow in the existing order.
+- **Go Back button**: The inline "Go Back" affordance used during peek-initiated navigation remains in the content area of `SpreadHeaderView` and is unaffected by this change.
 
 ---
 
