@@ -200,27 +200,6 @@ private struct SpreadPageContentView: View {
             let backDestination = isCurrentPage ? viewModel.peekNavigationSource : nil
             VStack(spacing: 0) {
                 SpreadHeaderView(
-                    configuration: SpreadHeaderConfiguration(
-                        spread: spread,
-                        calendar: journalManager.calendar,
-                        today: journalManager.today,
-                        firstWeekday: journalManager.firstWeekday,
-                        allowsPersonalization: true
-                    ),
-                    syncEngine: syncEngine,
-                    onSyncNow: syncEngine.map { engine in { Task { @MainActor in await engine.syncNow() } } },
-                    onFavoriteToggle: {
-                        toggleFavorite(for: spread)
-                    },
-                    onEditName: {
-                        viewModel.showSpreadNameEdit(spread)
-                    },
-                    onEditDates: spread.period == .multiday ? {
-                        viewModel.showSpreadDateEdit(spread)
-                    } : nil,
-                    onDeleteSpread: {
-                        viewModel.showSpreadDeleteConfirmation(spread)
-                    },
                     backDestination: backDestination,
                     onGoBack: backDestination.map { source in
                         {
@@ -301,20 +280,7 @@ private struct SpreadPageContentView: View {
         switch item.selection {
         case .traditionalYear, .traditionalMonth, .traditionalDay:
             let spread = traditionalSpread(for: item.selection)
-            VStack(spacing: 0) {
-                SpreadHeaderView(
-                    configuration: SpreadHeaderConfiguration(
-                        spread: spread,
-                        calendar: journalManager.calendar,
-                        today: journalManager.today,
-                        firstWeekday: journalManager.firstWeekday,
-                        allowsPersonalization: false
-                    ),
-                    syncEngine: syncEngine,
-                    onSyncNow: syncEngine.map { engine in { Task { @MainActor in await engine.syncNow() } } }
-                )
-                traditionalContentView(for: spread, selection: item.selection)
-            }
+            traditionalContentView(for: spread, selection: item.selection)
         case .conventional:
             Color.clear
         }
@@ -456,13 +422,6 @@ private struct SpreadPageContentView: View {
             for item in items {
                 try? await journalManager.migrateTask(item.task, from: item.source, to: destination)
             }
-            await syncEngine?.syncNow()
-        }
-    }
-
-    private func toggleFavorite(for spread: DataModel.Spread) {
-        Task { @MainActor in
-            try? await journalManager.updateSpreadFavorite(spread, isFavorite: !spread.isFavorite)
             await syncEngine?.syncNow()
         }
     }
