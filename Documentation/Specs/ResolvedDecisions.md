@@ -1,0 +1,50 @@
+# Resolved Decisions
+
+> Source: Documentation/spec.md
+
+## Edge Cases (Resolved)
+- Date normalization: Use Calendar API with user's firstWeekday setting. [SPRD-7, SPRD-49]
+- Entries with no matching spread: Go to Inbox; auto-resolve on spread creation. [SPRD-13, SPRD-14]
+- Migration when destination has assignment: Update existing assignment status. [SPRD-15, SPRD-52]
+- Deleting year/month/day spread with entries: Reassign all entries to parent or Inbox; never delete entries. [SPRD-15]
+- Deleting multiday spread: Reassign all entries using the normal non-multiday fallback hierarchy; never delete entries. [SPRD-18, SPRD-193]
+- Overlapping multiday spreads: New overlaps are blocked. Pre-existing overlapping multiday spreads in legacy local/synced data remain readable, and automatic resolution among those legacy overlaps prefers the narrowest containing range then chronological ordering. [SPRD-8, SPRD-49, SPRD-193]
+- Editing multiday spread dates: overlap with another multiday spread is blocked for newly saved ranges. Date edits keep the same spread selected after save, preserve direct multiday assignments by spread identity, and trigger a structural navigator/content rebuild if the range moves within or across years. [SPRD-175, SPRD-193]
+- Past-dated entries: Blocked in v1; validation prevents creation. [SPRD-23, SPRD-56]
+- Entry date change: Old assignments marked migrated; new assignment on best spread or Inbox. [SPRD-24]
+- Entry period change: Same reassignment logic as date change; period is independently editable. [SPRD-24]
+- Duplicate spread on sync: Server unique constraint prevents duplicates; merge RPC applies field-level LWW and returns canonical row. [SPRD-81, SPRD-83]
+- Concurrent migration: Both assignment rows are created; source assignment status resolved by LWW timestamp. [SPRD-83]
+
+## Resolved Decisions
+- Entry architecture uses protocol + separate @Model classes for scalability. [SPRD-9]
+- Week period removed from Period enum; multiday covers week-like scenarios. [SPRD-8, SPRD-56]
+- Notes migrate only via explicit user action, not batch suggestions. [SPRD-34]
+- Inbox is surfaced through the global search-role tab; there is no spread-toolbar Inbox button or Inbox sheet in v1. [SPRD-148]
+- Settings include mode toggle + first day of week preference. [SPRD-20, SPRD-49]
+- Spread deletion never deletes entries; reassigns to parent or Inbox (multiday deletion has no reassignment). [SPRD-15, SPRD-18]
+- Collections are plain text pages outside spread navigation; sorted by modified date; content is unbounded; collections sync via Supabase. [SPRD-19, SPRD-40, SPRD-85]
+- Traditional mode in scope for v1. [SPRD-35, SPRD-38]
+- Traditional mode date changes trigger conventional reassignment. [SPRD-17, SPRD-24]
+- Multiplatform: iPadOS primary, iOS supported; adaptive layouts per size class. [SPRD-19]
+- macOS deferred to post-v1. [SPRD-56]
+- Visual style uses dot grid backgrounds on spread content surfaces only, muted blue accents, and Debug-only appearance overrides for paper tone and typography. [SPRD-62, SPRD-63]
+- Main spread task lists keep transparent task rows over a solid list backing so the spread dot-grid remains visible. For open tasks, tapping anywhere on the row activates inline editing and focuses the title field. Completed or cancelled task rows still open the full edit sheet on tap. [SPRD-124, SPRD-132, SPRD-142]
+- An "+ Add Task" button at the bottom of every spread's task list (and per-day in multiday) enables inline task creation with a glass-effect Save/Cancel keyboard toolbar and rapid Return-to-add flow. [SPRD-133]
+- Multiday spreads always render every day in range, with explicit empty-state sections and adaptive one-column/two-column layout by size class. [SPRD-124]
+- The selected-spread navigator surface uses a rooted collapsible year/month/grid browser on both platforms, presented as a popover on iPad and as a sheet on iPhone. [SPRD-125, SPRD-126]
+- Entry period is independently editable; period changes trigger the same reassignment logic as date changes. [SPRD-24]
+- The leading task control in main spread task rows is always the reusable task status toggle button used by the task edit sheet; it remains pressable whether or not the row is inline editing. [SPRD-141, SPRD-142]
+- When an open task row becomes inline active, the title row must remain visually stable: the saved title remains visible in the passive state, the focused state adds only the text cursor/selection treatment, and the only new layout that appears is the secondary action row underneath. [SPRD-142]
+- While an open task row is in inline edit mode, a secondary action row appears underneath with only two actions: a pencil-writing button that commits any inline title draft and opens the full edit sheet, and a right-arrow migration `Menu`. [SPRD-142]
+- Inline row-edit migration options are immediate actions, not draft-only changes. They show only valid destinations for the current task and may include descriptive options such as `Today`, `Tomorrow`, a month-level next-month destination like `May 2026`, and a same-day next-month destination like `May 5, 2026`. [SPRD-142]
+- Tapping outside the active inline-edit row dismisses the inline editor, releases focus, commits any pending title draft using the existing blur/Save semantics, and hides the secondary action row. Only one task row can be inline active at a time. [SPRD-142]
+- Product usage requires authentication in dev/prod, while Debug `localhost` bypasses auth automatically for engineering workflows. [SPRD-106, SPRD-107]
+- `localhost` is non-persistent, selected per Debug launch, and isolated from dev-backed local state by launch-time wipes when switching to or from it. [SPRD-105, SPRD-107]
+- Brief onboarding walkthrough shown once on first authenticated product launch, tracked locally. [SPRD-106]
+- Minimum accessibility baseline for v1: VoiceOver labels, standard Dynamic Type, contrast ratios. [SPRD-TBD]
+
+## Open Questions
+- For v2 events: add Google Calendar OAuth or EventKit only for the foreseeable future? [SPRD-57]
+- For v2 events: read-only import vs write-back edits? [SPRD-57]
+- For v2 events: local manual events in addition to integrations, or integrations only? [SPRD-57]
