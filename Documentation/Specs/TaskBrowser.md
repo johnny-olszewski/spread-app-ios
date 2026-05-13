@@ -108,11 +108,30 @@ The Task Browser is a dedicated tab that replaces the existing Search tab (SPRD-
 - **Rationale**: Inbox tasks represent unprocessed work that needs attention. Surfacing them at the top mirrors the existing Inbox-first emphasis in the spread navigation and encourages the user to process them.
 - **SPRD reference**: SPRD-222
 
----
+### Decision: Tasks tab is mode-agnostic
 
-## Open Questions
+- **Context**: The app has two modes — Conventional (explicit user-created spreads) and Traditional (calendar-driven implicit spreads). The question was whether the Tasks tab should behave differently per mode.
+- **Decision**: The Tasks tab behaves identically in both modes. No mode-specific branching.
+- **Rationale**: The underlying data model is identical across modes — tasks store the same preferred date and period regardless of mode. The tab's ordering logic works correctly either way without any adaptation. Restricting the tab to Conventional mode would unnecessarily penalize Traditional mode users.
+- **SPRD reference**: SPRD-222
 
-- Should the Tasks tab be accessible in Traditional mode as well as Conventional mode, or should it behave differently per mode? — Resolve before SPRD-222 implementation.
-- Should the List and Tags filter chips appear as a horizontal scroll row, a filter button opening a sheet, or some other pattern? — Resolve during SPRD-222 design.
-- Should the management sheet be accessible via a toolbar button in the Tasks tab, or a menu item, or both? — Resolve during SPRD-223 design.
-- Should Tags have a maximum count per task in v1? — Resolve before SPRD-224 implementation.
+### Decision: Filters behind a toolbar button with active-state badge
+
+- **Context**: List and Tag filters needed a home on the Tasks tab without cluttering the default view.
+- **Decision**: A single filter button (e.g. `line.3.horizontal.decrease.circle`) in the nav bar toolbar. Tapping opens a filter sheet where the user selects a List and/or Tags. When one or more filters are active, the button displays a badge or filled variant to indicate the filtered state.
+- **Rationale**: Keeps the default task list uncluttered. Scales gracefully as Lists and Tags grow in number. The active-state badge provides clear feedback that results are filtered without requiring the sheet to be open. Consistent with the iOS Reminders pattern for tag filtering.
+- **SPRD reference**: SPRD-222
+
+### Decision: Management accessible from within the filter sheet
+
+- **Context**: The management sheet (rename/delete for Lists and Tags) needed a trigger point in the Tasks tab UI.
+- **Decision**: The filter sheet includes a "Manage Lists & Tags" row at the bottom. Tapping it pushes the management navigation stack within the same sheet presentation.
+- **Rationale**: Logical grouping — the filter sheet is already where the user thinks about Lists and Tags. Adding management as a footer row there makes it discoverable without adding another toolbar button or ellipsis menu. Keeps the nav bar uncluttered.
+- **SPRD reference**: SPRD-223
+
+### Decision: Maximum of 5 Tags per task
+
+- **Context**: Tags are meant to be focused project/theme labels. Without a limit, a task could accumulate an impractical number of tags.
+- **Decision**: A task may have at most 5 Tags. The Tags picker disables adding more once the limit is reached and shows a brief inline message (e.g. "Maximum 5 tags").
+- **Rationale**: 5 is generous for real-world use while keeping row display and filter UX predictable. Encourages focused tagging consistent with the intended semantics. Matches the pattern used by tools like Linear and Notion in early tag implementations.
+- **SPRD reference**: SPRD-224
