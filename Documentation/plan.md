@@ -5871,7 +5871,10 @@ Supabase: SPRD-85A -> SPRD-85C
   - When both a List filter and Tag filters are active, results must match the List AND have at least one selected Tag.
   - No filter is active by default; all tasks are shown.
   - Rows use `EntryList`/`EntryRowView` consistent with spread entry lists.
-  - The tab is accessible in both Conventional and Traditional modes.
+  - The tab is accessible in both Conventional and Traditional modes with identical behavior — no mode-specific branching.
+  - A filter button (`line.3.horizontal.decrease.circle` or equivalent) in the nav bar toolbar opens a filter sheet for selecting a List and/or Tags.
+  - When one or more filters are active, the filter button displays a badge or filled variant indicating filtered state.
+  - The filter sheet includes a "Manage Lists & Tags" row at the bottom that opens the management sheet (SPRD-223) from within the filter sheet.
 - **Tests**:
   - Unit tests for the ordering logic: Inbox tasks before assigned tasks; day-period tasks ordered before month-period tasks for the same date.
   - Unit test: completed/cancelled tasks ordered by `statusUpdatedAt` descending.
@@ -5886,10 +5889,10 @@ Supabase: SPRD-85A -> SPRD-85C
 ### [SPRD-223] Feature: List and Tags management sheet - [ ] Pending
 
 - **Context**: Users need a central place to rename and delete Lists and Tags without opening individual task edit sheets. The Tasks tab hosts this as a navigation-stack sheet.
-- **Description**: Add a management sheet accessible from the Tasks tab. The sheet uses a `NavigationStack` with a root showing Lists and Tags sections. Tapping a List or Tag navigates to a detail view with inline rename and a delete action with count-aware confirmation.
+- **Description**: Add a management sheet accessible via the "Manage Lists & Tags" row at the bottom of the Tasks tab filter sheet. The sheet uses a `NavigationStack` with a root showing Lists and Tags sections. Tapping a List or Tag navigates to a detail view with inline rename and a delete action with count-aware confirmation.
 - **Spec**: `Documentation/Specs/TaskBrowser.md` — List and Tags Management Sheet
 - **Acceptance Criteria**:
-  - A button or menu action in the Tasks tab opens the management sheet.
+  - The management sheet is accessible via a "Manage Lists & Tags" row at the bottom of the Tasks tab filter sheet.
   - The sheet root shows two sections: Lists (all List names with task counts) and Tags (all Tag names with task counts).
   - Tapping a List navigates to a detail view showing its name (editable inline) and the count of tasks assigned to it.
   - Tapping a Tag navigates to a detail view showing its name (editable inline) and the count of tasks using it.
@@ -5919,6 +5922,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - The Tags picker allows selecting zero or more existing Tags and creating new Tags by name.
   - New List and Tag names created inline are trimmed and must be non-empty; empty names are rejected.
   - List and Tags fields remain editable when a task is complete or cancelled, consistent with body, priority, and due date.
+  - The Tags picker enforces a maximum of 5 Tags per task; adding more is disabled with an inline message ("Maximum 5 tags") once the limit is reached.
   - Pickers reflect any renames or deletions made in the management sheet without requiring the sheet to be dismissed and reopened.
 - **Tests**:
   - Unit test: saving a task with a selected List sets `task.list` to that List.
@@ -5926,4 +5930,5 @@ Supabase: SPRD-85A -> SPRD-85C
   - Unit test: creating a new List inline via the picker creates a `DataModel.List` and assigns it.
   - Unit test: clearing the List picker sets `task.list` to nil.
   - Unit test: List and Tags fields are still editable when task status is `.complete` or `.cancelled`.
+  - Unit test: attempting to add a 6th Tag to a task is rejected.
 - **Dependencies**: SPRD-221
