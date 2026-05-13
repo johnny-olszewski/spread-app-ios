@@ -15,6 +15,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | Branch | Description | Key Spec Files |
 |--------|-------------|----------------|
 | `feature/SESH-20` (formerly `WKFLW-20`) | UI polish and design system foundation for TestFlight | [DesignSystem.md](DesignSystem.md), [Accessibility.md](Accessibility.md) |
+| `feature/SESH-21` | Task Browser tab, List/Tag organizational fields | [TaskBrowser.md](TaskBrowser.md), [DataModel.md](DataModel.md), [TaskMetadata.md](TaskMetadata.md) |
 
 ---
 
@@ -30,7 +31,8 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | [ConventionalMode.md](ConventionalMode.md) | Functional requirements: spreads, entries, task status, overdue, inbox, modes | SPRD-24, SPRD-25, SPRD-27, SPRD-29, SPRD-30 |
 | [SpreadNavigation.md](SpreadNavigation.md) | Compact context bar, rooted navigator, pager, spread surface architecture | SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199 |
 | [SpreadPersonalization.md](SpreadPersonalization.md) | WKFLW-17: favorites, custom/dynamic naming, spread deletion, multiday date edit, visual refresh | SPRD-167–SPRD-178 |
-| [TaskMetadata.md](TaskMetadata.md) | WKFLW-17: task body, priority, due date, nil assignment | SPRD-170 |
+| [TaskMetadata.md](TaskMetadata.md) | WKFLW-17: task body, priority, due date, nil assignment; SESH-21: List and Tags fields | SPRD-170, SPRD-221 |
+| [TaskBrowser.md](TaskBrowser.md) | SESH-21: Tasks tab, List/Tag models, management sheet, filter behavior | SPRD-221, SPRD-222, SPRD-223, SPRD-224 |
 | [CalendarFoundation.md](CalendarFoundation.md) | `johnnyo-foundation` package, MonthCalendarView, row overlays | SPRD-152, SPRD-153, SPRD-183, SPRD-184 |
 | [DesignSystem.md](DesignSystem.md) | SpreadTheme, palette tokens, dark mode, WKFLW-20 polish | SPRD-213–SPRD-220 |
 | [Sync.md](Sync.md) | Supabase offline-first sync, persistence, conflict scenarios | SPRD-80, SPRD-85 |

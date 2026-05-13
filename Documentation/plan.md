@@ -5812,3 +5812,118 @@ Supabase: SPRD-85A -> SPRD-85C
   - Ellipsis menu shows favorite item and toggles correctly.
   - Sync icon rotates during active sync; shows error symbol on sync error.
 - **Dependencies**: SPRD-213, SPRD-219
+
+---
+
+## Story: Task Browser, List and Tag organizational fields (SESH-21)
+
+### User Story
+- As a user, I want a dedicated Tasks tab where I can see all my tasks across every spread in one place, so I don't have to navigate spread by spread to find what I need to do.
+- As a user, I want to assign tasks to a List ("Work", "Home") and tag them with projects or themes ("EOY Presentation", "Baby Preparation") so I can organize and filter tasks by context.
+- As a user, I want to manage my Lists and Tags from one place — rename them and delete them — so my organizational structure stays clean over time.
+
+### Definition of Done
+- `List` and `Tag` are first-class SwiftData models with sync support.
+- `DataModel.Task` and `DataModel.Note` both have optional `list` and `tags` relationships.
+- The Search tab is replaced by a Tasks tab showing all tasks in open and terminal sections with embedded search and List/Tag filter chips.
+- The task create/edit sheet includes List and Tags pickers with inline creation.
+- The management sheet (accessible from the Tasks tab) supports rename and delete with count-aware confirmation for Lists and Tags.
+
+---
+
+### [SPRD-221] Feature: List and Tag models with Task/Note relationships and sync - [ ] Pending
+
+- **Context**: Tasks and Notes need first-class organizational fields — a domain List ("Work", "Home") and cross-cutting Tags ("EOY Presentation") — to power the Task Browser's filter and management features. These are new SwiftData models requiring a schema migration and Supabase sync support.
+- **Description**: Add `DataModel.List` and `DataModel.Tag` SwiftData `@Model` types. Add optional `list` and `tags` relationships to `DataModel.Task` and `DataModel.Note`. Add `ListRepository`, `TagRepository` protocols and implementations. Extend the Supabase schema with `lists` and `tags` tables plus a `task_tags` and `note_tags` join table. Wire into the outbox/sync architecture.
+- **Spec**: `Documentation/Specs/TaskBrowser.md` — List and Tag Models; `Documentation/Specs/DataModel.md` — List, Tag
+- **Acceptance Criteria**:
+  - `DataModel.List` exists with a non-empty `name: String` and inverse one-to-many relationships to `DataModel.Task` and `DataModel.Note`.
+  - `DataModel.Tag` exists with a non-empty `name: String` and inverse many-to-many relationships to `DataModel.Task` and `DataModel.Note`.
+  - `DataModel.Task` has `list: List?` and `tags: [Tag]` properties.
+  - `DataModel.Note` has `list: List?` and `tags: [Tag]` properties.
+  - `ListRepository` and `TagRepository` protocols and SwiftData implementations exist with CRUD operations.
+  - Supabase migration adds `lists`, `tags`, `task_tags`, and `note_tags` tables with appropriate RLS policies.
+  - List and Tag mutations are enqueued in the sync outbox and pushed with the standard outbox architecture.
+  - Schema migration compiles without data loss on existing installs.
+  - The app builds successfully with strict Swift 6 concurrency enabled.
+- **Tests**:
+  - Unit tests for `ListRepository` and `TagRepository` CRUD operations using in-memory containers.
+  - Unit test: adding a task to a List correctly sets the inverse relationship.
+  - Unit test: adding a Tag to a task correctly sets the many-to-many inverse.
+  - Unit test: deleting a List nils out `task.list` on all associated tasks.
+  - Unit test: deleting a Tag removes it from all associated tasks' `tags` arrays.
+
+---
+
+### [SPRD-222] Feature: Tasks tab — open/terminal sections, embedded search, List/Tag filter chips - [ ] Pending
+
+- **Context**: The existing Search tab (SPRD-148) is a limited task browser. This task replaces it with a full-featured Tasks tab: comprehensive lifecycle organization, embedded search, and List/Tag filtering.
+- **Description**: Replace the Search tab with a Tasks tab. Build `TaskBrowserView` with two non-collapsible sections (Open, Completed/Cancelled), ordered per the spec. Embed a `.searchable` modifier filtering by title and body. Add List and Tag filter chips. Wire into the existing `JournalManager` data layer.
+- **Spec**: `Documentation/Specs/TaskBrowser.md` — Tasks Tab; List and Tag Filtering
+- **Acceptance Criteria**:
+  - The Search tab is replaced by a Tasks tab with an appropriate SF Symbol and "Tasks" label.
+  - The tab renders two non-collapsible sections: Open (top) and Completed / Cancelled (bottom).
+  - Open section order: Inbox tasks (nil assignment, by `createdDate` asc) first, then assigned open tasks by preferred spread normalized date asc with period tiebreaker (day before month before year), then `createdDate` asc within identical date+period.
+  - Completed / Cancelled section ordered by current assignment `statusUpdatedAt` descending; falls back to `createdDate` descending when `statusUpdatedAt` is nil.
+  - A `.searchable` bar filters tasks by title and body in real time.
+  - List filter chip shows all Lists; selecting one filters to tasks in that List only.
+  - Tag filter chips show all Tags; selecting multiple shows tasks with ANY selected tag.
+  - When both a List filter and Tag filters are active, results must match the List AND have at least one selected Tag.
+  - No filter is active by default; all tasks are shown.
+  - Rows use `EntryList`/`EntryRowView` consistent with spread entry lists.
+  - The tab is accessible in both Conventional and Traditional modes.
+- **Tests**:
+  - Unit tests for the ordering logic: Inbox tasks before assigned tasks; day-period tasks ordered before month-period tasks for the same date.
+  - Unit test: completed/cancelled tasks ordered by `statusUpdatedAt` descending.
+  - Unit test: List filter returns only tasks belonging to that List.
+  - Unit test: multi-Tag OR filter returns tasks with any of the selected Tags.
+  - Unit test: combined List + Tag filter applies AND across types.
+  - Unit test: search query applied on top of active filters.
+- **Dependencies**: SPRD-221
+
+---
+
+### [SPRD-223] Feature: List and Tags management sheet - [ ] Pending
+
+- **Context**: Users need a central place to rename and delete Lists and Tags without opening individual task edit sheets. The Tasks tab hosts this as a navigation-stack sheet.
+- **Description**: Add a management sheet accessible from the Tasks tab. The sheet uses a `NavigationStack` with a root showing Lists and Tags sections. Tapping a List or Tag navigates to a detail view with inline rename and a delete action with count-aware confirmation.
+- **Spec**: `Documentation/Specs/TaskBrowser.md` — List and Tags Management Sheet
+- **Acceptance Criteria**:
+  - A button or menu action in the Tasks tab opens the management sheet.
+  - The sheet root shows two sections: Lists (all List names with task counts) and Tags (all Tag names with task counts).
+  - Tapping a List navigates to a detail view showing its name (editable inline) and the count of tasks assigned to it.
+  - Tapping a Tag navigates to a detail view showing its name (editable inline) and the count of tasks using it.
+  - Rename saves on commit; the new name must be non-empty and trimmed. Invalid (empty) names are rejected with inline feedback.
+  - Delete triggers a confirmation dialog stating: "Deleting '[Name]' will remove it from [N] tasks. This cannot be undone."
+  - Confirming delete nils out `list` or removes the tag from all affected tasks (and notes for model parity), then deletes the entity.
+  - The Tasks tab filter chips and task rows reflect the deletion immediately.
+- **Tests**:
+  - Unit test: rename List updates `list.name` and all associated task rows reflect the new name.
+  - Unit test: rename Tag updates `tag.name`.
+  - Unit test: deleting a List nils out `task.list` on all affected tasks.
+  - Unit test: deleting a Tag removes it from all affected tasks' `tags`.
+  - Unit test: confirmation dialog count matches the actual number of affected tasks.
+- **Dependencies**: SPRD-221, SPRD-222
+
+---
+
+### [SPRD-224] UI: List and Tags pickers in task and note create/edit sheets - [ ] Pending
+
+- **Context**: The task create/edit sheet needs List and Tags pickers so users can assign organizational context when creating or editing a task. Note create/edit gets the same pickers for model parity even though Notes are not displayed in the Task Browser.
+- **Description**: Add a List picker (select one or none) and a Tags picker (select zero or more) to the task create/edit sheet. Add the same pickers to the note create/edit sheet. Both pickers allow inline creation of new Lists or Tags without leaving the sheet.
+- **Spec**: `Documentation/Specs/TaskBrowser.md` — List and Tags in Entry Create/Edit
+- **Acceptance Criteria**:
+  - The task create/edit sheet displays a List picker and a Tags picker in the metadata section, alongside body, priority, and due date.
+  - The note create/edit sheet displays the same List and Tags pickers.
+  - The List picker allows selecting one existing List, clearing the selection, or creating a new List by name.
+  - The Tags picker allows selecting zero or more existing Tags and creating new Tags by name.
+  - New List and Tag names created inline are trimmed and must be non-empty; empty names are rejected.
+  - List and Tags fields remain editable when a task is complete or cancelled, consistent with body, priority, and due date.
+  - Pickers reflect any renames or deletions made in the management sheet without requiring the sheet to be dismissed and reopened.
+- **Tests**:
+  - Unit test: saving a task with a selected List sets `task.list` to that List.
+  - Unit test: saving a task with selected Tags sets `task.tags` to those Tags.
+  - Unit test: creating a new List inline via the picker creates a `DataModel.List` and assigns it.
+  - Unit test: clearing the List picker sets `task.list` to nil.
+  - Unit test: List and Tags fields are still editable when task status is `.complete` or `.cancelled`.
+- **Dependencies**: SPRD-221
