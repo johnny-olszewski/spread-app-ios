@@ -5892,26 +5892,26 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-223] Feature: List and Tags management sheet - [ ] Pending
+### [SPRD-223] Feature: List and Tags management sheet - [x] Done
 
 - **Context**: Users need a central place to rename and delete Lists and Tags without opening individual task edit sheets. The Tasks tab hosts this as a navigation-stack sheet.
 - **Description**: Add a management sheet accessible via the "Manage Lists & Tags" row at the bottom of the Tasks tab filter sheet. The sheet uses a `NavigationStack` with a root showing Lists and Tags sections. Tapping a List or Tag navigates to a detail view with inline rename and a delete action with count-aware confirmation.
 - **Spec**: `Documentation/Specs/TaskBrowser.md` — List and Tags Management Sheet
 - **Acceptance Criteria**:
-  - The management sheet is accessible via a "Manage Lists & Tags" row at the bottom of the Tasks tab filter sheet.
-  - The sheet root shows two sections: Lists (all List names with task counts) and Tags (all Tag names with task counts).
-  - Tapping a List navigates to a detail view showing its name (editable inline) and the count of tasks assigned to it.
-  - Tapping a Tag navigates to a detail view showing its name (editable inline) and the count of tasks using it.
-  - Rename saves on commit; the new name must be non-empty and trimmed. Invalid (empty) names are rejected with inline feedback.
-  - Delete triggers a confirmation dialog stating: "Deleting '[Name]' will remove it from [N] tasks. This cannot be undone."
-  - Confirming delete nils out `list` or removes the tag from all affected tasks (and notes for model parity), then deletes the entity.
-  - The Tasks tab filter chips and task rows reflect the deletion immediately.
+  - [x] The management sheet is accessible via a "Manage Lists & Tags" row at the bottom of the Tasks tab filter sheet.
+  - [x] The sheet root shows two sections: Lists (all List names with task counts) and Tags (all Tag names with task counts).
+  - [x] Tapping a List navigates to a detail view showing its name (editable inline) and the count of tasks assigned to it.
+  - [x] Tapping a Tag navigates to a detail view showing its name (editable inline) and the count of tasks using it.
+  - [x] Rename saves on commit; the new name must be non-empty and trimmed. Invalid (empty) names are rejected with inline feedback.
+  - [x] Delete triggers a confirmation dialog stating: "Deleting '[Name]' will remove it from [N] tasks. This cannot be undone."
+  - [x] Confirming delete nils out `list` or removes the tag from all affected tasks (and notes for model parity), then deletes the entity.
+  - [x] The Tasks tab filter chips and task rows reflect the deletion immediately.
 - **Tests**:
-  - Unit test: rename List updates `list.name` and all associated task rows reflect the new name.
-  - Unit test: rename Tag updates `tag.name`.
-  - Unit test: deleting a List nils out `task.list` on all affected tasks.
-  - Unit test: deleting a Tag removes it from all affected tasks' `tags`.
-  - Unit test: confirmation dialog count matches the actual number of affected tasks.
+  - [x] Unit test: rename List updates `list.name` and all associated task rows reflect the new name.
+  - [x] Unit test: rename Tag updates `tag.name`.
+  - [x] Unit test: deleting a List nils out `task.list` on all affected tasks.
+  - [x] Unit test: deleting a Tag removes it from all affected tasks' `tags`.
+  - [x] Unit test: confirmation dialog count matches the actual number of affected tasks.
 - **Dependencies**: SPRD-221, SPRD-222
 
 ---
