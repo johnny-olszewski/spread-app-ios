@@ -6,9 +6,13 @@ import SwiftUI
 /// displays two lifecycle sections (Open, Completed / Cancelled) with List and Tag filtering.
 /// Notes mode shows all notes ordered by `createdDate` descending with search only.
 ///
-/// Adapts to horizontal size class: on regular width the filter panel appears as a persistent
-/// trailing card (styled to match the day spread timeline card); on compact width it appears
-/// as a toolbar-button sheet.
+/// Adapts to horizontal size class:
+/// - **Compact**: a filter button in the toolbar opens a sheet whose `NavigationStack` hosts
+///   the filter panel at its root. Tapping "Manage Lists" or "Manage Tags" pushes the
+///   respective management view within the same sheet.
+/// - **Regular**: a persistent trailing card shows the filter panel. Tapping "Manage Lists"
+///   or "Manage Tags" presents a sheet pre-navigated to that management view; the user can
+///   navigate back to the filter root within the sheet.
 struct EntriesBrowserView: View {
     let journalManager: JournalManager
     let listRepository: any ListRepository
@@ -55,8 +59,11 @@ struct EntriesBrowserView: View {
                     }
                 }
             }
-            .sheet(isPresented: $viewModel.isFilterSheetPresented) {
+            .sheet(isPresented: $viewModel.isFilterSheetPresented, onDismiss: resetFilterNavPath) {
                 filterSheet
+            }
+            .sheet(isPresented: $viewModel.isManagementSheetPresented, onDismiss: resetManagementState) {
+                managementSheet
             }
             .task {
                 await viewModel.loadListsAndTags(
@@ -142,7 +149,15 @@ struct EntriesBrowserView: View {
                 lists: viewModel.lists,
                 tags: viewModel.tags,
                 selectedList: $viewModel.selectedList,
-                selectedTagIDs: $viewModel.selectedTagIDs
+                selectedTagIDs: $viewModel.selectedTagIDs,
+                onManageLists: {
+                    viewModel.managementNavPath = [.lists]
+                    viewModel.isManagementSheetPresented = true
+                },
+                onManageTags: {
+                    viewModel.managementNavPath = [.tags]
+                    viewModel.isManagementSheetPresented = true
+                }
             )
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -176,26 +191,96 @@ struct EntriesBrowserView: View {
     }
 
     private var filterSheet: some View {
-        NavigationStack {
+        NavigationStack(path: $viewModel.managementNavPath) {
             EntriesFilterPanel(
                 lists: viewModel.lists,
                 tags: viewModel.tags,
                 selectedList: $viewModel.selectedList,
-                selectedTagIDs: $viewModel.selectedTagIDs
+                selectedTagIDs: $viewModel.selectedTagIDs,
+                onManageLists: { viewModel.managementNavPath.append(.lists) },
+                onManageTags: { viewModel.managementNavPath.append(.tags) }
             )
             .navigationTitle("Filter")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: ManagementDestination.self, destination: managementDestinationView)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { viewModel.isFilterSheetPresented = false }
+                    Button("Done") {
+                        viewModel.isFilterSheetPresented = false
+                    }
                 }
-                if viewModel.hasActiveFilters {
+                if viewModel.hasActiveFilters && viewModel.managementNavPath.isEmpty {
                     ToolbarItem(placement: .primaryAction) {
                         Button("Clear") { viewModel.clearFilters() }
                     }
                 }
             }
         }
+    }
+
+    // MARK: - Management Sheet (Regular)
+
+    /// Presented from the persistent filter card with the path pre-navigated to the
+    /// selected management destination. The user can navigate back to the filter root.
+    private var managementSheet: some View {
+        NavigationStack(path: $viewModel.managementNavPath) {
+            EntriesFilterPanel(
+                lists: viewModel.lists,
+                tags: viewModel.tags,
+                selectedList: $viewModel.selectedList,
+                selectedTagIDs: $viewModel.selectedTagIDs,
+                onManageLists: { viewModel.managementNavPath.append(.lists) },
+                onManageTags: { viewModel.managementNavPath.append(.tags) }
+            )
+            .navigationTitle("Filter")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: ManagementDestination.self, destination: managementDestinationView)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        viewModel.isManagementSheetPresented = false
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Shared Navigation Destination
+
+    @ViewBuilder
+    private func managementDestinationView(_ destination: ManagementDestination) -> some View {
+        switch destination {
+        case .lists:
+            ListManagementView(
+                listRepository: listRepository,
+                onChanged: {
+                    await viewModel.refreshListsAndTags(
+                        listRepository: listRepository,
+                        tagRepository: tagRepository
+                    )
+                }
+            )
+        case .tags:
+            TagManagementView(
+                tagRepository: tagRepository,
+                onChanged: {
+                    await viewModel.refreshListsAndTags(
+                        listRepository: listRepository,
+                        tagRepository: tagRepository
+                    )
+                }
+            )
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func resetFilterNavPath() {
+        viewModel.managementNavPath = []
+    }
+
+    private func resetManagementState() {
+        viewModel.managementNavPath = []
     }
 }
 
