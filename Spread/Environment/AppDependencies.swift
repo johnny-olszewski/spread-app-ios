@@ -172,6 +172,8 @@ struct AppDependencies: @unchecked Sendable {
             eventRepository: eventRepository,
             noteRepository: noteRepository,
             collectionRepository: collectionRepository,
+            listRepository: listRepository,
+            tagRepository: tagRepository,
             bujoMode: bujoMode,
             firstWeekday: firstWeekday
         )

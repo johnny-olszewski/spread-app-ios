@@ -58,6 +58,12 @@ final class JournalManager {
     /// Used by `clearAllDataFromRepositories` to wipe collections on sign-out.
     let collectionRepository: (any CollectionRepository)?
 
+    /// Repository for list persistence.
+    let listRepository: any ListRepository
+
+    /// Repository for tag persistence.
+    let tagRepository: any TagRepository
+
     /// The current BuJo mode (conventional or traditional).
     var bujoMode: BujoMode
 
@@ -121,6 +127,12 @@ final class JournalManager {
 
     /// All notes loaded from the repository.
     private(set) var notes: [DataModel.Note] = []
+
+    /// All lists loaded from the repository.
+    private(set) var lists: [DataModel.List] = []
+
+    /// All tags loaded from the repository.
+    private(set) var tags: [DataModel.Tag] = []
 
     /// The journal data model organized by period and date.
     ///
@@ -228,6 +240,8 @@ final class JournalManager {
         eventRepository: any EventRepository,
         noteRepository: any NoteRepository,
         collectionRepository: (any CollectionRepository)? = nil,
+        listRepository: (any ListRepository)? = nil,
+        tagRepository: (any TagRepository)? = nil,
         bujoMode: BujoMode,
         firstWeekday: FirstWeekday = .systemDefault,
         creationPolicy: SpreadCreationPolicy,
@@ -292,6 +306,8 @@ final class JournalManager {
         self.eventRepository = eventRepository
         self.noteRepository = noteRepository
         self.collectionRepository = collectionRepository
+        self.listRepository = listRepository ?? EmptyListRepository()
+        self.tagRepository = tagRepository ?? EmptyTagRepository()
         self.bujoMode = bujoMode
         self.firstWeekday = firstWeekday
         self.creationPolicy = creationPolicy
@@ -352,6 +368,8 @@ final class JournalManager {
         eventRepository: (any EventRepository)? = nil,
         noteRepository: (any NoteRepository)? = nil,
         collectionRepository: (any CollectionRepository)? = nil,
+        listRepository: (any ListRepository)? = nil,
+        tagRepository: (any TagRepository)? = nil,
         bujoMode: BujoMode = .conventional,
         firstWeekday: FirstWeekday = .systemDefault,
         creationPolicy: SpreadCreationPolicy? = nil
@@ -379,6 +397,8 @@ final class JournalManager {
             eventRepository: eventRepository ?? InMemoryEventRepository(),
             noteRepository: noteRepository ?? InMemoryNoteRepository(),
             collectionRepository: collectionRepository,
+            listRepository: listRepository,
+            tagRepository: tagRepository,
             bujoMode: bujoMode,
             firstWeekday: firstWeekday,
             creationPolicy: creationPolicy ?? defaultPolicy
@@ -397,6 +417,8 @@ final class JournalManager {
         tasks = await taskRepository.getTasks()
         events = await eventRepository.getEvents()
         notes = await noteRepository.getNotes()
+        lists = await listRepository.getLists()
+        tags = await tagRepository.getTags()
 
         buildDataModel()
     }
@@ -1355,7 +1377,9 @@ final class JournalManager {
         _ task: DataModel.Task,
         body: String?,
         priority: DataModel.Task.Priority,
-        dueDate: Date?
+        dueDate: Date?,
+        list: DataModel.List? = nil,
+        tags: [DataModel.Tag] = []
     ) async throws {
         let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
         let timestamp = Date.now
@@ -1375,6 +1399,17 @@ final class JournalManager {
         if task.dueDate != normalizedDueDate {
             task.dueDate = normalizedDueDate
             task.dueDateUpdatedAt = timestamp
+        }
+
+        if task.list?.id != list?.id {
+            task.list = list
+            task.listUpdatedAt = timestamp
+        }
+
+        let oldTagIDs = Set(task.tags.map(\.id))
+        let newTagIDs = Set(tags.map(\.id))
+        if oldTagIDs != newTagIDs {
+            task.tags = tags
         }
 
         try await taskRepository.save(task)
@@ -1523,6 +1558,61 @@ final class JournalManager {
     ///   - newDate: The new preferred date.
     ///   - newPeriod: The new preferred period.
     /// - Throws: Repository errors if persistence fails.
+    /// Updates a note's List and Tags.
+    ///
+    /// - Parameters:
+    ///   - note: The note to update.
+    ///   - list: The new List, or nil to clear.
+    ///   - tags: The new set of Tags (zero or more).
+    /// - Throws: Repository errors if persistence fails.
+    func updateNoteMetadata(
+        _ note: DataModel.Note,
+        list: DataModel.List?,
+        tags: [DataModel.Tag]
+    ) async throws {
+        let timestamp = Date.now
+
+        if note.list?.id != list?.id {
+            note.list = list
+            note.listUpdatedAt = timestamp
+        }
+
+        let oldTagIDs = Set(note.tags.map(\.id))
+        let newTagIDs = Set(tags.map(\.id))
+        if oldTagIDs != newTagIDs {
+            note.tags = tags
+        }
+
+        try await noteRepository.save(note)
+        notes = await noteRepository.getNotes()
+
+        Self.logger.debug("Note metadata updated: \(note.id)")
+    }
+
+    /// Creates a new List with the given name and adds it to the repository.
+    ///
+    /// - Parameter name: The name for the new List. Must be non-empty after trimming.
+    /// - Returns: The newly created List.
+    /// - Throws: Repository errors if persistence fails.
+    func createList(name: String) async throws -> DataModel.List {
+        let list = DataModel.List(name: name.trimmingCharacters(in: .whitespacesAndNewlines))
+        try await listRepository.save(list)
+        lists = await listRepository.getLists()
+        return list
+    }
+
+    /// Creates a new Tag with the given name and adds it to the repository.
+    ///
+    /// - Parameter name: The name for the new Tag. Must be non-empty after trimming.
+    /// - Returns: The newly created Tag.
+    /// - Throws: Repository errors if persistence fails.
+    func createTag(name: String) async throws -> DataModel.Tag {
+        let tag = DataModel.Tag(name: name.trimmingCharacters(in: .whitespacesAndNewlines))
+        try await tagRepository.save(tag)
+        tags = await tagRepository.getTags()
+        return tag
+    }
+
     func updateNoteDateAndPeriod(
         _ note: DataModel.Note,
         newDate: Date,
