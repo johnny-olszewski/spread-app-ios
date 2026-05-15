@@ -5831,27 +5831,27 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-221] Feature: List and Tag models with Task/Note relationships and sync - [ ] Pending
+### [SPRD-221] Feature: List and Tag models with Task/Note relationships and sync - [x] Done
 
 - **Context**: Tasks and Notes need first-class organizational fields — a domain List ("Work", "Home") and cross-cutting Tags ("EOY Presentation") — to power the Task Browser's filter and management features. These are new SwiftData models requiring a schema migration and Supabase sync support.
 - **Description**: Add `DataModel.List` and `DataModel.Tag` SwiftData `@Model` types. Add optional `list` and `tags` relationships to `DataModel.Task` and `DataModel.Note`. Add `ListRepository`, `TagRepository` protocols and implementations. Extend the Supabase schema with `lists` and `tags` tables plus a `task_tags` and `note_tags` join table. Wire into the outbox/sync architecture.
 - **Spec**: `Documentation/Specs/TaskBrowser.md` — List and Tag Models; `Documentation/Specs/DataModel.md` — List, Tag
 - **Acceptance Criteria**:
-  - `DataModel.List` exists with a non-empty `name: String` and inverse one-to-many relationships to `DataModel.Task` and `DataModel.Note`.
-  - `DataModel.Tag` exists with a non-empty `name: String` and inverse many-to-many relationships to `DataModel.Task` and `DataModel.Note`.
-  - `DataModel.Task` has `list: List?` and `tags: [Tag]` properties.
-  - `DataModel.Note` has `list: List?` and `tags: [Tag]` properties.
-  - `ListRepository` and `TagRepository` protocols and SwiftData implementations exist with CRUD operations.
-  - Supabase migration adds `lists`, `tags`, `task_tags`, and `note_tags` tables with appropriate RLS policies.
-  - List and Tag mutations are enqueued in the sync outbox and pushed with the standard outbox architecture.
-  - Schema migration compiles without data loss on existing installs.
-  - The app builds successfully with strict Swift 6 concurrency enabled.
+  - [x] `DataModel.List` exists with a non-empty `name: String` and inverse one-to-many relationships to `DataModel.Task` and `DataModel.Note`.
+  - [x] `DataModel.Tag` exists with a non-empty `name: String` and inverse many-to-many relationships to `DataModel.Task` and `DataModel.Note`.
+  - [x] `DataModel.Task` has `list: List?` and `tags: [Tag]` properties.
+  - [x] `DataModel.Note` has `list: List?` and `tags: [Tag]` properties.
+  - [x] `ListRepository` and `TagRepository` protocols and SwiftData implementations exist with CRUD operations.
+  - [x] Supabase migration adds `lists`, `tags`, `task_tags`, and `note_tags` tables with appropriate RLS policies.
+  - [x] List and Tag mutations are enqueued in the sync outbox and pushed with the standard outbox architecture.
+  - [x] Schema migration compiles without data loss on existing installs.
+  - [x] The app builds successfully with strict Swift 6 concurrency enabled.
 - **Tests**:
-  - Unit tests for `ListRepository` and `TagRepository` CRUD operations using in-memory containers.
-  - Unit test: adding a task to a List correctly sets the inverse relationship.
-  - Unit test: adding a Tag to a task correctly sets the many-to-many inverse.
-  - Unit test: deleting a List nils out `task.list` on all associated tasks.
-  - Unit test: deleting a Tag removes it from all associated tasks' `tags` arrays.
+  - [x] Unit tests for `ListRepository` and `TagRepository` CRUD operations using in-memory containers.
+  - [x] Unit test: adding a task to a List correctly sets the inverse relationship.
+  - [x] Unit test: adding a Tag to a task correctly sets the many-to-many inverse.
+  - [x] Unit test: deleting a List nils out `task.list` on all associated tasks.
+  - [x] Unit test: deleting a Tag removes it from all associated tasks' `tags` arrays.
 
 ---
 
