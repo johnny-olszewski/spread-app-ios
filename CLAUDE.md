@@ -174,6 +174,7 @@ When the user has no ready task and wants to spec one out:
 - **Subview extraction**: Computed properties for subviews, methods when injection required
 - **Previews**: Every view includes previews; component previews should have multiple examples
 - **Observable access**: Direct property access on `@Observable` classes
+- **Size class over device idiom**: When the user refers to "iPad UI" or "iOS UI" layout differences, implement them using `@Environment(\.horizontalSizeClass)` (`compact` vs `regular`) rather than platform or device-idiom checks. Use `UIDevice.current.userInterfaceIdiom` or `#if os(iOS)` only for functionality that is genuinely device- or OS-specific (e.g., a hardware API unavailable on one platform). Ask for clarification when it is unclear which applies.
 
 ### Patterns
 
