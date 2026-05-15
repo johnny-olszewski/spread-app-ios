@@ -54,12 +54,19 @@ final class SwiftDataNoteRepository: NoteRepository {
         let operation: SyncOperation = hasStoredNote(id: note.id) ? .update : .create
         let timestamp = nowProvider()
         let previousAssignments = storedNoteAssignments(id: note.id) ?? []
+        let previousTagIds = storedNoteTagIds(id: note.id) ?? []
 
         enqueueNoteMutation(note, operation: operation, timestamp: timestamp)
         enqueueNoteAssignmentMutations(
             noteId: note.id,
             previousAssignments: previousAssignments,
             currentAssignments: note.assignments,
+            timestamp: timestamp
+        )
+        enqueueNoteTagMutations(
+            noteId: note.id,
+            previousTagIds: previousTagIds,
+            currentTagIds: note.tags.map(\.id),
             timestamp: timestamp
         )
         modelContext.insert(note)
@@ -69,10 +76,16 @@ final class SwiftDataNoteRepository: NoteRepository {
     func delete(_ note: DataModel.Note) async throws {
         let timestamp = nowProvider()
         let previousAssignments = storedNoteAssignments(id: note.id) ?? note.assignments
+        let previousTagIds = storedNoteTagIds(id: note.id) ?? note.tags.map(\.id)
 
         enqueueNoteMutation(note, operation: .delete, timestamp: timestamp)
         enqueueNoteAssignmentTombstones(
             previousAssignments,
+            noteId: note.id,
+            timestamp: timestamp
+        )
+        enqueueNoteTagTombstones(
+            tagIds: previousTagIds,
             noteId: note.id,
             timestamp: timestamp
         )
@@ -83,7 +96,7 @@ final class SwiftDataNoteRepository: NoteRepository {
     // MARK: - Outbox
 
     private enum Constants {
-        static let changedFields = ["title", "content", "date", "period", "status"]
+        static let changedFields = ["title", "content", "date", "period", "status", "list_id"]
         static let assignmentChangedFields = ["period", "date", "status"]
     }
 
@@ -187,6 +200,50 @@ final class SwiftDataNoteRepository: NoteRepository {
         modelContext.insert(mutation)
     }
 
+    private func enqueueNoteTagMutations(
+        noteId: UUID,
+        previousTagIds: [UUID],
+        currentTagIds: [UUID],
+        timestamp: Date
+    ) {
+        let previousSet = Set(previousTagIds)
+        let currentSet = Set(currentTagIds)
+
+        for tagId in currentSet.subtracting(previousSet) {
+            guard let recordData = SyncSerializer.serializeNoteTag(
+                noteId: noteId, tagId: tagId, timestamp: timestamp
+            ) else { continue }
+            let mutation = DataModel.SyncMutation(
+                entityType: SyncEntityType.noteTag.rawValue,
+                entityId: UUID(),
+                operation: SyncOperation.create.rawValue,
+                recordData: recordData
+            )
+            modelContext.insert(mutation)
+        }
+
+        enqueueNoteTagTombstones(
+            tagIds: Array(previousSet.subtracting(currentSet)),
+            noteId: noteId,
+            timestamp: timestamp
+        )
+    }
+
+    private func enqueueNoteTagTombstones(tagIds: [UUID], noteId: UUID, timestamp: Date) {
+        for tagId in tagIds {
+            guard let recordData = SyncSerializer.serializeNoteTag(
+                noteId: noteId, tagId: tagId, timestamp: timestamp, deletedAt: timestamp
+            ) else { continue }
+            let mutation = DataModel.SyncMutation(
+                entityType: SyncEntityType.noteTag.rawValue,
+                entityId: UUID(),
+                operation: SyncOperation.delete.rawValue,
+                recordData: recordData
+            )
+            modelContext.insert(mutation)
+        }
+    }
+
     private func hasStoredNote(id: UUID) -> Bool {
         var descriptor = FetchDescriptor<DataModel.Note>(
             predicate: #Predicate { $0.id == id }
@@ -202,5 +259,14 @@ final class SwiftDataNoteRepository: NoteRepository {
         )
         descriptor.fetchLimit = 1
         return try? context.fetch(descriptor).first?.assignments
+    }
+
+    private func storedNoteTagIds(id: UUID) -> [UUID]? {
+        let context = ModelContext(modelContainer)
+        var descriptor = FetchDescriptor<DataModel.Note>(
+            predicate: #Predicate { $0.id == id }
+        )
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first?.tags.map(\.id)
     }
 }
