@@ -1,12 +1,12 @@
 # Task Browser
 
 > **Status**: Draft
-> **SPRD tasks**: SPRD-221, SPRD-222, SPRD-223, SPRD-224
+> **SPRD tasks**: SPRD-221, SPRD-222, SPRD-223, SPRD-224, SPRD-225
 > **Session**: SESH-21
 
 ## Overview
 
-The Task Browser is a dedicated tab that replaces the existing Search tab (SPRD-148). It provides a comprehensive view of all tasks across all spreads in one place, organized by lifecycle state and enriched with two new organizational fields — List and Tags — that allow users to group and filter tasks by domain ("Work", "Home") and project/theme ("EOY Presentation", "Baby Preparation"). The tab surfaces the full task lifecycle: Inbox tasks first, then open assigned tasks ordered chronologically by spread, then completed and cancelled tasks below ordered by when they were resolved.
+The Entries tab is a dedicated tab that replaces the existing Search tab (SPRD-148). It provides a comprehensive view of all tasks and notes across all spreads in one place. Content type is selected via a segmented control (Tasks / Notes). The Tasks view organizes entries by lifecycle state, enriched with two new organizational fields — List and Tags — that allow users to group and filter by domain ("Work", "Home") and project/theme ("EOY Presentation", "Baby Preparation"). Filter and sort controls adapt to the available horizontal space: on regular-width layouts (iPad in most orientations) they appear as a persistent trailing card; on compact-width layouts (iPhone, iPad Slide Over) they appear in a sheet.
 
 ---
 
@@ -22,11 +22,29 @@ The Task Browser is a dedicated tab that replaces the existing Search tab (SPRD-
 - A List name and Tag name must be non-empty strings, trimmed on save. [SPRD-221]
 - Intended semantics: a List is a broad domain grouping (e.g. "Work", "Home", "Personal"); a Tag is a specific project or theme (e.g. "Garage Reorganization", "Baby Preparation", "EOY Presentation"). A task belongs to at most one List but may have multiple Tags. [SPRD-221]
 
+### Entries Tab and Content Switcher
+
+- The tab that replaces the Search tab is labeled **"Entries"** with an appropriate SF Symbol icon. [SPRD-225]
+- A segmented control at the top of the tab switches between two content modes: **Tasks** and **Notes**. [SPRD-225]
+- The Tasks content mode displays the task list described in the Tasks Tab section below. [SPRD-225]
+- The Notes content mode displays all notes across all spreads, ordered by `createdDate` descending. [SPRD-225]
+- List and Tag filters apply only to the Tasks content mode; the Notes mode shows all notes with no filter controls. [SPRD-225]
+- The active search query applies in both content modes, filtering by title and body text. [SPRD-225]
+- The tab defaults to the Tasks content mode on first launch. The selected mode is not persisted between sessions. [SPRD-225]
+
+### Adaptive Filter and Sort Panel
+
+- In a **regular horizontal size class** layout (iPad in most orientations), filter and sort controls are displayed as a persistent card pinned to the trailing side of the layout, visible at all times alongside the entry list. [SPRD-225]
+- In a **compact horizontal size class** layout (iPhone, iPad Slide Over), filter and sort controls are accessed via a toolbar button that opens a sheet (existing SPRD-222 behavior). [SPRD-225]
+- The trailing card and the filter sheet expose the same controls: active List filter, active Tag filters, and sort order. [SPRD-225]
+- When the trailing card is visible (regular size class), the toolbar filter button is hidden. [SPRD-225]
+- The trailing card uses `horizontalSizeClass` from the SwiftUI environment — not `UIDevice.current.userInterfaceIdiom` — to determine its visibility. [SPRD-225]
+
 ### Tasks Tab
 
-- The Tasks tab replaces the Search tab in the tab bar. [SPRD-222]
-- The tab is labeled "Tasks" with an appropriate SF Symbol icon. [SPRD-222]
-- The tab uses `EntryList` for row rendering, consistent with spread entry lists. [SPRD-222]
+- The Tasks content mode (within the Entries tab) replaces the Search tab in the tab bar. [SPRD-222]
+- The content mode is labeled "Tasks" in the segmented control. [SPRD-225]
+- The Tasks content mode uses `EntryList` for row rendering, consistent with spread entry lists. [SPRD-222]
 - A `.searchable` search bar is embedded in the tab, filtering tasks by title and body text in real time. [SPRD-222]
 - The tab displays two sections: **Open** (top) and **Completed / Cancelled** (bottom). Neither section is collapsible. [SPRD-222]
 - The **Open** section orders tasks as follows: [SPRD-222]
@@ -128,6 +146,20 @@ The Task Browser is a dedicated tab that replaces the existing Search tab (SPRD-
 - **Decision**: The filter sheet includes a "Manage Lists & Tags" row at the bottom. Tapping it pushes the management navigation stack within the same sheet presentation.
 - **Rationale**: Logical grouping — the filter sheet is already where the user thinks about Lists and Tags. Adding management as a footer row there makes it discoverable without adding another toolbar button or ellipsis menu. Keeps the nav bar uncluttered.
 - **SPRD reference**: SPRD-223
+
+### Decision: Tab titled "Entries" with Tasks/Notes segmented control
+
+- **Context**: The original spec named this tab "Tasks" and showed only tasks. The user requested that notes also be accessible from this tab, with a switcher between content types.
+- **Decision**: The tab is titled "Entries". A segmented control (Tasks / Notes) at the top of the tab switches content modes. Filters apply only to Tasks mode; Notes mode shows all notes unfiltered.
+- **Rationale**: "Entries" is the correct umbrella term in the app's data model (tasks and notes are both `AssignableEntry`). The segmented control is the standard iOS pattern for switching between two closely related content types within a single tab. Keeping Notes filter-free for now avoids over-engineering a feature whose access patterns aren't yet understood.
+- **SPRD reference**: SPRD-225
+
+### Decision: Adaptive filter panel — trailing card on regular, sheet on compact
+
+- **Context**: Filter and sort controls need a home that scales across form factors. A sheet-only approach on iPad wastes available screen width and hides controls that should be persistently visible when space permits.
+- **Decision**: On regular horizontal size class, render a persistent trailing card alongside the entry list. On compact horizontal size class, retain the toolbar-button-plus-sheet pattern from SPRD-222. Both surfaces expose identical controls. Visibility is gated on `horizontalSizeClass`, not `UIDevice.current.userInterfaceIdiom`.
+- **Rationale**: A side-by-side card makes filtering a first-class affordance on larger screens — no tap required to see active filters. Compact screens can't afford the space, so the sheet is appropriate there. Using `horizontalSizeClass` rather than device idiom ensures the layout adapts correctly in Split View, Slide Over, and landscape iPhone — all cases where a hard iPad/iPhone check would give the wrong result.
+- **SPRD reference**: SPRD-225
 
 ### Decision: Maximum of 5 Tags per task
 
