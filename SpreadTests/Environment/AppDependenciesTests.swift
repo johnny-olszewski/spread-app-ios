@@ -147,7 +147,9 @@ struct AppDependenciesTests {
             eventRepositoryType: "MockEventRepository",
             noteRepositoryType: "TestNoteRepository",
             collectionRepositoryType: "EmptyCollectionRepository",
-            settingsRepositoryType: "EmptySettingsRepository"
+            settingsRepositoryType: "EmptySettingsRepository",
+            listRepositoryType: "EmptyListRepository",
+            tagRepositoryType: "EmptyTagRepository"
         )
 
         #expect(summary.shortTypeName(for: summary.taskRepositoryType) == "EmptyTask")
