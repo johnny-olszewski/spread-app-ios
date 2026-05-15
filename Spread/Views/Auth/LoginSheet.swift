@@ -54,7 +54,7 @@ struct LoginSheet: View {
             Form {
                 credentialsSection
                 validationSection
-                errorSection
+                verificationSection
                 linksSection
             }
             .overlay {
@@ -80,6 +80,14 @@ struct LoginSheet: View {
                 if newState.isSignedIn {
                     dismiss()
                 }
+            }
+            .alert("Error", isPresented: Binding(
+                get: { authManager.errorMessage != nil && !authManager.requiresEmailVerification },
+                set: { if !$0 { authManager.clearError() } }
+            )) {
+                Button("OK") { authManager.clearError() }
+            } message: {
+                Text(authManager.errorMessage ?? "")
             }
             .onDisappear {
                 authManager.clearError()
@@ -131,33 +139,27 @@ struct LoginSheet: View {
     }
 
     @ViewBuilder
-    private var errorSection: some View {
-        if let errorMessage = authManager.errorMessage {
+    private var verificationSection: some View {
+        if authManager.requiresEmailVerification {
             Section {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.callout)
-
-                if authManager.requiresEmailVerification {
-                    if resentEmail {
-                        Text("Verification email sent.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .accessibilityIdentifier(
-                                Definitions.AccessibilityIdentifiers.LoginSheet.verificationSentConfirmation
-                            )
-                    } else {
-                        Button("Resend verification email") {
-                            Task {
-                                try? await authManager.resendVerification(email: email)
-                                resentEmail = true
-                            }
-                        }
+                if resentEmail {
+                    Text("Verification email sent.")
                         .font(.callout)
+                        .foregroundStyle(.secondary)
                         .accessibilityIdentifier(
-                            Definitions.AccessibilityIdentifiers.LoginSheet.resendVerificationButton
+                            Definitions.AccessibilityIdentifiers.LoginSheet.verificationSentConfirmation
                         )
+                } else {
+                    Button("Resend verification email") {
+                        Task {
+                            try? await authManager.resendVerification(email: email)
+                            resentEmail = true
+                        }
                     }
+                    .font(.callout)
+                    .accessibilityIdentifier(
+                        Definitions.AccessibilityIdentifiers.LoginSheet.resendVerificationButton
+                    )
                 }
             }
         }
@@ -179,7 +181,7 @@ struct LoginSheet: View {
 
     private var loadingOverlay: some View {
         ZStack {
-            Color.black.opacity(0.2)
+            SpreadTheme.Overlay.dim
             ProgressView()
         }
         .ignoresSafeArea()
@@ -213,7 +215,7 @@ struct LoginSheet: View {
         }
         .overlay {
             ZStack {
-                Color.black.opacity(0.2)
+                SpreadTheme.Overlay.dim
                 ProgressView()
             }
             .ignoresSafeArea()

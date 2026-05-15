@@ -74,7 +74,6 @@ struct SignUpSheet: View {
                 } else {
                     fieldsSection
                     validationErrorsSection
-                    serverErrorSection
                 }
             }
             .overlay {
@@ -106,6 +105,14 @@ struct SignUpSheet: View {
                 if newState.isSignedIn {
                     dismiss()
                 }
+            }
+            .alert("Error", isPresented: Binding(
+                get: { authManager.errorMessage != nil },
+                set: { if !$0 { authManager.clearError() } }
+            )) {
+                Button("OK") { authManager.clearError() }
+            } message: {
+                Text(authManager.errorMessage ?? "")
             }
             .onDisappear {
                 authManager.clearError()
@@ -175,17 +182,6 @@ struct SignUpSheet: View {
         }
     }
 
-    @ViewBuilder
-    private var serverErrorSection: some View {
-        if let errorMessage = authManager.errorMessage {
-            Section {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.callout)
-            }
-        }
-    }
-
     // MARK: - Confirmation Sections
 
     private func confirmationSection(email: String) -> some View {
@@ -241,7 +237,7 @@ struct SignUpSheet: View {
 
     private var loadingOverlay: some View {
         ZStack {
-            Color.black.opacity(0.2)
+            SpreadTheme.Overlay.dim
             ProgressView()
         }
         .ignoresSafeArea()
@@ -275,7 +271,7 @@ struct SignUpSheet: View {
         }
         .overlay {
             ZStack {
-                Color.black.opacity(0.2)
+                SpreadTheme.Overlay.dim
                 ProgressView()
             }
             .ignoresSafeArea()

@@ -32,12 +32,8 @@ struct SpreadTitleNavigatorView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            navigatorTrigger
-            titleRegion
+            titleButton
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 52)
-        .secondaryPaperBackground()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.container)
         .spreadNavigatorPresentation(
             isPresented: $isShowingNavigator,
@@ -52,29 +48,11 @@ struct SpreadTitleNavigatorView: View {
         )
     }
 
-    private var navigatorTrigger: some View {
+    private var titleButton: some View {
         Button {
             isShowingNavigator = true
         } label: {
-            Image(systemName: "chevron.down")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color.secondary)
-                .frame(minWidth: 32, minHeight: 48)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .padding(.leading, 12)
-        .padding(.trailing, 8)
-        .accessibilityLabel("Open Spread Navigator")
-        .accessibilityHint("Shows all spreads in the rooted navigator.")
-        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.selectSpreadButton)
-    }
-
-    private var titleRegion: some View {
-        Button {
-            isShowingNavigator = true
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(barLabel.primary)
                     .font(.headline)
                     .lineLimit(1)
@@ -87,15 +65,18 @@ struct SpreadTitleNavigatorView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                 }
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator)
         .accessibilityLabel(
             barLabel.secondary.map { "\(barLabel.primary), \($0)" } ?? barLabel.primary
         )
+        .accessibilityHint("Opens spread navigator")
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadStrip.selectedIndicator)
     }
 }
 

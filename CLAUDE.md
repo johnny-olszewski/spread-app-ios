@@ -106,23 +106,45 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 - **Ask, don't assume**: When requirements are ambiguous or an architectural decision could go multiple ways (new protocols, new files, dependency patterns), ask for clarification before proceeding. Follow established patterns autonomously for routine implementation.
 - **Pros/cons for decisions**: When presenting options, provide pros and cons and a recommendation for each.
 
+## Session Workflow
+
+Sessions are the primary unit of work. A session branch (`feature/SESH-##`) bundles multiple related SPRD-## tasks completed over a short period (typically a few days). One PR is created per session branch. Tasks are distinguished within the branch by their commit messages.
+
+### Starting a Session
+
+1. Check git status — confirm you are on the correct `feature/SESH-##` branch, or create one.
+2. Read `Documentation/Specs/_index.md` to find the relevant per-feature spec file(s).
+3. Load the specific spec file for the active task — do not load the full `Documentation/spec.md` monolith.
+4. Read the task's `SPRD-##` block in `Documentation/plan.md` for acceptance criteria.
+5. Read `Documentation/backlog.md` only when reprioritizing or scoping new work.
+
+### Speccing a New Task with AI
+
+When the user has no ready task and wants to spec one out:
+1. User describes the feature idea in conversation.
+2. Read the relevant spec file(s) from `Documentation/Specs/` to understand current state and decisions.
+3. Draft spec additions or changes to the appropriate `Documentation/Specs/FeatureName.md`, following the template in `Documentation/Specs/_template.md`.
+4. Create a new `SPRD-##` block in `Documentation/plan.md` using the task template.
+5. Commit spec and plan changes on the current SESH branch as `[SESH-##][1/n] spec: FeatureName`.
+
 ## Task Workflow
 
-- Before starting a task, read its acceptance criteria in `plan.md`
+- Before starting a task, read its acceptance criteria in `Documentation/plan.md`
+- Load the spec file linked in the task's `Spec:` field from `Documentation/Specs/`
 - Check what's already implemented in the codebase against each AC
 - Flag gaps, ambiguities, or already-satisfied ACs before writing code
-- After completing a task, update its status in `plan.md`
+- After completing a task, update its status in `Documentation/plan.md`
 
 ## Git and Version Control
 
 - The priority for versioning, in addition to preventing bugs, should be to ease review by strategically making changes.
-- Tasks should begin by creating a branch for the specific task
-- Task branches should be named by their task number (e.g., `SPRD-42`)
-- Task branches should be prefixed by `/feature`
-- Strive to break changes into small logical commits. All changes per commit should be related. 
+- **Session branches** are the primary branch type: `feature/SESH-##` (incrementing integer, e.g. `feature/SESH-21`). They bundle multiple related SPRD-## tasks and result in one PR.
+- Task branches are not created per-task; tasks are completed on the active session branch.
+- Strive to break changes into small logical commits. All changes per commit should be related.
 - Commits should be stable.
-- Commit messages should follow the format: `[SPRD-#][#/n] brief message with high level change description`
-- ensure that commit message use 'n' explicitly because we don't know how many commits there will be in this branch
+- Commit messages follow the format: `[SPRD-#][#/n] brief message with high level change description`
+- Spec/plan-only commits that kick off a new task use the format: `[SESH-##][#/n] spec: FeatureName`
+- Use `n` explicitly in all commit messages — the total commit count is not known in advance
 
 ## Code Style Guide
 

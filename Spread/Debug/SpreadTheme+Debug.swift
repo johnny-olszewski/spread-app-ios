@@ -1,25 +1,11 @@
 #if DEBUG
 import SwiftUI
 
-extension SpreadTheme.Paper {
-    /// Returns the paper color, using debug overrides when available.
-    static var debugPrimary: Color {
-        DebugAppearanceSettings.shared.paperColor
-    }
-}
-
-extension SpreadTheme.Accent {
-    /// Returns the accent color, using debug overrides when available.
-    static var debugPrimary: Color {
-        DebugAppearanceSettings.shared.activeAccentColor
-    }
-}
-
 extension SpreadTheme.DotGrid {
-    /// Returns the dot color, using debug overrides when available.
+    /// Returns the dot color using the active palette accent at the debug-overridable opacity.
     static var debugDots: Color {
         let settings = DebugAppearanceSettings.shared
-        return settings.accentColor.color.opacity(settings.dotOpacity)
+        return SpreadTheme.Accent.primary.opacity(settings.dotOpacity)
     }
 }
 
@@ -40,10 +26,15 @@ extension DotGridConfiguration {
                 dotColor: .clear,
                 dotSize: 0,
                 dotSpacing: 20,
-                backgroundColor: settings.paperColor
+                backgroundColor: SpreadTheme.Paper.primary
             )
         }
-        return settings.dotGridConfiguration
+        return DotGridConfiguration(
+            dotColor: SpreadTheme.DotGrid.debugDots,
+            dotSize: settings.dotGridConfiguration.dotSize,
+            dotSpacing: settings.dotGridConfiguration.dotSpacing,
+            backgroundColor: SpreadTheme.Paper.primary
+        )
     }
 }
 #endif
