@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Available swipe actions for entry rows.
 enum EntryRowAction: Hashable, Sendable {
@@ -59,6 +60,9 @@ struct EntryRowConfiguration: Sendable {
     /// Computed by the caller based on spread context.
     let isEventPast: Bool
 
+    /// Tag chips shown inline with the title, one per assigned tag.
+    let tagChips: [(title: String, color: Color)]
+
     // MARK: - Initialization
 
     /// Creates an entry row configuration.
@@ -81,7 +85,8 @@ struct EntryRowConfiguration: Sendable {
         taskPriority: DataModel.Task.Priority = .none,
         taskDueDateLabel: String? = nil,
         isTaskDueDateHighlighted: Bool = false,
-        isEventPast: Bool = false
+        isEventPast: Bool = false,
+        tagChips: [(title: String, color: Color)] = []
     ) {
         self.entryType = entryType
         self.taskStatus = taskStatus
@@ -94,6 +99,7 @@ struct EntryRowConfiguration: Sendable {
         self.taskDueDateLabel = taskDueDateLabel
         self.isTaskDueDateHighlighted = isTaskDueDateHighlighted
         self.isEventPast = isEventPast
+        self.tagChips = tagChips
     }
 
     var hasTaskMetadata: Bool {
