@@ -5916,27 +5916,27 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-224] UI: List and Tags pickers in task and note create/edit sheets - [ ] Pending
+### [SPRD-224] UI: List and Tags pickers in task and note create/edit sheets - [x] Done
 
 - **Context**: The task create/edit sheet needs List and Tags pickers so users can assign organizational context when creating or editing a task. Note create/edit gets the same pickers for model parity even though Notes are not displayed in the Task Browser.
 - **Description**: Add a List picker (select one or none) and a Tags picker (select zero or more) to the task create/edit sheet. Add the same pickers to the note create/edit sheet. Both pickers allow inline creation of new Lists or Tags without leaving the sheet.
 - **Spec**: `Documentation/Specs/TaskBrowser.md` — List and Tags in Entry Create/Edit
 - **Acceptance Criteria**:
-  - The task create/edit sheet displays a List picker and a Tags picker in the metadata section, alongside body, priority, and due date.
-  - The note create/edit sheet displays the same List and Tags pickers.
-  - The List picker allows selecting one existing List, clearing the selection, or creating a new List by name.
-  - The Tags picker allows selecting zero or more existing Tags and creating new Tags by name.
-  - New List and Tag names created inline are trimmed and must be non-empty; empty names are rejected.
-  - List and Tags fields remain editable when a task is complete or cancelled, consistent with body, priority, and due date.
-  - The Tags picker enforces a maximum of 5 Tags per task; adding more is disabled with an inline message ("Maximum 5 tags") once the limit is reached.
-  - Pickers reflect any renames or deletions made in the management sheet without requiring the sheet to be dismissed and reopened.
+  - [x] The task create/edit sheet displays a List picker and a Tags picker in the metadata section, alongside body, priority, and due date.
+  - [x] The note create/edit sheet displays the same List and Tags pickers.
+  - [x] The List picker allows selecting one existing List, clearing the selection, or creating a new List by name.
+  - [x] The Tags picker allows selecting zero or more existing Tags and creating new Tags by name.
+  - [x] New List and Tag names created inline are trimmed and must be non-empty; empty names are rejected.
+  - [x] List and Tags fields remain editable when a task is complete or cancelled, consistent with body, priority, and due date.
+  - [x] The Tags picker enforces a maximum of 5 Tags per task; adding more is disabled with an inline message ("Maximum 5 tags") once the limit is reached.
+  - [x] Pickers reflect any renames or deletions made in the management sheet without requiring the sheet to be dismissed and reopened.
 - **Tests**:
-  - Unit test: saving a task with a selected List sets `task.list` to that List.
-  - Unit test: saving a task with selected Tags sets `task.tags` to those Tags.
-  - Unit test: creating a new List inline via the picker creates a `DataModel.List` and assigns it.
-  - Unit test: clearing the List picker sets `task.list` to nil.
-  - Unit test: List and Tags fields are still editable when task status is `.complete` or `.cancelled`.
-  - Unit test: attempting to add a 6th Tag to a task is rejected.
+  - [x] Unit test: saving a task with a selected List sets `task.list` to that List.
+  - [x] Unit test: saving a task with selected Tags sets `task.tags` to those Tags.
+  - [x] Unit test: creating a new List inline via the picker creates a `DataModel.List` and assigns it.
+  - [x] Unit test: clearing the List picker sets `task.list` to nil.
+  - [x] Unit test: List and Tags fields are still editable when task status is `.complete` or `.cancelled`.
+  - [x] Unit test: attempting to add a 6th Tag to a task is rejected.
 - **Dependencies**: SPRD-221
 
 ---
