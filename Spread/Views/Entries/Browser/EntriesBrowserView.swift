@@ -2,12 +2,13 @@ import SwiftUI
 
 /// The Entries tab — a cross-spread browser for all tasks and notes.
 ///
-/// Shows a Tasks/Notes segmented control at the top. Tasks mode displays two lifecycle
-/// sections (Open, Completed / Cancelled) with List and Tag filtering. Notes mode shows
-/// all notes ordered by `createdDate` descending with search only.
+/// Shows a Tasks/Notes segmented control pinned at the top via `safeAreaInset`. Tasks mode
+/// displays two lifecycle sections (Open, Completed / Cancelled) with List and Tag filtering.
+/// Notes mode shows all notes ordered by `createdDate` descending with search only.
 ///
-/// Adapts to horizontal size class: on regular width the filter panel appears as a
-/// persistent trailing card; on compact width it appears as a toolbar-button sheet.
+/// Adapts to horizontal size class: on regular width the filter panel appears as a persistent
+/// trailing card (styled to match the day spread timeline card); on compact width it appears
+/// as a toolbar-button sheet.
 struct EntriesBrowserView: View {
     let journalManager: JournalManager
     let listRepository: any ListRepository
@@ -17,7 +18,7 @@ struct EntriesBrowserView: View {
     @State private var viewModel = EntriesBrowserViewModel()
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    private var isRegular: Bool { horizontalSizeClass != .compact }
+    private var isRegular: Bool { horizontalSizeClass == .regular }
 
     private var taskSections: [TaskBrowserSection] {
         TaskBrowserSectionBuilder().build(
@@ -39,66 +40,35 @@ struct EntriesBrowserView: View {
     }
 
     var body: some View {
-        Group {
-            if isRegular {
-                regularLayout
-            } else {
-                compactLayout
+        contentList
+            .safeAreaInset(edge: .top, spacing: 0) {
+                segmentedControlBar
             }
-        }
-        .searchable(text: $viewModel.searchText, prompt: "Search entries")
-        .toolbar {
-            if !isRegular {
-                ToolbarItem(placement: .topBarTrailing) {
-                    filterToolbarButton
+            .safeAreaInset(edge: .trailing, spacing: 0) {
+                if isRegular { filterCard }
+            }
+            .searchable(text: $viewModel.searchText, prompt: "Search entries")
+            .toolbar {
+                if !isRegular {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        filterToolbarButton
+                    }
                 }
             }
-        }
-        .sheet(isPresented: $viewModel.isFilterSheetPresented) {
-            filterSheet
-        }
-        .task {
-            await viewModel.loadListsAndTags(
-                listRepository: listRepository,
-                tagRepository: tagRepository
-            )
-        }
-    }
-
-    // MARK: - Layouts
-
-    private var regularLayout: some View {
-        HStack(spacing: 0) {
-            mainContent
-            Divider()
-            EntriesFilterPanel(
-                lists: viewModel.lists,
-                tags: viewModel.tags,
-                selectedList: $viewModel.selectedList,
-                selectedTagIDs: $viewModel.selectedTagIDs
-            )
-            .frame(width: 280)
-        }
-    }
-
-    private var compactLayout: some View {
-        mainContent
-    }
-
-    // MARK: - Main Content
-
-    private var mainContent: some View {
-        VStack(spacing: 0) {
-            contentModePicker
-            Divider()
-            switch viewModel.contentMode {
-            case .tasks: taskList
-            case .notes: noteList
+            .sheet(isPresented: $viewModel.isFilterSheetPresented) {
+                filterSheet
             }
-        }
+            .task {
+                await viewModel.loadListsAndTags(
+                    listRepository: listRepository,
+                    tagRepository: tagRepository
+                )
+            }
     }
 
-    private var contentModePicker: some View {
+    // MARK: - Segmented Control Bar
+
+    private var segmentedControlBar: some View {
         Picker("Content", selection: $viewModel.contentMode) {
             Text("Tasks").tag(EntriesBrowserContentMode.tasks)
             Text("Notes").tag(EntriesBrowserContentMode.notes)
@@ -109,29 +79,44 @@ struct EntriesBrowserView: View {
         .background(.bar)
     }
 
-    // MARK: - Task List
+    // MARK: - Content List
 
-    private var taskList: some View {
+    private var contentList: some View {
         List {
-            ForEach(taskSections) { section in
-                Section(section.title) {
-                    if section.rows.isEmpty {
-                        emptyRow(for: section)
-                    } else {
-                        ForEach(section.rows) { row in
-                            Button {
-                                onOpenTask(row.task.id, nil)
-                            } label: {
-                                EntryRowView(task: row.task)
+            switch viewModel.contentMode {
+            case .tasks:
+                ForEach(taskSections) { section in
+                    Section(section.title) {
+                        if section.rows.isEmpty {
+                            emptyRow(for: section)
+                        } else {
+                            ForEach(section.rows) { row in
+                                Button {
+                                    onOpenTask(row.task.id, nil)
+                                } label: {
+                                    EntryRowView(task: row.task)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
+                    }
+                }
+            case .notes:
+                if filteredNotes.isEmpty {
+                    Text(viewModel.searchText.isEmpty ? "No notes" : "No results")
+                        .foregroundStyle(.secondary)
+                        .font(.subheadline)
+                } else {
+                    ForEach(filteredNotes) { note in
+                        EntryRowView(note: note)
                     }
                 }
             }
         }
         .listStyle(.insetGrouped)
     }
+
+    // MARK: - Task List Helpers
 
     private func emptyRow(for section: TaskBrowserSection) -> some View {
         Text(emptyMessage(for: section))
@@ -149,24 +134,35 @@ struct EntriesBrowserView: View {
         }
     }
 
-    // MARK: - Note List
+    // MARK: - Filter Card (Regular)
 
-    private var noteList: some View {
-        List {
-            if filteredNotes.isEmpty {
-                Text(viewModel.searchText.isEmpty ? "No notes" : "No results")
-                    .foregroundStyle(.secondary)
-                    .font(.subheadline)
-            } else {
-                ForEach(filteredNotes) { note in
-                    EntryRowView(note: note)
-                }
-            }
+    private var filterCard: some View {
+        ScrollView {
+            EntriesFilterPanel(
+                lists: viewModel.lists,
+                tags: viewModel.tags,
+                selectedList: $viewModel.selectedList,
+                selectedTagIDs: $viewModel.selectedTagIDs
+            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .listStyle(.insetGrouped)
+        .frame(width: 280)
+        .frame(maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color(uiColor: .separator).opacity(0.5), lineWidth: 0.5)
+        )
+        .padding(.leading, 8)
+        .padding(.trailing, 16)
+        .padding(.vertical, 12)
     }
 
-    // MARK: - Filter Controls
+    // MARK: - Filter Controls (Compact)
 
     private var filterToolbarButton: some View {
         Button {
