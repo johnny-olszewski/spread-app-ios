@@ -34,7 +34,7 @@ The Entries tab is a dedicated tab that replaces the existing Search tab (SPRD-1
 
 ### Adaptive Filter and Sort Panel
 
-- In a **regular horizontal size class** layout (iPad in most orientations), filter and sort controls are displayed as a persistent card pinned to the trailing side of the layout, visible at all times alongside the entry list. [SPRD-225]
+- In a **regular horizontal size class** layout (iPad in most orientations), filter and sort controls are displayed as a persistent card on the trailing side of the layout, visible at all times alongside the entry list in an `HStack`. The card occupies 3/10 of the container width via `containerRelativeFrame(.horizontal, count: 10, span: 3, spacing: 0)`. [SPRD-225]
 - In a **compact horizontal size class** layout (iPhone, iPad Slide Over), filter and sort controls are accessed via a toolbar button that opens a sheet (existing SPRD-222 behavior). [SPRD-225]
 - The trailing card and the filter sheet expose the same controls: active List filter, active Tag filters, and sort order. [SPRD-225]
 - When the trailing card is visible (regular size class), the toolbar filter button is hidden. [SPRD-225]
@@ -46,10 +46,10 @@ The Entries tab is a dedicated tab that replaces the existing Search tab (SPRD-1
 - The content mode is labeled "Tasks" in the segmented control. [SPRD-225]
 - The Tasks content mode uses `EntryList` for row rendering, consistent with spread entry lists. [SPRD-222]
 - A `.searchable` search bar is embedded in the tab, filtering tasks by title and body text in real time. [SPRD-222]
-- The tab displays two sections: **Open** (top) and **Completed / Cancelled** (bottom). Neither section is collapsible. [SPRD-222]
-- The **Open** section orders tasks as follows: [SPRD-222]
-  1. Inbox tasks (no preferred assignment) — ordered by `createdDate` ascending.
-  2. Assigned open tasks — ordered by preferred spread's normalized date ascending, with period as a tiebreaker (day before month before year within the same date), then by `createdDate` ascending within identical date+period.
+- The open tasks region is subdivided by assignment into **subsections**: an **Inbox** subsection (tasks with no preferred assignment) followed by one subsection per unique date+period combination. Neither the subsections nor the terminal section are collapsible. [SPRD-222]
+- The **Inbox** subsection orders tasks by `createdDate` ascending. It is only shown when there is at least one inbox task. [SPRD-222]
+- **Dated subsections** appear in ascending date order. Within a dated subsection, tasks are ordered by period tiebreaker (day before month before year) then `createdDate` ascending. Each subsection's header is the human-readable date for that period: "Today" / "Tomorrow" / absolute date for day-period tasks; "May 2026" style for month; "2026" style for year; absolute date for multiday. [SPRD-222]
+- The **Completed / Cancelled** section shows tasks with status `complete` or `cancelled`, ordered by the current assignment's `statusUpdatedAt` descending (most recently resolved first). Falls back to `createdDate` descending when `statusUpdatedAt` is nil. [SPRD-222]
 - The **Completed / Cancelled** section shows tasks with status `complete` or `cancelled`, ordered by the current assignment's `statusUpdatedAt` descending (most recently resolved first). Falls back to `createdDate` descending when `statusUpdatedAt` is nil. [SPRD-222]
 - The tab respects the active search query and active List/Tag filters simultaneously. [SPRD-222]
 
