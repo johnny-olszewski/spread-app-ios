@@ -535,6 +535,7 @@ struct SyncSerializerTests {
             "body": NSNull(),
             "priority": "none",
             "due_date": NSNull(),
+            "list_id": NSNull(),
             "date": "2025-03-15",
             "period": "day",
             "status": "open",
@@ -546,7 +547,8 @@ struct SyncSerializerTests {
             "status_updated_at": ts,
             "body_updated_at": ts,
             "priority_updated_at": ts,
-            "due_date_updated_at": ts
+            "due_date_updated_at": ts,
+            "list_updated_at": ts
         ]
         return try! JSONSerialization.data(withJSONObject: record)
     }
