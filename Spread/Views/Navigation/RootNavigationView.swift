@@ -50,14 +50,8 @@ struct RootNavigationView: View {
     private var rootTabView: some View {
         TabView(selection: $selectedTab) {
             ForEach(NavigationTab.allCases) { tab in
-                if tab == .search {
-                    Tab(tab.title, systemImage: tab.systemImage, value: tab, role: .search) {
-                        tabContent(for: tab)
-                    }
-                } else {
-                    Tab(tab.title, systemImage: tab.systemImage, value: tab) {
-                        tabContent(for: tab)
-                    }
+                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
+                    tabContent(for: tab)
                 }
             }
         }
@@ -70,10 +64,11 @@ struct RootNavigationView: View {
                 switch tab {
                 case .spreads:
                     spreadsView
-                case .search:
-                    TaskSearchView(
+                case .entries:
+                    EntriesBrowserView(
                         journalManager: journalManager,
-                        isActive: selectedTab == .search
+                        listRepository: dependencies.listRepository,
+                        tagRepository: dependencies.tagRepository
                     ) { taskID, selection in
                         openTaskFromSearch(taskID: taskID, selection: selection)
                     }
