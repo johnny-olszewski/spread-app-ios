@@ -25,7 +25,7 @@ struct EntriesBrowserView: View {
     private var isRegular: Bool { horizontalSizeClass == .regular }
 
     private var taskSections: [TaskBrowserSection] {
-        TaskBrowserSectionBuilder().build(
+        TaskBrowserSectionBuilder(calendar: journalManager.calendar, today: journalManager.today).build(
             tasks: journalManager.tasks,
             selectedList: viewModel.selectedList,
             selectedTagIDs: viewModel.selectedTagIDs,
@@ -44,33 +44,40 @@ struct EntriesBrowserView: View {
     }
 
     var body: some View {
-        contentList
-            .safeAreaInset(edge: .top, spacing: 0) {
-                segmentedControlBar
+        Group {
+            if isRegular {
+                HStack(alignment: .top, spacing: 0) {
+                    contentList
+                    filterCard
+                }
+            } else {
+                contentList
             }
-            .safeAreaInset(edge: .trailing, spacing: 0) {
-                if isRegular { filterCard }
-            }
-            .searchable(text: $viewModel.searchText, prompt: "Search entries")
-            .toolbar {
-                if !isRegular {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        filterToolbarButton
-                    }
+        }
+        .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            segmentedControlBar
+        }
+        .searchable(text: $viewModel.searchText, prompt: "Search entries")
+        .toolbar {
+            if !isRegular {
+                ToolbarItem(placement: .topBarTrailing) {
+                    filterToolbarButton
                 }
             }
-            .sheet(isPresented: $viewModel.isFilterSheetPresented, onDismiss: resetFilterNavPath) {
-                filterSheet
-            }
-            .sheet(isPresented: $viewModel.isManagementSheetPresented, onDismiss: resetManagementState) {
-                managementSheet
-            }
-            .task {
-                await viewModel.loadListsAndTags(
-                    listRepository: listRepository,
-                    tagRepository: tagRepository
-                )
-            }
+        }
+        .sheet(isPresented: $viewModel.isFilterSheetPresented, onDismiss: resetFilterNavPath) {
+            filterSheet
+        }
+        .sheet(isPresented: $viewModel.isManagementSheetPresented, onDismiss: resetManagementState) {
+            managementSheet
+        }
+        .task {
+            await viewModel.loadListsAndTags(
+                listRepository: listRepository,
+                tagRepository: tagRepository
+            )
+        }
     }
 
     // MARK: - Segmented Control Bar
@@ -83,7 +90,7 @@ struct EntriesBrowserView: View {
         .pickerStyle(.segmented)
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(.bar)
+        .background(Color(uiColor: .systemBackground))
     }
 
     // MARK: - Content List
@@ -96,14 +103,18 @@ struct EntriesBrowserView: View {
                     Section(section.title) {
                         if section.rows.isEmpty {
                             emptyRow(for: section)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                         } else {
                             ForEach(section.rows) { row in
-                                Button {
-                                    onOpenTask(row.task.id, nil)
-                                } label: {
-                                    EntryRowView(task: row.task)
-                                }
-                                .buttonStyle(.plain)
+                                EntryRowView(
+                                    task: row.task,
+                                    onEdit: { onOpenTask(row.task.id, nil) }
+                                )
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                             }
                         }
                     }
@@ -113,14 +124,19 @@ struct EntriesBrowserView: View {
                     Text(viewModel.searchText.isEmpty ? "No notes" : "No results")
                         .foregroundStyle(.secondary)
                         .font(.subheadline)
+                        .listRowBackground(Color.clear)
                 } else {
                     ForEach(filteredNotes) { note in
                         EntryRowView(note: note)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                     }
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
     }
 
     // MARK: - Task List Helpers
@@ -134,7 +150,7 @@ struct EntriesBrowserView: View {
     private func emptyMessage(for section: TaskBrowserSection) -> String {
         let hasFilters = viewModel.hasActiveFilters || !viewModel.searchText.isEmpty
         switch section.kind {
-        case .open:
+        case .inbox, .dated:
             return hasFilters ? "No open tasks match" : "No open tasks"
         case .terminal:
             return hasFilters ? "No completed tasks match" : "No completed tasks"
@@ -144,33 +160,31 @@ struct EntriesBrowserView: View {
     // MARK: - Filter Card (Regular)
 
     private var filterCard: some View {
-        ScrollView {
-            EntriesFilterPanel(
-                lists: viewModel.lists,
-                tags: viewModel.tags,
-                selectedList: $viewModel.selectedList,
-                selectedTagIDs: $viewModel.selectedTagIDs,
-                onManageLists: {
-                    viewModel.managementNavPath = [.lists]
-                    viewModel.isManagementSheetPresented = true
-                },
-                onManageTags: {
-                    viewModel.managementNavPath = [.tags]
-                    viewModel.isManagementSheetPresented = true
-                }
-            )
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-        }
-        .frame(width: 280)
+        EntriesFilterPanel(
+            lists: viewModel.lists,
+            tags: viewModel.tags,
+            selectedList: $viewModel.selectedList,
+            selectedTagIDs: $viewModel.selectedTagIDs,
+            onManageLists: {
+                viewModel.managementNavPath = [.lists]
+                viewModel.isManagementSheetPresented = true
+            },
+            onManageTags: {
+                viewModel.managementNavPath = [.tags]
+                viewModel.isManagementSheetPresented = true
+            },
+            onCreateList: { name in try await createList(name: name) },
+            onCreateTag: { name in try await createTag(name: name) }
+        )
+        .containerRelativeFrame(.horizontal, count: 10, span: 3, spacing: 0)
         .frame(maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemBackground))
+                .fill(SpreadTheme.Paper.primary.opacity(0.6))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color(uiColor: .separator).opacity(0.5), lineWidth: 0.5)
+                .strokeBorder(Color.secondary.opacity(0.12), lineWidth: 1)
         )
         .padding(.leading, 8)
         .padding(.trailing, 16)
@@ -198,7 +212,9 @@ struct EntriesBrowserView: View {
                 selectedList: $viewModel.selectedList,
                 selectedTagIDs: $viewModel.selectedTagIDs,
                 onManageLists: { viewModel.managementNavPath.append(.lists) },
-                onManageTags: { viewModel.managementNavPath.append(.tags) }
+                onManageTags: { viewModel.managementNavPath.append(.tags) },
+                onCreateList: { name in try await createList(name: name) },
+                onCreateTag: { name in try await createTag(name: name) }
             )
             .navigationTitle("Filter")
             .navigationBarTitleDisplayMode(.inline)
@@ -230,7 +246,9 @@ struct EntriesBrowserView: View {
                 selectedList: $viewModel.selectedList,
                 selectedTagIDs: $viewModel.selectedTagIDs,
                 onManageLists: { viewModel.managementNavPath.append(.lists) },
-                onManageTags: { viewModel.managementNavPath.append(.tags) }
+                onManageTags: { viewModel.managementNavPath.append(.tags) },
+                onCreateList: { name in try await createList(name: name) },
+                onCreateTag: { name in try await createTag(name: name) }
             )
             .navigationTitle("Filter")
             .navigationBarTitleDisplayMode(.inline)
@@ -281,6 +299,16 @@ struct EntriesBrowserView: View {
 
     private func resetManagementState() {
         viewModel.managementNavPath = []
+    }
+
+    private func createList(name: String) async throws {
+        _ = try await journalManager.createList(name: name)
+        await viewModel.refreshListsAndTags(listRepository: listRepository, tagRepository: tagRepository)
+    }
+
+    private func createTag(name: String) async throws {
+        _ = try await journalManager.createTag(name: name)
+        await viewModel.refreshListsAndTags(listRepository: listRepository, tagRepository: tagRepository)
     }
 }
 

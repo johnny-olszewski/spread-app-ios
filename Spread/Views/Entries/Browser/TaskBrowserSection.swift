@@ -3,21 +3,26 @@ import Foundation
 /// A section in the task browser list view.
 struct TaskBrowserSection: Identifiable {
 
-    /// Distinguishes the two lifecycle sections.
-    enum Kind: String {
-        case open
+    /// Distinguishes lifecycle sections. Open tasks are split into subsections by assignment.
+    enum Kind {
+        /// Open tasks with no preferred assignment.
+        case inbox
+        /// Open tasks assigned to a specific date and period.
+        case dated(Date, Period)
+        /// Completed or cancelled tasks.
         case terminal
     }
 
     let kind: Kind
+    /// Display title pre-computed by `TaskBrowserSectionBuilder`.
+    let title: String
     let rows: [TaskBrowserRow]
 
-    var id: String { kind.rawValue }
-
-    var title: String {
+    var id: String {
         switch kind {
-        case .open: "Open"
-        case .terminal: "Completed / Cancelled"
+        case .inbox: "inbox"
+        case let .dated(date, period): "\(date.timeIntervalSinceReferenceDate)-\(period.rawValue)"
+        case .terminal: "terminal"
         }
     }
 }

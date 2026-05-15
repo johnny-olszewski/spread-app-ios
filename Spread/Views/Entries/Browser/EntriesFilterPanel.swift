@@ -3,7 +3,8 @@ import SwiftUI
 /// Filter controls shared between the compact filter sheet and the regular trailing card.
 ///
 /// Exposes a Lists section (select one or none, with "Manage Lists" nav action) and a Tags
-/// section (multi-select OR, with "Manage Tags" nav action).
+/// section (multi-select OR, with "Manage Tags" nav action). Inline creation is supported
+/// when `onCreateList` or `onCreateTag` callbacks are provided.
 struct EntriesFilterPanel: View {
     let lists: [DataModel.List]
     let tags: [DataModel.Tag]
@@ -11,21 +12,41 @@ struct EntriesFilterPanel: View {
     @Binding var selectedTagIDs: Set<UUID>
     var onManageLists: (() -> Void)?
     var onManageTags: (() -> Void)?
+    var onCreateList: ((String) async throws -> Void)?
+    var onCreateTag: ((String) async throws -> Void)?
+
+    @State private var isCreatingList = false
+    @State private var newListName = ""
+    @State private var isCreatingTag = false
+    @State private var newTagName = ""
 
     var body: some View {
-        List {
-            listSection
-            tagSection
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                listSection
+                sectionDivider
+                tagSection
+            }
+            .padding(16)
         }
-        .listStyle(.insetGrouped)
+        .alert("New List", isPresented: $isCreatingList) {
+            TextField("List name", text: $newListName)
+            Button("Create") { createList() }
+            Button("Cancel", role: .cancel) { newListName = "" }
+        }
+        .alert("New Tag", isPresented: $isCreatingTag) {
+            TextField("Tag name", text: $newTagName)
+            Button("Create") { createTag() }
+            Button("Cancel", role: .cancel) { newTagName = "" }
+        }
     }
 
     // MARK: - Sections
 
-    @ViewBuilder
     private var listSection: some View {
-        Section("Lists") {
-            filterRow(title: "All Lists", isSelected: selectedList == nil) {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Lists")
+            filterRow(title: "All", isSelected: selectedList == nil) {
                 selectedList = nil
             }
             ForEach(lists) { list in
@@ -33,16 +54,21 @@ struct EntriesFilterPanel: View {
                     selectedList = selectedList?.id == list.id ? nil : list
                 }
             }
-            manageButton(title: "Manage Lists", action: onManageLists)
+            if onCreateList != nil {
+                actionRow(title: "New List…") { isCreatingList = true }
+            }
+            actionRow(title: "Manage Lists", trailing: chevron, action: onManageLists)
         }
     }
 
-    @ViewBuilder
     private var tagSection: some View {
-        Section("Tags") {
+        VStack(alignment: .leading, spacing: 0) {
+            sectionHeader("Tags")
             if tags.isEmpty {
                 Text("No tags")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .padding(.vertical, 8)
             } else {
                 ForEach(tags) { tag in
                     filterRow(title: tag.name, isSelected: selectedTagIDs.contains(tag.id)) {
@@ -54,40 +80,80 @@ struct EntriesFilterPanel: View {
                     }
                 }
             }
-            manageButton(title: "Manage Tags", action: onManageTags)
+            if onCreateTag != nil {
+                actionRow(title: "New Tag…") { isCreatingTag = true }
+            }
+            actionRow(title: "Manage Tags", trailing: chevron, action: onManageTags)
         }
     }
 
     // MARK: - Row Builders
 
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.bottom, 6)
+    }
+
     private func filterRow(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
                 Text(title)
+                    .font(.subheadline)
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark")
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.tint)
                 }
             }
+            .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
     }
 
-    private func manageButton(title: String, action: (() -> Void)?) -> some View {
+    private func actionRow(title: String, trailing: (some View)? = Optional<EmptyView>.none, action: (() -> Void)?) -> some View {
         Button {
             action?()
         } label: {
             HStack {
                 Text(title)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(.tertiary)
-                    .font(.footnote.weight(.semibold))
+                trailing
             }
+            .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
+    }
+
+    private var chevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.tertiary)
+    }
+
+    private var sectionDivider: some View {
+        Divider()
+            .padding(.vertical, 8)
+    }
+
+    // MARK: - Actions
+
+    private func createList() {
+        let name = newListName.trimmingCharacters(in: .whitespacesAndNewlines)
+        newListName = ""
+        guard !name.isEmpty else { return }
+        Task { try? await onCreateList?(name) }
+    }
+
+    private func createTag() {
+        let name = newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
+        newTagName = ""
+        guard !name.isEmpty else { return }
+        Task { try? await onCreateTag?(name) }
     }
 }
 
