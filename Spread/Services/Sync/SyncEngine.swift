@@ -404,6 +404,8 @@ final class SyncEngine {
     }
 
     private func pullTable(_ entityType: SyncEntityType, userId: UUID) async throws {
+        guard entityType.supportsRevisionPull else { return }
+
         let context = modelContainer.mainContext
         let cursor = fetchOrCreateCursor(for: entityType, context: context)
         var lastRevision = cursor.lastRevision

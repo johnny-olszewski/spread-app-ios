@@ -45,6 +45,17 @@ enum SyncEntityType: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    /// Whether this entity type supports the server-side `revision` column used for incremental pull.
+    ///
+    /// Join tables (`task_tags`, `note_tags`) use a compound PK and do not have a `revision`
+    /// column — they are push-only until pull is implemented for them.
+    var supportsRevisionPull: Bool {
+        switch self {
+        case .taskTag, .noteTag: false
+        default: true
+        }
+    }
+
     /// All entity types ordered for push/pull (parents first).
     static var ordered: [SyncEntityType] {
         allCases.sorted { $0.syncOrder < $1.syncOrder }
