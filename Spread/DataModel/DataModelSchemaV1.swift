@@ -3,8 +3,7 @@ import SwiftData
 
 /// Version 1.0.0 of the data model schema.
 ///
-/// Contains all @Model classes for the Spread app. Future schema versions
-/// will be added as separate VersionedSchema types with migration stages.
+/// Contains all @Model classes for the Spread app.
 enum DataModelSchemaV1: VersionedSchema {
     static var versionIdentifier: Schema.Version {
         Schema.Version(1, 0, 0)
@@ -20,7 +19,9 @@ enum DataModelSchemaV1: VersionedSchema {
             Settings.self,
             SyncMutation.self,
             SyncCursor.self,
-            SyncRepairMarker.self
+            SyncRepairMarker.self,
+            List.self,
+            Tag.self,
         ]
     }
 
@@ -345,6 +346,12 @@ enum DataModelSchemaV1: VersionedSchema {
         /// Assignment history for this task across spreads.
         var assignments: [TaskAssignment]
 
+        /// The optional list this task belongs to (at most one).
+        var list: DataModelSchemaV1.List?
+
+        /// The tags applied to this task (zero or more).
+        var tags: [DataModelSchemaV1.Tag]
+
         /// The type of entry.
         var entryType: EntryType { .task }
 
@@ -380,6 +387,9 @@ enum DataModelSchemaV1: VersionedSchema {
         /// LWW timestamp for the `dueDate` field.
         var dueDateUpdatedAt: Date?
 
+        /// LWW timestamp for the `list` relationship field.
+        var listUpdatedAt: Date?
+
         /// Creates a new task.
         ///
         /// - Parameters:
@@ -402,6 +412,8 @@ enum DataModelSchemaV1: VersionedSchema {
             hasPreferredAssignment: Bool = true,
             status: Status = .open,
             assignments: [TaskAssignment] = [],
+            list: DataModelSchemaV1.List? = nil,
+            tags: [DataModelSchemaV1.Tag] = [],
             deletedAt: Date? = nil,
             deviceId: UUID? = nil,
             revision: Int64 = 0,
@@ -411,7 +423,8 @@ enum DataModelSchemaV1: VersionedSchema {
             statusUpdatedAt: Date? = nil,
             bodyUpdatedAt: Date? = nil,
             priorityUpdatedAt: Date? = nil,
-            dueDateUpdatedAt: Date? = nil
+            dueDateUpdatedAt: Date? = nil,
+            listUpdatedAt: Date? = nil
         ) {
             self.id = id
             self.title = title
@@ -424,6 +437,8 @@ enum DataModelSchemaV1: VersionedSchema {
             self.storedHasPreferredAssignment = hasPreferredAssignment
             self.status = status
             self.assignments = assignments
+            self.list = list
+            self.tags = tags
             self.deletedAt = deletedAt
             self.deviceId = deviceId
             self.revision = revision
@@ -434,6 +449,7 @@ enum DataModelSchemaV1: VersionedSchema {
             self.bodyUpdatedAt = bodyUpdatedAt
             self.priorityUpdatedAt = priorityUpdatedAt
             self.dueDateUpdatedAt = dueDateUpdatedAt
+            self.listUpdatedAt = listUpdatedAt
         }
     }
 
@@ -635,6 +651,12 @@ enum DataModelSchemaV1: VersionedSchema {
         /// Assignment history for this note across spreads.
         var assignments: [NoteAssignment]
 
+        /// The optional list this note belongs to (at most one).
+        var list: DataModelSchemaV1.List?
+
+        /// The tags applied to this note (zero or more).
+        var tags: [DataModelSchemaV1.Tag]
+
         /// The type of entry.
         var entryType: EntryType { .note }
 
@@ -664,6 +686,9 @@ enum DataModelSchemaV1: VersionedSchema {
         /// LWW timestamp for the `status` field.
         var statusUpdatedAt: Date?
 
+        /// LWW timestamp for the `list` relationship field.
+        var listUpdatedAt: Date?
+
         /// Creates a new note.
         ///
         /// - Parameters:
@@ -684,6 +709,8 @@ enum DataModelSchemaV1: VersionedSchema {
             period: Period = .day,
             status: Status = .active,
             assignments: [NoteAssignment] = [],
+            list: DataModelSchemaV1.List? = nil,
+            tags: [DataModelSchemaV1.Tag] = [],
             deletedAt: Date? = nil,
             deviceId: UUID? = nil,
             revision: Int64 = 0,
@@ -691,7 +718,8 @@ enum DataModelSchemaV1: VersionedSchema {
             contentUpdatedAt: Date? = nil,
             dateUpdatedAt: Date? = nil,
             periodUpdatedAt: Date? = nil,
-            statusUpdatedAt: Date? = nil
+            statusUpdatedAt: Date? = nil,
+            listUpdatedAt: Date? = nil
         ) {
             self.id = id
             self.title = title
@@ -701,6 +729,8 @@ enum DataModelSchemaV1: VersionedSchema {
             self.period = period
             self.status = status
             self.assignments = assignments
+            self.list = list
+            self.tags = tags
             self.deletedAt = deletedAt
             self.deviceId = deviceId
             self.revision = revision
@@ -709,6 +739,7 @@ enum DataModelSchemaV1: VersionedSchema {
             self.dateUpdatedAt = dateUpdatedAt
             self.periodUpdatedAt = periodUpdatedAt
             self.statusUpdatedAt = statusUpdatedAt
+            self.listUpdatedAt = listUpdatedAt
         }
     }
 
@@ -850,6 +881,142 @@ enum DataModelSchemaV1: VersionedSchema {
             self.revision = revision
             self.bujoModeUpdatedAt = bujoModeUpdatedAt
             self.firstWeekdayUpdatedAt = firstWeekdayUpdatedAt
+        }
+    }
+
+    // MARK: - List Model
+
+    /// A broad domain grouping for tasks and notes (e.g. "Work", "Home", "Personal").
+    ///
+    /// A task or note belongs to at most one List. List is a one-to-many relationship:
+    /// one List → many Tasks or Notes.
+    @Model
+    final class List {
+        /// Unique identifier for the list.
+        @Attribute(.unique) var id: UUID
+
+        /// The display name of the list. Must be non-empty and trimmed before saving.
+        var name: String
+
+        /// The date this list was created.
+        var createdDate: Date
+
+        /// Tasks belonging to this list.
+        @Relationship(deleteRule: .nullify, inverse: \DataModelSchemaV1.Task.list)
+        var tasks: [DataModelSchemaV1.Task]
+
+        /// Notes belonging to this list.
+        @Relationship(deleteRule: .nullify, inverse: \DataModelSchemaV1.Note.list)
+        var notes: [DataModelSchemaV1.Note]
+
+        // MARK: Sync Metadata
+
+        /// Soft delete timestamp. Nil means the record is active.
+        var deletedAt: Date?
+
+        /// The device that last modified this record.
+        var deviceId: UUID?
+
+        /// Monotonic version for incremental sync.
+        var revision: Int64
+
+        /// LWW timestamp for the `name` field.
+        var nameUpdatedAt: Date?
+
+        /// Creates a new list.
+        ///
+        /// - Parameters:
+        ///   - id: Unique identifier (defaults to new UUID).
+        ///   - name: The list name (should be non-empty and trimmed by the caller).
+        ///   - createdDate: When the list was created (defaults to now).
+        init(
+            id: UUID = UUID(),
+            name: String,
+            createdDate: Date = .now,
+            tasks: [DataModelSchemaV1.Task] = [],
+            notes: [DataModelSchemaV1.Note] = [],
+            deletedAt: Date? = nil,
+            deviceId: UUID? = nil,
+            revision: Int64 = 0,
+            nameUpdatedAt: Date? = nil
+        ) {
+            self.id = id
+            self.name = name
+            self.createdDate = createdDate
+            self.tasks = tasks
+            self.notes = notes
+            self.deletedAt = deletedAt
+            self.deviceId = deviceId
+            self.revision = revision
+            self.nameUpdatedAt = nameUpdatedAt
+        }
+    }
+
+    // MARK: - Tag Model
+
+    /// A specific project or theme label for tasks and notes
+    /// (e.g. "Baby Preparation", "EOY Presentation", "Garage Reorganization").
+    ///
+    /// A task or note may have zero or more Tags. Tag is a many-to-many relationship.
+    @Model
+    final class Tag {
+        /// Unique identifier for the tag.
+        @Attribute(.unique) var id: UUID
+
+        /// The display name of the tag. Must be non-empty and trimmed before saving.
+        var name: String
+
+        /// The date this tag was created.
+        var createdDate: Date
+
+        /// Tasks that have this tag applied.
+        @Relationship(deleteRule: .nullify, inverse: \DataModelSchemaV1.Task.tags)
+        var tasks: [DataModelSchemaV1.Task]
+
+        /// Notes that have this tag applied.
+        @Relationship(deleteRule: .nullify, inverse: \DataModelSchemaV1.Note.tags)
+        var notes: [DataModelSchemaV1.Note]
+
+        // MARK: Sync Metadata
+
+        /// Soft delete timestamp. Nil means the record is active.
+        var deletedAt: Date?
+
+        /// The device that last modified this record.
+        var deviceId: UUID?
+
+        /// Monotonic version for incremental sync.
+        var revision: Int64
+
+        /// LWW timestamp for the `name` field.
+        var nameUpdatedAt: Date?
+
+        /// Creates a new tag.
+        ///
+        /// - Parameters:
+        ///   - id: Unique identifier (defaults to new UUID).
+        ///   - name: The tag name (should be non-empty and trimmed by the caller).
+        ///   - createdDate: When the tag was created (defaults to now).
+        init(
+            id: UUID = UUID(),
+            name: String,
+            createdDate: Date = .now,
+            tasks: [DataModelSchemaV1.Task] = [],
+            notes: [DataModelSchemaV1.Note] = [],
+            deletedAt: Date? = nil,
+            deviceId: UUID? = nil,
+            revision: Int64 = 0,
+            nameUpdatedAt: Date? = nil
+        ) {
+            self.id = id
+            self.name = name
+            self.createdDate = createdDate
+            self.tasks = tasks
+            self.notes = notes
+            self.deletedAt = deletedAt
+            self.deviceId = deviceId
+            self.revision = revision
+            self.nameUpdatedAt = nameUpdatedAt
         }
     }
 }

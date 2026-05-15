@@ -20,7 +20,6 @@ enum ModelContainerFactory {
         )
         return try ModelContainer(
             for: schema,
-            migrationPlan: DataModelMigrationPlan.self,
             configurations: [configuration]
         )
     }
@@ -38,7 +37,6 @@ enum ModelContainerFactory {
         )
         return try ModelContainer(
             for: schema,
-            migrationPlan: DataModelMigrationPlan.self,
             configurations: [configuration]
         )
     }
