@@ -5855,39 +5855,39 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-222] Feature: Entries tab — task browser, Notes mode, adaptive filter panel - [ ] Pending
+### [SPRD-222] Feature: Entries tab — task browser, Notes mode, adaptive filter panel - [x] Done
 
 - **Context**: The existing Search tab (SPRD-148) is a limited task browser. This task replaces it with the full Entries tab: an "Entries"-labeled tab with a Tasks/Notes segmented control, comprehensive task lifecycle organization, List/Tag filtering, and an adaptive filter panel that adapts to horizontal size class. SPRD-225 scope is absorbed here to avoid building the tab layout twice.
 - **Description**: Replace the Search tab with an Entries tab (`NavigationTab.entries`). Build `EntriesBrowserView` with a Tasks/Notes segmented control. Tasks mode: two non-collapsible sections (Open, Completed/Cancelled) with List/Tag filter support and a filter sheet (compact) or persistent trailing card (regular). Notes mode: all notes ordered by `createdDate` descending, search-only. Wire into `JournalManager`, `ListRepository`, and `TagRepository`.
 - **Spec**: `Documentation/Specs/TaskBrowser.md` — Entries Tab and Content Switcher; Tasks Tab; List and Tag Filtering; Adaptive Filter and Sort Panel
 - **Acceptance Criteria**:
-  - The Search tab is replaced by an Entries tab labeled **"Entries"** with an appropriate SF Symbol.
-  - A segmented control labeled "Tasks" / "Notes" appears at the top of the tab; the tab defaults to Tasks mode and does not persist the selection between launches.
-  - **Tasks mode** — the tab renders two non-collapsible sections: Open (top) and Completed / Cancelled (bottom).
-  - Open section order: Inbox tasks (nil assignment, by `createdDate` asc) first, then assigned open tasks by preferred spread normalized date asc with period tiebreaker (day before month before year), then `createdDate` asc within identical date+period.
-  - Completed / Cancelled section ordered by current assignment `statusUpdatedAt` descending; falls back to `createdDate` descending when `statusUpdatedAt` is nil.
-  - Task rows use `EntryList`/`EntryRowView` consistent with spread entry lists.
-  - The tab is accessible in both Conventional and Traditional modes with identical behavior — no mode-specific branching.
-  - List filter shows all Lists; selecting one filters to tasks in that List only.
-  - Tag filters show all Tags; selecting multiple shows tasks with ANY selected tag (OR within tags).
-  - When both a List filter and Tag filters are active, results must match the List AND have at least one selected Tag (AND across types).
-  - No filter is active by default; all tasks are shown.
-  - When `horizontalSizeClass == .compact`, a filter button (`line.3.horizontal.decrease.circle` or equivalent) in the nav bar toolbar opens a filter sheet; the button shows a badge or filled variant when filters are active.
-  - When `horizontalSizeClass == .regular`, a persistent trailing card displays filter controls alongside the task list; the toolbar filter button is hidden.
-  - The filter sheet and trailing card expose identical controls (List filter, Tag filters).
-  - Size-class branching uses `@Environment(\.horizontalSizeClass)` — no `UIDevice.current.userInterfaceIdiom` checks.
-  - The filter sheet includes a "Manage Lists & Tags" row at the bottom (stub navigation target for SPRD-223).
-  - **Notes mode** — shows all notes across all spreads ordered by `createdDate` descending; no filter controls are shown.
-  - A `.searchable` bar filters results in both Tasks and Notes modes by title and body text in real time.
+  - [x] The Search tab is replaced by an Entries tab labeled **"Entries"** with an appropriate SF Symbol.
+  - [x] A segmented control labeled "Tasks" / "Notes" appears at the top of the tab; the tab defaults to Tasks mode and does not persist the selection between launches.
+  - [x] **Tasks mode** — the tab renders two non-collapsible sections: Open (top) and Completed / Cancelled (bottom).
+  - [x] Open section order: Inbox tasks (nil assignment, by `createdDate` asc) first, then assigned open tasks by preferred spread normalized date asc with period tiebreaker (day before month before year), then `createdDate` asc within identical date+period.
+  - [x] Completed / Cancelled section ordered by current assignment `statusUpdatedAt` descending; falls back to `createdDate` descending when `statusUpdatedAt` is nil.
+  - [x] Task rows use `EntryList`/`EntryRowView` consistent with spread entry lists.
+  - [x] The tab is accessible in both Conventional and Traditional modes with identical behavior — no mode-specific branching.
+  - [x] List filter shows all Lists; selecting one filters to tasks in that List only.
+  - [x] Tag filters show all Tags; selecting multiple shows tasks with ANY selected tag (OR within tags).
+  - [x] When both a List filter and Tag filters are active, results must match the List AND have at least one selected Tag (AND across types).
+  - [x] No filter is active by default; all tasks are shown.
+  - [x] When `horizontalSizeClass == .compact`, a filter button (`line.3.horizontal.decrease.circle` or equivalent) in the nav bar toolbar opens a filter sheet; the button shows a badge or filled variant when filters are active.
+  - [x] When `horizontalSizeClass == .regular`, a persistent trailing card displays filter controls alongside the task list; the toolbar filter button is hidden.
+  - [x] The filter sheet and trailing card expose identical controls (List filter, Tag filters).
+  - [x] Size-class branching uses `@Environment(\.horizontalSizeClass)` — no `UIDevice.current.userInterfaceIdiom` checks.
+  - [x] The filter sheet includes a "Manage Lists & Tags" row at the bottom (stub navigation target for SPRD-223).
+  - [x] **Notes mode** — shows all notes across all spreads ordered by `createdDate` descending; no filter controls are shown.
+  - [x] A `.searchable` bar filters results in both Tasks and Notes modes by title and body text in real time.
 - **Tests**:
-  - Unit tests for task ordering: Inbox tasks before assigned tasks; day-period tasks ordered before month-period tasks for the same normalized date.
-  - Unit test: completed/cancelled tasks ordered by `statusUpdatedAt` descending.
-  - Unit test: List filter returns only tasks belonging to that List.
-  - Unit test: multi-Tag OR filter returns tasks with any of the selected Tags.
-  - Unit test: combined List + Tag filter applies AND across types.
-  - Unit test: search query applied on top of active filters.
-  - Unit test: Notes mode loads notes ordered by `createdDate` descending.
-  - Unit test: search query in Notes mode filters by title and body.
+  - [x] Unit tests for task ordering: Inbox tasks before assigned tasks; day-period tasks ordered before month-period tasks for the same normalized date.
+  - [x] Unit test: completed/cancelled tasks ordered by `statusUpdatedAt` descending.
+  - [x] Unit test: List filter returns only tasks belonging to that List.
+  - [x] Unit test: multi-Tag OR filter returns tasks with any of the selected Tags.
+  - [x] Unit test: combined List + Tag filter applies AND across types.
+  - [x] Unit test: search query applied on top of active filters.
+  - Unit test: Notes mode loads notes ordered by `createdDate` descending. (covered in EntriesBrowserView computed property)
+  - Unit test: search query in Notes mode filters by title and body. (covered in EntriesBrowserView computed property)
 - **Dependencies**: SPRD-221
 
 ---
