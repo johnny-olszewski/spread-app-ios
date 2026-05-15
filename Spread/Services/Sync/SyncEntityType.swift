@@ -34,14 +34,15 @@ enum SyncEntityType: String, CaseIterable, Codable, Sendable {
 
     /// Push/pull ordering priority (lower = pushed first).
     ///
-    /// Settings and spreads go first (no dependencies), then standalone
-    /// entities (including List and Tag which tasks depend on), then
-    /// join rows and assignments (depend on parent entities).
+    /// Settings and spreads go first (no dependencies). Lists and tags come
+    /// next because tasks and notes hold FK references to them. Tasks, notes,
+    /// and collections follow. Join rows and assignments come last.
     var syncOrder: Int {
         switch self {
         case .settings, .spread: 0
-        case .task, .note, .collection, .list, .tag: 1
-        case .taskAssignment, .noteAssignment, .taskTag, .noteTag: 2
+        case .list, .tag: 1
+        case .task, .note, .collection: 2
+        case .taskAssignment, .noteAssignment, .taskTag, .noteTag: 3
         }
     }
 
