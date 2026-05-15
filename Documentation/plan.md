@@ -5855,33 +5855,39 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-222] Feature: Tasks tab — open/terminal sections, embedded search, List/Tag filter chips - [ ] Pending
+### [SPRD-222] Feature: Entries tab — task browser, Notes mode, adaptive filter panel - [ ] Pending
 
-- **Context**: The existing Search tab (SPRD-148) is a limited task browser. This task replaces it with a full-featured Tasks tab: comprehensive lifecycle organization, embedded search, and List/Tag filtering.
-- **Description**: Replace the Search tab with a Tasks tab. Build `TaskBrowserView` with two non-collapsible sections (Open, Completed/Cancelled), ordered per the spec. Embed a `.searchable` modifier filtering by title and body. Add List and Tag filter chips. Wire into the existing `JournalManager` data layer.
-- **Spec**: `Documentation/Specs/TaskBrowser.md` — Tasks Tab; List and Tag Filtering
+- **Context**: The existing Search tab (SPRD-148) is a limited task browser. This task replaces it with the full Entries tab: an "Entries"-labeled tab with a Tasks/Notes segmented control, comprehensive task lifecycle organization, List/Tag filtering, and an adaptive filter panel that adapts to horizontal size class. SPRD-225 scope is absorbed here to avoid building the tab layout twice.
+- **Description**: Replace the Search tab with an Entries tab (`NavigationTab.entries`). Build `EntriesBrowserView` with a Tasks/Notes segmented control. Tasks mode: two non-collapsible sections (Open, Completed/Cancelled) with List/Tag filter support and a filter sheet (compact) or persistent trailing card (regular). Notes mode: all notes ordered by `createdDate` descending, search-only. Wire into `JournalManager`, `ListRepository`, and `TagRepository`.
+- **Spec**: `Documentation/Specs/TaskBrowser.md` — Entries Tab and Content Switcher; Tasks Tab; List and Tag Filtering; Adaptive Filter and Sort Panel
 - **Acceptance Criteria**:
-  - The Search tab is replaced by a Tasks tab with an appropriate SF Symbol and "Tasks" label.
-  - The tab renders two non-collapsible sections: Open (top) and Completed / Cancelled (bottom).
+  - The Search tab is replaced by an Entries tab labeled **"Entries"** with an appropriate SF Symbol.
+  - A segmented control labeled "Tasks" / "Notes" appears at the top of the tab; the tab defaults to Tasks mode and does not persist the selection between launches.
+  - **Tasks mode** — the tab renders two non-collapsible sections: Open (top) and Completed / Cancelled (bottom).
   - Open section order: Inbox tasks (nil assignment, by `createdDate` asc) first, then assigned open tasks by preferred spread normalized date asc with period tiebreaker (day before month before year), then `createdDate` asc within identical date+period.
   - Completed / Cancelled section ordered by current assignment `statusUpdatedAt` descending; falls back to `createdDate` descending when `statusUpdatedAt` is nil.
-  - A `.searchable` bar filters tasks by title and body in real time.
-  - List filter chip shows all Lists; selecting one filters to tasks in that List only.
-  - Tag filter chips show all Tags; selecting multiple shows tasks with ANY selected tag.
-  - When both a List filter and Tag filters are active, results must match the List AND have at least one selected Tag.
-  - No filter is active by default; all tasks are shown.
-  - Rows use `EntryList`/`EntryRowView` consistent with spread entry lists.
+  - Task rows use `EntryList`/`EntryRowView` consistent with spread entry lists.
   - The tab is accessible in both Conventional and Traditional modes with identical behavior — no mode-specific branching.
-  - A filter button (`line.3.horizontal.decrease.circle` or equivalent) in the nav bar toolbar opens a filter sheet for selecting a List and/or Tags.
-  - When one or more filters are active, the filter button displays a badge or filled variant indicating filtered state.
-  - The filter sheet includes a "Manage Lists & Tags" row at the bottom that opens the management sheet (SPRD-223) from within the filter sheet.
+  - List filter shows all Lists; selecting one filters to tasks in that List only.
+  - Tag filters show all Tags; selecting multiple shows tasks with ANY selected tag (OR within tags).
+  - When both a List filter and Tag filters are active, results must match the List AND have at least one selected Tag (AND across types).
+  - No filter is active by default; all tasks are shown.
+  - When `horizontalSizeClass == .compact`, a filter button (`line.3.horizontal.decrease.circle` or equivalent) in the nav bar toolbar opens a filter sheet; the button shows a badge or filled variant when filters are active.
+  - When `horizontalSizeClass == .regular`, a persistent trailing card displays filter controls alongside the task list; the toolbar filter button is hidden.
+  - The filter sheet and trailing card expose identical controls (List filter, Tag filters).
+  - Size-class branching uses `@Environment(\.horizontalSizeClass)` — no `UIDevice.current.userInterfaceIdiom` checks.
+  - The filter sheet includes a "Manage Lists & Tags" row at the bottom (stub navigation target for SPRD-223).
+  - **Notes mode** — shows all notes across all spreads ordered by `createdDate` descending; no filter controls are shown.
+  - A `.searchable` bar filters results in both Tasks and Notes modes by title and body text in real time.
 - **Tests**:
-  - Unit tests for the ordering logic: Inbox tasks before assigned tasks; day-period tasks ordered before month-period tasks for the same date.
+  - Unit tests for task ordering: Inbox tasks before assigned tasks; day-period tasks ordered before month-period tasks for the same normalized date.
   - Unit test: completed/cancelled tasks ordered by `statusUpdatedAt` descending.
   - Unit test: List filter returns only tasks belonging to that List.
   - Unit test: multi-Tag OR filter returns tasks with any of the selected Tags.
   - Unit test: combined List + Tag filter applies AND across types.
   - Unit test: search query applied on top of active filters.
+  - Unit test: Notes mode loads notes ordered by `createdDate` descending.
+  - Unit test: search query in Notes mode filters by title and body.
 - **Dependencies**: SPRD-221
 
 ---
@@ -5935,26 +5941,7 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-225] Feature: Entries tab — title, Tasks/Notes switcher, adaptive filter panel - [ ] Pending
+### [SPRD-225] Feature: Entries tab — title, Tasks/Notes switcher, adaptive filter panel - [x] Absorbed into SPRD-222
 
-- **Context**: The Task Browser tab spec (SPRD-222) named the tab "Tasks" and assumed a sheet-only filter pattern. Before implementation begins, two refinements are needed: the tab should be titled "Entries" to reflect its broader scope, content should be switchable between Tasks and Notes via a segmented control, and filter/sort controls should adapt to horizontal size class — a persistent trailing card on regular-width layouts, a sheet on compact.
-- **Description**: Amend `TaskBrowserView` to: (1) use the tab label "Entries"; (2) add a segmented control at the top switching between Tasks and Notes content modes; (3) render filter/sort controls as a persistent trailing card when `horizontalSizeClass == .regular`, and via the existing toolbar-button sheet when `.compact`. The trailing card and the sheet expose identical controls. Notes content mode shows all notes ordered by `createdDate` descending with no filter controls.
-- **Spec**: `Documentation/Specs/TaskBrowser.md` — Entries Tab and Content Switcher; Adaptive Filter and Sort Panel
-- **Acceptance Criteria**:
-  - The tab bar item is labeled "Entries" (not "Tasks").
-  - A segmented control labeled "Tasks" / "Notes" appears at the top of the tab.
-  - Selecting "Tasks" shows the task list from SPRD-222 (open/terminal sections, ordering, filtering).
-  - Selecting "Notes" shows all notes across all spreads ordered by `createdDate` descending; no filter controls are shown in this mode.
-  - The active search bar query filters results in both Tasks and Notes modes.
-  - When `horizontalSizeClass == .regular`, a persistent trailing card displays filter and sort controls alongside the entry list; the toolbar filter button is hidden.
-  - When `horizontalSizeClass == .compact`, the toolbar filter button is visible and opens the filter/sort sheet from SPRD-222.
-  - The trailing card and the filter sheet expose identical controls (List filter, Tag filters, sort order).
-  - Size-class branching uses `@Environment(\.horizontalSizeClass)` — no `UIDevice.current.userInterfaceIdiom` checks.
-  - The tab defaults to the Tasks content mode; the selected mode is not persisted between launches.
-- **Tests**:
-  - Unit test: switching to Notes mode loads notes ordered by `createdDate` descending.
-  - Unit test: search query applied in Notes mode filters by title and body.
-  - Manual: on an iPad in full-screen, the trailing filter card is visible; the toolbar filter button is absent.
-  - Manual: on an iPad in Slide Over (compact), the trailing card is hidden and the toolbar filter button is present.
-  - Manual: on an iPhone, the trailing card is hidden and the toolbar filter button is present.
-- **Dependencies**: SPRD-222
+- **Context**: Originally planned as a follow-up to SPRD-222. Absorbed before implementation because all three changes (tab label, segmented control, adaptive layout) affect the root view structure and must be built together to avoid a full-view refactor.
+- **Resolution**: All SPRD-225 acceptance criteria are included in the expanded SPRD-222 scope.
