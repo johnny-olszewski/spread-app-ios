@@ -258,3 +258,99 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.merge_note_tag TO authenticated;
+
+-- ============================================================
+-- merge_task RPC — updated to include p_list_id / p_list_updated_at
+-- (DROP required because parameter list changed)
+-- ============================================================
+
+DROP FUNCTION IF EXISTS public.merge_task(
+    uuid, uuid, uuid, text, text, text, date, date, text, text,
+    timestamp with time zone, timestamp with time zone,
+    timestamp with time zone, timestamp with time zone, timestamp with time zone,
+    timestamp with time zone, timestamp with time zone, timestamp with time zone,
+    timestamp with time zone
+);
+
+CREATE OR REPLACE FUNCTION public.merge_task(
+    p_id                  uuid,
+    p_user_id             uuid,
+    p_device_id           uuid,
+    p_title               text,
+    p_body                text,
+    p_priority            text,
+    p_due_date            date,
+    p_list_id             uuid,
+    p_date                date,
+    p_period              text,
+    p_status              text,
+    p_created_at          timestamp with time zone,
+    p_deleted_at          timestamp with time zone,
+    p_title_updated_at    timestamp with time zone,
+    p_date_updated_at     timestamp with time zone,
+    p_period_updated_at   timestamp with time zone,
+    p_status_updated_at   timestamp with time zone,
+    p_body_updated_at     timestamp with time zone,
+    p_priority_updated_at timestamp with time zone,
+    p_due_date_updated_at timestamp with time zone,
+    p_list_updated_at     timestamp with time zone
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_existing RECORD;
+    v_result   RECORD;
+BEGIN
+    IF p_user_id != auth.uid() THEN
+        RAISE EXCEPTION 'Access denied';
+    END IF;
+
+    SELECT * INTO v_existing FROM tasks WHERE id = p_id AND user_id = p_user_id;
+
+    IF NOT FOUND THEN
+        INSERT INTO tasks (
+            id, user_id, device_id, title, body, priority, due_date, list_id, date, period, status,
+            created_at, deleted_at,
+            title_updated_at, date_updated_at, period_updated_at, status_updated_at,
+            body_updated_at, priority_updated_at, due_date_updated_at, list_updated_at
+        ) VALUES (
+            p_id, p_user_id, p_device_id, p_title, p_body, p_priority, p_due_date, p_list_id, p_date, p_period, p_status,
+            p_created_at, p_deleted_at,
+            p_title_updated_at, p_date_updated_at, p_period_updated_at, p_status_updated_at,
+            p_body_updated_at, p_priority_updated_at, p_due_date_updated_at, p_list_updated_at
+        )
+        RETURNING * INTO v_result;
+    ELSE
+        IF p_deleted_at IS NOT NULL AND (v_existing.deleted_at IS NULL OR p_deleted_at > v_existing.deleted_at) THEN
+            UPDATE tasks SET deleted_at = p_deleted_at, device_id = p_device_id
+            WHERE id = p_id RETURNING * INTO v_result;
+        ELSE
+            UPDATE tasks SET
+                device_id           = p_device_id,
+                title               = CASE WHEN p_title_updated_at    > v_existing.title_updated_at    THEN p_title    ELSE v_existing.title    END,
+                title_updated_at    = GREATEST(p_title_updated_at,    v_existing.title_updated_at),
+                date                = CASE WHEN p_date_updated_at     > v_existing.date_updated_at     THEN p_date     ELSE v_existing.date     END,
+                date_updated_at     = GREATEST(p_date_updated_at,     v_existing.date_updated_at),
+                period              = CASE WHEN p_period_updated_at   > v_existing.period_updated_at   THEN p_period   ELSE v_existing.period   END,
+                period_updated_at   = GREATEST(p_period_updated_at,   v_existing.period_updated_at),
+                status              = CASE WHEN p_status_updated_at   > v_existing.status_updated_at   THEN p_status   ELSE v_existing.status   END,
+                status_updated_at   = GREATEST(p_status_updated_at,   v_existing.status_updated_at),
+                body                = CASE WHEN p_body_updated_at     > v_existing.body_updated_at     THEN p_body     ELSE v_existing.body     END,
+                body_updated_at     = GREATEST(p_body_updated_at,     v_existing.body_updated_at),
+                priority            = CASE WHEN p_priority_updated_at > v_existing.priority_updated_at THEN p_priority ELSE v_existing.priority END,
+                priority_updated_at = GREATEST(p_priority_updated_at, v_existing.priority_updated_at),
+                due_date            = CASE WHEN p_due_date_updated_at > v_existing.due_date_updated_at THEN p_due_date ELSE v_existing.due_date END,
+                due_date_updated_at = GREATEST(p_due_date_updated_at, v_existing.due_date_updated_at),
+                list_id             = CASE WHEN p_list_updated_at     > v_existing.list_updated_at     THEN p_list_id  ELSE v_existing.list_id  END,
+                list_updated_at     = GREATEST(p_list_updated_at,     v_existing.list_updated_at)
+            WHERE id = p_id RETURNING * INTO v_result;
+        END IF;
+    END IF;
+
+    RETURN to_jsonb(v_result);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.merge_task TO authenticated;
