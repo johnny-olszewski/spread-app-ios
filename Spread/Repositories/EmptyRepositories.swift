@@ -53,3 +53,21 @@ struct EmptySettingsRepository: SettingsRepository {
     func getSettings() async -> DataModel.Settings? { nil }
     func save(_ settings: DataModel.Settings) async throws {}
 }
+
+/// Empty list repository for isolated testing.
+///
+/// Returns empty arrays and no-ops for all operations.
+struct EmptyListRepository: ListRepository {
+    func getLists() async -> [DataModel.List] { [] }
+    func save(_ list: DataModel.List) async throws {}
+    func delete(_ list: DataModel.List) async throws {}
+}
+
+/// Empty tag repository for isolated testing.
+///
+/// Returns empty arrays and no-ops for all operations.
+struct EmptyTagRepository: TagRepository {
+    func getTags() async -> [DataModel.Tag] { [] }
+    func save(_ tag: DataModel.Tag) async throws {}
+    func delete(_ tag: DataModel.Tag) async throws {}
+}
