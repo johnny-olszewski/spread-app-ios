@@ -6,7 +6,7 @@ import Foundation
 /// Used by `EntryListView` to render grouped entries.
 struct EntryListSection: Identifiable, Sendable {
     /// Unique identifier for the section.
-    let id: Date
+    let id: String
 
     /// The display title for the section header.
     ///
@@ -108,6 +108,9 @@ struct EntryListGrouper: Sendable {
             return groupByDay(entries)
         case .byDayIncludingEmptyDates:
             return groupByDayIncludingEmptyDates(entries)
+        case .byList:
+            guard !entries.isEmpty else { return [] }
+            return groupByList(entries)
         case .automatic:
             switch period {
             case .year:
@@ -118,7 +121,7 @@ struct EntryListGrouper: Sendable {
                 return groupByDay(entries)
             case .day:
                 guard !entries.isEmpty else { return [] }
-                return flatSection(entries)
+                return groupByList(entries)
             case .multiday:
                 return groupByDayIncludingEmptyDates(entries)
             }
@@ -134,7 +137,7 @@ struct EntryListGrouper: Sendable {
             case .month:
                 return .byDay
             case .day:
-                return .flat
+                return .byList
             case .multiday:
                 return .byDayIncludingEmptyDates
             }
@@ -175,7 +178,7 @@ struct EntryListGrouper: Sendable {
         if !sortedYearEntries.isEmpty {
             sections.append(
                 EntryListSection(
-                    id: spreadDate,
+                    id: sectionID(spreadDate),
                     title: "",
                     date: spreadDate,
                     entries: sortedYearEntries,
@@ -190,7 +193,7 @@ struct EntryListGrouper: Sendable {
             contentsOf: monthGroups.keys.sorted().map { monthDate in
                 let sortedEntries = sortEntriesChronologically(monthGroups[monthDate] ?? [])
                 return EntryListSection(
-                    id: monthDate,
+                    id: sectionID(monthDate),
                     title: formatMonthTitle(monthDate),
                     date: monthDate,
                     entries: sortedEntries,
@@ -217,7 +220,7 @@ struct EntryListGrouper: Sendable {
 
         return [
             EntryListSection(
-                id: spreadDate,
+                id: sectionID(spreadDate),
                 title: "",
                 date: spreadDate,
                 entries: sortEntriesChronologically(entries),
@@ -248,7 +251,7 @@ struct EntryListGrouper: Sendable {
         if !multidayEntries.isEmpty {
             sections.append(
                 EntryListSection(
-                    id: startDate.addingTimeInterval(-1),
+                    id: "multiday-header",
                     title: "This Range",
                     date: startDate,
                     entries: multidayEntries,
@@ -264,7 +267,7 @@ struct EntryListGrouper: Sendable {
             let sortedEntries = sortEntriesChronologically(dayGroups[currentDate] ?? [])
             sections.append(
                 EntryListSection(
-                    id: currentDate,
+                    id: sectionID(currentDate),
                     title: "",
                     date: currentDate,
                     entries: sortedEntries,
@@ -287,7 +290,7 @@ struct EntryListGrouper: Sendable {
         let sortedEntries = sortEntriesChronologically(entries)
         return [
             EntryListSection(
-                id: spreadDate,
+                id: sectionID(spreadDate),
                 title: "",
                 date: spreadDate,
                 entries: sortedEntries,
@@ -296,6 +299,61 @@ struct EntryListGrouper: Sendable {
                 creationDate: spreadDate
             )
         ]
+    }
+
+    /// Groups entries by their assigned list for day spreads.
+    ///
+    /// Named list sections appear in alphabetical order; tasks with no list appear last
+    /// in an untitled section.
+    private func groupByList(_ entries: [any Entry]) -> [EntryListSection] {
+        var listGroups: [UUID?: [any Entry]] = [:]
+        var listNames: [UUID: String] = [:]
+
+        for entry in entries {
+            if let task = entry as? DataModel.Task {
+                let listID = task.list?.id
+                listGroups[listID, default: []].append(entry)
+                if let list = task.list {
+                    listNames[list.id] = list.name
+                }
+            } else {
+                listGroups[nil, default: []].append(entry)
+            }
+        }
+
+        var sections: [EntryListSection] = []
+
+        let sortedListIDs = listNames.keys.sorted { listNames[$0]! < listNames[$1]! }
+        for listID in sortedListIDs {
+            let listEntries = sortEntriesChronologically(listGroups[listID] ?? [])
+            sections.append(EntryListSection(
+                id: listID.uuidString,
+                title: listNames[listID] ?? "",
+                date: spreadDate,
+                entries: listEntries,
+                contextualLabels: [:],
+                creationPeriod: .day,
+                creationDate: spreadDate
+            ))
+        }
+
+        if let noListEntries = listGroups[nil], !noListEntries.isEmpty {
+            sections.append(EntryListSection(
+                id: sectionID(spreadDate),
+                title: "",
+                date: spreadDate,
+                entries: sortEntriesChronologically(noListEntries),
+                contextualLabels: [:],
+                creationPeriod: .day,
+                creationDate: spreadDate
+            ))
+        }
+
+        return sections
+    }
+
+    private func sectionID(_ date: Date) -> String {
+        String(date.timeIntervalSinceReferenceDate)
     }
 
     // MARK: - Helper Methods

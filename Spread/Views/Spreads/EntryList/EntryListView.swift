@@ -15,7 +15,7 @@ struct EntryListView: View {
 
     @Observable @MainActor final class ViewModel {
         struct InlineCreationTarget: Equatable {
-            let sectionID: Date
+            let sectionID: String
             let date: Date
             let period: Period
         }
@@ -550,7 +550,8 @@ struct EntryListView: View {
                 taskBodyPreview: bodyPreview(for: task),
                 taskPriority: task.priority,
                 taskDueDateLabel: dueDateLabel(for: task),
-                isTaskDueDateHighlighted: isDueDateHighlighted(for: task)
+                isTaskDueDateHighlighted: isDueDateHighlighted(for: task),
+                tagChips: task.tags.sorted { $0.name < $1.name }.map { tag in (title: tag.name, color: tag.chipColor) }
             ),
             iconConfiguration: StatusIconConfiguration(
                 entryType: .task,

@@ -7,6 +7,7 @@ struct EntryListConfiguration: Sendable {
         case byMonth
         case byDay
         case byDayIncludingEmptyDates
+        case byList
     }
 
     var groupingStyle: GroupingStyle
