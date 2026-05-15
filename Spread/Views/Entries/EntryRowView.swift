@@ -1,4 +1,5 @@
 import SwiftUI
+import JohnnyOFoundationUI
 
 struct EntryRowTrailingAction {
     let systemImage: String
@@ -102,7 +103,8 @@ struct EntryRowView: View {
             migrationDestination: migrationDestination,
             contextualLabel: contextualLabel,
             taskBodyPreview: task.body?.trimmingCharacters(in: .whitespacesAndNewlines),
-            taskPriority: task.priority
+            taskPriority: task.priority,
+            tagChips: task.tags.sorted { $0.name < $1.name }.map { tag in (title: tag.name, color: tag.chipColor) }
         )
         self.iconConfiguration = StatusIconConfiguration(
             entryType: .task,
@@ -263,6 +265,16 @@ struct EntryRowView: View {
 
             if let contextualLabel = configuration.contextualLabel {
                 contextualLabelView(contextualLabel)
+            }
+
+            if !configuration.tagChips.isEmpty {
+                Spacer(minLength: 4)
+                HStack(spacing: 4) {
+                    ForEach(configuration.tagChips, id: \.title) { chip in
+                        LabelChip(title: chip.title, color: chip.color)
+                    }
+                }
+                .opacity(isInlineActive ? 0 : 1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
