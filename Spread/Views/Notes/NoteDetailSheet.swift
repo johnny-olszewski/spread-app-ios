@@ -19,8 +19,15 @@ struct NoteDetailSheet: View {
         var selectedPeriod: Period
         var selectedDate: Date
         var selectedSpreadID: UUID?
+        var selectedList: DataModel.List?
+        var selectedTagIDs: Set<UUID>
         var isSaving = false
         var isShowingSpreadPicker = false
+        var isCreatingList = false
+        var newListName = ""
+        var isCreatingTag = false
+        var newTagName = ""
+        var isTagsExpanded = false
 
         init(note: DataModel.Note, journalManager: JournalManager) {
             let context = PresentedTemporalContext(journalManager: journalManager)
@@ -32,6 +39,8 @@ struct NoteDetailSheet: View {
             selectedSpreadID = note.assignments.first(where: {
                 $0.status != .migrated && $0.period == .multiday
             })?.spreadID
+            selectedList = note.list
+            selectedTagIDs = Set(note.tags.map(\.id))
         }
     }
 
@@ -73,6 +82,8 @@ struct NoteDetailSheet: View {
                     titleSection
                     compactDivider
                     contentSection
+                    compactDivider
+                    metadataSection
                     compactDivider
                     spreadSelectionSection
                     compactDivider
@@ -149,6 +160,119 @@ struct NoteDetailSheet: View {
             TextField("Note title", text: $viewModel.title)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteDetailSheet.titleField)
         }
+    }
+
+    private var metadataSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionHeader("Metadata")
+            listPickerRow
+            tagsPickerSection
+        }
+        .alert("New List", isPresented: $viewModel.isCreatingList) {
+            TextField("List name", text: $viewModel.newListName)
+            Button("Create") { createList() }
+            Button("Cancel", role: .cancel) { viewModel.newListName = "" }
+        }
+        .alert("New Tag", isPresented: $viewModel.isCreatingTag) {
+            TextField("Tag name", text: $viewModel.newTagName)
+            Button("Create") { createTag() }
+            Button("Cancel", role: .cancel) { viewModel.newTagName = "" }
+        }
+    }
+
+    private var listPickerRow: some View {
+        Menu {
+            Button("None") { viewModel.selectedList = nil }
+            Divider()
+            ForEach(journalManager.lists) { list in
+                Button {
+                    viewModel.selectedList =
+                        viewModel.selectedList?.id == list.id ? nil : list
+                } label: {
+                    if viewModel.selectedList?.id == list.id {
+                        Label(list.name, systemImage: "checkmark")
+                    } else {
+                        Text(list.name)
+                    }
+                }
+            }
+            Divider()
+            Button("New List…") { viewModel.isCreatingList = true }
+        } label: {
+            noteSelectionRow(
+                title: "List",
+                value: viewModel.selectedList?.name ?? "None"
+            )
+        }
+    }
+
+    private var tagsPickerSection: some View {
+        DisclosureGroup(isExpanded: $viewModel.isTagsExpanded) {
+            ForEach(journalManager.tags) { tag in
+                let isSelected = viewModel.selectedTagIDs.contains(tag.id)
+                let atLimit = viewModel.selectedTagIDs.count >= 5
+                Button {
+                    if isSelected {
+                        viewModel.selectedTagIDs.remove(tag.id)
+                    } else if !atLimit {
+                        viewModel.selectedTagIDs.insert(tag.id)
+                    }
+                } label: {
+                    HStack {
+                        Text(tag.name)
+                        Spacer()
+                        if isSelected {
+                            Image(systemName: "checkmark").foregroundStyle(.tint)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(!isSelected && atLimit)
+            }
+            if viewModel.selectedTagIDs.count >= 5 {
+                Text("Maximum 5 tags")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Button("New Tag…") { viewModel.isCreatingTag = true }
+                    .foregroundStyle(.secondary)
+            }
+        } label: {
+            HStack {
+                Text("Tags")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(tagsSummary)
+                    .foregroundStyle(.primary)
+            }
+            .font(.subheadline)
+        }
+    }
+
+    private var tagsSummary: String {
+        let selected = journalManager.tags.filter { viewModel.selectedTagIDs.contains($0.id) }
+        if selected.isEmpty { return "None" }
+        return selected.map(\.name).sorted().joined(separator: ", ")
+    }
+
+    private func noteSelectionRow(title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .foregroundStyle(.primary)
+            Image(systemName: "chevron.down")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .font(.subheadline)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemFill))
+        )
     }
 
     private var contentSection: some View {
@@ -325,9 +449,43 @@ struct NoteDetailSheet: View {
                     )
                 }
 
+                let selectedTags = journalManager.tags.filter { viewModel.selectedTagIDs.contains($0.id) }
+                let metadataChanged =
+                    viewModel.selectedList?.id != note.list?.id ||
+                    Set(selectedTags.map(\.id)) != Set(note.tags.map(\.id))
+                if metadataChanged {
+                    try await journalManager.updateNoteMetadata(
+                        note,
+                        list: viewModel.selectedList,
+                        tags: selectedTags
+                    )
+                }
+
                 dismiss()
             } catch {
                 viewModel.isSaving = false
+            }
+        }
+    }
+
+    private func createList() {
+        let name = viewModel.newListName.trimmingCharacters(in: .whitespacesAndNewlines)
+        viewModel.newListName = ""
+        guard !name.isEmpty else { return }
+        Task { @MainActor in
+            if let list = try? await journalManager.createList(name: name) {
+                viewModel.selectedList = list
+            }
+        }
+    }
+
+    private func createTag() {
+        let name = viewModel.newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
+        viewModel.newTagName = ""
+        guard !name.isEmpty, viewModel.selectedTagIDs.count < 5 else { return }
+        Task { @MainActor in
+            if let tag = try? await journalManager.createTag(name: name) {
+                viewModel.selectedTagIDs.insert(tag.id)
             }
         }
     }
