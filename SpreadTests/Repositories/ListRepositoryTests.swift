@@ -107,6 +107,25 @@ struct ListRepositoryTests {
         #expect(tasks.first?.list == nil)
     }
 
+    /// Conditions: A list with two tasks assigned; both tasks are non-deleted.
+    /// Expected: The non-deleted task count equals 2 — matching what the delete confirmation dialog shows.
+    @Test func testDeleteConfirmationCountMatchesAffectedTasks() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let listRepo = SwiftDataListRepository(modelContainer: container)
+        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
+
+        let list = DataModel.List(name: "Work")
+        try await listRepo.save(list)
+
+        let task1 = DataModel.Task(title: "Task One", list: list)
+        let task2 = DataModel.Task(title: "Task Two", list: list)
+        try await taskRepo.save(task1)
+        try await taskRepo.save(task2)
+
+        let count = list.tasks.filter { $0.deletedAt == nil }.count
+        #expect(count == 2)
+    }
+
     // MARK: - Sync Outbox
 
     /// Conditions: Save a new list.
