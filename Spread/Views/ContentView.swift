@@ -83,8 +83,13 @@ struct ContentView: View {
     // MARK: - Loading View
 
     private var loadingView: some View {
-        ProgressView("Loading...")
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        VStack(spacing: 24) {
+            Text("Spread")
+                .font(SpreadTheme.Typography.largeTitle)
+            ProgressView()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(SpreadTheme.Paper.primary)
     }
 
     private var currentDataEnvironment: DataEnvironment {

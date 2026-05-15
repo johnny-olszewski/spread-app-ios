@@ -46,6 +46,7 @@ struct TaskCreationSheet: View {
     // MARK: - State
 
     @State private var viewModel: ViewModel
+    @State private var errorMessage: String?
     @FocusState private var isTitleFocused: Bool
 
     init(
@@ -139,6 +140,20 @@ struct TaskCreationSheet: View {
                 isTitleFocused = true
             }
         }
+        .overlay {
+            if viewModel.isCreating {
+                loadingOverlay
+            }
+        }
+        .interactiveDismissDisabled(isCreateButtonVisible)
+        .alert("Error", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
         .localhostTemporalHarness(
             presentedDiagnostics: LocalhostTemporalHarnessPresentedDiagnostics(
                 calendarIdentifier: viewModel.presentedTemporalContext.calendar.identifier,
@@ -220,7 +235,7 @@ struct TaskCreationSheet: View {
             TextEditor(text: $viewModel.formModel.body)
                 .frame(minHeight: 96)
                 .scrollContentBackground(.hidden)
-                .background(Color(uiColor: .secondarySystemBackground))
+                .background(SpreadTheme.Paper.secondary)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.bodyField)
         }
@@ -303,6 +318,14 @@ struct TaskCreationSheet: View {
         }
     }
 
+    private var loadingOverlay: some View {
+        ZStack {
+            SpreadTheme.Overlay.dim
+            ProgressView()
+        }
+        .ignoresSafeArea()
+    }
+
     private var compactDivider: some View {
         Divider()
             .padding(.vertical, 2)
@@ -360,6 +383,7 @@ struct TaskCreationSheet: View {
             } catch {
                 await MainActor.run {
                     viewModel.isCreating = false
+                    errorMessage = error.localizedDescription
                 }
             }
         }

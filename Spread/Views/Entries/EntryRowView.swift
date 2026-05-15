@@ -230,6 +230,8 @@ struct EntryRowView: View {
         }
         .animation(.easeInOut(duration: 0.18), value: isInlineActive)
         .accessibilityElement(children: .contain)
+        .accessibilityLabel(configuration.accessibilityLabel)
+        .accessibilityValue(configuration.accessibilityValue ?? "")
     }
 
     // MARK: - Subviews
@@ -354,9 +356,12 @@ struct EntryRowView: View {
         if let trailingAction {
             Button(action: trailingAction.action) {
                 Image(systemName: trailingAction.systemImage)
+                    .font(.system(size: SpreadTheme.IconSize.medium))
                     .foregroundStyle(.secondary)
+                    .frame(minWidth: 44, minHeight: 44)
             }
             .buttonStyle(.plain)
+            .contentShape(Rectangle())
             .accessibilityIdentifier(trailingAction.accessibilityIdentifier)
         } else if configuration.showsMigrationBadge, let destination = configuration.migrationDestination {
             migrationBadge(destination: destination)
@@ -373,11 +378,12 @@ struct EntryRowView: View {
                     }
                 } label: {
                     Image(systemName: "square.and.pencil")
+                        .font(.system(size: SpreadTheme.IconSize.medium))
                         .foregroundStyle(.secondary)
-                        .frame(width: 24, height: 24)
-                        .contentShape(Rectangle())
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)
+                .contentShape(Rectangle())
                 .accessibilityLabel("Edit task")
                 .accessibilityIdentifier(
                     Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineEditButton(configuration.title)
@@ -415,10 +421,12 @@ struct EntryRowView: View {
                         }
                     } label: {
                         Image(systemName: "arrow.right")
+                            .font(.system(size: SpreadTheme.IconSize.medium))
                             .foregroundStyle(.secondary)
-                            .frame(width: 24, height: 24)
-                            .contentShape(Rectangle())
+                            .frame(minWidth: 44, minHeight: 44)
                     }
+                    .contentShape(Rectangle())
+                    .accessibilityLabel("Migrate task")
                     .accessibilityIdentifier(
                         Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu(configuration.title)
                     )
@@ -428,7 +436,7 @@ struct EntryRowView: View {
                 Spacer()
             }
             .padding(.leading, 24 + SpreadTheme.Spacing.entryIconSpacing)
-            .frame(height: 20)
+            .frame(minHeight: 44)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
     }

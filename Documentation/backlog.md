@@ -43,8 +43,6 @@ These items are not blockers but represent meaningful quality gaps that should b
 
 | ID | Item | Description | Impact | Effort | Risk |
 | --- | --- | --- | --- | --- | --- |
-| TF-20 | Entry row accessibility labels | Task and note rows lack contextual accessibility labels. VoiceOver reads out a flat title string with no status context. Add labels that combine title, status (open, complete, cancelled), and assignment context. | High: accessibility is a TestFlight review signal and an App Store requirement. | Low-Medium: add `.accessibilityLabel()` and `.accessibilityValue()` to `EntryRowView`. | Low |
-| TF-21 | Icon-only button labels | Status toggle, favorite, migration, and delete icon buttons lack accessibility labels. Screen reader users cannot identify these actions. | High: icon-only interactive elements without labels are a common accessibility audit failure. | Low: add `.accessibilityLabel()` to each interactive icon button. | Low |
 | TF-22 | Spread navigation accessibility | Spread title navigator items and chevron collapse/expand controls need labels that include the spread name, type, and current state (selected, expanded). | Medium: navigation structure must be readable by assistive technology. | Low | Low |
 | TF-23 | Calendar grid cell labels | Month calendar day cells need labels that include the full date (e.g., "May 4, 2026") and any entry count or overlay context, so VoiceOver users can navigate the calendar meaningfully. | Medium | Low-Medium | Low |
 | TF-24 | Dynamic type compliance | Verify that all key surfaces render correctly at the largest accessibility text sizes. Pay special attention to the day timeline card (fixed-height), entry rows, and the title navigator. | Medium: dynamic type testing is part of Apple's accessibility review criteria. | Medium: involves layout audits and possibly adaptive layout changes. | Low |
@@ -53,10 +51,6 @@ These items are not blockers but represent meaningful quality gaps that should b
 
 | ID | Item | Description | Impact | Effort | Risk |
 | --- | --- | --- | --- | --- | --- |
-| TF-30 | Launch experience | App startup shows a generic `ProgressView("Loading...")`. Consider adding branding (app name, wordmark, or icon) to the loading screen so the first impression is intentional rather than default. | Medium: the launch experience frames the product's perceived quality. | Low | Low |
-| TF-31 | Dark mode audit | Audit all screens in dark mode. Check for hardcoded colors, insufficient contrast, and any surfaces that appear washed out or broken. Use `SpreadTheme` tokens consistently; replace any hardcoded `Color` values found. | High: iOS users frequently run dark mode; broken dark mode is visually disqualifying. | Low-Medium: systematic pass through all view files. | Low |
-| TF-32 | Consistent sheet presentation | Audit all sheets (task creation, note creation, spread creation, auth, onboarding) for consistent header layout, dismiss affordances, and button placement. Mismatched sheet chrome signals an unfinished product. | Medium | Low | Low |
-| TF-33 | Toolbar and action button review | Review all toolbar buttons across spread types for correct placement, appropriate icon choices, and consistent tap-target sizing (minimum 44pt). | Medium | Low | Low |
 | TF-34 | Multiday empty day section polish | Multiday spreads with empty day sections use a lighter treatment per spec. Verify this is visually distinct and readable across both light and dark modes. | Low-Medium | Low | Low |
 
 ### 2d — Testing
