@@ -173,7 +173,7 @@ struct SyncSerializerTests {
             pId: UUID().uuidString, pUserId: UUID().uuidString,
             pDeviceId: UUID().uuidString, pTitle: "Test",
             pBody: nil, pPriority: "none", pDueDate: nil,
-            pDate: "2025-03-15",
+            pListId: nil, pDate: "2025-03-15",
             pPeriod: "day", pStatus: "open",
             pCreatedAt: "2025-03-15T10:00:00.000Z", pDeletedAt: nil,
             pTitleUpdatedAt: "2025-03-15T10:00:00.000Z",
@@ -182,7 +182,8 @@ struct SyncSerializerTests {
             pStatusUpdatedAt: "2025-03-15T10:00:00.000Z",
             pBodyUpdatedAt: "2025-03-15T10:00:00.000Z",
             pPriorityUpdatedAt: "2025-03-15T10:00:00.000Z",
-            pDueDateUpdatedAt: "2025-03-15T10:00:00.000Z"
+            pDueDateUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pListUpdatedAt: "2025-03-15T10:00:00.000Z"
         )
 
         let data = try JSONEncoder().encode(params)

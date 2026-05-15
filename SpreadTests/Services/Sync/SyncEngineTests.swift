@@ -97,7 +97,7 @@ struct SyncEngineTests {
                     "revision": 13
                 ]
             ], 13)
-        case .settings, .note, .collection, .noteAssignment:
+        case .settings, .note, .collection, .noteAssignment, .list, .tag, .taskTag, .noteTag:
             return ([], 0)
         }
     }
