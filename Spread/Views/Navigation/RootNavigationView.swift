@@ -161,7 +161,7 @@ private struct NonSpreadNavigationTitleModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if tab == .spreads {
+        if tab == .spreads || tab == .entries {
             content
         } else {
             content.navigationTitle(tab.title)
