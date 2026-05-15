@@ -2,20 +2,20 @@ import SwiftUI
 
 /// Filter controls shared between the compact filter sheet and the regular trailing card.
 ///
-/// Exposes a List filter (select one or none), Tag filters (multi-select OR), and
-/// a "Manage Lists & Tags" stub row for SPRD-223.
+/// Exposes a Lists section (select one or none, with "Manage Lists" nav action) and a Tags
+/// section (multi-select OR, with "Manage Tags" nav action).
 struct EntriesFilterPanel: View {
     let lists: [DataModel.List]
     let tags: [DataModel.Tag]
     @Binding var selectedList: DataModel.List?
     @Binding var selectedTagIDs: Set<UUID>
-    var onManageListsAndTags: (() -> Void)?
+    var onManageLists: (() -> Void)?
+    var onManageTags: (() -> Void)?
 
     var body: some View {
         List {
             listSection
             tagSection
-            manageSection
         }
         .listStyle(.insetGrouped)
     }
@@ -24,7 +24,7 @@ struct EntriesFilterPanel: View {
 
     @ViewBuilder
     private var listSection: some View {
-        Section("List") {
+        Section("Lists") {
             filterRow(title: "All Lists", isSelected: selectedList == nil) {
                 selectedList = nil
             }
@@ -33,6 +33,7 @@ struct EntriesFilterPanel: View {
                     selectedList = selectedList?.id == list.id ? nil : list
                 }
             }
+            manageButton(title: "Manage Lists", action: onManageLists)
         }
     }
 
@@ -53,19 +54,11 @@ struct EntriesFilterPanel: View {
                     }
                 }
             }
+            manageButton(title: "Manage Tags", action: onManageTags)
         }
     }
 
-    @ViewBuilder
-    private var manageSection: some View {
-        Section {
-            Button("Manage Lists & Tags") {
-                onManageListsAndTags?()
-            }
-        }
-    }
-
-    // MARK: - Helpers
+    // MARK: - Row Builders
 
     private func filterRow(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -80,6 +73,31 @@ struct EntriesFilterPanel: View {
         }
         .buttonStyle(.plain)
     }
+
+    private func manageButton(title: String, action: (() -> Void)?) -> some View {
+        Button {
+            action?()
+        } label: {
+            HStack {
+                Text(title)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.tertiary)
+                    .font(.footnote.weight(.semibold))
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+#Preview("With data") {
+    EntriesFilterPanel(
+        lists: [DataModel.List(name: "Work"), DataModel.List(name: "Home")],
+        tags: [DataModel.Tag(name: "EOY"), DataModel.Tag(name: "Urgent")],
+        selectedList: .constant(nil),
+        selectedTagIDs: .constant([])
+    )
 }
 
 #Preview("Empty") {
