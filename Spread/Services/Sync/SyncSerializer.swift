@@ -154,6 +154,7 @@ struct MergeTaskParams: Encodable, Sendable {
     let pBody: String?
     let pPriority: String
     let pDueDate: String?
+    let pListId: String?
     let pDate: String?
     let pPeriod: String?
     let pStatus: String
@@ -166,6 +167,7 @@ struct MergeTaskParams: Encodable, Sendable {
     let pBodyUpdatedAt: String
     let pPriorityUpdatedAt: String
     let pDueDateUpdatedAt: String
+    let pListUpdatedAt: String
 
     enum CodingKeys: String, CodingKey {
         case pId = "p_id"
@@ -175,6 +177,7 @@ struct MergeTaskParams: Encodable, Sendable {
         case pBody = "p_body"
         case pPriority = "p_priority"
         case pDueDate = "p_due_date"
+        case pListId = "p_list_id"
         case pDate = "p_date"
         case pPeriod = "p_period"
         case pStatus = "p_status"
@@ -187,6 +190,7 @@ struct MergeTaskParams: Encodable, Sendable {
         case pBodyUpdatedAt = "p_body_updated_at"
         case pPriorityUpdatedAt = "p_priority_updated_at"
         case pDueDateUpdatedAt = "p_due_date_updated_at"
+        case pListUpdatedAt = "p_list_updated_at"
     }
 
     func encode(to encoder: Encoder) throws {
@@ -198,6 +202,7 @@ struct MergeTaskParams: Encodable, Sendable {
         try container.encode(pBody, forKey: .pBody)
         try container.encode(pPriority, forKey: .pPriority)
         try container.encode(pDueDate, forKey: .pDueDate)
+        try container.encode(pListId, forKey: .pListId)
         try container.encode(pDate, forKey: .pDate)
         try container.encode(pPeriod, forKey: .pPeriod)
         try container.encode(pStatus, forKey: .pStatus)
@@ -210,6 +215,123 @@ struct MergeTaskParams: Encodable, Sendable {
         try container.encode(pBodyUpdatedAt, forKey: .pBodyUpdatedAt)
         try container.encode(pPriorityUpdatedAt, forKey: .pPriorityUpdatedAt)
         try container.encode(pDueDateUpdatedAt, forKey: .pDueDateUpdatedAt)
+        try container.encode(pListUpdatedAt, forKey: .pListUpdatedAt)
+    }
+}
+
+/// Parameters for the `merge_list` RPC.
+struct MergeListParams: Encodable, Sendable {
+    let pId: String
+    let pUserId: String
+    let pDeviceId: String
+    let pName: String
+    let pCreatedAt: String
+    let pDeletedAt: String?
+    let pNameUpdatedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case pId = "p_id"
+        case pUserId = "p_user_id"
+        case pDeviceId = "p_device_id"
+        case pName = "p_name"
+        case pCreatedAt = "p_created_at"
+        case pDeletedAt = "p_deleted_at"
+        case pNameUpdatedAt = "p_name_updated_at"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pId, forKey: .pId)
+        try container.encode(pUserId, forKey: .pUserId)
+        try container.encode(pDeviceId, forKey: .pDeviceId)
+        try container.encode(pName, forKey: .pName)
+        try container.encode(pCreatedAt, forKey: .pCreatedAt)
+        try container.encode(pDeletedAt, forKey: .pDeletedAt)
+        try container.encode(pNameUpdatedAt, forKey: .pNameUpdatedAt)
+    }
+}
+
+/// Parameters for the `merge_tag` RPC.
+struct MergeTagParams: Encodable, Sendable {
+    let pId: String
+    let pUserId: String
+    let pDeviceId: String
+    let pName: String
+    let pCreatedAt: String
+    let pDeletedAt: String?
+    let pNameUpdatedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case pId = "p_id"
+        case pUserId = "p_user_id"
+        case pDeviceId = "p_device_id"
+        case pName = "p_name"
+        case pCreatedAt = "p_created_at"
+        case pDeletedAt = "p_deleted_at"
+        case pNameUpdatedAt = "p_name_updated_at"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pId, forKey: .pId)
+        try container.encode(pUserId, forKey: .pUserId)
+        try container.encode(pDeviceId, forKey: .pDeviceId)
+        try container.encode(pName, forKey: .pName)
+        try container.encode(pCreatedAt, forKey: .pCreatedAt)
+        try container.encode(pDeletedAt, forKey: .pDeletedAt)
+        try container.encode(pNameUpdatedAt, forKey: .pNameUpdatedAt)
+    }
+}
+
+/// Parameters for the `merge_task_tag` RPC.
+struct MergeTaskTagParams: Encodable, Sendable {
+    let pTaskId: String
+    let pTagId: String
+    let pUserId: String
+    let pCreatedAt: String
+    let pDeletedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case pTaskId = "p_task_id"
+        case pTagId = "p_tag_id"
+        case pUserId = "p_user_id"
+        case pCreatedAt = "p_created_at"
+        case pDeletedAt = "p_deleted_at"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pTaskId, forKey: .pTaskId)
+        try container.encode(pTagId, forKey: .pTagId)
+        try container.encode(pUserId, forKey: .pUserId)
+        try container.encode(pCreatedAt, forKey: .pCreatedAt)
+        try container.encode(pDeletedAt, forKey: .pDeletedAt)
+    }
+}
+
+/// Parameters for the `merge_note_tag` RPC.
+struct MergeNoteTagParams: Encodable, Sendable {
+    let pNoteId: String
+    let pTagId: String
+    let pUserId: String
+    let pCreatedAt: String
+    let pDeletedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case pNoteId = "p_note_id"
+        case pTagId = "p_tag_id"
+        case pUserId = "p_user_id"
+        case pCreatedAt = "p_created_at"
+        case pDeletedAt = "p_deleted_at"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(pNoteId, forKey: .pNoteId)
+        try container.encode(pTagId, forKey: .pTagId)
+        try container.encode(pUserId, forKey: .pUserId)
+        try container.encode(pCreatedAt, forKey: .pCreatedAt)
+        try container.encode(pDeletedAt, forKey: .pDeletedAt)
     }
 }
 
@@ -671,6 +793,66 @@ struct ServerNoteAssignmentRow: Decodable, Sendable {
     }
 }
 
+/// A row from the `lists` table.
+struct ServerListRow: Decodable, Sendable {
+    let id: UUID
+    let name: String
+    let createdAt: String
+    let deletedAt: String?
+    let revision: Int64
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, revision
+        case createdAt = "created_at"
+        case deletedAt = "deleted_at"
+    }
+}
+
+/// A row from the `tags` table.
+struct ServerTagRow: Decodable, Sendable {
+    let id: UUID
+    let name: String
+    let createdAt: String
+    let deletedAt: String?
+    let revision: Int64
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, revision
+        case createdAt = "created_at"
+        case deletedAt = "deleted_at"
+    }
+}
+
+/// A row from the `task_tags` join table.
+struct ServerTaskTagRow: Decodable, Sendable {
+    let taskId: UUID
+    let tagId: UUID
+    let createdAt: String
+    let deletedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case taskId = "task_id"
+        case tagId = "tag_id"
+        case createdAt = "created_at"
+        case deletedAt = "deleted_at"
+    }
+}
+
+/// A row from the `note_tags` join table.
+struct ServerNoteTagRow: Decodable, Sendable {
+    let noteId: UUID
+    let tagId: UUID
+    let createdAt: String
+    let deletedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case noteId = "note_id"
+        case tagId = "tag_id"
+        case createdAt = "created_at"
+        case deletedAt = "deleted_at"
+    }
+}
+
 // MARK: - Serializer
 
 /// Converts between local SwiftData models and server sync formats.
@@ -754,6 +936,7 @@ enum SyncSerializer {
             "body": task.body,
             "priority": task.priority.rawValue,
             "due_date": task.dueDate.map { SyncDateFormatting.formatDate($0) },
+            "list_id": task.list?.id.uuidString,
             "date": task.hasPreferredAssignment ? SyncDateFormatting.formatDate(task.date) : nil,
             "period": task.hasPreferredAssignment ? task.period.rawValue : nil,
             "status": task.status.rawValue,
@@ -765,7 +948,88 @@ enum SyncSerializer {
             "status_updated_at": SyncDateFormatting.formatTimestamp(task.statusUpdatedAt ?? timestamp),
             "body_updated_at": SyncDateFormatting.formatTimestamp(task.bodyUpdatedAt ?? timestamp),
             "priority_updated_at": SyncDateFormatting.formatTimestamp(task.priorityUpdatedAt ?? timestamp),
-            "due_date_updated_at": SyncDateFormatting.formatTimestamp(task.dueDateUpdatedAt ?? timestamp)
+            "due_date_updated_at": SyncDateFormatting.formatTimestamp(task.dueDateUpdatedAt ?? timestamp),
+            "list_updated_at": SyncDateFormatting.formatTimestamp(task.listUpdatedAt ?? timestamp)
+        ]
+        return try? JSONSerialization.data(
+            withJSONObject: record.compactMapValues { $0 ?? NSNull() }
+        )
+    }
+
+    /// Serializes a list into JSON record data for the outbox.
+    static func serializeList(
+        _ list: DataModel.List,
+        deviceId: UUID,
+        timestamp: Date,
+        deletedAt: Date? = nil
+    ) -> Data? {
+        let record: [String: Any?] = [
+            "id": list.id.uuidString,
+            "device_id": deviceId.uuidString,
+            "name": list.name,
+            "created_at": SyncDateFormatting.formatTimestamp(list.createdDate),
+            "deleted_at": (deletedAt ?? list.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
+            "name_updated_at": SyncDateFormatting.formatTimestamp(list.nameUpdatedAt ?? timestamp)
+        ]
+        return try? JSONSerialization.data(
+            withJSONObject: record.compactMapValues { $0 ?? NSNull() }
+        )
+    }
+
+    /// Serializes a tag into JSON record data for the outbox.
+    static func serializeTag(
+        _ tag: DataModel.Tag,
+        deviceId: UUID,
+        timestamp: Date,
+        deletedAt: Date? = nil
+    ) -> Data? {
+        let record: [String: Any?] = [
+            "id": tag.id.uuidString,
+            "device_id": deviceId.uuidString,
+            "name": tag.name,
+            "created_at": SyncDateFormatting.formatTimestamp(tag.createdDate),
+            "deleted_at": (deletedAt ?? tag.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
+            "name_updated_at": SyncDateFormatting.formatTimestamp(tag.nameUpdatedAt ?? timestamp)
+        ]
+        return try? JSONSerialization.data(
+            withJSONObject: record.compactMapValues { $0 ?? NSNull() }
+        )
+    }
+
+    /// Serializes a task-tag join row into JSON record data for the outbox.
+    ///
+    /// The server identifies this row by (task_id, tag_id) compound key.
+    static func serializeTaskTag(
+        taskId: UUID,
+        tagId: UUID,
+        timestamp: Date,
+        deletedAt: Date? = nil
+    ) -> Data? {
+        let record: [String: Any?] = [
+            "task_id": taskId.uuidString,
+            "tag_id": tagId.uuidString,
+            "created_at": SyncDateFormatting.formatTimestamp(timestamp),
+            "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) }
+        ]
+        return try? JSONSerialization.data(
+            withJSONObject: record.compactMapValues { $0 ?? NSNull() }
+        )
+    }
+
+    /// Serializes a note-tag join row into JSON record data for the outbox.
+    ///
+    /// The server identifies this row by (note_id, tag_id) compound key.
+    static func serializeNoteTag(
+        noteId: UUID,
+        tagId: UUID,
+        timestamp: Date,
+        deletedAt: Date? = nil
+    ) -> Data? {
+        let record: [String: Any?] = [
+            "note_id": noteId.uuidString,
+            "tag_id": tagId.uuidString,
+            "created_at": SyncDateFormatting.formatTimestamp(timestamp),
+            "deleted_at": deletedAt.map { SyncDateFormatting.formatTimestamp($0) }
         ]
         return try? JSONSerialization.data(
             withJSONObject: record.compactMapValues { $0 ?? NSNull() }
@@ -962,7 +1226,8 @@ enum SyncSerializer {
                   let statusUpdatedAt = json["status_updated_at"] as? String,
                   let bodyUpdatedAt = json["body_updated_at"] as? String,
                   let priorityUpdatedAt = json["priority_updated_at"] as? String,
-                  let dueDateUpdatedAt = json["due_date_updated_at"] as? String else {
+                  let dueDateUpdatedAt = json["due_date_updated_at"] as? String,
+                  let listUpdatedAt = json["list_updated_at"] as? String else {
                 return nil
             }
             let params = MergeTaskParams(
@@ -971,6 +1236,7 @@ enum SyncSerializer {
                 pBody: json["body"] as? String,
                 pPriority: priority,
                 pDueDate: json["due_date"] as? String,
+                pListId: json["list_id"] as? String,
                 pDate: json["date"] as? String,
                 pPeriod: json["period"] as? String,
                 pStatus: status,
@@ -982,7 +1248,8 @@ enum SyncSerializer {
                 pStatusUpdatedAt: statusUpdatedAt,
                 pBodyUpdatedAt: bodyUpdatedAt,
                 pPriorityUpdatedAt: priorityUpdatedAt,
-                pDueDateUpdatedAt: dueDateUpdatedAt
+                pDueDateUpdatedAt: dueDateUpdatedAt,
+                pListUpdatedAt: listUpdatedAt
             )
             return (entityType.mergeRPCName, params)
 
@@ -1082,6 +1349,70 @@ enum SyncSerializer {
                 pCreatedAt: createdAt,
                 pDeletedAt: json["deleted_at"] as? String,
                 pStatusUpdatedAt: statusUpdatedAt
+            )
+            return (entityType.mergeRPCName, params)
+
+        case .list:
+            guard let id = json["id"] as? String,
+                  let deviceId = json["device_id"] as? String,
+                  let name = json["name"] as? String,
+                  let createdAt = json["created_at"] as? String,
+                  let nameUpdatedAt = json["name_updated_at"] as? String else {
+                return nil
+            }
+            let params = MergeListParams(
+                pId: id, pUserId: uid, pDeviceId: deviceId,
+                pName: name,
+                pCreatedAt: createdAt,
+                pDeletedAt: json["deleted_at"] as? String,
+                pNameUpdatedAt: nameUpdatedAt
+            )
+            return (entityType.mergeRPCName, params)
+
+        case .tag:
+            guard let id = json["id"] as? String,
+                  let deviceId = json["device_id"] as? String,
+                  let name = json["name"] as? String,
+                  let createdAt = json["created_at"] as? String,
+                  let nameUpdatedAt = json["name_updated_at"] as? String else {
+                return nil
+            }
+            let params = MergeTagParams(
+                pId: id, pUserId: uid, pDeviceId: deviceId,
+                pName: name,
+                pCreatedAt: createdAt,
+                pDeletedAt: json["deleted_at"] as? String,
+                pNameUpdatedAt: nameUpdatedAt
+            )
+            return (entityType.mergeRPCName, params)
+
+        case .taskTag:
+            guard let taskId = json["task_id"] as? String,
+                  let tagId = json["tag_id"] as? String,
+                  let createdAt = json["created_at"] as? String else {
+                return nil
+            }
+            let params = MergeTaskTagParams(
+                pTaskId: taskId,
+                pTagId: tagId,
+                pUserId: uid,
+                pCreatedAt: createdAt,
+                pDeletedAt: json["deleted_at"] as? String
+            )
+            return (entityType.mergeRPCName, params)
+
+        case .noteTag:
+            guard let noteId = json["note_id"] as? String,
+                  let tagId = json["tag_id"] as? String,
+                  let createdAt = json["created_at"] as? String else {
+                return nil
+            }
+            let params = MergeNoteTagParams(
+                pNoteId: noteId,
+                pTagId: tagId,
+                pUserId: uid,
+                pCreatedAt: createdAt,
+                pDeletedAt: json["deleted_at"] as? String
             )
             return (entityType.mergeRPCName, params)
         }
@@ -1294,5 +1625,39 @@ enum SyncSerializer {
             createdDate: createdAt,
             revision: row.revision
         )
+    }
+
+    /// Creates a new local list from a server row.
+    static func createList(from row: ServerListRow) -> DataModel.List? {
+        guard row.deletedAt == nil,
+              let createdAt = SyncDateFormatting.parseTimestamp(row.createdAt) else {
+            return nil
+        }
+        return DataModel.List(id: row.id, name: row.name, createdDate: createdAt)
+    }
+
+    /// Applies a server list row to a local list model.
+    static func applyListRow(_ row: ServerListRow, to list: DataModel.List) -> Bool {
+        guard row.deletedAt == nil else { return false }
+        list.name = row.name
+        list.revision = row.revision
+        return true
+    }
+
+    /// Creates a new local tag from a server row.
+    static func createTag(from row: ServerTagRow) -> DataModel.Tag? {
+        guard row.deletedAt == nil,
+              let createdAt = SyncDateFormatting.parseTimestamp(row.createdAt) else {
+            return nil
+        }
+        return DataModel.Tag(id: row.id, name: row.name, createdDate: createdAt)
+    }
+
+    /// Applies a server tag row to a local tag model.
+    static func applyTagRow(_ row: ServerTagRow, to tag: DataModel.Tag) -> Bool {
+        guard row.deletedAt == nil else { return false }
+        tag.name = row.name
+        tag.revision = row.revision
+        return true
     }
 }
