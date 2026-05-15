@@ -38,6 +38,23 @@ struct TagRepositoryTests {
         #expect(tags.map(\.name) == ["Alpha Task", "Middle Work", "Zebra Project"])
     }
 
+    /// Conditions: Save a tag, update its name, save again.
+    /// Expected: Only one tag exists with the updated name.
+    @Test func testUpdateExistingTag() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let repo = SwiftDataTagRepository(modelContainer: container)
+
+        let tag = DataModel.Tag(name: "Original")
+        try await repo.save(tag)
+
+        tag.name = "Updated"
+        try await repo.save(tag)
+
+        let tags = await repo.getTags()
+        #expect(tags.count == 1)
+        #expect(tags.first?.name == "Updated")
+    }
+
     /// Conditions: Save a tag then delete it.
     /// Expected: getTags returns an empty array.
     @Test func testDelete() async throws {
