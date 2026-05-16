@@ -98,7 +98,7 @@ struct TaskSearchSectionBuilder {
         TaskSearchSection.Row(
             taskID: task.id,
             title: task.title,
-            bodyPreview: bodyPreview(for: task),
+            bodyPreview: task.bodyPreview,
             priority: task.priority,
             dueDate: task.dueDate,
             status: task.status,
@@ -116,7 +116,7 @@ struct TaskSearchSectionBuilder {
         TaskSearchSection.Row(
             taskID: task.id,
             title: task.title,
-            bodyPreview: bodyPreview(for: task),
+            bodyPreview: task.bodyPreview,
             priority: task.priority,
             dueDate: task.dueDate,
             status: task.status,
@@ -133,14 +133,6 @@ struct TaskSearchSectionBuilder {
             return true
         }
         return task.body?.localizedCaseInsensitiveContains(query) == true
-    }
-
-    private func bodyPreview(for task: DataModel.Task) -> String? {
-        guard let body = task.body?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !body.isEmpty else {
-            return nil
-        }
-        return body
     }
 
     private func sectionTitle(for selection: SpreadHeaderNavigatorModel.Selection) -> String {
