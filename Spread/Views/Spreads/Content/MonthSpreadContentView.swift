@@ -195,10 +195,10 @@ struct MonthSpreadContentView: View {
                 title: task.title,
                 migrationDestination: destinationFormatter.destination(for: task, from: spread),
                 contextualLabel: contextualLabel,
-                taskBodyPreview: bodyPreview(for: task),
+                taskBodyPreview: task.bodyPreview,
                 taskPriority: task.priority,
-                taskDueDateLabel: dueDateLabel(for: task),
-                isTaskDueDateHighlighted: isDueDateHighlighted(for: task)
+                taskDueDateLabel: task.dueDateLabel(calendar: calendar),
+                isTaskDueDateHighlighted: task.isDueDateHighlighted(today: journalManager.today, calendar: calendar)
             ),
             iconConfiguration: StatusIconConfiguration(
                 entryType: .task,
@@ -284,28 +284,4 @@ struct MonthSpreadContentView: View {
         return entry.createdDate
     }
 
-    private func bodyPreview(for task: DataModel.Task) -> String? {
-        guard let body = task.body?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !body.isEmpty else {
-            return nil
-        }
-        return body
-    }
-
-    private func dueDateLabel(for task: DataModel.Task) -> String? {
-        guard let dueDate = task.dueDate else { return nil }
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.setLocalizedDateFormatFromTemplate("MMM d")
-        return "Due \(formatter.string(from: dueDate))"
-    }
-
-    private func isDueDateHighlighted(for task: DataModel.Task) -> Bool {
-        guard task.status == .open,
-              let dueDate = task.dueDate else {
-            return false
-        }
-        return dueDate.startOfDay(calendar: calendar) <= journalManager.today.startOfDay(calendar: calendar)
-    }
 }

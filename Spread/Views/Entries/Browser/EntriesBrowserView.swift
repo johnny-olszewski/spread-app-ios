@@ -44,14 +44,11 @@ struct EntriesBrowserView: View {
     }
 
     var body: some View {
-        Group {
+        HStack(alignment: .top, spacing: 0) {
+            contentList
+            
             if isRegular {
-                HStack(alignment: .top, spacing: 0) {
-                    contentList
-                    filterCard
-                }
-            } else {
-                contentList
+                filterCard
             }
         }
         .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
@@ -90,7 +87,6 @@ struct EntriesBrowserView: View {
         .pickerStyle(.segmented)
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(Color(uiColor: .systemBackground))
     }
 
     // MARK: - Content List
