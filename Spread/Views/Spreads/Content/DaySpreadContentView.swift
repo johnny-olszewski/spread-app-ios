@@ -29,6 +29,7 @@ struct DaySpreadContentView: View {
     @Environment(\.eventKitService) private var eventKitService
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var calendarEvents: [CalendarEvent] = []
+    @State private var entryListViewModel = EntryListViewModel()
 
     /// Tracks the scroll position of the timeline card so we can programmatically
     /// jump to the first event on load.
@@ -75,18 +76,39 @@ struct DaySpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
-        if let dataModel = spreadDataModel {
-            if showsTimelineCard {
-                wideLayout(dataModel: dataModel)
+        Group {
+            if let dataModel = spreadDataModel {
+                if showsTimelineCard {
+                    wideLayout(dataModel: dataModel)
+                } else {
+                    compactLayout(dataModel: dataModel)
+                }
             } else {
-                compactLayout(dataModel: dataModel)
+                ContentUnavailableView {
+                    Label("No Data", systemImage: "tray")
+                } description: {
+                    Text("Unable to load spread data.")
+                }
             }
-        } else {
-            ContentUnavailableView {
-                Label("No Data", systemImage: "tray")
-            } description: {
-                Text("Unable to load spread data.")
+        }
+        .task(id: spread.id) {
+            if let dataModel = spreadDataModel {
+                configureEntryListViewModel(dataModel: dataModel)
             }
+            setupEntryListCallbacks()
+            await fetchCalendarEvents()
+        }
+        .onChange(of: calendarEvents) { _, events in
+            entryListViewModel.calendarEvents = showsTimelineCard ? [] : events
+        }
+        .onChange(of: showsTimelineCard) { _, isWide in
+            entryListViewModel.calendarEvents = isWide ? [] : calendarEvents
+        }
+        .onChange(of: spreadDataModel?.tasks.count ?? 0) { _, _ in
+            if let dataModel = spreadDataModel { configureEntryListSections(dataModel: dataModel) }
+        }
+        .onChange(of: spreadDataModel?.notes.count ?? 0) { _, _ in
+            if let dataModel = spreadDataModel { configureEntryListSections(dataModel: dataModel) }
         }
     }
 
@@ -106,12 +128,9 @@ struct DaySpreadContentView: View {
 
             HStack(alignment: .top, spacing: 0) {
                 timelineCard
-                entryListView(dataModel: dataModel, calendarEvents: [])
+                EntryListView(viewModel: entryListViewModel)
             }
             .frame(maxHeight: .infinity)
-        }
-        .task(id: spread.id) {
-            await fetchCalendarEvents()
         }
     }
 
@@ -124,10 +143,7 @@ struct DaySpreadContentView: View {
                     .padding(.top, 8)
             }
 
-            entryListView(dataModel: dataModel, calendarEvents: calendarEvents)
-        }
-        .task(id: spread.id) {
-            await fetchCalendarEvents()
+            EntryListView(viewModel: entryListViewModel)
         }
     }
 
@@ -184,66 +200,103 @@ struct DaySpreadContentView: View {
         .padding(.vertical, 12)
     }
 
-    // MARK: - Shared subviews
+    // MARK: - ViewModel configuration
 
-    /// Builds the `EntryListView` with all current callbacks wired up.
-    ///
-    /// - Parameter calendarEvents: Events to surface in the list's events section.
-    ///   Pass `[]` when the timeline card already displays them.
-    private func entryListView(dataModel: SpreadDataModel, calendarEvents: [CalendarEvent]) -> some View {
-        EntryListView(
-            spreadDataModel: dataModel,
-            calendar: journalManager.calendar,
-            today: journalManager.today,
+    private func configureEntryListViewModel(dataModel: SpreadDataModel) {
+        let cal = journalManager.calendar
+        let entries = EntryListDisplaySupport.displayedEntries(
+            for: dataModel,
             configuration: entryListConfiguration,
-            calendarEvents: calendarEvents,
-            onEdit: { entry in
-                if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
-                else if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
-            },
-            onOpenMigratedTask: onOpenMigratedTask,
-            onDelete: { entry in
-                if let task = entry as? DataModel.Task {
-                    Task { @MainActor in
-                        try? await journalManager.deleteTask(task)
-                        await syncEngine?.syncNow()
-                    }
-                } else if let note = entry as? DataModel.Note {
-                    Task { @MainActor in
-                        try? await journalManager.deleteNote(note)
-                        await syncEngine?.syncNow()
-                    }
-                }
-            },
-            onComplete: { task in
+            calendar: cal
+        )
+        let grouper = EntryListGrouper(
+            configuration: entryListConfiguration,
+            period: dataModel.spread.period,
+            spreadDate: dataModel.spread.date,
+            spreadStartDate: dataModel.spread.startDate,
+            spreadEndDate: dataModel.spread.endDate,
+            calendar: cal
+        )
+        entryListViewModel.sections = grouper.group(entries)
+        entryListViewModel.migratedNotes = EntryListDisplaySupport.migratedNotes(
+            for: dataModel,
+            configuration: entryListConfiguration,
+            calendar: cal
+        )
+        entryListViewModel.calendar = cal
+        entryListViewModel.today = journalManager.today
+        entryListViewModel.spread = dataModel.spread
+        entryListViewModel.showsMigrationHistory = entryListConfiguration.showsMigrationHistory
+        entryListViewModel.migrationConfiguration = migrationConfiguration
+        entryListViewModel.calendarEvents = showsTimelineCard ? [] : calendarEvents
+        entryListViewModel.syncStatus = syncEngine?.status
+    }
+
+    private func configureEntryListSections(dataModel: SpreadDataModel) {
+        let cal = journalManager.calendar
+        let entries = EntryListDisplaySupport.displayedEntries(
+            for: dataModel,
+            configuration: entryListConfiguration,
+            calendar: cal
+        )
+        let grouper = EntryListGrouper(
+            configuration: entryListConfiguration,
+            period: dataModel.spread.period,
+            spreadDate: dataModel.spread.date,
+            spreadStartDate: dataModel.spread.startDate,
+            spreadEndDate: dataModel.spread.endDate,
+            calendar: cal
+        )
+        entryListViewModel.sections = grouper.group(entries)
+        entryListViewModel.migratedNotes = EntryListDisplaySupport.migratedNotes(
+            for: dataModel,
+            configuration: entryListConfiguration,
+            calendar: cal
+        )
+    }
+
+    private func setupEntryListCallbacks() {
+        entryListViewModel.onEdit = { entry in
+            if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
+            else if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
+        }
+        entryListViewModel.onOpenMigratedTask = onOpenMigratedTask
+        entryListViewModel.onDelete = { entry in
+            if let task = entry as? DataModel.Task {
                 Task { @MainActor in
-                    let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
-                    try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
+                    try? await journalManager.deleteTask(task)
                     await syncEngine?.syncNow()
                 }
-            },
-            migrationConfiguration: migrationConfiguration,
-            onTitleCommit: { @MainActor task, newTitle in
-                try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
-                Task { @MainActor in await syncEngine?.syncNow() }
-            },
-            onReassignTask: { @MainActor task, date, period in
-                try? await journalManager.updateTaskDateAndPeriod(task, newDate: date, newPeriod: period)
+            } else if let note = entry as? DataModel.Note {
+                Task { @MainActor in
+                    try? await journalManager.deleteNote(note)
+                    await syncEngine?.syncNow()
+                }
+            }
+        }
+        entryListViewModel.onComplete = { task in
+            Task { @MainActor in
+                let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
+                try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
                 await syncEngine?.syncNow()
-            },
-            onAddTask: { @MainActor title, date, period in
-                _ = try await journalManager.addTask(title: title, date: date, period: period)
-                Task { @MainActor in await syncEngine?.syncNow() }
-            },
-            explicitDaySpreadForDate: explicitDaySpreadForDate,
-            onSelectSpread: onSelectSpread,
-            onCreateSpread: onCreateSpread,
-            onRefresh: {
-                guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
-                await engine.syncNow()
-            },
-            syncStatus: syncEngine?.status
-        )
+            }
+        }
+        entryListViewModel.onTitleCommit = { @MainActor task, newTitle in
+            try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
+            Task { @MainActor in await syncEngine?.syncNow() }
+        }
+        entryListViewModel.onReassignTask = { @MainActor task, date, period in
+            try? await journalManager.updateTaskDateAndPeriod(task, newDate: date, newPeriod: period)
+            await syncEngine?.syncNow()
+        }
+        entryListViewModel.onAddTask = { @MainActor title, date, period in
+            _ = try await journalManager.addTask(title: title, date: date, period: period)
+            Task { @MainActor in await syncEngine?.syncNow() }
+        }
+        entryListViewModel.onRefresh = {
+            guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
+            await engine.syncNow()
+        }
     }
 
     // MARK: - Private
