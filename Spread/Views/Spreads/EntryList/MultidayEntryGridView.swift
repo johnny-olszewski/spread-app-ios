@@ -30,10 +30,8 @@ struct MultidayEntryGridView<RowContent: View>: View {
     // MARK: - View-owned state
 
     @State private var activePeekData: MultidayPeekData?
-    @FocusState private var isInlineFocused: Bool
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Environment(\.eventKitService) private var eventKitService
 
     private var columnCount: Int {
         MultidaySectionLayout.columnCount(for: horizontalSizeClass)
@@ -43,15 +41,6 @@ struct MultidayEntryGridView<RowContent: View>: View {
 
     var body: some View {
         ScrollView {
-            if let status = viewModel.syncStatus, status != .localOnly {
-                Text(status.pullIndicatorTitle)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
-            }
-
             LazyVGrid(
                 columns: Array(
                     repeating: GridItem(.flexible(), spacing: 16, alignment: .top),
@@ -72,53 +61,6 @@ struct MultidayEntryGridView<RowContent: View>: View {
             .padding(16)
         }
         .modifier(RefreshableModifier(onRefresh: viewModel.onRefresh))
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                if isInlineFocused {
-                    Button("Cancel") {
-                        viewModel.dismissInlineCreation()
-                        isInlineFocused = false
-                    }
-                    .glassEffect(in: Capsule())
-
-                    Spacer()
-
-                    Button("Save") {
-                        if let target = viewModel.activeInlineCreationTarget {
-                            viewModel.commitInlineTask(target: target)
-                        }
-                    }
-                    .glassEffect(in: Capsule())
-                    .disabled(viewModel.inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-        }
-        .onChange(of: isInlineFocused) { _, focused in
-            if focused {
-                viewModel.hasAcquiredInlineCreationFocus = true
-                return
-            }
-            guard viewModel.hasAcquiredInlineCreationFocus,
-                  viewModel.activeInlineCreationTarget != nil else { return }
-            let trimmed = viewModel.inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty {
-                viewModel.dismissInlineCreation()
-                isInlineFocused = false
-            } else if let target = viewModel.activeInlineCreationTarget {
-                viewModel.commitInlineTask(target: target)
-            }
-        }
-        .onChange(of: viewModel.activeInlineCreationTarget) { _, target in
-            if target == nil {
-                isInlineFocused = false
-                return
-            }
-            viewModel.hasAcquiredInlineCreationFocus = false
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(150))
-                isInlineFocused = true
-            }
-        }
         .sheet(item: $activePeekData) { data in
             MultidayPeekPanelView(
                 data: data,
@@ -144,15 +86,11 @@ struct MultidayEntryGridView<RowContent: View>: View {
     private func daySection(_ section: EntryListSection) -> some View {
         let explicitDaySpread = explicitDaySpreadForDate?(section.date)
         MultidayDaySectionView(
+            viewModel: viewModel,
             section: section,
             parentSpread: spread,
-            calendar: viewModel.calendar,
-            today: viewModel.today,
-            dayEvents: viewModel.calendarEventsForDay(section.date),
             explicitDaySpread: explicitDaySpread,
             openTaskCount: explicitDaySpread.flatMap { openTaskCountForDaySpread?($0) } ?? 0,
-            activeInlineCreationTarget: viewModel.activeInlineCreationTarget,
-            showAddTask: viewModel.onAddTask != nil,
             onFooterTap: {
                 viewModel.dismissActiveInlineEditing()
                 if let daySpread = explicitDaySpread {
@@ -165,19 +103,7 @@ struct MultidayEntryGridView<RowContent: View>: View {
                 guard let daySpread = explicitDaySpread,
                       let data = peekDataForDaySpread?(daySpread) else { return }
                 activePeekData = data
-            } : nil,
-            onAddTaskTap: {
-                viewModel.activateInlineCreation(for: viewModel.creationTarget(for: section))
-            },
-            onEventTap: { event in eventKitService?.openEvent(event) },
-            inlineTitle: $viewModel.inlineTitle,
-            inlineCreationID: viewModel.inlineCreationID,
-            inlineFocus: $isInlineFocused,
-            onInlineSubmit: {
-                if let target = viewModel.activeInlineCreationTarget {
-                    viewModel.commitInlineTask(target: target)
-                }
-            }
+            } : nil
         ) { entry, contextualLabel in
             rowContent(entry, contextualLabel)
         }
@@ -197,9 +123,9 @@ struct MultidayEntryGridView<RowContent: View>: View {
                 if viewModel.onAddTask != nil {
                     let target = viewModel.creationTarget(for: section)
                     if viewModel.activeInlineCreationTarget?.sectionID == section.id {
-                        assignmentInlineCreationRow(target: target)
+                        InlineCreationRowView(viewModel: viewModel, target: target)
                     } else {
-                        assignmentAddTaskButton(target: target)
+                        AddTaskRowView(viewModel: viewModel, target: target)
                     }
                 }
             }
@@ -211,45 +137,6 @@ struct MultidayEntryGridView<RowContent: View>: View {
         )
     }
 
-    private func assignmentInlineCreationRow(target: EntryListViewModel.InlineCreationTarget) -> some View {
-        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            StatusIcon(entryType: .task, taskStatus: .open, color: .primary)
-                .frame(width: 24, height: 24)
-
-            TextField("New task", text: $viewModel.inlineTitle)
-                .id(viewModel.inlineCreationID)
-                .textFieldStyle(.plain)
-                .font(SpreadTheme.Typography.body)
-                .focused($isInlineFocused)
-                .submitLabel(.done)
-                .onSubmit { viewModel.commitInlineTask(target: target) }
-                .onAppear {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        isInlineFocused = true
-                    }
-                }
-
-            Spacer()
-        }
-    }
-
-    private func assignmentAddTaskButton(target: EntryListViewModel.InlineCreationTarget) -> some View {
-        Button {
-            viewModel.activateInlineCreation(for: target)
-        } label: {
-            HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-                Image(systemName: "plus")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 24, height: 24)
-                Text("Add Task")
-                    .font(SpreadTheme.Typography.body)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-        }
-        .buttonStyle(.plain)
-    }
 }
 
 // MARK: - Column Count

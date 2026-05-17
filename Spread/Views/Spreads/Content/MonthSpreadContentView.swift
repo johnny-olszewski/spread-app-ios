@@ -14,8 +14,6 @@ struct MonthSpreadContentView: View {
     let viewModel: SpreadsViewModel
     let syncEngine: SyncEngine?
     var entryListConfiguration: EntryListConfiguration = .init()
-    var migrationConfiguration: EntryListMigrationConfiguration? = nil
-    var onOpenMigratedTask: ((DataModel.Task) -> Void)? = nil
 
     private var calendar: Calendar {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
@@ -186,7 +184,6 @@ struct MonthSpreadContentView: View {
 
     private func taskRow(_ task: DataModel.Task, contextualLabel: String?) -> some View {
         let destinationFormatter = MigrationDestinationFormatter(calendar: calendar)
-        let sourceMigrationDestination = migrationConfiguration?.sourceDestinations[task.id]
 
         return EntryRowView(
             configuration: EntryRowConfiguration(
@@ -211,18 +208,7 @@ struct MonthSpreadContentView: View {
                     await syncEngine?.syncNow()
                 }
             } : nil,
-            onMigrate: task.status == .open ? sourceMigrationDestination.map { destination in
-                {
-                    migrationConfiguration?.onSourceMigrationConfirmed(task, destination)
-                }
-            } : nil,
-            onEdit: {
-                if task.status == .migrated {
-                    onOpenMigratedTask?(task)
-                } else {
-                    viewModel.showTaskDetail(task)
-                }
-            },
+            onEdit: { viewModel.showTaskDetail(task) },
             onDelete: {
                 Task { @MainActor in
                     try? await journalManager.deleteTask(task)
@@ -232,16 +218,7 @@ struct MonthSpreadContentView: View {
             onTitleCommit: { @MainActor newTitle in
                 try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
                 await syncEngine?.syncNow()
-            },
-            trailingAction: task.status == .open ? sourceMigrationDestination.map { destination in
-                EntryRowTrailingAction(
-                    systemImage: "arrow.right",
-                    accessibilityIdentifier: Definitions.AccessibilityIdentifiers.Migration.sourceButton(task.title),
-                    action: {
-                        migrationConfiguration?.onSourceMigrationConfirmed(task, destination)
-                    }
-                )
-            } : nil
+            }
         )
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(task.title))
     }

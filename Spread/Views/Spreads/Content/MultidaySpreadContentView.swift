@@ -48,15 +48,15 @@ struct MultidaySpreadContentView: View {
                     }
                 }
             ) { entry, contextualLabel in
-                entryRow(entry, contextualLabel: contextualLabel)
+                EntryListRowView(entry: entry, viewModel: entryListViewModel, contextualLabel: contextualLabel)
             }
             .task(id: spread.id) {
                 configureEntryListViewModel(dataModel: dataModel)
                 setupEntryListCallbacks()
                 await fetchCalendarEvents()
             }
-            .onChange(of: calendarEvents) { _, events in
-                entryListViewModel.calendarEvents = events
+            .onChange(of: calendarEvents) { _, _ in
+                if let dataModel = spreadDataModel { configureEntryListSections(dataModel: dataModel) }
             }
             .onChange(of: spreadDataModel?.tasks.count ?? 0) { _, _ in
                 if let dataModel = spreadDataModel { configureEntryListSections(dataModel: dataModel) }
@@ -73,76 +73,20 @@ struct MultidaySpreadContentView: View {
         }
     }
 
-    // MARK: - Row Rendering
-
-    @ViewBuilder
-    private func entryRow(_ entry: any Entry, contextualLabel: String?) -> some View {
-        switch entry.entryType {
-        case .task:
-            if let task = entry as? DataModel.Task {
-                taskRow(task, contextualLabel: contextualLabel)
-            }
-        case .note:
-            if let note = entry as? DataModel.Note {
-                noteRow(note, contextualLabel: contextualLabel)
-            }
-        case .event:
-            EmptyView()
-        }
-    }
-
-    private func taskRow(_ task: DataModel.Task, contextualLabel: String?) -> some View {
-        let rowStatus = entryListViewModel.rowStatus(for: task)
-        return EntryRowView(
-            configuration: EntryRowConfiguration(
-                entryType: .task,
-                taskStatus: rowStatus,
-                title: task.title,
-                contextualLabel: contextualLabel,
-                taskBodyPreview: task.bodyPreview,
-                taskPriority: task.priority,
-                taskDueDateLabel: task.dueDateLabel(calendar: journalManager.calendar),
-                isTaskDueDateHighlighted: task.isDueDateHighlighted(
-                    today: journalManager.today,
-                    calendar: journalManager.calendar
-                ),
-                tagChips: task.tags.sorted { $0.name < $1.name }.map { (title: $0.name, color: $0.chipColor) }
-            ),
-            iconConfiguration: StatusIconConfiguration(entryType: .task, taskStatus: rowStatus),
-            onComplete: rowStatus == .open ? { entryListViewModel.onComplete?(task) } : nil,
-            onEdit: { entryListViewModel.onEdit?(task) },
-            onDelete: { entryListViewModel.onDelete?(task) },
-            inlineActionConfiguration: rowStatus == .open
-                ? entryListViewModel.inlineActionConfiguration(for: task)
-                : nil,
-            isInlineActive: entryListViewModel.activeInlineTaskID == task.id,
-            onBeginInlineEditing: { entryListViewModel.activeInlineTaskID = task.id },
-            onEndInlineEditing: {
-                if entryListViewModel.activeInlineTaskID == task.id {
-                    entryListViewModel.activeInlineTaskID = nil
-                }
-            }
-        )
-    }
-
-    private func noteRow(_ note: DataModel.Note, contextualLabel: String?) -> some View {
-        EntryRowView(
-            note: note,
-            contextualLabel: contextualLabel,
-            onEdit: { entryListViewModel.onEdit?(note) },
-            onDelete: { entryListViewModel.onDelete?(note) }
-        )
-    }
-
     // MARK: - ViewModel Configuration
+
+    private func allEntries(dataModel: SpreadDataModel, calendar: Calendar) -> [any Entry] {
+        let base = EntryListDisplaySupport.displayedEntries(
+            for: dataModel,
+            configuration: entryListConfiguration,
+            calendar: calendar
+        )
+        let eventEntries: [DataModel.Event] = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
+        return base + eventEntries
+    }
 
     private func configureEntryListViewModel(dataModel: SpreadDataModel) {
         let cal = journalManager.calendar
-        let entries = EntryListDisplaySupport.displayedEntries(
-            for: dataModel,
-            configuration: entryListConfiguration,
-            calendar: cal
-        )
         let grouper = EntryListGrouper(
             configuration: entryListConfiguration,
             period: dataModel.spread.period,
@@ -151,21 +95,14 @@ struct MultidaySpreadContentView: View {
             spreadEndDate: dataModel.spread.endDate,
             calendar: cal
         )
-        entryListViewModel.sections = grouper.group(entries)
+        entryListViewModel.sections = grouper.group(allEntries(dataModel: dataModel, calendar: cal))
         entryListViewModel.calendar = cal
         entryListViewModel.today = journalManager.today
         entryListViewModel.spread = dataModel.spread
-        entryListViewModel.calendarEvents = calendarEvents
-        entryListViewModel.syncStatus = syncEngine?.status
     }
 
     private func configureEntryListSections(dataModel: SpreadDataModel) {
         let cal = journalManager.calendar
-        let entries = EntryListDisplaySupport.displayedEntries(
-            for: dataModel,
-            configuration: entryListConfiguration,
-            calendar: cal
-        )
         let grouper = EntryListGrouper(
             configuration: entryListConfiguration,
             period: dataModel.spread.period,
@@ -174,7 +111,7 @@ struct MultidaySpreadContentView: View {
             spreadEndDate: dataModel.spread.endDate,
             calendar: cal
         )
-        entryListViewModel.sections = grouper.group(entries)
+        entryListViewModel.sections = grouper.group(allEntries(dataModel: dataModel, calendar: cal))
     }
 
     private func setupEntryListCallbacks() {
