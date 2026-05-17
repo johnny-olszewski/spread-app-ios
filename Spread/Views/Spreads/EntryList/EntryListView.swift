@@ -93,11 +93,7 @@ struct EntryListView: View {
     @ViewBuilder
     private var contentView: some View {
         if viewModel.hasAnyEntries || viewModel.onAddTask != nil {
-            if viewModel.isEmbedded {
-                embeddedEntryList
-            } else {
-                entryList
-            }
+            entryList
         } else {
             emptyState
         }
@@ -112,10 +108,10 @@ struct EntryListView: View {
 
             ForEach(viewModel.sections) { section in
                 if section.title.isEmpty {
-                    sectionRows(section, style: .list)
+                    sectionRows(section)
                 } else {
                     Section(section.title) {
-                        sectionRows(section, style: .list)
+                        sectionRows(section)
                     }
                 }
             }
@@ -163,92 +159,29 @@ struct EntryListView: View {
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
     }
 
-    @ViewBuilder
-    private var embeddedEntryList: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
-            ForEach(viewModel.sections) { section in
-                if !section.title.isEmpty {
-                    Text(section.title)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .padding(EdgeInsets(
-                            top: 12,
-                            leading: Self.rowInsets.leading,
-                            bottom: 4,
-                            trailing: Self.rowInsets.trailing
-                        ))
-                }
-                sectionRows(section, style: .embedded)
-            }
-
-            if let migrationConfiguration = viewModel.migrationConfiguration {
-                InlineTaskMigrationSection(
-                    items: migrationConfiguration.destinationItems,
-                    calendar: viewModel.calendar,
-                    onMigrate: { item in migrationConfiguration.onDestinationMigration(item) },
-                    onMigrateAll: migrationConfiguration.onDestinationMigrationAll
-                )
-                .padding(.horizontal, Self.rowInsets.leading)
-            }
-
-            if !viewModel.migratedNotes.isEmpty, let spread = viewModel.spread {
-                MigratedEntriesSection(
-                    spread: spread,
-                    migratedTasks: [],
-                    migratedNotes: viewModel.migratedNotes,
-                    calendar: viewModel.calendar,
-                    onEdit: { entry in viewModel.onEdit?(entry) },
-                    onTaskTap: { task in viewModel.onOpenMigratedTask?(task) }
-                )
-                .padding(.horizontal, Self.rowInsets.leading)
-            }
-        }
-    }
-
     // MARK: - Section Rows
 
-    private enum SectionRowStyle { case list, embedded }
-
     @ViewBuilder
-    private func sectionRows(_ section: EntryListSection, style: SectionRowStyle) -> some View {
+    private func sectionRows(_ section: EntryListSection) -> some View {
         ForEach(section.entries, id: \.id) { entry in
-            let row = entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
-            switch style {
-            case .list:
-                row
-                    .listRowInsets(Self.rowInsets)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-            case .embedded:
-                row.padding(Self.rowInsets)
-            }
+            entryRow(for: entry, contextualLabel: section.contextualLabel(for: entry))
+                .listRowInsets(Self.rowInsets)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
         }
 
         if viewModel.onAddTask != nil {
             let target = viewModel.creationTarget(for: section)
             if viewModel.activeInlineCreationTarget?.sectionID == section.id {
-                let inlineRow = inlineCreationRow(for: target)
-                switch style {
-                case .list:
-                    inlineRow
-                        .listRowInsets(Self.rowInsets)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                case .embedded:
-                    inlineRow.padding(Self.rowInsets)
-                }
+                inlineCreationRow(for: target)
+                    .listRowInsets(Self.rowInsets)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             } else {
-                let addButton = addTaskButton(for: target)
-                switch style {
-                case .list:
-                    addButton
-                        .listRowInsets(Self.rowInsets)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                case .embedded:
-                    addButton.padding(Self.rowInsets)
-                }
+                addTaskButton(for: target)
+                    .listRowInsets(Self.rowInsets)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
         }
     }
