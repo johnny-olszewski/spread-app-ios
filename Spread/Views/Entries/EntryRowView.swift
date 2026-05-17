@@ -1,12 +1,6 @@
 import SwiftUI
 import JohnnyOFoundationUI
 
-struct EntryRowTrailingAction {
-    let systemImage: String
-    let accessibilityIdentifier: String
-    let action: () -> Void
-}
-
 struct EntryRowInlineActionConfiguration {
     let migrationOptions: [EntryRowInlineMigrationOption]
     let onEditSheet: () -> Void
@@ -27,10 +21,8 @@ struct EntryRowView: View {
     private let iconConfiguration: StatusIconConfiguration
 
     private let onComplete: (() -> Void)?
-    private let onMigrate: (() -> Void)?
     private let onEdit: (() -> Void)?
     private let onDelete: (() -> Void)?
-    private let trailingAction: EntryRowTrailingAction?
     private let inlineActionConfiguration: EntryRowInlineActionConfiguration?
     private let isInlineActive: Bool
     private let onBeginInlineEditing: (() -> Void)?
@@ -54,11 +46,9 @@ struct EntryRowView: View {
         configuration: EntryRowConfiguration,
         iconConfiguration: StatusIconConfiguration,
         onComplete: (() -> Void)? = nil,
-        onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
         onTitleCommit: (@MainActor (String) async -> Void)? = nil,
-        trailingAction: EntryRowTrailingAction? = nil,
         inlineActionConfiguration: EntryRowInlineActionConfiguration? = nil,
         isInlineActive: Bool = false,
         onBeginInlineEditing: (() -> Void)? = nil,
@@ -67,11 +57,9 @@ struct EntryRowView: View {
         self.configuration = configuration
         self.iconConfiguration = iconConfiguration
         self.onComplete = onComplete
-        self.onMigrate = onMigrate
         self.onEdit = onEdit
         self.onDelete = onDelete
         self.onTitleCommit = onTitleCommit
-        self.trailingAction = trailingAction
         self.inlineActionConfiguration = inlineActionConfiguration
         self.isInlineActive = isInlineActive
         self.onBeginInlineEditing = onBeginInlineEditing
@@ -86,11 +74,9 @@ struct EntryRowView: View {
         migrationDestination: String? = nil,
         contextualLabel: String? = nil,
         onComplete: (() -> Void)? = nil,
-        onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
         onTitleCommit: (@MainActor (String) async -> Void)? = nil,
-        trailingAction: EntryRowTrailingAction? = nil,
         inlineActionConfiguration: EntryRowInlineActionConfiguration? = nil,
         isInlineActive: Bool = false,
         onBeginInlineEditing: (() -> Void)? = nil,
@@ -111,11 +97,9 @@ struct EntryRowView: View {
             taskStatus: task.status
         )
         self.onComplete = onComplete
-        self.onMigrate = onMigrate
         self.onEdit = onEdit
         self.onDelete = onDelete
         self.onTitleCommit = onTitleCommit
-        self.trailingAction = trailingAction
         self.inlineActionConfiguration = inlineActionConfiguration
         self.isInlineActive = isInlineActive
         self.onBeginInlineEditing = onBeginInlineEditing
@@ -141,11 +125,9 @@ struct EntryRowView: View {
             isEventPast: isEventPast
         )
         self.onComplete = nil
-        self.onMigrate = nil
         self.onEdit = onEdit
         self.onDelete = onDelete
         self.onTitleCommit = nil
-        self.trailingAction = nil
         self.inlineActionConfiguration = nil
         self.isInlineActive = false
         self.onBeginInlineEditing = nil
@@ -159,7 +141,6 @@ struct EntryRowView: View {
         note: DataModel.Note,
         migrationDestination: String? = nil,
         contextualLabel: String? = nil,
-        onMigrate: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil
     ) {
@@ -175,11 +156,9 @@ struct EntryRowView: View {
             noteStatus: note.status
         )
         self.onComplete = nil
-        self.onMigrate = onMigrate
         self.onEdit = onEdit
         self.onDelete = onDelete
         self.onTitleCommit = nil
-        self.trailingAction = nil
         self.inlineActionConfiguration = nil
         self.isInlineActive = false
         self.onBeginInlineEditing = nil
@@ -285,6 +264,12 @@ struct EntryRowView: View {
             leadingAccessory
             VStack(alignment: .leading, spacing: 3) {
                 titleArea
+                if let subtitle = configuration.subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 taskMetadataArea
             }
         }
@@ -341,8 +326,13 @@ struct EntryRowView: View {
 
     @ViewBuilder
     private var leadingAccessory: some View {
-        if let inlineTaskStatus,
-           configuration.entryType == .task {
+        if let iconColor = configuration.iconColor {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(iconColor)
+                .frame(width: 4, height: 18)
+                .frame(width: 24, height: 24)
+        } else if let inlineTaskStatus,
+                  configuration.entryType == .task {
             TaskStatusToggleButton(
                 status: Binding(
                     get: { inlineTaskStatus },
@@ -365,17 +355,7 @@ struct EntryRowView: View {
 
     @ViewBuilder
     private var trailingAccessory: some View {
-        if let trailingAction {
-            Button(action: trailingAction.action) {
-                Image(systemName: trailingAction.systemImage)
-                    .font(.system(size: SpreadTheme.IconSize.medium))
-                    .foregroundStyle(.secondary)
-                    .frame(minWidth: 44, minHeight: 44)
-            }
-            .buttonStyle(.plain)
-            .contentShape(Rectangle())
-            .accessibilityIdentifier(trailingAction.accessibilityIdentifier)
-        } else if configuration.showsMigrationBadge, let destination = configuration.migrationDestination {
+        if configuration.showsMigrationBadge, let destination = configuration.migrationDestination {
             migrationBadge(destination: destination)
         }
     }
@@ -634,14 +614,6 @@ struct EntryRowView: View {
             }
         }
 
-        if configuration.canMigrate, let onMigrate {
-            Button {
-                onMigrate()
-            } label: {
-                Label("Migrate", systemImage: "arrow.right.circle")
-            }
-        }
-
         if configuration.canDelete, let onDelete {
             Button(role: .destructive) {
                 onDelete()
@@ -659,7 +631,6 @@ struct EntryRowView: View {
         EntryRowView(
             task: DataModel.Task(title: "Buy groceries", status: .open),
             onComplete: {},
-            onMigrate: {},
             onEdit: {},
             onDelete: {},
             onTitleCommit: { _ in }
@@ -724,7 +695,6 @@ struct EntryRowView: View {
     List {
         EntryRowView(
             note: DataModel.Note(title: "Project ideas", status: .active),
-            onMigrate: {},
             onEdit: {},
             onDelete: {}
         )
@@ -748,7 +718,6 @@ struct EntryRowView: View {
             EntryRowView(
                 task: DataModel.Task(title: "Open task", status: .open),
                 onComplete: {},
-                onMigrate: {},
                 onTitleCommit: { _ in }
             )
             EntryRowView(
@@ -776,14 +745,221 @@ struct EntryRowView: View {
 
         Section("Notes") {
             EntryRowView(
-                note: DataModel.Note(title: "Active note", status: .active),
-                onMigrate: {}
+                note: DataModel.Note(title: "Active note", status: .active)
             )
             EntryRowView(
                 note: DataModel.Note(title: "Migrated note (greyed)", status: .migrated),
                 migrationDestination: "Next Year"
             )
         }
+    }
+}
+
+// MARK: - Entry List Row
+
+/// Dispatches an `any Entry` to the correct `EntryRowView` variant, wired to an `EntryListViewModel`.
+///
+/// Use this instead of a manual `switch entry.entryType` at each call site.
+struct EntryListRowView: View {
+
+    let entry: any Entry
+    @Bindable var viewModel: EntryListViewModel
+    let contextualLabel: String?
+
+    var body: some View {
+        switch entry.entryType {
+        case .task:
+            if let task = entry as? DataModel.Task {
+                taskRow(task)
+            }
+        case .note:
+            if let note = entry as? DataModel.Note {
+                noteRow(note)
+            }
+        case .event:
+            if let event = entry as? DataModel.Event, let calEvent = event.calendarEvent {
+                calendarEventRow(event: event, calendarEvent: calEvent)
+            }
+        }
+    }
+
+    private func calendarEventRow(event: DataModel.Event, calendarEvent: CalendarEvent) -> some View {
+        let subtitle: String
+        if calendarEvent.isAllDay {
+            subtitle = "All Day · \(calendarEvent.calendarTitle)"
+        } else {
+            let formatter = DateFormatter()
+            formatter.calendar = viewModel.calendar
+            formatter.timeZone = viewModel.calendar.timeZone
+            formatter.timeStyle = .short
+            formatter.dateStyle = .none
+            let start = formatter.string(from: calendarEvent.startDate)
+            let end = formatter.string(from: calendarEvent.endDate)
+            subtitle = "\(start)–\(end) · \(calendarEvent.calendarTitle)"
+        }
+        return EntryRowView(
+            configuration: EntryRowConfiguration(
+                entryType: .event,
+                title: calendarEvent.title,
+                isEventPast: calendarEvent.endDate < viewModel.today,
+                iconColor: calendarEvent.calendarColor,
+                subtitle: subtitle
+            ),
+            iconConfiguration: StatusIconConfiguration(entryType: .event)
+        )
+    }
+
+    private func taskRow(_ task: DataModel.Task) -> some View {
+        let rowStatus = viewModel.rowStatus(for: task)
+        return EntryRowView(
+            configuration: EntryRowConfiguration(
+                entryType: .task,
+                taskStatus: rowStatus,
+                title: task.title,
+                migrationDestination: rowStatus == .migrated
+                    ? viewModel.spread.flatMap { viewModel.destinationFormatter.destination(for: task, from: $0) }
+                    : nil,
+                contextualLabel: contextualLabel,
+                taskBodyPreview: task.bodyPreview,
+                taskPriority: task.priority,
+                taskDueDateLabel: task.dueDateLabel(calendar: viewModel.calendar),
+                isTaskDueDateHighlighted: task.isDueDateHighlighted(today: viewModel.today, calendar: viewModel.calendar),
+                tagChips: task.tags.sorted { $0.name < $1.name }.map { tag in (title: tag.name, color: tag.chipColor) }
+            ),
+            iconConfiguration: StatusIconConfiguration(entryType: .task, taskStatus: rowStatus),
+            onComplete: rowStatus == .open ? { viewModel.onComplete?(task) } : nil,
+            onEdit: {
+                viewModel.dismissActiveInlineEditing()
+                viewModel.onEdit?(task)
+            },
+            onDelete: { viewModel.onDelete?(task) },
+            onTitleCommit: { @MainActor newTitle in
+                await viewModel.onTitleCommit?(task, newTitle)
+            },
+            inlineActionConfiguration: rowStatus == .open ? viewModel.inlineActionConfiguration(for: task) : nil,
+            isInlineActive: viewModel.activeInlineTaskID == task.id,
+            onBeginInlineEditing: { viewModel.activeInlineTaskID = task.id },
+            onEndInlineEditing: {
+                if viewModel.activeInlineTaskID == task.id {
+                    viewModel.activeInlineTaskID = nil
+                }
+            }
+        )
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(task.title))
+    }
+
+    private func noteRow(_ note: DataModel.Note) -> some View {
+        EntryRowView(
+            note: note,
+            migrationDestination: viewModel.spread.flatMap { viewModel.destinationFormatter.destination(for: note, from: $0) },
+            contextualLabel: contextualLabel,
+            onEdit: {
+                viewModel.dismissActiveInlineEditing()
+                viewModel.onEdit?(note)
+            },
+            onDelete: { viewModel.onDelete?(note) }
+        )
+    }
+}
+
+// MARK: - Inline Creation Row
+
+/// Self-contained inline task creation row.
+///
+/// Owns its own `@FocusState`. Activates focus on appear, handles keyboard toolbar, and
+/// commits or dismisses via the shared `EntryListViewModel`.
+struct InlineCreationRowView: View {
+
+    @Bindable var viewModel: EntryListViewModel
+    let target: EntryListViewModel.InlineCreationTarget
+
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+            StatusIcon(entryType: .task, taskStatus: .open, color: .primary)
+                .frame(width: 24, height: 24)
+
+            TextField("New task", text: $viewModel.inlineTitle)
+                .id(viewModel.inlineCreationID)
+                .textFieldStyle(.plain)
+                .font(SpreadTheme.Typography.body)
+                .focused($isFocused)
+                .submitLabel(.done)
+                .onSubmit { viewModel.commitInlineTask(target: target) }
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        isFocused = true
+                    }
+                }
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadContent.inlineTaskCreationField
+                )
+
+            Spacer()
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                if isFocused {
+                    Button("Cancel") {
+                        viewModel.dismissInlineCreation()
+                        isFocused = false
+                    }
+                    .glassEffect(in: Capsule())
+
+                    Spacer()
+
+                    Button("Save") {
+                        viewModel.commitInlineTask(target: target)
+                    }
+                    .glassEffect(in: Capsule())
+                    .disabled(viewModel.inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .onChange(of: isFocused) { _, focused in
+            if focused {
+                viewModel.hasAcquiredInlineCreationFocus = true
+                return
+            }
+            guard viewModel.hasAcquiredInlineCreationFocus,
+                  viewModel.activeInlineCreationTarget != nil else { return }
+            let trimmed = viewModel.inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                viewModel.dismissInlineCreation()
+            } else {
+                viewModel.commitInlineTask(target: target)
+            }
+        }
+    }
+}
+
+// MARK: - Add Task Button Row
+
+/// Tappable "Add Task" affordance row.
+///
+/// When tapped, activates inline creation for the given target in the shared `EntryListViewModel`.
+struct AddTaskRowView: View {
+
+    @Bindable var viewModel: EntryListViewModel
+    let target: EntryListViewModel.InlineCreationTarget
+
+    var body: some View {
+        Button {
+            viewModel.activateInlineCreation(for: target)
+        } label: {
+            HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+                Image(systemName: "plus")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+                Text("Add Task")
+                    .font(SpreadTheme.Typography.body)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

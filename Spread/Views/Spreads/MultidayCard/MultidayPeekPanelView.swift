@@ -75,13 +75,13 @@ struct MultidayPeekPanelView: View {
                     if !timedEvents.isEmpty || !allDayEvents.isEmpty {
                         Section("Events") {
                             ForEach(allDayEvents) { event in
-                                CalendarEventRow(event: event, calendar: calendar)
+                                peekCalendarEventRow(event)
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: SpreadTheme.Spacing.entryRowVertical, leading: 16, bottom: SpreadTheme.Spacing.entryRowVertical, trailing: 16))
                             }
                             ForEach(timedEvents) { event in
-                                CalendarEventRow(event: event, calendar: calendar)
+                                peekCalendarEventRow(event)
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: SpreadTheme.Spacing.entryRowVertical, leading: 16, bottom: SpreadTheme.Spacing.entryRowVertical, trailing: 16))
@@ -113,6 +113,32 @@ struct MultidayPeekPanelView: View {
     }
 
     // MARK: - Rows
+
+    private func peekCalendarEventRow(_ event: CalendarEvent) -> some View {
+        let subtitle: String
+        if event.isAllDay {
+            subtitle = "All Day · \(event.calendarTitle)"
+        } else {
+            let formatter = DateFormatter()
+            formatter.calendar = calendar
+            formatter.timeZone = calendar.timeZone
+            formatter.timeStyle = .short
+            formatter.dateStyle = .none
+            let start = formatter.string(from: event.startDate)
+            let end = formatter.string(from: event.endDate)
+            subtitle = "\(start)–\(end) · \(event.calendarTitle)"
+        }
+        return EntryRowView(
+            configuration: EntryRowConfiguration(
+                entryType: .event,
+                title: event.title,
+                isEventPast: event.endDate < today,
+                iconColor: event.calendarColor,
+                subtitle: subtitle
+            ),
+            iconConfiguration: StatusIconConfiguration(entryType: .event)
+        )
+    }
 
     private func peekTaskRow(_ task: DataModel.Task) -> some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {

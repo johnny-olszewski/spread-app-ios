@@ -521,6 +521,9 @@ enum DataModelSchemaV1: VersionedSchema {
         /// LWW timestamp for the `endTime` field.
         var endTimeUpdatedAt: Date?
 
+        /// Ephemeral EventKit backing data. Not persisted; nil for all stored events.
+        @Transient var calendarEvent: CalendarEvent? = nil
+
         /// Creates a new event.
         ///
         /// - Parameters:
