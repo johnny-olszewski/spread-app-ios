@@ -219,8 +219,6 @@ private struct SpreadPageContentView: View {
     @ViewBuilder
     private func conventionalContentView(for spread: DataModel.Spread) -> some View {
         let dataModel = conventionalSpreadDataModel(for: spread)
-        let migrationConfig = migrationConfiguration(for: spread)
-        let onOpenMigrated = openMigratedTaskHandler(for: spread)
 
         switch spread.period {
         case .year:
@@ -229,9 +227,7 @@ private struct SpreadPageContentView: View {
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
                 viewModel: viewModel,
-                syncEngine: syncEngine,
-                migrationConfiguration: migrationConfig,
-                onOpenMigratedTask: onOpenMigrated
+                syncEngine: syncEngine
             )
         case .month:
             MonthSpreadContentView(
@@ -239,9 +235,7 @@ private struct SpreadPageContentView: View {
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
                 viewModel: viewModel,
-                syncEngine: syncEngine,
-                migrationConfiguration: migrationConfig,
-                onOpenMigratedTask: onOpenMigrated
+                syncEngine: syncEngine
             )
         case .day:
             DaySpreadContentView(
@@ -250,8 +244,6 @@ private struct SpreadPageContentView: View {
                 journalManager: journalManager,
                 viewModel: viewModel,
                 syncEngine: syncEngine,
-                migrationConfiguration: migrationConfig,
-                onOpenMigratedTask: onOpenMigrated,
                 explicitDaySpreadForDate: { date in explicitDaySpread(for: date) },
                 onSelectSpread: { selectedSpread in
                     viewModel.selectedSelection = .conventional(selectedSpread)
@@ -341,57 +333,6 @@ private struct SpreadPageContentView: View {
         return journalManager.dataModel[spread.period]?[normalizedDate]
     }
 
-    private func migrationConfiguration(for spread: DataModel.Spread) -> EntryListMigrationConfiguration? {
-        guard spread.period != .multiday else { return nil }
-
-        let sourceDestinations: [UUID: DataModel.Spread] = Dictionary(
-            uniqueKeysWithValues: (conventionalSpreadDataModel(for: spread)?.tasks ?? []).compactMap { task in
-                guard let destination = journalManager.migrationDestination(for: task, on: spread) else {
-                    return nil
-                }
-                return (task.id, destination)
-            }
-        )
-
-        let destinationItems = journalManager.parentHierarchyMigrationCandidates(to: spread).map { candidate in
-            EntryListMigrationConfiguration.DestinationItem(
-                task: candidate.task,
-                source: candidate.sourceSpread ?? spread
-            )
-        }
-
-        guard !sourceDestinations.isEmpty || !destinationItems.isEmpty else { return nil }
-
-        return EntryListMigrationConfiguration(
-            sourceDestinations: sourceDestinations,
-            destinationItems: destinationItems,
-            onSourceMigrationConfirmed: { task, destination in
-                migrateTask(task, from: spread, to: destination)
-            },
-            onDestinationMigration: { item in
-                migrateTask(item.task, from: item.source, to: spread)
-            },
-            onDestinationMigrationAll: {
-                migrateTasks(destinationItems, to: spread)
-            }
-        )
-    }
-
-    private func openMigratedTaskHandler(for spread: DataModel.Spread) -> ((DataModel.Task) -> Void) {
-        { task in
-            guard let destination = journalManager.currentDestinationSpread(for: task, excluding: spread) else {
-                viewModel.showTaskDetail(task)
-                return
-            }
-            viewModel.selectedSelection = .conventional(destination)
-            viewModel.recenterToken += 1
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(150))
-                viewModel.showTaskDetail(task)
-            }
-        }
-    }
-
     private func explicitDaySpread(for date: Date) -> DataModel.Spread? {
         let normalizedDate = Period.day.normalizeDate(date, calendar: journalManager.calendar)
         return journalManager.spreads.first { spread in
@@ -400,29 +341,6 @@ private struct SpreadPageContentView: View {
                 Period.day.normalizeDate(spread.date, calendar: journalManager.calendar),
                 inSameDayAs: normalizedDate
             )
-        }
-    }
-
-    private func migrateTask(
-        _ task: DataModel.Task,
-        from source: DataModel.Spread,
-        to destination: DataModel.Spread
-    ) {
-        Task { @MainActor in
-            try? await journalManager.migrateTask(task, from: source, to: destination)
-            await syncEngine?.syncNow()
-        }
-    }
-
-    private func migrateTasks(
-        _ items: [EntryListMigrationConfiguration.DestinationItem],
-        to destination: DataModel.Spread
-    ) {
-        Task { @MainActor in
-            for item in items {
-                try? await journalManager.migrateTask(item.task, from: item.source, to: destination)
-            }
-            await syncEngine?.syncNow()
         }
     }
 

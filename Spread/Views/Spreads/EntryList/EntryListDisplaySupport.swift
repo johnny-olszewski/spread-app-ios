@@ -32,20 +32,6 @@ enum EntryListDisplaySupport {
         }
     }
 
-    static func migratedNotes(
-        for spreadDataModel: SpreadDataModel,
-        configuration: EntryListConfiguration,
-        calendar: Calendar
-    ) -> [DataModel.Note] {
-        guard configuration.showsMigrationHistory else {
-            return []
-        }
-
-        return spreadDataModel.notes.filter { note in
-            isMigrated(note, on: spreadDataModel.spread, calendar: calendar)
-        }
-    }
-
     private static func isMigrated(
         _ note: DataModel.Note,
         on spread: DataModel.Spread,
