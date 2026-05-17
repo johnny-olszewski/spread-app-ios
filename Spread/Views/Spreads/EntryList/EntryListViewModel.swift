@@ -38,7 +38,6 @@ import SwiftUI
     var onTitleCommit: (@MainActor (DataModel.Task, String) async -> Void)?
     var onReassignTask: (@MainActor (DataModel.Task, Date, Period) async -> Void)?
     var onAddTask: (@MainActor (String, Date, Period) async throws -> Void)?
-    var onRefresh: (() async -> Void)?
 
     // MARK: - UI State
 
