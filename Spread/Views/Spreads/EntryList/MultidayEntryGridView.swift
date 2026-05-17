@@ -60,7 +60,6 @@ struct MultidayEntryGridView<RowContent: View>: View {
             }
             .padding(16)
         }
-        .modifier(RefreshableModifier(onRefresh: viewModel.onRefresh))
         .sheet(item: $activePeekData) { data in
             MultidayPeekPanelView(
                 data: data,
@@ -147,16 +146,3 @@ enum MultidaySectionLayout {
     }
 }
 
-// MARK: - Refresh Helper
-
-private struct RefreshableModifier: ViewModifier {
-    let onRefresh: (() async -> Void)?
-
-    func body(content: Content) -> some View {
-        if let onRefresh {
-            content.refreshable { await onRefresh() }
-        } else {
-            content
-        }
-    }
-}

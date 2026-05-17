@@ -25,20 +25,13 @@ struct EntryListView: View {
     // MARK: - Body
 
     var body: some View {
-        contentView
-    }
-
-    // MARK: - Content
-
-    @ViewBuilder
-    private var contentView: some View {
         if viewModel.hasAnyEntries || viewModel.onAddTask != nil {
             entryList
         } else {
             emptyState
         }
     }
-
+    
     // MARK: - List Layouts
 
     @ViewBuilder
@@ -58,7 +51,6 @@ struct EntryListView: View {
         .scrollContentBackground(.hidden)
         .background(Color.clear)
         .environment(\.defaultMinListRowHeight, 0)
-        .modifier(RefreshableModifier(onRefresh: viewModel.onRefresh))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
     }
 
@@ -95,21 +87,6 @@ struct EntryListView: View {
             Label("No Entries", systemImage: "tray")
         } description: {
             Text("Add tasks or notes to this spread.")
-        }
-    }
-}
-
-// MARK: - Refresh Helpers
-
-/// Conditionally applies `.refreshable` only when an action is provided.
-private struct RefreshableModifier: ViewModifier {
-    let onRefresh: (() async -> Void)?
-
-    func body(content: Content) -> some View {
-        if let onRefresh {
-            content.refreshable { await onRefresh() }
-        } else {
-            content
         }
     }
 }

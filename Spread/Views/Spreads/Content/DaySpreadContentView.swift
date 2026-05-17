@@ -277,10 +277,6 @@ struct DaySpreadContentView: View {
             _ = try await journalManager.addTask(title: title, date: date, period: period)
             Task { @MainActor in await syncEngine?.syncNow() }
         }
-        entryListViewModel.onRefresh = {
-            guard let engine = syncEngine, engine.status.shouldTriggerSync else { return }
-            await engine.syncNow()
-        }
     }
 
     // MARK: - Private
