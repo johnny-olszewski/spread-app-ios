@@ -36,7 +36,6 @@ import SwiftUI
     /// Migration affordances for tasks migrated to/from this spread.
     var migrationConfiguration: EntryListMigrationConfiguration?
 
-    var isEmbedded: Bool = false
     var syncStatus: SyncStatus?
 
     /// The spread currently being viewed, used for migration status resolution.
