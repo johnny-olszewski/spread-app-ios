@@ -63,6 +63,12 @@ struct EntryRowConfiguration: Sendable {
     /// Tag chips shown inline with the title, one per assigned tag.
     let tagChips: [(title: String, color: Color)]
 
+    /// Optional icon color. When non-nil, the leading accessory renders as a colored bar instead of a status icon.
+    let iconColor: Color?
+
+    /// Optional subtitle shown below the title. Used for calendar event time+calendar labels.
+    let subtitle: String?
+
     // MARK: - Initialization
 
     /// Creates an entry row configuration.
@@ -86,7 +92,9 @@ struct EntryRowConfiguration: Sendable {
         taskDueDateLabel: String? = nil,
         isTaskDueDateHighlighted: Bool = false,
         isEventPast: Bool = false,
-        tagChips: [(title: String, color: Color)] = []
+        tagChips: [(title: String, color: Color)] = [],
+        iconColor: Color? = nil,
+        subtitle: String? = nil
     ) {
         self.entryType = entryType
         self.taskStatus = taskStatus
@@ -100,6 +108,8 @@ struct EntryRowConfiguration: Sendable {
         self.isTaskDueDateHighlighted = isTaskDueDateHighlighted
         self.isEventPast = isEventPast
         self.tagChips = tagChips
+        self.iconColor = iconColor
+        self.subtitle = subtitle
     }
 
     var hasTaskMetadata: Bool {
@@ -120,24 +130,6 @@ struct EntryRowConfiguration: Sendable {
         return status == .open
     }
 
-    /// Whether the migrate action is available.
-    ///
-    /// Tasks: only open tasks can migrate.
-    /// Notes: only active notes can migrate (explicit-only).
-    /// Events: never migrate.
-    var canMigrate: Bool {
-        switch entryType {
-        case .task:
-            guard let status = taskStatus else { return false }
-            return status == .open
-        case .note:
-            guard let status = noteStatus else { return false }
-            return status == .active
-        case .event:
-            return false
-        }
-    }
-
     /// Whether the edit action is available.
     ///
     /// All entry types can be edited.
@@ -153,17 +145,6 @@ struct EntryRowConfiguration: Sendable {
     }
 
     // MARK: - Swipe Action Collections
-
-    /// Actions available as leading swipe actions.
-    ///
-    /// Migrate is a leading action for tasks and notes.
-    var leadingActions: [EntryRowAction] {
-        var actions: [EntryRowAction] = []
-        if canMigrate {
-            actions.append(.migrate)
-        }
-        return actions
-    }
 
     /// Actions available as trailing swipe actions.
     ///

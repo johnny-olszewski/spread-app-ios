@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// A journal entry with a unique identity and creation timestamp.
 ///
@@ -57,4 +58,8 @@ protocol DateRangeEntry: Entry {
     ///   - calendar: The calendar to use for date calculations.
     /// - Returns: `true` if this entry's date range overlaps with the spread.
     func appearsOn(period: Period, date: Date, calendar: Calendar) -> Bool
+}
+
+extension Entry {
+    var iconColor: Color? { nil }
 }
