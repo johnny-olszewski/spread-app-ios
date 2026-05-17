@@ -102,29 +102,6 @@ import SwiftUI
         return calendarEvents.filter { $0.startDate < dayEnd && $0.endDate > dayStart }
     }
 
-    func isOverdue(date: Date, period: Period) -> Bool {
-        let todayStart = today.startOfDay(calendar: calendar)
-
-        switch period {
-        case .day:
-            return todayStart > date.startOfDay(calendar: calendar)
-        case .month:
-            let startOfMonth = period.normalizeDate(date, calendar: calendar)
-            guard let startOfNextMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth) else {
-                return false
-            }
-            return todayStart >= startOfNextMonth
-        case .year:
-            let startOfYear = period.normalizeDate(date, calendar: calendar)
-            guard let startOfNextYear = calendar.date(byAdding: .year, value: 1, to: startOfYear) else {
-                return false
-            }
-            return todayStart >= startOfNextYear
-        case .multiday:
-            return false
-        }
-    }
-
     func sourceMigrationDestinationTitle(for dest: DataModel.Spread) -> String {
         let formatter = DateFormatter()
         formatter.calendar = calendar
