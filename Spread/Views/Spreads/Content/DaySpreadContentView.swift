@@ -20,8 +20,6 @@ struct DaySpreadContentView: View {
     let viewModel: SpreadsViewModel
     let syncEngine: SyncEngine?
     var entryListConfiguration: EntryListConfiguration = .init(showsMigrationHistory: false)
-    var migrationConfiguration: EntryListMigrationConfiguration? = nil
-    var onOpenMigratedTask: ((DataModel.Task) -> Void)? = nil
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
     var onSelectSpread: ((DataModel.Spread) -> Void)? = nil
     var onCreateSpread: ((Date) -> Void)? = nil
@@ -98,11 +96,11 @@ struct DaySpreadContentView: View {
             setupEntryListCallbacks()
             await fetchCalendarEvents()
         }
-        .onChange(of: calendarEvents) { _, events in
-            entryListViewModel.calendarEvents = showsTimelineCard ? [] : events
+        .onChange(of: calendarEvents) { _, _ in
+            if let dataModel = spreadDataModel { configureEntryListSections(dataModel: dataModel) }
         }
-        .onChange(of: showsTimelineCard) { _, isWide in
-            entryListViewModel.calendarEvents = isWide ? [] : calendarEvents
+        .onChange(of: showsTimelineCard) { _, _ in
+            if let dataModel = spreadDataModel { configureEntryListSections(dataModel: dataModel) }
         }
         .onChange(of: spreadDataModel?.tasks.count ?? 0) { _, _ in
             if let dataModel = spreadDataModel { configureEntryListSections(dataModel: dataModel) }
@@ -202,13 +200,18 @@ struct DaySpreadContentView: View {
 
     // MARK: - ViewModel configuration
 
-    private func configureEntryListViewModel(dataModel: SpreadDataModel) {
-        let cal = journalManager.calendar
-        let entries = EntryListDisplaySupport.displayedEntries(
+    private func allEntries(dataModel: SpreadDataModel, calendar: Calendar) -> [any Entry] {
+        let base = EntryListDisplaySupport.displayedEntries(
             for: dataModel,
             configuration: entryListConfiguration,
-            calendar: cal
+            calendar: calendar
         )
+        let eventEntries: [DataModel.Event] = showsTimelineCard ? [] : calendarEvents.map { DataModel.Event(calendarEvent: $0) }
+        return base + eventEntries
+    }
+
+    private func configureEntryListViewModel(dataModel: SpreadDataModel) {
+        let cal = journalManager.calendar
         let grouper = EntryListGrouper(
             configuration: entryListConfiguration,
             period: dataModel.spread.period,
@@ -217,28 +220,15 @@ struct DaySpreadContentView: View {
             spreadEndDate: dataModel.spread.endDate,
             calendar: cal
         )
-        entryListViewModel.sections = grouper.group(entries)
-        entryListViewModel.migratedNotes = EntryListDisplaySupport.migratedNotes(
-            for: dataModel,
-            configuration: entryListConfiguration,
-            calendar: cal
-        )
+        entryListViewModel.sections = grouper.group(allEntries(dataModel: dataModel, calendar: cal))
         entryListViewModel.calendar = cal
         entryListViewModel.today = journalManager.today
         entryListViewModel.spread = dataModel.spread
         entryListViewModel.showsMigrationHistory = entryListConfiguration.showsMigrationHistory
-        entryListViewModel.migrationConfiguration = migrationConfiguration
-        entryListViewModel.calendarEvents = showsTimelineCard ? [] : calendarEvents
-        entryListViewModel.syncStatus = syncEngine?.status
     }
 
     private func configureEntryListSections(dataModel: SpreadDataModel) {
         let cal = journalManager.calendar
-        let entries = EntryListDisplaySupport.displayedEntries(
-            for: dataModel,
-            configuration: entryListConfiguration,
-            calendar: cal
-        )
         let grouper = EntryListGrouper(
             configuration: entryListConfiguration,
             period: dataModel.spread.period,
@@ -247,12 +237,7 @@ struct DaySpreadContentView: View {
             spreadEndDate: dataModel.spread.endDate,
             calendar: cal
         )
-        entryListViewModel.sections = grouper.group(entries)
-        entryListViewModel.migratedNotes = EntryListDisplaySupport.migratedNotes(
-            for: dataModel,
-            configuration: entryListConfiguration,
-            calendar: cal
-        )
+        entryListViewModel.sections = grouper.group(allEntries(dataModel: dataModel, calendar: cal))
     }
 
     private func setupEntryListCallbacks() {
@@ -260,7 +245,6 @@ struct DaySpreadContentView: View {
             if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
             else if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
         }
-        entryListViewModel.onOpenMigratedTask = onOpenMigratedTask
         entryListViewModel.onDelete = { entry in
             if let task = entry as? DataModel.Task {
                 Task { @MainActor in

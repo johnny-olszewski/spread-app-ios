@@ -14,29 +14,12 @@ private enum YearSpreadContentLayout {
 /// Renders the dedicated year surface: one top year-entry section plus month cards.
 struct YearSpreadContentView: View {
 
-    // MARK: - ViewModel
-
-    @Observable @MainActor final class ViewModel {
-        struct PendingSourceMigration: Identifiable {
-            let task: DataModel.Task
-            let destination: DataModel.Spread
-
-            var id: UUID { task.id }
-        }
-
-        var pendingSourceMigration: PendingSourceMigration?
-    }
-
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
     let journalManager: JournalManager
     let viewModel: SpreadsViewModel
     let syncEngine: SyncEngine?
     var entryListConfiguration: EntryListConfiguration = .init()
-    var migrationConfiguration: EntryListMigrationConfiguration? = nil
-    var onOpenMigratedTask: ((DataModel.Task) -> Void)? = nil
-
-    @State private var contentViewModel = ViewModel()
 
     private var calendar: Calendar {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
@@ -51,7 +34,6 @@ struct YearSpreadContentView: View {
     }
 
     var body: some View {
-        @Bindable var contentViewModel = contentViewModel
         if let dataModel = spreadDataModel {
             let contentModel = YearSpreadContentSupport.model(
                 for: spread,
@@ -77,16 +59,6 @@ struct YearSpreadContentView: View {
                 .padding(.horizontal, Layout.contentPadding)
                 .padding(.top, Layout.contentPadding)
                 .padding(.bottom, Layout.sectionSpacing)
-            }
-            .alert(item: $contentViewModel.pendingSourceMigration) { migration in
-                Alert(
-                    title: Text("Migrate Task"),
-                    message: Text("Move \"\(migration.task.title)\" to \(spreadTitle(for: migration.destination))?"),
-                    primaryButton: .default(Text("Migrate")) {
-                        migrationConfiguration?.onSourceMigrationConfirmed(migration.task, migration.destination)
-                    },
-                    secondaryButton: .cancel()
-                )
             }
         } else {
             ContentUnavailableView {
@@ -232,7 +204,6 @@ struct YearSpreadContentView: View {
 
     private func taskRow(_ task: DataModel.Task, contextualLabel: String?) -> some View {
         let destinationFormatter = MigrationDestinationFormatter(calendar: calendar)
-        let sourceMigrationDestination = migrationConfiguration?.sourceDestinations[task.id]
 
         return EntryRowView(
             configuration: EntryRowConfiguration(
@@ -257,18 +228,7 @@ struct YearSpreadContentView: View {
                     await syncEngine?.syncNow()
                 }
             } : nil,
-            onMigrate: task.status == .open ? sourceMigrationDestination.map { destination in
-                {
-                    contentViewModel.pendingSourceMigration = ViewModel.PendingSourceMigration(task: task, destination: destination)
-                }
-            } : nil,
-            onEdit: {
-                if task.status == .migrated {
-                    onOpenMigratedTask?(task)
-                } else {
-                    viewModel.showTaskDetail(task)
-                }
-            },
+            onEdit: { viewModel.showTaskDetail(task) },
             onDelete: {
                 Task { @MainActor in
                     try? await journalManager.deleteTask(task)
@@ -278,16 +238,7 @@ struct YearSpreadContentView: View {
             onTitleCommit: { @MainActor newTitle in
                 try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
                 await syncEngine?.syncNow()
-            },
-            trailingAction: task.status == .open ? sourceMigrationDestination.map { destination in
-                EntryRowTrailingAction(
-                    systemImage: "arrow.right",
-                    accessibilityIdentifier: Definitions.AccessibilityIdentifiers.Migration.sourceButton(task.title),
-                    action: {
-                        contentViewModel.pendingSourceMigration = ViewModel.PendingSourceMigration(task: task, destination: destination)
-                    }
-                )
-            } : nil
+            }
         )
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(task.title))
     }
@@ -307,16 +258,6 @@ struct YearSpreadContentView: View {
     }
 
     private func dismissInlineEditing() {}
-
-    private func spreadTitle(for spread: DataModel.Spread) -> String {
-        SpreadDisplayNameFormatter(
-            calendar: calendar,
-            today: journalManager.today,
-            firstWeekday: journalManager.firstWeekday
-        )
-        .display(for: spread)
-        .primary
-    }
 
     private func cardBackgroundFill(for visualState: MultidayDayCardVisualState) -> Color {
         if visualState.isToday {

@@ -14,13 +14,6 @@ import SwiftUI
         let period: Period
     }
 
-    struct PendingSourceMigration: Identifiable {
-        let task: DataModel.Task
-        let destination: DataModel.Spread
-
-        var id: UUID { task.id }
-    }
-
     // MARK: - Data (set by caller)
 
     /// Pre-computed sections to render. Callers use `EntryListGrouper` to produce these.
@@ -28,15 +21,6 @@ import SwiftUI
 
     var calendar: Calendar = .current
     var today: Date = Date()
-    var calendarEvents: [CalendarEvent] = []
-
-    /// Notes that have been migrated from the current spread, shown in the collapsed history section.
-    var migratedNotes: [DataModel.Note] = []
-
-    /// Migration affordances for tasks migrated to/from this spread.
-    var migrationConfiguration: EntryListMigrationConfiguration?
-
-    var syncStatus: SyncStatus?
 
     /// The spread currently being viewed, used for migration status resolution.
     /// Set by callers in a spread context; nil in contexts like EntryBrowser.
@@ -49,7 +33,6 @@ import SwiftUI
     // MARK: - Callbacks (set by caller)
 
     var onEdit: ((any Entry) -> Void)?
-    var onOpenMigratedTask: ((DataModel.Task) -> Void)?
     var onDelete: ((any Entry) -> Void)?
     var onComplete: ((DataModel.Task) -> Void)?
     var onTitleCommit: (@MainActor (DataModel.Task, String) async -> Void)?
@@ -63,16 +46,12 @@ import SwiftUI
     var inlineTitle: String = ""
     var inlineCreationID: UUID = UUID()
     var activeInlineTaskID: UUID?
-    var pendingSourceMigration: PendingSourceMigration?
     var hasAcquiredInlineCreationFocus: Bool = false
 
     // MARK: - Computed
 
     var hasAnyEntries: Bool {
-        !sections.allSatisfy { $0.entries.isEmpty } ||
-        !migratedNotes.isEmpty ||
-        !(migrationConfiguration?.destinationItems.isEmpty ?? true) ||
-        !calendarEvents.isEmpty
+        !sections.allSatisfy { $0.entries.isEmpty }
     }
 
     var destinationFormatter: MigrationDestinationFormatter {
@@ -91,31 +70,6 @@ import SwiftUI
         return task.assignments.contains { assignment in
             assignment.status == .migrated &&
             assignment.matches(spread: spread, calendar: calendar)
-        }
-    }
-
-    func calendarEventsForDay(_ date: Date) -> [CalendarEvent] {
-        let dayStart = date.startOfDay(calendar: calendar)
-        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
-            return []
-        }
-        return calendarEvents.filter { $0.startDate < dayEnd && $0.endDate > dayStart }
-    }
-
-    func sourceMigrationDestinationTitle(for dest: DataModel.Spread) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateStyle = .long
-
-        switch dest.period {
-        case .year:
-            return String(calendar.component(.year, from: dest.date))
-        case .month:
-            formatter.dateFormat = "MMMM yyyy"
-            return formatter.string(from: dest.date)
-        case .day, .multiday:
-            return formatter.string(from: dest.date)
         }
     }
 
@@ -141,6 +95,7 @@ import SwiftUI
         dismissActiveInlineEditing()
         inlineTitle = ""
         inlineCreationID = UUID()
+        hasAcquiredInlineCreationFocus = false
         activeInlineCreationTarget = target
     }
 
