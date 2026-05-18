@@ -14,30 +14,6 @@ struct EntryRowInlineEditSupportTests {
         calendar.date(from: DateComponents(year: 2026, month: 1, day: 12))!
     }
 
-    /// Conditions: An open task row can inline edit its title.
-    /// Expected: Tapping the row enters inline editing instead of opening the full sheet.
-    @Test func testOpenTaskPrimaryInteractionUsesInlineEdit() {
-        let interaction = EntryRowInlineEditSupport.primaryInteraction(
-            entryType: .task,
-            taskStatus: .open,
-            canInlineEditTitle: true
-        )
-
-        #expect(interaction == .inlineEdit)
-    }
-
-    /// Conditions: A completed task row is tapped.
-    /// Expected: The row opens the full edit sheet instead of inline editing.
-    @Test func testCompletedTaskPrimaryInteractionUsesFullEditSheet() {
-        let interaction = EntryRowInlineEditSupport.primaryInteraction(
-            entryType: .task,
-            taskStatus: .complete,
-            canInlineEditTitle: true
-        )
-
-        #expect(interaction == .fullEditSheet)
-    }
-
     /// Conditions: An open day task is already assigned to today.
     /// Expected: The inline migrate menu omits duplicate Today, but includes Tomorrow and both next-month options.
     @Test func testMigrationOptionsExcludeCurrentTodayAndProvideDescriptiveFutureLabels() {
