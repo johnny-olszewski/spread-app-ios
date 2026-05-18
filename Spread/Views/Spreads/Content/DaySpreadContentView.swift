@@ -243,7 +243,7 @@ struct DaySpreadContentView: View {
             return task.status
         }
 
-        let taskConfig = EntryRowConfiguration(
+        let taskConfig = EntryRowView.Configuration(
             effectiveTaskStatus: { effectiveStatus(for: $0) },
             isGreyedOut: { entry in
                 guard let s = effectiveStatus(for: entry) else { return false }
@@ -292,7 +292,7 @@ struct DaySpreadContentView: View {
             }
         )
 
-        let noteConfig = EntryRowConfiguration(
+        let noteConfig = EntryRowView.Configuration(
             isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
             onEdit: { entry in
                 if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
@@ -306,7 +306,7 @@ struct DaySpreadContentView: View {
             }
         )
 
-        let eventConfig = EntryRowConfiguration(
+        let eventConfig = EntryRowView.Configuration(
             isGreyedOut: { entry in
                 guard let event = entry as? DataModel.Event else { return false }
                 return (event.calendarEvent?.endDate ?? event.endDate) < today

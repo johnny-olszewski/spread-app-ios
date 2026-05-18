@@ -11,9 +11,9 @@ import SwiftUI
     /// Pre-computed sections to render. Callers use `EntryListGrouper` to produce these.
     var sections: [EntryListSection] = []
 
-    /// Type-level rendering configurations. Callers build one `EntryRowConfiguration` per entry
+    /// Type-level rendering configurations. Callers build one `EntryRowView.Configuration` per entry
     /// type and inject it here. `EntryListView` looks up the configuration by `entry.entryType`.
-    var configurationMap: [EntryType: EntryRowConfiguration] = [:]
+    var configurationMap: [EntryType: EntryRowView.Configuration] = [:]
 
     /// Calendar used for date formatting in multiday views.
     var calendar: Calendar = .current

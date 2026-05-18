@@ -113,7 +113,7 @@ struct EntryListView: View {
     vm.calendar = calendar
     vm.today = today
     vm.configurationMap = [
-        .task: EntryRowConfiguration(
+        .task: EntryRowView.Configuration(
             effectiveTaskStatus: { $0.displayTaskStatus },
             isGreyedOut: { entry in
                 entry.displayTaskStatus.map { $0 == .complete || $0 == .cancelled } ?? false
@@ -122,7 +122,7 @@ struct EntryListView: View {
             onEdit: { _ in },
             onDelete: { _ in }
         ),
-        .note: EntryRowConfiguration(onEdit: { _ in }, onDelete: { _ in })
+        .note: EntryRowView.Configuration(onEdit: { _ in }, onDelete: { _ in })
     ]
     return EntryListView(viewModel: vm)
 }
@@ -144,7 +144,7 @@ struct EntryListView: View {
     vm.calendar = calendar
     vm.today = today
     vm.configurationMap = [
-        .task: EntryRowConfiguration(
+        .task: EntryRowView.Configuration(
             effectiveTaskStatus: { $0.displayTaskStatus },
             isGreyedOut: { entry in
                 entry.displayTaskStatus.map { $0 == .complete || $0 == .cancelled } ?? false
@@ -153,7 +153,7 @@ struct EntryListView: View {
             onEdit: { _ in },
             onDelete: { _ in }
         ),
-        .note: EntryRowConfiguration(onEdit: { _ in }, onDelete: { _ in })
+        .note: EntryRowView.Configuration(onEdit: { _ in }, onDelete: { _ in })
     ]
     vm.onAddTask = { _, _, _ in }
     return EntryListView(viewModel: vm)
@@ -188,7 +188,7 @@ struct EntryListView: View {
     vm.calendar = calendar
     vm.today = today
     vm.configurationMap = [
-        .task: EntryRowConfiguration(
+        .task: EntryRowView.Configuration(
             effectiveTaskStatus: { $0.displayTaskStatus },
             isGreyedOut: { entry in
                 entry.displayTaskStatus.map { $0 == .complete || $0 == .cancelled } ?? false
@@ -197,7 +197,7 @@ struct EntryListView: View {
             onEdit: { _ in },
             onDelete: { _ in }
         ),
-        .note: EntryRowConfiguration(onEdit: { _ in }, onDelete: { _ in })
+        .note: EntryRowView.Configuration(onEdit: { _ in }, onDelete: { _ in })
     ]
     return EntryListView(viewModel: vm)
 }

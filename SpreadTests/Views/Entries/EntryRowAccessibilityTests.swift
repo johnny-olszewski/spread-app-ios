@@ -4,7 +4,7 @@ import Testing
 /// Accessibility label and value tests for `EntryRowView`.
 ///
 /// Since accessibility computation is now inside `EntryRowView` as private computed
-/// properties (not on `EntryRowConfiguration`), these tests verify the `Entry` display
+/// properties (not on `EntryRowView.Configuration`), these tests verify the `Entry` display
 /// protocol requirements that feed the accessibility computation.
 struct EntryRowAccessibilityTests {
 

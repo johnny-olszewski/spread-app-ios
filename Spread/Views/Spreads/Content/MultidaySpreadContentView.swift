@@ -124,7 +124,7 @@ struct MultidaySpreadContentView: View {
         let calendar = journalManager.calendar
         let today = journalManager.today
 
-        let taskConfig = EntryRowConfiguration(
+        let taskConfig = EntryRowView.Configuration(
             effectiveTaskStatus: { $0.displayTaskStatus },
             isGreyedOut: { entry in
                 guard let s = entry.displayTaskStatus else { return false }
@@ -173,7 +173,7 @@ struct MultidaySpreadContentView: View {
             }
         )
 
-        let noteConfig = EntryRowConfiguration(
+        let noteConfig = EntryRowView.Configuration(
             isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
             onEdit: { entry in
                 if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
@@ -187,7 +187,7 @@ struct MultidaySpreadContentView: View {
             }
         )
 
-        let eventConfig = EntryRowConfiguration(
+        let eventConfig = EntryRowView.Configuration(
             isGreyedOut: { entry in
                 guard let event = entry as? DataModel.Event else { return false }
                 return (event.calendarEvent?.endDate ?? event.endDate) < today
