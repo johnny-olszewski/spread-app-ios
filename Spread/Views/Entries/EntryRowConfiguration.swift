@@ -18,12 +18,6 @@ struct EntryRowConfiguration {
     /// Returns whether the row title should use strikethrough styling.
     var hasStrikethrough: ((any Entry) -> Bool)?
 
-    /// Returns the migration destination label when the entry was migrated.
-    var migrationDestination: ((any Entry) -> String?)?
-
-    /// Returns whether a migration badge should be shown.
-    var showsMigrationBadge: ((any Entry) -> Bool)?
-
     /// Returns the formatted due date label (tasks only).
     var dueDateLabel: ((any Entry) -> String?)?
 

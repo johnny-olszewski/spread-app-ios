@@ -13,7 +13,6 @@ struct MonthSpreadContentView: View {
     let journalManager: JournalManager
     let viewModel: SpreadsViewModel
     let syncEngine: SyncEngine?
-    var entryListConfiguration: EntryListConfiguration = .init()
 
     private var calendar: Calendar {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
@@ -26,6 +25,79 @@ struct MonthSpreadContentView: View {
         }
         return feedback
     }
+
+    // MARK: - Configuration map
+
+    private var configurationMap: [EntryType: EntryRowConfiguration] {
+        let cal = calendar
+        let today = journalManager.today
+
+        let taskConfig = EntryRowConfiguration(
+            effectiveTaskStatus: { $0.displayTaskStatus },
+            isGreyedOut: { entry in
+                guard let s = entry.displayTaskStatus else { return false }
+                return s == .complete || s == .migrated || s == .cancelled
+            },
+            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
+            dueDateLabel: { entry in (entry as? DataModel.Task)?.dueDateLabel(calendar: cal) },
+            isDueDateHighlighted: { entry in
+                (entry as? DataModel.Task)?.isDueDateHighlighted(today: today, calendar: cal) ?? false
+            },
+            onComplete: { entry in
+                guard let task = entry as? DataModel.Task else { return }
+                Task { @MainActor in
+                    let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
+                    try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
+                    await syncEngine?.syncNow()
+                }
+            },
+            onEdit: { entry in
+                if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
+            },
+            onDelete: { entry in
+                guard let task = entry as? DataModel.Task else { return }
+                Task { @MainActor in
+                    try? await journalManager.deleteTask(task)
+                    await syncEngine?.syncNow()
+                }
+            },
+            onTitleCommit: { @MainActor entry, newTitle in
+                guard let task = entry as? DataModel.Task else { return }
+                try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
+                Task { @MainActor in await syncEngine?.syncNow() }
+            },
+            inlineActionConfiguration: { entry in
+                guard let task = entry as? DataModel.Task, task.status == .open else { return nil }
+                let options = EntryRowInlineEditSupport.migrationOptions(for: task, today: today, calendar: cal)
+                return EntryRowInlineActionConfiguration(
+                    migrationOptions: options,
+                    onEditSheet: { viewModel.showTaskDetail(task) },
+                    onMigrationSelected: { option in
+                        try? await journalManager.updateTaskDateAndPeriod(task, newDate: option.date, newPeriod: option.period)
+                        await syncEngine?.syncNow()
+                    }
+                )
+            }
+        )
+
+        let noteConfig = EntryRowConfiguration(
+            isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
+            onEdit: { entry in
+                if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
+            },
+            onDelete: { entry in
+                guard let note = entry as? DataModel.Note else { return }
+                Task { @MainActor in
+                    try? await journalManager.deleteNote(note)
+                    await syncEngine?.syncNow()
+                }
+            }
+        )
+
+        return [.task: taskConfig, .note: noteConfig]
+    }
+
+    // MARK: - Body
 
     var body: some View {
         if let dataModel = spreadDataModel {
@@ -151,93 +223,18 @@ struct MonthSpreadContentView: View {
         _ entries: [any Entry],
         contextualLabels: [UUID: String]
     ) -> some View {
+        let configs = configurationMap
         VStack(alignment: .leading, spacing: 0) {
             ForEach(entries, id: \.id) { entry in
-                monthEntryRow(for: entry, contextualLabel: contextualLabels[entry.id])
-                    .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-
+                if let config = configs[entry.entryType] {
+                    EntryRowView(entry: entry, configuration: config, contextualLabel: contextualLabels[entry.id])
+                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                }
                 if entry.id != entries.last?.id {
                     Divider()
                 }
             }
         }
-    }
-
-    @ViewBuilder
-    private func monthEntryRow(
-        for entry: any Entry,
-        contextualLabel: String?
-    ) -> some View {
-        switch entry.entryType {
-        case .task:
-            if let task = entry as? DataModel.Task {
-                taskRow(task, contextualLabel: contextualLabel)
-            }
-        case .note:
-            if let note = entry as? DataModel.Note {
-                noteRow(note, contextualLabel: contextualLabel)
-            }
-        case .event:
-            EmptyView()
-        }
-    }
-
-    private func taskRow(_ task: DataModel.Task, contextualLabel: String?) -> some View {
-        let destinationFormatter = MigrationDestinationFormatter(calendar: calendar)
-        let today = journalManager.today
-        let cal = calendar
-        let spread = spread
-
-        let config = EntryRowConfiguration(
-            effectiveTaskStatus: { $0.displayTaskStatus },
-            isGreyedOut: { entry in
-                guard let s = entry.displayTaskStatus else { return false }
-                return s == .complete || s == .migrated || s == .cancelled
-            },
-            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
-            migrationDestination: { _ in destinationFormatter.destination(for: task, from: spread) },
-            showsMigrationBadge: { entry in
-                entry.displayTaskStatus == .migrated &&
-                destinationFormatter.destination(for: task, from: spread) != nil
-            },
-            dueDateLabel: { _ in task.dueDateLabel(calendar: cal) },
-            isDueDateHighlighted: { _ in task.isDueDateHighlighted(today: today, calendar: cal) },
-            onComplete: task.status == .open ? { _ in
-                Task { @MainActor in
-                    let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
-                    try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
-                    await syncEngine?.syncNow()
-                }
-            } : nil,
-            onEdit: { _ in viewModel.showTaskDetail(task) },
-            onDelete: { _ in
-                Task { @MainActor in
-                    try? await journalManager.deleteTask(task)
-                    await syncEngine?.syncNow()
-                }
-            },
-            onTitleCommit: { @MainActor _, newTitle in
-                try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
-                await syncEngine?.syncNow()
-            }
-        )
-
-        return EntryRowView(entry: task, configuration: config, contextualLabel: contextualLabel)
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(task.title))
-    }
-
-    private func noteRow(_ note: DataModel.Note, contextualLabel: String?) -> some View {
-        let config = EntryRowConfiguration(
-            isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
-            onEdit: { _ in viewModel.showNoteDetail(note) },
-            onDelete: { _ in
-                Task { @MainActor in
-                    try? await journalManager.deleteNote(note)
-                    await syncEngine?.syncNow()
-                }
-            }
-        )
-        return EntryRowView(entry: note, configuration: config, contextualLabel: contextualLabel)
     }
 
     private func dayContextLabel(for entry: any Entry) -> String {
@@ -263,5 +260,4 @@ struct MonthSpreadContentView: View {
 
         return entry.createdDate
     }
-
 }

@@ -28,7 +28,6 @@ struct EntryListDisplaySupportTests {
 
         let entries = EntryListDisplaySupport.displayedEntries(
             for: SpreadDataModel(spread: spread, tasks: [task], notes: [note], events: []),
-            configuration: .init(showsMigrationHistory: false),
             calendar: Self.calendar
         )
 
@@ -36,11 +35,11 @@ struct EntryListDisplaySupportTests {
         #expect(Set(entries.map { $0.title }) == Set(["Range Task", "Range Note"]))
     }
 
-    /// Current-assignment-only day surfaces rely on the model seam and should disable migrated-note section splitting.
-    /// Setup: a day spread data model contains one active note and one migrated-history note.
-    /// Expected: history-enabled mode splits active and migrated notes, while history-disabled mode returns the raw current model and no migrated subsection.
-    @Test("Migration history toggle controls note section splitting")
-    func migrationHistoryToggleControlsNoteSectionSplitting() {
+    /// All notes — regardless of migration status — are returned by displayedNotes.
+    /// Setup: a day spread data model contains one active note and one migrated note.
+    /// Expected: displayedNotes returns both notes without filtering.
+    @Test("displayedNotes returns all notes regardless of migration status")
+    func displayedNotesReturnsAllNotes() {
         let dayDate = Self.makeDate(year: 2026, month: 4, day: 13)
         let spread = DataModel.Spread(period: .day, date: dayDate, calendar: Self.calendar)
 
@@ -63,32 +62,9 @@ struct EntryListDisplaySupportTests {
             events: []
         )
 
-        let historyEnabledNotes = EntryListDisplaySupport.displayedNotes(
-            for: spreadDataModel,
-            configuration: .init(),
-            calendar: Self.calendar
-        )
-        let historyEnabledMigratedNotes = EntryListDisplaySupport.migratedNotes(
-            for: spreadDataModel,
-            configuration: .init(),
-            calendar: Self.calendar
-        )
+        let notes = EntryListDisplaySupport.displayedNotes(for: spreadDataModel)
 
-        #expect(historyEnabledNotes.map { $0.title } == ["Active Note"])
-        #expect(historyEnabledMigratedNotes.map { $0.title } == ["Migrated Note"])
-
-        let historyDisabledNotes = EntryListDisplaySupport.displayedNotes(
-            for: spreadDataModel,
-            configuration: .init(showsMigrationHistory: false),
-            calendar: Self.calendar
-        )
-        let historyDisabledMigratedNotes = EntryListDisplaySupport.migratedNotes(
-            for: spreadDataModel,
-            configuration: .init(showsMigrationHistory: false),
-            calendar: Self.calendar
-        )
-
-        #expect(historyDisabledNotes.map { $0.title } == ["Active Note", "Migrated Note"])
-        #expect(historyDisabledMigratedNotes.isEmpty)
+        #expect(notes.count == 2)
+        #expect(Set(notes.map { $0.title }) == Set(["Active Note", "Migrated Note"]))
     }
 }
