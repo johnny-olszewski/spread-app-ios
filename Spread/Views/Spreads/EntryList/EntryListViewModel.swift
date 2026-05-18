@@ -6,14 +6,6 @@ import SwiftUI
 /// callbacks, then pass it to `EntryListView`. The view is a pure renderer.
 @Observable @MainActor final class EntryListViewModel {
 
-    // MARK: - Nested Types
-
-    struct InlineCreationTarget: Equatable {
-        let sectionID: String
-        let date: Date
-        let period: Period
-    }
-
     // MARK: - Data (set by caller)
 
     /// Pre-computed sections to render. Callers use `EntryListGrouper` to produce these.
@@ -41,11 +33,8 @@ import SwiftUI
 
     // MARK: - UI State
 
-    var activeInlineCreationTarget: InlineCreationTarget?
-    var inlineTitle: String = ""
-    var inlineCreationID: UUID = UUID()
+    /// ID of the task row currently in inline title-edit mode. Only one row can be active at a time.
     var activeInlineTaskID: UUID?
-    var hasAcquiredInlineCreationFocus: Bool = false
 
     // MARK: - Computed
 
@@ -88,48 +77,9 @@ import SwiftUI
         )
     }
 
-    // MARK: - Inline Creation
-
-    func activateInlineCreation(for target: InlineCreationTarget) {
-        dismissActiveInlineEditing()
-        inlineTitle = ""
-        inlineCreationID = UUID()
-        hasAcquiredInlineCreationFocus = false
-        activeInlineCreationTarget = target
-    }
-
-    func commitInlineTask(target: InlineCreationTarget) {
-        let trimmed = inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            dismissInlineCreation()
-            return
-        }
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                try await onAddTask?(trimmed, target.date, target.period)
-                dismissInlineCreation()
-            } catch {
-                // Keep the inline row open on failure
-            }
-        }
-    }
-
-    func dismissInlineCreation() {
-        activeInlineCreationTarget = nil
-        inlineTitle = ""
-        hasAcquiredInlineCreationFocus = false
-    }
+    // MARK: - Inline Task Editing
 
     func dismissActiveInlineEditing() {
         activeInlineTaskID = nil
-    }
-
-    func creationTarget(for section: EntryListSection) -> InlineCreationTarget {
-        InlineCreationTarget(
-            sectionID: section.id,
-            date: section.creationDate,
-            period: section.creationPeriod
-        )
     }
 }

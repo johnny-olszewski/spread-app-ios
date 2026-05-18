@@ -30,7 +30,7 @@
 - macOS deferred to post-v1. [SPRD-56]
 - Visual style uses dot grid backgrounds on spread content surfaces only, muted blue accents, and Debug-only appearance overrides for paper tone and typography. [SPRD-62, SPRD-63]
 - Main spread task lists keep transparent task rows over a solid list backing so the spread dot-grid remains visible. For open tasks, tapping anywhere on the row activates inline editing and focuses the title field. Completed or cancelled task rows still open the full edit sheet on tap. [SPRD-124, SPRD-132, SPRD-142]
-- An "+ Add Task" button at the bottom of every spread's task list (and per-day in multiday) enables inline task creation with a glass-effect Save/Cancel keyboard toolbar and rapid Return-to-add flow. [SPRD-133]
+- An "+ Add Task" button at the bottom of every spread's task list (and per-day in multiday) presents a native system alert with a text field for quick task creation. The earlier inline-row-with-keyboard-toolbar approach (SPRD-133, SPRD-145) was replaced by the alert pattern to eliminate shared ViewModel state (`activeInlineCreationTarget`, `inlineTitle`, `inlineCreationID`) and the `@FocusState` threading it required across view hierarchies; each `AddTaskButton` is now fully self-contained. [SPRD-133]
 - Multiday spreads always render every day in range, with explicit empty-state sections and adaptive one-column/two-column layout by size class. [SPRD-124]
 - The selected-spread navigator surface uses a rooted collapsible year/month/grid browser on both platforms, presented as a popover on iPad and as a sheet on iPhone. [SPRD-125, SPRD-126]
 - Entry period is independently editable; period changes trigger the same reassignment logic as date changes. [SPRD-24]
