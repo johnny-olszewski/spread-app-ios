@@ -204,57 +204,60 @@ struct YearSpreadContentView: View {
 
     private func taskRow(_ task: DataModel.Task, contextualLabel: String?) -> some View {
         let destinationFormatter = MigrationDestinationFormatter(calendar: calendar)
+        let today = journalManager.today
+        let cal = calendar
+        let spread = spread
 
-        return EntryRowView(
-            configuration: EntryRowConfiguration(
-                entryType: .task,
-                taskStatus: task.status,
-                title: task.title,
-                migrationDestination: destinationFormatter.destination(for: task, from: spread),
-                contextualLabel: contextualLabel,
-                taskBodyPreview: task.bodyPreview,
-                taskPriority: task.priority,
-                taskDueDateLabel: task.dueDateLabel(calendar: calendar),
-                isTaskDueDateHighlighted: task.isDueDateHighlighted(today: journalManager.today, calendar: calendar)
-            ),
-            iconConfiguration: StatusIconConfiguration(
-                entryType: .task,
-                taskStatus: task.status
-            ),
-            onComplete: task.status == .open ? {
+        let config = EntryRowConfiguration(
+            effectiveTaskStatus: { $0.displayTaskStatus },
+            isGreyedOut: { entry in
+                guard let s = entry.displayTaskStatus else { return false }
+                return s == .complete || s == .migrated || s == .cancelled
+            },
+            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
+            migrationDestination: { _ in destinationFormatter.destination(for: task, from: spread) },
+            showsMigrationBadge: { entry in
+                entry.displayTaskStatus == .migrated &&
+                destinationFormatter.destination(for: task, from: spread) != nil
+            },
+            dueDateLabel: { _ in task.dueDateLabel(calendar: cal) },
+            isDueDateHighlighted: { _ in task.isDueDateHighlighted(today: today, calendar: cal) },
+            onComplete: task.status == .open ? { _ in
                 Task { @MainActor in
                     let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
                     try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
                     await syncEngine?.syncNow()
                 }
             } : nil,
-            onEdit: { viewModel.showTaskDetail(task) },
-            onDelete: {
+            onEdit: { _ in viewModel.showTaskDetail(task) },
+            onDelete: { _ in
                 Task { @MainActor in
                     try? await journalManager.deleteTask(task)
                     await syncEngine?.syncNow()
                 }
             },
-            onTitleCommit: { @MainActor newTitle in
+            onTitleCommit: { @MainActor _, newTitle in
                 try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
                 await syncEngine?.syncNow()
             }
         )
-        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(task.title))
+
+        return EntryRowView(entry: task, configuration: config, contextualLabel: contextualLabel)
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.taskRow(task.title))
     }
 
     private func noteRow(_ note: DataModel.Note, contextualLabel: String?) -> some View {
-        EntryRowView(
-            note: note,
-            contextualLabel: contextualLabel,
-            onEdit: { viewModel.showNoteDetail(note) },
-            onDelete: {
+        let config = EntryRowConfiguration(
+            isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
+            onEdit: { _ in viewModel.showNoteDetail(note) },
+            onDelete: { _ in
                 Task { @MainActor in
                     try? await journalManager.deleteNote(note)
                     await syncEngine?.syncNow()
                 }
             }
         )
+        return EntryRowView(entry: note, configuration: config, contextualLabel: contextualLabel)
     }
 
     private func dismissInlineEditing() {}

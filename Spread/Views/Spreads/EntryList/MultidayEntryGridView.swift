@@ -91,7 +91,6 @@ struct MultidayEntryGridView<RowContent: View>: View {
             explicitDaySpread: explicitDaySpread,
             openTaskCount: explicitDaySpread.flatMap { openTaskCountForDaySpread?($0) } ?? 0,
             onFooterTap: {
-                viewModel.dismissActiveInlineEditing()
                 if let daySpread = explicitDaySpread {
                     onSelectSpread?(daySpread)
                 } else {

@@ -105,8 +105,16 @@ struct EntriesBrowserView: View {
                         } else {
                             ForEach(section.rows) { row in
                                 EntryRowView(
-                                    task: row.task,
-                                    onEdit: { onOpenTask(row.task.id, nil) }
+                                    entry: row.task,
+                                    configuration: EntryRowConfiguration(
+                                        effectiveTaskStatus: { $0.displayTaskStatus },
+                                        isGreyedOut: { entry in
+                                            guard let s = entry.displayTaskStatus else { return false }
+                                            return s == .complete || s == .migrated || s == .cancelled
+                                        },
+                                        hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
+                                        onEdit: { _ in onOpenTask(row.task.id, nil) }
+                                    )
                                 )
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
@@ -123,10 +131,15 @@ struct EntriesBrowserView: View {
                         .listRowBackground(Color.clear)
                 } else {
                     ForEach(filteredNotes) { note in
-                        EntryRowView(note: note)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        EntryRowView(
+                            entry: note,
+                            configuration: EntryRowConfiguration(
+                                isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated }
+                            )
+                        )
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                     }
                 }
             }

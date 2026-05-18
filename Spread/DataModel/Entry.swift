@@ -17,6 +17,35 @@ protocol Entry: Identifiable, Hashable {
 
     /// The type of entry (task, event, or note).
     var entryType: EntryType { get }
+
+    // MARK: - Display requirements (default implementations in extension below)
+
+    /// Optional icon color. When non-nil, the leading accessory renders as a colored bar.
+    var iconColor: Color? { get }
+
+    /// Tag chips shown inline with the title, one per assigned tag.
+    var displayTagChips: [(title: String, color: Color)] { get }
+
+    /// Optional one-line body preview shown below the title.
+    var displayBodyPreview: String? { get }
+
+    /// Display-only task priority.
+    var displayPriority: DataModel.Task.Priority { get }
+
+    /// Task status for display, or nil if not a task.
+    var displayTaskStatus: DataModel.Task.Status? { get }
+
+    /// Note status for display, or nil if not a note.
+    var displayNoteStatus: DataModel.Note.Status? { get }
+}
+
+extension Entry {
+    var iconColor: Color? { nil }
+    var displayTagChips: [(title: String, color: Color)] { [] }
+    var displayBodyPreview: String? { nil }
+    var displayPriority: DataModel.Task.Priority { .none }
+    var displayTaskStatus: DataModel.Task.Status? { nil }
+    var displayNoteStatus: DataModel.Note.Status? { nil }
 }
 
 /// An entry that can be assigned to spreads.
@@ -58,8 +87,4 @@ protocol DateRangeEntry: Entry {
     ///   - calendar: The calendar to use for date calculations.
     /// - Returns: `true` if this entry's date range overlaps with the spread.
     func appearsOn(period: Period, date: Date, calendar: Calendar) -> Bool
-}
-
-extension Entry {
-    var iconColor: Color? { nil }
 }

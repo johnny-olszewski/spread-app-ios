@@ -31,7 +31,7 @@ struct EntryListView: View {
             emptyState
         }
     }
-    
+
     // MARK: - List Layouts
 
     @ViewBuilder
@@ -59,10 +59,16 @@ struct EntryListView: View {
     @ViewBuilder
     private func sectionRows(_ section: EntryListSection) -> some View {
         ForEach(section.entries, id: \.id) { entry in
-            EntryListRowView(entry: entry, viewModel: viewModel, contextualLabel: section.contextualLabel(for: entry))
+            if let configuration = viewModel.configurationMap[entry.entryType] {
+                EntryRowView(
+                    entry: entry,
+                    configuration: configuration,
+                    contextualLabel: section.contextualLabel(for: entry)
+                )
                 .listRowInsets(Self.rowInsets)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
+            }
         }
 
         if let onAddTask = viewModel.onAddTask {
@@ -88,7 +94,6 @@ struct EntryListView: View {
 #Preview("Day Spread - Flat List") {
     let calendar = Calendar.current
     let today = Date()
-    let spread = DataModel.Spread(period: .day, date: today, calendar: calendar)
     let grouper = EntryListGrouper(
         configuration: .init(),
         period: .day,
@@ -107,14 +112,24 @@ struct EntryListView: View {
     vm.sections = grouper.group(entries)
     vm.calendar = calendar
     vm.today = today
-    vm.spread = spread
+    vm.configurationMap = [
+        .task: EntryRowConfiguration(
+            effectiveTaskStatus: { $0.displayTaskStatus },
+            isGreyedOut: { entry in
+                entry.displayTaskStatus.map { $0 == .complete || $0 == .cancelled } ?? false
+            },
+            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
+            onEdit: { _ in },
+            onDelete: { _ in }
+        ),
+        .note: EntryRowConfiguration(onEdit: { _ in }, onDelete: { _ in })
+    ]
     return EntryListView(viewModel: vm)
 }
 
 #Preview("Day Spread - With Add Task") {
     let calendar = Calendar.current
     let today = Date()
-    let spread = DataModel.Spread(period: .day, date: today, calendar: calendar)
     let grouper = EntryListGrouper(
         configuration: .init(),
         period: .day,
@@ -128,22 +143,30 @@ struct EntryListView: View {
     vm.sections = grouper.group(tasks)
     vm.calendar = calendar
     vm.today = today
-    vm.spread = spread
+    vm.configurationMap = [
+        .task: EntryRowConfiguration(
+            effectiveTaskStatus: { $0.displayTaskStatus },
+            isGreyedOut: { entry in
+                entry.displayTaskStatus.map { $0 == .complete || $0 == .cancelled } ?? false
+            },
+            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
+            onEdit: { _ in },
+            onDelete: { _ in }
+        ),
+        .note: EntryRowConfiguration(onEdit: { _ in }, onDelete: { _ in })
+    ]
     vm.onAddTask = { _, _, _ in }
     return EntryListView(viewModel: vm)
 }
 
 #Preview("Empty State") {
     let vm = EntryListViewModel()
-    vm.calendar = .current
-    vm.today = Date()
     return EntryListView(viewModel: vm)
 }
 
 #Preview("All Entry Types") {
     let calendar = Calendar.current
     let today = Date()
-    let spread = DataModel.Spread(period: .day, date: today, calendar: calendar)
     let grouper = EntryListGrouper(
         configuration: .init(),
         period: .day,
@@ -164,6 +187,17 @@ struct EntryListView: View {
     vm.sections = grouper.group(tasks + notes)
     vm.calendar = calendar
     vm.today = today
-    vm.spread = spread
+    vm.configurationMap = [
+        .task: EntryRowConfiguration(
+            effectiveTaskStatus: { $0.displayTaskStatus },
+            isGreyedOut: { entry in
+                entry.displayTaskStatus.map { $0 == .complete || $0 == .cancelled } ?? false
+            },
+            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
+            onEdit: { _ in },
+            onDelete: { _ in }
+        ),
+        .note: EntryRowConfiguration(onEdit: { _ in }, onDelete: { _ in })
+    ]
     return EntryListView(viewModel: vm)
 }

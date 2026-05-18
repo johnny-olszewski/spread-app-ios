@@ -128,16 +128,12 @@ struct MultidayPeekPanelView: View {
             let end = formatter.string(from: event.endDate)
             subtitle = "\(start)–\(end) · \(event.calendarTitle)"
         }
-        return EntryRowView(
-            configuration: EntryRowConfiguration(
-                entryType: .event,
-                title: event.title,
-                isEventPast: event.endDate < today,
-                iconColor: event.calendarColor,
-                subtitle: subtitle
-            ),
-            iconConfiguration: StatusIconConfiguration(entryType: .event)
+        let entry = DataModel.Event(calendarEvent: event)
+        let config = EntryRowConfiguration(
+            isEventPast: { _ in event.endDate < today },
+            subtitle: { _ in subtitle }
         )
+        return EntryRowView(entry: entry, configuration: config)
     }
 
     private func peekTaskRow(_ task: DataModel.Task) -> some View {
