@@ -11,13 +11,8 @@ struct EntryListConfiguration: Sendable {
     }
 
     var groupingStyle: GroupingStyle
-    var showsMigrationHistory: Bool
 
-    init(
-        groupingStyle: GroupingStyle = .automatic,
-        showsMigrationHistory: Bool = true
-    ) {
+    init(groupingStyle: GroupingStyle = .automatic) {
         self.groupingStyle = groupingStyle
-        self.showsMigrationHistory = showsMigrationHistory
     }
 }

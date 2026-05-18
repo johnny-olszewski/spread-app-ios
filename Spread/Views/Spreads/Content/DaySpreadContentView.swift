@@ -19,7 +19,7 @@ struct DaySpreadContentView: View {
     let journalManager: JournalManager
     let viewModel: SpreadsViewModel
     let syncEngine: SyncEngine?
-    var entryListConfiguration: EntryListConfiguration = .init(showsMigrationHistory: false)
+    var entryListConfiguration: EntryListConfiguration = .init()
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
     var onSelectSpread: ((DataModel.Spread) -> Void)? = nil
     var onCreateSpread: ((Date) -> Void)? = nil
@@ -201,11 +201,7 @@ struct DaySpreadContentView: View {
     // MARK: - ViewModel configuration
 
     private func allEntries(dataModel: SpreadDataModel, calendar: Calendar) -> [any Entry] {
-        let base = EntryListDisplaySupport.displayedEntries(
-            for: dataModel,
-            configuration: entryListConfiguration,
-            calendar: calendar
-        )
+        let base = EntryListDisplaySupport.displayedEntries(for: dataModel, calendar: calendar)
         let eventEntries: [DataModel.Event] = showsTimelineCard ? [] : calendarEvents.map { DataModel.Event(calendarEvent: $0) }
         return base + eventEntries
     }
@@ -241,18 +237,11 @@ struct DaySpreadContentView: View {
     private func setupConfigurationMap() {
         let calendar = journalManager.calendar
         let today = journalManager.today
-        let spread = spread
-        let showsMigrationHistory = entryListConfiguration.showsMigrationHistory
 
         func effectiveStatus(for entry: any Entry) -> DataModel.Task.Status? {
             guard let task = entry as? DataModel.Task else { return nil }
-            if showsMigrationHistory && task.assignments.contains(where: {
-                $0.status == .migrated && $0.matches(spread: spread, calendar: calendar)
-            }) { return .migrated }
             return task.status
         }
-
-        let formatter = MigrationDestinationFormatter(calendar: calendar)
 
         let taskConfig = EntryRowConfiguration(
             effectiveTaskStatus: { effectiveStatus(for: $0) },
@@ -261,15 +250,6 @@ struct DaySpreadContentView: View {
                 return s == .complete || s == .migrated || s == .cancelled
             },
             hasStrikethrough: { entry in effectiveStatus(for: entry) == .cancelled },
-            migrationDestination: { entry in
-                guard let task = entry as? DataModel.Task else { return nil }
-                return formatter.destination(for: task, from: spread)
-            },
-            showsMigrationBadge: { entry in
-                guard let task = entry as? DataModel.Task,
-                      effectiveStatus(for: entry) == .migrated else { return false }
-                return formatter.destination(for: task, from: spread) != nil
-            },
             dueDateLabel: { entry in (entry as? DataModel.Task)?.dueDateLabel(calendar: calendar) },
             isDueDateHighlighted: { entry in
                 (entry as? DataModel.Task)?.isDueDateHighlighted(today: today, calendar: calendar) ?? false
@@ -314,14 +294,6 @@ struct DaySpreadContentView: View {
 
         let noteConfig = EntryRowConfiguration(
             isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
-            migrationDestination: { entry in
-                guard let note = entry as? DataModel.Note else { return nil }
-                return formatter.destination(for: note, from: spread)
-            },
-            showsMigrationBadge: { entry in
-                guard let note = entry as? DataModel.Note, note.status == .migrated else { return false }
-                return formatter.destination(for: note, from: spread) != nil
-            },
             onEdit: { entry in
                 if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
             },

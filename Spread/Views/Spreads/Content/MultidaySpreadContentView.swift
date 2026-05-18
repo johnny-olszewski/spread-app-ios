@@ -7,7 +7,7 @@ struct MultidaySpreadContentView: View {
     let journalManager: JournalManager
     let viewModel: SpreadsViewModel
     let syncEngine: SyncEngine?
-    var entryListConfiguration: EntryListConfiguration = .init(showsMigrationHistory: false)
+    var entryListConfiguration: EntryListConfiguration = .init()
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
 
     @Environment(\.eventKitService) private var eventKitService
@@ -87,11 +87,7 @@ struct MultidaySpreadContentView: View {
     // MARK: - ViewModel Configuration
 
     private func allEntries(dataModel: SpreadDataModel, calendar: Calendar) -> [any Entry] {
-        let base = EntryListDisplaySupport.displayedEntries(
-            for: dataModel,
-            configuration: entryListConfiguration,
-            calendar: calendar
-        )
+        let base = EntryListDisplaySupport.displayedEntries(for: dataModel, calendar: calendar)
         let eventEntries: [DataModel.Event] = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
         return base + eventEntries
     }
@@ -127,9 +123,6 @@ struct MultidaySpreadContentView: View {
     private func setupConfigurationMap() {
         let calendar = journalManager.calendar
         let today = journalManager.today
-        let spread = spread
-
-        let formatter = MigrationDestinationFormatter(calendar: calendar)
 
         let taskConfig = EntryRowConfiguration(
             effectiveTaskStatus: { $0.displayTaskStatus },
@@ -138,15 +131,6 @@ struct MultidaySpreadContentView: View {
                 return s == .complete || s == .migrated || s == .cancelled
             },
             hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
-            migrationDestination: { entry in
-                guard let task = entry as? DataModel.Task else { return nil }
-                return formatter.destination(for: task, from: spread)
-            },
-            showsMigrationBadge: { entry in
-                guard let task = entry as? DataModel.Task,
-                      entry.displayTaskStatus == .migrated else { return false }
-                return formatter.destination(for: task, from: spread) != nil
-            },
             dueDateLabel: { entry in (entry as? DataModel.Task)?.dueDateLabel(calendar: calendar) },
             isDueDateHighlighted: { entry in
                 (entry as? DataModel.Task)?.isDueDateHighlighted(today: today, calendar: calendar) ?? false
@@ -191,14 +175,6 @@ struct MultidaySpreadContentView: View {
 
         let noteConfig = EntryRowConfiguration(
             isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
-            migrationDestination: { entry in
-                guard let note = entry as? DataModel.Note else { return nil }
-                return formatter.destination(for: note, from: spread)
-            },
-            showsMigrationBadge: { entry in
-                guard let note = entry as? DataModel.Note, note.status == .migrated else { return false }
-                return formatter.destination(for: note, from: spread) != nil
-            },
             onEdit: { entry in
                 if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
             },

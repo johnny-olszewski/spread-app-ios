@@ -284,7 +284,7 @@ private struct SpreadPageContentView: View {
         selection: SpreadHeaderNavigatorModel.Selection
     ) -> some View {
         let dataModel = traditionalSpreadDataModel(for: selection)
-        let config = EntryListConfiguration(groupingStyle: .flat, showsMigrationHistory: false)
+        let config = EntryListConfiguration(groupingStyle: .flat)
 
         switch spread.period {
         case .year:
@@ -293,8 +293,7 @@ private struct SpreadPageContentView: View {
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
                 viewModel: viewModel,
-                syncEngine: syncEngine,
-                entryListConfiguration: config
+                syncEngine: syncEngine
             )
         case .month:
             MonthSpreadContentView(
@@ -302,8 +301,7 @@ private struct SpreadPageContentView: View {
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
                 viewModel: viewModel,
-                syncEngine: syncEngine,
-                entryListConfiguration: config
+                syncEngine: syncEngine
             )
         case .day:
             DaySpreadContentView(

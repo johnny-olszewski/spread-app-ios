@@ -43,13 +43,9 @@ struct EntryRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 0) {
-                rowMainContent
-                Spacer()
-                trailingAccessory
-            }
-            .contentShape(Rectangle())
-            .onTapGesture { handlePrimaryTap() }
+            rowMainContent
+                .contentShape(Rectangle())
+                .onTapGesture { handlePrimaryTap() }
 
             inlineActionRow
         }
@@ -212,14 +208,6 @@ struct EntryRowView: View {
             )
         } else {
             StatusIcon(configuration: iconConfiguration, color: rowColor)
-        }
-    }
-
-    @ViewBuilder
-    private var trailingAccessory: some View {
-        if configuration.showsMigrationBadge?(entry) ?? false,
-           let destination = configuration.migrationDestination?(entry) {
-            migrationBadge(destination: destination)
         }
     }
 
@@ -413,16 +401,6 @@ struct EntryRowView: View {
             parts.append("Due \(dueLabel)")
         }
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
-    }
-
-    // MARK: - Migration Badge
-
-    private func migrationBadge(destination: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: "arrow.right").font(.caption2)
-            Text(destination).font(.caption)
-        }
-        .foregroundStyle(.secondary)
     }
 
     @ViewBuilder
