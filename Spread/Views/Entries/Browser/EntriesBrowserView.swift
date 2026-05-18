@@ -106,7 +106,7 @@ struct EntriesBrowserView: View {
                             ForEach(section.rows) { row in
                                 EntryRowView(
                                     entry: row.task,
-                                    configuration: EntryRowConfiguration(
+                                    configuration: EntryRowView.Configuration(
                                         effectiveTaskStatus: { $0.displayTaskStatus },
                                         isGreyedOut: { entry in
                                             guard let s = entry.displayTaskStatus else { return false }
@@ -133,7 +133,7 @@ struct EntriesBrowserView: View {
                     ForEach(filteredNotes) { note in
                         EntryRowView(
                             entry: note,
-                            configuration: EntryRowConfiguration(
+                            configuration: EntryRowView.Configuration(
                                 isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated }
                             )
                         )

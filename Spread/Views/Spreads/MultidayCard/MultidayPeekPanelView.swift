@@ -129,7 +129,7 @@ struct MultidayPeekPanelView: View {
             subtitle = "\(start)–\(end) · \(event.calendarTitle)"
         }
         let entry = DataModel.Event(calendarEvent: event)
-        let config = EntryRowConfiguration(
+        let config = EntryRowView.Configuration(
             isEventPast: { _ in event.endDate < today },
             subtitle: { _ in subtitle }
         )

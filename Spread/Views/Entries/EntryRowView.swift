@@ -9,14 +9,14 @@ struct EntryRowInlineActionConfiguration {
 
 /// A row component for displaying an entry with type symbol, title, and actions.
 ///
-/// Receives a type-level `EntryRowConfiguration` from the caller and an `Entry` to render.
+/// Receives a type-level `EntryRowView.Configuration` from the caller and an `Entry` to render.
 /// All type-specific logic lives in configuration closures; the view has no type knowledge.
 struct EntryRowView: View {
 
     // MARK: - Properties
 
     let entry: any Entry
-    let configuration: EntryRowConfiguration
+    let configuration: Configuration
     var contextualLabel: String?
 
     // MARK: - Inline edit state (view-owned)
@@ -31,7 +31,7 @@ struct EntryRowView: View {
 
     // MARK: - Initialisation
 
-    init(entry: any Entry, configuration: EntryRowConfiguration, contextualLabel: String? = nil) {
+    init(entry: any Entry, configuration: Configuration, contextualLabel: String? = nil) {
         self.entry = entry
         self.configuration = configuration
         self.contextualLabel = contextualLabel
@@ -479,7 +479,7 @@ struct AddTaskButton: View {
 
 #Preview("Task - Open") {
     let task = DataModel.Task(title: "Buy groceries", status: .open)
-    let config = EntryRowConfiguration(
+    let config = EntryRowView.Configuration(
         effectiveTaskStatus: { $0.displayTaskStatus },
         isGreyedOut: { _ in false },
         hasStrikethrough: { _ in false },
@@ -493,7 +493,7 @@ struct AddTaskButton: View {
 
 #Preview("Task - Complete") {
     let task = DataModel.Task(title: "File taxes", status: .complete)
-    let config = EntryRowConfiguration(
+    let config = EntryRowView.Configuration(
         effectiveTaskStatus: { $0.displayTaskStatus },
         isGreyedOut: { entry in entry.displayTaskStatus.map { $0 == .complete || $0 == .migrated || $0 == .cancelled } ?? false },
         hasStrikethrough: { _ in false },
@@ -505,7 +505,7 @@ struct AddTaskButton: View {
 
 #Preview("Task - Cancelled") {
     let task = DataModel.Task(title: "Buy a boat", status: .cancelled)
-    let config = EntryRowConfiguration(
+    let config = EntryRowView.Configuration(
         effectiveTaskStatus: { $0.displayTaskStatus },
         isGreyedOut: { _ in true },
         hasStrikethrough: { _ in true }
@@ -515,7 +515,7 @@ struct AddTaskButton: View {
 
 #Preview("Note - Active") {
     let note = DataModel.Note(title: "Project ideas", status: .active)
-    let config = EntryRowConfiguration(
+    let config = EntryRowView.Configuration(
         isGreyedOut: { _ in false },
         onEdit: { _ in },
         onDelete: { _ in }
