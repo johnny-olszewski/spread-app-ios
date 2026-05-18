@@ -65,20 +65,12 @@ struct EntryListView: View {
                 .listRowSeparator(.hidden)
         }
 
-        if viewModel.onAddTask != nil {
-            let target = viewModel.creationTarget(for: section)
-            if viewModel.activeInlineCreationTarget?.sectionID == section.id {
-                InlineCreationRowView(viewModel: viewModel, target: target)
-                    .listRowInsets(Self.rowInsets)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-            } else {
-                AddTaskRowView(viewModel: viewModel, target: target)
-                    .listRowInsets(Self.rowInsets)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton)
-            }
+        if let onAddTask = viewModel.onAddTask {
+            AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: onAddTask)
+                .listRowInsets(Self.rowInsets)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton)
         }
     }
 

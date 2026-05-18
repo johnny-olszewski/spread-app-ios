@@ -862,91 +862,24 @@ struct EntryListRowView: View {
     }
 }
 
-// MARK: - Inline Creation Row
+// MARK: - Add Task Button
 
-/// Self-contained inline task creation row.
+/// Tappable "Add Task" affordance that presents a native alert for quick task entry.
 ///
-/// Owns its own `@FocusState`. Activates focus on appear, handles keyboard toolbar, and
-/// commits or dismisses via the shared `EntryListViewModel`.
-struct InlineCreationRowView: View {
+/// Self-contained: owns its own alert-presentation state and calls `onAddTask` directly.
+/// No shared ViewModel state needed for creation flow.
+struct AddTaskButton: View {
 
-    @Bindable var viewModel: EntryListViewModel
-    let target: EntryListViewModel.InlineCreationTarget
+    let date: Date
+    let period: Period
+    let onAddTask: @MainActor (String, Date, Period) async throws -> Void
 
-    @FocusState private var isFocused: Bool
-
-    var body: some View {
-        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            StatusIcon(entryType: .task, taskStatus: .open, color: .primary)
-                .frame(width: 24, height: 24)
-
-            TextField("New task", text: $viewModel.inlineTitle)
-                .id(viewModel.inlineCreationID)
-                .textFieldStyle(.plain)
-                .font(SpreadTheme.Typography.body)
-                .focused($isFocused)
-                .submitLabel(.done)
-                .onSubmit { viewModel.commitInlineTask(target: target) }
-                .onAppear {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        isFocused = true
-                    }
-                }
-                .accessibilityIdentifier(
-                    Definitions.AccessibilityIdentifiers.SpreadContent.inlineTaskCreationField
-                )
-
-            Spacer()
-        }
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                if isFocused {
-                    Button("Cancel") {
-                        viewModel.dismissInlineCreation()
-                        isFocused = false
-                    }
-                    .glassEffect(in: Capsule())
-
-                    Spacer()
-
-                    Button("Save") {
-                        viewModel.commitInlineTask(target: target)
-                    }
-                    .glassEffect(in: Capsule())
-                    .disabled(viewModel.inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-        }
-        .onChange(of: isFocused) { _, focused in
-            if focused {
-                viewModel.hasAcquiredInlineCreationFocus = true
-                return
-            }
-            guard viewModel.hasAcquiredInlineCreationFocus,
-                  viewModel.activeInlineCreationTarget != nil else { return }
-            let trimmed = viewModel.inlineTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty {
-                viewModel.dismissInlineCreation()
-            } else {
-                viewModel.commitInlineTask(target: target)
-            }
-        }
-    }
-}
-
-// MARK: - Add Task Button Row
-
-/// Tappable "Add Task" affordance row.
-///
-/// When tapped, activates inline creation for the given target in the shared `EntryListViewModel`.
-struct AddTaskRowView: View {
-
-    @Bindable var viewModel: EntryListViewModel
-    let target: EntryListViewModel.InlineCreationTarget
+    @State private var isPresented = false
+    @State private var title = ""
 
     var body: some View {
         Button {
-            viewModel.activateInlineCreation(for: target)
+            isPresented = true
         } label: {
             HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
                 Image(systemName: "plus")
@@ -960,6 +893,16 @@ struct AddTaskRowView: View {
             }
         }
         .buttonStyle(.plain)
+        .alert("New Task", isPresented: $isPresented) {
+            TextField("Task title", text: $title)
+            Button("Save") {
+                let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+                title = ""
+                guard !trimmed.isEmpty else { return }
+                Task { @MainActor in try? await onAddTask(trimmed, date, period) }
+            }
+            Button("Cancel", role: .cancel) { title = "" }
+        }
     }
 }
 

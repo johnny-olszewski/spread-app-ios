@@ -98,9 +98,7 @@ struct MultidayDaySectionView<RowContent: View>: View {
     // MARK: - Full Card (no day spread)
 
     private var fullCard: some View {
-        let isDayActive = viewModel.activeInlineCreationTarget?.sectionID == section.id
-        let target = viewModel.creationTarget(for: section)
-        return MultidayDayCardView(
+        MultidayDayCardView(
             dateID: dateID,
             visualState: visualState,
             footerAction: footerAction,
@@ -117,11 +115,8 @@ struct MultidayDaySectionView<RowContent: View>: View {
                         .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                 }
 
-                if isDayActive {
-                    InlineCreationRowView(viewModel: viewModel, target: target)
-                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                } else if viewModel.onAddTask != nil {
-                    AddTaskRowView(viewModel: viewModel, target: target)
+                if let onAddTask = viewModel.onAddTask {
+                    AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: onAddTask)
                         .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                         .accessibilityIdentifier(
                             Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID)

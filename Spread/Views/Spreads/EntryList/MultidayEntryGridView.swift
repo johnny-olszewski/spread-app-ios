@@ -119,13 +119,8 @@ struct MultidayEntryGridView<RowContent: View>: View {
                     rowContent(entry, section.contextualLabel(for: entry))
                 }
 
-                if viewModel.onAddTask != nil {
-                    let target = viewModel.creationTarget(for: section)
-                    if viewModel.activeInlineCreationTarget?.sectionID == section.id {
-                        InlineCreationRowView(viewModel: viewModel, target: target)
-                    } else {
-                        AddTaskRowView(viewModel: viewModel, target: target)
-                    }
+                if let onAddTask = viewModel.onAddTask {
+                    AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: onAddTask)
                 }
             }
         }
