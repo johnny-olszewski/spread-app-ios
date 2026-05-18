@@ -58,7 +58,7 @@ struct EntryRowView: View {
         .onChange(of: isTitleFocused) { _, focused in
             if focused {
                 if isInlineActive && !hasAcquiredTitleFocus {
-                    titleSelection = fullTextSelection(for: editingText)
+                    titleSelection = endOfTextCursor(for: editingText)
                 }
                 hasAcquiredTitleFocus = true
             } else if isInlineActive && hasAcquiredTitleFocus && !isPerformingInlineAction {
@@ -291,7 +291,7 @@ struct EntryRowView: View {
     private func beginEditing() {
         guard supportsInlineEditing, !isInlineActive else { return }
         editingText = entry.title
-        titleSelection = fullTextSelection(for: editingText)
+        titleSelection = endOfTextCursor(for: editingText)
         hasAcquiredTitleFocus = false
         isInlineActive = true
         isTitleFocused = true
@@ -311,22 +311,20 @@ struct EntryRowView: View {
 
     private func handlePrimaryTap() {
         guard !isInlineActive else { return }
-        switch primaryInteraction {
-        case .inlineEdit: beginEditing()
-        case .fullEditSheet: configuration.onEdit?(entry)
+        if supportsInlineEditing {
+            beginEditing()
+        } else {
+            configuration.onEdit?(entry)
         }
     }
 
+    /// Inline editing is supported when the configuration provides a title-commit handler
+    /// and the effective status is open. The call site controls both signals via configuration
+    /// closures — no entry-type checks here.
     private var supportsInlineEditing: Bool {
-        primaryInteraction == .inlineEdit
-    }
-
-    private var primaryInteraction: EntryRowPrimaryInteraction {
-        EntryRowInlineEditSupport.primaryInteraction(
-            entryType: entry.entryType,
-            taskStatus: configuration.effectiveTaskStatus?(entry) ?? entry.displayTaskStatus,
-            canInlineEditTitle: configuration.onTitleCommit != nil
-        )
+        guard configuration.onTitleCommit != nil else { return false }
+        let status = configuration.effectiveTaskStatus?(entry) ?? entry.displayTaskStatus
+        return status == .open
     }
 
     private func openEditSheetFromInlineActions() async {
@@ -360,9 +358,8 @@ struct EntryRowView: View {
         isPerformingInlineAction = false
     }
 
-    private func fullTextSelection(for text: String) -> TextSelection {
-        if text.isEmpty { return TextSelection(insertionPoint: text.startIndex) }
-        return TextSelection(range: text.startIndex..<text.endIndex)
+    private func endOfTextCursor(for text: String) -> TextSelection {
+        TextSelection(insertionPoint: text.endIndex)
     }
 
     // MARK: - Styling
