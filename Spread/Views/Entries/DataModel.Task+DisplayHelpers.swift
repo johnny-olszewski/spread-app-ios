@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 extension DataModel.Task {
     /// Trimmed body text, or nil if empty. Used for row preview rendering.
@@ -24,5 +25,14 @@ extension DataModel.Task {
     func isDueDateHighlighted(today: Date, calendar: Calendar) -> Bool {
         guard status == .open, let dueDate else { return false }
         return dueDate.startOfDay(calendar: calendar) <= today.startOfDay(calendar: calendar)
+    }
+
+    // MARK: - Entry display protocol requirements
+
+    var displayTaskStatus: DataModel.Task.Status? { status }
+    var displayBodyPreview: String? { bodyPreview }
+    var displayPriority: DataModel.Task.Priority { priority }
+    var displayTagChips: [(title: String, color: Color)] {
+        tags.sorted { $0.name < $1.name }.map { ($0.name, $0.chipColor) }
     }
 }

@@ -1,209 +1,46 @@
-import Foundation
 import SwiftUI
 
-/// Available swipe actions for entry rows.
-enum EntryRowAction: Hashable, Sendable {
-    /// Mark a task as complete.
-    case complete
-
-    /// Migrate the entry to another spread.
-    case migrate
-
-    /// Edit the entry details.
-    case edit
-
-    /// Delete the entry.
-    case delete
-}
-
-/// Configuration for an entry row that determines available actions and display state.
+/// A type-level configuration describing how entries of one type are displayed and what actions they support.
 ///
-/// Encapsulates the logic for determining which swipe actions are available based on
-/// entry type and status. This separation enables snapshot-free unit testing of the
-/// action availability logic.
-struct EntryRowConfiguration: Sendable {
+/// One configuration per entry type is stored in `EntryListViewModel.configurationMap`. At render time
+/// `EntryRowView` calls each closure with the specific entry to derive per-row values. All business logic —
+/// migration resolution, date formatting, persistence callbacks — lives in closures built at the call site.
+struct EntryRowConfiguration {
 
-    // MARK: - Properties
+    // MARK: - Context-dependent display derivations
 
-    /// The type of entry (task, event, or note).
-    let entryType: EntryType
+    /// Returns the effective task status, potentially `.migrated` when migration history is shown.
+    var effectiveTaskStatus: ((any Entry) -> DataModel.Task.Status?)?
 
-    /// The task status, if this is a task entry.
-    let taskStatus: DataModel.Task.Status?
+    /// Returns whether the row should render greyed out.
+    var isGreyedOut: ((any Entry) -> Bool)?
 
-    /// The note status, if this is a note entry.
-    let noteStatus: DataModel.Note.Status?
+    /// Returns whether the row title should use strikethrough styling.
+    var hasStrikethrough: ((any Entry) -> Bool)?
 
-    /// The entry title for display.
-    let title: String
+    /// Returns the migration destination label when the entry was migrated.
+    var migrationDestination: ((any Entry) -> String?)?
 
-    /// The migration destination label, if the entry was migrated.
-    let migrationDestination: String?
+    /// Returns whether a migration badge should be shown.
+    var showsMigrationBadge: ((any Entry) -> Bool)?
 
-    /// Optional small contextual label shown next to the title.
-    let contextualLabel: String?
+    /// Returns the formatted due date label (tasks only).
+    var dueDateLabel: ((any Entry) -> String?)?
 
-    /// Optional one-line task body preview.
-    let taskBodyPreview: String?
+    /// Returns whether the due date label should use urgent styling.
+    var isDueDateHighlighted: ((any Entry) -> Bool)?
 
-    /// Display-only task priority.
-    let taskPriority: DataModel.Task.Priority
+    /// Returns whether the event has already ended (events only).
+    var isEventPast: ((any Entry) -> Bool)?
 
-    /// Optional formatted task due-date label.
-    let taskDueDateLabel: String?
+    /// Returns the subtitle shown below the title (e.g. event time range + calendar name).
+    var subtitle: ((any Entry) -> String?)?
 
-    /// Whether the due-date label should use urgent styling.
-    let isTaskDueDateHighlighted: Bool
+    // MARK: - Action callbacks
 
-    /// Whether the event is past (only used for events).
-    ///
-    /// Computed by the caller based on spread context.
-    let isEventPast: Bool
-
-    /// Tag chips shown inline with the title, one per assigned tag.
-    let tagChips: [(title: String, color: Color)]
-
-    /// Optional icon color. When non-nil, the leading accessory renders as a colored bar instead of a status icon.
-    let iconColor: Color?
-
-    /// Optional subtitle shown below the title. Used for calendar event time+calendar labels.
-    let subtitle: String?
-
-    // MARK: - Initialization
-
-    /// Creates an entry row configuration.
-    ///
-    /// - Parameters:
-    ///   - entryType: The type of entry.
-    ///   - taskStatus: The task status (only used for tasks).
-    ///   - noteStatus: The note status (only used for notes).
-    ///   - title: The entry title (defaults to empty string).
-    ///   - migrationDestination: The migration destination label.
-    ///   - isEventPast: Whether the event is past (only used for events).
-    init(
-        entryType: EntryType,
-        taskStatus: DataModel.Task.Status? = nil,
-        noteStatus: DataModel.Note.Status? = nil,
-        title: String = "",
-        migrationDestination: String? = nil,
-        contextualLabel: String? = nil,
-        taskBodyPreview: String? = nil,
-        taskPriority: DataModel.Task.Priority = .none,
-        taskDueDateLabel: String? = nil,
-        isTaskDueDateHighlighted: Bool = false,
-        isEventPast: Bool = false,
-        tagChips: [(title: String, color: Color)] = [],
-        iconColor: Color? = nil,
-        subtitle: String? = nil
-    ) {
-        self.entryType = entryType
-        self.taskStatus = taskStatus
-        self.noteStatus = noteStatus
-        self.title = title
-        self.migrationDestination = migrationDestination
-        self.contextualLabel = contextualLabel
-        self.taskBodyPreview = taskBodyPreview
-        self.taskPriority = taskPriority
-        self.taskDueDateLabel = taskDueDateLabel
-        self.isTaskDueDateHighlighted = isTaskDueDateHighlighted
-        self.isEventPast = isEventPast
-        self.tagChips = tagChips
-        self.iconColor = iconColor
-        self.subtitle = subtitle
-    }
-
-    var hasTaskMetadata: Bool {
-        taskBodyPreview != nil ||
-        taskPriority != .none ||
-        taskDueDateLabel != nil
-    }
-
-    // MARK: - Action Availability
-
-    /// Whether the complete action is available.
-    ///
-    /// Only tasks with open status can be completed.
-    var canComplete: Bool {
-        guard entryType == .task, let status = taskStatus else {
-            return false
-        }
-        return status == .open
-    }
-
-    /// Whether the edit action is available.
-    ///
-    /// All entry types can be edited.
-    var canEdit: Bool {
-        true
-    }
-
-    /// Whether the delete action is available.
-    ///
-    /// All entry types can be deleted.
-    var canDelete: Bool {
-        true
-    }
-
-    // MARK: - Swipe Action Collections
-
-    /// Actions available as trailing swipe actions.
-    ///
-    /// Complete is a trailing action for tasks.
-    /// Edit and delete are trailing actions for all types.
-    var trailingActions: [EntryRowAction] {
-        var actions: [EntryRowAction] = []
-        if canComplete {
-            actions.append(.complete)
-        }
-        return actions
-    }
-
-    // MARK: - Migration Badge
-
-    /// Whether to show a migration badge.
-    ///
-    /// Shows when a task or note has been migrated and has a destination.
-    var showsMigrationBadge: Bool {
-        switch entryType {
-        case .task:
-            return taskStatus == .migrated && migrationDestination != nil
-        case .note:
-            return noteStatus == .migrated && migrationDestination != nil
-        case .event:
-            return false
-        }
-    }
-
-    // MARK: - Visual Styling
-
-    /// Whether the row should be displayed with greyed out styling.
-    ///
-    /// Returns `true` for:
-    /// - Complete tasks
-    /// - Cancelled tasks
-    /// - Migrated tasks
-    /// - Migrated notes
-    /// - Past events
-    var isGreyedOut: Bool {
-        switch entryType {
-        case .task:
-            guard let status = taskStatus else { return false }
-            return status == .complete || status == .migrated || status == .cancelled
-        case .note:
-            guard let status = noteStatus else { return false }
-            return status == .migrated
-        case .event:
-            return isEventPast
-        }
-    }
-
-    /// Whether the row should be displayed with strikethrough styling.
-    ///
-    /// Returns `true` only for cancelled tasks.
-    var hasStrikethrough: Bool {
-        guard entryType == .task, let status = taskStatus else {
-            return false
-        }
-        return status == .cancelled
-    }
+    var onComplete: ((any Entry) -> Void)?
+    var onEdit: ((any Entry) -> Void)?
+    var onDelete: ((any Entry) -> Void)?
+    var onTitleCommit: (@MainActor (any Entry, String) async -> Void)?
+    var inlineActionConfiguration: ((any Entry) -> EntryRowInlineActionConfiguration?)?
 }
