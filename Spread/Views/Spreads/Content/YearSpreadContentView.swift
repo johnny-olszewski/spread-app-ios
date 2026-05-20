@@ -20,6 +20,7 @@ struct YearSpreadContentView: View {
     let syncEngine: SyncEngine?
 
     @Environment(SpreadsCoordinator.self) private var coordinator
+    @State private var vm = ViewModel()
 
     private var calendar: Calendar {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
@@ -33,116 +34,55 @@ struct YearSpreadContentView: View {
         return feedback
     }
 
-    // MARK: - Configuration map
-
-    private var configurationMap: [EntryType: EntryRowView.Configuration] {
-        let cal = calendar
-        let today = journalManager.today
-
-        let taskConfig = EntryRowView.Configuration(
-            effectiveTaskStatus: { $0.displayTaskStatus },
-            isGreyedOut: { entry in
-                guard let s = entry.displayTaskStatus else { return false }
-                return s == .complete || s == .migrated || s == .cancelled
-            },
-            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
-            dueDateLabel: { entry in (entry as? DataModel.Task)?.dueDateLabel(calendar: cal) },
-            isDueDateHighlighted: { entry in
-                (entry as? DataModel.Task)?.isDueDateHighlighted(today: today, calendar: cal) ?? false
-            },
-            onComplete: { entry in
-                guard let task = entry as? DataModel.Task else { return }
-                Task { @MainActor in
-                    let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
-                    try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
-                    await syncEngine?.syncNow()
-                }
-            },
-            onEdit: { entry in
-                if let task = entry as? DataModel.Task { coordinator.showTaskDetail(task) }
-            },
-            onDelete: { entry in
-                guard let task = entry as? DataModel.Task else { return }
-                Task { @MainActor in
-                    try? await journalManager.deleteTask(task)
-                    await syncEngine?.syncNow()
-                }
-            },
-            onTitleCommit: { @MainActor entry, newTitle in
-                guard let task = entry as? DataModel.Task else { return }
-                try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
-                Task { @MainActor in await syncEngine?.syncNow() }
-            },
-            inlineActionConfiguration: { entry in
-                guard let task = entry as? DataModel.Task, task.status == .open else { return nil }
-                let options = EntryRowInlineEditSupport.migrationOptions(for: task, today: today, calendar: cal)
-                return EntryRowInlineActionConfiguration(
-                    migrationOptions: options,
-                    onEditSheet: { coordinator.showTaskDetail(task) },
-                    onMigrationSelected: { option in
-                        try? await journalManager.updateTaskDateAndPeriod(task, newDate: option.date, newPeriod: option.period)
-                        await syncEngine?.syncNow()
-                    }
-                )
-            }
-        )
-
-        let noteConfig = EntryRowView.Configuration(
-            isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
-            onEdit: { entry in
-                if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
-            },
-            onDelete: { entry in
-                guard let note = entry as? DataModel.Note else { return }
-                Task { @MainActor in
-                    try? await journalManager.deleteNote(note)
-                    await syncEngine?.syncNow()
-                }
-            }
-        )
-
-        return [.task: taskConfig, .note: noteConfig]
-    }
-
     var body: some View {
-        if let dataModel = spreadDataModel {
-            let contentModel = YearSpreadContentSupport.model(
-                for: spread,
-                spreadDataModel: dataModel,
-                spreads: journalManager.spreads,
-                today: journalManager.today,
-                calendar: calendar
-            )
+        Group {
+            if let dataModel = spreadDataModel {
+                let contentModel = YearSpreadContentSupport.model(
+                    for: spread,
+                    spreadDataModel: dataModel,
+                    spreads: journalManager.spreads,
+                    today: journalManager.today,
+                    calendar: calendar
+                )
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-                    if autoMigrationFeedback?.anchor == .spreadHeader,
-                       let message = autoMigrationFeedback?.message {
-                        SpreadAutoMigrationCueView(message: message)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+                        if autoMigrationFeedback?.anchor == .spreadHeader,
+                           let message = autoMigrationFeedback?.message {
+                            SpreadAutoMigrationCueView(message: message)
+                        }
+
+                        topYearSection(entries: contentModel.yearEntries)
+
+                        ForEach(contentModel.monthCards) { card in
+                            monthCard(card)
+                        }
                     }
-
-                    topYearSection(entries: contentModel.yearEntries)
-
-                    ForEach(contentModel.monthCards) { card in
-                        monthCard(card)
-                    }
+                    .padding(.horizontal, Layout.contentPadding)
+                    .padding(.top, Layout.contentPadding)
+                    .padding(.bottom, Layout.sectionSpacing)
                 }
-                .padding(.horizontal, Layout.contentPadding)
-                .padding(.top, Layout.contentPadding)
-                .padding(.bottom, Layout.sectionSpacing)
+            } else {
+                ContentUnavailableView {
+                    Label("No Data", systemImage: "tray")
+                } description: {
+                    Text("Unable to load spread data.")
+                }
             }
-        } else {
-            ContentUnavailableView {
-                Label("No Data", systemImage: "tray")
-            } description: {
-                Text("Unable to load spread data.")
-            }
+        }
+        .task(id: spread.id) {
+            vm.configure(
+                journalManager: journalManager,
+                syncEngine: syncEngine,
+                onEditTask: { coordinator.showTaskDetail($0) },
+                onEditNote: { coordinator.showNoteDetail($0) }
+            )
         }
     }
 
     @ViewBuilder
     private func topYearSection(entries: [any Entry]) -> some View {
-        let configs = configurationMap
+        let configs = vm.configurationMap
         VStack(alignment: .leading, spacing: Layout.cardSpacing) {
             Text("Year")
                 .font(SpreadTheme.Typography.title3)
@@ -177,7 +117,7 @@ struct YearSpreadContentView: View {
             }
             return false
         } ?? false
-        let configs = configurationMap
+        let configs = vm.configurationMap
 
         VStack(alignment: .leading, spacing: Layout.cardSpacing) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
