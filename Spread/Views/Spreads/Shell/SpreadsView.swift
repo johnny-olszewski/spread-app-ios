@@ -6,7 +6,7 @@ struct SpreadsView: View {
     let syncEngine: SyncEngine?
     let navigationState: SpreadsNavigationState
 
-    @State private var viewModel = SpreadsViewModel()
+    @State private var coordinator = SpreadsCoordinator()
 
     private let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding =
         TodayMissingSpreadRecommendationProvider()
@@ -82,7 +82,7 @@ struct SpreadsView: View {
                 }
             }
             ToolbarItem(placement: .primaryAction) {
-                AuthButton(isSignedIn: authManager.state.isSignedIn, action: { viewModel.showAuth() })
+                AuthButton(isSignedIn: authManager.state.isSignedIn, action: { coordinator.showAuth() })
             }
             if let spread = currentConventionalSpread {
                 ToolbarItem(placement: .primaryAction) {
@@ -93,7 +93,7 @@ struct SpreadsView: View {
         .safeAreaInset(edge: .bottom) {
             bottomInsetControls
         }
-        .sheet(item: $viewModel.activeSheet) { destination in
+        .sheet(item: $coordinator.activeSheet) { destination in
             sheetContent(for: destination)
         }
         .onChange(of: journalManager.dataVersion) { _, _ in
@@ -102,8 +102,8 @@ struct SpreadsView: View {
             }
         }
         .onAppear {
-            if viewModel.selectedSelection == nil {
-                viewModel.selectedSelection = defaultSelection
+            if coordinator.selectedSelection == nil {
+                coordinator.selectedSelection = defaultSelection
             }
             handlePendingNavigationRequest()
         }
@@ -119,11 +119,11 @@ struct SpreadsView: View {
         if !completeItems.isEmpty {
             SpreadContentPagerView(
                 journalManager: journalManager,
-                viewModel: viewModel,
+                coordinator: coordinator,
                 syncEngine: syncEngine,
                 model: stripModel,
                 items: completeItems,
-                recenterToken: viewModel.recenterToken,
+                recenterToken: coordinator.recenterToken,
                 selection: selectionBinding
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -154,18 +154,18 @@ struct SpreadsView: View {
 
             Menu {
                 if journalManager.bujoMode == .conventional {
-                    Button(action: { viewModel.showSpreadCreation() }) {
+                    Button(action: { coordinator.showSpreadCreation() }) {
                         Label("Create Spread", systemImage: "book")
                     }
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createSpread)
                 }
 
-                Button(action: { viewModel.showTaskCreation() }) {
+                Button(action: { coordinator.showTaskCreation() }) {
                     Label("Create Task", systemImage: "circle.fill")
                 }
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createTask)
 
-                Button(action: { viewModel.showNoteCreation() }) {
+                Button(action: { coordinator.showNoteCreation() }) {
                     Label("Create Note", systemImage: "minus")
                 }
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createNote)
@@ -190,14 +190,14 @@ struct SpreadsView: View {
         Binding(
             get: { currentSelection },
             set: {
-                viewModel.selectedSelection = $0
-                viewModel.clearPeekNavigationSource()
+                coordinator.selectedSelection = $0
+                coordinator.clearPeekNavigationSource()
             }
         )
     }
 
     private var currentSelection: SpreadHeaderNavigatorModel.Selection {
-        viewModel.selectedSelection ?? defaultSelection
+        coordinator.selectedSelection ?? defaultSelection
     }
 
     private var defaultSelection: SpreadHeaderNavigatorModel.Selection {
@@ -218,7 +218,7 @@ struct SpreadsView: View {
     private var onRecommendedSpreadTapped: ((SpreadTitleNavigatorRecommendation) -> Void)? {
         guard journalManager.bujoMode == .conventional else { return nil }
         return { recommendation in
-            viewModel.showSpreadCreation(
+            coordinator.showSpreadCreation(
                 prefill: .init(period: recommendation.period, date: recommendation.date)
             )
         }
@@ -244,14 +244,14 @@ struct SpreadsView: View {
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
 
             Button {
-                viewModel.showSpreadNameEdit(spread)
+                coordinator.showSpreadNameEdit(spread)
             } label: {
                 Label("Edit Name", systemImage: "pencil")
             }
 
             if spread.period == .multiday {
                 Button {
-                    viewModel.showSpreadDateEdit(spread)
+                    coordinator.showSpreadDateEdit(spread)
                 } label: {
                     Label("Edit Dates", systemImage: "calendar")
                 }
@@ -259,7 +259,7 @@ struct SpreadsView: View {
             }
 
             Button(role: .destructive) {
-                viewModel.showSpreadDeleteConfirmation(spread)
+                coordinator.showSpreadDeleteConfirmation(spread)
             } label: {
                 Label("Delete Spread", systemImage: "trash")
             }
@@ -321,15 +321,15 @@ struct SpreadsView: View {
     }
 
     private func selectFavorite(_ item: SpreadTitleNavigatorModel.Item) {
-        viewModel.clearPeekNavigationSource()
-        viewModel.selectedSelection = item.selection
-        viewModel.recenterToken += 1
+        coordinator.clearPeekNavigationSource()
+        coordinator.selectedSelection = item.selection
+        coordinator.recenterToken += 1
     }
 
     // MARK: - Navigation
 
     private func navigateToToday() {
-        viewModel.clearPeekNavigationSource()
+        coordinator.clearPeekNavigationSource()
         switch journalManager.bujoMode {
         case .conventional:
             guard let targetSpread = SpreadHierarchyOrganizer(
@@ -338,10 +338,10 @@ struct SpreadsView: View {
             ).initialSelection(for: journalManager.today) else { return }
 
             if case .conventional(let current) = currentSelection, current.id == targetSpread.id {
-                viewModel.recenterToken += 1
+                coordinator.recenterToken += 1
             } else {
-                viewModel.selectedSelection = .conventional(targetSpread)
-                viewModel.recenterToken += 1
+                coordinator.selectedSelection = .conventional(targetSpread)
+                coordinator.recenterToken += 1
             }
 
         case .traditional:
@@ -350,10 +350,10 @@ struct SpreadsView: View {
             )
             if target.stableID(calendar: journalManager.calendar)
                 == currentSelection.stableID(calendar: journalManager.calendar) {
-                viewModel.recenterToken += 1
+                coordinator.recenterToken += 1
             } else {
-                viewModel.selectedSelection = target
-                viewModel.recenterToken += 1
+                coordinator.selectedSelection = target
+                coordinator.recenterToken += 1
             }
         }
     }
@@ -374,22 +374,22 @@ struct SpreadsView: View {
     }
 
     private func resetConventionalSelectionIfNeeded() {
-        guard case .conventional(let spread) = viewModel.selectedSelection else { return }
+        guard case .conventional(let spread) = coordinator.selectedSelection else { return }
         if journalManager.spreads.contains(where: { $0.id == spread.id }) { return }
 
-        viewModel.selectedSelection = SpreadSelectionFallbackSupport.replacementSelection(
-            currentSelection: viewModel.selectedSelection,
+        coordinator.selectedSelection = SpreadSelectionFallbackSupport.replacementSelection(
+            currentSelection: coordinator.selectedSelection,
             spreads: journalManager.spreads,
             calendar: journalManager.calendar,
             today: journalManager.today
         )
-        viewModel.recenterToken += 1
+        coordinator.recenterToken += 1
     }
 
     // MARK: - Sheet Content
 
     @ViewBuilder
-    private func sheetContent(for destination: SpreadsViewModel.SheetDestination) -> some View {
+    private func sheetContent(for destination: SpreadsCoordinator.SheetDestination) -> some View {
         switch destination {
         case .spreadCreation(let prefill):
             if journalManager.bujoMode == .conventional {
@@ -399,7 +399,7 @@ struct SpreadsView: View {
                     initialPeriod: prefill?.period,
                     initialDate: prefill?.date,
                     onSpreadCreated: { result in
-                        viewModel.finishSpreadCreation(
+                        coordinator.finishSpreadCreation(
                             result,
                             currentSelection: currentSelection,
                             calendar: journalManager.calendar
@@ -429,7 +429,7 @@ struct SpreadsView: View {
                     firstWeekday: journalManager.firstWeekday,
                     editingMultidaySpread: spread,
                     onSpreadDatesSaved: { updatedSpread in
-                        viewModel.finishSpreadDateEdit(updatedSpread)
+                        coordinator.finishSpreadDateEdit(updatedSpread)
                         Task { @MainActor in await syncEngine?.syncNow() }
                     }
                 )
@@ -494,12 +494,12 @@ struct SpreadsView: View {
         switch request.selection {
         case .conventional(let spread):
             guard journalManager.bujoMode == .conventional else { return }
-            viewModel.selectedSelection = .conventional(spread)
+            coordinator.selectedSelection = .conventional(spread)
         case .traditionalYear, .traditionalMonth, .traditionalDay:
             guard journalManager.bujoMode == .traditional else { return }
-            viewModel.selectedSelection = request.selection
+            coordinator.selectedSelection = request.selection
         }
-        viewModel.recenterToken += 1
+        coordinator.recenterToken += 1
 
         guard let task = journalManager.tasks.first(where: { $0.id == request.taskID }) else {
             navigationState.pendingRequest = nil
@@ -508,7 +508,7 @@ struct SpreadsView: View {
 
         Task { @MainActor in
             await Task.yield()
-            viewModel.showTaskDetail(task)
+            coordinator.showTaskDetail(task)
             navigationState.pendingRequest = nil
         }
     }
