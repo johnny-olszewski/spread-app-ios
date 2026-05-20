@@ -176,9 +176,13 @@ struct TaskDetailSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Title")
             HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-                TaskStatusToggleButton(
-                    status: $viewModel.selectedStatus,
-                    accessibilityIdentifier: Definitions.AccessibilityIdentifiers.TaskDetailSheet.statusToggle
+                EntryLeadingIconButton(
+                    configuration: EntryLeadingIconButton.Configuration(
+                        entryType: .task,
+                        taskStatus: viewModel.selectedStatus,
+                        color: viewModel.selectedStatus.statusIconColor,
+                        isDisabled: !viewModel.selectedStatus.canToggleCompletionInTaskSheet
+                    )
                 )
 
                 TextField("Task title", text: $viewModel.formModel.title)
