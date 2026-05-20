@@ -226,7 +226,6 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: coordinator,
                 syncEngine: syncEngine
             )
         case .month:
@@ -234,7 +233,6 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: coordinator,
                 syncEngine: syncEngine
             )
         case .day:
@@ -242,7 +240,6 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: coordinator,
                 syncEngine: syncEngine,
                 explicitDaySpreadForDate: { date in explicitDaySpread(for: date) },
                 onSelectSpread: { selectedSpread in
@@ -258,7 +255,6 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: coordinator,
                 syncEngine: syncEngine,
                 explicitDaySpreadForDate: { date in explicitDaySpread(for: date) }
             )
@@ -292,7 +288,6 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: coordinator,
                 syncEngine: syncEngine
             )
         case .month:
@@ -300,7 +295,6 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: coordinator,
                 syncEngine: syncEngine
             )
         case .day:
@@ -308,7 +302,6 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: coordinator,
                 syncEngine: syncEngine,
                 entryListConfiguration: config
             )
@@ -317,7 +310,6 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: coordinator,
                 syncEngine: syncEngine,
                 entryListConfiguration: config
             )

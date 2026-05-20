@@ -178,6 +178,12 @@ final class SpreadsCoordinator {
         peekNavigationSource = nil
     }
 
+    /// Navigates to a conventional spread and clears any active peek navigation source.
+    func selectSpread(_ spread: DataModel.Spread) {
+        selectedSelection = .conventional(spread)
+        clearPeekNavigationSource()
+    }
+
     /// Presents the task detail sheet for editing.
     func showTaskDetail(_ task: DataModel.Task) {
         activeSheet = .taskDetail(task)

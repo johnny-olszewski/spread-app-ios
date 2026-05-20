@@ -17,15 +17,16 @@ struct YearSpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
     let journalManager: JournalManager
-    let viewModel: SpreadsCoordinator
     let syncEngine: SyncEngine?
+
+    @Environment(SpreadsCoordinator.self) private var coordinator
 
     private var calendar: Calendar {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
     }
 
     private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
-        guard let feedback = viewModel.autoMigrationFeedback,
+        guard let feedback = coordinator.autoMigrationFeedback,
               feedback.surfaceSpreadID == spread.id else {
             return nil
         }
@@ -58,7 +59,7 @@ struct YearSpreadContentView: View {
                 }
             },
             onEdit: { entry in
-                if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
+                if let task = entry as? DataModel.Task { coordinator.showTaskDetail(task) }
             },
             onDelete: { entry in
                 guard let task = entry as? DataModel.Task else { return }
@@ -77,7 +78,7 @@ struct YearSpreadContentView: View {
                 let options = EntryRowInlineEditSupport.migrationOptions(for: task, today: today, calendar: cal)
                 return EntryRowInlineActionConfiguration(
                     migrationOptions: options,
-                    onEditSheet: { viewModel.showTaskDetail(task) },
+                    onEditSheet: { coordinator.showTaskDetail(task) },
                     onMigrationSelected: { option in
                         try? await journalManager.updateTaskDateAndPeriod(task, newDate: option.date, newPeriod: option.period)
                         await syncEngine?.syncNow()
@@ -89,7 +90,7 @@ struct YearSpreadContentView: View {
         let noteConfig = EntryRowView.Configuration(
             isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
             onEdit: { entry in
-                if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
+                if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
             },
             onDelete: { entry in
                 guard let note = entry as? DataModel.Note else { return }
@@ -233,9 +234,9 @@ struct YearSpreadContentView: View {
             Button(card.action.title) {
                 switch card.action {
                 case .view(let spread):
-                    viewModel.selectedSelection = .conventional(spread)
+                    coordinator.selectSpread(spread)
                 case .create(let date):
-                    viewModel.showSpreadCreation(prefill: .init(period: .month, date: date))
+                    coordinator.showSpreadCreation(prefill: .init(period: .month, date: date))
                 }
             }
             .buttonStyle(.bordered)
