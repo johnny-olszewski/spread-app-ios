@@ -156,7 +156,7 @@ struct YearSpreadContentView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(entries, id: \.id) { entry in
                         if let config = configs[entry.entryType] {
-                            EntryRowView(entry: entry, configuration: config, contextualLabel: nil)
+                            EntryRowView(entry: entry, configuration: config)
                                 .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                         }
                         if entry.id != entries.last?.id {
@@ -214,7 +214,7 @@ struct YearSpreadContentView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(card.previews) { preview in
                         if let config = configs[preview.entry.entryType] {
-                            EntryRowView(entry: preview.entry, configuration: config, contextualLabel: preview.contextualLabel)
+                            EntryRowView(entry: preview.entry, configuration: config)
                                 .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                         }
                         if preview.id != card.previews.last?.id {

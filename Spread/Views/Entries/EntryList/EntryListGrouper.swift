@@ -1,43 +1,5 @@
 import Foundation
 
-/// A section of grouped entries for display in an entry list.
-///
-/// Contains a title, date, and the entries belonging to this section.
-/// Used by `EntryListView` to render grouped entries.
-struct EntryListSection: Identifiable, Sendable {
-    /// Unique identifier for the section.
-    let id: String
-
-    /// The display title for the section header.
-    ///
-    /// For year spreads: "January 2026"
-    /// For month spreads: "January 5"
-    /// For day spreads: Empty string (no header shown)
-    /// For multiday spreads: "January 5"
-    let title: String
-
-    /// The date this section represents.
-    ///
-    /// For year spreads: First day of the month
-    /// For month/multiday spreads: The specific day
-    /// For day spreads: The spread date
-    let date: Date
-
-    /// The entries in this section.
-    let entries: [any Entry]
-
-    /// Small contextual labels shown next to specific row titles in this section.
-    let contextualLabels: [UUID: String]
-
-    /// The period/date context used when creating a new task from this section.
-    let creationPeriod: Period
-    let creationDate: Date
-
-    func contextualLabel(for entry: any Entry) -> String? {
-        contextualLabels[entry.id]
-    }
-}
-
 /// Groups entries based on spread period for display in entry lists.
 ///
 /// Provides period-specific grouping logic:
@@ -95,7 +57,7 @@ struct EntryListGrouper: Sendable {
     ///
     /// - Parameter entries: The entries to group.
     /// - Returns: An array of sections with grouped entries.
-    func group(_ entries: [any Entry]) -> [EntryListSection] {
+    func group(_ entries: [any Entry]) -> [EntryList.Section] {
         switch resolvedGroupingStyle {
         case .flat:
             guard !entries.isEmpty else { return [] }
@@ -149,10 +111,9 @@ struct EntryListGrouper: Sendable {
     // MARK: - Grouping Strategies
 
     /// Groups entries by month for year spreads.
-    private func groupByMonth(_ entries: [any Entry]) -> [EntryListSection] {
+    private func groupByMonth(_ entries: [any Entry]) -> [EntryList.Section] {
         var yearEntries: [any Entry] = []
         var monthGroups: [Date: [any Entry]] = [:]
-        var contextualLabels: [Date: [UUID: String]] = [:]
 
         for entry in entries {
             let grouping = assignableGrouping(for: entry)
@@ -160,29 +121,21 @@ struct EntryListGrouper: Sendable {
             switch grouping.period {
             case .year:
                 yearEntries.append(entry)
-            case .month:
-                let monthStart = grouping.date.firstDayOfMonth(calendar: calendar) ?? grouping.date
-                monthGroups[monthStart, default: []].append(entry)
-            case .day:
-                let monthStart = grouping.date.firstDayOfMonth(calendar: calendar) ?? grouping.date
-                monthGroups[monthStart, default: []].append(entry)
-                contextualLabels[monthStart, default: [:]][entry.id] = formatDayNumber(grouping.date)
-            case .multiday:
+            case .month, .day, .multiday:
                 let monthStart = grouping.date.firstDayOfMonth(calendar: calendar) ?? grouping.date
                 monthGroups[monthStart, default: []].append(entry)
             }
         }
 
-        var sections: [EntryListSection] = []
+        var sections: [EntryList.Section] = []
         let sortedYearEntries = sortEntriesChronologically(yearEntries)
         if !sortedYearEntries.isEmpty {
             sections.append(
-                EntryListSection(
+                EntryList.Section(
                     id: sectionID(spreadDate),
                     title: "",
                     date: spreadDate,
                     entries: sortedYearEntries,
-                    contextualLabels: [:],
                     creationPeriod: .year,
                     creationDate: spreadDate
                 )
@@ -192,12 +145,11 @@ struct EntryListGrouper: Sendable {
         sections.append(
             contentsOf: monthGroups.keys.sorted().map { monthDate in
                 let sortedEntries = sortEntriesChronologically(monthGroups[monthDate] ?? [])
-                return EntryListSection(
+                return EntryList.Section(
                     id: sectionID(monthDate),
                     title: formatMonthTitle(monthDate),
                     date: monthDate,
                     entries: sortedEntries,
-                    contextualLabels: contextualLabels[monthDate] ?? [:],
                     creationPeriod: .month,
                     creationDate: monthDate
                 )
@@ -208,23 +160,13 @@ struct EntryListGrouper: Sendable {
     }
 
     /// Groups entries by day for month and multiday spreads.
-    private func groupByDay(_ entries: [any Entry]) -> [EntryListSection] {
-        var contextualLabels: [UUID: String] = [:]
-
-        for entry in entries {
-            let grouping = assignableGrouping(for: entry)
-            if grouping.period == .day {
-                contextualLabels[entry.id] = formatDayNumber(grouping.date)
-            }
-        }
-
+    private func groupByDay(_ entries: [any Entry]) -> [EntryList.Section] {
         return [
-            EntryListSection(
+            EntryList.Section(
                 id: sectionID(spreadDate),
                 title: "",
                 date: spreadDate,
                 entries: sortEntriesChronologically(entries),
-                contextualLabels: contextualLabels,
                 creationPeriod: .month,
                 creationDate: spreadDate
             )
@@ -232,7 +174,7 @@ struct EntryListGrouper: Sendable {
     }
 
     /// Groups multiday entries by day while ensuring every covered day renders a section.
-    private func groupByDayIncludingEmptyDates(_ entries: [any Entry]) -> [EntryListSection] {
+    private func groupByDayIncludingEmptyDates(_ entries: [any Entry]) -> [EntryList.Section] {
         let startDate = (spreadStartDate ?? spreadDate).startOfDay(calendar: calendar)
         let endDate = (spreadEndDate ?? spreadDate).startOfDay(calendar: calendar)
 
@@ -247,15 +189,14 @@ struct EntryListGrouper: Sendable {
             dayGroups[entryDate, default: []].append(entry)
         }
 
-        var sections: [EntryListSection] = []
+        var sections: [EntryList.Section] = []
         if !multidayEntries.isEmpty {
             sections.append(
-                EntryListSection(
+                EntryList.Section(
                     id: "multiday-header",
                     title: "This Range",
                     date: startDate,
                     entries: multidayEntries,
-                    contextualLabels: [:],
                     creationPeriod: .multiday,
                     creationDate: spreadDate
                 )
@@ -266,12 +207,11 @@ struct EntryListGrouper: Sendable {
         while currentDate <= endDate {
             let sortedEntries = sortEntriesChronologically(dayGroups[currentDate] ?? [])
             sections.append(
-                EntryListSection(
+                EntryList.Section(
                     id: sectionID(currentDate),
                     title: "",
                     date: currentDate,
                     entries: sortedEntries,
-                    contextualLabels: [:],
                     creationPeriod: .day,
                     creationDate: currentDate
                 )
@@ -286,15 +226,14 @@ struct EntryListGrouper: Sendable {
     }
 
     /// Creates a single flat section for day spreads.
-    private func flatSection(_ entries: [any Entry]) -> [EntryListSection] {
+    private func flatSection(_ entries: [any Entry]) -> [EntryList.Section] {
         let sortedEntries = sortEntriesChronologically(entries)
         return [
-            EntryListSection(
+            EntryList.Section(
                 id: sectionID(spreadDate),
                 title: "",
                 date: spreadDate,
                 entries: sortedEntries,
-                contextualLabels: [:],
                 creationPeriod: .day,
                 creationDate: spreadDate
             )
@@ -305,7 +244,7 @@ struct EntryListGrouper: Sendable {
     ///
     /// Named list sections appear in alphabetical order; tasks with no list appear last
     /// in an untitled section.
-    private func groupByList(_ entries: [any Entry]) -> [EntryListSection] {
+    private func groupByList(_ entries: [any Entry]) -> [EntryList.Section] {
         var listGroups: [UUID?: [any Entry]] = [:]
         var listNames: [UUID: String] = [:]
 
@@ -321,29 +260,27 @@ struct EntryListGrouper: Sendable {
             }
         }
 
-        var sections: [EntryListSection] = []
+        var sections: [EntryList.Section] = []
 
         let sortedListIDs = listNames.keys.sorted { listNames[$0]! < listNames[$1]! }
         for listID in sortedListIDs {
             let listEntries = sortEntriesChronologically(listGroups[listID] ?? [])
-            sections.append(EntryListSection(
+            sections.append(EntryList.Section(
                 id: listID.uuidString,
                 title: listNames[listID] ?? "",
                 date: spreadDate,
                 entries: listEntries,
-                contextualLabels: [:],
                 creationPeriod: .day,
                 creationDate: spreadDate
             ))
         }
 
         if let noListEntries = listGroups[nil], !noListEntries.isEmpty {
-            sections.append(EntryListSection(
+            sections.append(EntryList.Section(
                 id: sectionID(spreadDate),
                 title: "",
                 date: spreadDate,
                 entries: sortEntriesChronologically(noListEntries),
-                contextualLabels: [:],
                 creationPeriod: .day,
                 creationDate: spreadDate
             ))
@@ -401,14 +338,6 @@ struct EntryListGrouper: Sendable {
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: date)
-    }
-
-    private func formatDayNumber(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "d"
         return formatter.string(from: date)
     }
 }

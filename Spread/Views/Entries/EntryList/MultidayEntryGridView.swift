@@ -6,7 +6,7 @@ import SwiftUI
 /// or the full entry list for that day. Multiday-assigned tasks appear in a full-width
 /// assignment section above the day cards.
 ///
-/// Callers compute `[EntryListSection]` using `EntryListGrouper` with the multiday
+/// Callers compute `[EntryList.Section]` using `EntryListGrouper` with the multiday
 /// period, then pass the ViewModel for inline creation state and inject entry row
 /// rendering via `rowContent`.
 struct MultidayEntryGridView<RowContent: View>: View {
@@ -25,7 +25,7 @@ struct MultidayEntryGridView<RowContent: View>: View {
     var peekDataForDaySpread: ((DataModel.Spread) -> MultidayPeekData?)? = nil
     var onPeekTaskTap: ((DataModel.Spread, DataModel.Task) -> Void)? = nil
 
-    @ViewBuilder var rowContent: (any Entry, String?) -> RowContent
+    @ViewBuilder var rowContent: (any Entry) -> RowContent
 
     // MARK: - View-owned state
 
@@ -82,7 +82,7 @@ struct MultidayEntryGridView<RowContent: View>: View {
     // MARK: - Sections
 
     @ViewBuilder
-    private func daySection(_ section: EntryListSection) -> some View {
+    private func daySection(_ section: EntryList.Section) -> some View {
         let explicitDaySpread = explicitDaySpreadForDate?(section.date)
         MultidayDaySectionView(
             viewModel: viewModel,
@@ -102,12 +102,12 @@ struct MultidayEntryGridView<RowContent: View>: View {
                       let data = peekDataForDaySpread?(daySpread) else { return }
                 activePeekData = data
             } : nil
-        ) { entry, contextualLabel in
-            rowContent(entry, contextualLabel)
+        ) { entry in
+            rowContent(entry)
         }
     }
 
-    private func assignmentSection(_ section: EntryListSection) -> some View {
+    private func assignmentSection(_ section: EntryList.Section) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(section.title)
                 .font(SpreadTheme.Typography.title3)
@@ -115,7 +115,7 @@ struct MultidayEntryGridView<RowContent: View>: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(section.entries, id: \.id) { entry in
-                    rowContent(entry, section.contextualLabel(for: entry))
+                    rowContent(entry)
                 }
 
                 if let onAddTask = viewModel.onAddTask {
@@ -139,4 +139,3 @@ enum MultidaySectionLayout {
         horizontalSizeClass == .regular ? 2 : 1
     }
 }
-

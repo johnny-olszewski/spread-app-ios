@@ -17,7 +17,6 @@ struct EntryRowView: View {
 
     let entry: any Entry
     let configuration: Configuration
-    var contextualLabel: String?
 
     // MARK: - Inline edit state (view-owned)
 
@@ -31,10 +30,9 @@ struct EntryRowView: View {
 
     // MARK: - Initialisation
 
-    init(entry: any Entry, configuration: Configuration, contextualLabel: String? = nil) {
+    init(entry: any Entry, configuration: Configuration) {
         self.entry = entry
         self.configuration = configuration
-        self.contextualLabel = contextualLabel
         _editingText = State(initialValue: entry.title)
         _inlineTaskStatus = State(initialValue: configuration.effectiveTaskStatus?(entry) ?? entry.displayTaskStatus)
     }
@@ -92,10 +90,6 @@ struct EntryRowView: View {
                 .accessibilityIdentifier(
                     Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(entry.title)
                 )
-
-            if let label = contextualLabel {
-                contextualLabelView(label)
-            }
 
             if !entry.displayTagChips.isEmpty {
                 Spacer(minLength: 4)
@@ -383,21 +377,6 @@ struct EntryRowView: View {
             parts.append("Due \(dueLabel)")
         }
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
-    }
-
-    @ViewBuilder
-    private func contextualLabelView(_ label: String) -> some View {
-        let view = Text(label)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .fixedSize()
-        if entry.entryType == .task {
-            view.accessibilityIdentifier(
-                Definitions.AccessibilityIdentifiers.SpreadContent.taskContextLabel(entry.title)
-            )
-        } else {
-            view
-        }
     }
 
     // MARK: - Context Menu
