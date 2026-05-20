@@ -73,6 +73,29 @@ struct EntryRowView: View {
     }
 
     // MARK: - Subviews
+    
+    private var rowMainContent: some View {
+        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+            // TODO: Readd tap functionality
+            EntryLeadingIconButton(configuration: entry.leadingIconConfiguration)
+
+            VStack(alignment: .leading, spacing: 3) {
+                
+                // title and chips
+                titleArea
+                
+                if let subtitle = configuration.subtitle?(entry) {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                
+//                taskMetadataArea
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
     @ViewBuilder
     private var titleArea: some View {
@@ -92,100 +115,56 @@ struct EntryRowView: View {
                 )
 
             if !entry.displayTagChips.isEmpty {
-                Spacer(minLength: 4)
                 HStack(spacing: 4) {
                     ForEach(entry.displayTagChips, id: \.title) { chip in
                         LabelChip(title: chip.title, color: chip.color)
                     }
                 }
+                .padding(.leading, 4)
                 .opacity(isInlineActive ? 0 : 1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var rowMainContent: some View {
-        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            leadingAccessory
-            VStack(alignment: .leading, spacing: 3) {
-                titleArea
-                if let sub = configuration.subtitle?(entry) {
-                    Text(sub)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                taskMetadataArea
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private var taskMetadataArea: some View {
-        let priority = entry.displayPriority
-        let dueLabel = configuration.dueDateLabel?(entry)
-        let bodyPreview = entry.displayBodyPreview
-        if priority != .none || dueLabel != nil || bodyPreview != nil {
-            VStack(alignment: .leading, spacing: 2) {
-                if priority != .none || dueLabel != nil {
-                    HStack(spacing: 6) {
-                        if let badgeTitle = priority.badgeTitle {
-                            Text(badgeTitle)
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(priority.badgeColor)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                        .stroke(priority.badgeColor.opacity(0.35), lineWidth: 1)
-                                }
-                        }
-                        if let dueLabel {
-                            Text(dueLabel)
-                                .font(.caption)
-                                .foregroundStyle(
-                                    (configuration.isDueDateHighlighted?(entry) ?? false) ? Color.orange : Color.secondary
-                                )
-                        }
-                    }
-                }
-                if let preview = bodyPreview {
-                    Text(preview)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var leadingAccessory: some View {
-        if let iconColor = entry.iconColor {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(iconColor)
-                .frame(width: 4, height: 18)
-                .frame(width: 24, height: 24)
-        } else if configuration.onComplete != nil, let status = inlineTaskStatus {
-            TaskStatusToggleButton(
-                status: Binding(
-                    get: { status },
-                    set: { newStatus in
-                        self.inlineTaskStatus = newStatus
-                        let original = configuration.effectiveTaskStatus?(entry) ?? entry.displayTaskStatus
-                        guard newStatus != original else { return }
-                        configuration.onComplete?(entry)
-                    }
-                ),
-                accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.taskStatusToggle(entry.title),
-                size: .caption,
-                color: rowColor
-            )
-        } else {
-            StatusIcon(configuration: iconConfiguration, color: rowColor)
-        }
-    }
+//    @ViewBuilder
+//    private var taskMetadataArea: some View {
+//        let priority = entry.displayPriority
+//        let dueLabel = configuration.dueDateLabel?(entry)
+//        let bodyPreview = entry.displayBodyPreview
+//        if priority != .none || dueLabel != nil || bodyPreview != nil {
+//            VStack(alignment: .leading, spacing: 2) {
+//                if priority != .none || dueLabel != nil {
+//                    HStack(spacing: 6) {
+//                        if let badgeTitle = priority.badgeTitle {
+//                            Text(badgeTitle)
+//                                .font(.caption2.weight(.semibold))
+//                                .foregroundStyle(priority.badgeColor)
+//                                .padding(.horizontal, 5)
+//                                .padding(.vertical, 2)
+//                                .overlay {
+//                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+//                                        .stroke(priority.badgeColor.opacity(0.35), lineWidth: 1)
+//                                }
+//                        }
+//                        if let dueLabel {
+//                            Text(dueLabel)
+//                                .font(.caption)
+//                                .foregroundStyle(
+//                                    (configuration.isDueDateHighlighted?(entry) ?? false) ? Color.orange : Color.secondary
+//                                )
+//                        }
+//                    }
+//                }
+//                if let preview = bodyPreview {
+//                    Text(preview)
+//                        .font(.caption)
+//                        .foregroundStyle(.secondary)
+//                        .lineLimit(1)
+//                }
+//            }
+//        }
+//    }
 
     @ViewBuilder
     private var inlineActionRow: some View {
@@ -338,15 +317,6 @@ struct EntryRowView: View {
         let greyed = configuration.isGreyedOut?(entry) ?? false
         let strikethrough = configuration.hasStrikethrough?(entry) ?? false
         return (greyed || strikethrough) ? .secondary : .primary
-    }
-
-    private var iconConfiguration: StatusIconConfiguration {
-        StatusIconConfiguration(
-            entryType: entry.entryType,
-            taskStatus: configuration.effectiveTaskStatus?(entry) ?? entry.displayTaskStatus,
-            noteStatus: entry.displayNoteStatus,
-            isEventPast: configuration.isEventPast?(entry) ?? false
-        )
     }
 
     // MARK: - Accessibility
