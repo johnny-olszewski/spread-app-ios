@@ -11,15 +11,16 @@ struct MonthSpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
     let journalManager: JournalManager
-    let viewModel: SpreadsCoordinator
     let syncEngine: SyncEngine?
+
+    @Environment(SpreadsCoordinator.self) private var coordinator
 
     private var calendar: Calendar {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
     }
 
     private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
-        guard let feedback = viewModel.autoMigrationFeedback,
+        guard let feedback = coordinator.autoMigrationFeedback,
               feedback.surfaceSpreadID == spread.id else {
             return nil
         }
@@ -52,7 +53,7 @@ struct MonthSpreadContentView: View {
                 }
             },
             onEdit: { entry in
-                if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
+                if let task = entry as? DataModel.Task { coordinator.showTaskDetail(task) }
             },
             onDelete: { entry in
                 guard let task = entry as? DataModel.Task else { return }
@@ -71,7 +72,7 @@ struct MonthSpreadContentView: View {
                 let options = EntryRowInlineEditSupport.migrationOptions(for: task, today: today, calendar: cal)
                 return EntryRowInlineActionConfiguration(
                     migrationOptions: options,
-                    onEditSheet: { viewModel.showTaskDetail(task) },
+                    onEditSheet: { coordinator.showTaskDetail(task) },
                     onMigrationSelected: { option in
                         try? await journalManager.updateTaskDateAndPeriod(task, newDate: option.date, newPeriod: option.period)
                         await syncEngine?.syncNow()
@@ -83,7 +84,7 @@ struct MonthSpreadContentView: View {
         let noteConfig = EntryRowView.Configuration(
             isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
             onEdit: { entry in
-                if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
+                if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
             },
             onDelete: { entry in
                 guard let note = entry as? DataModel.Note else { return }
@@ -122,7 +123,7 @@ struct MonthSpreadContentView: View {
                             journalManager: journalManager,
                             calendarActionsByDate: contentModel.calendarActionsByDate,
                             onViewDaySpread: { explicitDaySpread in
-                                viewModel.selectedSelection = .conventional(explicitDaySpread)
+                                coordinator.selectSpread(explicitDaySpread)
                             },
                             onRevealMonthDaySection: { date in
                                 withAnimation(.easeInOut(duration: 0.2)) {

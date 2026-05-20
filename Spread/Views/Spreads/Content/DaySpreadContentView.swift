@@ -17,13 +17,13 @@ struct DaySpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
     let journalManager: JournalManager
-    let viewModel: SpreadsCoordinator
     let syncEngine: SyncEngine?
     var entryListConfiguration: EntryListConfiguration = .init()
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
     var onSelectSpread: ((DataModel.Spread) -> Void)? = nil
     var onCreateSpread: ((Date) -> Void)? = nil
 
+    @Environment(SpreadsCoordinator.self) private var coordinator
     @Environment(\.eventKitService) private var eventKitService
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var calendarEvents: [CalendarEvent] = []
@@ -51,7 +51,7 @@ struct DaySpreadContentView: View {
     // MARK: - Derived
 
     private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
-        guard let feedback = viewModel.autoMigrationFeedback,
+        guard let feedback = coordinator.autoMigrationFeedback,
               feedback.surfaceSpreadID == spread.id,
               feedback.anchor == .spreadHeader else {
             return nil
@@ -263,8 +263,8 @@ struct DaySpreadContentView: View {
                 }
             },
             onEdit: { entry in
-                if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
-                else if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
+                if let task = entry as? DataModel.Task { coordinator.showTaskDetail(task) }
+                else if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
             },
             onDelete: { entry in
                 guard let task = entry as? DataModel.Task else { return }
@@ -283,7 +283,7 @@ struct DaySpreadContentView: View {
                 let options = EntryRowInlineEditSupport.migrationOptions(for: task, today: today, calendar: calendar)
                 return EntryRowInlineActionConfiguration(
                     migrationOptions: options,
-                    onEditSheet: { viewModel.showTaskDetail(task) },
+                    onEditSheet: { coordinator.showTaskDetail(task) },
                     onMigrationSelected: { option in
                         try? await journalManager.updateTaskDateAndPeriod(task, newDate: option.date, newPeriod: option.period)
                         await syncEngine?.syncNow()
@@ -295,7 +295,7 @@ struct DaySpreadContentView: View {
         let noteConfig = EntryRowView.Configuration(
             isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
             onEdit: { entry in
-                if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
+                if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
             },
             onDelete: { entry in
                 guard let note = entry as? DataModel.Note else { return }

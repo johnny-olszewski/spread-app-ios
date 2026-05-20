@@ -126,6 +126,7 @@ struct SpreadsView: View {
                 recenterToken: coordinator.recenterToken,
                 selection: selectionBinding
             )
+            .environment(coordinator)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
         } else {

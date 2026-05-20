@@ -5,11 +5,11 @@ struct MultidaySpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
     let journalManager: JournalManager
-    let viewModel: SpreadsCoordinator
     let syncEngine: SyncEngine?
     var entryListConfiguration: EntryListConfiguration = .init()
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
 
+    @Environment(SpreadsCoordinator.self) private var coordinator
     @Environment(\.eventKitService) private var eventKitService
     @State private var calendarEvents: [CalendarEvent] = []
     @State private var entryListViewModel = EntryListViewModel()
@@ -46,10 +46,10 @@ struct MultidaySpreadContentView: View {
             spread: spread,
             explicitDaySpreadForDate: explicitDaySpreadForDate,
             onSelectSpread: { daySpread in
-                viewModel.navigateViaPeek(to: daySpread, from: spread)
+                coordinator.navigateViaPeek(to: daySpread, from: spread)
             },
             onCreateSpread: { date in
-                viewModel.showSpreadCreation(prefill: .init(period: .day, date: date))
+                coordinator.showSpreadCreation(prefill: .init(period: .day, date: date))
             },
             openTaskCountForDaySpread: { daySpread in
                 let key = SpreadDataModelKey(spread: daySpread, calendar: journalManager.calendar)
@@ -66,10 +66,10 @@ struct MultidaySpreadContentView: View {
                 return MultidayPeekData(spread: daySpread, spreadDataModel: dm, calendarEvents: dayEvents)
             },
             onPeekTaskTap: { daySpread, task in
-                viewModel.navigateViaPeek(to: daySpread, from: spread)
+                coordinator.navigateViaPeek(to: daySpread, from: spread)
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(150))
-                    viewModel.showTaskDetail(task)
+                    coordinator.showTaskDetail(task)
                 }
             }
         ) { entry in
@@ -144,8 +144,8 @@ struct MultidaySpreadContentView: View {
                 }
             },
             onEdit: { entry in
-                if let task = entry as? DataModel.Task { viewModel.showTaskDetail(task) }
-                else if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
+                if let task = entry as? DataModel.Task { coordinator.showTaskDetail(task) }
+                else if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
             },
             onDelete: { entry in
                 guard let task = entry as? DataModel.Task else { return }
@@ -164,7 +164,7 @@ struct MultidaySpreadContentView: View {
                 let options = EntryRowInlineEditSupport.migrationOptions(for: task, today: today, calendar: calendar)
                 return EntryRowInlineActionConfiguration(
                     migrationOptions: options,
-                    onEditSheet: { viewModel.showTaskDetail(task) },
+                    onEditSheet: { coordinator.showTaskDetail(task) },
                     onMigrationSelected: { option in
                         try? await journalManager.updateTaskDateAndPeriod(task, newDate: option.date, newPeriod: option.period)
                         await syncEngine?.syncNow()
@@ -176,7 +176,7 @@ struct MultidaySpreadContentView: View {
         let noteConfig = EntryRowView.Configuration(
             isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
             onEdit: { entry in
-                if let note = entry as? DataModel.Note { viewModel.showNoteDetail(note) }
+                if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
             },
             onDelete: { entry in
                 guard let note = entry as? DataModel.Note else { return }
