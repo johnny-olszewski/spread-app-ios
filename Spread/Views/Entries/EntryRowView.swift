@@ -79,27 +79,19 @@ struct EntryRowView: View {
     @ViewBuilder
     private var titleArea: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            ZStack(alignment: .leading) {
-                Text(entry.title)
-                    .font(.body)
-                    .strikethrough(configuration.hasStrikethrough?(entry) ?? false)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .opacity(isInlineActive ? 0 : 1)
-
-                TextField("", text: $editingText, selection: $titleSelection)
-                    .font(.body)
-                    .textFieldStyle(.plain)
-                    .focused($isTitleFocused)
-                    .submitLabel(.done)
-                    .onSubmit { commitEdit() }
-                    .allowsHitTesting(isInlineActive)
-                    .opacity(isInlineActive ? 1 : 0.01)
-                    .accessibilityHidden(!isInlineActive)
-                    .accessibilityIdentifier(
-                        Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(entry.title)
-                    )
-            }
+            TextField("", text: $editingText, selection: $titleSelection)
+                .font(.body)
+                .textFieldStyle(.plain)
+                .strikethrough(configuration.hasStrikethrough?(entry) ?? false)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .focused($isTitleFocused)
+                .submitLabel(.done)
+                .onSubmit { commitEdit() }
+                .allowsHitTesting(isInlineActive)
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(entry.title)
+                )
 
             if let label = contextualLabel {
                 contextualLabelView(label)
@@ -133,16 +125,6 @@ struct EntryRowView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .leading) {
-            if configuration.hasStrikethrough?(entry) ?? false {
-                Rectangle()
-                    .fill(rowColor.opacity(0.9))
-                    .frame(height: 1.2)
-                    .padding(.trailing, -4)
-                    .offset(y: 1)
-                    .accessibilityHidden(true)
-            }
-        }
     }
 
     @ViewBuilder
