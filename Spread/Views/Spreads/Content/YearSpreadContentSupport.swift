@@ -8,7 +8,6 @@ struct YearSpreadContentModel {
 
 struct YearSpreadMonthCardPreview: Identifiable {
     let entry: any Entry
-    let contextualLabel: String?
 
     var id: UUID { entry.id }
 }
@@ -96,10 +95,7 @@ enum YearSpreadContentSupport {
                 sortKey(for: lhs, calendar: calendar) < sortKey(for: rhs, calendar: calendar)
             }
             .map { entry in
-                YearSpreadMonthCardPreview(
-                    entry: entry,
-                    contextualLabel: contextualLabel(for: entry, calendar: calendar)
-                )
+                YearSpreadMonthCardPreview(entry: entry)
             }
 
         let visiblePreviews = Array(allPreviews.prefix(previewThreshold))
@@ -118,21 +114,6 @@ enum YearSpreadContentSupport {
             overflowCount: overflowCount,
             action: explicitMonthSpread.map(YearSpreadMonthCardAction.view) ?? .create(normalizedMonth)
         )
-    }
-
-    static func contextualLabel(
-        for entry: any Entry,
-        calendar: Calendar
-    ) -> String? {
-        if let task = entry as? DataModel.Task, task.period == .day {
-            return String(calendar.component(.day, from: task.date))
-        }
-
-        if let note = entry as? DataModel.Note, note.period == .day {
-            return String(calendar.component(.day, from: note.date))
-        }
-
-        return nil
     }
 
     private static func yearEntriesAndMonthCardCandidates(

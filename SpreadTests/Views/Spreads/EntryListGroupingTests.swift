@@ -46,11 +46,8 @@ struct EntryListGroupingTests {
         #expect(sections[0].entries.map(\.title) == ["Year Task"])
         #expect(sections[1].title == "January 2026")
         #expect(sections[1].entries.map(\.title) == ["January Month Task", "January Day Task"])
-        #expect(sections[1].contextualLabels.count == 1)
-        #expect(sections[1].contextualLabels[sections[1].entries[1].id] == "20")
         #expect(sections[2].title == "March 2026")
         #expect(sections[2].entries.count == 1)
-        #expect(sections[2].contextualLabels[sections[2].entries[0].id] == "10")
     }
 
     /// When a year spread has no year-assigned tasks,
@@ -70,7 +67,6 @@ struct EntryListGroupingTests {
         #expect(sections.count == 1)
         #expect(sections[0].title == "May 2026")
         #expect(sections[0].entries.count == 3)
-        #expect(sections[0].contextualLabels.count == 2)
     }
 
     // MARK: - Month Spread Grouping Tests
@@ -98,9 +94,6 @@ struct EntryListGroupingTests {
             "Day 5 Task",
             "Day 10 Note",
         ])
-        #expect(sections[0].contextualLabels.count == 2)
-        #expect(sections[0].contextualLabels[sections[0].entries[2].id] == "5")
-        #expect(sections[0].contextualLabels[sections[0].entries[3].id] == "10")
     }
 
     /// When a month spread has only month-assigned entries,
@@ -119,7 +112,6 @@ struct EntryListGroupingTests {
         #expect(sections.count == 1)
         #expect(sections[0].title.isEmpty)
         #expect(sections[0].entries.count == 2)
-        #expect(sections[0].contextualLabels.isEmpty)
     }
 
     // MARK: - Day Spread Grouping Tests

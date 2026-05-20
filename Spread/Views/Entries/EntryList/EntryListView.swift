@@ -3,7 +3,7 @@ import SwiftUI
 /// Renders a pre-computed list of entry sections.
 ///
 /// `EntryListView` is a pure renderer — it knows nothing about `SpreadDataModel` or
-/// period-based grouping. Callers compute `[EntryListSection]` using `EntryListGrouper`
+/// period-based grouping. Callers compute `[EntryList.Section]` using `EntryListGrouper`
 /// and configure an `EntryListViewModel` before passing it here.
 ///
 /// Use `MultidayEntryGridView` for multiday spread grid layouts.
@@ -57,13 +57,12 @@ struct EntryListView: View {
     // MARK: - Section Rows
 
     @ViewBuilder
-    private func sectionRows(_ section: EntryListSection) -> some View {
+    private func sectionRows(_ section: EntryList.Section) -> some View {
         ForEach(section.entries, id: \.id) { entry in
             if let configuration = viewModel.configurationMap[entry.entryType] {
                 EntryRowView(
                     entry: entry,
-                    configuration: configuration,
-                    contextualLabel: section.contextualLabel(for: entry)
+                    configuration: configuration
                 )
                 .listRowInsets(Self.rowInsets)
                 .listRowBackground(Color.clear)

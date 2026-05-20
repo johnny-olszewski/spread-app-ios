@@ -48,11 +48,9 @@ struct YearSpreadContentSupportTests {
 
         let januaryCard = try #require(model.monthCards.first { Self.calendar.component(.month, from: $0.monthDate) == 1 })
         #expect(januaryCard.previews.map { $0.entry.title } == ["January Month Task", "January Day Note"])
-        #expect(januaryCard.previews.last?.contextualLabel == "18")
 
         let marchCard = try #require(model.monthCards.first { Self.calendar.component(.month, from: $0.monthDate) == 3 })
         #expect(marchCard.previews.map { $0.entry.title } == ["March Day Task"])
-        #expect(marchCard.previews.first?.contextualLabel == "7")
     }
 
     @Test func monthCardVisualStateDistinguishesCreatedMissingAndCurrentMonth() {

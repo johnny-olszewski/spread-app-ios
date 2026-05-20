@@ -9,7 +9,7 @@ import SwiftUI
     // MARK: - Data (set by caller)
 
     /// Pre-computed sections to render. Callers use `EntryListGrouper` to produce these.
-    var sections: [EntryListSection] = []
+    var sections: [EntryList.Section] = []
 
     /// Type-level rendering configurations. Callers build one `EntryRowView.Configuration` per entry
     /// type and inject it here. `EntryListView` looks up the configuration by `entry.entryType`.

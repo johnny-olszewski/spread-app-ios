@@ -72,15 +72,15 @@ struct MultidaySpreadContentView: View {
                     viewModel.showTaskDetail(task)
                 }
             }
-        ) { entry, contextualLabel in
-            entryRow(entry: entry, contextualLabel: contextualLabel)
+        ) { entry in
+            entryRow(entry: entry)
         }
     }
 
     @ViewBuilder
-    private func entryRow(entry: any Entry, contextualLabel: String?) -> some View {
+    private func entryRow(entry: any Entry) -> some View {
         if let config = entryListViewModel.configurationMap[entry.entryType] {
-            EntryRowView(entry: entry, configuration: config, contextualLabel: contextualLabel)
+            EntryRowView(entry: entry, configuration: config)
         }
     }
 

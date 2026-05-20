@@ -8,13 +8,13 @@ import SwiftUI
 struct MultidayDaySectionView<RowContent: View>: View {
 
     @Bindable var viewModel: EntryListViewModel
-    let section: EntryListSection
+    let section: EntryList.Section
     let parentSpread: DataModel.Spread
     let explicitDaySpread: DataModel.Spread?
     let openTaskCount: Int
     let onFooterTap: () -> Void
     let onPeek: (() -> Void)?
-    @ViewBuilder var rowContent: (any Entry, String?) -> RowContent
+    @ViewBuilder var rowContent: (any Entry) -> RowContent
 
     private var dateID: String {
         Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: section.date, calendar: viewModel.calendar)
@@ -111,7 +111,7 @@ struct MultidayDaySectionView<RowContent: View>: View {
         ) {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(section.entries, id: \.id) { entry in
-                    rowContent(entry, section.contextualLabel(for: entry))
+                    rowContent(entry)
                         .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                 }
 

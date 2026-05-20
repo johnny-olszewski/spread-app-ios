@@ -164,7 +164,7 @@ struct MonthSpreadContentView: View {
                     .foregroundStyle(.secondary)
                     .padding(.vertical, SpreadTheme.Spacing.medium)
             } else {
-                entryRows(entries, contextualLabels: [:])
+                entryRows(entries)
             }
         }
     }
@@ -191,12 +191,7 @@ struct MonthSpreadContentView: View {
                     .foregroundStyle(.secondary)
                     .padding(.vertical, SpreadTheme.Spacing.small)
             } else {
-                let contextualLabels = Dictionary(
-                    uniqueKeysWithValues: section.entries.map { entry in
-                        (entry.id, dayContextLabel(for: entry))
-                    }
-                )
-                entryRows(section.entries, contextualLabels: contextualLabels)
+                entryRows(section.entries)
             }
         }
         .padding(.horizontal, isAutoMigrationDestination ? 12 : 0)
@@ -219,15 +214,12 @@ struct MonthSpreadContentView: View {
     }
 
     @ViewBuilder
-    private func entryRows(
-        _ entries: [any Entry],
-        contextualLabels: [UUID: String]
-    ) -> some View {
+    private func entryRows(_ entries: [any Entry]) -> some View {
         let configs = configurationMap
         VStack(alignment: .leading, spacing: 0) {
             ForEach(entries, id: \.id) { entry in
                 if let config = configs[entry.entryType] {
-                    EntryRowView(entry: entry, configuration: config, contextualLabel: contextualLabels[entry.id])
+                    EntryRowView(entry: entry, configuration: config)
                         .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                 }
                 if entry.id != entries.last?.id {
@@ -235,10 +227,6 @@ struct MonthSpreadContentView: View {
                 }
             }
         }
-    }
-
-    private func dayContextLabel(for entry: any Entry) -> String {
-        String(calendar.component(.day, from: entryDate(for: entry)))
     }
 
     private func daySectionTitle(for date: Date) -> String {
@@ -249,15 +237,4 @@ struct MonthSpreadContentView: View {
         )
     }
 
-    private func entryDate(for entry: any Entry) -> Date {
-        if let task = entry as? DataModel.Task {
-            return task.date
-        }
-
-        if let note = entry as? DataModel.Note {
-            return note.date
-        }
-
-        return entry.createdDate
-    }
 }
