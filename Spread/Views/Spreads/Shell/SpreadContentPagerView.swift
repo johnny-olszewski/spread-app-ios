@@ -5,7 +5,7 @@ struct SpreadContentPagerView: View {
     private let liveRadius = 2
 
     let journalManager: JournalManager
-    let viewModel: SpreadsViewModel
+    let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
     let model: SpreadTitleNavigatorModel
     let items: [SpreadTitleNavigatorModel.Item]
@@ -57,7 +57,7 @@ struct SpreadContentPagerView: View {
                             SpreadPageContentView(
                                 item: item,
                                 journalManager: journalManager,
-                                viewModel: viewModel,
+                                coordinator: coordinator,
                                 syncEngine: syncEngine,
                                 model: model
                             )
@@ -121,7 +121,7 @@ struct SpreadContentPagerView: View {
                         deleteSpread(spread)
                     },
                     secondaryButton: .cancel {
-                        viewModel.dismissAlert()
+                        coordinator.dismissAlert()
                     }
                 )
             case .deleteSpreadFailed(let message):
@@ -129,7 +129,7 @@ struct SpreadContentPagerView: View {
                     title: Text("Couldn't Delete Spread"),
                     message: Text(message),
                     dismissButton: .default(Text("OK")) {
-                        viewModel.dismissAlert()
+                        coordinator.dismissAlert()
                     }
                 )
             }
@@ -137,10 +137,10 @@ struct SpreadContentPagerView: View {
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.pager)
     }
 
-    private var activeAlertBinding: Binding<SpreadsViewModel.AlertDestination?> {
+    private var activeAlertBinding: Binding<SpreadsCoordinator.AlertDestination?> {
         Binding(
-            get: { viewModel.activeAlert },
-            set: { viewModel.activeAlert = $0 }
+            get: { coordinator.activeAlert },
+            set: { coordinator.activeAlert = $0 }
         )
     }
 
@@ -157,13 +157,13 @@ struct SpreadContentPagerView: View {
     }
 
     private func deleteSpread(_ spread: DataModel.Spread) {
-        viewModel.dismissAlert()
+        coordinator.dismissAlert()
         Task { @MainActor in
             do {
                 try await journalManager.deleteSpread(spread)
                 await syncEngine?.syncNow()
             } catch {
-                viewModel.showSpreadDeleteFailure(
+                coordinator.showSpreadDeleteFailure(
                     message: "Failed to delete spread: \(error.localizedDescription)"
                 )
             }
@@ -177,7 +177,7 @@ struct SpreadContentPagerView: View {
 private struct SpreadPageContentView: View {
     let item: SpreadTitleNavigatorModel.Item
     let journalManager: JournalManager
-    let viewModel: SpreadsViewModel
+    let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
     let model: SpreadTitleNavigatorModel
 
@@ -195,17 +195,17 @@ private struct SpreadPageContentView: View {
     @ViewBuilder
     private var conventionalPage: some View {
         if case .conventional(let spread) = item.selection {
-            let selectedID = viewModel.selectedSelection?.stableID(calendar: model.calendar)
+            let selectedID = coordinator.selectedSelection?.stableID(calendar: model.calendar)
             let isCurrentPage = item.id == selectedID
-            let backDestination = isCurrentPage ? viewModel.peekNavigationSource : nil
+            let backDestination = isCurrentPage ? coordinator.peekNavigationSource : nil
             VStack(spacing: 0) {
                 SpreadHeaderView(
                     backDestination: backDestination,
                     onGoBack: backDestination.map { source in
                         {
-                            viewModel.clearPeekNavigationSource()
-                            viewModel.selectedSelection = .conventional(source)
-                            viewModel.recenterToken += 1
+                            coordinator.clearPeekNavigationSource()
+                            coordinator.selectedSelection = .conventional(source)
+                            coordinator.recenterToken += 1
                         }
                     }
                 )
@@ -226,7 +226,7 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: viewModel,
+                viewModel: coordinator,
                 syncEngine: syncEngine
             )
         case .month:
@@ -234,7 +234,7 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: viewModel,
+                viewModel: coordinator,
                 syncEngine: syncEngine
             )
         case .day:
@@ -242,15 +242,15 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: viewModel,
+                viewModel: coordinator,
                 syncEngine: syncEngine,
                 explicitDaySpreadForDate: { date in explicitDaySpread(for: date) },
                 onSelectSpread: { selectedSpread in
-                    viewModel.selectedSelection = .conventional(selectedSpread)
-                    viewModel.recenterToken += 1
+                    coordinator.selectedSelection = .conventional(selectedSpread)
+                    coordinator.recenterToken += 1
                 },
                 onCreateSpread: { date in
-                    viewModel.showSpreadCreation(prefill: .init(period: .day, date: date))
+                    coordinator.showSpreadCreation(prefill: .init(period: .day, date: date))
                 }
             )
         case .multiday:
@@ -258,7 +258,7 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: viewModel,
+                viewModel: coordinator,
                 syncEngine: syncEngine,
                 explicitDaySpreadForDate: { date in explicitDaySpread(for: date) }
             )
@@ -292,7 +292,7 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: viewModel,
+                viewModel: coordinator,
                 syncEngine: syncEngine
             )
         case .month:
@@ -300,7 +300,7 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: viewModel,
+                viewModel: coordinator,
                 syncEngine: syncEngine
             )
         case .day:
@@ -308,7 +308,7 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: viewModel,
+                viewModel: coordinator,
                 syncEngine: syncEngine,
                 entryListConfiguration: config
             )
@@ -317,7 +317,7 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 spreadDataModel: dataModel,
                 journalManager: journalManager,
-                viewModel: viewModel,
+                viewModel: coordinator,
                 syncEngine: syncEngine,
                 entryListConfiguration: config
             )

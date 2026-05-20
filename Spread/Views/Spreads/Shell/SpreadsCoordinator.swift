@@ -7,7 +7,7 @@ import Observation
 /// Does not absorb journal business logic.
 @Observable
 @MainActor
-final class SpreadsViewModel {
+final class SpreadsCoordinator {
 
     // MARK: - Sheet Destinations
 

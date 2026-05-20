@@ -17,7 +17,7 @@ struct YearSpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel?
     let journalManager: JournalManager
-    let viewModel: SpreadsViewModel
+    let viewModel: SpreadsCoordinator
     let syncEngine: SyncEngine?
 
     private var calendar: Calendar {

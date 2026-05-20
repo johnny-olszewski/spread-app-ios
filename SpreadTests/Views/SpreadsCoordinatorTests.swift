@@ -2,10 +2,10 @@ import Foundation
 import Testing
 @testable import Spread
 
-/// Tests for SpreadsViewModel shell state transitions.
-@Suite("SpreadsViewModel Tests")
+/// Tests for SpreadsCoordinator shell state transitions.
+@Suite("SpreadsCoordinator Tests")
 @MainActor
-struct SpreadsViewModelTests {
+struct SpreadsCoordinatorTests {
 
     // MARK: - Initial State
 
@@ -13,11 +13,11 @@ struct SpreadsViewModelTests {
     /// Expected: No active sheet, no selected selection, recenter token is 0.
     @Test("Initial state has no active sheet and no selection")
     func testInitialState() {
-        let viewModel = SpreadsViewModel()
-        #expect(viewModel.activeSheet == nil)
-        #expect(viewModel.activeAlert == nil)
-        #expect(viewModel.selectedSelection == nil)
-        #expect(viewModel.recenterToken == 0)
+        let coordinator = SpreadsCoordinator()
+        #expect(coordinator.activeSheet == nil)
+        #expect(coordinator.activeAlert == nil)
+        #expect(coordinator.selectedSelection == nil)
+        #expect(coordinator.recenterToken == 0)
     }
 
     // MARK: - Sheet Actions
@@ -26,10 +26,10 @@ struct SpreadsViewModelTests {
     /// Expected: Active sheet is .spreadCreation with nil prefill.
     @Test("showSpreadCreation sets spreadCreation destination")
     func testShowSpreadCreation() {
-        let viewModel = SpreadsViewModel()
-        viewModel.showSpreadCreation()
-        guard case .spreadCreation(let prefill) = viewModel.activeSheet else {
-            Issue.record("Expected .spreadCreation, got \(String(describing: viewModel.activeSheet))")
+        let coordinator = SpreadsCoordinator()
+        coordinator.showSpreadCreation()
+        guard case .spreadCreation(let prefill) = coordinator.activeSheet else {
+            Issue.record("Expected .spreadCreation, got \(String(describing: coordinator.activeSheet))")
             return
         }
         #expect(prefill == nil)
@@ -39,11 +39,11 @@ struct SpreadsViewModelTests {
     /// Expected: Active sheet is .spreadCreation carrying the prefill.
     @Test("showSpreadCreation with prefill sets prefill on destination")
     func testShowSpreadCreationWithPrefill() {
-        let viewModel = SpreadsViewModel()
+        let coordinator = SpreadsCoordinator()
         let date = Date(timeIntervalSince1970: 0)
-        viewModel.showSpreadCreation(prefill: .init(period: .day, date: date))
-        guard case .spreadCreation(let prefill) = viewModel.activeSheet else {
-            Issue.record("Expected .spreadCreation, got \(String(describing: viewModel.activeSheet))")
+        coordinator.showSpreadCreation(prefill: .init(period: .day, date: date))
+        guard case .spreadCreation(let prefill) = coordinator.activeSheet else {
+            Issue.record("Expected .spreadCreation, got \(String(describing: coordinator.activeSheet))")
             return
         }
         #expect(prefill?.period == .day)
@@ -55,12 +55,12 @@ struct SpreadsViewModelTests {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
-        let viewModel = SpreadsViewModel()
+        let coordinator = SpreadsCoordinator()
 
-        viewModel.showSpreadNameEdit(spread)
+        coordinator.showSpreadNameEdit(spread)
 
-        guard case .spreadNameEdit(let destinationSpread) = viewModel.activeSheet else {
-            Issue.record("Expected .spreadNameEdit, got \(String(describing: viewModel.activeSheet))")
+        guard case .spreadNameEdit(let destinationSpread) = coordinator.activeSheet else {
+            Issue.record("Expected .spreadNameEdit, got \(String(describing: coordinator.activeSheet))")
             return
         }
         #expect(destinationSpread.id == spread.id)
@@ -75,12 +75,12 @@ struct SpreadsViewModelTests {
         let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 18))!
         let endDate = calendar.date(from: .init(year: 2026, month: 1, day: 24))!
         let spread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
-        let viewModel = SpreadsViewModel()
+        let coordinator = SpreadsCoordinator()
 
-        viewModel.showSpreadDateEdit(spread)
+        coordinator.showSpreadDateEdit(spread)
 
-        guard case .spreadDateEdit(let destinationSpread) = viewModel.activeSheet else {
-            Issue.record("Expected .spreadDateEdit, got \(String(describing: viewModel.activeSheet))")
+        guard case .spreadDateEdit(let destinationSpread) = coordinator.activeSheet else {
+            Issue.record("Expected .spreadDateEdit, got \(String(describing: coordinator.activeSheet))")
             return
         }
         #expect(destinationSpread.id == spread.id)
@@ -95,17 +95,17 @@ struct SpreadsViewModelTests {
         let startDate = calendar.date(from: .init(year: 2026, month: 12, day: 28))!
         let endDate = calendar.date(from: .init(year: 2027, month: 1, day: 3))!
         let spread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
-        let viewModel = SpreadsViewModel()
-        viewModel.recenterToken = 2
+        let coordinator = SpreadsCoordinator()
+        coordinator.recenterToken = 2
 
-        viewModel.finishSpreadDateEdit(spread)
+        coordinator.finishSpreadDateEdit(spread)
 
-        guard case .conventional(let selectedSpread) = viewModel.selectedSelection else {
+        guard case .conventional(let selectedSpread) = coordinator.selectedSelection else {
             Issue.record("Expected conventional selection")
             return
         }
         #expect(selectedSpread.id == spread.id)
-        #expect(viewModel.recenterToken == 3)
+        #expect(coordinator.recenterToken == 3)
     }
 
     /// Condition: Call showSpreadDeleteConfirmation with a selected spread.
@@ -115,17 +115,17 @@ struct SpreadsViewModelTests {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
-        let viewModel = SpreadsViewModel()
-        viewModel.selectedSelection = .conventional(spread)
+        let coordinator = SpreadsCoordinator()
+        coordinator.selectedSelection = .conventional(spread)
 
-        viewModel.showSpreadDeleteConfirmation(spread)
+        coordinator.showSpreadDeleteConfirmation(spread)
 
-        guard case .deleteSpreadConfirmation(let destinationSpread) = viewModel.activeAlert else {
-            Issue.record("Expected .deleteSpreadConfirmation, got \(String(describing: viewModel.activeAlert))")
+        guard case .deleteSpreadConfirmation(let destinationSpread) = coordinator.activeAlert else {
+            Issue.record("Expected .deleteSpreadConfirmation, got \(String(describing: coordinator.activeAlert))")
             return
         }
         #expect(destinationSpread.id == spread.id)
-        guard case .conventional(let selectedSpread) = viewModel.selectedSelection else {
+        guard case .conventional(let selectedSpread) = coordinator.selectedSelection else {
             Issue.record("Expected conventional selection")
             return
         }
@@ -139,14 +139,14 @@ struct SpreadsViewModelTests {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
-        let viewModel = SpreadsViewModel()
-        viewModel.selectedSelection = .conventional(spread)
-        viewModel.showSpreadDeleteConfirmation(spread)
+        let coordinator = SpreadsCoordinator()
+        coordinator.selectedSelection = .conventional(spread)
+        coordinator.showSpreadDeleteConfirmation(spread)
 
-        viewModel.dismissAlert()
+        coordinator.dismissAlert()
 
-        #expect(viewModel.activeAlert == nil)
-        guard case .conventional(let selectedSpread) = viewModel.selectedSelection else {
+        #expect(coordinator.activeAlert == nil)
+        guard case .conventional(let selectedSpread) = coordinator.selectedSelection else {
             Issue.record("Expected conventional selection")
             return
         }
@@ -160,17 +160,17 @@ struct SpreadsViewModelTests {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .month, date: Date(timeIntervalSince1970: 0), calendar: calendar)
-        let viewModel = SpreadsViewModel()
-        viewModel.selectedSelection = .conventional(spread)
+        let coordinator = SpreadsCoordinator()
+        coordinator.selectedSelection = .conventional(spread)
 
-        viewModel.showSpreadDeleteFailure(message: "Failed to delete spread: forced failure")
+        coordinator.showSpreadDeleteFailure(message: "Failed to delete spread: forced failure")
 
-        guard case .deleteSpreadFailed(let message) = viewModel.activeAlert else {
-            Issue.record("Expected .deleteSpreadFailed, got \(String(describing: viewModel.activeAlert))")
+        guard case .deleteSpreadFailed(let message) = coordinator.activeAlert else {
+            Issue.record("Expected .deleteSpreadFailed, got \(String(describing: coordinator.activeAlert))")
             return
         }
         #expect(message == "Failed to delete spread: forced failure")
-        guard case .conventional(let selectedSpread) = viewModel.selectedSelection else {
+        guard case .conventional(let selectedSpread) = coordinator.selectedSelection else {
             Issue.record("Expected conventional selection")
             return
         }
@@ -181,10 +181,10 @@ struct SpreadsViewModelTests {
     /// Expected: Active sheet is .taskCreation.
     @Test("showTaskCreation sets taskCreation destination")
     func testShowTaskCreation() {
-        let viewModel = SpreadsViewModel()
-        viewModel.showTaskCreation()
-        guard case .taskCreation = viewModel.activeSheet else {
-            Issue.record("Expected .taskCreation, got \(String(describing: viewModel.activeSheet))")
+        let coordinator = SpreadsCoordinator()
+        coordinator.showTaskCreation()
+        guard case .taskCreation = coordinator.activeSheet else {
+            Issue.record("Expected .taskCreation, got \(String(describing: coordinator.activeSheet))")
             return
         }
     }
@@ -193,10 +193,10 @@ struct SpreadsViewModelTests {
     /// Expected: Active sheet is .noteCreation.
     @Test("showNoteCreation sets noteCreation destination")
     func testShowNoteCreation() {
-        let viewModel = SpreadsViewModel()
-        viewModel.showNoteCreation()
-        guard case .noteCreation = viewModel.activeSheet else {
-            Issue.record("Expected .noteCreation, got \(String(describing: viewModel.activeSheet))")
+        let coordinator = SpreadsCoordinator()
+        coordinator.showNoteCreation()
+        guard case .noteCreation = coordinator.activeSheet else {
+            Issue.record("Expected .noteCreation, got \(String(describing: coordinator.activeSheet))")
             return
         }
     }
@@ -205,7 +205,7 @@ struct SpreadsViewModelTests {
     /// Expected: Active sheet is .taskDetail with the correct task.
     @Test("showTaskDetail sets taskDetail destination with task")
     func testShowTaskDetail() {
-        let viewModel = SpreadsViewModel()
+        let coordinator = SpreadsCoordinator()
         let task = DataModel.Task(
             title: "Test task",
             createdDate: .now,
@@ -214,10 +214,10 @@ struct SpreadsViewModelTests {
             status: .open
         )
 
-        viewModel.showTaskDetail(task)
+        coordinator.showTaskDetail(task)
 
-        guard case .taskDetail(let detailTask) = viewModel.activeSheet else {
-            Issue.record("Expected .taskDetail, got \(String(describing: viewModel.activeSheet))")
+        guard case .taskDetail(let detailTask) = coordinator.activeSheet else {
+            Issue.record("Expected .taskDetail, got \(String(describing: coordinator.activeSheet))")
             return
         }
         #expect(detailTask.id == task.id)
@@ -227,17 +227,17 @@ struct SpreadsViewModelTests {
     /// Expected: Active sheet is .noteDetail with the correct note.
     @Test("showNoteDetail sets noteDetail destination with note")
     func testShowNoteDetail() {
-        let viewModel = SpreadsViewModel()
+        let coordinator = SpreadsCoordinator()
         let note = DataModel.Note(
             title: "Test note",
             date: .now,
             period: .day
         )
 
-        viewModel.showNoteDetail(note)
+        coordinator.showNoteDetail(note)
 
-        guard case .noteDetail(let detailNote) = viewModel.activeSheet else {
-            Issue.record("Expected .noteDetail, got \(String(describing: viewModel.activeSheet))")
+        guard case .noteDetail(let detailNote) = coordinator.activeSheet else {
+            Issue.record("Expected .noteDetail, got \(String(describing: coordinator.activeSheet))")
             return
         }
         #expect(detailNote.id == note.id)
@@ -247,10 +247,10 @@ struct SpreadsViewModelTests {
     /// Expected: Active sheet is .auth.
     @Test("showAuth sets auth destination")
     func testShowAuth() {
-        let viewModel = SpreadsViewModel()
-        viewModel.showAuth()
-        guard case .auth = viewModel.activeSheet else {
-            Issue.record("Expected .auth, got \(String(describing: viewModel.activeSheet))")
+        let coordinator = SpreadsCoordinator()
+        coordinator.showAuth()
+        guard case .auth = coordinator.activeSheet else {
+            Issue.record("Expected .auth, got \(String(describing: coordinator.activeSheet))")
             return
         }
     }
@@ -261,13 +261,13 @@ struct SpreadsViewModelTests {
     /// Expected: Active sheet becomes nil.
     @Test("dismiss clears the active sheet")
     func testDismissClearsActiveSheet() {
-        let viewModel = SpreadsViewModel()
-        viewModel.showTaskCreation()
-        #expect(viewModel.activeSheet != nil)
+        let coordinator = SpreadsCoordinator()
+        coordinator.showTaskCreation()
+        #expect(coordinator.activeSheet != nil)
 
-        viewModel.dismiss()
+        coordinator.dismiss()
 
-        #expect(viewModel.activeSheet == nil)
+        #expect(coordinator.activeSheet == nil)
     }
 
     // MARK: - Single Sheet Guarantee
@@ -276,17 +276,17 @@ struct SpreadsViewModelTests {
     /// Expected: The new destination replaces the old one.
     @Test("Showing a new sheet replaces the current one")
     func testShowingNewSheetReplacesCurrentOne() {
-        let viewModel = SpreadsViewModel()
-        viewModel.showTaskCreation()
-        guard case .taskCreation = viewModel.activeSheet else {
+        let coordinator = SpreadsCoordinator()
+        coordinator.showTaskCreation()
+        guard case .taskCreation = coordinator.activeSheet else {
             Issue.record("Expected .taskCreation")
             return
         }
 
-        viewModel.showAuth()
+        coordinator.showAuth()
 
-        guard case .auth = viewModel.activeSheet else {
-            Issue.record("Expected .auth after replacement, got \(String(describing: viewModel.activeSheet))")
+        guard case .auth = coordinator.activeSheet else {
+            Issue.record("Expected .auth after replacement, got \(String(describing: coordinator.activeSheet))")
             return
         }
     }
@@ -307,7 +307,7 @@ struct SpreadsViewModelTests {
         let note = DataModel.Note(title: "Note", date: .now, period: .day)
         let spread = DataModel.Spread(period: .day, date: .now, calendar: Calendar(identifier: .gregorian))
 
-        let destinations: [SpreadsViewModel.SheetDestination] = [
+        let destinations: [SpreadsCoordinator.SheetDestination] = [
             .spreadCreation(nil),
             .spreadNameEdit(spread),
             .taskCreation,
@@ -327,7 +327,7 @@ struct SpreadsViewModelTests {
     @Test("Alert destinations have unique identifiers")
     func testAlertDestinationsHaveUniqueIdentifiers() {
         let spread = DataModel.Spread(period: .day, date: .now, calendar: Calendar(identifier: .gregorian))
-        let destinations: [SpreadsViewModel.AlertDestination] = [
+        let destinations: [SpreadsCoordinator.AlertDestination] = [
             .deleteSpreadConfirmation(spread),
             .deleteSpreadFailed(message: "Failure")
         ]
@@ -343,10 +343,10 @@ struct SpreadsViewModelTests {
     /// Expected: Value reflects direct mutations.
     @Test("recenterToken increments correctly")
     func testRecenterTokenIncrements() {
-        let viewModel = SpreadsViewModel()
-        #expect(viewModel.recenterToken == 0)
-        viewModel.recenterToken += 1
-        #expect(viewModel.recenterToken == 1)
+        let coordinator = SpreadsCoordinator()
+        #expect(coordinator.recenterToken == 0)
+        coordinator.recenterToken += 1
+        #expect(coordinator.recenterToken == 1)
     }
 
     // MARK: - Selected Selection
@@ -360,12 +360,12 @@ struct SpreadsViewModelTests {
         let date = calendar.date(from: .init(year: 2026, month: 1, day: 1))!
         let spread = DataModel.Spread(period: .year, date: date, calendar: calendar)
 
-        let viewModel = SpreadsViewModel()
-        #expect(viewModel.selectedSelection == nil)
+        let coordinator = SpreadsCoordinator()
+        #expect(coordinator.selectedSelection == nil)
 
-        viewModel.selectedSelection = .conventional(spread)
+        coordinator.selectedSelection = .conventional(spread)
 
-        guard case .conventional(let stored) = viewModel.selectedSelection else {
+        guard case .conventional(let stored) = coordinator.selectedSelection else {
             Issue.record("Expected .conventional selection")
             return
         }
@@ -380,11 +380,11 @@ struct SpreadsViewModelTests {
         calendar.timeZone = .init(identifier: "UTC")!
         let year = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
         let month = DataModel.Spread(period: .month, date: calendar.date(from: .init(year: 2026, month: 3, day: 1))!, calendar: calendar)
-        let viewModel = SpreadsViewModel()
+        let coordinator = SpreadsCoordinator()
         let currentSelection = SpreadHeaderNavigatorModel.Selection.conventional(year)
-        viewModel.selectedSelection = currentSelection
+        coordinator.selectedSelection = currentSelection
 
-        viewModel.finishSpreadCreation(
+        coordinator.finishSpreadCreation(
             .init(
                 spread: month,
                 autoMigrationSummary: .init(taskCount: 1, noteCount: 1)
@@ -393,12 +393,12 @@ struct SpreadsViewModelTests {
             calendar: calendar
         )
 
-        guard case .conventional(let selectedSpread)? = viewModel.selectedSelection else {
+        guard case .conventional(let selectedSpread)? = coordinator.selectedSelection else {
             Issue.record("Expected conventional selection")
             return
         }
         #expect(selectedSpread.id == year.id)
-        #expect(viewModel.autoMigrationFeedback?.surfaceSpreadID == year.id)
+        #expect(coordinator.autoMigrationFeedback?.surfaceSpreadID == year.id)
     }
 
     /// Condition: Creating a day spread from a multiday surface triggers auto-migration.
@@ -413,9 +413,9 @@ struct SpreadsViewModelTests {
             calendar: calendar
         )
         let day = DataModel.Spread(period: .day, date: calendar.date(from: .init(year: 2026, month: 3, day: 14))!, calendar: calendar)
-        let viewModel = SpreadsViewModel()
+        let coordinator = SpreadsCoordinator()
 
-        viewModel.finishSpreadCreation(
+        coordinator.finishSpreadCreation(
             .init(
                 spread: day,
                 autoMigrationSummary: .init(taskCount: 2, noteCount: 0)
@@ -424,12 +424,12 @@ struct SpreadsViewModelTests {
             calendar: calendar
         )
 
-        guard case .conventional(let selectedSpread)? = viewModel.selectedSelection else {
+        guard case .conventional(let selectedSpread)? = coordinator.selectedSelection else {
             Issue.record("Expected conventional destination selection")
             return
         }
         #expect(selectedSpread.id == day.id)
-        #expect(viewModel.autoMigrationFeedback?.surfaceSpreadID == day.id)
-        #expect(viewModel.autoMigrationFeedback?.anchor == .spreadHeader)
+        #expect(coordinator.autoMigrationFeedback?.surfaceSpreadID == day.id)
+        #expect(coordinator.autoMigrationFeedback?.anchor == .spreadHeader)
     }
 }
