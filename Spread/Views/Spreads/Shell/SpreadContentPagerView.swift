@@ -181,6 +181,8 @@ private struct SpreadPageContentView: View {
     let syncEngine: SyncEngine?
     let model: SpreadTitleNavigatorModel
 
+    @Environment(\.eventKitService) private var eventKitService
+
     var body: some View {
         switch journalManager.bujoMode {
         case .conventional:
@@ -238,17 +240,11 @@ private struct SpreadPageContentView: View {
         case .day:
             DaySpreadContentView(
                 spread: spread,
-                spreadDataModel: dataModel,
                 journalManager: journalManager,
                 syncEngine: syncEngine,
-                explicitDaySpreadForDate: { date in explicitDaySpread(for: date) },
-                onSelectSpread: { selectedSpread in
-                    coordinator.selectedSelection = .conventional(selectedSpread)
-                    coordinator.recenterToken += 1
-                },
-                onCreateSpread: { date in
-                    coordinator.showSpreadCreation(prefill: .init(period: .day, date: date))
-                }
+                eventKitService: eventKitService,
+                onEditTask: { coordinator.showTaskDetail($0) },
+                onEditNote: { coordinator.showNoteDetail($0) }
             )
         case .multiday:
             MultidaySpreadContentView(
@@ -300,10 +296,12 @@ private struct SpreadPageContentView: View {
         case .day:
             DaySpreadContentView(
                 spread: spread,
-                spreadDataModel: dataModel,
                 journalManager: journalManager,
                 syncEngine: syncEngine,
-                entryListConfiguration: config
+                entryListConfiguration: config,
+                eventKitService: eventKitService,
+                onEditTask: { coordinator.showTaskDetail($0) },
+                onEditNote: { coordinator.showNoteDetail($0) }
             )
         case .multiday:
             MultidaySpreadContentView(

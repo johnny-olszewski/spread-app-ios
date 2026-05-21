@@ -2,44 +2,89 @@ import SwiftUI
 
 extension DaySpreadContentView {
 
-    /// Owns entry list state and configuration map for `DaySpreadContentView`.
+    /// Layout and sizing constants for `DaySpreadContentView`.
+    struct Config {
+        /// Scrollable content height for the wide timeline card (full 24-hour day).
+        ///
+        /// At 1000pt for 24 hours (~42 pt/hour) this always exceeds the available card
+        /// height, so the card is always scrollable.
+        let wideTimelineHeight: CGFloat
+
+        /// Divides the available container width into `wideTimelineColumnCount` equal parts
+        /// and sizes the timeline card to `wideTimelineColumnSpan` of them.
+        let wideTimelineColumnCount: Int
+        let wideTimelineColumnSpan: Int
+
+        init(
+            wideTimelineHeight: CGFloat = 1000,
+            wideTimelineColumnCount: Int = 10,
+            wideTimelineColumnSpan: Int = 4
+        ) {
+            self.wideTimelineHeight = wideTimelineHeight
+            self.wideTimelineColumnCount = wideTimelineColumnCount
+            self.wideTimelineColumnSpan = wideTimelineColumnSpan
+        }
+
+        static let `default` = Config()
+    }
+
+    /// Owns entry list state, calendar events, and configuration map for `DaySpreadContentView`.
     ///
-    /// Replaces the per-view `@State entryListViewModel` and `@State calendarEvents` properties,
-    /// consolidating all data-configuration logic in one place. The view retains coordinator
-    /// interactions and view-environment-dependent state (`horizontalSizeClass`,
-    /// `timelineScrollPosition`).
+    /// Fully initialized at creation time — no deferred configuration step. The calendar
+    /// event fetch is kicked off immediately via a stored `Task`.
     @Observable @MainActor
     final class ViewModel {
+        let spread: DataModel.Spread
+        private let journalManager: JournalManager
+        private let syncEngine: SyncEngine?
+        private let entryListConfiguration: EntryListConfiguration
+
         private(set) var entryListViewModel = EntryListViewModel()
         private(set) var calendarEvents: [CalendarEvent] = []
+
+        @ObservationIgnored private var fetchTask: Task<Void, Never>?
+
+        /// Always-fresh spread data derived from the live `journalManager.dataModel`.
+        var spreadDataModel: SpreadDataModel? {
+            let normalizedDate = spread.period.normalizeDate(spread.date, calendar: journalManager.calendar)
+            return journalManager.dataModel[spread.period]?[normalizedDate]
+        }
+
+        var calendar: Calendar { journalManager.calendar }
 
         var allDayEvents: [CalendarEvent] { calendarEvents.filter { $0.isAllDay } }
         var timedEvents: [CalendarEvent] { calendarEvents.filter { !$0.isAllDay } }
 
-        /// Full setup: entry list sections, calendar metadata, and configuration map.
-        /// Called once when the spread-id changes.
-        func configure(
+        init(
             spread: DataModel.Spread,
-            dataModel: SpreadDataModel,
-            entryListConfiguration: EntryListConfiguration,
-            showsTimelineCard: Bool,
             journalManager: JournalManager,
             syncEngine: SyncEngine?,
+            entryListConfiguration: EntryListConfiguration = .init(),
+            eventKitService: (any EventKitService)?,
             onEditTask: @escaping (DataModel.Task) -> Void,
             onEditNote: @escaping (DataModel.Note) -> Void
         ) {
-            setupEntryList(spread: spread, dataModel: dataModel, entryListConfiguration: entryListConfiguration, showsTimelineCard: showsTimelineCard, journalManager: journalManager)
-            setupConfigurationMap(spread: spread, journalManager: journalManager, syncEngine: syncEngine, onEditTask: onEditTask, onEditNote: onEditNote)
+            self.spread = spread
+            self.journalManager = journalManager
+            self.syncEngine = syncEngine
+            self.entryListConfiguration = entryListConfiguration
+
+            let cal = journalManager.calendar
+            entryListViewModel.calendar = cal
+            entryListViewModel.today = journalManager.today
+            setupConfigurationMap(onEditTask: onEditTask, onEditNote: onEditNote)
+            refreshSections(showsTimelineCard: false)
+
+            let capturedService = eventKitService
+            fetchTask = Task { [weak self] in
+                await self?.fetchCalendarEvents(service: capturedService)
+            }
         }
 
-        /// Refreshes the entry list sections when entries or calendar events change.
-        func refreshSections(
-            spread: DataModel.Spread,
-            dataModel: SpreadDataModel,
-            entryListConfiguration: EntryListConfiguration,
-            showsTimelineCard: Bool,
-            journalManager: JournalManager
-        ) {
+        /// Refreshes entry list sections. Called from the view when calendar events,
+        /// timeline card visibility, or task/note counts change.
+        func refreshSections(showsTimelineCard: Bool) {
+            guard let dataModel = spreadDataModel else { return }
             let cal = journalManager.calendar
             let grouper = EntryListGrouper(
                 configuration: entryListConfiguration,
@@ -52,9 +97,15 @@ extension DaySpreadContentView {
             entryListViewModel.sections = grouper.group(allEntries(dataModel: dataModel, calendar: cal, showsTimelineCard: showsTimelineCard))
         }
 
-        /// Fetches calendar events for the day spread. `eventKitService` is passed in
-        /// because it lives in the view's SwiftUI environment.
-        func fetchCalendarEvents(for spread: DataModel.Spread, service: (any EventKitService)?, journalManager: JournalManager) async {
+        // MARK: - Private
+
+        private func allEntries(dataModel: SpreadDataModel, calendar: Calendar, showsTimelineCard: Bool) -> [any Entry] {
+            let base = EntryListDisplaySupport.displayedEntries(for: dataModel, calendar: calendar)
+            let eventEntries: [DataModel.Event] = showsTimelineCard ? [] : calendarEvents.map { DataModel.Event(calendarEvent: $0) }
+            return base + eventEntries
+        }
+
+        private func fetchCalendarEvents(service: (any EventKitService)?) async {
             guard let service else { return }
             if service.authorizationStatus == .notDetermined {
                 _ = await service.requestAuthorization()
@@ -68,42 +119,12 @@ extension DaySpreadContentView {
             calendarEvents = service.fetchEvents(from: dayStart, to: dayEnd)
         }
 
-        // MARK: - Private
-
-        private func allEntries(dataModel: SpreadDataModel, calendar: Calendar, showsTimelineCard: Bool) -> [any Entry] {
-            let base = EntryListDisplaySupport.displayedEntries(for: dataModel, calendar: calendar)
-            let eventEntries: [DataModel.Event] = showsTimelineCard ? [] : calendarEvents.map { DataModel.Event(calendarEvent: $0) }
-            return base + eventEntries
-        }
-
-        private func setupEntryList(
-            spread: DataModel.Spread,
-            dataModel: SpreadDataModel,
-            entryListConfiguration: EntryListConfiguration,
-            showsTimelineCard: Bool,
-            journalManager: JournalManager
-        ) {
-            let cal = journalManager.calendar
-            let grouper = EntryListGrouper(
-                configuration: entryListConfiguration,
-                period: dataModel.spread.period,
-                spreadDate: dataModel.spread.date,
-                spreadStartDate: dataModel.spread.startDate,
-                spreadEndDate: dataModel.spread.endDate,
-                calendar: cal
-            )
-            entryListViewModel.sections = grouper.group(allEntries(dataModel: dataModel, calendar: cal, showsTimelineCard: showsTimelineCard))
-            entryListViewModel.calendar = cal
-            entryListViewModel.today = journalManager.today
-        }
-
         private func setupConfigurationMap(
-            spread: DataModel.Spread,
-            journalManager: JournalManager,
-            syncEngine: SyncEngine?,
             onEditTask: @escaping (DataModel.Task) -> Void,
             onEditNote: @escaping (DataModel.Note) -> Void
         ) {
+            let journalManager = self.journalManager
+            let syncEngine = self.syncEngine
             let calendar = journalManager.calendar
             let today = journalManager.today
 
