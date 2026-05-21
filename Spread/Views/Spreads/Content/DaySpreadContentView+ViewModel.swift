@@ -4,25 +4,29 @@ extension DaySpreadContentView {
 
     /// Layout and sizing constants for `DaySpreadContentView`.
     struct Config {
-        /// Scrollable content height for the wide timeline card (full 24-hour day).
-        ///
-        /// At 1000pt for 24 hours (~42 pt/hour) this always exceeds the available card
-        /// height, so the card is always scrollable.
-        let wideTimelineHeight: CGFloat
-
         /// Divides the available container width into `wideTimelineColumnCount` equal parts
         /// and sizes the timeline card to `wideTimelineColumnSpan` of them.
         let wideTimelineColumnCount: Int
         let wideTimelineColumnSpan: Int
 
+        /// Divides the available container height into `wideTimelineRowCount` equal parts
+        /// and sizes the scrollable timeline content to `wideTimelineRowSpan` of them.
+        ///
+        /// A span larger than the count makes the content taller than the visible card,
+        /// keeping the timeline scrollable across all device sizes.
+        let wideTimelineRowCount: Int
+        let wideTimelineRowSpan: Int
+
         init(
-            wideTimelineHeight: CGFloat = 1000,
             wideTimelineColumnCount: Int = 10,
-            wideTimelineColumnSpan: Int = 4
+            wideTimelineColumnSpan: Int = 4,
+            wideTimelineRowCount: Int = 1,
+            wideTimelineRowSpan: Int = 3
         ) {
-            self.wideTimelineHeight = wideTimelineHeight
             self.wideTimelineColumnCount = wideTimelineColumnCount
             self.wideTimelineColumnSpan = wideTimelineColumnSpan
+            self.wideTimelineRowCount = wideTimelineRowCount
+            self.wideTimelineRowSpan = wideTimelineRowSpan
         }
 
         static let `default` = Config()

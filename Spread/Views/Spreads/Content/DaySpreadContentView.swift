@@ -15,7 +15,7 @@ import JohnnyOFoundationUI
 ///   from the list because the timeline card already surfaces them.
 struct DaySpreadContentView: View {
     let config: Config
-    @State private var vm: ViewModel
+    @State private var viewModel: ViewModel
 
     init(
         spread: DataModel.Spread,
@@ -28,7 +28,7 @@ struct DaySpreadContentView: View {
         config: Config = .default
     ) {
         self.config = config
-        _vm = State(wrappedValue: ViewModel(
+        _viewModel = State(wrappedValue: ViewModel(
             spread: spread,
             journalManager: journalManager,
             syncEngine: syncEngine,
@@ -46,11 +46,15 @@ struct DaySpreadContentView: View {
     /// jump to the first event on load.
     @State private var timelineScrollPosition = ScrollPosition()
 
+    /// Resolved scrollable height of the timeline content, derived from the
+    /// card's container height via `onGeometryChange`.
+    @State private var timelineScrollableHeight: CGFloat = 1000
+
     // MARK: - Derived
 
     private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
         guard let feedback = coordinator.autoMigrationFeedback,
-              feedback.surfaceSpreadID == vm.spread.id,
+              feedback.surfaceSpreadID == viewModel.spread.id,
               feedback.anchor == .spreadHeader else {
             return nil
         }
@@ -58,14 +62,14 @@ struct DaySpreadContentView: View {
     }
 
     private var shouldShowTimelineCard: Bool {
-        horizontalSizeClass.isRegular && !vm.calendarEvents.isEmpty
+        horizontalSizeClass.isRegular && !viewModel.calendarEvents.isEmpty
     }
 
     // MARK: - Body
 
     var body: some View {
         Group {
-            if vm.spreadDataModel != nil {
+            if viewModel.spreadDataModel != nil {
                 if shouldShowTimelineCard {
                     regularLayout
                 } else {
@@ -79,17 +83,17 @@ struct DaySpreadContentView: View {
                 }
             }
         }
-        .onChange(of: vm.calendarEvents) { _, _ in
-            vm.refreshSections(showsTimelineCard: shouldShowTimelineCard)
+        .onChange(of: viewModel.calendarEvents) { _, _ in
+            viewModel.refreshSections(showsTimelineCard: shouldShowTimelineCard)
         }
         .onChange(of: shouldShowTimelineCard) { _, _ in
-            vm.refreshSections(showsTimelineCard: shouldShowTimelineCard)
+            viewModel.refreshSections(showsTimelineCard: shouldShowTimelineCard)
         }
-        .onChange(of: vm.spreadDataModel?.tasks.count ?? 0) { _, _ in
-            vm.refreshSections(showsTimelineCard: shouldShowTimelineCard)
+        .onChange(of: viewModel.spreadDataModel?.tasks.count ?? 0) { _, _ in
+            viewModel.refreshSections(showsTimelineCard: shouldShowTimelineCard)
         }
-        .onChange(of: vm.spreadDataModel?.notes.count ?? 0) { _, _ in
-            vm.refreshSections(showsTimelineCard: shouldShowTimelineCard)
+        .onChange(of: viewModel.spreadDataModel?.notes.count ?? 0) { _, _ in
+            viewModel.refreshSections(showsTimelineCard: shouldShowTimelineCard)
         }
     }
 
@@ -109,7 +113,7 @@ struct DaySpreadContentView: View {
 
             HStack(alignment: .top, spacing: 0) {
                 timelineCard
-                EntryListView(viewModel: vm.entryListViewModel)
+                EntryListView(viewModel: viewModel.entryListViewModel)
             }
             .frame(maxHeight: .infinity)
         }
@@ -124,7 +128,7 @@ struct DaySpreadContentView: View {
                     .padding(.top, 8)
             }
 
-            EntryListView(viewModel: vm.entryListViewModel)
+            EntryListView(viewModel: viewModel.entryListViewModel)
         }
     }
 
@@ -141,8 +145,8 @@ struct DaySpreadContentView: View {
         let provider = SpreadDayTimelineProvider()
 
         return VStack(spacing: 0) {
-            if !vm.allDayEvents.isEmpty {
-                DayTimelineAllDaySection(items: vm.allDayEvents) { event in
+            if !viewModel.allDayEvents.isEmpty {
+                DayTimelineAllDaySection(items: viewModel.allDayEvents) { event in
                     provider.allDayItemView(item: event)
                 }
                 Divider()
@@ -151,18 +155,23 @@ struct DaySpreadContentView: View {
             ScrollView {
                 DayTimelineView(
                     provider: provider,
-                    items: vm.calendarEvents,
-                    date: vm.spread.date,
+                    items: viewModel.calendarEvents,
+                    date: viewModel.spread.date,
                     visibleStartHour: 0,
                     visibleEndHour: 24,
-                    height: config.wideTimelineHeight,
-                    calendar: vm.calendar
+                    height: timelineScrollableHeight,
+                    calendar: viewModel.calendar
                 )
                 .scrollIndicators(.hidden)
                 .padding(8)
             }
             .scrollPosition($timelineScrollPosition)
-            .onChange(of: vm.calendarEvents.count) { _, _ in
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.height * CGFloat(config.wideTimelineRowSpan) / CGFloat(config.wideTimelineRowCount)
+            } action: { newHeight in
+                if newHeight > 0 { timelineScrollableHeight = newHeight }
+            }
+            .onChange(of: viewModel.calendarEvents.count) { _, _ in
                 scrollToFirstEvent()
             }
         }
@@ -186,16 +195,16 @@ struct DaySpreadContentView: View {
     /// Scrolls the timeline card so the first timed event's start time is near the
     /// top of the visible area. No-ops when there are no timed events.
     private func scrollToFirstEvent() {
-        guard let firstEvent = vm.timedEvents.min(by: { $0.startDate < $1.startDate }) else { return }
+        guard let firstEvent = viewModel.timedEvents.min(by: { $0.startDate < $1.startDate }) else { return }
 
-        let cal = vm.calendar
-        let startOfDay = vm.spread.date.startOfDay(calendar: cal)
+        let cal = viewModel.calendar
+        let startOfDay = viewModel.spread.date.startOfDay(calendar: cal)
         guard let endOfDay = cal.date(byAdding: .day, value: 1, to: startOfDay) else { return }
 
         let coordinateSpace = DayTimeCoordinateSpace(
             visibleStart: startOfDay,
             visibleEnd: endOfDay,
-            totalHeight: config.wideTimelineHeight
+            totalHeight: timelineScrollableHeight
         )
         // +8 for the padding around the DayTimelineView inside the ScrollView
         let targetY = coordinateSpace.yOffset(for: firstEvent.startDate) + 8
