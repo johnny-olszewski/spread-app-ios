@@ -14,51 +14,50 @@ import JohnnyOFoundationUI
 /// - Trailing: `EntryListView` with its own independent scroll. Calendar events are omitted
 ///   from the list because the timeline card already surfaces them.
 struct DaySpreadContentView: View {
-    let spread: DataModel.Spread
-    let spreadDataModel: SpreadDataModel?
-    let journalManager: JournalManager
-    let syncEngine: SyncEngine?
-    var entryListConfiguration: EntryListConfiguration = .init()
-    var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
-    var onSelectSpread: ((DataModel.Spread) -> Void)? = nil
-    var onCreateSpread: ((Date) -> Void)? = nil
+    let config: Config
+    @State private var vm: ViewModel
+
+    init(
+        spread: DataModel.Spread,
+        journalManager: JournalManager,
+        syncEngine: SyncEngine?,
+        entryListConfiguration: EntryListConfiguration = .init(),
+        eventKitService: (any EventKitService)?,
+        onEditTask: @escaping (DataModel.Task) -> Void,
+        onEditNote: @escaping (DataModel.Note) -> Void,
+        config: Config = .default
+    ) {
+        self.config = config
+        _vm = State(wrappedValue: ViewModel(
+            spread: spread,
+            journalManager: journalManager,
+            syncEngine: syncEngine,
+            entryListConfiguration: entryListConfiguration,
+            eventKitService: eventKitService,
+            onEditTask: onEditTask,
+            onEditNote: onEditNote
+        ))
+    }
 
     @Environment(SpreadsCoordinator.self) private var coordinator
-    @Environment(\.eventKitService) private var eventKitService
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var vm = ViewModel()
 
     /// Tracks the scroll position of the timeline card so we can programmatically
     /// jump to the first event on load.
     @State private var timelineScrollPosition = ScrollPosition()
 
-    // MARK: - Layout constants
-
-    /// Scrollable content height for the wide timeline card (full 24-hour day).
-    ///
-    /// At 1000pt for 24 hours (~42 pt/hour) this always exceeds the available card
-    /// height, so the card is always scrollable.
-    private let wideTimelineHeight: CGFloat = 1000
-
-    /// `.containerRelativeFrame` parameters for the wide timeline card width.
-    ///
-    /// Divides the available container width into `wideTimelineColumnCount` equal parts
-    /// and sizes the card to `wideTimelineColumnSpan` of them.
-    private let wideTimelineColumnCount: Int = 10
-    private let wideTimelineColumnSpan: Int = 4
-
     // MARK: - Derived
 
     private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
         guard let feedback = coordinator.autoMigrationFeedback,
-              feedback.surfaceSpreadID == spread.id,
+              feedback.surfaceSpreadID == vm.spread.id,
               feedback.anchor == .spreadHeader else {
             return nil
         }
         return feedback
     }
 
-    private var showsTimelineCard: Bool {
+    private var shouldShowTimelineCard: Bool {
         horizontalSizeClass.isRegular && !vm.calendarEvents.isEmpty
     }
 
@@ -66,11 +65,11 @@ struct DaySpreadContentView: View {
 
     var body: some View {
         Group {
-            if let dataModel = spreadDataModel {
-                if showsTimelineCard {
-                    wideLayout(dataModel: dataModel)
+            if vm.spreadDataModel != nil {
+                if shouldShowTimelineCard {
+                    regularLayout
                 } else {
-                    compactLayout(dataModel: dataModel)
+                    compactLayout
                 }
             } else {
                 ContentUnavailableView {
@@ -80,64 +79,17 @@ struct DaySpreadContentView: View {
                 }
             }
         }
-        .task(id: spread.id) {
-            if let dataModel = spreadDataModel {
-                vm.configure(
-                    spread: spread,
-                    dataModel: dataModel,
-                    entryListConfiguration: entryListConfiguration,
-                    showsTimelineCard: showsTimelineCard,
-                    journalManager: journalManager,
-                    syncEngine: syncEngine,
-                    onEditTask: { coordinator.showTaskDetail($0) },
-                    onEditNote: { coordinator.showNoteDetail($0) }
-                )
-            }
-            await vm.fetchCalendarEvents(for: spread, service: eventKitService, journalManager: journalManager)
-        }
         .onChange(of: vm.calendarEvents) { _, _ in
-            if let dataModel = spreadDataModel {
-                vm.refreshSections(
-                    spread: spread,
-                    dataModel: dataModel,
-                    entryListConfiguration: entryListConfiguration,
-                    showsTimelineCard: showsTimelineCard,
-                    journalManager: journalManager
-                )
-            }
+            vm.refreshSections(showsTimelineCard: shouldShowTimelineCard)
         }
-        .onChange(of: showsTimelineCard) { _, _ in
-            if let dataModel = spreadDataModel {
-                vm.refreshSections(
-                    spread: spread,
-                    dataModel: dataModel,
-                    entryListConfiguration: entryListConfiguration,
-                    showsTimelineCard: showsTimelineCard,
-                    journalManager: journalManager
-                )
-            }
+        .onChange(of: shouldShowTimelineCard) { _, _ in
+            vm.refreshSections(showsTimelineCard: shouldShowTimelineCard)
         }
-        .onChange(of: spreadDataModel?.tasks.count ?? 0) { _, _ in
-            if let dataModel = spreadDataModel {
-                vm.refreshSections(
-                    spread: spread,
-                    dataModel: dataModel,
-                    entryListConfiguration: entryListConfiguration,
-                    showsTimelineCard: showsTimelineCard,
-                    journalManager: journalManager
-                )
-            }
+        .onChange(of: vm.spreadDataModel?.tasks.count ?? 0) { _, _ in
+            vm.refreshSections(showsTimelineCard: shouldShowTimelineCard)
         }
-        .onChange(of: spreadDataModel?.notes.count ?? 0) { _, _ in
-            if let dataModel = spreadDataModel {
-                vm.refreshSections(
-                    spread: spread,
-                    dataModel: dataModel,
-                    entryListConfiguration: entryListConfiguration,
-                    showsTimelineCard: showsTimelineCard,
-                    journalManager: journalManager
-                )
-            }
+        .onChange(of: vm.spreadDataModel?.notes.count ?? 0) { _, _ in
+            vm.refreshSections(showsTimelineCard: shouldShowTimelineCard)
         }
     }
 
@@ -147,7 +99,7 @@ struct DaySpreadContentView: View {
     ///
     /// Calendar events are surfaced in the timeline card only; the entry list
     /// receives an empty events array so it does not duplicate them.
-    private func wideLayout(dataModel: SpreadDataModel) -> some View {
+    private var regularLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let message = autoMigrationFeedback?.message {
                 SpreadAutoMigrationCueView(message: message)
@@ -164,7 +116,7 @@ struct DaySpreadContentView: View {
     }
 
     /// Compact-width: a single scrollable entry list with calendar events in a dedicated section.
-    private func compactLayout(dataModel: SpreadDataModel) -> some View {
+    private var compactLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let message = autoMigrationFeedback?.message {
                 SpreadAutoMigrationCueView(message: message)
@@ -200,21 +152,21 @@ struct DaySpreadContentView: View {
                 DayTimelineView(
                     provider: provider,
                     items: vm.calendarEvents,
-                    date: spread.date,
+                    date: vm.spread.date,
                     visibleStartHour: 0,
                     visibleEndHour: 24,
-                    height: wideTimelineHeight,
-                    calendar: journalManager.calendar
+                    height: config.wideTimelineHeight,
+                    calendar: vm.calendar
                 )
                 .scrollIndicators(.hidden)
                 .padding(8)
             }
             .scrollPosition($timelineScrollPosition)
-            .task(id: vm.calendarEvents.count) {
+            .onChange(of: vm.calendarEvents.count) { _, _ in
                 scrollToFirstEvent()
             }
         }
-        .containerRelativeFrame(.horizontal, count: wideTimelineColumnCount, span: wideTimelineColumnSpan, spacing: 0)
+        .containerRelativeFrame(.horizontal, count: config.wideTimelineColumnCount, span: config.wideTimelineColumnSpan, spacing: 0)
         .frame(maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -236,13 +188,14 @@ struct DaySpreadContentView: View {
     private func scrollToFirstEvent() {
         guard let firstEvent = vm.timedEvents.min(by: { $0.startDate < $1.startDate }) else { return }
 
-        let startOfDay = spread.date.startOfDay(calendar: journalManager.calendar)
-        guard let endOfDay = journalManager.calendar.date(byAdding: .day, value: 1, to: startOfDay) else { return }
+        let cal = vm.calendar
+        let startOfDay = vm.spread.date.startOfDay(calendar: cal)
+        guard let endOfDay = cal.date(byAdding: .day, value: 1, to: startOfDay) else { return }
 
         let coordinateSpace = DayTimeCoordinateSpace(
             visibleStart: startOfDay,
             visibleEnd: endOfDay,
-            totalHeight: wideTimelineHeight
+            totalHeight: config.wideTimelineHeight
         )
         // +8 for the padding around the DayTimelineView inside the ScrollView
         let targetY = coordinateSpace.yOffset(for: firstEvent.startDate) + 8
