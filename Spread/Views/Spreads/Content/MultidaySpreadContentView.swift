@@ -23,8 +23,7 @@ struct MultidaySpreadContentView: View {
                         groupsByDay: groupsByDay,
                         journalManager: journalManager,
                         syncEngine: syncEngine,
-                        onEditTask: { coordinator.showTaskDetail($0) },
-                        onEditNote: { coordinator.showNoteDetail($0) }
+                        coordinator: coordinator
                     )
                     await vm.fetchCalendarEvents(for: spread, service: eventKitService, journalManager: journalManager)
                 }

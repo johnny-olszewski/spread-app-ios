@@ -242,9 +242,7 @@ private struct SpreadPageContentView: View {
                 spread: spread,
                 journalManager: journalManager,
                 syncEngine: syncEngine,
-                eventKitService: eventKitService,
-                onEditTask: { coordinator.showTaskDetail($0) },
-                onEditNote: { coordinator.showNoteDetail($0) }
+                eventKitService: eventKitService
             )
         case .multiday:
             MultidaySpreadContentView(
@@ -298,9 +296,7 @@ private struct SpreadPageContentView: View {
                 journalManager: journalManager,
                 syncEngine: syncEngine,
                 groupsByList: false,
-                eventKitService: eventKitService,
-                onEditTask: { coordinator.showTaskDetail($0) },
-                onEditNote: { coordinator.showNoteDetail($0) }
+                eventKitService: eventKitService
             )
         case .multiday:
             MultidaySpreadContentView(

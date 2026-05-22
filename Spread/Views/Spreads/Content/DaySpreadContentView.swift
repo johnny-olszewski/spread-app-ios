@@ -40,8 +40,6 @@ struct DaySpreadContentView: View {
         syncEngine: SyncEngine?,
         groupsByList: Bool = true,
         eventKitService: (any EventKitService)?,
-        onEditTask: @escaping (DataModel.Task) -> Void,
-        onEditNote: @escaping (DataModel.Note) -> Void,
         config: Config = .default
     ) {
         self.config = config
@@ -50,9 +48,7 @@ struct DaySpreadContentView: View {
             journalManager: journalManager,
             syncEngine: syncEngine,
             groupsByList: groupsByList,
-            eventKitService: eventKitService,
-            onEditTask: onEditTask,
-            onEditNote: onEditNote
+            eventKitService: eventKitService
         ))
     }
 
@@ -74,6 +70,9 @@ struct DaySpreadContentView: View {
                     Text("Unable to load spread data.")
                 }
             }
+        }
+        .task(id: viewModel.spread.id) {
+            viewModel.configure(coordinator: coordinator)
         }
         .onChange(of: viewModel.calendarEvents) { _, _ in
             viewModel.refreshSections(showsTimelineCard: shouldShowTimelineCard)

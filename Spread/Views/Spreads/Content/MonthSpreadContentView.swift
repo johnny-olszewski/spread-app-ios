@@ -86,8 +86,7 @@ struct MonthSpreadContentView: View {
             vm.configure(
                 journalManager: journalManager,
                 syncEngine: syncEngine,
-                onEditTask: { coordinator.showTaskDetail($0) },
-                onEditNote: { coordinator.showNoteDetail($0) }
+                coordinator: coordinator
             )
         }
     }

@@ -18,11 +18,10 @@ extension MultidaySpreadContentView {
             groupsByDay: Bool,
             journalManager: JournalManager,
             syncEngine: SyncEngine?,
-            onEditTask: @escaping (DataModel.Task) -> Void,
-            onEditNote: @escaping (DataModel.Note) -> Void
+            coordinator: SpreadsCoordinator
         ) {
             refreshSections(spread: spread, dataModel: dataModel, groupsByDay: groupsByDay, journalManager: journalManager)
-            setupConfigurationMap(journalManager: journalManager, syncEngine: syncEngine, onEditTask: onEditTask, onEditNote: onEditNote)
+            setupConfigurationMap(journalManager: journalManager, syncEngine: syncEngine, coordinator: coordinator)
         }
 
         /// Refreshes the entry list sections when entries or calendar events change.
@@ -162,8 +161,7 @@ extension MultidaySpreadContentView {
         private func setupConfigurationMap(
             journalManager: JournalManager,
             syncEngine: SyncEngine?,
-            onEditTask: @escaping (DataModel.Task) -> Void,
-            onEditNote: @escaping (DataModel.Note) -> Void
+            coordinator: SpreadsCoordinator
         ) {
             let calendar = journalManager.calendar
             let today = journalManager.today
@@ -188,8 +186,8 @@ extension MultidaySpreadContentView {
                     }
                 },
                 onEdit: { entry in
-                    if let task = entry as? DataModel.Task { onEditTask(task) }
-                    else if let note = entry as? DataModel.Note { onEditNote(note) }
+                    if let task = entry as? DataModel.Task { coordinator.showTaskDetail(task) }
+                    else if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
                 },
                 onDelete: { entry in
                     guard let task = entry as? DataModel.Task else { return }
@@ -208,7 +206,7 @@ extension MultidaySpreadContentView {
                     let options = EntryRowInlineEditSupport.migrationOptions(for: task, today: today, calendar: calendar)
                     return EntryRowInlineActionConfiguration(
                         migrationOptions: options,
-                        onEditSheet: { onEditTask(task) },
+                        onEditSheet: { coordinator.showTaskDetail(task) },
                         onMigrationSelected: { option in
                             try? await journalManager.updateTaskDateAndPeriod(task, newDate: option.date, newPeriod: option.period)
                             await syncEngine?.syncNow()
@@ -220,7 +218,7 @@ extension MultidaySpreadContentView {
             let noteConfig = EntryRowView.Configuration(
                 isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
                 onEdit: { entry in
-                    if let note = entry as? DataModel.Note { onEditNote(note) }
+                    if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
                 },
                 onDelete: { entry in
                     guard let note = entry as? DataModel.Note else { return }
