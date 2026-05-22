@@ -30,7 +30,7 @@ struct DayTimelineOverlapTests {
 
     /// Greedy overlap-depth algorithm mirroring `DayTimelineView.layoutContexts`.
     private func overlapOffsets(for events: [CalendarEvent]) -> [CGFloat] {
-        let provider = SpreadDayTimelineProvider()
+        let provider = SpreadDayTimelineContentGenerator()
         let sorted = events.sorted { provider.startDate(for: $0) < provider.startDate(for: $1) }
         var offsets: [CGFloat] = []
 
@@ -110,7 +110,7 @@ struct DayTimelineOverlapTests {
     /// Conditions: Provider given a CalendarEvent.
     /// Expected: startDate and endDate forward the event's own values.
     @Test func testProviderDateAccessorsForwardEventDates() {
-        let provider = SpreadDayTimelineProvider()
+        let provider = SpreadDayTimelineContentGenerator()
         let event = makeEvent(id: "x", startHour: 8, endHour: 9)
 
         #expect(provider.startDate(for: event) == event.startDate)

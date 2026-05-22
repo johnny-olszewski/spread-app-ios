@@ -14,6 +14,7 @@ import JohnnyOFoundationCore
 public protocol DayTimelineContentProvider {
     associatedtype Item: Identifiable
     associatedtype ItemContent: View
+    associatedtype AllDayContent: View = EmptyView
     associatedtype TimeRulerLabel: View
 
     /// Returns the start date of the given item.
@@ -25,17 +26,23 @@ public protocol DayTimelineContentProvider {
     /// Returns `true` when the item spans the entire day and should be excluded
     /// from the proportional time grid.
     ///
-    /// All-day items are typically shown in a sticky header above the timed grid
-    /// (e.g. via `DayTimelineAllDaySection`) rather than positioned on the ruler.
+    /// All-day items are shown in a pinned header above the timed grid via
+    /// `allDayItemView(item:)` rather than positioned on the ruler.
     /// The default implementation returns `false`.
     func isAllDay(item: Item) -> Bool
 
-    /// Returns a view representing the item's visual content.
+    /// Returns a view representing the item's visual content in the timed grid.
     ///
     /// The package positions the returned view using `context.yOffset`,
     /// `context.height`, and `context.overlapOffset`; the conformer need only
     /// render the appearance (background, text, borders, etc.).
     @ViewBuilder func itemView(context: DayTimelineItemContext<Item>) -> ItemContent
+
+    /// Returns a view for an all-day item rendered in the pinned header section.
+    ///
+    /// Only called for items where `isAllDay(item:)` returns `true`.
+    /// The default implementation returns `EmptyView`.
+    @ViewBuilder func allDayItemView(item: Item) -> AllDayContent
 
     /// Returns a label view for the given hour (0–23) in the time ruler.
     @ViewBuilder func timeRulerLabel(hour: Int) -> TimeRulerLabel
@@ -46,4 +53,10 @@ public protocol DayTimelineContentProvider {
 extension DayTimelineContentProvider {
     /// All-day is opt-in; the default treats every item as a timed event.
     public func isAllDay(item: Item) -> Bool { false }
+}
+
+extension DayTimelineContentProvider where AllDayContent == EmptyView {
+    /// Default: all-day items render nothing. Override `AllDayContent` and
+    /// `allDayItemView(item:)` together to provide a custom appearance.
+    public func allDayItemView(item: Item) -> EmptyView { EmptyView() }
 }
