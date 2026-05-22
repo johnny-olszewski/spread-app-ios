@@ -7,25 +7,27 @@ import SwiftUI
 /// - Otherwise: renders the full entry list, calendar events, and inline creation affordance.
 struct MultidayDaySectionView<RowContent: View>: View {
 
-    @Bindable var viewModel: EntryListViewModel
     let section: EntryList.Section
     let parentSpread: DataModel.Spread
     let explicitDaySpread: DataModel.Spread?
     let openTaskCount: Int
+    let calendar: Calendar
+    let today: Date
+    let onAddTask: (@MainActor (String, Date, Period) async throws -> Void)?
     let onFooterTap: () -> Void
     let onPeek: (() -> Void)?
     @ViewBuilder var rowContent: (any Entry) -> RowContent
 
     private var dateID: String {
-        Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: section.date, calendar: viewModel.calendar)
+        Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: section.date, calendar: calendar)
     }
 
     private var visualState: MultidayDayCardVisualState {
         MultidayDayCardSupport.visualState(
             for: section.date,
-            today: viewModel.today,
+            today: today,
             explicitDaySpread: explicitDaySpread,
-            calendar: viewModel.calendar
+            calendar: calendar
         )
     }
 
@@ -57,9 +59,9 @@ struct MultidayDaySectionView<RowContent: View>: View {
             visualState: visualState,
             footerAction: footerAction,
             overdueCount: 0,
-            shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: viewModel.calendar),
-            weekdayText: EntryListMultidaySupport.weekdayText(for: section.date, calendar: viewModel.calendar),
-            dayNumberText: EntryListMultidaySupport.dayNumberText(for: section.date, calendar: viewModel.calendar),
+            shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar),
+            weekdayText: EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar),
+            dayNumberText: EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar),
             footerAccessibilityLabel: footerAccessibilityLabel,
             isContentCentered: true,
             onPeek: onPeek,
@@ -103,9 +105,9 @@ struct MultidayDaySectionView<RowContent: View>: View {
             visualState: visualState,
             footerAction: footerAction,
             overdueCount: overdueCount,
-            shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: viewModel.calendar),
-            weekdayText: EntryListMultidaySupport.weekdayText(for: section.date, calendar: viewModel.calendar),
-            dayNumberText: EntryListMultidaySupport.dayNumberText(for: section.date, calendar: viewModel.calendar),
+            shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar),
+            weekdayText: EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar),
+            dayNumberText: EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar),
             footerAccessibilityLabel: footerAccessibilityLabel,
             onFooterTap: onFooterTap
         ) {
@@ -115,7 +117,7 @@ struct MultidayDaySectionView<RowContent: View>: View {
                         .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                 }
 
-                if let onAddTask = viewModel.onAddTask {
+                if let onAddTask {
                     AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: onAddTask)
                         .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                         .accessibilityIdentifier(
@@ -137,14 +139,14 @@ struct MultidayDaySectionView<RowContent: View>: View {
 
     private var overdueCount: Int {
         guard let endDate = parentSpread.endDate else { return 0 }
-        let todayStart = viewModel.today.startOfDay(calendar: viewModel.calendar)
-        guard todayStart > endDate.startOfDay(calendar: viewModel.calendar) else { return 0 }
+        let todayStart = today.startOfDay(calendar: calendar)
+        guard todayStart > endDate.startOfDay(calendar: calendar) else { return 0 }
 
         return section.entries.reduce(into: 0) { count, entry in
             guard let task = entry as? DataModel.Task, task.status == .open else { return }
             let isAssigned = task.assignments.contains { assignment in
                 assignment.status == .open &&
-                assignment.matches(spread: parentSpread, calendar: viewModel.calendar)
+                assignment.matches(spread: parentSpread, calendar: calendar)
             }
             if isAssigned { count += 1 }
         }

@@ -6,7 +6,7 @@ struct MultidaySpreadContentView: View {
     let spreadDataModel: SpreadDataModel?
     let journalManager: JournalManager
     let syncEngine: SyncEngine?
-    var entryListConfiguration: EntryListConfiguration = .init()
+    var groupsByDay: Bool = true
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
 
     @Environment(SpreadsCoordinator.self) private var coordinator
@@ -20,7 +20,7 @@ struct MultidaySpreadContentView: View {
                     vm.configure(
                         spread: spread,
                         dataModel: dataModel,
-                        entryListConfiguration: entryListConfiguration,
+                        groupsByDay: groupsByDay,
                         journalManager: journalManager,
                         syncEngine: syncEngine,
                         onEditTask: { coordinator.showTaskDetail($0) },
@@ -33,7 +33,7 @@ struct MultidaySpreadContentView: View {
                         vm.refreshSections(
                             spread: spread,
                             dataModel: dataModel,
-                            entryListConfiguration: entryListConfiguration,
+                            groupsByDay: groupsByDay,
                             journalManager: journalManager
                         )
                     }
@@ -43,7 +43,7 @@ struct MultidaySpreadContentView: View {
                         vm.refreshSections(
                             spread: spread,
                             dataModel: dataModel,
-                            entryListConfiguration: entryListConfiguration,
+                            groupsByDay: groupsByDay,
                             journalManager: journalManager
                         )
                     }
@@ -53,7 +53,7 @@ struct MultidaySpreadContentView: View {
                         vm.refreshSections(
                             spread: spread,
                             dataModel: dataModel,
-                            entryListConfiguration: entryListConfiguration,
+                            groupsByDay: groupsByDay,
                             journalManager: journalManager
                         )
                     }
@@ -69,7 +69,10 @@ struct MultidaySpreadContentView: View {
 
     private var grid: some View {
         MultidayEntryGridView(
-            viewModel: vm.entryListViewModel,
+            sections: vm.sections,
+            calendar: journalManager.calendar,
+            today: journalManager.today,
+            onAddTask: vm.onAddTask,
             spread: spread,
             explicitDaySpreadForDate: explicitDaySpreadForDate,
             onSelectSpread: { daySpread in
@@ -106,10 +109,9 @@ struct MultidaySpreadContentView: View {
 
     @ViewBuilder
     private func entryRow(entry: any Entry) -> some View {
-        if let config = vm.entryListViewModel.configurationMap[entry.entryType] {
+        if let config = vm.configurationMap[entry.entryType] {
             EntryRowView(entry: entry, configuration: config)
         }
     }
 
 }
-

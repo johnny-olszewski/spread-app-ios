@@ -14,43 +14,12 @@ import JohnnyOFoundationUI
 /// - Trailing: `EntryListView` with its own independent scroll. Calendar events are omitted
 ///   from the list because the timeline card already surfaces them.
 struct DaySpreadContentView: View {
-    let config: Config
+
     @State private var viewModel: ViewModel
-
-    init(
-        spread: DataModel.Spread,
-        journalManager: JournalManager,
-        syncEngine: SyncEngine?,
-        entryListConfiguration: EntryListConfiguration = .init(),
-        eventKitService: (any EventKitService)?,
-        onEditTask: @escaping (DataModel.Task) -> Void,
-        onEditNote: @escaping (DataModel.Note) -> Void,
-        config: Config = .default
-    ) {
-        self.config = config
-        _viewModel = State(wrappedValue: ViewModel(
-            spread: spread,
-            journalManager: journalManager,
-            syncEngine: syncEngine,
-            entryListConfiguration: entryListConfiguration,
-            eventKitService: eventKitService,
-            onEditTask: onEditTask,
-            onEditNote: onEditNote
-        ))
-    }
-
     @Environment(SpreadsCoordinator.self) private var coordinator
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    /// Tracks the scroll position of the timeline card so we can programmatically
-    /// jump to the first event on load.
-    @State private var timelineScrollPosition = ScrollPosition()
-
-    /// Resolved scrollable height of the timeline content, derived from the
-    /// card's container height via `onGeometryChange`.
-    @State private var timelineScrollableHeight: CGFloat = 1000
-
-    // MARK: - Derived
+    let config: Config
 
     private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
         guard let feedback = coordinator.autoMigrationFeedback,
@@ -64,6 +33,29 @@ struct DaySpreadContentView: View {
     private var shouldShowTimelineCard: Bool {
         horizontalSizeClass.isRegular && !viewModel.calendarEvents.isEmpty
     }
+
+    init(
+        spread: DataModel.Spread,
+        journalManager: JournalManager,
+        syncEngine: SyncEngine?,
+        groupsByList: Bool = true,
+        eventKitService: (any EventKitService)?,
+        onEditTask: @escaping (DataModel.Task) -> Void,
+        onEditNote: @escaping (DataModel.Note) -> Void,
+        config: Config = .default
+    ) {
+        self.config = config
+        _viewModel = State(wrappedValue: ViewModel(
+            spread: spread,
+            journalManager: journalManager,
+            syncEngine: syncEngine,
+            groupsByList: groupsByList,
+            eventKitService: eventKitService,
+            onEditTask: onEditTask,
+            onEditNote: onEditNote
+        ))
+    }
+
 
     // MARK: - Body
 
@@ -113,7 +105,11 @@ struct DaySpreadContentView: View {
 
             HStack(alignment: .top, spacing: 0) {
                 timelineCard
-                EntryListView(viewModel: viewModel.entryListViewModel)
+                EntryListView(
+                    sections: viewModel.sections,
+                    configurationMap: viewModel.configurationMap,
+                    onAddTask: viewModel.onAddTask
+                )
             }
             .frame(maxHeight: .infinity)
         }
@@ -128,87 +124,34 @@ struct DaySpreadContentView: View {
                     .padding(.top, 8)
             }
 
-            EntryListView(viewModel: viewModel.entryListViewModel)
+            EntryListView(
+                sections: viewModel.sections,
+                configurationMap: viewModel.configurationMap,
+                onAddTask: viewModel.onAddTask
+            )
         }
     }
 
     // MARK: - Timeline card
 
-    /// Full-height card for the wide layout.
-    ///
-    /// Structure (top to bottom):
-    /// 1. All-day events header — non-scrolling, pinned above the timed grid.
-    /// 2. Divider — only present when all-day events exist.
-    /// 3. Timed event grid — full-day `DayTimelineView` inside a `ScrollView`.
-    ///    On load the scroll position jumps to the start of the first timed event.
+    /// Full-height card for the wide layout. Scroll management, all-day section,
+    /// and height sizing are all handled by `DayTimelineScrollView`.
     private var timelineCard: some View {
-        let provider = SpreadDayTimelineProvider()
-
-        return VStack(spacing: 0) {
-            if !viewModel.allDayEvents.isEmpty {
-                DayTimelineAllDaySection(items: viewModel.allDayEvents) { event in
-                    provider.allDayItemView(item: event)
-                }
-                Divider()
-            }
-
-            ScrollView {
-                DayTimelineView(
-                    provider: provider,
-                    items: viewModel.calendarEvents,
-                    date: viewModel.spread.date,
-                    visibleStartHour: 0,
-                    visibleEndHour: 24,
-                    height: timelineScrollableHeight,
-                    calendar: viewModel.calendar
-                )
-                .scrollIndicators(.hidden)
-                .padding(8)
-            }
-            .scrollPosition($timelineScrollPosition)
-            .onGeometryChange(for: CGFloat.self) { proxy in
-                proxy.size.height * CGFloat(config.wideTimelineRowSpan) / CGFloat(config.wideTimelineRowCount)
-            } action: { newHeight in
-                if newHeight > 0 { timelineScrollableHeight = newHeight }
-            }
-            .onChange(of: viewModel.calendarEvents.count) { _, _ in
-                scrollToFirstEvent()
-            }
-        }
+        return DayTimelineScrollView(
+            generator: SpreadDayTimelineContentGenerator(),
+            items: viewModel.calendarEvents,
+            date: viewModel.spread.date,
+            visibleStartHour: 0,
+            visibleEndHour: 24,
+            verticalCount: config.wideTimelineRowCount,
+            verticalSpan: config.wideTimelineRowSpan,
+            calendar: viewModel.calendar
+        )
         .containerRelativeFrame(.horizontal, count: config.wideTimelineColumnCount, span: config.wideTimelineColumnSpan, spacing: 0)
-        .frame(maxHeight: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color(uiColor: .separator).opacity(0.5), lineWidth: 0.5)
-        )
+        .spreadCard()
         .padding(.leading, 16)
         .padding(.trailing, 8)
         .padding(.vertical, 12)
-    }
-
-    // MARK: - Private
-
-    /// Scrolls the timeline card so the first timed event's start time is near the
-    /// top of the visible area. No-ops when there are no timed events.
-    private func scrollToFirstEvent() {
-        guard let firstEvent = viewModel.timedEvents.min(by: { $0.startDate < $1.startDate }) else { return }
-
-        let cal = viewModel.calendar
-        let startOfDay = viewModel.spread.date.startOfDay(calendar: cal)
-        guard let endOfDay = cal.date(byAdding: .day, value: 1, to: startOfDay) else { return }
-
-        let coordinateSpace = DayTimeCoordinateSpace(
-            visibleStart: startOfDay,
-            visibleEnd: endOfDay,
-            totalHeight: timelineScrollableHeight
-        )
-        // +8 for the padding around the DayTimelineView inside the ScrollView
-        let targetY = coordinateSpace.yOffset(for: firstEvent.startDate) + 8
-        timelineScrollPosition = ScrollPosition(y: targetY)
     }
 }
 

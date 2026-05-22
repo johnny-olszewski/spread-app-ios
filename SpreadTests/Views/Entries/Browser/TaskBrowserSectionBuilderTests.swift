@@ -18,15 +18,29 @@ struct TaskBrowserSectionBuilderTests {
 
     // MARK: - Fixtures
 
-    private let builder = TaskBrowserSectionBuilder()
     private let calendar: Calendar = {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "UTC")!
         return cal
     }()
 
+    private var builder: TaskBrowserSectionBuilder {
+        TaskBrowserSectionBuilder(
+            calendar: calendar,
+            today: calendar.date(from: DateComponents(year: 2026, month: 1, day: 1))!
+        )
+    }
+
     private func makeDate(year: Int, month: Int, day: Int) -> Date {
         calendar.date(from: DateComponents(year: year, month: month, day: day))!
+    }
+
+    private func allOpenRows(from sections: [TaskBrowserSection]) -> [TaskBrowserRow] {
+        sections.filter { if case .terminal = $0.kind { return false }; return true }.flatMap(\.rows)
+    }
+
+    private func terminalRows(from sections: [TaskBrowserSection]) -> [TaskBrowserRow] {
+        sections.first { if case .terminal = $0.kind { return true }; return false }?.rows ?? []
     }
 
     private func makeTask(
@@ -77,7 +91,7 @@ struct TaskBrowserSectionBuilderTests {
             selectedTagIDs: [],
             searchText: ""
         )
-        let openRows = sections.first(where: { $0.kind == .open })?.rows ?? []
+        let openRows = allOpenRows(from: sections)
 
         #expect(openRows.count == 2)
         #expect(openRows[0].task.title == "Inbox")
@@ -97,7 +111,7 @@ struct TaskBrowserSectionBuilderTests {
             selectedTagIDs: [],
             searchText: ""
         )
-        let openRows = sections.first(where: { $0.kind == .open })?.rows ?? []
+        let openRows = allOpenRows(from: sections)
 
         #expect(openRows[0].task.title == "Older")
         #expect(openRows[1].task.title == "Newer")
@@ -129,7 +143,7 @@ struct TaskBrowserSectionBuilderTests {
             selectedTagIDs: [],
             searchText: ""
         )
-        let openRows = sections.first(where: { $0.kind == .open })?.rows ?? []
+        let openRows = allOpenRows(from: sections)
 
         #expect(openRows[0].task.title == "Day")
         #expect(openRows[1].task.title == "Month")
@@ -156,7 +170,7 @@ struct TaskBrowserSectionBuilderTests {
             selectedTagIDs: [],
             searchText: ""
         )
-        let openRows = sections.first(where: { $0.kind == .open })?.rows ?? []
+        let openRows = allOpenRows(from: sections)
 
         #expect(openRows[0].task.title == "Early")
         #expect(openRows[1].task.title == "Late")
@@ -204,7 +218,7 @@ struct TaskBrowserSectionBuilderTests {
             selectedTagIDs: [],
             searchText: ""
         )
-        let terminalRows = sections.first(where: { $0.kind == .terminal })?.rows ?? []
+        let terminalRows = terminalRows(from: sections)
 
         #expect(terminalRows.count == 2)
         #expect(terminalRows[0].task.title == "NewerCompletion")
@@ -241,7 +255,7 @@ struct TaskBrowserSectionBuilderTests {
             selectedTagIDs: [],
             searchText: ""
         )
-        let terminalRows = sections.first(where: { $0.kind == .terminal })?.rows ?? []
+        let terminalRows = terminalRows(from: sections)
 
         #expect(terminalRows[0].task.title == "WithDate")
         #expect(terminalRows[1].task.title == "WithoutDate")
@@ -266,7 +280,7 @@ struct TaskBrowserSectionBuilderTests {
             selectedTagIDs: [],
             searchText: ""
         )
-        let openRows = sections.first(where: { $0.kind == .open })?.rows ?? []
+        let openRows = allOpenRows(from: sections)
 
         #expect(openRows.count == 1)
         #expect(openRows[0].task.title == "Work Task")
@@ -293,7 +307,7 @@ struct TaskBrowserSectionBuilderTests {
             selectedTagIDs: [tagA.id, tagB.id],
             searchText: ""
         )
-        let openRows = sections.first(where: { $0.kind == .open })?.rows ?? []
+        let openRows = allOpenRows(from: sections)
         let titles = openRows.map { $0.task.title }
 
         #expect(titles.contains("AB Task"))
@@ -321,7 +335,7 @@ struct TaskBrowserSectionBuilderTests {
             selectedTagIDs: [tagA.id],
             searchText: ""
         )
-        let openRows = sections.first(where: { $0.kind == .open })?.rows ?? []
+        let openRows = allOpenRows(from: sections)
 
         #expect(openRows.count == 1)
         #expect(openRows[0].task.title == "Work+Tagged")
@@ -344,7 +358,7 @@ struct TaskBrowserSectionBuilderTests {
             selectedTagIDs: [],
             searchText: "Deploy"
         )
-        let openRows = sections.first(where: { $0.kind == .open })?.rows ?? []
+        let openRows = allOpenRows(from: sections)
 
         #expect(openRows.count == 1)
         #expect(openRows[0].task.title == "Deploy server")

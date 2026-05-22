@@ -10,6 +10,7 @@ import Testing
 /// - Multiday hierarchy placement
 /// - Multiday assignment affordances
 @Suite("Multiday Spread UI Tests")
+@MainActor
 struct MultidaySpreadUITests {
 
     // MARK: - Test Fixtures
@@ -95,13 +96,6 @@ struct MultidaySpreadUITests {
     func multidayEntriesGroupedByDay() {
         let spreadDate = makeDate(year: 2026, month: 1, day: 6)
         let endDate = makeDate(year: 2026, month: 1, day: 8)
-        let grouper = EntryListGrouper(
-            period: .multiday,
-            spreadDate: spreadDate,
-            spreadStartDate: spreadDate,
-            spreadEndDate: endDate,
-            calendar: calendar
-        )
 
         let entries: [any Entry] = [
             DataModel.Task(title: "Day 6 task", date: makeDate(year: 2026, month: 1, day: 6)),
@@ -110,7 +104,14 @@ struct MultidaySpreadUITests {
             DataModel.Task(title: "Day 8 task", date: makeDate(year: 2026, month: 1, day: 8))
         ]
 
-        let sections = grouper.group(entries)
+        let sections = MultidaySpreadContentView.ViewModel.makeSections(
+            from: entries,
+            spreadDate: spreadDate,
+            startDate: spreadDate,
+            endDate: endDate,
+            calendar: calendar,
+            groupsByDay: true
+        )
 
         #expect(sections.count == 3)
         #expect(sections[0].title.isEmpty)
@@ -122,20 +123,20 @@ struct MultidaySpreadUITests {
     }
 
     /// Conditions: Multiday spread with no entries.
-    /// Expected: Grouper returns empty sections.
+    /// Expected: makeSections returns empty sections for each covered day.
     @Test("Multiday with no entries returns empty sections")
     func multidayNoEntriesReturnsEmpty() {
         let spreadDate = makeDate(year: 2026, month: 1, day: 6)
         let endDate = makeDate(year: 2026, month: 1, day: 8)
-        let grouper = EntryListGrouper(
-            period: .multiday,
-            spreadDate: spreadDate,
-            spreadStartDate: spreadDate,
-            spreadEndDate: endDate,
-            calendar: calendar
-        )
 
-        let sections = grouper.group([])
+        let sections = MultidaySpreadContentView.ViewModel.makeSections(
+            from: [],
+            spreadDate: spreadDate,
+            startDate: spreadDate,
+            endDate: endDate,
+            calendar: calendar,
+            groupsByDay: true
+        )
 
         #expect(sections.count == 3)
         #expect(sections.allSatisfy { $0.title.isEmpty })

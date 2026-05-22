@@ -29,7 +29,7 @@ struct EntryRowAccessibilityTests {
     /// Conditions: Task with high priority.
     /// Expected: displayPriority returns .high.
     @Test func taskWithHighPriority_displayPriority_isHigh() {
-        let task = DataModel.Task(title: "Buy milk", status: .open, priority: .high)
+        let task = DataModel.Task(title: "Buy milk", priority: .high, status: .open)
 
         #expect(task.displayPriority == .high)
     }
