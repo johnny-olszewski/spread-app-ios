@@ -11,8 +11,7 @@ extension MonthSpreadContentView {
         func configure(
             journalManager: JournalManager,
             syncEngine: SyncEngine?,
-            onEditTask: @escaping (DataModel.Task) -> Void,
-            onEditNote: @escaping (DataModel.Note) -> Void
+            coordinator: SpreadsCoordinator
         ) {
             let cal = journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
             let today = journalManager.today
@@ -37,7 +36,7 @@ extension MonthSpreadContentView {
                     }
                 },
                 onEdit: { entry in
-                    if let task = entry as? DataModel.Task { onEditTask(task) }
+                    if let task = entry as? DataModel.Task { coordinator.showTaskDetail(task) }
                 },
                 onDelete: { entry in
                     guard let task = entry as? DataModel.Task else { return }
@@ -56,7 +55,7 @@ extension MonthSpreadContentView {
                     let options = EntryRowInlineEditSupport.migrationOptions(for: task, today: today, calendar: cal)
                     return EntryRowInlineActionConfiguration(
                         migrationOptions: options,
-                        onEditSheet: { onEditTask(task) },
+                        onEditSheet: { coordinator.showTaskDetail(task) },
                         onMigrationSelected: { option in
                             try? await journalManager.updateTaskDateAndPeriod(task, newDate: option.date, newPeriod: option.period)
                             await syncEngine?.syncNow()
@@ -68,7 +67,7 @@ extension MonthSpreadContentView {
             let noteConfig = EntryRowView.Configuration(
                 isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
                 onEdit: { entry in
-                    if let note = entry as? DataModel.Note { onEditNote(note) }
+                    if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
                 },
                 onDelete: { entry in
                     guard let note = entry as? DataModel.Note else { return }

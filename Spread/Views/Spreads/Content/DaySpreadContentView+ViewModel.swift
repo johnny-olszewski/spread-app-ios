@@ -66,22 +66,25 @@ extension DaySpreadContentView {
             journalManager: JournalManager,
             syncEngine: SyncEngine?,
             groupsByList: Bool = true,
-            eventKitService: (any EventKitService)?,
-            onEditTask: @escaping (DataModel.Task) -> Void,
-            onEditNote: @escaping (DataModel.Note) -> Void
+            eventKitService: (any EventKitService)?
         ) {
             self.spread = spread
             self.journalManager = journalManager
             self.syncEngine = syncEngine
             self.groupsByList = groupsByList
 
-            setupConfigurationMap(onEditTask: onEditTask, onEditNote: onEditNote)
             refreshSections(showsTimelineCard: false)
 
             let capturedService = eventKitService
             fetchTask = Task { [weak self] in
                 await self?.fetchCalendarEvents(service: capturedService)
             }
+        }
+
+        /// Wires coordinator-dependent actions into the configuration map.
+        /// Called from the view's `.task(id:)` once the coordinator is available.
+        func configure(coordinator: SpreadsCoordinator) {
+            setupConfigurationMap(coordinator: coordinator)
         }
 
         /// Refreshes entry list sections. Called from the view when calendar events,
@@ -200,10 +203,7 @@ extension DaySpreadContentView {
             calendarEvents = service.fetchEvents(from: dayStart, to: dayEnd)
         }
 
-        private func setupConfigurationMap(
-            onEditTask: @escaping (DataModel.Task) -> Void,
-            onEditNote: @escaping (DataModel.Note) -> Void
-        ) {
+        private func setupConfigurationMap(coordinator: SpreadsCoordinator) {
             let journalManager = self.journalManager
             let syncEngine = self.syncEngine
             let calendar = journalManager.calendar
@@ -234,8 +234,8 @@ extension DaySpreadContentView {
                     }
                 },
                 onEdit: { entry in
-                    if let task = entry as? DataModel.Task { onEditTask(task) }
-                    else if let note = entry as? DataModel.Note { onEditNote(note) }
+                    if let task = entry as? DataModel.Task { coordinator.showTaskDetail(task) }
+                    else if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
                 },
                 onDelete: { entry in
                     guard let task = entry as? DataModel.Task else { return }
@@ -254,7 +254,7 @@ extension DaySpreadContentView {
                     let options = EntryRowInlineEditSupport.migrationOptions(for: task, today: today, calendar: calendar)
                     return EntryRowInlineActionConfiguration(
                         migrationOptions: options,
-                        onEditSheet: { onEditTask(task) },
+                        onEditSheet: { coordinator.showTaskDetail(task) },
                         onMigrationSelected: { option in
                             try? await journalManager.updateTaskDateAndPeriod(task, newDate: option.date, newPeriod: option.period)
                             await syncEngine?.syncNow()
@@ -266,7 +266,7 @@ extension DaySpreadContentView {
             let noteConfig = EntryRowView.Configuration(
                 isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
                 onEdit: { entry in
-                    if let note = entry as? DataModel.Note { onEditNote(note) }
+                    if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
                 },
                 onDelete: { entry in
                     guard let note = entry as? DataModel.Note else { return }
