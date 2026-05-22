@@ -41,10 +41,12 @@ extension DaySpreadContentView {
         let spread: DataModel.Spread
         private let journalManager: JournalManager
         private let syncEngine: SyncEngine?
-        private let entryListConfiguration: EntryListConfiguration
+        private let groupsByList: Bool
 
-        private(set) var entryListViewModel = EntryListViewModel()
+        private(set) var sections: [EntryList.Section] = []
+        private(set) var configurationMap: [EntryType: EntryRowView.Configuration] = [:]
         private(set) var calendarEvents: [CalendarEvent] = []
+        var onAddTask: (@MainActor (String, Date, Period) async throws -> Void)?
 
         @ObservationIgnored private var fetchTask: Task<Void, Never>?
 
@@ -63,7 +65,7 @@ extension DaySpreadContentView {
             spread: DataModel.Spread,
             journalManager: JournalManager,
             syncEngine: SyncEngine?,
-            entryListConfiguration: EntryListConfiguration = .init(),
+            groupsByList: Bool = true,
             eventKitService: (any EventKitService)?,
             onEditTask: @escaping (DataModel.Task) -> Void,
             onEditNote: @escaping (DataModel.Note) -> Void
@@ -71,11 +73,8 @@ extension DaySpreadContentView {
             self.spread = spread
             self.journalManager = journalManager
             self.syncEngine = syncEngine
-            self.entryListConfiguration = entryListConfiguration
+            self.groupsByList = groupsByList
 
-            let cal = journalManager.calendar
-            entryListViewModel.calendar = cal
-            entryListViewModel.today = journalManager.today
             setupConfigurationMap(onEditTask: onEditTask, onEditNote: onEditNote)
             refreshSections(showsTimelineCard: false)
 
@@ -90,15 +89,93 @@ extension DaySpreadContentView {
         func refreshSections(showsTimelineCard: Bool) {
             guard let dataModel = spreadDataModel else { return }
             let cal = journalManager.calendar
-            let grouper = EntryListGrouper(
-                configuration: entryListConfiguration,
-                period: dataModel.spread.period,
+            sections = Self.makeSections(
+                from: allEntries(dataModel: dataModel, calendar: cal, showsTimelineCard: showsTimelineCard),
                 spreadDate: dataModel.spread.date,
-                spreadStartDate: dataModel.spread.startDate,
-                spreadEndDate: dataModel.spread.endDate,
-                calendar: cal
+                calendar: cal,
+                groupsByList: groupsByList
             )
-            entryListViewModel.sections = grouper.group(allEntries(dataModel: dataModel, calendar: cal, showsTimelineCard: showsTimelineCard))
+        }
+
+        // MARK: - Section Grouping
+
+        /// Groups day spread entries into sections.
+        ///
+        /// When `groupsByList` is true, entries are bucketed into named-list sections (alphabetical)
+        /// with a trailing untitled section for entries with no list. When false, all entries appear
+        /// in a single flat section — used in traditional mode.
+        static func makeSections(
+            from entries: [any Entry],
+            spreadDate: Date,
+            calendar: Calendar,
+            groupsByList: Bool
+        ) -> [EntryList.Section] {
+            guard !entries.isEmpty else { return [] }
+
+            let sectionID = String(spreadDate.timeIntervalSinceReferenceDate)
+
+            func entryDate(_ entry: any Entry) -> Date {
+                switch entry.entryType {
+                case .task: return (entry as? DataModel.Task)?.date ?? .now
+                case .event: return (entry as? DataModel.Event)?.startDate ?? .now
+                case .note: return (entry as? DataModel.Note)?.date ?? .now
+                }
+            }
+
+            func sorted(_ entries: [any Entry]) -> [any Entry] {
+                entries.sorted { entryDate($0) < entryDate($1) }
+            }
+
+            guard groupsByList else {
+                return [EntryList.Section(
+                    id: sectionID,
+                    title: "",
+                    date: spreadDate,
+                    entries: sorted(entries),
+                    creationPeriod: .day,
+                    creationDate: spreadDate
+                )]
+            }
+
+            var listGroups: [UUID?: [any Entry]] = [:]
+            var listNames: [UUID: String] = [:]
+
+            for entry in entries {
+                if let task = entry as? DataModel.Task {
+                    let listID = task.list?.id
+                    listGroups[listID, default: []].append(entry)
+                    if let list = task.list { listNames[list.id] = list.name }
+                } else {
+                    listGroups[nil, default: []].append(entry)
+                }
+            }
+
+            var sections: [EntryList.Section] = []
+
+            let sortedListIDs = listNames.keys.sorted { listNames[$0]! < listNames[$1]! }
+            for listID in sortedListIDs {
+                sections.append(EntryList.Section(
+                    id: listID.uuidString,
+                    title: listNames[listID] ?? "",
+                    date: spreadDate,
+                    entries: sorted(listGroups[listID] ?? []),
+                    creationPeriod: .day,
+                    creationDate: spreadDate
+                ))
+            }
+
+            if let noListEntries = listGroups[nil], !noListEntries.isEmpty {
+                sections.append(EntryList.Section(
+                    id: sectionID,
+                    title: "",
+                    date: spreadDate,
+                    entries: sorted(noListEntries),
+                    creationPeriod: .day,
+                    creationDate: spreadDate
+                ))
+            }
+
+            return sections
         }
 
         // MARK: - Private
@@ -225,9 +302,9 @@ extension DaySpreadContentView {
                 }
             )
 
-            entryListViewModel.configurationMap = [.task: taskConfig, .note: noteConfig, .event: eventConfig]
+            configurationMap = [.task: taskConfig, .note: noteConfig, .event: eventConfig]
 
-            entryListViewModel.onAddTask = { @MainActor title, date, period in
+            onAddTask = { @MainActor title, date, period in
                 _ = try await journalManager.addTask(title: title, date: date, period: period)
                 Task { @MainActor in await syncEngine?.syncNow() }
             }

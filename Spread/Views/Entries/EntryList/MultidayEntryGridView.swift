@@ -6,14 +6,16 @@ import SwiftUI
 /// or the full entry list for that day. Multiday-assigned tasks appear in a full-width
 /// assignment section above the day cards.
 ///
-/// Callers compute `[EntryList.Section]` using `EntryListGrouper` with the multiday
-/// period, then pass the ViewModel for inline creation state and inject entry row
-/// rendering via `rowContent`.
+/// Callers compute `[EntryList.Section]` via `MultidaySpreadContentView.ViewModel.makeSections`
+/// and inject entry row rendering via `rowContent`.
 struct MultidayEntryGridView<RowContent: View>: View {
 
     // MARK: - Properties
 
-    @Bindable var viewModel: EntryListViewModel
+    let sections: [EntryList.Section]
+    let calendar: Calendar
+    let today: Date
+    var onAddTask: (@MainActor (String, Date, Period) async throws -> Void)?
 
     /// The multiday spread being displayed. Used for overdue calculations.
     let spread: DataModel.Spread
@@ -49,7 +51,7 @@ struct MultidayEntryGridView<RowContent: View>: View {
                 alignment: .leading,
                 spacing: 16
             ) {
-                ForEach(viewModel.sections) { section in
+                ForEach(sections) { section in
                     if section.creationPeriod == .multiday {
                         assignmentSection(section)
                             .gridCellColumns(columnCount)
@@ -63,8 +65,8 @@ struct MultidayEntryGridView<RowContent: View>: View {
         .sheet(item: $activePeekData) { data in
             MultidayPeekPanelView(
                 data: data,
-                calendar: viewModel.calendar,
-                today: viewModel.today,
+                calendar: calendar,
+                today: today,
                 onClose: { activePeekData = nil },
                 onNavigate: { spread in
                     activePeekData = nil
@@ -85,11 +87,13 @@ struct MultidayEntryGridView<RowContent: View>: View {
     private func daySection(_ section: EntryList.Section) -> some View {
         let explicitDaySpread = explicitDaySpreadForDate?(section.date)
         MultidayDaySectionView(
-            viewModel: viewModel,
             section: section,
             parentSpread: spread,
             explicitDaySpread: explicitDaySpread,
             openTaskCount: explicitDaySpread.flatMap { openTaskCountForDaySpread?($0) } ?? 0,
+            calendar: calendar,
+            today: today,
+            onAddTask: onAddTask,
             onFooterTap: {
                 if let daySpread = explicitDaySpread {
                     onSelectSpread?(daySpread)
@@ -118,7 +122,7 @@ struct MultidayEntryGridView<RowContent: View>: View {
                     rowContent(entry)
                 }
 
-                if let onAddTask = viewModel.onAddTask {
+                if let onAddTask {
                     AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: onAddTask)
                 }
             }
