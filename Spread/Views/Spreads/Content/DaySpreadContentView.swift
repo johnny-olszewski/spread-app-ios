@@ -98,18 +98,30 @@ struct DaySpreadContentView: View {
     private var regularLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let message = autoMigrationFeedback?.message {
-                SpreadAutoMigrationCueView(message: message)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
+                autoMigrationMessage(message: message)
             }
 
             HStack(alignment: .top, spacing: 0) {
-                timelineCard
-                EntryListView(
-                    sections: viewModel.sections,
-                    configurationMap: viewModel.configurationMap,
-                    onAddTask: viewModel.onAddTask
+                
+                // Full-height card for the wide layout. Scroll management, all-day section,
+                // and height sizing are all handled by `DayTimelineScrollView`.
+                DayTimelineScrollView(
+                    generator: SpreadDayTimelineContentGenerator(),
+                    items: viewModel.calendarEvents,
+                    date: viewModel.spread.date,
+                    visibleStartHour: 0,
+                    visibleEndHour: 24,
+                    verticalCount: config.wideTimelineRowCount,
+                    verticalSpan: config.wideTimelineRowSpan,
+                    calendar: viewModel.calendar
                 )
+                .containerRelativeFrame(.horizontal, count: config.wideTimelineColumnCount, span: config.wideTimelineColumnSpan, spacing: 0)
+                .spreadCard()
+                .padding(.leading, 16)
+                .padding(.trailing, 8)
+                .padding(.vertical, 12)
+                
+                entryList
             }
             .frame(maxHeight: .infinity)
         }
@@ -119,39 +131,25 @@ struct DaySpreadContentView: View {
     private var compactLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let message = autoMigrationFeedback?.message {
-                SpreadAutoMigrationCueView(message: message)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
+                autoMigrationMessage(message: message)
             }
-
-            EntryListView(
-                sections: viewModel.sections,
-                configurationMap: viewModel.configurationMap,
-                onAddTask: viewModel.onAddTask
-            )
+            
+            entryList
         }
     }
-
-    // MARK: - Timeline card
-
-    /// Full-height card for the wide layout. Scroll management, all-day section,
-    /// and height sizing are all handled by `DayTimelineScrollView`.
-    private var timelineCard: some View {
-        return DayTimelineScrollView(
-            generator: SpreadDayTimelineContentGenerator(),
-            items: viewModel.calendarEvents,
-            date: viewModel.spread.date,
-            visibleStartHour: 0,
-            visibleEndHour: 24,
-            verticalCount: config.wideTimelineRowCount,
-            verticalSpan: config.wideTimelineRowSpan,
-            calendar: viewModel.calendar
+    
+    private var entryList: some View {
+        EntryListView(
+            sections: viewModel.sections,
+            configurationMap: viewModel.configurationMap,
+            onAddTask: viewModel.onAddTask
         )
-        .containerRelativeFrame(.horizontal, count: config.wideTimelineColumnCount, span: config.wideTimelineColumnSpan, spacing: 0)
-        .spreadCard()
-        .padding(.leading, 16)
-        .padding(.trailing, 8)
-        .padding(.vertical, 12)
+    }
+    
+    private func autoMigrationMessage(message: String) -> some View {
+        SpreadAutoMigrationCueView(message: message)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
     }
 }
 
