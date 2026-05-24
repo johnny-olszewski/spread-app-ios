@@ -84,14 +84,11 @@ final class SpreadsCoordinator {
     /// The currently active alert, or nil if no alert is presented.
     var activeAlert: AlertDestination?
 
-    /// Transient feedback for automatic explicit-spread migration.
-    var autoMigrationFeedback: SpreadAutoMigrationFeedback?
+    /// State for the convenience navigation button in `SpreadHeaderView`.
+    /// Non-nil means the button is visible. `.offer` fades after a timeout if not tapped.
+    var convenienceNavigation: ConvenienceNavigationButtonState?
 
-    /// The spread the user navigated from via a peek action. Non-nil enables the "Go Back" button
-    /// in `SpreadHeaderView`. Cleared by any navigation that is not a peek-initiated jump.
-    var peekNavigationSource: DataModel.Spread?
-
-    private var autoMigrationFeedbackDismissTask: Task<Void, Never>?
+    private var convenienceNavigationFadeTask: Task<Void, Never>?
 
     // MARK: - Actions
 
@@ -116,36 +113,30 @@ final class SpreadsCoordinator {
         recenterToken += 1
     }
 
-    /// Applies explicit spread-creation behavior, including auto-migration reveal routing.
+    /// Shows a convenience navigation button for the newly created spread without auto-navigating.
+    ///
+    /// The button label reflects whether tasks were auto-migrated or the spread was simply created.
+    /// If the current selection is not a conventional spread, falls back to direct navigation.
     func finishSpreadCreation(
         _ result: SpreadCreationOperationResult,
         currentSelection: SpreadHeaderNavigatorModel.Selection,
         calendar: Calendar
     ) {
-        let destinationSelection = SpreadHeaderNavigatorModel.Selection.conventional(result.spread)
-
-        if let feedback = SpreadAutoMigrationFeedbackSupport.feedback(
-            currentSelection: currentSelection,
-            creationResult: result,
-            calendar: calendar
-        ) {
-            switch SpreadAutoMigrationFeedbackSupport.revealBehavior(
-                currentSelection: currentSelection,
-                creationResult: result,
-                calendar: calendar
-            ) {
-            case .local:
-                break
-            case .navigate:
-                selectedSelection = destinationSelection
-                recenterToken += 1
-            }
-            presentAutoMigrationFeedback(feedback)
+        guard let source = conventionalSpread(from: currentSelection) else {
+            selectedSelection = .conventional(result.spread)
+            recenterToken += 1
             return
         }
 
-        selectedSelection = destinationSelection
-        recenterToken += 1
+        let label: String
+        if let summary = result.autoMigrationSummary, summary.totalCount > 0 {
+            label = summary.message
+        } else {
+            label = "New spread created"
+        }
+
+        convenienceNavigation = .offer(label: label, destination: result.spread, source: source)
+        startConvenienceNavigationFade()
     }
 
     /// Presents spread deletion confirmation for a conventional explicit spread.
@@ -168,23 +159,49 @@ final class SpreadsCoordinator {
         activeSheet = .noteCreation
     }
 
-    /// Navigates to `destination` and records `source` as the peek navigation origin,
+    /// Navigates to `destination` and records `source` as the navigation origin,
     /// enabling the "Go Back" button in `SpreadHeaderView`.
     func navigateViaPeek(to destination: DataModel.Spread, from source: DataModel.Spread) {
         selectedSelection = .conventional(destination)
         recenterToken += 1
-        peekNavigationSource = source
+        // Cancel any active fade — go-back state does not fade
+        convenienceNavigationFadeTask?.cancel()
+        convenienceNavigationFadeTask = nil
+        convenienceNavigation = .goBack(source: source)
     }
 
-    /// Clears the peek navigation source, hiding the "Go Back" button.
-    func clearPeekNavigationSource() {
-        peekNavigationSource = nil
+    /// Clears the convenience navigation button state.
+    func clearConvenienceNavigation() {
+        convenienceNavigationFadeTask?.cancel()
+        convenienceNavigationFadeTask = nil
+        convenienceNavigation = nil
     }
 
-    /// Navigates to a conventional spread and clears any active peek navigation source.
+    /// Navigates to a conventional spread and clears any active convenience navigation.
     func selectSpread(_ spread: DataModel.Spread) {
         selectedSelection = .conventional(spread)
-        clearPeekNavigationSource()
+        clearConvenienceNavigation()
+    }
+
+    /// Handles a tap on the convenience navigation button.
+    ///
+    /// - `.offer`: navigates to the destination and transitions the button to `.goBack`.
+    /// - `.goBack`: navigates to the source and clears the button.
+    func handleConvenienceNavButtonTapped() {
+        switch convenienceNavigation {
+        case .offer(_, let destination, let source):
+            convenienceNavigationFadeTask?.cancel()
+            convenienceNavigationFadeTask = nil
+            selectedSelection = .conventional(destination)
+            recenterToken += 1
+            convenienceNavigation = .goBack(source: source)
+        case .goBack(let source):
+            convenienceNavigation = nil
+            selectedSelection = .conventional(source)
+            recenterToken += 1
+        case nil:
+            break
+        }
     }
 
     /// Presents the task detail sheet for editing.
@@ -217,20 +234,22 @@ final class SpreadsCoordinator {
         activeAlert = nil
     }
 
-    func clearAutoMigrationFeedback() {
-        autoMigrationFeedbackDismissTask?.cancel()
-        autoMigrationFeedbackDismissTask = nil
-        autoMigrationFeedback = nil
+    // MARK: - Private
+
+    private func conventionalSpread(from selection: SpreadHeaderNavigatorModel.Selection) -> DataModel.Spread? {
+        guard case .conventional(let spread) = selection else { return nil }
+        return spread
     }
 
-    private func presentAutoMigrationFeedback(_ feedback: SpreadAutoMigrationFeedback) {
-        autoMigrationFeedbackDismissTask?.cancel()
-        autoMigrationFeedback = feedback
-        autoMigrationFeedbackDismissTask = Task { [weak self] in
+    private func startConvenienceNavigationFade() {
+        convenienceNavigationFadeTask?.cancel()
+        convenienceNavigationFadeTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled else { return }
-            self?.autoMigrationFeedback = nil
-            self?.autoMigrationFeedbackDismissTask = nil
+            if case .offer = self?.convenienceNavigation {
+                self?.convenienceNavigation = nil
+            }
+            self?.convenienceNavigationFadeTask = nil
         }
     }
 }
