@@ -140,6 +140,14 @@ final class JournalManager {
     /// returns the `SpreadDataModel` for that month spread.
     private(set) var dataModel: JournalDataModel = [:]
 
+    /// Returns the `SpreadDataModel` for the given period and date, or `nil` if no spread exists.
+    ///
+    /// The date is normalized to the period before lookup, so callers can pass any date
+    /// within the target period (e.g. any day in a month to look up a month spread).
+    func spreadDataModel(for date: Date, period: Period) -> SpreadDataModel? {
+        dataModel[key: SpreadDataModelKey(period: period, date: date, calendar: calendar)]
+    }
+
     // MARK: - Inbox
 
     /// Entries that have no matching spread assignment.

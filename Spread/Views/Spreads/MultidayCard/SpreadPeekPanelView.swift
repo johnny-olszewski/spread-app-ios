@@ -1,28 +1,31 @@
 import SwiftUI
 import JohnnyOFoundationUI
 
-// MARK: - Data
+// MARK: - View
 
-/// Data bundle for the multiday peek sheet.
-struct MultidayPeekData: Identifiable, Equatable {
-    let spread: DataModel.Spread
-    let spreadDataModel: SpreadDataModel
-    let calendarEvents: [CalendarEvent]
-
-    var id: UUID { spread.id }
-
-    static func == (lhs: MultidayPeekData, rhs: MultidayPeekData) -> Bool {
-        lhs.spread.id == rhs.spread.id
-    }
-}
-
-// MARK: - Panel
-
-/// Read-only sheet that lets the user peek at a day spread from a multiday view.
+/// Read-only sheet that lets the user peek at a spread from a parent view.
 ///
-/// Shows open tasks followed by calendar events. No editing is allowed.
-struct MultidayPeekPanelView: View {
-    let data: MultidayPeekData
+/// Shows open tasks and, when provided, calendar events. No editing is allowed.
+struct SpreadPeekPanelView: View {
+
+    // MARK: - Data
+
+    struct Data: Identifiable, Equatable {
+        let spread: DataModel.Spread
+        let spreadDataModel: SpreadDataModel
+        /// `nil` suppresses the Events section (e.g. month spread peek from year view).
+        let calendarEvents: [CalendarEvent]?
+
+        var id: UUID { spread.id }
+
+        static func == (lhs: Data, rhs: Data) -> Bool {
+            lhs.spread.id == rhs.spread.id
+        }
+    }
+
+    // MARK: - Properties
+
+    let data: Data
     let calendar: Calendar
     let today: Date
     let onClose: () -> Void
@@ -36,16 +39,17 @@ struct MultidayPeekPanelView: View {
         data.spreadDataModel.tasks.filter { $0.status == .open }
     }
 
-    private var allDayEvents: [CalendarEvent] { data.calendarEvents.filter(\.isAllDay) }
-    private var timedEvents: [CalendarEvent] { data.calendarEvents.filter { !$0.isAllDay } }
+    private var allDayEvents: [CalendarEvent] { data.calendarEvents?.filter(\.isAllDay) ?? [] }
+    private var timedEvents: [CalendarEvent] { data.calendarEvents?.filter { !$0.isAllDay } ?? [] }
+    private var hasEvents: Bool { !(data.calendarEvents?.isEmpty ?? true) }
 
     // MARK: - Body
 
     var body: some View {
         NavigationStack {
             List {
-                if openTasks.isEmpty && data.calendarEvents.isEmpty {
-                    Text("Nothing scheduled for this day.")
+                if openTasks.isEmpty && !hasEvents {
+                    Text("Nothing scheduled.")
                         .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                         .listRowBackground(Color.clear)
@@ -57,7 +61,12 @@ struct MultidayPeekPanelView: View {
                                 peekTaskRow(task)
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
-                                    .listRowInsets(EdgeInsets(top: SpreadTheme.Spacing.entryRowVertical, leading: 16, bottom: SpreadTheme.Spacing.entryRowVertical, trailing: 16))
+                                    .listRowInsets(EdgeInsets(
+                                        top: SpreadTheme.Spacing.entryRowVertical,
+                                        leading: 16,
+                                        bottom: SpreadTheme.Spacing.entryRowVertical,
+                                        trailing: 16
+                                    ))
                                     .contentShape(Rectangle())
                                     .onTapGesture { onTaskTap?(task) }
                                     .overlay(alignment: .trailing) {
@@ -78,13 +87,23 @@ struct MultidayPeekPanelView: View {
                                 peekCalendarEventRow(event)
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
-                                    .listRowInsets(EdgeInsets(top: SpreadTheme.Spacing.entryRowVertical, leading: 16, bottom: SpreadTheme.Spacing.entryRowVertical, trailing: 16))
+                                    .listRowInsets(EdgeInsets(
+                                        top: SpreadTheme.Spacing.entryRowVertical,
+                                        leading: 16,
+                                        bottom: SpreadTheme.Spacing.entryRowVertical,
+                                        trailing: 16
+                                    ))
                             }
                             ForEach(timedEvents) { event in
                                 peekCalendarEventRow(event)
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
-                                    .listRowInsets(EdgeInsets(top: SpreadTheme.Spacing.entryRowVertical, leading: 16, bottom: SpreadTheme.Spacing.entryRowVertical, trailing: 16))
+                                    .listRowInsets(EdgeInsets(
+                                        top: SpreadTheme.Spacing.entryRowVertical,
+                                        leading: 16,
+                                        bottom: SpreadTheme.Spacing.entryRowVertical,
+                                        trailing: 16
+                                    ))
                             }
                         }
                     }
@@ -154,7 +173,7 @@ struct MultidayPeekPanelView: View {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "EEEE, MMM d"
+        formatter.dateFormat = data.spread.period == .month ? "MMMM yyyy" : "EEEE, MMM d"
         return formatter.string(from: data.spread.date)
     }
 }

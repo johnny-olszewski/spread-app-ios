@@ -24,14 +24,14 @@ struct MultidayEntryGridView<RowContent: View>: View {
     var onSelectSpread: ((DataModel.Spread) -> Void)? = nil
     var onCreateSpread: ((Date) -> Void)? = nil
     var openTaskCountForDaySpread: ((DataModel.Spread) -> Int)? = nil
-    var peekDataForDaySpread: ((DataModel.Spread) -> MultidayPeekData?)? = nil
+    var peekDataForDaySpread: ((DataModel.Spread) -> SpreadPeekPanelView.Data?)? = nil
     var onPeekTaskTap: ((DataModel.Spread, DataModel.Task) -> Void)? = nil
 
     @ViewBuilder var rowContent: (any Entry) -> RowContent
 
     // MARK: - View-owned state
 
-    @State private var activePeekData: MultidayPeekData?
+    @State private var activePeekData: SpreadPeekPanelView.Data?
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -63,7 +63,7 @@ struct MultidayEntryGridView<RowContent: View>: View {
             .padding(16)
         }
         .sheet(item: $activePeekData) { data in
-            MultidayPeekPanelView(
+            SpreadPeekPanelView(
                 data: data,
                 calendar: calendar,
                 today: today,
