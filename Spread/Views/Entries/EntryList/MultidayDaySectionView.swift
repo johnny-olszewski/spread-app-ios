@@ -22,7 +22,7 @@ struct MultidayDaySectionView<RowContent: View>: View {
         Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: section.date, calendar: calendar)
     }
 
-    private var visualState: MultidayDayCardVisualState {
+    private var visualState: SpreadCardStyle {
         MultidayDayCardSupport.visualState(
             for: section.date,
             today: today,

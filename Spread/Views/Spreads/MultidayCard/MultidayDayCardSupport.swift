@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum MultidayDayCardVisualState: Equatable {
+enum SpreadCardStyle: Equatable {
     case created
     case uncreated
     case todayCreated
@@ -112,7 +112,7 @@ enum MultidayDayCardSupport {
     static func visualState(
         isToday: Bool,
         isCreated: Bool
-    ) -> MultidayDayCardVisualState {
+    ) -> SpreadCardStyle {
         switch (isToday, isCreated) {
         case (true, true):
             return .todayCreated
@@ -130,7 +130,7 @@ enum MultidayDayCardSupport {
         today: Date,
         explicitDaySpread: DataModel.Spread?,
         calendar: Calendar
-    ) -> MultidayDayCardVisualState {
+    ) -> SpreadCardStyle {
         visualState(
             isToday: calendar.isDate(date, inSameDayAs: today),
             isCreated: explicitDaySpread != nil

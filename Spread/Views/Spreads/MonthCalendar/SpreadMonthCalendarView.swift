@@ -101,7 +101,7 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
     private func dayVisualState(
         for context: MonthCalendarDayContext,
         dayState: SpreadMonthCalendarDayState
-    ) -> MultidayDayCardVisualState {
+    ) -> SpreadCardStyle {
         switch mode {
         case .conventional:
             return MultidayDayCardSupport.visualState(
@@ -117,7 +117,7 @@ private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
     }
 
     private func cellFill(
-        visualState: MultidayDayCardVisualState,
+        visualState: SpreadCardStyle,
         isPeripheral: Bool
     ) -> Color {
         if isPeripheral { return Color.clear }
