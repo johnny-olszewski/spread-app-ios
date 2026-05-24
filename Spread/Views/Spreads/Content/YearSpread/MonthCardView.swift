@@ -28,7 +28,6 @@ struct MonthCardView: View {
     let visualState: SpreadCardStyle
     let style: Style
 
-    var migrationMessage: String? = nil
     var onPeek: (() -> Void)? = nil
     var onViewSpread: (() -> Void)? = nil
     var onCreateSpread: (() -> Void)? = nil
@@ -49,10 +48,6 @@ struct MonthCardView: View {
         VStack(alignment: .leading, spacing: Layout.cardSpacing) {
             header
 
-            if let migrationMessage {
-                SpreadAutoMigrationCueView(message: migrationMessage)
-            }
-
             if horizontalSizeClass == .regular {
                 regularLayout
             } else {
@@ -66,12 +61,7 @@ struct MonthCardView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: Layout.cardCornerRadius, style: .continuous)
-                .strokeBorder(
-                    migrationMessage != nil
-                        ? SpreadTheme.Accent.todaySelectedEmphasis
-                        : visualState.borderColor,
-                    style: visualState.borderStyle
-                )
+                .strokeBorder(visualState.borderColor, style: visualState.borderStyle)
         )
     }
 

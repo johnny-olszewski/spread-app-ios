@@ -26,15 +26,6 @@ struct DaySpreadContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.eventKitService) private var eventKitService
 
-    private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
-        guard let feedback = coordinator.autoMigrationFeedback,
-              feedback.surfaceSpreadID == spread.id,
-              feedback.anchor == .spreadHeader else {
-            return nil
-        }
-        return feedback
-    }
-
     private var shouldShowTimelineCard: Bool {
         horizontalSizeClass.isRegular && !viewModel.calendarEvents.isEmpty
     }
@@ -92,12 +83,7 @@ struct DaySpreadContentView: View {
     /// Calendar events are surfaced in the timeline card only; the entry list
     /// receives an empty events array so it does not duplicate them.
     private var regularLayout: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if let message = autoMigrationFeedback?.message {
-                autoMigrationMessage(message: message)
-            }
-
-            HStack(alignment: .top, spacing: 0) {
+        HStack(alignment: .top, spacing: 0) {
                 DayTimelineScrollView(
                     generator: SpreadDayTimelineContentGenerator(),
                     items: viewModel.calendarEvents,
@@ -117,18 +103,11 @@ struct DaySpreadContentView: View {
                 entryList
             }
             .frame(maxHeight: .infinity)
-        }
     }
 
     /// Compact-width: a single scrollable entry list with calendar events in a dedicated section.
     private var compactLayout: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if let message = autoMigrationFeedback?.message {
-                autoMigrationMessage(message: message)
-            }
-
-            entryList
-        }
+        entryList
     }
 
     private var entryList: some View {
@@ -139,11 +118,6 @@ struct DaySpreadContentView: View {
         )
     }
 
-    private func autoMigrationMessage(message: String) -> some View {
-        SpreadAutoMigrationCueView(message: message)
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-    }
 }
 
 // MARK: - UserInterfaceSizeClass

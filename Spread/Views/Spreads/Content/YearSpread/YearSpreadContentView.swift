@@ -46,24 +46,11 @@ struct YearSpreadContentView: View {
         }
     }
 
-    private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
-        guard let feedback = coordinator.autoMigrationFeedback,
-              feedback.surfaceSpreadID == spread.id else {
-            return nil
-        }
-        return feedback
-    }
-
     // MARK: - Body
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-                if autoMigrationFeedback?.anchor == .spreadHeader,
-                   let message = autoMigrationFeedback?.message {
-                    SpreadAutoMigrationCueView(message: message)
-                }
-
                 topYearSection
 
                 ForEach(monthDates, id: \.self) { date in
@@ -124,10 +111,6 @@ struct YearSpreadContentView: View {
             isToday: calendar.isDate(normalizedDate, equalTo: journalManager.today, toGranularity: .month),
             isCreated: monthSpread != nil
         )
-        let migrationMessage: String? = autoMigrationFeedback.flatMap { feedback in
-            guard case .yearMonth(let d) = feedback.anchor, d == normalizedDate else { return nil }
-            return feedback.message
-        }
 
         if let monthSpread {
             let openTaskCount = monthSpreadDataModel?.tasks.filter { $0.status == .open }.count ?? 0
@@ -146,7 +129,6 @@ struct YearSpreadContentView: View {
                 calendar: calendar,
                 visualState: visualState,
                 style: .count(taskCount: openTaskCount),
-                migrationMessage: migrationMessage,
                 onPeek: peekAction,
                 onViewSpread: { coordinator.selectSpread(monthSpread) }
             )
@@ -168,7 +150,6 @@ struct YearSpreadContentView: View {
                 calendar: calendar,
                 visualState: visualState,
                 style: .list(sections: sections, configurationMap: configurationMap),
-                migrationMessage: migrationMessage,
                 onCreateSpread: { coordinator.showSpreadCreation(prefill: .init(period: .month, date: normalizedDate)) }
             )
         }
