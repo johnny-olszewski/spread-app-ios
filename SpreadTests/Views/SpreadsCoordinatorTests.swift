@@ -372,24 +372,22 @@ struct SpreadsCoordinatorTests {
         #expect(stored.id == spread.id)
     }
 
-    /// Condition: Creating a month spread from the selected parent year triggers auto-migration.
-    /// Expected: Selection stays on the year surface and a local month-card feedback cue is stored.
-    @Test("finishSpreadCreation keeps parent selection for local year to month reveal")
-    func testFinishSpreadCreationKeepsParentSelectionForLocalReveal() {
+    // MARK: - Convenience Navigation
+
+    /// Condition: Spread created with auto-migration from a year surface.
+    /// Expected: Selection stays on the year spread (no auto-navigation) and an offer button appears.
+    @Test("finishSpreadCreation with migration sets offer without navigating")
+    func testFinishSpreadCreationWithMigrationSetsOfferWithoutNavigating() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .init(identifier: "UTC")!
         let year = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
         let month = DataModel.Spread(period: .month, date: calendar.date(from: .init(year: 2026, month: 3, day: 1))!, calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        let currentSelection = SpreadHeaderNavigatorModel.Selection.conventional(year)
-        coordinator.selectedSelection = currentSelection
+        coordinator.selectedSelection = .conventional(year)
 
         coordinator.finishSpreadCreation(
-            .init(
-                spread: month,
-                autoMigrationSummary: .init(taskCount: 1, noteCount: 1)
-            ),
-            currentSelection: currentSelection,
+            .init(spread: month, autoMigrationSummary: .init(taskCount: 1, noteCount: 1)),
+            currentSelection: .conventional(year),
             calendar: calendar
         )
 
@@ -398,38 +396,112 @@ struct SpreadsCoordinatorTests {
             return
         }
         #expect(selectedSpread.id == year.id)
-        #expect(coordinator.autoMigrationFeedback?.surfaceSpreadID == year.id)
+
+        guard case .offer(let label, let destination, let source) = coordinator.convenienceNavigation else {
+            Issue.record("Expected .offer convenience navigation")
+            return
+        }
+        #expect(label == "1 task and 1 note moved automatically")
+        #expect(destination.id == month.id)
+        #expect(source.id == year.id)
     }
 
-    /// Condition: Creating a day spread from a multiday surface triggers auto-migration.
-    /// Expected: Selection navigates to the created day destination and stores header-level feedback.
-    @Test("finishSpreadCreation navigates when local reveal is unavailable")
-    func testFinishSpreadCreationNavigatesWhenLocalRevealIsUnavailable() {
+    /// Condition: Spread created with no auto-migration.
+    /// Expected: Selection stays on source, offer button shows "New spread created".
+    @Test("finishSpreadCreation without migration sets new-spread offer")
+    func testFinishSpreadCreationWithoutMigrationSetsNewSpreadOffer() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .init(identifier: "UTC")!
-        let multiday = DataModel.Spread(
-            startDate: calendar.date(from: .init(year: 2026, month: 3, day: 10))!,
-            endDate: calendar.date(from: .init(year: 2026, month: 3, day: 16))!,
-            calendar: calendar
-        )
-        let day = DataModel.Spread(period: .day, date: calendar.date(from: .init(year: 2026, month: 3, day: 14))!, calendar: calendar)
+        let year = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
+        let month = DataModel.Spread(period: .month, date: calendar.date(from: .init(year: 2026, month: 3, day: 1))!, calendar: calendar)
         let coordinator = SpreadsCoordinator()
+        coordinator.selectedSelection = .conventional(year)
 
         coordinator.finishSpreadCreation(
-            .init(
-                spread: day,
-                autoMigrationSummary: .init(taskCount: 2, noteCount: 0)
-            ),
-            currentSelection: .conventional(multiday),
+            .init(spread: month, autoMigrationSummary: nil),
+            currentSelection: .conventional(year),
             calendar: calendar
         )
 
         guard case .conventional(let selectedSpread)? = coordinator.selectedSelection else {
-            Issue.record("Expected conventional destination selection")
+            Issue.record("Expected conventional selection")
             return
         }
-        #expect(selectedSpread.id == day.id)
-        #expect(coordinator.autoMigrationFeedback?.surfaceSpreadID == day.id)
-        #expect(coordinator.autoMigrationFeedback?.anchor == .spreadHeader)
+        #expect(selectedSpread.id == year.id)
+
+        guard case .offer(let label, let destination, let source) = coordinator.convenienceNavigation else {
+            Issue.record("Expected .offer convenience navigation")
+            return
+        }
+        #expect(label == "New spread created")
+        #expect(destination.id == month.id)
+        #expect(source.id == year.id)
+    }
+
+    /// Condition: Offer button is tapped.
+    /// Expected: Navigates to the destination and transitions the button to .goBack(source:).
+    @Test("tapping offer navigates to destination and transitions to goBack")
+    func testTappingOfferNavigatesToDestinationAndTransitionsToGoBack() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .init(identifier: "UTC")!
+        let source = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
+        let destination = DataModel.Spread(period: .month, date: calendar.date(from: .init(year: 2026, month: 3, day: 1))!, calendar: calendar)
+        let coordinator = SpreadsCoordinator()
+        coordinator.convenienceNavigation = .offer(label: "New spread created", destination: destination, source: source)
+
+        coordinator.handleConvenienceNavButtonTapped()
+
+        guard case .conventional(let selectedSpread)? = coordinator.selectedSelection else {
+            Issue.record("Expected conventional selection")
+            return
+        }
+        #expect(selectedSpread.id == destination.id)
+
+        guard case .goBack(let goBackSource) = coordinator.convenienceNavigation else {
+            Issue.record("Expected .goBack convenience navigation")
+            return
+        }
+        #expect(goBackSource.id == source.id)
+    }
+
+    /// Condition: Go-back button is tapped.
+    /// Expected: Navigates to source and clears the button.
+    @Test("tapping goBack navigates to source and clears button")
+    func testTappingGoBackNavigatesToSourceAndClearsButton() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .init(identifier: "UTC")!
+        let source = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
+        let coordinator = SpreadsCoordinator()
+        coordinator.convenienceNavigation = .goBack(source: source)
+
+        coordinator.handleConvenienceNavButtonTapped()
+
+        guard case .conventional(let selectedSpread)? = coordinator.selectedSelection else {
+            Issue.record("Expected conventional selection")
+            return
+        }
+        #expect(selectedSpread.id == source.id)
+        #expect(coordinator.convenienceNavigation == nil)
+    }
+
+    /// Condition: selectSpread is called while a convenience navigation button is visible.
+    /// Expected: Navigation occurs and the button is cleared.
+    @Test("selectSpread clears convenience navigation")
+    func testSelectSpreadClearsConvenienceNavigation() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .init(identifier: "UTC")!
+        let source = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
+        let target = DataModel.Spread(period: .month, date: calendar.date(from: .init(year: 2026, month: 3, day: 1))!, calendar: calendar)
+        let coordinator = SpreadsCoordinator()
+        coordinator.convenienceNavigation = .goBack(source: source)
+
+        coordinator.selectSpread(target)
+
+        guard case .conventional(let selectedSpread)? = coordinator.selectedSelection else {
+            Issue.record("Expected conventional selection")
+            return
+        }
+        #expect(selectedSpread.id == target.id)
+        #expect(coordinator.convenienceNavigation == nil)
     }
 }
