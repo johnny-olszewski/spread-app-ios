@@ -1,11 +1,5 @@
 import SwiftUI
 
-private enum MonthSpreadContentLayout {
-    static let sectionSpacing: CGFloat = 20
-    static let contentPadding: CGFloat = 16
-    static let sectionRowSpacing: CGFloat = 8
-}
-
 /// Renders a month spread as a calendar, month-level section, and day-section list.
 struct MonthSpreadContentView: View {
     let spread: DataModel.Spread
@@ -16,16 +10,25 @@ struct MonthSpreadContentView: View {
     @Environment(SpreadsCoordinator.self) private var coordinator
     @State private var vm = ViewModel()
 
+    // MARK: - Layout
+
+    private enum Layout {
+        static let sectionSpacing: CGFloat = 20
+        static let contentPadding: CGFloat = 16
+        static let sectionRowSpacing: CGFloat = 8
+    }
+
+    // MARK: - Computed
+
     private var calendar: Calendar {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
     }
 
-    private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
-        guard let feedback = coordinator.autoMigrationFeedback,
-              feedback.surfaceSpreadID == spread.id else {
-            return nil
-        }
-        return feedback
+    private var configurationMap: [EntryType: EntryRowView.Configuration] {
+        [
+            .task: .standardTaskConfig(journalManager: journalManager, syncEngine: syncEngine, coordinator: coordinator),
+            .note: .standardNoteConfig(journalManager: journalManager, syncEngine: syncEngine, coordinator: coordinator)
+        ]
     }
 
     // MARK: - Body
@@ -35,12 +38,7 @@ struct MonthSpreadContentView: View {
             if let contentModel = vm.contentModel {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: MonthSpreadContentLayout.sectionSpacing) {
-                            if autoMigrationFeedback?.anchor == .spreadHeader,
-                               let message = autoMigrationFeedback?.message {
-                                SpreadAutoMigrationCueView(message: message)
-                            }
-
+                        LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
                             SpreadMonthCalendarView(
                                 monthDate: spread.date,
                                 mode: journalManager.bujoMode == .conventional ? .conventional : .traditional,
@@ -63,8 +61,8 @@ struct MonthSpreadContentView: View {
                                     .id(section.id)
                             }
                         }
-                        .padding(.horizontal, MonthSpreadContentLayout.contentPadding)
-                        .padding(.bottom, MonthSpreadContentLayout.sectionSpacing)
+                        .padding(.horizontal, Layout.contentPadding)
+                        .padding(.bottom, Layout.sectionSpacing)
                     }
                 }
             }
@@ -73,9 +71,7 @@ struct MonthSpreadContentView: View {
             vm.configure(
                 spread: spread,
                 spreadDataModel: spreadDataModel,
-                journalManager: journalManager,
-                syncEngine: syncEngine,
-                coordinator: coordinator
+                journalManager: journalManager
             )
         }
         .onChange(of: journalManager.dataVersion) { _, _ in
@@ -89,7 +85,7 @@ struct MonthSpreadContentView: View {
 
     @ViewBuilder
     private func monthSection(entries: [any Entry]) -> some View {
-        VStack(alignment: .leading, spacing: MonthSpreadContentLayout.sectionRowSpacing) {
+        VStack(alignment: .leading, spacing: Layout.sectionRowSpacing) {
             Text("Month")
                 .font(SpreadTheme.Typography.title3)
                 .foregroundStyle(.primary)
@@ -109,7 +105,7 @@ struct MonthSpreadContentView: View {
                         creationPeriod: .month,
                         creationDate: spread.date
                     )],
-                    configurationMap: vm.configurationMap,
+                    configurationMap: configurationMap,
                     style: .inline
                 )
             }
@@ -118,19 +114,8 @@ struct MonthSpreadContentView: View {
 
     @ViewBuilder
     private func daySection(_ section: MonthSpreadDaySectionModel) -> some View {
-        let isAutoMigrationDestination = autoMigrationFeedback.map {
-            if case .monthDay(let date) = $0.anchor {
-                return date == section.date
-            }
-            return false
-        } ?? false
-
-        VStack(alignment: .leading, spacing: MonthSpreadContentLayout.sectionRowSpacing) {
+        VStack(alignment: .leading, spacing: Layout.sectionRowSpacing) {
             daySectionHeader(section)
-
-            if isAutoMigrationDestination, let message = autoMigrationFeedback?.message {
-                SpreadAutoMigrationCueView(message: message)
-            }
 
             if section.entries.isEmpty {
                 Text("No day-level entries.")
@@ -147,21 +132,11 @@ struct MonthSpreadContentView: View {
                         creationPeriod: .day,
                         creationDate: section.date
                     )],
-                    configurationMap: vm.configurationMap,
+                    configurationMap: configurationMap,
                     style: .inline
                 )
             }
         }
-        .padding(.horizontal, isAutoMigrationDestination ? 12 : 0)
-        .padding(.vertical, isAutoMigrationDestination ? 10 : 0)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(
-                    isAutoMigrationDestination
-                        ? SpreadTheme.Accent.todaySelectedEmphasis.opacity(0.08)
-                        : Color.clear
-                )
-        )
     }
 
     @ViewBuilder
