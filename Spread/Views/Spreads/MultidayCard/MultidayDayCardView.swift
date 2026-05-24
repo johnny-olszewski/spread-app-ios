@@ -2,7 +2,7 @@ import SwiftUI
 
 struct MultidayDayCardView<Content: View>: View {
     let dateID: String
-    let visualState: MultidayDayCardVisualState
+    let visualState: SpreadCardStyle
     let footerAction: MultidayDayCardAction
     let overdueCount: Int
     let shortMonthText: String
@@ -20,7 +20,7 @@ struct MultidayDayCardView<Content: View>: View {
 
     init(
         dateID: String,
-        visualState: MultidayDayCardVisualState,
+        visualState: SpreadCardStyle,
         footerAction: MultidayDayCardAction,
         overdueCount: Int,
         shortMonthText: String,

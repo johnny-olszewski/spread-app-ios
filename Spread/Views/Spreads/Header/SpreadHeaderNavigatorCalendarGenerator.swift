@@ -100,14 +100,14 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
         isToday: Bool,
         mode: SpreadHeaderNavigatorModel.Mode,
         hasExplicitDayTarget: Bool
-    ) -> MultidayDayCardVisualState {
+    ) -> SpreadCardStyle {
         MultidayDayCardSupport.visualState(
             isToday: isToday,
             isCreated: mode == .traditional || hasExplicitDayTarget
         )
     }
 
-    private func cellFill(isSelected: Bool, visualState: MultidayDayCardVisualState) -> Color {
+    private func cellFill(isSelected: Bool, visualState: SpreadCardStyle) -> Color {
         if isSelected { return SpreadSelectionVisualStyle.surfaceFill }
         if visualState.isToday { return visualState.fill }
         return Color.clear
@@ -115,7 +115,7 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
 
     private func foregroundColor(
         targets: [SpreadHeaderNavigatorModel.SelectionTarget],
-        visualState: MultidayDayCardVisualState
+        visualState: SpreadCardStyle
     ) -> Color {
         if visualState.isToday { return SpreadTheme.Accent.todayEmphasis }
         return targets.isEmpty ? .secondary : .primary

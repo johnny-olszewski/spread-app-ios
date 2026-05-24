@@ -4,7 +4,7 @@ import SwiftUI
 struct SpreadContentPagerView: View {
     private let liveRadius = 2
 
-    let journalManager: JournalManager
+    @Environment(JournalManager.self) private var journalManager
     let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
     let model: SpreadTitleNavigatorModel
@@ -56,7 +56,6 @@ struct SpreadContentPagerView: View {
                         if liveWindowIDs.contains(item.id) {
                             SpreadPageContentView(
                                 item: item,
-                                journalManager: journalManager,
                                 coordinator: coordinator,
                                 syncEngine: syncEngine,
                                 model: model
@@ -176,7 +175,7 @@ struct SpreadContentPagerView: View {
 /// Assembles a single spread page: `SpreadHeaderView` followed by the period-appropriate content view.
 private struct SpreadPageContentView: View {
     let item: SpreadTitleNavigatorModel.Item
-    let journalManager: JournalManager
+    @Environment(JournalManager.self) private var journalManager
     let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
     let model: SpreadTitleNavigatorModel
@@ -220,38 +219,40 @@ private struct SpreadPageContentView: View {
 
     @ViewBuilder
     private func conventionalContentView(for spread: DataModel.Spread) -> some View {
-        let dataModel = conventionalSpreadDataModel(for: spread)
-
-        switch spread.period {
-        case .year:
-            YearSpreadContentView(
-                spread: spread,
-                spreadDataModel: dataModel,
-                journalManager: journalManager,
-                syncEngine: syncEngine
-            )
-        case .month:
-            MonthSpreadContentView(
-                spread: spread,
-                spreadDataModel: dataModel,
-                journalManager: journalManager,
-                syncEngine: syncEngine
-            )
-        case .day:
-            DaySpreadContentView(
-                spread: spread,
-                journalManager: journalManager,
-                syncEngine: syncEngine,
-                eventKitService: eventKitService
-            )
-        case .multiday:
-            MultidaySpreadContentView(
-                spread: spread,
-                spreadDataModel: dataModel,
-                journalManager: journalManager,
-                syncEngine: syncEngine,
-                explicitDaySpreadForDate: { date in explicitDaySpread(for: date) }
-            )
+        if let dataModel = conventionalSpreadDataModel(for: spread) {
+            switch spread.period {
+            case .year:
+                YearSpreadContentView(
+                    spread: spread,
+                    spreadDataModel: dataModel,
+                    syncEngine: syncEngine
+                )
+            case .month:
+                MonthSpreadContentView(
+                    spread: spread,
+                    spreadDataModel: dataModel,
+                    syncEngine: syncEngine
+                )
+            case .day:
+                DaySpreadContentView(
+                    spread: spread,
+                    spreadDataModel: dataModel,
+                    syncEngine: syncEngine
+                )
+            case .multiday:
+                MultidaySpreadContentView(
+                    spread: spread,
+                    spreadDataModel: dataModel,
+                    syncEngine: syncEngine,
+                    explicitDaySpreadForDate: { date in explicitDaySpread(for: date) }
+                )
+            }
+        } else {
+            ContentUnavailableView {
+                Label("No Data", systemImage: "tray")
+            } description: {
+                Text("Unable to load spread data.")
+            }
         }
     }
 
@@ -280,31 +281,25 @@ private struct SpreadPageContentView: View {
             YearSpreadContentView(
                 spread: spread,
                 spreadDataModel: dataModel,
-                journalManager: journalManager,
                 syncEngine: syncEngine
             )
         case .month:
             MonthSpreadContentView(
                 spread: spread,
                 spreadDataModel: dataModel,
-                journalManager: journalManager,
                 syncEngine: syncEngine
             )
         case .day:
             DaySpreadContentView(
                 spread: spread,
-                journalManager: journalManager,
-                syncEngine: syncEngine,
-                groupsByList: false,
-                eventKitService: eventKitService
+                spreadDataModel: dataModel,
+                syncEngine: syncEngine
             )
         case .multiday:
             MultidaySpreadContentView(
                 spread: spread,
                 spreadDataModel: dataModel,
-                journalManager: journalManager,
-                syncEngine: syncEngine,
-                groupsByDay: false
+                syncEngine: syncEngine
             )
         }
     }
