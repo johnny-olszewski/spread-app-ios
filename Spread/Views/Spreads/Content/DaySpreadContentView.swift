@@ -15,15 +15,20 @@ import JohnnyOFoundationUI
 ///   from the list because the timeline card already surfaces them.
 struct DaySpreadContentView: View {
 
-    @State private var viewModel: ViewModel
+    let spread: DataModel.Spread
+    let spreadDataModel: SpreadDataModel
+    let syncEngine: SyncEngine?
+    var config: Config = .default
+
+    @State private var viewModel = ViewModel()
+    @Environment(JournalManager.self) private var journalManager
     @Environment(SpreadsCoordinator.self) private var coordinator
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
-    let config: Config
+    @Environment(\.eventKitService) private var eventKitService
 
     private var autoMigrationFeedback: SpreadAutoMigrationFeedback? {
         guard let feedback = coordinator.autoMigrationFeedback,
-              feedback.surfaceSpreadID == viewModel.spread.id,
+              feedback.surfaceSpreadID == spread.id,
               feedback.anchor == .spreadHeader else {
             return nil
         }
@@ -34,57 +39,49 @@ struct DaySpreadContentView: View {
         horizontalSizeClass.isRegular && !viewModel.calendarEvents.isEmpty
     }
 
-    init(
-        spread: DataModel.Spread,
-        journalManager: JournalManager,
-        syncEngine: SyncEngine?,
-        groupsByList: Bool = true,
-        eventKitService: (any EventKitService)?,
-        config: Config = .default
-    ) {
-        self.config = config
-        _viewModel = State(wrappedValue: ViewModel(
-            spread: spread,
-            journalManager: journalManager,
-            syncEngine: syncEngine,
-            groupsByList: groupsByList,
-            eventKitService: eventKitService
-        ))
-    }
-
-
     // MARK: - Body
 
     var body: some View {
         Group {
-            if viewModel.spreadDataModel != nil {
-                if shouldShowTimelineCard {
-                    regularLayout
-                } else {
-                    compactLayout
-                }
+            if shouldShowTimelineCard {
+                regularLayout
             } else {
-                ContentUnavailableView {
-                    Label("No Data", systemImage: "tray")
-                } description: {
-                    Text("Unable to load spread data.")
-                }
+                compactLayout
             }
         }
-        .task(id: viewModel.spread.id) {
-            viewModel.configure(coordinator: coordinator)
+        .task(id: spread.id) {
+            viewModel.configure(
+                spread: spread,
+                spreadDataModel: spreadDataModel,
+                journalManager: journalManager,
+                syncEngine: syncEngine,
+                coordinator: coordinator
+            )
+            await viewModel.fetchCalendarEvents(spread: spread, service: eventKitService, journalManager: journalManager)
+        }
+        .onChange(of: journalManager.dataVersion) { _, _ in
+            viewModel.refreshSections(
+                spread: spread,
+                dataModel: spreadDataModel,
+                journalManager: journalManager,
+                showsTimelineCard: shouldShowTimelineCard
+            )
         }
         .onChange(of: viewModel.calendarEvents) { _, _ in
-            viewModel.refreshSections(showsTimelineCard: shouldShowTimelineCard)
+            viewModel.refreshSections(
+                spread: spread,
+                dataModel: spreadDataModel,
+                journalManager: journalManager,
+                showsTimelineCard: shouldShowTimelineCard
+            )
         }
         .onChange(of: shouldShowTimelineCard) { _, _ in
-            viewModel.refreshSections(showsTimelineCard: shouldShowTimelineCard)
-        }
-        .onChange(of: viewModel.spreadDataModel?.tasks.count ?? 0) { _, _ in
-            viewModel.refreshSections(showsTimelineCard: shouldShowTimelineCard)
-        }
-        .onChange(of: viewModel.spreadDataModel?.notes.count ?? 0) { _, _ in
-            viewModel.refreshSections(showsTimelineCard: shouldShowTimelineCard)
+            viewModel.refreshSections(
+                spread: spread,
+                dataModel: spreadDataModel,
+                journalManager: journalManager,
+                showsTimelineCard: shouldShowTimelineCard
+            )
         }
     }
 
@@ -101,25 +98,22 @@ struct DaySpreadContentView: View {
             }
 
             HStack(alignment: .top, spacing: 0) {
-                
-                // Full-height card for the wide layout. Scroll management, all-day section,
-                // and height sizing are all handled by `DayTimelineScrollView`.
                 DayTimelineScrollView(
                     generator: SpreadDayTimelineContentGenerator(),
                     items: viewModel.calendarEvents,
-                    date: viewModel.spread.date,
+                    date: spread.date,
                     visibleStartHour: 0,
                     visibleEndHour: 24,
                     verticalCount: config.wideTimelineRowCount,
                     verticalSpan: config.wideTimelineRowSpan,
-                    calendar: viewModel.calendar
+                    calendar: journalManager.calendar
                 )
                 .containerRelativeFrame(.horizontal, count: config.wideTimelineColumnCount, span: config.wideTimelineColumnSpan, spacing: 0)
                 .spreadCard()
                 .padding(.leading, 16)
                 .padding(.trailing, 8)
                 .padding(.vertical, 12)
-                
+
                 entryList
             }
             .frame(maxHeight: .infinity)
@@ -132,11 +126,11 @@ struct DaySpreadContentView: View {
             if let message = autoMigrationFeedback?.message {
                 autoMigrationMessage(message: message)
             }
-            
+
             entryList
         }
     }
-    
+
     private var entryList: some View {
         EntryListView(
             sections: viewModel.sections,
@@ -144,7 +138,7 @@ struct DaySpreadContentView: View {
             onAddTask: viewModel.onAddTask
         )
     }
-    
+
     private func autoMigrationMessage(message: String) -> some View {
         SpreadAutoMigrationCueView(message: message)
             .padding(.horizontal, 16)

@@ -9,10 +9,10 @@ private enum MonthSpreadContentLayout {
 /// Renders a month spread as a calendar, month-level section, and day-section list.
 struct MonthSpreadContentView: View {
     let spread: DataModel.Spread
-    let spreadDataModel: SpreadDataModel?
-    let journalManager: JournalManager
+    let spreadDataModel: SpreadDataModel
     let syncEngine: SyncEngine?
 
+    @Environment(JournalManager.self) private var journalManager
     @Environment(SpreadsCoordinator.self) private var coordinator
     @State private var vm = ViewModel()
 
@@ -32,61 +32,57 @@ struct MonthSpreadContentView: View {
 
     var body: some View {
         Group {
-        if let dataModel = spreadDataModel {
-            let contentModel = MonthSpreadContentSupport.model(
-                for: spread,
-                spreadDataModel: dataModel,
-                spreads: journalManager.spreads,
-                calendar: calendar
-            )
-
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: MonthSpreadContentLayout.sectionSpacing) {
-                        if autoMigrationFeedback?.anchor == .spreadHeader,
-                           let message = autoMigrationFeedback?.message {
-                            SpreadAutoMigrationCueView(message: message)
-                        }
-
-                        SpreadMonthCalendarView(
-                            monthDate: spread.date,
-                            mode: journalManager.bujoMode == .conventional ? .conventional : .traditional,
-                            journalManager: journalManager,
-                            calendarActionsByDate: contentModel.calendarActionsByDate,
-                            onViewDaySpread: { explicitDaySpread in
-                                coordinator.selectSpread(explicitDaySpread)
-                            },
-                            onRevealMonthDaySection: { date in
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    proxy.scrollTo(date, anchor: .top)
-                                }
+            if let contentModel = vm.contentModel {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: MonthSpreadContentLayout.sectionSpacing) {
+                            if autoMigrationFeedback?.anchor == .spreadHeader,
+                               let message = autoMigrationFeedback?.message {
+                                SpreadAutoMigrationCueView(message: message)
                             }
-                        )
 
-                        monthSection(entries: contentModel.monthEntries)
+                            SpreadMonthCalendarView(
+                                monthDate: spread.date,
+                                mode: journalManager.bujoMode == .conventional ? .conventional : .traditional,
+                                journalManager: journalManager,
+                                calendarActionsByDate: contentModel.calendarActionsByDate,
+                                onViewDaySpread: { explicitDaySpread in
+                                    coordinator.selectSpread(explicitDaySpread)
+                                },
+                                onRevealMonthDaySection: { date in
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        proxy.scrollTo(date, anchor: .top)
+                                    }
+                                }
+                            )
 
-                        ForEach(contentModel.daySections) { section in
-                            daySection(section)
-                                .id(section.id)
+                            monthSection(entries: contentModel.monthEntries)
+
+                            ForEach(contentModel.daySections) { section in
+                                daySection(section)
+                                    .id(section.id)
+                            }
                         }
+                        .padding(.horizontal, MonthSpreadContentLayout.contentPadding)
+                        .padding(.bottom, MonthSpreadContentLayout.sectionSpacing)
                     }
-                    .padding(.horizontal, MonthSpreadContentLayout.contentPadding)
-                    .padding(.bottom, MonthSpreadContentLayout.sectionSpacing)
                 }
             }
-        } else {
-            ContentUnavailableView {
-                Label("No Data", systemImage: "tray")
-            } description: {
-                Text("Unable to load spread data.")
-            }
-        }
         }
         .task(id: spread.id) {
             vm.configure(
+                spread: spread,
+                spreadDataModel: spreadDataModel,
                 journalManager: journalManager,
                 syncEngine: syncEngine,
                 coordinator: coordinator
+            )
+        }
+        .onChange(of: journalManager.dataVersion) { _, _ in
+            vm.refreshContentModel(
+                spread: spread,
+                spreadDataModel: spreadDataModel,
+                journalManager: journalManager
             )
         }
     }
@@ -104,7 +100,18 @@ struct MonthSpreadContentView: View {
                     .foregroundStyle(.secondary)
                     .padding(.vertical, SpreadTheme.Spacing.medium)
             } else {
-                entryRows(entries)
+                EntryListView(
+                    sections: [EntryList.Section(
+                        id: "month-entries",
+                        title: "",
+                        date: spread.date,
+                        entries: entries,
+                        creationPeriod: .month,
+                        creationDate: spread.date
+                    )],
+                    configurationMap: vm.configurationMap,
+                    style: .inline
+                )
             }
         }
     }
@@ -131,7 +138,18 @@ struct MonthSpreadContentView: View {
                     .foregroundStyle(.secondary)
                     .padding(.vertical, SpreadTheme.Spacing.small)
             } else {
-                entryRows(section.entries)
+                EntryListView(
+                    sections: [EntryList.Section(
+                        id: section.date.timeIntervalSinceReferenceDate.description,
+                        title: "",
+                        date: section.date,
+                        entries: section.entries,
+                        creationPeriod: .day,
+                        creationDate: section.date
+                    )],
+                    configurationMap: vm.configurationMap,
+                    style: .inline
+                )
             }
         }
         .padding(.horizontal, isAutoMigrationDestination ? 12 : 0)
@@ -153,22 +171,6 @@ struct MonthSpreadContentView: View {
             .foregroundStyle(.primary)
     }
 
-    @ViewBuilder
-    private func entryRows(_ entries: [any Entry]) -> some View {
-        let configs = vm.configurationMap
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(entries, id: \.id) { entry in
-                if let config = configs[entry.entryType] {
-                    EntryRowView(entry: entry, configuration: config)
-                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                }
-                if entry.id != entries.last?.id {
-                    Divider()
-                }
-            }
-        }
-    }
-
     private func daySectionTitle(for date: Date) -> String {
         date.formatted(
             .dateTime
@@ -176,5 +178,4 @@ struct MonthSpreadContentView: View {
                 .day()
         )
     }
-
 }

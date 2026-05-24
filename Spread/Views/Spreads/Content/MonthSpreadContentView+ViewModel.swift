@@ -2,83 +2,49 @@ import SwiftUI
 
 extension MonthSpreadContentView {
 
-    /// Owns the entry row configuration map for `MonthSpreadContentView`.
+    /// Owns the content model and entry row configuration map for `MonthSpreadContentView`.
     @Observable @MainActor
     final class ViewModel {
+        private(set) var contentModel: MonthSpreadContentModel?
         private(set) var configurationMap: [EntryType: EntryRowView.Configuration] = [:]
 
-        /// Rebuilds the configuration map. Called once per spread-id change.
+        init() {}
+
+        /// Full setup: content model and configuration map.
+        /// Called once when the spread-id changes.
         func configure(
+            spread: DataModel.Spread,
+            spreadDataModel: SpreadDataModel,
             journalManager: JournalManager,
             syncEngine: SyncEngine?,
             coordinator: SpreadsCoordinator
         ) {
             let cal = journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
-            let today = journalManager.today
-
-            let taskConfig = EntryRowView.Configuration(
-                effectiveTaskStatus: { $0.displayTaskStatus },
-                isGreyedOut: { entry in
-                    guard let s = entry.displayTaskStatus else { return false }
-                    return s == .complete || s == .migrated || s == .cancelled
-                },
-                hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
-                dueDateLabel: { entry in (entry as? DataModel.Task)?.dueDateLabel(calendar: cal) },
-                isDueDateHighlighted: { entry in
-                    (entry as? DataModel.Task)?.isDueDateHighlighted(today: today, calendar: cal) ?? false
-                },
-                onComplete: { entry in
-                    guard let task = entry as? DataModel.Task else { return }
-                    Task { @MainActor in
-                        let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
-                        try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
-                        await syncEngine?.syncNow()
-                    }
-                },
-                onEdit: { entry in
-                    if let task = entry as? DataModel.Task { coordinator.showTaskDetail(task) }
-                },
-                onDelete: { entry in
-                    guard let task = entry as? DataModel.Task else { return }
-                    Task { @MainActor in
-                        try? await journalManager.deleteTask(task)
-                        await syncEngine?.syncNow()
-                    }
-                },
-                onTitleCommit: { @MainActor entry, newTitle in
-                    guard let task = entry as? DataModel.Task else { return }
-                    try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
-                    Task { @MainActor in await syncEngine?.syncNow() }
-                },
-                inlineActionConfiguration: { entry in
-                    guard let task = entry as? DataModel.Task, task.status == .open else { return nil }
-                    let options = EntryRowInlineEditSupport.migrationOptions(for: task, today: today, calendar: cal)
-                    return EntryRowInlineActionConfiguration(
-                        migrationOptions: options,
-                        onEditSheet: { coordinator.showTaskDetail(task) },
-                        onMigrationSelected: { option in
-                            try? await journalManager.updateTaskDateAndPeriod(task, newDate: option.date, newPeriod: option.period)
-                            await syncEngine?.syncNow()
-                        }
-                    )
-                }
+            contentModel = MonthSpreadContentSupport.model(
+                for: spread,
+                spreadDataModel: spreadDataModel,
+                spreads: journalManager.spreads,
+                calendar: cal
             )
+            configurationMap = [
+                .task: .standardTaskConfig(journalManager: journalManager, syncEngine: syncEngine, coordinator: coordinator),
+                .note: .standardNoteConfig(journalManager: journalManager, syncEngine: syncEngine, coordinator: coordinator)
+            ]
+        }
 
-            let noteConfig = EntryRowView.Configuration(
-                isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
-                onEdit: { entry in
-                    if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
-                },
-                onDelete: { entry in
-                    guard let note = entry as? DataModel.Note else { return }
-                    Task { @MainActor in
-                        try? await journalManager.deleteNote(note)
-                        await syncEngine?.syncNow()
-                    }
-                }
+        /// Refreshes the content model when journal data changes.
+        func refreshContentModel(
+            spread: DataModel.Spread,
+            spreadDataModel: SpreadDataModel,
+            journalManager: JournalManager
+        ) {
+            let cal = journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
+            contentModel = MonthSpreadContentSupport.model(
+                for: spread,
+                spreadDataModel: spreadDataModel,
+                spreads: journalManager.spreads,
+                calendar: cal
             )
-
-            configurationMap = [.task: taskConfig, .note: noteConfig]
         }
     }
 }

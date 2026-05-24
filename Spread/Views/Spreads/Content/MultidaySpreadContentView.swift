@@ -3,67 +3,33 @@ import SwiftUI
 /// Renders the entry list for a multiday spread.
 struct MultidaySpreadContentView: View {
     let spread: DataModel.Spread
-    let spreadDataModel: SpreadDataModel?
-    let journalManager: JournalManager
+    let spreadDataModel: SpreadDataModel
     let syncEngine: SyncEngine?
-    var groupsByDay: Bool = true
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
 
+    @Environment(JournalManager.self) private var journalManager
     @Environment(SpreadsCoordinator.self) private var coordinator
     @Environment(\.eventKitService) private var eventKitService
     @State private var vm = ViewModel()
 
     var body: some View {
-        if let dataModel = spreadDataModel {
-            grid
-                .task(id: spread.id) {
-                    vm.configure(
-                        spread: spread,
-                        dataModel: dataModel,
-                        groupsByDay: groupsByDay,
-                        journalManager: journalManager,
-                        syncEngine: syncEngine,
-                        coordinator: coordinator
-                    )
-                    await vm.fetchCalendarEvents(for: spread, service: eventKitService, journalManager: journalManager)
-                }
-                .onChange(of: vm.calendarEvents) { _, _ in
-                    if let dataModel = spreadDataModel {
-                        vm.refreshSections(
-                            spread: spread,
-                            dataModel: dataModel,
-                            groupsByDay: groupsByDay,
-                            journalManager: journalManager
-                        )
-                    }
-                }
-                .onChange(of: spreadDataModel?.tasks.count ?? 0) { _, _ in
-                    if let dataModel = spreadDataModel {
-                        vm.refreshSections(
-                            spread: spread,
-                            dataModel: dataModel,
-                            groupsByDay: groupsByDay,
-                            journalManager: journalManager
-                        )
-                    }
-                }
-                .onChange(of: spreadDataModel?.notes.count ?? 0) { _, _ in
-                    if let dataModel = spreadDataModel {
-                        vm.refreshSections(
-                            spread: spread,
-                            dataModel: dataModel,
-                            groupsByDay: groupsByDay,
-                            journalManager: journalManager
-                        )
-                    }
-                }
-        } else {
-            ContentUnavailableView {
-                Label("No Data", systemImage: "tray")
-            } description: {
-                Text("Unable to load spread data.")
+        grid
+            .task(id: spread.id) {
+                vm.configure(
+                    spread: spread,
+                    dataModel: spreadDataModel,
+                    journalManager: journalManager,
+                    syncEngine: syncEngine,
+                    coordinator: coordinator
+                )
+                await vm.fetchCalendarEvents(for: spread, service: eventKitService, journalManager: journalManager)
             }
-        }
+            .onChange(of: journalManager.dataVersion) { _, _ in
+                vm.refreshSections(spread: spread, dataModel: spreadDataModel, journalManager: journalManager)
+            }
+            .onChange(of: vm.calendarEvents) { _, _ in
+                vm.refreshSections(spread: spread, dataModel: spreadDataModel, journalManager: journalManager)
+            }
     }
 
     private var grid: some View {
@@ -92,7 +58,7 @@ struct MultidaySpreadContentView: View {
                     return nil
                 }
                 let dayEvents = vm.calendarEvents.filter { $0.startDate < dayEnd && $0.endDate > dayStart }
-                return MultidayPeekData(spread: daySpread, spreadDataModel: dm, calendarEvents: dayEvents)
+                return SpreadPeekPanelView.Data(spread: daySpread, spreadDataModel: dm, calendarEvents: dayEvents)
             },
             onPeekTaskTap: { daySpread, task in
                 coordinator.navigateViaPeek(to: daySpread, from: spread)
@@ -112,5 +78,4 @@ struct MultidaySpreadContentView: View {
             EntryRowView(entry: entry, configuration: config)
         }
     }
-
 }

@@ -11,6 +11,10 @@ struct SpreadsView: View {
     private let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding =
         TodayMissingSpreadRecommendationProvider()
 
+    private var calendar: Calendar {
+        journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
+    }
+
     private var stripModel: SpreadTitleNavigatorModel {
         journalManager.titleNavigatorModel
     }
@@ -118,7 +122,6 @@ struct SpreadsView: View {
     private var contentArea: some View {
         if !completeItems.isEmpty {
             SpreadContentPagerView(
-                journalManager: journalManager,
                 coordinator: coordinator,
                 syncEngine: syncEngine,
                 model: stripModel,
@@ -127,6 +130,7 @@ struct SpreadsView: View {
                 selection: selectionBinding
             )
             .environment(coordinator)
+            .environment(journalManager)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
         } else {
@@ -468,6 +472,22 @@ struct SpreadsView: View {
                 onDelete: {
                     Task { @MainActor in await syncEngine?.syncNow() }
                 }
+            )
+        case .peekData(let data):
+            SpreadPeekPanelView(
+                data: data,
+                calendar: calendar,
+                today: journalManager.today,
+                onClose: { coordinator.dismiss() },
+                onNavigate: { destination in
+                    coordinator.dismiss()
+                    if let source = currentConventionalSpread {
+                        coordinator.navigateViaPeek(to: destination, from: source)
+                    } else {
+                        coordinator.selectSpread(destination)
+                    }
+                },
+                onTaskTap: nil
             )
         case .auth:
             AuthEntrySheet(authManager: authManager, isBlocking: false)
