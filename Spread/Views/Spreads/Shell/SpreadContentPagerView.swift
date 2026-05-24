@@ -198,17 +198,11 @@ private struct SpreadPageContentView: View {
         if case .conventional(let spread) = item.selection {
             let selectedID = coordinator.selectedSelection?.stableID(calendar: model.calendar)
             let isCurrentPage = item.id == selectedID
-            let backDestination = isCurrentPage ? coordinator.peekNavigationSource : nil
+            let navState = isCurrentPage ? coordinator.convenienceNavigation : nil
             VStack(spacing: 0) {
                 SpreadHeaderView(
-                    backDestination: backDestination,
-                    onGoBack: backDestination.map { source in
-                        {
-                            coordinator.clearPeekNavigationSource()
-                            coordinator.selectedSelection = .conventional(source)
-                            coordinator.recenterToken += 1
-                        }
-                    }
+                    state: navState,
+                    onTap: navState != nil ? { coordinator.handleConvenienceNavButtonTapped() } : nil
                 )
                 conventionalContentView(for: spread)
             }
