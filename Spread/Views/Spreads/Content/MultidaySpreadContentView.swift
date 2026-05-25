@@ -4,67 +4,100 @@ import SwiftUI
 struct MultidaySpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel
-    let syncEngine: SyncEngine?
+    let context: SpreadPageContext
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
 
-    @Environment(JournalManager.self) private var journalManager
-    @Environment(SpreadsCoordinator.self) private var coordinator
-    @Environment(\.eventKitService) private var eventKitService
-    @State private var vm = ViewModel()
+    @State private var calendarEventStore = CalendarEventStore()
+
+    // MARK: - Computed
+
+    private var sections: [EntryList.Section] {
+        let cal = context.calendar
+        let base = EntryListDisplaySupport.displayedEntries(for: spreadDataModel, calendar: cal)
+        let eventEntries: [DataModel.Event] = calendarEventStore.calendarEvents.map { DataModel.Event(calendarEvent: $0) }
+        return Self.makeSections(
+            from: base + eventEntries,
+            spreadDate: spreadDataModel.spread.date,
+            startDate: spreadDataModel.spread.startDate ?? spreadDataModel.spread.date,
+            endDate: spreadDataModel.spread.endDate ?? spreadDataModel.spread.date,
+            calendar: cal,
+            groupsByDay: context.journalManager.bujoMode == .conventional
+        )
+    }
+
+    private var configurationMap: [EntryType: EntryRowView.Configuration] {
+        [
+            .task: .standardTaskConfig(
+                journalManager: context.journalManager,
+                syncEngine: context.syncEngine,
+                coordinator: context.coordinator
+            ),
+            .note: .standardNoteConfig(
+                journalManager: context.journalManager,
+                syncEngine: context.syncEngine,
+                coordinator: context.coordinator
+            ),
+            .event: .standardEventConfig(journalManager: context.journalManager)
+        ]
+    }
+
+    private var onAddTask: (@MainActor (String, Date, Period) async throws -> Void) {
+        let jm = context.journalManager
+        let se = context.syncEngine
+        return { @MainActor title, date, period in
+            _ = try await jm.addTask(title: title, date: date, period: period)
+            Task { @MainActor in await se?.syncNow() }
+        }
+    }
+
+    // MARK: - Body
 
     var body: some View {
         grid
             .task(id: spread.id) {
-                vm.configure(
-                    spread: spread,
-                    dataModel: spreadDataModel,
-                    journalManager: journalManager,
-                    syncEngine: syncEngine,
-                    coordinator: coordinator
+                await calendarEventStore.fetchCalendarEvents(
+                    for: spread,
+                    service: context.eventKitService,
+                    calendar: context.journalManager.calendar
                 )
-                await vm.fetchCalendarEvents(for: spread, service: eventKitService, journalManager: journalManager)
-            }
-            .onChange(of: journalManager.dataVersion) { _, _ in
-                vm.refreshSections(spread: spread, dataModel: spreadDataModel, journalManager: journalManager)
-            }
-            .onChange(of: vm.calendarEvents) { _, _ in
-                vm.refreshSections(spread: spread, dataModel: spreadDataModel, journalManager: journalManager)
             }
     }
 
     private var grid: some View {
         MultidayEntryGridView(
-            sections: vm.sections,
-            calendar: journalManager.calendar,
-            today: journalManager.today,
-            onAddTask: vm.onAddTask,
+            sections: sections,
+            calendar: context.journalManager.calendar,
+            today: context.journalManager.today,
+            onAddTask: onAddTask,
             spread: spread,
             explicitDaySpreadForDate: explicitDaySpreadForDate,
             onSelectSpread: { daySpread in
-                coordinator.navigateViaPeek(to: daySpread, from: spread)
+                context.coordinator.navigateViaPeek(to: daySpread, from: spread)
             },
             onCreateSpread: { date in
-                coordinator.showSpreadCreation(prefill: .init(period: .day, date: date))
+                context.coordinator.showSpreadCreation(prefill: .init(period: .day, date: date))
             },
             openTaskCountForDaySpread: { daySpread in
-                let key = SpreadDataModelKey(spread: daySpread, calendar: journalManager.calendar)
-                return journalManager.dataModel[key: key]?.tasks.filter { $0.status == .open }.count ?? 0
+                let key = SpreadDataModelKey(spread: daySpread, calendar: context.journalManager.calendar)
+                return context.journalManager.dataModel[key: key]?.tasks.filter { $0.status == .open }.count ?? 0
             },
             peekDataForDaySpread: { daySpread in
-                let key = SpreadDataModelKey(spread: daySpread, calendar: journalManager.calendar)
-                guard let dm = journalManager.dataModel[key: key] else { return nil }
-                let dayStart = daySpread.date.startOfDay(calendar: journalManager.calendar)
-                guard let dayEnd = journalManager.calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+                let key = SpreadDataModelKey(spread: daySpread, calendar: context.journalManager.calendar)
+                guard let dm = context.journalManager.dataModel[key: key] else { return nil }
+                let dayStart = daySpread.date.startOfDay(calendar: context.journalManager.calendar)
+                guard let dayEnd = context.journalManager.calendar.date(byAdding: .day, value: 1, to: dayStart) else {
                     return nil
                 }
-                let dayEvents = vm.calendarEvents.filter { $0.startDate < dayEnd && $0.endDate > dayStart }
+                let dayEvents = calendarEventStore.calendarEvents.filter {
+                    $0.startDate < dayEnd && $0.endDate > dayStart
+                }
                 return SpreadPeekPanelView.Data(spread: daySpread, spreadDataModel: dm, calendarEvents: dayEvents)
             },
             onPeekTaskTap: { daySpread, task in
-                coordinator.navigateViaPeek(to: daySpread, from: spread)
+                context.coordinator.navigateViaPeek(to: daySpread, from: spread)
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(150))
-                    coordinator.showTaskDetail(task)
+                    context.coordinator.showTaskDetail(task)
                 }
             }
         ) { entry in
@@ -74,7 +107,7 @@ struct MultidaySpreadContentView: View {
 
     @ViewBuilder
     private func entryRow(entry: any Entry) -> some View {
-        if let config = vm.configurationMap[entry.entryType] {
+        if let config = configurationMap[entry.entryType] {
             EntryRowView(entry: entry, configuration: config)
         }
     }
