@@ -173,7 +173,7 @@ struct SpreadContentPagerAssemblyTests {
             DataModel.Task(title: "Unlisted", date: spreadDate)
         ]
 
-        let sections = DaySpreadContentView.ViewModel.makeSections(
+        let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
             calendar: Self.calendar,
@@ -195,7 +195,7 @@ struct SpreadContentPagerAssemblyTests {
             DataModel.Task(title: "Unlisted", date: spreadDate)
         ]
 
-        let sections = DaySpreadContentView.ViewModel.makeSections(
+        let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
             calendar: Self.calendar,
