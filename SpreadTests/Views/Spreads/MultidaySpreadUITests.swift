@@ -104,7 +104,7 @@ struct MultidaySpreadUITests {
             DataModel.Task(title: "Day 8 task", date: makeDate(year: 2026, month: 1, day: 8))
         ]
 
-        let sections = MultidaySpreadContentView.ViewModel.makeSections(
+        let sections = MultidaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
             startDate: spreadDate,
@@ -129,7 +129,7 @@ struct MultidaySpreadUITests {
         let spreadDate = makeDate(year: 2026, month: 1, day: 6)
         let endDate = makeDate(year: 2026, month: 1, day: 8)
 
-        let sections = MultidaySpreadContentView.ViewModel.makeSections(
+        let sections = MultidaySpreadContentView.makeSections(
             from: [],
             spreadDate: spreadDate,
             startDate: spreadDate,
