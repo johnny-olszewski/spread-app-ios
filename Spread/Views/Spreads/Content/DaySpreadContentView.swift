@@ -17,17 +17,55 @@ struct DaySpreadContentView: View {
 
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel
-    let syncEngine: SyncEngine?
+    let context: SpreadPageContext
     var config: Config = .default
 
-    @State private var viewModel = ViewModel()
-    @Environment(JournalManager.self) private var journalManager
-    @Environment(SpreadsCoordinator.self) private var coordinator
+    @State private var calendarEventStore = CalendarEventStore()
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Environment(\.eventKitService) private var eventKitService
 
     private var shouldShowTimelineCard: Bool {
-        horizontalSizeClass.isRegular && !viewModel.calendarEvents.isEmpty
+        horizontalSizeClass.isRegular && !calendarEventStore.calendarEvents.isEmpty
+    }
+
+    // MARK: - Computed
+
+    private var sections: [EntryList.Section] {
+        let cal = context.calendar
+        let base = EntryListDisplaySupport.displayedEntries(for: spreadDataModel, calendar: cal)
+        let eventEntries: [DataModel.Event] = shouldShowTimelineCard
+            ? []
+            : calendarEventStore.calendarEvents.map { DataModel.Event(calendarEvent: $0) }
+        return Self.makeSections(
+            from: base + eventEntries,
+            spreadDate: spreadDataModel.spread.date,
+            calendar: cal,
+            groupsByList: context.journalManager.bujoMode == .conventional
+        )
+    }
+
+    private var configurationMap: [EntryType: EntryRowView.Configuration] {
+        [
+            .task: .standardTaskConfig(
+                journalManager: context.journalManager,
+                syncEngine: context.syncEngine,
+                coordinator: context.coordinator
+            ),
+            .note: .standardNoteConfig(
+                journalManager: context.journalManager,
+                syncEngine: context.syncEngine,
+                coordinator: context.coordinator
+            ),
+            .event: .standardEventConfig(journalManager: context.journalManager)
+        ]
+    }
+
+    private var onAddTask: (@MainActor (String, Date, Period) async throws -> Void) {
+        let jm = context.journalManager
+        let se = context.syncEngine
+        return { @MainActor title, date, period in
+            _ = try await jm.addTask(title: title, date: date, period: period)
+            Task { @MainActor in await se?.syncNow() }
+        }
     }
 
     // MARK: - Body
@@ -41,37 +79,10 @@ struct DaySpreadContentView: View {
             }
         }
         .task(id: spread.id) {
-            viewModel.configure(
+            await calendarEventStore.fetchCalendarEvents(
                 spread: spread,
-                spreadDataModel: spreadDataModel,
-                journalManager: journalManager,
-                syncEngine: syncEngine,
-                coordinator: coordinator
-            )
-            await viewModel.fetchCalendarEvents(spread: spread, service: eventKitService, journalManager: journalManager)
-        }
-        .onChange(of: journalManager.dataVersion) { _, _ in
-            viewModel.refreshSections(
-                spread: spread,
-                dataModel: spreadDataModel,
-                journalManager: journalManager,
-                showsTimelineCard: shouldShowTimelineCard
-            )
-        }
-        .onChange(of: viewModel.calendarEvents) { _, _ in
-            viewModel.refreshSections(
-                spread: spread,
-                dataModel: spreadDataModel,
-                journalManager: journalManager,
-                showsTimelineCard: shouldShowTimelineCard
-            )
-        }
-        .onChange(of: shouldShowTimelineCard) { _, _ in
-            viewModel.refreshSections(
-                spread: spread,
-                dataModel: spreadDataModel,
-                journalManager: journalManager,
-                showsTimelineCard: shouldShowTimelineCard
+                service: context.eventKitService,
+                calendar: context.journalManager.calendar
             )
         }
     }
@@ -84,25 +95,30 @@ struct DaySpreadContentView: View {
     /// receives an empty events array so it does not duplicate them.
     private var regularLayout: some View {
         HStack(alignment: .top, spacing: 0) {
-                DayTimelineScrollView(
-                    generator: SpreadDayTimelineContentGenerator(),
-                    items: viewModel.calendarEvents,
-                    date: spread.date,
-                    visibleStartHour: 0,
-                    visibleEndHour: 24,
-                    verticalCount: config.wideTimelineRowCount,
-                    verticalSpan: config.wideTimelineRowSpan,
-                    calendar: journalManager.calendar
-                )
-                .containerRelativeFrame(.horizontal, count: config.wideTimelineColumnCount, span: config.wideTimelineColumnSpan, spacing: 0)
-                .spreadCard()
-                .padding(.leading, 16)
-                .padding(.trailing, 8)
-                .padding(.vertical, 12)
+            DayTimelineScrollView(
+                generator: SpreadDayTimelineContentGenerator(),
+                items: calendarEventStore.calendarEvents,
+                date: spread.date,
+                visibleStartHour: 0,
+                visibleEndHour: 24,
+                verticalCount: config.wideTimelineRowCount,
+                verticalSpan: config.wideTimelineRowSpan,
+                calendar: context.journalManager.calendar
+            )
+            .containerRelativeFrame(
+                .horizontal,
+                count: config.wideTimelineColumnCount,
+                span: config.wideTimelineColumnSpan,
+                spacing: 0
+            )
+            .spreadCard()
+            .padding(.leading, 16)
+            .padding(.trailing, 8)
+            .padding(.vertical, 12)
 
-                entryList
-            }
-            .frame(maxHeight: .infinity)
+            entryList
+        }
+        .frame(maxHeight: .infinity)
     }
 
     /// Compact-width: a single scrollable entry list with calendar events in a dedicated section.
@@ -112,12 +128,11 @@ struct DaySpreadContentView: View {
 
     private var entryList: some View {
         EntryListView(
-            sections: viewModel.sections,
-            configurationMap: viewModel.configurationMap,
-            onAddTask: viewModel.onAddTask
+            sections: sections,
+            configurationMap: configurationMap,
+            onAddTask: onAddTask
         )
     }
-
 }
 
 // MARK: - UserInterfaceSizeClass
