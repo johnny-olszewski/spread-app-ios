@@ -182,6 +182,15 @@ private struct SpreadPageContentView: View {
 
     @Environment(\.eventKitService) private var eventKitService
 
+    private var context: SpreadPageContext {
+        SpreadPageContext(
+            journalManager: journalManager,
+            coordinator: coordinator,
+            syncEngine: syncEngine,
+            eventKitService: eventKitService
+        )
+    }
+
     var body: some View {
         switch journalManager.bujoMode {
         case .conventional:
@@ -219,25 +228,25 @@ private struct SpreadPageContentView: View {
                 YearSpreadContentView(
                     spread: spread,
                     spreadDataModel: dataModel,
-                    syncEngine: syncEngine
+                    context: context
                 )
             case .month:
                 MonthSpreadContentView(
                     spread: spread,
                     spreadDataModel: dataModel,
-                    syncEngine: syncEngine
+                    context: context
                 )
             case .day:
                 DaySpreadContentView(
                     spread: spread,
                     spreadDataModel: dataModel,
-                    syncEngine: syncEngine
+                    context: context
                 )
             case .multiday:
                 MultidaySpreadContentView(
                     spread: spread,
                     spreadDataModel: dataModel,
-                    syncEngine: syncEngine,
+                    context: context,
                     explicitDaySpreadForDate: { date in explicitDaySpread(for: date) }
                 )
             }
@@ -275,25 +284,25 @@ private struct SpreadPageContentView: View {
             YearSpreadContentView(
                 spread: spread,
                 spreadDataModel: dataModel,
-                syncEngine: syncEngine
+                context: context
             )
         case .month:
             MonthSpreadContentView(
                 spread: spread,
                 spreadDataModel: dataModel,
-                syncEngine: syncEngine
+                context: context
             )
         case .day:
             DaySpreadContentView(
                 spread: spread,
                 spreadDataModel: dataModel,
-                syncEngine: syncEngine
+                context: context
             )
         case .multiday:
             MultidaySpreadContentView(
                 spread: spread,
                 spreadDataModel: dataModel,
-                syncEngine: syncEngine
+                context: context
             )
         }
     }

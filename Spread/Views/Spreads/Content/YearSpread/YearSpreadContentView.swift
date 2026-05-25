@@ -6,12 +6,7 @@ struct YearSpreadContentView: View {
 
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel
-    let syncEngine: SyncEngine?
-
-    @Environment(JournalManager.self) private var journalManager
-    @Environment(SpreadsCoordinator.self) private var coordinator
-
-    @State private var vm = ViewModel()
+    let context: SpreadPageContext
 
     // MARK: - Layout
 
@@ -22,9 +17,7 @@ struct YearSpreadContentView: View {
 
     // MARK: - Computed
 
-    private var calendar: Calendar {
-        journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
-    }
+    private var calendar: Calendar { context.calendar }
 
     private var yearEntries: [any Entry] {
         let tasks = spreadDataModel.tasks.filter { $0.period == .year }
@@ -34,8 +27,16 @@ struct YearSpreadContentView: View {
 
     private var configurationMap: [EntryType: EntryRowView.Configuration] {
         [
-            .task: .standardTaskConfig(journalManager: journalManager, syncEngine: syncEngine, coordinator: coordinator),
-            .note: .standardNoteConfig(journalManager: journalManager, syncEngine: syncEngine, coordinator: coordinator)
+            .task: .standardTaskConfig(
+                journalManager: context.journalManager,
+                syncEngine: context.syncEngine,
+                coordinator: context.coordinator
+            ),
+            .note: .standardNoteConfig(
+                journalManager: context.journalManager,
+                syncEngine: context.syncEngine,
+                coordinator: context.coordinator
+            )
         ]
     }
 
@@ -60,12 +61,6 @@ struct YearSpreadContentView: View {
             .padding(.horizontal, Layout.contentPadding)
             .padding(.top, Layout.contentPadding)
             .padding(.bottom, Layout.sectionSpacing)
-        }
-        .task(id: spread.id) {
-            vm.configure(spread: spread, spreadDataModel: spreadDataModel, journalManager: journalManager)
-        }
-        .onChange(of: journalManager.dataVersion) { _, _ in
-            vm.refreshYearEntries(spread: spread, spreadDataModel: spreadDataModel, journalManager: journalManager)
         }
     }
 
@@ -105,10 +100,10 @@ struct YearSpreadContentView: View {
     @ViewBuilder
     private func monthCard(_ date: Date) -> some View {
         let normalizedDate = Period.month.normalizeDate(date, calendar: calendar)
-        let monthSpreadDataModel = journalManager.spreadDataModel(for: date, period: .month)
+        let monthSpreadDataModel = context.journalManager.spreadDataModel(for: date, period: .month)
         let monthSpread = monthSpreadDataModel?.spread
         let visualState = MultidayDayCardSupport.visualState(
-            isToday: calendar.isDate(normalizedDate, equalTo: journalManager.today, toGranularity: .month),
+            isToday: calendar.isDate(normalizedDate, equalTo: context.journalManager.today, toGranularity: .month),
             isCreated: monthSpread != nil
         )
 
@@ -116,7 +111,7 @@ struct YearSpreadContentView: View {
             let openTaskCount = monthSpreadDataModel?.tasks.filter { $0.status == .open }.count ?? 0
             let peekAction: (() -> Void)? = monthSpreadDataModel.map { dm in
                 {
-                    coordinator.showSpreadPeek(.init(
+                    context.coordinator.showSpreadPeek(.init(
                         spread: monthSpread,
                         spreadDataModel: dm,
                         calendarEvents: nil
@@ -130,10 +125,10 @@ struct YearSpreadContentView: View {
                 visualState: visualState,
                 style: .count(taskCount: openTaskCount),
                 onPeek: peekAction,
-                onViewSpread: { coordinator.selectSpread(monthSpread) }
+                onViewSpread: { context.coordinator.selectSpread(monthSpread) }
             )
         } else {
-            let entries = ViewModel.entriesForMonth(normalizedDate, from: spreadDataModel, calendar: calendar)
+            let entries = Self.entriesForMonth(normalizedDate, from: spreadDataModel, calendar: calendar)
             let sections: [EntryList.Section] = entries.isEmpty ? [] : [
                 EntryList.Section(
                     id: "month-entries-\(normalizedDate.timeIntervalSinceReferenceDate)",
@@ -150,8 +145,71 @@ struct YearSpreadContentView: View {
                 calendar: calendar,
                 visualState: visualState,
                 style: .list(sections: sections, configurationMap: configurationMap),
-                onCreateSpread: { coordinator.showSpreadCreation(prefill: .init(period: .month, date: normalizedDate)) }
+                onCreateSpread: {
+                    context.coordinator.showSpreadCreation(prefill: .init(period: .month, date: normalizedDate))
+                }
             )
+        }
+    }
+
+    // MARK: - Static Helpers
+
+    static func entriesForMonth(
+        _ monthDate: Date,
+        from spreadDataModel: SpreadDataModel,
+        calendar: Calendar
+    ) -> [any Entry] {
+        let normalizedMonth = Period.month.normalizeDate(monthDate, calendar: calendar)
+        var allEntries: [any Entry] = []
+        allEntries.append(contentsOf: spreadDataModel.tasks)
+        allEntries.append(contentsOf: spreadDataModel.notes)
+        return allEntries
+            .filter { entry in
+                guard let candidateMonth = monthCardMonthDate(for: entry, calendar: calendar) else { return false }
+                return candidateMonth == normalizedMonth
+            }
+            .sorted { lhs, rhs in
+                sortKey(for: lhs, calendar: calendar) < sortKey(for: rhs, calendar: calendar)
+            }
+    }
+
+    private static func monthCardMonthDate(for entry: any Entry, calendar: Calendar) -> Date? {
+        if let task = entry as? DataModel.Task,
+           task.period == .month || task.period == .day {
+            return Period.month.normalizeDate(task.date, calendar: calendar)
+        }
+        if let note = entry as? DataModel.Note,
+           note.period == .month || note.period == .day {
+            return Period.month.normalizeDate(note.date, calendar: calendar)
+        }
+        return nil
+    }
+
+    private static func sortKey(for entry: any Entry, calendar: Calendar) -> (Date, Int, Date, UUID) {
+        if let task = entry as? DataModel.Task {
+            return (
+                task.period.normalizeDate(task.date, calendar: calendar),
+                entryTypeSortOrder(task.entryType),
+                task.createdDate,
+                task.id
+            )
+        }
+        if let note = entry as? DataModel.Note {
+            return (
+                note.period.normalizeDate(note.date, calendar: calendar),
+                entryTypeSortOrder(note.entryType),
+                note.createdDate,
+                note.id
+            )
+        }
+        return (.distantFuture, entryTypeSortOrder(entry.entryType), entry.createdDate, entry.id)
+    }
+
+    private static func entryTypeSortOrder(_ type: EntryType) -> Int {
+        switch type {
+        case .task: return 0
+        case .note: return 1
+        case .event: return 2
         }
     }
 }
