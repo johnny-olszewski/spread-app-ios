@@ -27,7 +27,7 @@ struct SpreadHeaderNavigatorModel {
         let isDerived: Bool
         let monthSelection: Selection?
         let dayTargetsByDate: [Date: [SelectionTarget]]
-        let dayStateByDate: [Date: SpreadMonthCalendarDayState]
+        let dayStateByDate: [Date: MonthDayState]
 
         var id: Date { date }
         var canViewMonth: Bool { monthSelection != nil }
@@ -36,10 +36,10 @@ struct SpreadHeaderNavigatorModel {
             dayTargetsByDate[Period.day.normalizeDate(date, calendar: calendar), default: []]
         }
 
-        func dayState(for date: Date, calendar: Calendar) -> SpreadMonthCalendarDayState {
+        func dayState(for date: Date, calendar: Calendar) -> MonthDayState {
             dayStateByDate[
                 Period.day.normalizeDate(date, calendar: calendar),
-                default: .init(hasExplicitDaySpread: false, contentCount: 0)
+                default: MonthDayState(hasExplicitDaySpread: false, contentCount: 0)
             ]
         }
     }
@@ -180,7 +180,7 @@ struct SpreadHeaderNavigatorModel {
         }
     }
 
-    private func conventionalDayStateByDate(year: Int, month: Int) -> [Date: SpreadMonthCalendarDayState] {
+    private func conventionalDayStateByDate(year: Int, month: Int) -> [Date: MonthDayState] {
         guard let monthDate = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
               let dayRange = calendar.range(of: .day, in: .month, for: monthDate) else {
             return [:]
@@ -211,7 +211,7 @@ struct SpreadHeaderNavigatorModel {
             let hasExplicitDaySpread = explicitDayDates.contains(normalizedDate)
 
             guard hasExplicitDaySpread || contentCount > 0 else { return }
-            result[normalizedDate] = SpreadMonthCalendarDayState(
+            result[normalizedDate] = MonthDayState(
                 hasExplicitDaySpread: hasExplicitDaySpread,
                 contentCount: contentCount
             )
@@ -274,18 +274,34 @@ struct SpreadHeaderNavigatorModel {
         return result
     }
 
-    private func traditionalDayStateByDate(year: Int, month: Int) -> [Date: SpreadMonthCalendarDayState] {
-        guard let monthDate = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else {
+    private func traditionalDayStateByDate(year: Int, month: Int) -> [Date: MonthDayState] {
+        guard let monthDate = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
+              let monthInterval = calendar.dateInterval(of: .month, for: monthDate) else {
             return [:]
         }
 
-        return SpreadMonthCalendarSupport.traditionalDayStateByDate(
-            monthDate: monthDate,
-            tasks: tasks,
-            notes: notes,
-            events: events,
-            calendar: calendar
-        )
+        var dates: [Date] = []
+        var cursor = monthInterval.start
+        while cursor < monthInterval.end {
+            dates.append(cursor)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+
+        let service = TraditionalSpreadService(calendar: calendar)
+        return dates.reduce(into: [:]) { result, date in
+            let model = service.virtualSpreadDataModel(
+                period: .day,
+                date: date,
+                tasks: tasks,
+                notes: notes,
+                events: events
+            )
+            result[Period.day.normalizeDate(date, calendar: calendar)] = MonthDayState(
+                hasExplicitDaySpread: true,
+                contentCount: model.tasks.count + model.notes.count
+            )
+        }
     }
 
     private func traditionalDayTargetsByDate(year: Int, month: Int) -> [Date: [SelectionTarget]] {

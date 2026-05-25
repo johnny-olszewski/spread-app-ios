@@ -2,166 +2,12 @@ import SwiftUI
 import JohnnyOFoundationUI
 import JohnnyOFoundationCore
 
-private struct SpreadMonthCalendarContentGenerator: CalendarContentGenerator {
-    typealias HeaderContent = AnyView
-    typealias WeekdayHeaderContent = AnyView
-    typealias DayCellContent = AnyView
-    typealias PlaceholderCellContent = AnyView
-    typealias WeekBackgroundContent = AnyView
-
-    let calendar: Calendar
-    let dayStateByDate: [Date: SpreadMonthCalendarDayState]
-    let calendarActionsByDate: [Date: MonthSpreadCalendarDayAction]
-    let mode: SpreadMonthCalendarView.Mode
-    let onViewDaySpread: ((DataModel.Spread) -> Void)?
-
-    func headerView(context: MonthCalendarHeaderContext) -> AnyView {
-        AnyView(EmptyView().frame(height: 0))
-    }
-
-    func weekdayHeaderView(context: MonthCalendarWeekdayContext) -> AnyView {
-        AnyView(
-            Text(context.symbol)
-                .font(SpreadTheme.Typography.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-        )
-    }
-
-    func dayCellView(context: MonthCalendarDayContext) -> AnyView {
-        let normalizedDate = Period.day.normalizeDate(context.date, calendar: calendar)
-        let dayState = dayStateByDate[normalizedDate] ?? .init(hasExplicitDaySpread: false, contentCount: 0)
-        let action = mode == .conventional ? calendarActionsByDate[normalizedDate] : nil
-        let visualState = dayVisualState(for: context, dayState: dayState)
-        let foreground: Color = context.isPeripheral ? .secondary : .primary
-
-        return AnyView(
-            VStack(alignment: .leading, spacing: 4) {
-                if context.isPeripheral {
-                    Text(shortMonth(for: context.date))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Color.clear
-                        .frame(height: 12)
-                }
-
-                Text("\(calendar.component(.day, from: context.date))")
-                    .font(SpreadTheme.Typography.body)
-                    .fontWeight(context.isToday ? .semibold : .regular)
-                    .foregroundStyle(context.isToday ? SpreadTheme.Accent.todayEmphasis : foreground)
-
-                if case .revealSection? = action {
-                    Text("Assigned")
-                        .font(.system(size: 9, weight: .semibold, design: .default))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                } else if case .view(let spread)? = action {
-                    HStack {
-                        Spacer()
-
-                        Button {
-                            onViewDaySpread?(spread)
-                        } label: {
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(SpreadTheme.Accent.todaySelectedEmphasis)
-                                .frame(width: 24, height: 24)
-                                .background(
-                                    Circle()
-                                        .fill(.white.opacity(0.94))
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Open day spread")
-                    }
-                } else {
-                    Spacer(minLength: 8)
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 54, alignment: .topLeading)
-            .padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(cellFill(visualState: visualState, isPeripheral: context.isPeripheral))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(
-                        context.isPeripheral ? Color.clear : visualState.borderColor,
-                        style: visualState.borderStyle
-                    )
-            )
-            .padding(2)
-        )
-    }
-
-    private func dayVisualState(
-        for context: MonthCalendarDayContext,
-        dayState: SpreadMonthCalendarDayState
-    ) -> SpreadCardStyle {
-        switch mode {
-        case .conventional:
-            return MultidayDayCardSupport.visualState(
-                isToday: context.isToday,
-                isCreated: dayState.hasExplicitDaySpread
-            )
-        case .traditional:
-            return MultidayDayCardSupport.visualState(
-                isToday: context.isToday,
-                isCreated: true
-            )
-        }
-    }
-
-    private func cellFill(
-        visualState: SpreadCardStyle,
-        isPeripheral: Bool
-    ) -> Color {
-        if isPeripheral { return Color.clear }
-        if visualState.isToday { return visualState.fill }
-        return visualState.isCreated ? Color.primary.opacity(0.04) : Color.clear
-    }
-
-    func placeholderCellView(context: MonthCalendarPlaceholderContext) -> AnyView {
-        AnyView(
-            Color.clear
-                .frame(maxWidth: .infinity, minHeight: 54)
-        )
-    }
-
-    func weekBackgroundView(context: MonthCalendarWeekContext) -> AnyView {
-        AnyView(Color.clear.frame(maxWidth: .infinity, minHeight: 0))
-    }
-
-    private func shortMonth(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "MMM"
-        return formatter.string(from: date).uppercased()
-    }
-}
-
+/// Month calendar view for a spread, with day-state computed from the journal.
+///
+/// Exists as a dedicated child view so that `journalManager` observation is isolated here,
+/// preventing parent view re-evaluations from interfering with the parent's task/content lifecycle.
 struct SpreadMonthCalendarView: View {
-    private struct CalendarDelegate: MonthCalendarActionDelegate {
-        let calendar: Calendar
-        let calendarActionsByDate: [Date: MonthSpreadCalendarDayAction]
-        let onRevealMonthDaySection: (Date) -> Void
-
-        func monthCalendarDidTapDay(_ context: MonthCalendarDayContext) {
-            let normalizedDate = Period.day.normalizeDate(context.date, calendar: calendar)
-            guard case .revealSection(let sectionDate)? = calendarActionsByDate[normalizedDate] else {
-                return
-            }
-
-            onRevealMonthDaySection(sectionDate)
-        }
-    }
-
-    enum Mode: Equatable {
+    enum Mode {
         case conventional
         case traditional
     }
@@ -173,31 +19,35 @@ struct SpreadMonthCalendarView: View {
     var onViewDaySpread: ((DataModel.Spread) -> Void)? = nil
     var onRevealMonthDaySection: ((Date) -> Void)? = nil
 
+    // MARK: - Calendar Delegate
+
+    private struct CalendarDelegate: MonthCalendarActionDelegate {
+        let calendar: Calendar
+        let calendarActionsByDate: [Date: MonthSpreadCalendarDayAction]
+        let onRevealSection: (Date) -> Void
+
+        func monthCalendarDidTapDay(_ context: MonthCalendarDayContext) {
+            let normalizedDate = Period.day.normalizeDate(context.date, calendar: calendar)
+            guard case .revealSection(let sectionDate)? = calendarActionsByDate[normalizedDate] else {
+                return
+            }
+            onRevealSection(sectionDate)
+        }
+    }
+
+    // MARK: - Computed
+
+    private var isConventional: Bool { mode == .conventional }
+
     private var calendar: Calendar {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
     }
 
-    private var dayStateByDate: [Date: SpreadMonthCalendarDayState] {
-        switch mode {
-        case .conventional:
-            let monthStart = Period.month.normalizeDate(monthDate, calendar: calendar)
-            return SpreadMonthCalendarSupport.conventionalDayStateByDate(
-                monthDate: monthDate,
-                spreads: journalManager.spreads,
-                dataModel: journalManager.dataModel,
-                monthSpreadDataModel: journalManager.dataModel[.month]?[monthStart],
-                calendar: calendar
-            )
-        case .traditional:
-            return SpreadMonthCalendarSupport.traditionalDayStateByDate(
-                monthDate: monthDate,
-                tasks: journalManager.tasks,
-                notes: journalManager.notes,
-                events: FeatureFlags.eventsEnabled ? journalManager.events : [],
-                calendar: calendar
-            )
-        }
+    private var dayStateByDate: [Date: MonthDayState] {
+        isConventional ? conventionalDayStateByDate() : traditionalDayStateByDate()
     }
+
+    // MARK: - Body
 
     var body: some View {
         MonthCalendarView(
@@ -205,14 +55,20 @@ struct SpreadMonthCalendarView: View {
             calendar: calendar,
             today: journalManager.today,
             configuration: .init(showsPeripheralDates: true),
-            contentGenerator: SpreadMonthCalendarContentGenerator(
+            contentGenerator: FullMonthCalendarContentGenerator(
                 calendar: calendar,
                 dayStateByDate: dayStateByDate,
                 calendarActionsByDate: calendarActionsByDate,
-                mode: mode,
+                isConventional: isConventional,
                 onViewDaySpread: onViewDaySpread
             ),
-            actionDelegate: monthCalendarActionDelegate
+            actionDelegate: isConventional
+                ? CalendarDelegate(
+                    calendar: calendar,
+                    calendarActionsByDate: calendarActionsByDate,
+                    onRevealSection: { onRevealMonthDaySection?($0) }
+                )
+                : nil
         )
         .padding(.horizontal, 16)
         .padding(.top, 12)
@@ -220,16 +76,86 @@ struct SpreadMonthCalendarView: View {
         .accessibilityIdentifier("spreads.month.calendar")
     }
 
-    private var monthCalendarActionDelegate: (any MonthCalendarActionDelegate)? {
-        guard mode == .conventional,
-              let onRevealMonthDaySection else {
-            return nil
+    // MARK: - Day State
+
+    private func conventionalDayStateByDate() -> [Date: MonthDayState] {
+        let monthStart = Period.month.normalizeDate(monthDate, calendar: calendar)
+        let fallbackCounts = monthDayContentCounts(
+            monthSpreadDataModel: journalManager.dataModel[.month]?[monthStart]
+        )
+
+        let explicitStates = journalManager.spreads.reduce(into: [Date: MonthDayState]()) { result, s in
+            guard s.period == .day else { return }
+            let normalizedDate = Period.day.normalizeDate(s.date, calendar: calendar)
+            guard Period.month.normalizeDate(normalizedDate, calendar: calendar) == monthStart else { return }
+
+            let explicitCount =
+                (journalManager.dataModel[.day]?[normalizedDate]?.tasks.count ?? 0) +
+                (journalManager.dataModel[.day]?[normalizedDate]?.notes.count ?? 0)
+            let fallbackCount = fallbackCounts[normalizedDate] ?? 0
+            result[normalizedDate] = MonthDayState(
+                hasExplicitDaySpread: true,
+                contentCount: max(explicitCount, fallbackCount)
+            )
         }
 
-        return CalendarDelegate(
-            calendar: calendar,
-            calendarActionsByDate: calendarActionsByDate,
-            onRevealMonthDaySection: onRevealMonthDaySection
-        )
+        let fallbackStates = fallbackCounts.mapValues { MonthDayState(hasExplicitDaySpread: false, contentCount: $0) }
+
+        return explicitStates.merging(fallbackStates) { explicit, fallback in
+            MonthDayState(
+                hasExplicitDaySpread: explicit.hasExplicitDaySpread,
+                contentCount: max(explicit.contentCount, fallback.contentCount)
+            )
+        }
+    }
+
+    private func monthDayContentCounts(monthSpreadDataModel: SpreadDataModel?) -> [Date: Int] {
+        guard let model = monthSpreadDataModel else { return [:] }
+        let entries: [any Entry] =
+            (model.tasks.filter { $0.period == .day } as [any Entry]) +
+            (model.notes.filter { $0.period == .day } as [any Entry])
+        return entries.reduce(into: [:]) { result, entry in
+            let date = Period.day.normalizeDate(entryDate(for: entry), calendar: calendar)
+            result[date, default: 0] += 1
+        }
+    }
+
+    private func traditionalDayStateByDate() -> [Date: MonthDayState] {
+        guard let monthInterval = calendar.dateInterval(of: .month, for: monthDate) else {
+            return [:]
+        }
+
+        var dates: [Date] = []
+        var cursor = monthInterval.start
+        while cursor < monthInterval.end {
+            dates.append(cursor)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+
+        let service = TraditionalSpreadService(calendar: calendar)
+        let tasks = journalManager.tasks
+        let notes = journalManager.notes
+        let events = FeatureFlags.eventsEnabled ? journalManager.events : []
+
+        return dates.reduce(into: [:]) { result, date in
+            let model = service.virtualSpreadDataModel(
+                period: .day,
+                date: date,
+                tasks: tasks,
+                notes: notes,
+                events: events
+            )
+            result[Period.day.normalizeDate(date, calendar: calendar)] = MonthDayState(
+                hasExplicitDaySpread: true,
+                contentCount: model.tasks.count + model.notes.count
+            )
+        }
+    }
+
+    private func entryDate(for entry: any Entry) -> Date {
+        if let task = entry as? DataModel.Task { return task.date }
+        if let note = entry as? DataModel.Note { return note.date }
+        return entry.createdDate
     }
 }
