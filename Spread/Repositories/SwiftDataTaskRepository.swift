@@ -51,12 +51,19 @@ final class SwiftDataTaskRepository: TaskRepository {
         let operation: SyncOperation = hasStoredTask(id: task.id) ? .update : .create
         let timestamp = nowProvider()
         let previousAssignments = storedTaskAssignments(id: task.id) ?? []
+        let previousTagIds = storedTaskTagIds(id: task.id) ?? []
 
         enqueueTaskMutation(task, operation: operation, timestamp: timestamp)
         enqueueTaskAssignmentMutations(
             taskId: task.id,
             previousAssignments: previousAssignments,
             currentAssignments: task.assignments,
+            timestamp: timestamp
+        )
+        enqueueTaskTagMutations(
+            taskId: task.id,
+            previousTagIds: previousTagIds,
+            currentTagIds: task.tags.map(\.id),
             timestamp: timestamp
         )
         modelContext.insert(task)
@@ -66,10 +73,16 @@ final class SwiftDataTaskRepository: TaskRepository {
     func delete(_ task: DataModel.Task) async throws {
         let timestamp = nowProvider()
         let previousAssignments = storedTaskAssignments(id: task.id) ?? task.assignments
+        let previousTagIds = storedTaskTagIds(id: task.id) ?? task.tags.map(\.id)
 
         enqueueTaskMutation(task, operation: .delete, timestamp: timestamp)
         enqueueTaskAssignmentTombstones(
             previousAssignments,
+            taskId: task.id,
+            timestamp: timestamp
+        )
+        enqueueTaskTagTombstones(
+            tagIds: previousTagIds,
             taskId: task.id,
             timestamp: timestamp
         )
@@ -81,7 +94,7 @@ final class SwiftDataTaskRepository: TaskRepository {
 
     private enum Constants {
         static let changedFields = [
-            "title", "body", "priority", "due_date",
+            "title", "body", "priority", "due_date", "list_id",
             "date", "period", "status"
         ]
         static let assignmentChangedFields = ["period", "date", "status"]
@@ -187,6 +200,50 @@ final class SwiftDataTaskRepository: TaskRepository {
         modelContext.insert(mutation)
     }
 
+    private func enqueueTaskTagMutations(
+        taskId: UUID,
+        previousTagIds: [UUID],
+        currentTagIds: [UUID],
+        timestamp: Date
+    ) {
+        let previousSet = Set(previousTagIds)
+        let currentSet = Set(currentTagIds)
+
+        for tagId in currentSet.subtracting(previousSet) {
+            guard let recordData = SyncSerializer.serializeTaskTag(
+                taskId: taskId, tagId: tagId, timestamp: timestamp
+            ) else { continue }
+            let mutation = DataModel.SyncMutation(
+                entityType: SyncEntityType.taskTag.rawValue,
+                entityId: UUID(),
+                operation: SyncOperation.create.rawValue,
+                recordData: recordData
+            )
+            modelContext.insert(mutation)
+        }
+
+        enqueueTaskTagTombstones(
+            tagIds: Array(previousSet.subtracting(currentSet)),
+            taskId: taskId,
+            timestamp: timestamp
+        )
+    }
+
+    private func enqueueTaskTagTombstones(tagIds: [UUID], taskId: UUID, timestamp: Date) {
+        for tagId in tagIds {
+            guard let recordData = SyncSerializer.serializeTaskTag(
+                taskId: taskId, tagId: tagId, timestamp: timestamp, deletedAt: timestamp
+            ) else { continue }
+            let mutation = DataModel.SyncMutation(
+                entityType: SyncEntityType.taskTag.rawValue,
+                entityId: UUID(),
+                operation: SyncOperation.delete.rawValue,
+                recordData: recordData
+            )
+            modelContext.insert(mutation)
+        }
+    }
+
     private func hasStoredTask(id: UUID) -> Bool {
         var descriptor = FetchDescriptor<DataModel.Task>(
             predicate: #Predicate { $0.id == id }
@@ -202,5 +259,14 @@ final class SwiftDataTaskRepository: TaskRepository {
         )
         descriptor.fetchLimit = 1
         return try? context.fetch(descriptor).first?.assignments
+    }
+
+    private func storedTaskTagIds(id: UUID) -> [UUID]? {
+        let context = ModelContext(modelContainer)
+        var descriptor = FetchDescriptor<DataModel.Task>(
+            predicate: #Predicate { $0.id == id }
+        )
+        descriptor.fetchLimit = 1
+        return try? context.fetch(descriptor).first?.tags.map(\.id)
     }
 }

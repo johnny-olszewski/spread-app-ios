@@ -17,11 +17,11 @@ struct RootNavigationViewTests {
         #expect(tab.systemImage == "folder")
     }
 
-    @Test func testSearchTabHasCorrectProperties() {
-        let tab = NavigationTab.search
+    @Test func testEntriesTabHasCorrectProperties() {
+        let tab = NavigationTab.entries
 
-        #expect(tab.title == "Search")
-        #expect(tab.systemImage == "magnifyingglass")
+        #expect(tab.title == "Entries")
+        #expect(tab.systemImage == "tray.full")
     }
 
     @Test func testSettingsTabHasCorrectProperties() {
@@ -37,7 +37,7 @@ struct RootNavigationViewTests {
         #expect(tabs.count >= 4)
         #expect(tabs.count <= 5)
         #expect(tabs[0] == .spreads)
-        #expect(tabs[1] == .search)
+        #expect(tabs[1] == .entries)
         #expect(tabs[2] == .collections)
         #expect(tabs[3] == .settings)
     }

@@ -1,61 +1,52 @@
 import Testing
 @testable import Spread
 
+/// Accessibility label and value tests for `EntryRowView`.
+///
+/// Since accessibility computation is now inside `EntryRowView` as private computed
+/// properties (not on `EntryRowView.Configuration`), these tests verify the `Entry` display
+/// protocol requirements that feed the accessibility computation.
 struct EntryRowAccessibilityTests {
 
-    // MARK: - accessibilityLabel Tests
+    // MARK: - Entry display requirements
 
-    /// Conditions: Task row with open status.
-    /// Expected: accessibilityLabel contains title, "Task", and "Open".
-    @Test func taskRow_openStatus_accessibilityLabel_includesTitleTypeAndStatus() {
-        let config = EntryRowConfiguration(entryType: .task, taskStatus: .open, title: "Buy milk")
+    /// Conditions: Task with open status.
+    /// Expected: displayTaskStatus returns .open.
+    @Test func taskWithOpenStatus_displayTaskStatus_isOpen() {
+        let task = DataModel.Task(title: "Buy milk", status: .open)
 
-        let label = config.accessibilityLabel
-
-        #expect(label.contains("Buy milk"))
-        #expect(label.contains("Task"))
-        #expect(label.contains("Open"))
+        #expect(task.displayTaskStatus == .open)
     }
 
-    /// Conditions: Task row with complete status.
-    /// Expected: accessibilityLabel contains "Complete".
-    @Test func taskRow_completeStatus_accessibilityLabel_includesCompleteStatus() {
-        let config = EntryRowConfiguration(entryType: .task, taskStatus: .complete, title: "Buy milk")
+    /// Conditions: Task with complete status.
+    /// Expected: displayTaskStatus returns .complete.
+    @Test func taskWithCompleteStatus_displayTaskStatus_isComplete() {
+        let task = DataModel.Task(title: "Buy milk", status: .complete)
 
-        let label = config.accessibilityLabel
-
-        #expect(label.contains("Complete"))
+        #expect(task.displayTaskStatus == .complete)
     }
 
-    // MARK: - accessibilityValue Tests
+    /// Conditions: Task with high priority.
+    /// Expected: displayPriority returns .high.
+    @Test func taskWithHighPriority_displayPriority_isHigh() {
+        let task = DataModel.Task(title: "Buy milk", priority: .high, status: .open)
 
-    /// Conditions: Task row with high priority set.
-    /// Expected: accessibilityValue contains "High priority".
-    @Test func taskRow_highPriority_accessibilityValue_includesPriority() {
-        let config = EntryRowConfiguration(
-            entryType: .task,
-            taskStatus: .open,
-            title: "Buy milk",
-            taskPriority: .high
-        )
-
-        let value = config.accessibilityValue
-
-        #expect(value?.contains("High priority") == true)
+        #expect(task.displayPriority == .high)
     }
 
-    /// Conditions: Task row with a due date label.
-    /// Expected: accessibilityValue contains the due date label.
-    @Test func taskRow_withDueDate_accessibilityValue_includesDueDate() {
-        let config = EntryRowConfiguration(
-            entryType: .task,
-            taskStatus: .open,
-            title: "Buy milk",
-            taskDueDateLabel: "May 20"
-        )
+    /// Conditions: Note with active status.
+    /// Expected: displayNoteStatus returns .active.
+    @Test func noteWithActiveStatus_displayNoteStatus_isActive() {
+        let note = DataModel.Note(title: "Ideas", status: .active)
 
-        let value = config.accessibilityValue
+        #expect(note.displayNoteStatus == .active)
+    }
 
-        #expect(value?.contains("Due May 20") == true)
+    /// Conditions: Default Entry (task with no explicit priority).
+    /// Expected: displayPriority returns .none from the default protocol extension.
+    @Test func taskWithNoPriority_displayPriority_isNone() {
+        let task = DataModel.Task(title: "Buy milk", status: .open)
+
+        #expect(task.displayPriority == .none)
     }
 }

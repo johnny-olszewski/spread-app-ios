@@ -41,7 +41,8 @@
 - A task may have a desired assignment defined by a preferred `date` and preferred `period`; when no preferred assignment exists, the task remains in Inbox until explicitly assigned. [SPRD-24, SPRD-110, SPRD-170]
 - A task's due date is distinct from its assignment target. Due date is informational display metadata only; it does not move the task between spreads, place it in Inbox, affect migration, or determine overdue membership. [SPRD-170]
 - `WKFLW-17` task metadata includes one optional plain multiline body field, one optional day-level due date, and one non-null display-only priority enum (`none`, `low`, `medium`, `high`). These are task-level properties, not assignment-level properties. [SPRD-170]
-- Links, tags, assigned time, subtasks, sequential/blocking relationships, hidden-on-spreads, and status expansion are deferred beyond `WKFLW-17`. [SPRD-167, SPRD-171]
+- `SESH-21` adds an optional `list` relationship (one `List` or nil) and an optional `tags` relationship (zero or more `Tag`s) as task-level organizational fields. These are task-level properties, not assignment-level properties. [SPRD-221]
+- Links, assigned time, subtasks, sequential/blocking relationships, hidden-on-spreads, and status expansion are deferred. Tags (as a separate feature from the organizational `Tag` model) remain deferred. [SPRD-167, SPRD-171]
 - Tracks migration history via TaskAssignment array. [SPRD-10]
 - Eligible for batch migration suggestions. [SPRD-15]
 - Symbol: solid circle (●). [SPRD-21]
@@ -57,14 +58,28 @@
 - Behaves like tasks for spread assignment (date, period, assignments). [SPRD-9, SPRD-34]
 - Uses the same preferred-date/preferred-period assignment resolution as tasks, including first-class multiday assignment semantics. Notes are never suggested in batch migration UI, but explicit spread creation may automatically move them to the best newly available destination under the same hierarchy rules as tasks. [SPRD-15, SPRD-34, SPRD-186, SPRD-193]
 - May have longer content field for extended notes. [SPRD-9]
+- `SESH-21` adds an optional `list` relationship (one `List` or nil) and an optional `tags` relationship (zero or more `Tag`s) for model parity with Task. Notes are not displayed in the Task Browser tab but share the same organizational model. [SPRD-221]
 - Symbol: dash (—). [SPRD-21]
 - Status visual treatment: [SPRD-22, SPRD-64]
   - Active: dash, no overlay, normal styling.
   - Migrated: dash with arrow (→) overlay, greyed out row.
 
+### List
+- A first-class SwiftData `@Model` entity representing a broad domain grouping (e.g. "Work", "Home", "Personal"). [SPRD-221]
+- Has a non-empty, trimmed `name` string. [SPRD-221]
+- Has a one-to-many inverse relationship to `DataModel.Task` and `DataModel.Note` (each task/note may belong to at most one List). [SPRD-221]
+- Synced via the standard outbox/revision/tombstone architecture. [SPRD-221]
+- Not related to `Collection`; Collections are a distinct bullet journal concept outside of spread entries. [SPRD-221]
+
+### Tag
+- A first-class SwiftData `@Model` entity representing a specific project or theme (e.g. "Baby Preparation", "EOY Presentation", "Garage Reorganization"). [SPRD-221]
+- Has a non-empty, trimmed `name` string. [SPRD-221]
+- Has a many-to-many inverse relationship to `DataModel.Task` and `DataModel.Note` (each task/note may have zero or more Tags; each Tag may be used by zero or more tasks/notes). [SPRD-221]
+- Synced via the standard outbox/revision/tombstone architecture. [SPRD-221]
+
 ### Persistence
 - Use SwiftData for local storage. [SPRD-4, SPRD-5]
-- Schema includes Spread, Task, Note, Collection (Event model reserved for v2). [SPRD-4, SPRD-8, SPRD-9, SPRD-39]
+- Schema includes Spread, Task, Note, Collection, List, Tag (Event model reserved for v2). [SPRD-4, SPRD-8, SPRD-9, SPRD-39, SPRD-221]
 - Supabase sync is the only cloud backend for v1 (CloudKit removed). [SPRD-80, SPRD-104]
 - Offline-first, then sync; auto-sync on launch/foreground + manual refresh. [SPRD-85]
 - Local changes enqueue outbox and attempt immediate push on explicit Save/Done actions (not on every keystroke). Manual sync remains available. [SPRD-85]

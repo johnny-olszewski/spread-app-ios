@@ -404,6 +404,8 @@ final class SyncEngine {
     }
 
     private func pullTable(_ entityType: SyncEntityType, userId: UUID) async throws {
+        guard entityType.supportsRevisionPull else { return }
+
         let context = modelContainer.mainContext
         let cursor = fetchOrCreateCursor(for: entityType, context: context)
         var lastRevision = cursor.lastRevision
@@ -598,6 +600,26 @@ final class SyncEngine {
                     logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
                     throw error
                 }
+            case .list:
+                do {
+                    let row = try decoder.decode(ServerListRow.self, from: rowData)
+                    try applyListRow(row, context: context)
+                } catch {
+                    logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
+                    throw error
+                }
+            case .tag:
+                do {
+                    let row = try decoder.decode(ServerTagRow.self, from: rowData)
+                    try applyTagRow(row, context: context)
+                } catch {
+                    logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
+                    throw error
+                }
+            case .taskTag, .noteTag:
+                // Join table rows are applied via task/note relationship resolution;
+                // pull is not yet implemented for join tables in this version.
+                break
             }
         }
     }
@@ -801,6 +823,46 @@ final class SyncEngine {
                 note.assignments[index] = assignment
             } else {
                 note.assignments.append(assignment)
+            }
+        }
+    }
+
+    private func applyListRow(_ row: ServerListRow, context: ModelContext) throws {
+        let id = row.id
+        var descriptor = FetchDescriptor<DataModel.List>(
+            predicate: #Predicate { $0.id == id }
+        )
+        descriptor.fetchLimit = 1
+
+        if let existing = try context.fetch(descriptor).first {
+            if row.deletedAt != nil {
+                context.delete(existing)
+            } else {
+                _ = SyncSerializer.applyListRow(row, to: existing)
+            }
+        } else if row.deletedAt == nil {
+            if let list = SyncSerializer.createList(from: row) {
+                context.insert(list)
+            }
+        }
+    }
+
+    private func applyTagRow(_ row: ServerTagRow, context: ModelContext) throws {
+        let id = row.id
+        var descriptor = FetchDescriptor<DataModel.Tag>(
+            predicate: #Predicate { $0.id == id }
+        )
+        descriptor.fetchLimit = 1
+
+        if let existing = try context.fetch(descriptor).first {
+            if row.deletedAt != nil {
+                context.delete(existing)
+            } else {
+                _ = SyncSerializer.applyTagRow(row, to: existing)
+            }
+        } else if row.deletedAt == nil {
+            if let tag = SyncSerializer.createTag(from: row) {
+                context.insert(tag)
             }
         }
     }

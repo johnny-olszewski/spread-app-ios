@@ -1,10 +1,5 @@
 import Foundation
 
-enum EntryRowPrimaryInteraction: Equatable {
-    case inlineEdit
-    case fullEditSheet
-}
-
 enum EntryRowInlineMigrationOptionKind: String, CaseIterable {
     case today
     case tomorrow
@@ -22,17 +17,6 @@ struct EntryRowInlineMigrationOption: Identifiable, Equatable {
 }
 
 enum EntryRowInlineEditSupport {
-
-    static func primaryInteraction(
-        entryType: EntryType,
-        taskStatus: DataModel.Task.Status?,
-        canInlineEditTitle: Bool
-    ) -> EntryRowPrimaryInteraction {
-        guard entryType == .task, canInlineEditTitle, taskStatus == .open else {
-            return .fullEditSheet
-        }
-        return .inlineEdit
-    }
 
     static func migrationOptions(
         for task: DataModel.Task,

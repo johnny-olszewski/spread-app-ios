@@ -4,8 +4,8 @@ import SwiftUI
 struct SpreadContentPagerView: View {
     private let liveRadius = 2
 
-    let journalManager: JournalManager
-    let viewModel: SpreadsViewModel
+    @Environment(JournalManager.self) private var journalManager
+    let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
     let model: SpreadTitleNavigatorModel
     let items: [SpreadTitleNavigatorModel.Item]
@@ -56,8 +56,7 @@ struct SpreadContentPagerView: View {
                         if liveWindowIDs.contains(item.id) {
                             SpreadPageContentView(
                                 item: item,
-                                journalManager: journalManager,
-                                viewModel: viewModel,
+                                coordinator: coordinator,
                                 syncEngine: syncEngine,
                                 model: model
                             )
@@ -121,7 +120,7 @@ struct SpreadContentPagerView: View {
                         deleteSpread(spread)
                     },
                     secondaryButton: .cancel {
-                        viewModel.dismissAlert()
+                        coordinator.dismissAlert()
                     }
                 )
             case .deleteSpreadFailed(let message):
@@ -129,7 +128,7 @@ struct SpreadContentPagerView: View {
                     title: Text("Couldn't Delete Spread"),
                     message: Text(message),
                     dismissButton: .default(Text("OK")) {
-                        viewModel.dismissAlert()
+                        coordinator.dismissAlert()
                     }
                 )
             }
@@ -137,10 +136,10 @@ struct SpreadContentPagerView: View {
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.pager)
     }
 
-    private var activeAlertBinding: Binding<SpreadsViewModel.AlertDestination?> {
+    private var activeAlertBinding: Binding<SpreadsCoordinator.AlertDestination?> {
         Binding(
-            get: { viewModel.activeAlert },
-            set: { viewModel.activeAlert = $0 }
+            get: { coordinator.activeAlert },
+            set: { coordinator.activeAlert = $0 }
         )
     }
 
@@ -157,13 +156,13 @@ struct SpreadContentPagerView: View {
     }
 
     private func deleteSpread(_ spread: DataModel.Spread) {
-        viewModel.dismissAlert()
+        coordinator.dismissAlert()
         Task { @MainActor in
             do {
                 try await journalManager.deleteSpread(spread)
                 await syncEngine?.syncNow()
             } catch {
-                viewModel.showSpreadDeleteFailure(
+                coordinator.showSpreadDeleteFailure(
                     message: "Failed to delete spread: \(error.localizedDescription)"
                 )
             }
@@ -176,10 +175,21 @@ struct SpreadContentPagerView: View {
 /// Assembles a single spread page: `SpreadHeaderView` followed by the period-appropriate content view.
 private struct SpreadPageContentView: View {
     let item: SpreadTitleNavigatorModel.Item
-    let journalManager: JournalManager
-    let viewModel: SpreadsViewModel
+    @Environment(JournalManager.self) private var journalManager
+    let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
     let model: SpreadTitleNavigatorModel
+
+    @Environment(\.eventKitService) private var eventKitService
+
+    private var context: SpreadPageContext {
+        SpreadPageContext(
+            journalManager: journalManager,
+            coordinator: coordinator,
+            syncEngine: syncEngine,
+            eventKitService: eventKitService
+        )
+    }
 
     var body: some View {
         switch journalManager.bujoMode {
@@ -195,19 +205,13 @@ private struct SpreadPageContentView: View {
     @ViewBuilder
     private var conventionalPage: some View {
         if case .conventional(let spread) = item.selection {
-            let selectedID = viewModel.selectedSelection?.stableID(calendar: model.calendar)
+            let selectedID = coordinator.selectedSelection?.stableID(calendar: model.calendar)
             let isCurrentPage = item.id == selectedID
-            let backDestination = isCurrentPage ? viewModel.peekNavigationSource : nil
+            let navState = isCurrentPage ? coordinator.convenienceNavigation : nil
             VStack(spacing: 0) {
                 SpreadHeaderView(
-                    backDestination: backDestination,
-                    onGoBack: backDestination.map { source in
-                        {
-                            viewModel.clearPeekNavigationSource()
-                            viewModel.selectedSelection = .conventional(source)
-                            viewModel.recenterToken += 1
-                        }
-                    }
+                    state: navState,
+                    onTap: navState != nil ? { coordinator.handleConvenienceNavButtonTapped() } : nil
                 )
                 conventionalContentView(for: spread)
             }
@@ -218,58 +222,40 @@ private struct SpreadPageContentView: View {
 
     @ViewBuilder
     private func conventionalContentView(for spread: DataModel.Spread) -> some View {
-        let dataModel = conventionalSpreadDataModel(for: spread)
-        let migrationConfig = migrationConfiguration(for: spread)
-        let onOpenMigrated = openMigratedTaskHandler(for: spread)
-
-        switch spread.period {
-        case .year:
-            YearSpreadContentView(
-                spread: spread,
-                spreadDataModel: dataModel,
-                journalManager: journalManager,
-                viewModel: viewModel,
-                syncEngine: syncEngine,
-                migrationConfiguration: migrationConfig,
-                onOpenMigratedTask: onOpenMigrated
-            )
-        case .month:
-            MonthSpreadContentView(
-                spread: spread,
-                spreadDataModel: dataModel,
-                journalManager: journalManager,
-                viewModel: viewModel,
-                syncEngine: syncEngine,
-                migrationConfiguration: migrationConfig,
-                onOpenMigratedTask: onOpenMigrated
-            )
-        case .day:
-            DaySpreadContentView(
-                spread: spread,
-                spreadDataModel: dataModel,
-                journalManager: journalManager,
-                viewModel: viewModel,
-                syncEngine: syncEngine,
-                migrationConfiguration: migrationConfig,
-                onOpenMigratedTask: onOpenMigrated,
-                explicitDaySpreadForDate: { date in explicitDaySpread(for: date) },
-                onSelectSpread: { selectedSpread in
-                    viewModel.selectedSelection = .conventional(selectedSpread)
-                    viewModel.recenterToken += 1
-                },
-                onCreateSpread: { date in
-                    viewModel.showSpreadCreation(prefill: .init(period: .day, date: date))
-                }
-            )
-        case .multiday:
-            MultidaySpreadContentView(
-                spread: spread,
-                spreadDataModel: dataModel,
-                journalManager: journalManager,
-                viewModel: viewModel,
-                syncEngine: syncEngine,
-                explicitDaySpreadForDate: { date in explicitDaySpread(for: date) }
-            )
+        if let dataModel = conventionalSpreadDataModel(for: spread) {
+            switch spread.period {
+            case .year:
+                YearSpreadContentView(
+                    spread: spread,
+                    spreadDataModel: dataModel,
+                    context: context
+                )
+            case .month:
+                MonthSpreadContentView(
+                    spread: spread,
+                    spreadDataModel: dataModel,
+                    context: context
+                )
+            case .day:
+                DaySpreadContentView(
+                    spread: spread,
+                    spreadDataModel: dataModel,
+                    context: context
+                )
+            case .multiday:
+                MultidaySpreadContentView(
+                    spread: spread,
+                    spreadDataModel: dataModel,
+                    context: context,
+                    explicitDaySpreadForDate: { date in explicitDaySpread(for: date) }
+                )
+            }
+        } else {
+            ContentUnavailableView {
+                Label("No Data", systemImage: "tray")
+            } description: {
+                Text("Unable to load spread data.")
+            }
         }
     }
 
@@ -292,44 +278,31 @@ private struct SpreadPageContentView: View {
         selection: SpreadHeaderNavigatorModel.Selection
     ) -> some View {
         let dataModel = traditionalSpreadDataModel(for: selection)
-        let config = EntryListConfiguration(groupingStyle: .flat, showsMigrationHistory: false)
 
         switch spread.period {
         case .year:
             YearSpreadContentView(
                 spread: spread,
                 spreadDataModel: dataModel,
-                journalManager: journalManager,
-                viewModel: viewModel,
-                syncEngine: syncEngine,
-                entryListConfiguration: config
+                context: context
             )
         case .month:
             MonthSpreadContentView(
                 spread: spread,
                 spreadDataModel: dataModel,
-                journalManager: journalManager,
-                viewModel: viewModel,
-                syncEngine: syncEngine,
-                entryListConfiguration: config
+                context: context
             )
         case .day:
             DaySpreadContentView(
                 spread: spread,
                 spreadDataModel: dataModel,
-                journalManager: journalManager,
-                viewModel: viewModel,
-                syncEngine: syncEngine,
-                entryListConfiguration: config
+                context: context
             )
         case .multiday:
             MultidaySpreadContentView(
                 spread: spread,
                 spreadDataModel: dataModel,
-                journalManager: journalManager,
-                viewModel: viewModel,
-                syncEngine: syncEngine,
-                entryListConfiguration: config
+                context: context
             )
         }
     }
@@ -341,57 +314,6 @@ private struct SpreadPageContentView: View {
         return journalManager.dataModel[spread.period]?[normalizedDate]
     }
 
-    private func migrationConfiguration(for spread: DataModel.Spread) -> EntryListMigrationConfiguration? {
-        guard spread.period != .multiday else { return nil }
-
-        let sourceDestinations: [UUID: DataModel.Spread] = Dictionary(
-            uniqueKeysWithValues: (conventionalSpreadDataModel(for: spread)?.tasks ?? []).compactMap { task in
-                guard let destination = journalManager.migrationDestination(for: task, on: spread) else {
-                    return nil
-                }
-                return (task.id, destination)
-            }
-        )
-
-        let destinationItems = journalManager.parentHierarchyMigrationCandidates(to: spread).map { candidate in
-            EntryListMigrationConfiguration.DestinationItem(
-                task: candidate.task,
-                source: candidate.sourceSpread ?? spread
-            )
-        }
-
-        guard !sourceDestinations.isEmpty || !destinationItems.isEmpty else { return nil }
-
-        return EntryListMigrationConfiguration(
-            sourceDestinations: sourceDestinations,
-            destinationItems: destinationItems,
-            onSourceMigrationConfirmed: { task, destination in
-                migrateTask(task, from: spread, to: destination)
-            },
-            onDestinationMigration: { item in
-                migrateTask(item.task, from: item.source, to: spread)
-            },
-            onDestinationMigrationAll: {
-                migrateTasks(destinationItems, to: spread)
-            }
-        )
-    }
-
-    private func openMigratedTaskHandler(for spread: DataModel.Spread) -> ((DataModel.Task) -> Void) {
-        { task in
-            guard let destination = journalManager.currentDestinationSpread(for: task, excluding: spread) else {
-                viewModel.showTaskDetail(task)
-                return
-            }
-            viewModel.selectedSelection = .conventional(destination)
-            viewModel.recenterToken += 1
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(150))
-                viewModel.showTaskDetail(task)
-            }
-        }
-    }
-
     private func explicitDaySpread(for date: Date) -> DataModel.Spread? {
         let normalizedDate = Period.day.normalizeDate(date, calendar: journalManager.calendar)
         return journalManager.spreads.first { spread in
@@ -400,29 +322,6 @@ private struct SpreadPageContentView: View {
                 Period.day.normalizeDate(spread.date, calendar: journalManager.calendar),
                 inSameDayAs: normalizedDate
             )
-        }
-    }
-
-    private func migrateTask(
-        _ task: DataModel.Task,
-        from source: DataModel.Spread,
-        to destination: DataModel.Spread
-    ) {
-        Task { @MainActor in
-            try? await journalManager.migrateTask(task, from: source, to: destination)
-            await syncEngine?.syncNow()
-        }
-    }
-
-    private func migrateTasks(
-        _ items: [EntryListMigrationConfiguration.DestinationItem],
-        to destination: DataModel.Spread
-    ) {
-        Task { @MainActor in
-            for item in items {
-                try? await journalManager.migrateTask(item.task, from: item.source, to: destination)
-            }
-            await syncEngine?.syncNow()
         }
     }
 

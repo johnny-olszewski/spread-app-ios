@@ -105,6 +105,19 @@ extension DataModel.Task.Status {
             return nil
         }
     }
+
+    var leadingIconAccessibilityLabel: String {
+        switch self {
+        case .open:
+            return "Mark complete"
+        case .complete:
+            return "Reopen"
+        case .migrated:
+            return "Migrated task"
+        case .cancelled:
+            return "Cancelled task"
+        }
+    }
 }
 
 extension DataModel.Task.Priority {

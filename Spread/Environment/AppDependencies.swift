@@ -38,6 +38,12 @@ struct AppDependencies: @unchecked Sendable {
     /// Repository for settings persistence operations.
     let settingsRepository: any SettingsRepository
 
+    /// Repository for list persistence operations.
+    let listRepository: any ListRepository
+
+    /// Repository for tag persistence operations.
+    let tagRepository: any TagRepository
+
     /// Network connectivity monitor.
     let networkMonitor: any NetworkMonitoring
 
@@ -68,6 +74,8 @@ struct AppDependencies: @unchecked Sendable {
             noteRepository: SwiftDataNoteRepository(modelContainer: modelContainer),
             collectionRepository: SwiftDataCollectionRepository(modelContainer: modelContainer),
             settingsRepository: SwiftDataSettingsRepository(modelContainer: modelContainer),
+            listRepository: SwiftDataListRepository(modelContainer: modelContainer),
+            tagRepository: SwiftDataTagRepository(modelContainer: modelContainer),
             networkMonitor: makeNetworkMonitor(),
             eventKitService: LiveEventKitService()
         )
@@ -107,6 +115,8 @@ struct AppDependencies: @unchecked Sendable {
             noteRepository: noteRepository ?? EmptyNoteRepository(),
             collectionRepository: collectionRepository ?? EmptyCollectionRepository(),
             settingsRepository: settingsRepository ?? EmptySettingsRepository(),
+            listRepository: EmptyListRepository(),
+            tagRepository: EmptyTagRepository(),
             networkMonitor: makeNetworkMonitor(),
             eventKitService: eventKitService ?? MockEventKitService()
         )
@@ -133,6 +143,8 @@ struct AppDependencies: @unchecked Sendable {
             noteRepository: MockNoteRepository(),
             collectionRepository: MockCollectionRepository(),
             settingsRepository: EmptySettingsRepository(),
+            listRepository: MockListRepository(),
+            tagRepository: MockTagRepository(),
             networkMonitor: makeNetworkMonitor(),
             eventKitService: MockEventKitService()
         )
@@ -160,6 +172,8 @@ struct AppDependencies: @unchecked Sendable {
             eventRepository: eventRepository,
             noteRepository: noteRepository,
             collectionRepository: collectionRepository,
+            listRepository: listRepository,
+            tagRepository: tagRepository,
             bujoMode: bujoMode,
             firstWeekday: firstWeekday
         )
@@ -178,7 +192,9 @@ extension AppDependencies {
             eventRepositoryType: String(describing: type(of: eventRepository)),
             noteRepositoryType: String(describing: type(of: noteRepository)),
             collectionRepositoryType: String(describing: type(of: collectionRepository)),
-            settingsRepositoryType: String(describing: type(of: settingsRepository))
+            settingsRepositoryType: String(describing: type(of: settingsRepository)),
+            listRepositoryType: String(describing: type(of: listRepository)),
+            tagRepositoryType: String(describing: type(of: tagRepository))
         )
     }
 }
@@ -192,6 +208,8 @@ struct AppDependenciesDebugInfo: Sendable {
     let noteRepositoryType: String
     let collectionRepositoryType: String
     let settingsRepositoryType: String
+    let listRepositoryType: String
+    let tagRepositoryType: String
 
     /// Simplified repository type name (removes "Repository" suffix for display).
     func shortTypeName(for fullName: String) -> String {

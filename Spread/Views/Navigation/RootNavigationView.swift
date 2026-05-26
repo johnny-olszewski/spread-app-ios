@@ -50,14 +50,8 @@ struct RootNavigationView: View {
     private var rootTabView: some View {
         TabView(selection: $selectedTab) {
             ForEach(NavigationTab.allCases) { tab in
-                if tab == .search {
-                    Tab(tab.title, systemImage: tab.systemImage, value: tab, role: .search) {
-                        tabContent(for: tab)
-                    }
-                } else {
-                    Tab(tab.title, systemImage: tab.systemImage, value: tab) {
-                        tabContent(for: tab)
-                    }
+                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
+                    tabContent(for: tab)
                 }
             }
         }
@@ -70,10 +64,11 @@ struct RootNavigationView: View {
                 switch tab {
                 case .spreads:
                     spreadsView
-                case .search:
-                    TaskSearchView(
+                case .entries:
+                    EntriesBrowserView(
                         journalManager: journalManager,
-                        isActive: selectedTab == .search
+                        listRepository: dependencies.listRepository,
+                        tagRepository: dependencies.tagRepository
                     ) { taskID, selection in
                         openTaskFromSearch(taskID: taskID, selection: selection)
                     }
@@ -133,11 +128,7 @@ struct RootNavigationView: View {
     private func fallbackSearchSelection() -> SpreadHeaderNavigatorModel.Selection {
         switch journalManager.bujoMode {
         case .conventional:
-            let organizer = SpreadHierarchyOrganizer(
-                spreads: journalManager.spreads,
-                calendar: journalManager.calendar
-            )
-            let spread = organizer.initialSelection(for: journalManager.today)
+            let spread = journalManager.bestSpread(for: journalManager.today)
                 ?? journalManager.spreads.first
                 ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
             return .conventional(spread)
@@ -166,7 +157,7 @@ private struct NonSpreadNavigationTitleModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if tab == .spreads {
+        if tab == .spreads || tab == .entries {
             content
         } else {
             content.navigationTitle(tab.title)

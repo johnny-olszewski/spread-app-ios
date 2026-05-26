@@ -9,6 +9,8 @@ struct TaskEditorFormModel {
     var priority: DataModel.Task.Priority
     var hasDueDate: Bool
     var dueDate: Date
+    var selectedList: DataModel.List?
+    var selectedTagIDs: Set<UUID>
     var hasPreferredAssignment: Bool
     var selectedPeriod: Period
     var selectedDate: Date
@@ -30,6 +32,8 @@ struct TaskEditorFormModel {
         self.priority = .none
         self.hasDueDate = false
         self.dueDate = configuration.today.startOfDay(calendar: configuration.calendar)
+        self.selectedList = nil
+        self.selectedTagIDs = []
         self.hasPreferredAssignment = selectedSpread != nil
         self.selectedPeriod = defaults.period
         if selectedSpread?.period == .multiday {
@@ -51,6 +55,8 @@ struct TaskEditorFormModel {
         self.priority = task.priority
         self.hasDueDate = task.dueDate != nil
         self.dueDate = (task.dueDate ?? configuration.today).startOfDay(calendar: configuration.calendar)
+        self.selectedList = task.list
+        self.selectedTagIDs = Set(task.tags.map(\.id))
         self.hasPreferredAssignment = task.hasPreferredAssignment
         self.selectedPeriod = task.hasPreferredAssignment ? task.period : .day
         self.selectedDate = task.hasPreferredAssignment ? task.date : configuration.today.startOfDay(calendar: configuration.calendar)
