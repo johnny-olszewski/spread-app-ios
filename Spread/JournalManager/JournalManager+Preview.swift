@@ -38,7 +38,6 @@ extension JournalManager {
             spreadRepository: InMemorySpreadRepository(),
             eventRepository: InMemoryEventRepository(),
             noteRepository: InMemoryNoteRepository(notes: sampleNotes),
-            bujoMode: .conventional,
             creationPolicy: policy
         )
     }
@@ -70,7 +69,6 @@ extension JournalManager {
             spreadRepository: InMemorySpreadRepository(),
             eventRepository: InMemoryEventRepository(),
             noteRepository: InMemoryNoteRepository(),
-            bujoMode: .conventional,
             creationPolicy: policy
         )
     }

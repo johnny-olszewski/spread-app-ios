@@ -56,24 +56,4 @@ protocol NoteMutationCoordinator {
         spreads: [DataModel.Spread]
     ) async throws -> NoteListMutationResult
 
-    /// Migrates a note to a new preferred date/period in traditional mode.
-    ///
-    /// Clears all existing assignments and creates a single new `.active` assignment
-    /// on the nearest matching conventional spread (if one exists).
-    ///
-    /// - Parameters:
-    ///   - note: The note to migrate.
-    ///   - newDate: The new preferred date.
-    ///   - newPeriod: The new preferred period.
-    ///   - calendar: Calendar for date normalization and spread matching.
-    ///   - spreads: The current spread list used to find the best conventional spread.
-    /// - Returns: The updated note and refreshed full note list.
-    /// - Throws: Repository errors if persistence fails.
-    func traditionalMigrateNote(
-        _ note: DataModel.Note,
-        newDate: Date,
-        newPeriod: Period,
-        calendar: Calendar,
-        spreads: [DataModel.Spread]
-    ) async throws -> NoteListMutationResult
 }

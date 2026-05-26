@@ -72,20 +72,14 @@ final class JournalManager {
     /// Repository for tag persistence.
     let tagRepository: any TagRepository
 
-    /// The current BuJo mode (conventional or traditional).
-    var bujoMode: BujoMode
-
     /// The user's first day of week preference.
     var firstWeekday: FirstWeekday
 
     /// Policy for validating spread creation.
     var creationPolicy: SpreadCreationPolicy
 
-    /// Builds conventional-mode spread data models from explicit spreads and entries.
-    var conventionalDataModelBuilder: any JournalDataModelBuilder
-
-    /// Builds traditional-mode virtual spread data models from entry preference data.
-    var traditionalDataModelBuilder: any JournalDataModelBuilder
+    /// Builds spread data models from explicit spreads and entries.
+    var dataModelBuilder: any JournalDataModelBuilder
 
     /// Resolves Inbox membership from the current spreads and entries.
     var inboxResolver: any InboxResolver
@@ -174,6 +168,23 @@ final class JournalManager {
         inboxEntries.count
     }
 
+    /// The title navigator model for the current journal state.
+    var titleNavigatorModel: SpreadTitleNavigatorModel {
+        let headerModel = SpreadHeaderNavigatorModel(
+            calendar: calendar,
+            today: today,
+            firstWeekday: firstWeekday,
+            spreads: spreads,
+            tasks: tasks,
+            notes: notes,
+            events: events
+        )
+        return SpreadTitleNavigatorModel(
+            headerModel: headerModel,
+            overdueItems: overdueTaskItems
+        )
+    }
+
     /// Tasks eligible to move into created spreads in conventional mode.
     ///
     /// The destination must be the most granular valid existing spread that:
@@ -186,7 +197,6 @@ final class JournalManager {
         migrationPlanner.migrationCandidates(
             tasks: tasks,
             spreads: spreads,
-            bujoMode: bujoMode,
             to: destination
         )
     }
@@ -202,8 +212,7 @@ final class JournalManager {
         migrationPlanner.migrationDestination(
             for: task,
             on: source,
-            spreads: spreads,
-            bujoMode: bujoMode
+            spreads: spreads
         )
     }
 
@@ -217,7 +226,6 @@ final class JournalManager {
         migrationPlanner.parentHierarchyMigrationCandidates(
             tasks: tasks,
             spreads: spreads,
-            bujoMode: bujoMode,
             to: destination
         )
     }
@@ -239,14 +247,12 @@ final class JournalManager {
     /// Loads data from repositories asynchronously. Use `make` for tests.
     ///
     /// - Parameters:
-    ///   - calendar: The calendar for date calculations.
-    ///   - today: The current date.
+    ///   - appClock: The app clock for date and calendar context.
     ///   - taskRepository: Repository for tasks.
     ///   - spreadRepository: Repository for spreads.
     ///   - eventRepository: Repository for events.
     ///   - noteRepository: Repository for notes.
     ///   - collectionRepository: Optional repository for collections (used for sign-out wipe).
-    ///   - bujoMode: The initial BuJo mode.
     ///   - firstWeekday: The user's first day of week preference.
     ///   - creationPolicy: Policy for validating spread creation.
     init(
@@ -258,11 +264,9 @@ final class JournalManager {
         collectionRepository: (any CollectionRepository)? = nil,
         listRepository: (any ListRepository)? = nil,
         tagRepository: (any TagRepository)? = nil,
-        bujoMode: BujoMode,
         firstWeekday: FirstWeekday = .systemDefault,
         creationPolicy: SpreadCreationPolicy,
-        conventionalDataModelBuilder: (any JournalDataModelBuilder)? = nil,
-        traditionalDataModelBuilder: (any JournalDataModelBuilder)? = nil,
+        dataModelBuilder: (any JournalDataModelBuilder)? = nil,
         inboxResolver: (any InboxResolver)? = nil,
         migrationPlanner: (any MigrationPlanner)? = nil,
         overdueEvaluator: (any OverdueEvaluator)? = nil,
@@ -275,10 +279,7 @@ final class JournalManager {
         taskMigrationCoordinator: (any TaskMigrationCoordinator)? = nil,
         noteMigrationCoordinator: (any NoteMigrationCoordinator)? = nil
     ) {
-        let resolvedConventionalDataModelBuilder = conventionalDataModelBuilder ?? ConventionalJournalDataModelBuilder(
-            calendar: appClock.calendar
-        )
-        let resolvedTraditionalDataModelBuilder = traditionalDataModelBuilder ?? TraditionalJournalDataModelBuilder(
+        let resolvedDataModelBuilder = dataModelBuilder ?? ConventionalJournalDataModelBuilder(
             calendar: appClock.calendar
         )
         let resolvedInboxResolver = inboxResolver ?? StandardInboxResolver(calendar: appClock.calendar)
@@ -324,11 +325,9 @@ final class JournalManager {
         self.collectionRepository = collectionRepository
         self.listRepository = listRepository ?? EmptyListRepository()
         self.tagRepository = tagRepository ?? EmptyTagRepository()
-        self.bujoMode = bujoMode
         self.firstWeekday = firstWeekday
         self.creationPolicy = creationPolicy
-        self.conventionalDataModelBuilder = resolvedConventionalDataModelBuilder
-        self.traditionalDataModelBuilder = resolvedTraditionalDataModelBuilder
+        self.dataModelBuilder = resolvedDataModelBuilder
         self.inboxResolver = resolvedInboxResolver
         self.migrationPlanner = resolvedMigrationPlanner
         self.overdueEvaluator = resolvedOverdueEvaluator
@@ -371,7 +370,6 @@ final class JournalManager {
     ///   - spreadRepository: Repository for spreads (defaults to empty in-memory).
     ///   - eventRepository: Repository for events (defaults to empty in-memory).
     ///   - noteRepository: Repository for notes (defaults to empty in-memory).
-    ///   - bujoMode: The initial BuJo mode (defaults to conventional).
     ///   - firstWeekday: The user's first day of week preference (defaults to system default).
     ///   - creationPolicy: Policy for spread creation (defaults to standard policy).
     /// - Returns: A configured JournalManager with data loaded.
@@ -386,7 +384,6 @@ final class JournalManager {
         collectionRepository: (any CollectionRepository)? = nil,
         listRepository: (any ListRepository)? = nil,
         tagRepository: (any TagRepository)? = nil,
-        bujoMode: BujoMode = .conventional,
         firstWeekday: FirstWeekday = .systemDefault,
         creationPolicy: SpreadCreationPolicy? = nil
     ) async throws -> JournalManager {
@@ -415,7 +412,6 @@ final class JournalManager {
             collectionRepository: collectionRepository,
             listRepository: listRepository,
             tagRepository: tagRepository,
-            bujoMode: bujoMode,
             firstWeekday: firstWeekday,
             creationPolicy: creationPolicy ?? defaultPolicy
         )
@@ -476,25 +472,12 @@ final class JournalManager {
     /// then associates entries via assignments.
     /// In traditional mode, generates virtual spreads from entries' preferred dates.
     private func buildDataModel() {
-        dataModel = activeDataModelBuilder.buildDataModel(
+        dataModel = dataModelBuilder.buildDataModel(
             spreads: spreads,
             tasks: tasks,
             notes: notes,
             events: events
         )
-    }
-
-    /// The builder matching the current BuJo mode.
-    ///
-    /// `JournalManager` owns mode selection while builder implementations remain
-    /// mode-specific and pure.
-    private var activeDataModelBuilder: any JournalDataModelBuilder {
-        switch bujoMode {
-        case .conventional:
-            conventionalDataModelBuilder
-        case .traditional:
-            traditionalDataModelBuilder
-        }
     }
 
     private func wireAppClock() {
@@ -520,8 +503,7 @@ final class JournalManager {
 
     private func rebuildTemporalCollaborators() {
         creationPolicy = StandardCreationPolicy(today: today, firstWeekday: firstWeekday)
-        conventionalDataModelBuilder = ConventionalJournalDataModelBuilder(calendar: calendar)
-        traditionalDataModelBuilder = TraditionalJournalDataModelBuilder(calendar: calendar)
+        dataModelBuilder = ConventionalJournalDataModelBuilder(calendar: calendar)
 
         let resolvedMigrationPlanner = StandardMigrationPlanner(calendar: calendar)
         let resolvedTaskAssignmentReconciler = StandardTaskAssignmentReconciler(calendar: calendar)
@@ -586,7 +568,7 @@ final class JournalManager {
             buildDataModel()
         case .spreadKeys(let keys):
             for key in keys {
-                dataModel[key: key] = activeDataModelBuilder.buildSpreadDataModel(
+                dataModel[key: key] = dataModelBuilder.buildSpreadDataModel(
                     for: key,
                     spreads: spreads,
                     tasks: tasks,
@@ -603,7 +585,7 @@ final class JournalManager {
         previousKeys: Set<SpreadDataModelKey>,
         task: DataModel.Task
     ) -> JournalMutationScope {
-        let nextKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        let nextKeys = dataModelBuilder.spreadKeys(for: task, spreads: spreads)
         return .spreadKeys(previousKeys.union(nextKeys))
     }
 
@@ -613,7 +595,7 @@ final class JournalManager {
         previousKeys: Set<SpreadDataModelKey>,
         note: DataModel.Note
     ) -> JournalMutationScope {
-        let nextKeys = activeDataModelBuilder.spreadKeys(for: note, spreads: spreads)
+        let nextKeys = dataModelBuilder.spreadKeys(for: note, spreads: spreads)
         return .spreadKeys(previousKeys.union(nextKeys))
     }
 
@@ -700,7 +682,7 @@ final class JournalManager {
 
         if autoMigrationSummary != nil {
             refreshDataModel(for: .structural)
-        } else if let key = activeDataModelBuilder.spreadKey(
+        } else if let key = dataModelBuilder.spreadKey(
             for: spread,
             spreads: spreads,
             tasks: tasks,
@@ -753,7 +735,7 @@ final class JournalManager {
 
         if autoMigrationSummary != nil {
             refreshDataModel(for: .structural)
-        } else if let key = activeDataModelBuilder.spreadKey(
+        } else if let key = dataModelBuilder.spreadKey(
             for: spread,
             spreads: spreads,
             tasks: tasks,
@@ -859,7 +841,7 @@ final class JournalManager {
     private func reconcileEntriesForNewExplicitSpreadIfNeeded(
         _ spread: DataModel.Spread
     ) async throws -> SpreadAutoMigrationSummary? {
-        guard bujoMode == .conventional, spread.period.canHaveTasksAssigned else {
+        guard spread.period.canHaveTasksAssigned else {
             return nil
         }
 
@@ -931,7 +913,7 @@ final class JournalManager {
         from sourceKey: TaskReviewSourceKey,
         to destination: DataModel.Spread
     ) async throws {
-        let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        let previousKeys = dataModelBuilder.spreadKeys(for: task, spreads: spreads)
         let result = try await taskMigrationCoordinator.moveTask(
             task,
             from: sourceKey,
@@ -963,7 +945,7 @@ final class JournalManager {
         from source: DataModel.Spread,
         to destination: DataModel.Spread
     ) async throws {
-        let previousKeys = activeDataModelBuilder.spreadKeys(for: note, spreads: spreads)
+        let previousKeys = dataModelBuilder.spreadKeys(for: note, spreads: spreads)
         let result = try await noteMigrationCoordinator.migrateNote(
             note,
             from: source,
@@ -991,7 +973,7 @@ final class JournalManager {
         from source: DataModel.Spread,
         to destination: DataModel.Spread
     ) async throws {
-        let previousKeys = Set(tasks.flatMap { activeDataModelBuilder.spreadKeys(for: $0, spreads: spreads) })
+        let previousKeys = Set(tasks.flatMap { dataModelBuilder.spreadKeys(for: $0, spreads: spreads) })
         let result = try await taskMigrationCoordinator.migrateTasksBatch(
             tasks,
             from: source,
@@ -1002,7 +984,7 @@ final class JournalManager {
         guard result.migratedAny else { return }
 
         self.tasks = result.tasks
-        let nextKeys = Set(result.migratedTasks.flatMap { activeDataModelBuilder.spreadKeys(for: $0, spreads: spreads) })
+        let nextKeys = Set(result.migratedTasks.flatMap { dataModelBuilder.spreadKeys(for: $0, spreads: spreads) })
         refreshDataModel(for: .spreadKeys(previousKeys.union(nextKeys)))
         dataVersion += 1
     }
@@ -1012,65 +994,6 @@ final class JournalManager {
     /// Migrates a task in traditional mode by updating its preferred date and period.
     ///
     /// After updating the preferred date/period, conventional reassignment logic applies:
-    /// - If a conventional spread exists for the new date/period, an assignment is created
-    /// - If no spread exists, falls back to nearest parent or Inbox
-    ///
-    /// Does NOT create or mutate Spread records.
-    ///
-    /// - Parameters:
-    ///   - task: The task to migrate.
-    ///   - newDate: The new preferred date.
-    ///   - newPeriod: The new preferred period.
-    /// - Throws: Repository errors if persistence fails.
-    func traditionalMigrateTask(
-        _ task: DataModel.Task,
-        newDate: Date,
-        newPeriod: Period
-    ) async throws {
-        let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
-        let result = try await taskMutationCoordinator.traditionalMigrateTask(
-            task,
-            newDate: newDate,
-            newPeriod: newPeriod,
-            calendar: calendar,
-            spreads: spreads
-        )
-        tasks = result.tasks
-        refreshDataModel(for: scopeForTaskChange(previousKeys: previousKeys, task: result.task))
-        dataVersion += 1
-    }
-
-    /// Migrates a note in traditional mode by updating its preferred date and period.
-    ///
-    /// After updating the preferred date/period, conventional reassignment logic applies:
-    /// - If a conventional spread exists for the new date/period, an assignment is created
-    /// - If no spread exists, falls back to nearest parent or Inbox
-    ///
-    /// Does NOT create or mutate Spread records.
-    ///
-    /// - Parameters:
-    ///   - note: The note to migrate.
-    ///   - newDate: The new preferred date.
-    ///   - newPeriod: The new preferred period.
-    /// - Throws: Repository errors if persistence fails.
-    func traditionalMigrateNote(
-        _ note: DataModel.Note,
-        newDate: Date,
-        newPeriod: Period
-    ) async throws {
-        let previousKeys = activeDataModelBuilder.spreadKeys(for: note, spreads: spreads)
-        let result = try await noteMutationCoordinator.traditionalMigrateNote(
-            note,
-            newDate: newDate,
-            newPeriod: newPeriod,
-            calendar: calendar,
-            spreads: spreads
-        )
-        notes = result.notes
-        refreshDataModel(for: scopeForNoteChange(previousKeys: previousKeys, note: result.note))
-        dataVersion += 1
-    }
-
     // MARK: - Event Migration (Blocked)
 
     /// Events cannot be migrated.
@@ -1307,7 +1230,7 @@ final class JournalManager {
             Self.logger.debug("Task created: \(task.id) '\(task.title)' → \(task.period.rawValue) spread")
         }
 
-        refreshDataModel(for: .spreadKeys(activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)))
+        refreshDataModel(for: .spreadKeys(dataModelBuilder.spreadKeys(for: task, spreads: spreads)))
         dataVersion += 1
 
         return task
@@ -1322,7 +1245,7 @@ final class JournalManager {
     ///   - newTitle: The new title for the task.
     /// - Throws: Repository errors if persistence fails.
     func updateTaskTitle(_ task: DataModel.Task, newTitle: String) async throws {
-        let scope = JournalMutationScope.spreadKeys(activeDataModelBuilder.spreadKeys(for: task, spreads: spreads))
+        let scope = JournalMutationScope.spreadKeys(dataModelBuilder.spreadKeys(for: task, spreads: spreads))
         task.title = newTitle
 
         try await taskRepository.save(task)
@@ -1344,7 +1267,7 @@ final class JournalManager {
             throw TaskMutationError.manualMigratedStatusNotAllowed
         }
 
-        let scope = JournalMutationScope.spreadKeys(activeDataModelBuilder.spreadKeys(for: task, spreads: spreads))
+        let scope = JournalMutationScope.spreadKeys(dataModelBuilder.spreadKeys(for: task, spreads: spreads))
         task.status = newStatus
 
         try await taskRepository.save(task)
@@ -1369,7 +1292,7 @@ final class JournalManager {
         preferredSpreadID: UUID? = nil
     ) async throws {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
-        let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        let previousKeys = dataModelBuilder.spreadKeys(for: task, spreads: spreads)
         let result = try await taskMutationCoordinator.updateTaskDateAndPeriod(
             task,
             newDate: newDate,
@@ -1397,7 +1320,7 @@ final class JournalManager {
         list: DataModel.List? = nil,
         tags: [DataModel.Tag] = []
     ) async throws {
-        let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        let previousKeys = dataModelBuilder.spreadKeys(for: task, spreads: spreads)
         let timestamp = Date.now
         let normalizedBody = sanitizedTaskBody(body)
         let normalizedDueDate = dueDate?.startOfDay(calendar: calendar)
@@ -1446,7 +1369,7 @@ final class JournalManager {
         fallbackDate: Date,
         fallbackPeriod: Period
     ) async throws {
-        let previousKeys = activeDataModelBuilder.spreadKeys(for: task, spreads: spreads)
+        let previousKeys = dataModelBuilder.spreadKeys(for: task, spreads: spreads)
         let result = try await taskMutationCoordinator.clearTaskPreferredAssignment(
             task,
             fallbackDate: fallbackDate,
@@ -1467,7 +1390,7 @@ final class JournalManager {
     /// - Parameter task: The task to delete.
     /// - Throws: Repository errors if deletion fails.
     func deleteTask(_ task: DataModel.Task) async throws {
-        let scope = JournalMutationScope.spreadKeys(activeDataModelBuilder.spreadKeys(for: task, spreads: spreads))
+        let scope = JournalMutationScope.spreadKeys(dataModelBuilder.spreadKeys(for: task, spreads: spreads))
         try await taskRepository.delete(task)
         tasks.removeAll { $0.id == task.id }
 
@@ -1524,7 +1447,7 @@ final class JournalManager {
             Self.logger.debug("Note created: \(note.id) '\(note.title)' → \(note.period.rawValue) spread")
         }
 
-        refreshDataModel(for: .spreadKeys(activeDataModelBuilder.spreadKeys(for: note, spreads: spreads)))
+        refreshDataModel(for: .spreadKeys(dataModelBuilder.spreadKeys(for: note, spreads: spreads)))
         dataVersion += 1
 
         return note
@@ -1535,7 +1458,7 @@ final class JournalManager {
     /// - Parameter note: The note to delete.
     /// - Throws: Repository errors if deletion fails.
     func deleteNote(_ note: DataModel.Note) async throws {
-        let scope = JournalMutationScope.spreadKeys(activeDataModelBuilder.spreadKeys(for: note, spreads: spreads))
+        let scope = JournalMutationScope.spreadKeys(dataModelBuilder.spreadKeys(for: note, spreads: spreads))
         try await noteRepository.delete(note)
         notes.removeAll { $0.id == note.id }
 
@@ -1553,7 +1476,7 @@ final class JournalManager {
     ///   - newContent: The new content for the note.
     /// - Throws: Repository errors if persistence fails.
     func updateNoteTitle(_ note: DataModel.Note, newTitle: String, newContent: String) async throws {
-        let scope = JournalMutationScope.spreadKeys(activeDataModelBuilder.spreadKeys(for: note, spreads: spreads))
+        let scope = JournalMutationScope.spreadKeys(dataModelBuilder.spreadKeys(for: note, spreads: spreads))
         note.title = newTitle
         note.content = newContent
 
@@ -1636,7 +1559,7 @@ final class JournalManager {
         preferredSpreadID: UUID? = nil
     ) async throws {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
-        let previousKeys = activeDataModelBuilder.spreadKeys(for: note, spreads: spreads)
+        let previousKeys = dataModelBuilder.spreadKeys(for: note, spreads: spreads)
         let result = try await noteMutationCoordinator.updateNoteDateAndPeriod(
             note,
             newDate: newDate,

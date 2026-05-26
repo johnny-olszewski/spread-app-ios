@@ -9,8 +9,8 @@ import Foundation
 
 /// Standard implementation of `TaskMutationCoordinator`.
 ///
-/// Uses `TaskAssignmentReconciler` for spread assignment logic and `TraditionalSpreadService`
-/// for traditional-mode migration. All persistence goes through `taskRepository`.
+/// Uses `TaskAssignmentReconciler` for spread assignment logic.
+/// All persistence goes through `taskRepository`.
 @MainActor
 struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
     /// The repository used to persist and retrieve tasks.
@@ -21,10 +21,6 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
     let logger: LoggerAdapter
     /// Calendar used for date normalization and service initialization.
     let calendar: Calendar
-
-    private var traditionalSpreadService: TraditionalSpreadService {
-        TraditionalSpreadService(calendar: calendar)
-    }
 
     func createTask(
         title: String,
@@ -124,46 +120,4 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         )
     }
 
-    func traditionalMigrateTask(
-        _ task: DataModel.Task,
-        newDate: Date,
-        newPeriod: Period,
-        calendar: Calendar,
-        spreads: [DataModel.Spread]
-    ) async throws -> TaskListMutationResult {
-        guard task.status != .cancelled else {
-            throw MigrationError.taskCancelled
-        }
-
-        let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
-        task.date = normalizedDate
-        task.period = newPeriod
-        task.hasPreferredAssignment = true
-        task.assignments.removeAll()
-
-        if let bestSpread = traditionalSpreadService.findConventionalSpread(
-            forPreferredDate: normalizedDate,
-            preferredPeriod: newPeriod,
-            in: spreads
-        ) {
-            task.assignments.append(
-                TaskAssignment(
-                    period: bestSpread.period,
-                    date: bestSpread.date,
-                    status: task.status == .complete ? .complete : .open
-                )
-            )
-        }
-
-        try await taskRepository.save(task)
-        logger.info("Traditional migration: task \(task.id) → \(newPeriod.rawValue) \(normalizedDate)")
-        return TaskListMutationResult(
-            task: task,
-            tasks: await taskRepository.getTasks(),
-            mutation: JournalMutationResult(
-                kind: .taskChanged(id: task.id),
-                scope: .structural
-            )
-        )
-    }
 }

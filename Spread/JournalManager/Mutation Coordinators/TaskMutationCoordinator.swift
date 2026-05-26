@@ -71,28 +71,4 @@ protocol TaskMutationCoordinator {
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> TaskListMutationResult
-
-    /// Migrates a task to a new preferred date/period in traditional mode.
-    ///
-    /// Clears all existing assignments, updates the task's `date` and `period`, then
-    /// attempts to create a single new assignment on the nearest matching conventional
-    /// spread. Unlike conventional migration, this does not mark any source assignment
-    /// as `.migrated` — the task's full assignment history is replaced.
-    ///
-    /// - Parameters:
-    ///   - task: The task to migrate.
-    ///   - newDate: The new preferred date.
-    ///   - newPeriod: The new preferred period.
-    ///   - calendar: Calendar for date normalization and spread matching.
-    ///   - spreads: The current spread list used to find the best conventional spread.
-    /// - Returns: The updated task and refreshed full task list.
-    /// - Throws: `MigrationError.taskCancelled` if the task is cancelled; repository errors
-    ///   if persistence fails.
-    func traditionalMigrateTask(
-        _ task: DataModel.Task,
-        newDate: Date,
-        newPeriod: Period,
-        calendar: Calendar,
-        spreads: [DataModel.Spread]
-    ) async throws -> TaskListMutationResult
 }

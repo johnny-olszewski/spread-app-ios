@@ -10,23 +10,19 @@ import Foundation
 /// 3. **Ceiling**: The destination's period cannot be more granular than the task's preferred period
 ///    (e.g., a monthly task cannot migrate to a day spread).
 ///
-/// Only used in conventional mode — traditional mode does not have explicit spreads for migration.
 protocol MigrationPlanner {
     /// Returns all tasks eligible to be migrated to the given destination spread.
     ///
-    /// Only produces candidates in conventional mode. Returns an empty array for non-assignable
-    /// periods (e.g., multiday) or when not in conventional mode.
+    /// Returns an empty array for non-assignable periods (e.g., multiday).
     ///
     /// - Parameters:
     ///   - tasks: All tasks in the journal.
     ///   - spreads: All existing spreads.
-    ///   - bujoMode: The current BuJo mode; candidates are only produced in `.conventional`.
     ///   - destination: The target spread.
     /// - Returns: `MigrationCandidate` values for each eligible task.
     func migrationCandidates(
         tasks: [DataModel.Task],
         spreads: [DataModel.Spread],
-        bujoMode: BujoMode,
         to destination: DataModel.Spread
     ) -> [MigrationCandidate]
 
@@ -40,13 +36,11 @@ protocol MigrationPlanner {
     ///   - task: The task to evaluate.
     ///   - source: The spread the task is currently displayed on.
     ///   - spreads: All existing spreads.
-    ///   - bujoMode: The current BuJo mode.
     /// - Returns: The most granular valid destination spread, or `nil`.
     func migrationDestination(
         for task: DataModel.Task,
         on source: DataModel.Spread,
-        spreads: [DataModel.Spread],
-        bujoMode: BujoMode
+        spreads: [DataModel.Spread]
     ) -> DataModel.Spread?
 
     /// Returns migration candidates that originate exclusively from the destination's parent hierarchy.
@@ -58,13 +52,11 @@ protocol MigrationPlanner {
     /// - Parameters:
     ///   - tasks: All tasks in the journal.
     ///   - spreads: All existing spreads.
-    ///   - bujoMode: The current BuJo mode.
     ///   - destination: The target spread.
     /// - Returns: Sorted `MigrationCandidate` values from parent spreads only.
     func parentHierarchyMigrationCandidates(
         tasks: [DataModel.Task],
         spreads: [DataModel.Spread],
-        bujoMode: BujoMode,
         to destination: DataModel.Spread
     ) -> [MigrationCandidate]
 
@@ -115,10 +107,9 @@ struct StandardMigrationPlanner: MigrationPlanner {
     func migrationCandidates(
         tasks: [DataModel.Task],
         spreads: [DataModel.Spread],
-        bujoMode: BujoMode,
         to destination: DataModel.Spread
     ) -> [MigrationCandidate] {
-        guard bujoMode == .conventional, destination.period.canHaveTasksAssigned else {
+        guard destination.period.canHaveTasksAssigned else {
             return []
         }
 
@@ -130,11 +121,9 @@ struct StandardMigrationPlanner: MigrationPlanner {
     func migrationDestination(
         for task: DataModel.Task,
         on source: DataModel.Spread,
-        spreads: [DataModel.Spread],
-        bujoMode: BujoMode
+        spreads: [DataModel.Spread]
     ) -> DataModel.Spread? {
-        guard bujoMode == .conventional,
-              source.period.canHaveTasksAssigned,
+        guard source.period.canHaveTasksAssigned,
               task.status == .open else {
             return nil
         }
@@ -157,7 +146,6 @@ struct StandardMigrationPlanner: MigrationPlanner {
     func parentHierarchyMigrationCandidates(
         tasks: [DataModel.Task],
         spreads: [DataModel.Spread],
-        bujoMode: BujoMode,
         to destination: DataModel.Spread
     ) -> [MigrationCandidate] {
         let parentSpreadIDs = Set(parentHierarchySpreads(for: destination, spreads: spreads).map(\.id))
@@ -165,7 +153,6 @@ struct StandardMigrationPlanner: MigrationPlanner {
         return migrationCandidates(
             tasks: tasks,
             spreads: spreads,
-            bujoMode: bujoMode,
             to: destination
         )
         .filter { candidate in
