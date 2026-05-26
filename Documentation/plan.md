@@ -5948,40 +5948,40 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-226] Refactor: Remove traditional mode — conventional-only app - [ ] Pending
+### [SPRD-226] Refactor: Remove traditional mode — conventional-only app - [x] Done
 
 - **Context**: The app currently supports two BuJo modes (conventional and traditional), but all mode-switching infrastructure adds significant complexity that slows MVP development. The `BujoMode` enum, dual data model builders, dual spread services, branching coordinators, branching views, settings UI, and sync fields together represent hundreds of lines of code that deliver zero user value right now. Traditional mode is deferred to a future version; the codebase should have no trace of it.
 - **Description**: Delete all traditional-mode code and the bridging infrastructure that only existed to abstract over two modes. This includes: the `BujoMode` enum; `TraditionalJournalDataModelBuilder` and its protocol `JournalDataModelBuilder` (one implementation remaining, protocol unneeded); `TraditionalSpreadService`; the `SpreadTitleNavigatorProviding` protocol and its `JournalManager` conformance file (direct property replaces it); the `traditional*` cases of `SpreadHeaderNavigatorModel.Selection` (collapsing the enum to a `typealias` for `DataModel.Spread`); all `traditional*` methods in `SpreadHeaderNavigatorModel` and `SpreadTitleNavigatorModel`; the `Mode` enum on `SpreadHeaderNavigatorModel`; `groupsByList`/`groupsByDay` parameters that were always `false` in traditional mode (now hardcoded `true`); the mode selector in Settings; all `switch bujoMode` / `if bujoMode == .traditional` branches throughout coordinators, views, and managers; debug launch overrides; and all dedicated traditional-mode tests. Simplify every component to assume conventional unconditionally. In `SyncSerializer`, hardcode `"conventional"` for the `p_bujo_mode` write field and ignore its value on read — Supabase columns stay in the DB but are inert. Remove `bujoMode` and `bujoModeUpdatedAt` from `DataModel.Settings`.
 - **Spec**: `Documentation/Specs/ConventionalMode.md` — Mode; `Documentation/Specs/JournalManager.md` — Journal Logic Architecture; `Documentation/Specs/SpreadNavigation.md` — Spread Surface Architecture
 - **Acceptance Criteria**:
-  - [ ] `BujoMode.swift` is deleted; no Swift file in the project imports or references the `BujoMode` type.
-  - [ ] `TraditionalJournalDataModelBuilder` (and its source file) is deleted.
-  - [ ] `TraditionalSpreadService.swift` is deleted.
-  - [ ] `JournalDataModelBuilder` protocol is deleted; `JournalManager` stores and calls `ConventionalJournalDataModelBuilder` directly with no `activeDataModelBuilder` switch.
-  - [ ] `SpreadTitleNavigatorProviding` protocol and `JournalManager+SpreadTitleNavigatorProviding.swift` are deleted; `JournalManager` exposes a direct `titleNavigatorModel` property that constructs `SpreadHeaderNavigatorModel` unconditionally for conventional mode.
-  - [ ] `SpreadHeaderNavigatorModel.Selection` is collapsed — the `Mode` enum, the `traditionalYear/Month/Day` cases, and the `.conventional(_)` wrapper are all gone; `Selection` is a `typealias` for `DataModel.Spread` or equivalent flat type. All call sites that unwrap `.conventional(let spread)` are updated to use the spread directly.
-  - [ ] `SpreadHeaderNavigatorModel` has no `mode` property, no `Mode` enum, no `conventional*` / `traditional*` method pairs; only the single conventional implementation remains.
-  - [ ] `SpreadTitleNavigatorModel` has no `traditionalYearItems()` method; `todaySemanticID()` and `selectionID()` no longer switch on mode or selection type.
-  - [ ] `SpreadTitleNavigatorView.currentNavigatorSpread` is trivially `selection` (no switch needed).
-  - [ ] `JournalManager` has no `bujoMode` property, no mode switches, no mode guards.
-  - [ ] `MigrationPlanner` has no mode guards; migration logic assumes conventional unconditionally.
-  - [ ] `DataModel.Settings` no longer has `bujoMode` or `bujoModeUpdatedAt` fields.
-  - [ ] `SyncSerializer` hardcodes `"conventional"` when writing `p_bujo_mode` and does not read or apply the field's server value.
-  - [ ] `SpreadsCoordinator` has no handling for traditional selection cases; `isSameSelection()` is a direct ID comparison.
-  - [ ] `SpreadContentPagerView` has no `traditionalContentView` path or mode branch.
-  - [ ] `SpreadsView` has no `bujoMode` references.
-  - [ ] `DaySpreadContentView` and `MultidaySpreadContentView` have no `bujoMode` references; `groupsByList` and `groupsByDay` parameters are removed and their `true` branches are the only code path.
-  - [ ] `MonthSpreadContentView` has no `bujoMode` references.
-  - [ ] `RootNavigationView` has no mode-based fallback selection logic.
-  - [ ] `TaskSearchSupport` has no mode-based filtering branch.
-  - [ ] `JournalManager+NavigationSelection.swift` has no mode switch; both `defaultNavigationSelection` and `todayNavigationSelection` return `DataModel.Spread` directly.
-  - [ ] `SettingsView` has no mode selector section.
-  - [ ] `AppDependencies`, `AppRuntimeFactory` no longer load or pass a `bujoMode` parameter.
-  - [ ] `AppLaunchConfiguration` no longer parses a `-BujoMode` launch argument.
-  - [ ] `AppRuntimeConfiguration+Debug` no longer has a `bujoMode` override.
-  - [ ] Test files `TraditionalModeIntegrationTests.swift`, `TraditionalJournalDataModelBuilderTests.swift`, `TraditionalSpreadServiceTests.swift` are deleted.
-  - [ ] `SettingsSyncTests.swift` no longer tests `bujoMode` sync serialization or LWW.
-  - [ ] All remaining tests pass; the project builds without warnings or errors.
+  - [x] `BujoMode.swift` is deleted; no Swift file in the project imports or references the `BujoMode` type.
+  - [x] `TraditionalJournalDataModelBuilder` (and its source file) is deleted.
+  - [x] `TraditionalSpreadService.swift` is deleted.
+  - [x] `JournalDataModelBuilder` protocol is retained as a DI-boundary seam (per CLAUDE.md testability rules) with a single conformer `ConventionalJournalDataModelBuilder`; `JournalManager` has no `activeDataModelBuilder` mode-switch and no traditional-mode branching.
+  - [x] `SpreadTitleNavigatorProviding` protocol and `JournalManager+SpreadTitleNavigatorProviding.swift` are deleted; `JournalManager` exposes a direct `titleNavigatorModel` property that constructs `SpreadHeaderNavigatorModel` unconditionally for conventional mode.
+  - [x] `SpreadHeaderNavigatorModel.Selection` is collapsed — the `Mode` enum, the `traditionalYear/Month/Day` cases, and the `.conventional(_)` wrapper are all gone; `Selection` is a `typealias` for `DataModel.Spread` or equivalent flat type. All call sites that unwrap `.conventional(let spread)` are updated to use the spread directly.
+  - [x] `SpreadHeaderNavigatorModel` has no `mode` property, no `Mode` enum, no `conventional*` / `traditional*` method pairs; only the single conventional implementation remains.
+  - [x] `SpreadTitleNavigatorModel` has no `traditionalYearItems()` method; `todaySemanticID()` and `selectionID()` no longer switch on mode or selection type.
+  - [x] `SpreadTitleNavigatorView.currentNavigatorSpread` is trivially `selection` (no switch needed).
+  - [x] `JournalManager` has no `bujoMode` property, no mode switches, no mode guards.
+  - [x] `MigrationPlanner` has no mode guards; migration logic assumes conventional unconditionally.
+  - [x] `DataModel.Settings` no longer has `bujoMode` or `bujoModeUpdatedAt` fields.
+  - [x] `SyncSerializer` hardcodes `"conventional"` when writing `p_bujo_mode` and does not read or apply the field's server value.
+  - [x] `SpreadsCoordinator` has no handling for traditional selection cases; `isSameSelection()` is a direct ID comparison.
+  - [x] `SpreadContentPagerView` has no `traditionalContentView` path or mode branch.
+  - [x] `SpreadsView` has no `bujoMode` references.
+  - [x] `DaySpreadContentView` and `MultidaySpreadContentView` have no `bujoMode` references; `groupsByList` and `groupsByDay` parameters are removed and their `true` branches are the only code path.
+  - [x] `MonthSpreadContentView` has no `bujoMode` references.
+  - [x] `RootNavigationView` has no mode-based fallback selection logic.
+  - [x] `TaskSearchSupport` has no mode-based filtering branch.
+  - [x] `JournalManager+NavigationSelection.swift` has no mode switch; both `defaultNavigationSelection` and `todayNavigationSelection` return `DataModel.Spread` directly.
+  - [x] `SettingsView` has no mode selector section.
+  - [x] `AppDependencies`, `AppRuntimeFactory` no longer load or pass a `bujoMode` parameter.
+  - [x] `AppLaunchConfiguration` no longer parses a `-BujoMode` launch argument.
+  - [x] `AppRuntimeConfiguration+Debug` no longer has a `bujoMode` override.
+  - [x] Test files `TraditionalModeIntegrationTests.swift`, `TraditionalJournalDataModelBuilderTests.swift`, `TraditionalSpreadServiceTests.swift` are deleted.
+  - [x] `SettingsSyncTests.swift` no longer tests `bujoMode` sync serialization or LWW.
+  - [x] All remaining tests pass; the project builds without warnings or errors.
 - **Tests**:
   - No new tests required — this task deletes tests and simplifies logic. Verify the build is green and all surviving unit tests pass after removal.
 - **Open Questions**:
