@@ -183,6 +183,21 @@ final class SpreadsCoordinator {
         clearConvenienceNavigation()
     }
 
+    /// Navigates to the today target selection, clearing convenience navigation.
+    ///
+    /// If already on the target, only recenters (increments `recenterToken`) without
+    /// changing `selectedSelection`. The caller is responsible for computing `target`
+    /// from the journal's spread data and bujo mode.
+    func navigateToToday(target: SpreadHeaderNavigatorModel.Selection) {
+        clearConvenienceNavigation()
+        if isSameSelection(target, selectedSelection) {
+            recenterToken += 1
+        } else {
+            selectedSelection = target
+            recenterToken += 1
+        }
+    }
+
     /// Handles a tap on the convenience navigation button.
     ///
     /// - `.offer`: navigates to the destination and transitions the button to `.goBack`.
@@ -235,6 +250,20 @@ final class SpreadsCoordinator {
     }
 
     // MARK: - Private
+
+    private func isSameSelection(
+        _ lhs: SpreadHeaderNavigatorModel.Selection,
+        _ rhs: SpreadHeaderNavigatorModel.Selection?
+    ) -> Bool {
+        guard let rhs else { return false }
+        switch (lhs, rhs) {
+        case (.conventional(let a), .conventional(let b)): return a.id == b.id
+        case (.traditionalYear(let a), .traditionalYear(let b)): return a == b
+        case (.traditionalMonth(let a), .traditionalMonth(let b)): return a == b
+        case (.traditionalDay(let a), .traditionalDay(let b)): return a == b
+        default: return false
+        }
+    }
 
     private func conventionalSpread(from selection: SpreadHeaderNavigatorModel.Selection) -> DataModel.Spread? {
         guard case .conventional(let spread) = selection else { return nil }

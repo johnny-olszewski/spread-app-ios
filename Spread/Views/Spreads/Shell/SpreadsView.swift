@@ -75,13 +75,18 @@ struct SpreadsView: View {
             )
             .environment(coordinator)
             .environment(journalManager)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .localhostTemporalHarness(spreadDiagnostics: currentSpreadDiagnostics)
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
+                
+                Button("Today", action: navigateToToday)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
+            }
+            
+            ToolbarItemGroup(placement: .automatic) {
+    
                 if let syncEngine {
                     SyncIconButton(
                         status: syncEngine.status,
@@ -89,21 +94,47 @@ struct SpreadsView: View {
                         onSyncNow: { Task { @MainActor in await syncEngine.syncNow() } }
                     )
                 }
-            }
-            
-            if journalManager.bujoMode == .conventional {
-                ToolbarItem(placement: .automatic) {
+                
+                if journalManager.bujoMode == .conventional {
                     favoritesMenu
                 }
-            }
-            
-            ToolbarItem(placement: .automatic) {
+                
                 AuthButton(isSignedIn: authManager.state.isSignedIn, action: { coordinator.showAuth() })
-            }
-            
-            if let spread = currentConventionalSpread {
-                ToolbarItem(placement: .automatic) {
-                    spreadActionsMenu(for: spread)
+                
+                if let spread = currentConventionalSpread {
+                    
+                    Button {
+                        toggleFavorite(for: spread)
+                    } label: {
+                        Label(
+                            spread.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                            systemImage: spread.isFavorite ? "star.fill" : "star"
+                        )
+                    }
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
+
+                    Button {
+                        coordinator.showSpreadNameEdit(spread)
+                    } label: {
+                        Label("Edit Name", systemImage: "pencil")
+                    }
+
+                    if spread.period == .multiday {
+                        Button {
+                            coordinator.showSpreadDateEdit(spread)
+                        } label: {
+                            Label("Edit Dates", systemImage: "calendar")
+                        }
+                        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.editDatesButton)
+                    }
+
+                    Button(role: .destructive) {
+                        coordinator.showSpreadDeleteConfirmation(spread)
+                    } label: {
+                        Label("Delete Spread", systemImage: "trash")
+                    }
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.deleteSpreadButton)
+
                 }
             }
         }
@@ -134,13 +165,6 @@ struct SpreadsView: View {
     @ViewBuilder
     private var bottomInsetControls: some View {
         HStack(spacing: 12) {
-            Button(action: navigateToToday) {
-                Text("Today")
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .glassEffect(.clear, in: Capsule())
-            }
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
 
             Spacer()
 
@@ -273,10 +297,7 @@ struct SpreadsView: View {
     // MARK: - Favorites
 
     private var favoriteItemsForCurrentYear: [SpreadTitleNavigatorModel.Item] {
-        SpreadFavoritesMenuSupport.favoriteItemsForCurrentYear(
-            mode: journalManager.bujoMode,
-            items: completeItems
-        )
+        journalManager.favoriteItemsForCurrentYear(items: completeItems)
     }
 
     private var favoriteNameFormatter: SpreadDisplayNameFormatter {
@@ -306,7 +327,7 @@ struct SpreadsView: View {
                 }
             }
         } label: {
-            Image(systemName: "star.circle")
+            Label("Favorites", systemImage: "star.circle")
         }
         .accessibilityLabel("Favorite Spreads")
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoritesMenu)
@@ -321,29 +342,13 @@ struct SpreadsView: View {
     // MARK: - Navigation
 
     private func navigateToToday() {
-        coordinator.clearConvenienceNavigation()
         switch journalManager.bujoMode {
         case .conventional:
-            guard let targetSpread = journalManager.bestSpread(for: journalManager.today) else { return }
-
-            if case .conventional(let current) = currentSelection, current.id == targetSpread.id {
-                coordinator.recenterToken += 1
-            } else {
-                coordinator.selectedSelection = .conventional(targetSpread)
-                coordinator.recenterToken += 1
-            }
-
+            guard let spread = journalManager.bestSpread(for: journalManager.today) else { return }
+            coordinator.navigateToToday(target: .conventional(spread))
         case .traditional:
-            let target = SpreadHeaderNavigatorModel.Selection.traditionalDay(
-                Period.day.normalizeDate(journalManager.today, calendar: journalManager.calendar)
-            )
-            if target.stableID(calendar: journalManager.calendar)
-                == currentSelection.stableID(calendar: journalManager.calendar) {
-                coordinator.recenterToken += 1
-            } else {
-                coordinator.selectedSelection = target
-                coordinator.recenterToken += 1
-            }
+            let date = Period.day.normalizeDate(journalManager.today, calendar: journalManager.calendar)
+            coordinator.navigateToToday(target: .traditionalDay(date))
         }
     }
 
@@ -507,20 +512,6 @@ struct SpreadsView: View {
         }
     }
 }
-
-enum SpreadFavoritesMenuSupport {
-    static func favoriteItemsForCurrentYear(
-        mode: BujoMode,
-        items: [SpreadTitleNavigatorModel.Item]
-    ) -> [SpreadTitleNavigatorModel.Item] {
-        guard mode == .conventional else { return [] }
-        return items.filter { item in
-            guard case .conventional(let spread) = item.selection else { return false }
-            return spread.isFavorite
-        }
-    }
-}
-
 
 #Preview {
     SpreadsView(
