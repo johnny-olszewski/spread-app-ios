@@ -128,11 +128,7 @@ struct RootNavigationView: View {
     private func fallbackSearchSelection() -> SpreadHeaderNavigatorModel.Selection {
         switch journalManager.bujoMode {
         case .conventional:
-            let organizer = SpreadHierarchyOrganizer(
-                spreads: journalManager.spreads,
-                calendar: journalManager.calendar
-            )
-            let spread = organizer.initialSelection(for: journalManager.today)
+            let spread = journalManager.bestSpread(for: journalManager.today)
                 ?? journalManager.spreads.first
                 ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
             return .conventional(spread)
