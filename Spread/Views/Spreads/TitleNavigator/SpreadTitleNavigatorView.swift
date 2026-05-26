@@ -17,18 +17,7 @@ struct SpreadTitleNavigatorView: View {
         recommendationProvider.recommendations(for: stripModel.headerModel)
     }
 
-    private var currentNavigatorSpread: DataModel.Spread {
-        switch selection {
-        case .conventional(let spread):
-            return spread
-        case .traditionalYear(let date):
-            return DataModel.Spread(period: .year, date: date, calendar: stripModel.calendar)
-        case .traditionalMonth(let date):
-            return DataModel.Spread(period: .month, date: date, calendar: stripModel.calendar)
-        case .traditionalDay(let date):
-            return DataModel.Spread(period: .day, date: date, calendar: stripModel.calendar)
-        }
-    }
+    private var currentNavigatorSpread: DataModel.Spread { selection }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -86,8 +75,8 @@ struct SpreadTitleNavigatorView: View {
         stripModel: journalManager.titleNavigatorModel,
         onRecommendedSpreadTapped: nil,
         recommendationProvider: TodayMissingSpreadRecommendationProvider(),
-        selection: .constant(.conventional(
+        selection: .constant(
             DataModel.Spread(period: .day, date: .now, calendar: .current)
-        ))
+        )
     )
 }

@@ -3,7 +3,7 @@ import Observation
 
 struct SpreadsNavigationRequest: Identifiable {
     let id = UUID()
-    let selection: SpreadHeaderNavigatorModel.Selection
+    let selection: DataModel.Spread
     let taskID: UUID
 }
 

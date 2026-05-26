@@ -38,45 +38,11 @@ enum SpreadTitleNavigatorBadge: Equatable {
         for selection: SpreadHeaderNavigatorModel.Selection,
         calendar: Calendar
     ) -> String {
-        let components = accessibilityComponents(for: selection, calendar: calendar)
-        return "\(accessibilityKind)-\(components.date)-\(components.period.rawValue)"
-    }
-
-    private func accessibilityComponents(
-        for selection: SpreadHeaderNavigatorModel.Selection,
-        calendar: Calendar
-    ) -> (date: String, period: Period) {
-        switch selection {
-        case .conventional(let spread):
-            let date = switch spread.period {
-            case .multiday:
-                spread.startDate ?? spread.date
-            case .year, .month, .day:
-                spread.date
-            }
-            return (
-                Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: date, calendar: calendar),
-                spread.period
-            )
-        case .traditionalYear(let date):
-            let normalized = Period.year.normalizeDate(date, calendar: calendar)
-            return (
-                Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: normalized, calendar: calendar),
-                .year
-            )
-        case .traditionalMonth(let date):
-            let normalized = Period.month.normalizeDate(date, calendar: calendar)
-            return (
-                Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: normalized, calendar: calendar),
-                .month
-            )
-        case .traditionalDay(let date):
-            let normalized = Period.day.normalizeDate(date, calendar: calendar)
-            return (
-                Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: normalized, calendar: calendar),
-                .day
-            )
-        }
+        let date: Date = selection.period == .multiday
+            ? (selection.startDate ?? selection.date)
+            : selection.date
+        let ymd = Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: date, calendar: calendar)
+        return "\(accessibilityKind)-\(ymd)-\(selection.period.rawValue)"
     }
 }
 
@@ -118,30 +84,12 @@ struct SpreadTitleNavigatorModel {
     var today: Date { headerModel.today }
 
     func todaySemanticID(for currentSelection: SpreadHeaderNavigatorModel.Selection) -> String? {
-        switch currentSelection {
-        case .conventional:
-            guard let spread = headerModel.spreads.bestSpread(for: today, calendar: calendar) else { return nil }
-            return SpreadHeaderNavigatorModel.Selection
-                .conventional(spread)
-                .stableID(calendar: calendar)
-        case .traditionalYear, .traditionalMonth, .traditionalDay:
-            return SpreadHeaderNavigatorModel.Selection
-                .traditionalDay(Period.day.normalizeDate(today, calendar: calendar))
-                .stableID(calendar: calendar)
-        }
+        guard let spread = headerModel.spreads.bestSpread(for: today, calendar: calendar) else { return nil }
+        return spread.stableID(calendar: calendar)
     }
 
     func items(for currentSelection: SpreadHeaderNavigatorModel.Selection) -> [Item] {
-        switch currentSelection {
-        case .conventional(let spread):
-            return conventionalYearItems(in: calendar.component(.year, from: spread.startDate ?? spread.date))
-        case .traditionalYear(let yearDate):
-            return traditionalYearItems(in: calendar.component(.year, from: yearDate))
-        case .traditionalMonth(let monthDate):
-            return traditionalYearItems(in: calendar.component(.year, from: monthDate))
-        case .traditionalDay(let dayDate):
-            return traditionalYearItems(in: calendar.component(.year, from: dayDate))
-        }
+        conventionalYearItems(in: calendar.component(.year, from: currentSelection.startDate ?? currentSelection.date))
     }
 
     func item(for recommendation: SpreadTitleNavigatorRecommendation) -> Item {
@@ -155,28 +103,8 @@ struct SpreadTitleNavigatorModel {
 
     /// Compact primary + optional secondary label for the persistent context bar.
     func compactBarLabel(for selection: SpreadHeaderNavigatorModel.Selection) -> SpreadCompactBarLabel {
-        switch selection {
-        case .conventional(let spread):
-            let name = displayName(for: spread, allowsPersonalization: true)
-            return SpreadCompactBarLabel(primary: name.primary, secondary: name.secondaryForHeader)
-        case .traditionalYear(let date):
-            return SpreadCompactBarLabel(
-                primary: String(calendar.component(.year, from: date)),
-                secondary: nil
-            )
-        case .traditionalMonth(let date):
-            let title = SpreadDisplayNameFormatter.canonicalTitle(
-                for: DataModel.Spread(period: .month, date: date, calendar: calendar),
-                calendar: calendar
-            )
-            let year = String(calendar.component(.year, from: date))
-            return SpreadCompactBarLabel(primary: title, secondary: year)
-        case .traditionalDay(let date):
-            let spread = DataModel.Spread(period: .day, date: date, calendar: calendar)
-            let title = SpreadDisplayNameFormatter.canonicalTitle(for: spread, calendar: calendar)
-            let subtitle = SpreadDisplayNameFormatter.canonicalSubtitle(for: spread, calendar: calendar)
-            return SpreadCompactBarLabel(primary: title, secondary: subtitle)
-        }
+        let name = displayName(for: selection, allowsPersonalization: true)
+        return SpreadCompactBarLabel(primary: name.primary, secondary: name.secondaryForHeader)
     }
 
     private func conventionalYearItems(in year: Int) -> [Item] {
@@ -188,66 +116,14 @@ struct SpreadTitleNavigatorModel {
             .sorted(by: isEarlier)
     }
 
-    private func traditionalYearItems(in year: Int) -> [Item] {
-        var items: [Item] = [
-            Item(
-                id: SpreadHeaderNavigatorModel.Selection.traditionalYear(yearStart(year)).stableID(calendar: calendar),
-                label: String(year),
-                selection: .traditionalYear(yearStart(year)),
-                style: .year,
-                display: yearDisplay(for: year),
-                badge: badge(for: .traditionalYear(yearStart(year)))
-            )
-        ]
-
-        for month in 1...12 {
-            let monthDate = self.monthDate(year: year, month: month)
-            let monthSelection = SpreadHeaderNavigatorModel.Selection.traditionalMonth(monthDate)
-            items.append(
-                Item(
-                    id: monthSelection.stableID(calendar: calendar),
-                    label: DataModel.Spread(
-                        period: .month,
-                        date: monthDate,
-                        calendar: calendar
-                    )
-                    .displayLabel(calendar: calendar),
-                    selection: monthSelection,
-                    style: .month,
-                    display: monthDisplay(for: monthDate),
-                    badge: badge(for: monthSelection)
-                )
-            )
-
-            let range = calendar.range(of: .day, in: .month, for: monthDate) ?? 1..<1
-            for day in range {
-                let dayDate = self.dayDate(year: year, month: month, day: day)
-                let daySelection = SpreadHeaderNavigatorModel.Selection.traditionalDay(dayDate)
-                items.append(
-                    Item(
-                        id: daySelection.stableID(calendar: calendar),
-                        label: String(day),
-                        selection: daySelection,
-                        style: .day,
-                        display: dayDisplay(for: dayDate),
-                        badge: badge(for: daySelection)
-                    )
-                )
-            }
-        }
-
-        return items.sorted(by: isEarlier)
-    }
-
     private func item(for spread: DataModel.Spread, allowsPersonalization: Bool) -> Item {
-        let selection = SpreadHeaderNavigatorModel.Selection.conventional(spread)
-        return Item(
-            id: selection.stableID(calendar: calendar),
+        Item(
+            id: spread.stableID(calendar: calendar),
             label: label(for: spread, allowsPersonalization: allowsPersonalization),
-            selection: selection,
+            selection: spread,
             style: style(for: spread),
             display: display(for: spread, allowsPersonalization: allowsPersonalization),
-            badge: badge(for: spread, selection: selection)
+            badge: badge(for: spread, selection: spread)
         )
     }
 
@@ -448,7 +324,7 @@ struct SpreadTitleNavigatorModel {
     ) -> SpreadTitleNavigatorBadge? {
         let overdueCount = spread.period == .multiday
             ? multidayOverdueCount(for: spread)
-            : overdueCount(for: selection)
+            : overdueCount(for: spread)
 
         if overdueCount > 0 {
             return .overdue(count: overdueCount)
@@ -459,14 +335,8 @@ struct SpreadTitleNavigatorModel {
         return nil
     }
 
-    private func badge(for selection: SpreadHeaderNavigatorModel.Selection) -> SpreadTitleNavigatorBadge? {
-        let count = overdueCount(for: selection)
-        guard count > 0 else { return nil }
-        return .overdue(count: count)
-    }
-
-    private func overdueCount(for selection: SpreadHeaderNavigatorModel.Selection) -> Int {
-        overdueCountsBySelectionID[selection.stableID(calendar: calendar), default: 0]
+    private func overdueCount(for spread: SpreadHeaderNavigatorModel.Selection) -> Int {
+        overdueCountsBySelectionID[spread.stableID(calendar: calendar), default: 0]
     }
 
     private var overdueCountsBySelectionID: [String: Int] {
@@ -521,31 +391,9 @@ struct SpreadTitleNavigatorModel {
         switch sourceKey.kind {
         case .inbox:
             return nil
-        case .spread(let id, let period, let date):
-            switch headerModel.mode {
-            case .conventional:
-                guard let spread = headerModel.spreads.first(where: { $0.id == id }) else { return nil }
-                return SpreadHeaderNavigatorModel.Selection
-                    .conventional(spread)
-                    .stableID(calendar: calendar)
-            case .traditional:
-                switch period {
-                case .year:
-                    return SpreadHeaderNavigatorModel.Selection
-                        .traditionalYear(Period.year.normalizeDate(date, calendar: calendar))
-                        .stableID(calendar: calendar)
-                case .month:
-                    return SpreadHeaderNavigatorModel.Selection
-                        .traditionalMonth(Period.month.normalizeDate(date, calendar: calendar))
-                        .stableID(calendar: calendar)
-                case .day:
-                    return SpreadHeaderNavigatorModel.Selection
-                        .traditionalDay(Period.day.normalizeDate(date, calendar: calendar))
-                        .stableID(calendar: calendar)
-                case .multiday:
-                    return nil
-                }
-            }
+        case .spread(let id, _, _):
+            guard let spread = headerModel.spreads.first(where: { $0.id == id }) else { return nil }
+            return spread.stableID(calendar: calendar)
         }
     }
 
@@ -559,22 +407,13 @@ struct SpreadTitleNavigatorModel {
     }
 
     private func sortKey(for selection: SpreadHeaderNavigatorModel.Selection) -> (date: Date, rank: Int) {
-        switch selection {
-        case .conventional(let spread):
-            let rank: Int = switch spread.period {
-            case .year: 0
-            case .month: 1
-            case .multiday: 2
-            case .day: 3
-            }
-            return (spread.startDate ?? spread.date, rank)
-        case .traditionalYear(let date):
-            return (Period.year.normalizeDate(date, calendar: calendar), 0)
-        case .traditionalMonth(let date):
-            return (Period.month.normalizeDate(date, calendar: calendar), 1)
-        case .traditionalDay(let date):
-            return (Period.day.normalizeDate(date, calendar: calendar), 2)
+        let rank: Int = switch selection.period {
+        case .year: 0
+        case .month: 1
+        case .multiday: 2
+        case .day: 3
         }
+        return (selection.startDate ?? selection.date, rank)
     }
 }
 
@@ -600,22 +439,8 @@ extension SpreadTitleNavigatorModel {
     }
 }
 
-extension SpreadHeaderNavigatorModel.Selection {
+extension DataModel.Spread {
     func stableID(calendar: Calendar) -> String {
-        switch self {
-        case .conventional(let spread):
-            return "conventional.\(spread.id.uuidString.lowercased())"
-        case .traditionalYear(let date):
-            return "traditional.year.\(calendar.component(.year, from: date))"
-        case .traditionalMonth(let date):
-            let components = calendar.dateComponents([.year, .month], from: date)
-            return String(format: "traditional.month.%04d-%02d", components.year ?? 0, components.month ?? 0)
-        case .traditionalDay(let date):
-            let ymd = Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(
-                from: date,
-                calendar: calendar
-            )
-            return "traditional.day.\(ymd)"
-        }
+        "spread.\(id.uuidString.lowercased())"
     }
 }

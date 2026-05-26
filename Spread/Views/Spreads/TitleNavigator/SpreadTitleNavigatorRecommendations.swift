@@ -60,8 +60,6 @@ protocol SpreadTitleNavigatorRecommendationProviding {
 
 struct TodayMissingSpreadRecommendationProvider: SpreadTitleNavigatorRecommendationProviding {
     func recommendations(for model: SpreadHeaderNavigatorModel) -> [SpreadTitleNavigatorRecommendation] {
-        guard model.mode == .conventional else { return [] }
-
         let calendar = model.calendar
         let today = model.today
         let yearDate = Period.year.normalizeDate(today, calendar: calendar)

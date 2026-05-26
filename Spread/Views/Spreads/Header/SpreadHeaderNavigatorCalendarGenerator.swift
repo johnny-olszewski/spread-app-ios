@@ -41,7 +41,6 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
         let dayState = monthRow.dayState(for: context.date, calendar: model.calendar)
         let visualState = Self.visualState(
             isToday: context.isToday,
-            mode: model.mode,
             hasExplicitDayTarget: dayState.hasExplicitDaySpread
         )
         let isSelected = model.isCurrent(date: context.date, currentSpread: currentSpread)
@@ -98,12 +97,11 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
 
     static func visualState(
         isToday: Bool,
-        mode: SpreadHeaderNavigatorModel.Mode,
         hasExplicitDayTarget: Bool
     ) -> SpreadCardStyle {
         MultidayDayCardSupport.visualState(
             isToday: isToday,
-            isCreated: mode == .traditional || hasExplicitDayTarget
+            isCreated: hasExplicitDayTarget
         )
     }
 

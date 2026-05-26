@@ -52,7 +52,6 @@ struct MonthSpreadContentView: View {
                 LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
                     SpreadMonthCalendarView(
                         monthDate: spread.date,
-                        mode: context.journalManager.bujoMode == .conventional ? .conventional : .traditional,
                         journalManager: context.journalManager,
                         calendarActionsByDate: contentModel.calendarActionsByDate,
                         onViewDaySpread: { context.coordinator.selectSpread($0) },

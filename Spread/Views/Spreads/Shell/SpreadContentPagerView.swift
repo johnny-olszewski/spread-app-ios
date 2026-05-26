@@ -192,56 +192,29 @@ private struct SpreadPageContentView: View {
     }
 
     var body: some View {
-        switch journalManager.bujoMode {
-        case .conventional:
-            conventionalPage
-        case .traditional:
-            traditionalPage
-        }
-    }
-
-    // MARK: - Conventional
-
-    @ViewBuilder
-    private var conventionalPage: some View {
-        if case .conventional(let spread) = item.selection {
-            let selectedID = coordinator.selectedSelection?.stableID(calendar: model.calendar)
-            let isCurrentPage = item.id == selectedID
-            let navState = isCurrentPage ? coordinator.convenienceNavigation : nil
-            VStack(spacing: 0) {
-                SpreadHeaderView(
-                    state: navState,
-                    onTap: navState != nil ? { coordinator.handleConvenienceNavButtonTapped() } : nil
-                )
-                conventionalContentView(for: spread)
-            }
-        } else {
-            Color.clear
+        let spread = item.selection
+        let selectedID = coordinator.selectedSelection?.stableID(calendar: model.calendar)
+        let isCurrentPage = item.id == selectedID
+        let navState = isCurrentPage ? coordinator.convenienceNavigation : nil
+        VStack(spacing: 0) {
+            SpreadHeaderView(
+                state: navState,
+                onTap: navState != nil ? { coordinator.handleConvenienceNavButtonTapped() } : nil
+            )
+            contentView(for: spread)
         }
     }
 
     @ViewBuilder
-    private func conventionalContentView(for spread: DataModel.Spread) -> some View {
-        if let dataModel = conventionalSpreadDataModel(for: spread) {
+    private func contentView(for spread: DataModel.Spread) -> some View {
+        if let dataModel = spreadDataModel(for: spread) {
             switch spread.period {
             case .year:
-                YearSpreadContentView(
-                    spread: spread,
-                    spreadDataModel: dataModel,
-                    context: context
-                )
+                YearSpreadContentView(spread: spread, spreadDataModel: dataModel, context: context)
             case .month:
-                MonthSpreadContentView(
-                    spread: spread,
-                    spreadDataModel: dataModel,
-                    context: context
-                )
+                MonthSpreadContentView(spread: spread, spreadDataModel: dataModel, context: context)
             case .day:
-                DaySpreadContentView(
-                    spread: spread,
-                    spreadDataModel: dataModel,
-                    context: context
-                )
+                DaySpreadContentView(spread: spread, spreadDataModel: dataModel, context: context)
             case .multiday:
                 MultidaySpreadContentView(
                     spread: spread,
@@ -259,57 +232,9 @@ private struct SpreadPageContentView: View {
         }
     }
 
-    // MARK: - Traditional
+    // MARK: - Data Helpers
 
-    @ViewBuilder
-    private var traditionalPage: some View {
-        switch item.selection {
-        case .traditionalYear, .traditionalMonth, .traditionalDay:
-            let spread = traditionalSpread(for: item.selection)
-            traditionalContentView(for: spread, selection: item.selection)
-        case .conventional:
-            Color.clear
-        }
-    }
-
-    @ViewBuilder
-    private func traditionalContentView(
-        for spread: DataModel.Spread,
-        selection: SpreadHeaderNavigatorModel.Selection
-    ) -> some View {
-        let dataModel = traditionalSpreadDataModel(for: selection)
-
-        switch spread.period {
-        case .year:
-            YearSpreadContentView(
-                spread: spread,
-                spreadDataModel: dataModel,
-                context: context
-            )
-        case .month:
-            MonthSpreadContentView(
-                spread: spread,
-                spreadDataModel: dataModel,
-                context: context
-            )
-        case .day:
-            DaySpreadContentView(
-                spread: spread,
-                spreadDataModel: dataModel,
-                context: context
-            )
-        case .multiday:
-            MultidaySpreadContentView(
-                spread: spread,
-                spreadDataModel: dataModel,
-                context: context
-            )
-        }
-    }
-
-    // MARK: - Conventional Data Helpers
-
-    private func conventionalSpreadDataModel(for spread: DataModel.Spread) -> SpreadDataModel? {
+    private func spreadDataModel(for spread: DataModel.Spread) -> SpreadDataModel? {
         let normalizedDate = spread.period.normalizeDate(spread.date, calendar: journalManager.calendar)
         return journalManager.dataModel[spread.period]?[normalizedDate]
     }
@@ -323,40 +248,5 @@ private struct SpreadPageContentView: View {
                 inSameDayAs: normalizedDate
             )
         }
-    }
-
-    // MARK: - Traditional Data Helpers
-
-    private var traditionalService: TraditionalSpreadService {
-        TraditionalSpreadService(calendar: journalManager.calendar)
-    }
-
-    private func traditionalSpread(for selection: SpreadHeaderNavigatorModel.Selection) -> DataModel.Spread {
-        switch selection {
-        case .traditionalYear(let yearDate):
-            return DataModel.Spread(period: .year, date: yearDate, calendar: journalManager.calendar)
-        case .traditionalMonth(let monthDate):
-            return DataModel.Spread(period: .month, date: monthDate, calendar: journalManager.calendar)
-        case .traditionalDay(let dayDate):
-            return DataModel.Spread(period: .day, date: dayDate, calendar: journalManager.calendar)
-        case .conventional:
-            let calendar = journalManager.calendar
-            let year = calendar.component(.year, from: journalManager.today)
-            let yearDate = calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
-            return DataModel.Spread(period: .year, date: yearDate, calendar: calendar)
-        }
-    }
-
-    private func traditionalSpreadDataModel(
-        for selection: SpreadHeaderNavigatorModel.Selection
-    ) -> SpreadDataModel {
-        let spread = traditionalSpread(for: selection)
-        return traditionalService.virtualSpreadDataModel(
-            period: spread.period,
-            date: spread.date,
-            tasks: journalManager.tasks,
-            notes: journalManager.notes,
-            events: FeatureFlags.eventsEnabled ? journalManager.events : []
-        )
     }
 }

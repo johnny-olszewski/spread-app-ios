@@ -7,13 +7,7 @@ import JohnnyOFoundationCore
 /// Exists as a dedicated child view so that `journalManager` observation is isolated here,
 /// preventing parent view re-evaluations from interfering with the parent's task/content lifecycle.
 struct SpreadMonthCalendarView: View {
-    enum Mode {
-        case conventional
-        case traditional
-    }
-
     let monthDate: Date
-    let mode: Mode
     let journalManager: JournalManager
     var calendarActionsByDate: [Date: MonthSpreadCalendarDayAction] = [:]
     var onViewDaySpread: ((DataModel.Spread) -> Void)? = nil
@@ -37,15 +31,11 @@ struct SpreadMonthCalendarView: View {
 
     // MARK: - Computed
 
-    private var isConventional: Bool { mode == .conventional }
-
     private var calendar: Calendar {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
     }
 
-    private var dayStateByDate: [Date: MonthDayState] {
-        isConventional ? conventionalDayStateByDate() : traditionalDayStateByDate()
-    }
+    private var dayStateByDate: [Date: MonthDayState] { conventionalDayStateByDate() }
 
     // MARK: - Body
 
@@ -59,16 +49,14 @@ struct SpreadMonthCalendarView: View {
                 calendar: calendar,
                 dayStateByDate: dayStateByDate,
                 calendarActionsByDate: calendarActionsByDate,
-                isConventional: isConventional,
+                isConventional: true,
                 onViewDaySpread: onViewDaySpread
             ),
-            actionDelegate: isConventional
-                ? CalendarDelegate(
-                    calendar: calendar,
-                    calendarActionsByDate: calendarActionsByDate,
-                    onRevealSection: { onRevealMonthDaySection?($0) }
-                )
-                : nil
+            actionDelegate: CalendarDelegate(
+                calendar: calendar,
+                calendarActionsByDate: calendarActionsByDate,
+                onRevealSection: { onRevealMonthDaySection?($0) }
+            )
         )
         .padding(.horizontal, 16)
         .padding(.top, 12)
@@ -117,39 +105,6 @@ struct SpreadMonthCalendarView: View {
         return entries.reduce(into: [:]) { result, entry in
             let date = Period.day.normalizeDate(entryDate(for: entry), calendar: calendar)
             result[date, default: 0] += 1
-        }
-    }
-
-    private func traditionalDayStateByDate() -> [Date: MonthDayState] {
-        guard let monthInterval = calendar.dateInterval(of: .month, for: monthDate) else {
-            return [:]
-        }
-
-        var dates: [Date] = []
-        var cursor = monthInterval.start
-        while cursor < monthInterval.end {
-            dates.append(cursor)
-            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
-        }
-
-        let service = TraditionalSpreadService(calendar: calendar)
-        let tasks = journalManager.tasks
-        let notes = journalManager.notes
-        let events = FeatureFlags.eventsEnabled ? journalManager.events : []
-
-        return dates.reduce(into: [:]) { result, date in
-            let model = service.virtualSpreadDataModel(
-                period: .day,
-                date: date,
-                tasks: tasks,
-                notes: notes,
-                events: events
-            )
-            result[Period.day.normalizeDate(date, calendar: calendar)] = MonthDayState(
-                hasExplicitDaySpread: true,
-                contentCount: model.tasks.count + model.notes.count
-            )
         }
     }
 

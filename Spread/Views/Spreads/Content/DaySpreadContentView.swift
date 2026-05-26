@@ -38,8 +38,7 @@ struct DaySpreadContentView: View {
         return Self.makeSections(
             from: base + eventEntries,
             spreadDate: spreadDataModel.spread.date,
-            calendar: cal,
-            groupsByList: context.journalManager.bujoMode == .conventional
+            calendar: cal
         )
     }
 

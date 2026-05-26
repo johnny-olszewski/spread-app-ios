@@ -20,8 +20,7 @@ struct MultidaySpreadContentView: View {
             spreadDate: spreadDataModel.spread.date,
             startDate: spreadDataModel.spread.startDate ?? spreadDataModel.spread.date,
             endDate: spreadDataModel.spread.endDate ?? spreadDataModel.spread.date,
-            calendar: cal,
-            groupsByDay: context.journalManager.bujoMode == .conventional
+            calendar: cal
         )
     }
 

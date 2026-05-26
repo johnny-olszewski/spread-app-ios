@@ -155,31 +155,6 @@ struct SpreadHeaderNavigatorYearPageView: View {
 }
 
 #if DEBUG
-private enum SpreadHeaderNavigatorPreviewMode: String, CaseIterable, Identifiable {
-    case conventional
-    case traditional
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .conventional:
-            return "Conventional"
-        case .traditional:
-            return "Traditional"
-        }
-    }
-
-    var navigatorMode: SpreadHeaderNavigatorModel.Mode {
-        switch self {
-        case .conventional:
-            return .conventional
-        case .traditional:
-            return .traditional
-        }
-    }
-}
-
 private struct SpreadHeaderNavigatorPreviewSurface: View {
     private static let previewDataSets: [MockDataSet] = [
         .scenarioSpreadNavigator,
@@ -190,7 +165,6 @@ private struct SpreadHeaderNavigatorPreviewSurface: View {
     ]
 
     @State private var selectedDataSet: MockDataSet = .scenarioSpreadNavigator
-    @State private var selectedMode: SpreadHeaderNavigatorPreviewMode = .conventional
     @State private var selectedSpreadID: UUID?
     @State private var expandedMonth: Date?
 
@@ -226,7 +200,6 @@ private struct SpreadHeaderNavigatorPreviewSurface: View {
 
     private var model: SpreadHeaderNavigatorModel {
         SpreadHeaderNavigatorModel(
-            mode: selectedMode.navigatorMode,
             calendar: previewCalendar,
             today: previewToday,
             spreads: generatedData.spreads,
@@ -284,9 +257,6 @@ private struct SpreadHeaderNavigatorPreviewSurface: View {
         .onChange(of: selectedDataSet) { _, _ in
             synchronizeSelectedSpread()
         }
-        .onChange(of: selectedMode) { _, _ in
-            synchronizeSelectedSpread()
-        }
     }
 
     private var previewControls: some View {
@@ -301,13 +271,6 @@ private struct SpreadHeaderNavigatorPreviewSurface: View {
                 }
             }
             .pickerStyle(.menu)
-
-            Picker("Mode", selection: $selectedMode) {
-                ForEach(SpreadHeaderNavigatorPreviewMode.allCases) { mode in
-                    Text(mode.title).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
 
             Picker("Current Spread", selection: currentSpreadSelectionBinding) {
                 ForEach(availableSpreads, id: \.id) { spread in

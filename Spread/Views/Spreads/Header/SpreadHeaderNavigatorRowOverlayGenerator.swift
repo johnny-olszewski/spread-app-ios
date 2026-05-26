@@ -52,8 +52,6 @@ struct SpreadHeaderNavigatorRowOverlayGenerator: MonthCalendarRowOverlayGenerato
         monthRow: SpreadHeaderNavigatorModel.MonthRow,
         currentSpread: DataModel.Spread
     ) -> [MonthCalendarLogicalRowOverlay<UUID, SpreadHeaderNavigatorRowOverlayPayload>] {
-        guard model.mode == .conventional else { return [] }
-
         let monthInterval = model.calendar.dateInterval(of: .month, for: monthRow.date)!
         return model.spreads
             .filter { spread in

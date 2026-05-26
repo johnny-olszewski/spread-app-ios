@@ -109,21 +109,21 @@ final class SpreadsCoordinator {
 
     /// Updates selection after a multiday date edit and asks navigator/pager surfaces to recenter.
     func finishSpreadDateEdit(_ spread: DataModel.Spread) {
-        selectedSelection = .conventional(spread)
+        selectedSelection = spread
         recenterToken += 1
     }
 
     /// Shows a convenience navigation button for the newly created spread without auto-navigating.
     ///
     /// The button label reflects whether tasks were auto-migrated or the spread was simply created.
-    /// If the current selection is not a conventional spread, falls back to direct navigation.
+    /// Falls back to direct navigation when no current selection exists.
     func finishSpreadCreation(
         _ result: SpreadCreationOperationResult,
-        currentSelection: SpreadHeaderNavigatorModel.Selection,
+        currentSelection: SpreadHeaderNavigatorModel.Selection?,
         calendar: Calendar
     ) {
-        guard let source = conventionalSpread(from: currentSelection) else {
-            selectedSelection = .conventional(result.spread)
+        guard let source = currentSelection else {
+            selectedSelection = result.spread
             recenterToken += 1
             return
         }
@@ -162,7 +162,7 @@ final class SpreadsCoordinator {
     /// Navigates to `destination` and records `source` as the navigation origin,
     /// enabling the "Go Back" button in `SpreadHeaderView`.
     func navigateViaPeek(to destination: DataModel.Spread, from source: DataModel.Spread) {
-        selectedSelection = .conventional(destination)
+        selectedSelection = destination
         recenterToken += 1
         // Cancel any active fade — go-back state does not fade
         convenienceNavigationFadeTask?.cancel()
@@ -177,9 +177,9 @@ final class SpreadsCoordinator {
         convenienceNavigation = nil
     }
 
-    /// Navigates to a conventional spread and clears any active convenience navigation.
+    /// Navigates to a spread and clears any active convenience navigation.
     func selectSpread(_ spread: DataModel.Spread) {
-        selectedSelection = .conventional(spread)
+        selectedSelection = spread
         clearConvenienceNavigation()
     }
 
@@ -206,12 +206,12 @@ final class SpreadsCoordinator {
         case .offer(_, let destination, let source):
             convenienceNavigationFadeTask?.cancel()
             convenienceNavigationFadeTask = nil
-            selectedSelection = .conventional(destination)
+            selectedSelection = destination
             recenterToken += 1
             convenienceNavigation = .goBack(source: source)
         case .goBack(let source):
             convenienceNavigation = nil
-            selectedSelection = .conventional(source)
+            selectedSelection = source
             recenterToken += 1
         case nil:
             break
@@ -254,19 +254,7 @@ final class SpreadsCoordinator {
         _ lhs: SpreadHeaderNavigatorModel.Selection,
         _ rhs: SpreadHeaderNavigatorModel.Selection?
     ) -> Bool {
-        guard let rhs else { return false }
-        switch (lhs, rhs) {
-        case (.conventional(let a), .conventional(let b)): return a.id == b.id
-        case (.traditionalYear(let a), .traditionalYear(let b)): return a == b
-        case (.traditionalMonth(let a), .traditionalMonth(let b)): return a == b
-        case (.traditionalDay(let a), .traditionalDay(let b)): return a == b
-        default: return false
-        }
-    }
-
-    private func conventionalSpread(from selection: SpreadHeaderNavigatorModel.Selection) -> DataModel.Spread? {
-        guard case .conventional(let spread) = selection else { return nil }
-        return spread
+        lhs.id == rhs?.id
     }
 
     private func startConvenienceNavigationFade() {

@@ -1,17 +1,7 @@
 import Foundation
 
 struct SpreadHeaderNavigatorModel {
-    enum Mode {
-        case conventional
-        case traditional
-    }
-
-    enum Selection {
-        case conventional(DataModel.Spread)
-        case traditionalYear(Date)
-        case traditionalMonth(Date)
-        case traditionalDay(Date)
-    }
+    typealias Selection = DataModel.Spread
 
     struct YearPage: Identifiable {
         let year: Int
@@ -51,7 +41,6 @@ struct SpreadHeaderNavigatorModel {
         let isMultiday: Bool
     }
 
-    let mode: Mode
     let calendar: Calendar
     let today: Date
     var firstWeekday: FirstWeekday = .systemDefault
@@ -85,12 +74,7 @@ struct SpreadHeaderNavigatorModel {
     }
 
     func months(in year: Int) -> [MonthRow] {
-        switch mode {
-        case .conventional:
-            return conventionalMonthRows(in: year)
-        case .traditional:
-            return traditionalMonthRows(in: year)
-        }
+        conventionalMonthRows(in: year)
     }
 
     func selectionTarget(for monthRow: MonthRow) -> Selection? {
@@ -112,27 +96,11 @@ struct SpreadHeaderNavigatorModel {
     }
 
     func yearsInNavigationOrder() -> [Int] {
-        switch mode {
-        case .conventional:
-            return conventionalYears()
-        case .traditional:
-            return traditionalYears()
-        }
-    }
-
-    private func conventionalYears() -> [Int] {
         var allYears = Set<Int>()
         for spread in spreads {
             allYears.formUnion(yearsTouched(by: spread))
         }
         return allYears.sorted()
-    }
-
-    private func traditionalYears() -> [Int] {
-        let currentYear = calendar.component(.year, from: today)
-        let maxYear = currentYear + 10
-        let earliestYear = earliestTraditionalYear() ?? currentYear
-        return Array(earliestYear...maxYear)
     }
 
     private func conventionalMonthRows(in year: Int) -> [MonthRow] {
@@ -156,26 +124,9 @@ struct SpreadHeaderNavigatorModel {
                 date: date,
                 explicitSpread: explicitMonths[month],
                 isDerived: explicitMonths[month] == nil,
-                monthSelection: explicitMonths[month].map(Selection.conventional),
+                monthSelection: explicitMonths[month],
                 dayTargetsByDate: conventionalDayTargetsByDate(year: year, month: month),
                 dayStateByDate: conventionalDayStateByDate(year: year, month: month)
-            )
-        }
-    }
-
-    private func traditionalMonthRows(in year: Int) -> [MonthRow] {
-        (1...12).compactMap { month in
-            guard let date = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else {
-                return nil
-            }
-
-            return MonthRow(
-                date: date,
-                explicitSpread: nil,
-                isDerived: false,
-                monthSelection: .traditionalMonth(date),
-                dayTargetsByDate: traditionalDayTargetsByDate(year: year, month: month),
-                dayStateByDate: traditionalDayStateByDate(year: year, month: month)
             )
         }
     }
@@ -239,7 +190,7 @@ struct SpreadHeaderNavigatorModel {
                 targets.append(
                     SelectionTarget(
                         id: "day-\(normalizedDate.timeIntervalSinceReferenceDate)",
-                        selection: .conventional(daySpread),
+                        selection: daySpread,
                         title: "View Day",
                         isMultiday: false
                     )
@@ -259,7 +210,7 @@ struct SpreadHeaderNavigatorModel {
                 .map { spread in
                     SelectionTarget(
                         id: "multiday-\(spread.id.uuidString.lowercased())-\(normalizedDate.timeIntervalSinceReferenceDate)",
-                        selection: .conventional(spread),
+                        selection: spread,
                         title: displayName(for: spread),
                         isMultiday: true
                     )
@@ -271,60 +222,6 @@ struct SpreadHeaderNavigatorModel {
             }
         }
 
-        return result
-    }
-
-    private func traditionalDayStateByDate(year: Int, month: Int) -> [Date: MonthDayState] {
-        guard let monthDate = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
-              let monthInterval = calendar.dateInterval(of: .month, for: monthDate) else {
-            return [:]
-        }
-
-        var dates: [Date] = []
-        var cursor = monthInterval.start
-        while cursor < monthInterval.end {
-            dates.append(cursor)
-            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
-        }
-
-        let service = TraditionalSpreadService(calendar: calendar)
-        return dates.reduce(into: [:]) { result, date in
-            let model = service.virtualSpreadDataModel(
-                period: .day,
-                date: date,
-                tasks: tasks,
-                notes: notes,
-                events: events
-            )
-            result[Period.day.normalizeDate(date, calendar: calendar)] = MonthDayState(
-                hasExplicitDaySpread: true,
-                contentCount: model.tasks.count + model.notes.count
-            )
-        }
-    }
-
-    private func traditionalDayTargetsByDate(year: Int, month: Int) -> [Date: [SelectionTarget]] {
-        guard let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
-              let dayRange = calendar.range(of: .day, in: .month, for: monthStart) else {
-            return [:]
-        }
-
-        var result: [Date: [SelectionTarget]] = [:]
-        for day in dayRange {
-            guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day)) else {
-                continue
-            }
-            let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
-            result[normalizedDate] = [
-                SelectionTarget(
-                    id: "traditional-day-\(normalizedDate.timeIntervalSinceReferenceDate)",
-                    selection: .traditionalDay(normalizedDate),
-                    title: "View Day",
-                    isMultiday: false
-                )
-            ]
-        }
         return result
     }
 
@@ -384,7 +281,7 @@ struct SpreadHeaderNavigatorModel {
             today: today,
             firstWeekday: firstWeekday
         )
-        .display(for: spread, allowsPersonalization: mode == .conventional)
+        .display(for: spread, allowsPersonalization: true)
         .primary
     }
 
@@ -469,18 +366,4 @@ struct SpreadHeaderNavigatorModel {
         }
     }
 
-    private func earliestTraditionalYear() -> Int? {
-        var years: [Int] = []
-
-        years.append(contentsOf: spreads.flatMap { Array(yearsTouched(by: $0)) })
-        years.append(contentsOf: tasks.compactMap {
-            $0.hasPreferredAssignment ? calendar.component(.year, from: $0.date) : nil
-        })
-        years.append(contentsOf: notes.map { calendar.component(.year, from: $0.date) })
-        years.append(contentsOf: events.flatMap { event in
-            [event.startDate, event.endDate].map { calendar.component(.year, from: $0) }
-        })
-
-        return years.min()
-    }
 }

@@ -64,16 +64,12 @@ extension DaySpreadContentView {
 
     // MARK: - Section Grouping
 
-    /// Groups day spread entries into sections.
-    ///
-    /// When `groupsByList` is true, entries are bucketed into named-list sections (alphabetical)
-    /// with a trailing untitled section for entries with no list. When false, all entries appear
-    /// in a single flat section — used in traditional mode.
+    /// Groups day spread entries into named-list sections (alphabetical),
+    /// with a trailing untitled section for entries with no list.
     static func makeSections(
         from entries: [any Entry],
         spreadDate: Date,
-        calendar: Calendar,
-        groupsByList: Bool
+        calendar: Calendar
     ) -> [EntryList.Section] {
         guard !entries.isEmpty else { return [] }
 
@@ -89,17 +85,6 @@ extension DaySpreadContentView {
 
         func sorted(_ entries: [any Entry]) -> [any Entry] {
             entries.sorted { entryDate($0) < entryDate($1) }
-        }
-
-        guard groupsByList else {
-            return [EntryList.Section(
-                id: sectionID,
-                title: "",
-                date: spreadDate,
-                entries: sorted(entries),
-                creationPeriod: .day,
-                creationDate: spreadDate
-            )]
         }
 
         var listGroups: [UUID?: [any Entry]] = [:]

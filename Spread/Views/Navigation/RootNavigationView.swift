@@ -109,34 +109,19 @@ struct RootNavigationView: View {
         )
     }
 
-    private func openTaskFromSearch(taskID: UUID, selection: SpreadHeaderNavigatorModel.Selection?) {
+    private func openTaskFromSearch(taskID: UUID, selection: DataModel.Spread?) {
         selectedTab = .spreads
-        if let selection {
-            spreadsNavigationState.pendingRequest = SpreadsNavigationRequest(
-                selection: selection,
-                taskID: taskID
-            )
-        } else {
-            let fallbackSelection = fallbackSearchSelection()
-            spreadsNavigationState.pendingRequest = SpreadsNavigationRequest(
-                selection: fallbackSelection,
-                taskID: taskID
-            )
-        }
+        let resolvedSelection = selection ?? fallbackSearchSelection()
+        spreadsNavigationState.pendingRequest = SpreadsNavigationRequest(
+            selection: resolvedSelection,
+            taskID: taskID
+        )
     }
 
-    private func fallbackSearchSelection() -> SpreadHeaderNavigatorModel.Selection {
-        switch journalManager.bujoMode {
-        case .conventional:
-            let spread = journalManager.bestSpread(for: journalManager.today)
-                ?? journalManager.spreads.first
-                ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
-            return .conventional(spread)
-        case .traditional:
-            return .traditionalYear(
-                Period.year.normalizeDate(journalManager.today, calendar: journalManager.calendar)
-            )
-        }
+    private func fallbackSearchSelection() -> DataModel.Spread {
+        journalManager.bestSpread(for: journalManager.today)
+            ?? journalManager.spreads.first
+            ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
     }
 
     @ViewBuilder

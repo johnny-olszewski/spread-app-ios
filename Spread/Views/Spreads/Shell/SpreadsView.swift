@@ -24,20 +24,8 @@ struct SpreadsView: View {
     }
 
     private var currentSpreadDiagnostics: LocalhostTemporalHarnessSpreadDiagnostics {
-        let spread: DataModel.Spread
-        switch currentSelection {
-        case .conventional(let currentSpread):
-            spread = currentSpread
-        case .traditionalYear(let date):
-            spread = DataModel.Spread(period: .year, date: date, calendar: journalManager.calendar)
-        case .traditionalMonth(let date):
-            spread = DataModel.Spread(period: .month, date: date, calendar: journalManager.calendar)
-        case .traditionalDay(let date):
-            spread = DataModel.Spread(period: .day, date: date, calendar: journalManager.calendar)
-        }
-
         let headerConfiguration = SpreadHeaderConfiguration(
-            spread: spread,
+            spread: currentSelection,
             calendar: journalManager.calendar,
             today: journalManager.today,
             firstWeekday: journalManager.firstWeekday,
@@ -95,9 +83,7 @@ struct SpreadsView: View {
                     )
                 }
                 
-                if journalManager.bujoMode == .conventional {
-                    favoritesMenu
-                }
+                favoritesMenu
                 
                 AuthButton(isSignedIn: authManager.state.isSignedIn, action: { coordinator.showAuth() })
                 
@@ -145,9 +131,7 @@ struct SpreadsView: View {
             sheetContent(for: destination)
         }
         .onChange(of: journalManager.dataVersion) { _, _ in
-            if journalManager.bujoMode == .conventional {
-                resetConventionalSelectionIfNeeded()
-            }
+            resetSelectionIfNeeded()
         }
         .onAppear {
             if coordinator.selectedSelection == nil {
@@ -169,12 +153,10 @@ struct SpreadsView: View {
             Spacer()
 
             Menu {
-                if journalManager.bujoMode == .conventional {
-                    Button(action: { coordinator.showSpreadCreation() }) {
-                        Label("Create Spread", systemImage: "book")
-                    }
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createSpread)
+                Button(action: { coordinator.showSpreadCreation() }) {
+                    Label("Create Spread", systemImage: "book")
                 }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createSpread)
 
                 Button(action: { coordinator.showTaskCreation() }) {
                     Label("Create Task", systemImage: "circle.fill")
@@ -217,8 +199,7 @@ struct SpreadsView: View {
     }
 
     private var onRecommendedSpreadTapped: ((SpreadTitleNavigatorRecommendation) -> Void)? {
-        guard journalManager.bujoMode == .conventional else { return nil }
-        return { recommendation in
+        { recommendation in
             coordinator.showSpreadCreation(
                 prefill: .init(period: recommendation.period, date: recommendation.date)
             )
@@ -227,10 +208,7 @@ struct SpreadsView: View {
 
     // MARK: - Spread Actions
 
-    private var currentConventionalSpread: DataModel.Spread? {
-        guard case .conventional(let spread) = currentSelection else { return nil }
-        return spread
-    }
+    private var currentConventionalSpread: DataModel.Spread? { currentSelection }
 
     private func spreadActionsMenu(for spread: DataModel.Spread) -> some View {
         Menu {
@@ -282,10 +260,7 @@ struct SpreadsView: View {
     // MARK: - Favorites
 
     private var favoriteItemsForCurrentYear: [SpreadTitleNavigatorModel.Item] {
-        completeItems.filter { item in
-            guard case .conventional(let spread) = item.selection else { return false }
-            return spread.isFavorite
-        }
+        completeItems.filter { $0.selection.isFavorite }
     }
 
     private var favoriteNameFormatter: SpreadDisplayNameFormatter {
@@ -302,15 +277,13 @@ struct SpreadsView: View {
                 Text("No favorites this year")
             } else {
                 ForEach(favoriteItemsForCurrentYear) { item in
-                    if case .conventional(let spread) = item.selection {
-                        Button {
-                            selectFavorite(item)
-                        } label: {
-                            Label(
-                                favoriteNameFormatter.display(for: spread).primary,
-                                systemImage: "star.fill"
-                            )
-                        }
+                    Button {
+                        selectFavorite(item)
+                    } label: {
+                        Label(
+                            favoriteNameFormatter.display(for: item.selection).primary,
+                            systemImage: "star.fill"
+                        )
                     }
                 }
             }
@@ -334,14 +307,13 @@ struct SpreadsView: View {
         coordinator.navigate(to: selection)
     }
 
-    // MARK: - Conventional Helpers
+    // MARK: - Helpers
 
-    private func resetConventionalSelectionIfNeeded() {
-        guard case .conventional(let spread) = coordinator.selectedSelection else { return }
+    private func resetSelectionIfNeeded() {
+        guard let spread = coordinator.selectedSelection else { return }
         guard !journalManager.spreads.contains(where: { $0.id == spread.id }) else { return }
 
         coordinator.selectedSelection = journalManager.bestSpread(for: journalManager.today)
-            .map { .conventional($0) }
         coordinator.recenterToken += 1
     }
 
@@ -351,38 +323,30 @@ struct SpreadsView: View {
     private func sheetContent(for destination: SpreadsCoordinator.SheetDestination) -> some View {
         switch destination {
         case .spreadCreation(let prefill):
-            if journalManager.bujoMode == .conventional {
-                SpreadCreationSheet(
-                    journalManager: journalManager,
-                    firstWeekday: journalManager.firstWeekday,
-                    initialPeriod: prefill?.period,
-                    initialDate: prefill?.date,
-                    onSpreadCreated: { result in
-                        coordinator.finishSpreadCreation(
-                            result,
-                            currentSelection: currentSelection,
-                            calendar: journalManager.calendar
-                        )
-                        Task { @MainActor in await syncEngine?.syncNow() }
-                    }
-                )
-            } else {
-                Color.clear
-            }
+            SpreadCreationSheet(
+                journalManager: journalManager,
+                firstWeekday: journalManager.firstWeekday,
+                initialPeriod: prefill?.period,
+                initialDate: prefill?.date,
+                onSpreadCreated: { result in
+                    coordinator.finishSpreadCreation(
+                        result,
+                        currentSelection: currentSelection,
+                        calendar: journalManager.calendar
+                    )
+                    Task { @MainActor in await syncEngine?.syncNow() }
+                }
+            )
         case .spreadNameEdit(let spread):
-            if journalManager.bujoMode == .conventional {
-                SpreadNameEditSheet(
-                    journalManager: journalManager,
-                    spread: spread,
-                    onSaved: {
-                        Task { @MainActor in await syncEngine?.syncNow() }
-                    }
-                )
-            } else {
-                Color.clear
-            }
+            SpreadNameEditSheet(
+                journalManager: journalManager,
+                spread: spread,
+                onSaved: {
+                    Task { @MainActor in await syncEngine?.syncNow() }
+                }
+            )
         case .spreadDateEdit(let spread):
-            if journalManager.bujoMode == .conventional, spread.period == .multiday {
+            if spread.period == .multiday {
                 SpreadCreationSheet(
                     journalManager: journalManager,
                     firstWeekday: journalManager.firstWeekday,
@@ -448,32 +412,14 @@ struct SpreadsView: View {
         }
     }
 
-    private var selectedSpreadForSheet: DataModel.Spread? {
-        switch currentSelection {
-        case .conventional(let spread):
-            return spread
-        case .traditionalYear(let date):
-            return DataModel.Spread(period: .year, date: date, calendar: journalManager.calendar)
-        case .traditionalMonth(let date):
-            return DataModel.Spread(period: .month, date: date, calendar: journalManager.calendar)
-        case .traditionalDay(let date):
-            return DataModel.Spread(period: .day, date: date, calendar: journalManager.calendar)
-        }
-    }
+    private var selectedSpreadForSheet: DataModel.Spread? { currentSelection }
 
     // MARK: - Pending Navigation
 
     private func handlePendingNavigationRequest() {
         guard let request = navigationState.pendingRequest else { return }
 
-        switch request.selection {
-        case .conventional(let spread):
-            guard journalManager.bujoMode == .conventional else { return }
-            coordinator.selectedSelection = .conventional(spread)
-        case .traditionalYear, .traditionalMonth, .traditionalDay:
-            guard journalManager.bujoMode == .traditional else { return }
-            coordinator.selectedSelection = request.selection
-        }
+        coordinator.selectedSelection = request.selection
         coordinator.recenterToken += 1
 
         guard let task = journalManager.tasks.first(where: { $0.id == request.taskID }) else {

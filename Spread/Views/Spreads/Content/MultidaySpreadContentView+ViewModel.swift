@@ -39,17 +39,15 @@ extension MultidaySpreadContentView {
 
     /// Groups multiday spread entries into per-day sections.
     ///
-    /// When `groupsByDay` is true, multiday-assigned entries appear in a leading "This Range"
-    /// section and day-assigned entries are bucketed per day. Every day in the range gets a
-    /// section, even when empty. When false, all entries appear in a single flat section —
-    /// used in traditional mode.
+    /// Multiday-assigned entries appear in a leading "This Range" section.
+    /// Day-assigned entries are bucketed per day. Every day in the range gets a
+    /// section, even when empty.
     static func makeSections(
         from entries: [any Entry],
         spreadDate: Date,
         startDate: Date,
         endDate: Date,
-        calendar: Calendar,
-        groupsByDay: Bool
+        calendar: Calendar
     ) -> [EntryList.Section] {
         let sectionID = String(spreadDate.timeIntervalSinceReferenceDate)
 
@@ -69,17 +67,6 @@ extension MultidaySpreadContentView {
 
         func sorted(_ entries: [any Entry]) -> [any Entry] {
             entries.sorted { entryDate($0) < entryDate($1) }
-        }
-
-        guard groupsByDay else {
-            return [EntryList.Section(
-                id: sectionID,
-                title: "",
-                date: startDate,
-                entries: sorted(entries),
-                creationPeriod: .day,
-                creationDate: spreadDate
-            )]
         }
 
         let start = startDate.startOfDay(calendar: calendar)
