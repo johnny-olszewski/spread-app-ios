@@ -297,7 +297,10 @@ struct SpreadsView: View {
     // MARK: - Favorites
 
     private var favoriteItemsForCurrentYear: [SpreadTitleNavigatorModel.Item] {
-        journalManager.favoriteItemsForCurrentYear(items: completeItems)
+        completeItems.filter { item in
+            guard case .conventional(let spread) = item.selection else { return false }
+            return spread.isFavorite
+        }
     }
 
     private var favoriteNameFormatter: SpreadDisplayNameFormatter {
@@ -345,10 +348,10 @@ struct SpreadsView: View {
         switch journalManager.bujoMode {
         case .conventional:
             guard let spread = journalManager.bestSpread(for: journalManager.today) else { return }
-            coordinator.navigateToToday(target: .conventional(spread))
+            coordinator.navigate(to: .conventional(spread))
         case .traditional:
             let date = Period.day.normalizeDate(journalManager.today, calendar: journalManager.calendar)
-            coordinator.navigateToToday(target: .traditionalDay(date))
+            coordinator.navigate(to: .traditionalDay(date))
         }
     }
 

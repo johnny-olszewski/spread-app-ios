@@ -183,17 +183,16 @@ final class SpreadsCoordinator {
         clearConvenienceNavigation()
     }
 
-    /// Navigates to the today target selection, clearing convenience navigation.
+    /// Navigates to the given selection, clearing convenience navigation and recentering.
     ///
-    /// If already on the target, only recenters (increments `recenterToken`) without
-    /// changing `selectedSelection`. The caller is responsible for computing `target`
-    /// from the journal's spread data and bujo mode.
-    func navigateToToday(target: SpreadHeaderNavigatorModel.Selection) {
+    /// If the selection is already active, only recenters (increments `recenterToken`) without
+    /// changing `selectedSelection`. If it differs, updates `selectedSelection` and recenters.
+    func navigate(to selection: SpreadHeaderNavigatorModel.Selection) {
         clearConvenienceNavigation()
-        if isSameSelection(target, selectedSelection) {
+        if isSameSelection(selection, selectedSelection) {
             recenterToken += 1
         } else {
-            selectedSelection = target
+            selectedSelection = selection
             recenterToken += 1
         }
     }
