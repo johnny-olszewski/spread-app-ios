@@ -815,16 +815,12 @@ enum DataModelSchemaV1: VersionedSchema {
 
     /// Per-user settings synced to the server.
     ///
-    /// One row per user (singleton-like). Contains the bullet journal mode
-    /// and first weekday preference. Field-level LWW timestamps enable
-    /// conflict-free sync of individual settings.
+    /// One row per user (singleton-like). Contains the first weekday preference.
+    /// Field-level LWW timestamps enable conflict-free sync of individual settings.
     @Model
     final class Settings {
         /// Unique identifier for the settings row.
         @Attribute(.unique) var id: UUID
-
-        /// The bullet journal mode.
-        var bujoMode: BujoMode
 
         /// The first weekday as a server-compatible integer (1-7).
         ///
@@ -846,9 +842,6 @@ enum DataModelSchemaV1: VersionedSchema {
         /// Server-assigned revision for incremental pull.
         var revision: Int64
 
-        /// LWW timestamp for `bujoMode`.
-        var bujoModeUpdatedAt: Date?
-
         /// LWW timestamp for `firstWeekday`.
         var firstWeekdayUpdatedAt: Date?
 
@@ -856,33 +849,27 @@ enum DataModelSchemaV1: VersionedSchema {
         ///
         /// - Parameters:
         ///   - id: Unique identifier (defaults to new UUID).
-        ///   - bujoMode: The BuJo mode (defaults to `.conventional`).
         ///   - firstWeekday: The first weekday integer 1-7 (defaults to 1 = Sunday).
         ///   - createdDate: When these settings were created (defaults to now).
         ///   - deletedAt: Soft-delete timestamp (defaults to nil).
         ///   - deviceId: The device that created/modified these settings.
         ///   - revision: Server revision (defaults to 0).
-        ///   - bujoModeUpdatedAt: LWW timestamp for bujoMode.
         ///   - firstWeekdayUpdatedAt: LWW timestamp for firstWeekday.
         init(
             id: UUID = UUID(),
-            bujoMode: BujoMode = .conventional,
             firstWeekday: Int = 1,
             createdDate: Date = .now,
             deletedAt: Date? = nil,
             deviceId: UUID? = nil,
             revision: Int64 = 0,
-            bujoModeUpdatedAt: Date? = nil,
             firstWeekdayUpdatedAt: Date? = nil
         ) {
             self.id = id
-            self.bujoMode = bujoMode
             self.firstWeekday = firstWeekday
             self.createdDate = createdDate
             self.deletedAt = deletedAt
             self.deviceId = deviceId
             self.revision = revision
-            self.bujoModeUpdatedAt = bujoModeUpdatedAt
             self.firstWeekdayUpdatedAt = firstWeekdayUpdatedAt
         }
     }
