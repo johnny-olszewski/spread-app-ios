@@ -88,12 +88,10 @@ enum AppRuntimeFactory {
 
         // Load persisted settings to configure JournalManager
         let savedSettings = await dependencies.settingsRepository.getSettings()
-        let bujoMode = savedSettings?.bujoMode ?? .conventional
         let firstWeekday = savedSettings.flatMap { FirstWeekday.from(weekdayValue: $0.firstWeekday) } ?? .systemDefault
 
         let journalManager = try await dependencies.makeJournalManager(
             appClock: appClock,
-            bujoMode: bujoMode,
             firstWeekday: firstWeekday
         )
 

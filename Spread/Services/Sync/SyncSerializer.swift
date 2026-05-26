@@ -876,12 +876,11 @@ enum SyncSerializer {
         let record: [String: Any?] = [
             "id": settings.id.uuidString,
             "device_id": deviceId.uuidString,
-            "bujo_mode": settings.bujoMode.rawValue,
+            "bujo_mode": "conventional",
             "first_weekday": settings.firstWeekday,
             "created_at": SyncDateFormatting.formatTimestamp(settings.createdDate),
             "deleted_at": settings.deletedAt.map { SyncDateFormatting.formatTimestamp($0) },
-            "bujo_mode_updated_at": settings.bujoModeUpdatedAt
-                .map { SyncDateFormatting.formatTimestamp($0) } ?? ts,
+            "bujo_mode_updated_at": ts,
             "first_weekday_updated_at": settings.firstWeekdayUpdatedAt
                 .map { SyncDateFormatting.formatTimestamp($0) } ?? ts
         ]
@@ -1605,7 +1604,6 @@ enum SyncSerializer {
     /// Applies a server settings row to a local settings model.
     static func applySettingsRow(_ row: ServerSettingsRow, to settings: DataModel.Settings) -> Bool {
         guard row.deletedAt == nil else { return false }
-        if let bujoMode = BujoMode(rawValue: row.bujoMode) { settings.bujoMode = bujoMode }
         settings.firstWeekday = row.firstWeekday
         settings.revision = row.revision
         return true
@@ -1614,13 +1612,11 @@ enum SyncSerializer {
     /// Creates a new local settings from a server row.
     static func createSettings(from row: ServerSettingsRow) -> DataModel.Settings? {
         guard row.deletedAt == nil,
-              let bujoMode = BujoMode(rawValue: row.bujoMode),
               let createdAt = SyncDateFormatting.parseTimestamp(row.createdAt) else {
             return nil
         }
         return DataModel.Settings(
             id: row.id,
-            bujoMode: bujoMode,
             firstWeekday: row.firstWeekday,
             createdDate: createdAt,
             revision: row.revision

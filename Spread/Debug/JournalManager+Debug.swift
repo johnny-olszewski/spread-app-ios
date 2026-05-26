@@ -26,7 +26,6 @@ extension JournalManager {
 
         if dataSet.isScenarioFixture {
             // Scenario fixtures must be deterministic regardless of persisted settings.
-            bujoMode = .conventional
             firstWeekday = .systemDefault
         }
 

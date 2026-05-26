@@ -49,9 +49,6 @@ extension AppRuntimeConfiguration {
                 ) {
                     try await journalManager.loadMockDataSet(dataSet)
                 }
-                if let bujoMode = AppLaunchConfiguration.current.bujoMode {
-                    journalManager.bujoMode = bujoMode
-                }
             },
             makeDebugMenuView: { dependencies, journalManager, authManager, syncEngine, appClock in
                 AnyView(

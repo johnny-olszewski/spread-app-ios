@@ -156,13 +156,11 @@ struct AppDependencies: @unchecked Sendable {
     ///
     /// - Parameters:
     ///   - appClock: The shared app clock for temporal context and refreshes.
-    ///   - bujoMode: The initial BuJo mode (defaults to conventional).
     ///   - firstWeekday: The user's first day of week preference (defaults to system default).
     /// - Returns: A configured JournalManager with data loaded.
     @MainActor
     func makeJournalManager(
         appClock: AppClock? = nil,
-        bujoMode: BujoMode = .conventional,
         firstWeekday: FirstWeekday = .systemDefault
     ) async throws -> JournalManager {
         try await JournalManager.make(
@@ -174,7 +172,6 @@ struct AppDependencies: @unchecked Sendable {
             collectionRepository: collectionRepository,
             listRepository: listRepository,
             tagRepository: tagRepository,
-            bujoMode: bujoMode,
             firstWeekday: firstWeekday
         )
     }
