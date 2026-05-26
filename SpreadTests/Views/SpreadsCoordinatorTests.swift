@@ -100,8 +100,8 @@ struct SpreadsCoordinatorTests {
 
         coordinator.finishSpreadDateEdit(spread)
 
-        guard case .conventional(let selectedSpread) = coordinator.selectedSelection else {
-            Issue.record("Expected conventional selection")
+        guard let selectedSpread = coordinator.selectedSelection else {
+            Issue.record("Expected a selection")
             return
         }
         #expect(selectedSpread.id == spread.id)
@@ -116,7 +116,7 @@ struct SpreadsCoordinatorTests {
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSelection = .conventional(spread)
+        coordinator.selectedSelection = spread
 
         coordinator.showSpreadDeleteConfirmation(spread)
 
@@ -125,8 +125,8 @@ struct SpreadsCoordinatorTests {
             return
         }
         #expect(destinationSpread.id == spread.id)
-        guard case .conventional(let selectedSpread) = coordinator.selectedSelection else {
-            Issue.record("Expected conventional selection")
+        guard let selectedSpread = coordinator.selectedSelection else {
+            Issue.record("Expected a selection")
             return
         }
         #expect(selectedSpread.id == spread.id)
@@ -140,14 +140,14 @@ struct SpreadsCoordinatorTests {
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSelection = .conventional(spread)
+        coordinator.selectedSelection = spread
         coordinator.showSpreadDeleteConfirmation(spread)
 
         coordinator.dismissAlert()
 
         #expect(coordinator.activeAlert == nil)
-        guard case .conventional(let selectedSpread) = coordinator.selectedSelection else {
-            Issue.record("Expected conventional selection")
+        guard let selectedSpread = coordinator.selectedSelection else {
+            Issue.record("Expected a selection")
             return
         }
         #expect(selectedSpread.id == spread.id)
@@ -161,7 +161,7 @@ struct SpreadsCoordinatorTests {
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .month, date: Date(timeIntervalSince1970: 0), calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSelection = .conventional(spread)
+        coordinator.selectedSelection = spread
 
         coordinator.showSpreadDeleteFailure(message: "Failed to delete spread: forced failure")
 
@@ -170,8 +170,8 @@ struct SpreadsCoordinatorTests {
             return
         }
         #expect(message == "Failed to delete spread: forced failure")
-        guard case .conventional(let selectedSpread) = coordinator.selectedSelection else {
-            Issue.record("Expected conventional selection")
+        guard let selectedSpread = coordinator.selectedSelection else {
+            Issue.record("Expected a selection")
             return
         }
         #expect(selectedSpread.id == spread.id)
@@ -351,7 +351,7 @@ struct SpreadsCoordinatorTests {
 
     // MARK: - Selected Selection
 
-    /// Condition: selectedSelection starts nil and is set to a conventional selection.
+    /// Condition: selectedSelection starts nil and is set to a spread.
     /// Expected: Value is stored and retrievable.
     @Test("selectedSelection stores and returns set value")
     func testSelectedSelectionStoresValue() {
@@ -363,10 +363,10 @@ struct SpreadsCoordinatorTests {
         let coordinator = SpreadsCoordinator()
         #expect(coordinator.selectedSelection == nil)
 
-        coordinator.selectedSelection = .conventional(spread)
+        coordinator.selectedSelection = spread
 
-        guard case .conventional(let stored) = coordinator.selectedSelection else {
-            Issue.record("Expected .conventional selection")
+        guard let stored = coordinator.selectedSelection else {
+            Issue.record("Expected a selection")
             return
         }
         #expect(stored.id == spread.id)
@@ -383,16 +383,16 @@ struct SpreadsCoordinatorTests {
         let year = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
         let month = DataModel.Spread(period: .month, date: calendar.date(from: .init(year: 2026, month: 3, day: 1))!, calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSelection = .conventional(year)
+        coordinator.selectedSelection = year
 
         coordinator.finishSpreadCreation(
             .init(spread: month, autoMigrationSummary: .init(taskCount: 1, noteCount: 1)),
-            currentSelection: .conventional(year),
+            currentSelection: year,
             calendar: calendar
         )
 
-        guard case .conventional(let selectedSpread)? = coordinator.selectedSelection else {
-            Issue.record("Expected conventional selection")
+        guard let selectedSpread = coordinator.selectedSelection else {
+            Issue.record("Expected a selection")
             return
         }
         #expect(selectedSpread.id == year.id)
@@ -415,16 +415,16 @@ struct SpreadsCoordinatorTests {
         let year = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
         let month = DataModel.Spread(period: .month, date: calendar.date(from: .init(year: 2026, month: 3, day: 1))!, calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSelection = .conventional(year)
+        coordinator.selectedSelection = year
 
         coordinator.finishSpreadCreation(
             .init(spread: month, autoMigrationSummary: nil),
-            currentSelection: .conventional(year),
+            currentSelection: year,
             calendar: calendar
         )
 
-        guard case .conventional(let selectedSpread)? = coordinator.selectedSelection else {
-            Issue.record("Expected conventional selection")
+        guard let selectedSpread = coordinator.selectedSelection else {
+            Issue.record("Expected a selection")
             return
         }
         #expect(selectedSpread.id == year.id)
@@ -451,8 +451,8 @@ struct SpreadsCoordinatorTests {
 
         coordinator.handleConvenienceNavButtonTapped()
 
-        guard case .conventional(let selectedSpread)? = coordinator.selectedSelection else {
-            Issue.record("Expected conventional selection")
+        guard let selectedSpread = coordinator.selectedSelection else {
+            Issue.record("Expected a selection")
             return
         }
         #expect(selectedSpread.id == destination.id)
@@ -476,8 +476,8 @@ struct SpreadsCoordinatorTests {
 
         coordinator.handleConvenienceNavButtonTapped()
 
-        guard case .conventional(let selectedSpread)? = coordinator.selectedSelection else {
-            Issue.record("Expected conventional selection")
+        guard let selectedSpread = coordinator.selectedSelection else {
+            Issue.record("Expected a selection")
             return
         }
         #expect(selectedSpread.id == source.id)
@@ -497,8 +497,8 @@ struct SpreadsCoordinatorTests {
 
         coordinator.selectSpread(target)
 
-        guard case .conventional(let selectedSpread)? = coordinator.selectedSelection else {
-            Issue.record("Expected conventional selection")
+        guard let selectedSpread = coordinator.selectedSelection else {
+            Issue.record("Expected a selection")
             return
         }
         #expect(selectedSpread.id == target.id)

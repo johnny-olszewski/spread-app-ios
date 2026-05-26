@@ -9,16 +9,14 @@ struct SettingsSyncTests {
     // MARK: - Model Tests
 
     /// Conditions: Create a Settings model with default values.
-    /// Expected: Defaults should be conventional mode, firstWeekday 1, revision 0, nil sync metadata.
+    /// Expected: Defaults should be firstWeekday 1, revision 0, nil sync metadata.
     @Test func testSettingsModelDefaults() {
         let settings = DataModel.Settings()
 
-        #expect(settings.bujoMode == .conventional)
         #expect(settings.firstWeekday == 1)
         #expect(settings.revision == 0)
         #expect(settings.deletedAt == nil)
         #expect(settings.deviceId == nil)
-        #expect(settings.bujoModeUpdatedAt == nil)
         #expect(settings.firstWeekdayUpdatedAt == nil)
     }
 
@@ -31,22 +29,18 @@ struct SettingsSyncTests {
 
         let settings = DataModel.Settings(
             id: id,
-            bujoMode: .traditional,
             firstWeekday: 2,
             createdDate: now,
             deviceId: deviceId,
             revision: 42,
-            bujoModeUpdatedAt: now,
             firstWeekdayUpdatedAt: now
         )
 
         #expect(settings.id == id)
-        #expect(settings.bujoMode == .traditional)
         #expect(settings.firstWeekday == 2)
         #expect(settings.createdDate == now)
         #expect(settings.deviceId == deviceId)
         #expect(settings.revision == 42)
-        #expect(settings.bujoModeUpdatedAt == now)
         #expect(settings.firstWeekdayUpdatedAt == now)
     }
 
@@ -56,10 +50,7 @@ struct SettingsSyncTests {
         let container = try ModelContainerFactory.makeInMemory()
         let context = container.mainContext
 
-        let settings = DataModel.Settings(
-            bujoMode: .traditional,
-            firstWeekday: 2
-        )
+        let settings = DataModel.Settings(firstWeekday: 2)
         context.insert(settings)
         try context.save()
 
@@ -68,7 +59,6 @@ struct SettingsSyncTests {
         let fetched = try context.fetch(descriptor).first
 
         #expect(fetched?.id == settings.id)
-        #expect(fetched?.bujoMode == .traditional)
         #expect(fetched?.firstWeekday == 2)
     }
 
@@ -94,14 +84,13 @@ struct SettingsSyncTests {
     // MARK: - Serialization Tests
 
     /// Conditions: Serialize a Settings model for the outbox.
-    /// Expected: JSON should contain all expected fields with correct values.
+    /// Expected: JSON should contain all expected fields. bujo_mode is always "conventional".
     @Test func testSerializeSettings() {
         let id = UUID()
         let deviceId = UUID()
         let now = Date.now
         let settings = DataModel.Settings(
             id: id,
-            bujoMode: .traditional,
             firstWeekday: 2,
             createdDate: now
         )
@@ -122,22 +111,20 @@ struct SettingsSyncTests {
 
         #expect(json["id"] as? String == id.uuidString)
         #expect(json["device_id"] as? String == deviceId.uuidString)
-        #expect(json["bujo_mode"] as? String == "traditional")
+        #expect(json["bujo_mode"] as? String == "conventional")
         #expect(json["first_weekday"] as? Int == 2)
         #expect(json["bujo_mode_updated_at"] != nil)
         #expect(json["first_weekday_updated_at"] != nil)
     }
 
-    /// Conditions: Serialize settings with existing LWW timestamps.
-    /// Expected: Serialized JSON should use the model's timestamps, not the provided timestamp.
+    /// Conditions: Serialize settings with an existing LWW timestamp for firstWeekday.
+    /// Expected: Serialized JSON uses the model's firstWeekday timestamp, not the call timestamp.
     @Test func testSerializeSettingsUsesModelTimestamps() {
         let modelTimestamp = Date(timeIntervalSince1970: 1000)
         let callTimestamp = Date(timeIntervalSince1970: 2000)
 
         let settings = DataModel.Settings(
-            bujoMode: .conventional,
             firstWeekday: 1,
-            bujoModeUpdatedAt: modelTimestamp,
             firstWeekdayUpdatedAt: modelTimestamp
         )
 
@@ -154,7 +141,6 @@ struct SettingsSyncTests {
         }
 
         let expectedTs = SyncDateFormatting.formatTimestamp(modelTimestamp)
-        #expect(json["bujo_mode_updated_at"] as? String == expectedTs)
         #expect(json["first_weekday_updated_at"] as? String == expectedTs)
     }
 
@@ -170,7 +156,6 @@ struct SettingsSyncTests {
 
         let settings = DataModel.Settings(
             id: id,
-            bujoMode: .traditional,
             firstWeekday: 2,
             createdDate: now
         )
@@ -198,12 +183,9 @@ struct SettingsSyncTests {
     // MARK: - Pull Deserialization Tests
 
     /// Conditions: Apply a server settings row to an existing local settings model.
-    /// Expected: Local model should be updated with server values.
+    /// Expected: Local model's firstWeekday and revision are updated; bujo_mode is ignored.
     @Test func testApplySettingsRow() {
-        let settings = DataModel.Settings(
-            bujoMode: .conventional,
-            firstWeekday: 1
-        )
+        let settings = DataModel.Settings(firstWeekday: 1)
 
         let row = ServerSettingsRow(
             id: settings.id,
@@ -217,7 +199,6 @@ struct SettingsSyncTests {
         let result = SyncSerializer.applySettingsRow(row, to: settings)
 
         #expect(result == true)
-        #expect(settings.bujoMode == .traditional)
         #expect(settings.firstWeekday == 2)
         #expect(settings.revision == 5)
     }
@@ -241,7 +222,7 @@ struct SettingsSyncTests {
     }
 
     /// Conditions: Create settings from a valid server row.
-    /// Expected: Should produce a Settings model with matching values.
+    /// Expected: Should produce a Settings model with matching firstWeekday and revision; bujo_mode is ignored.
     @Test func testCreateSettingsFromServerRow() {
         let id = UUID()
         let now = Date.now
@@ -259,7 +240,6 @@ struct SettingsSyncTests {
 
         #expect(settings != nil)
         #expect(settings?.id == id)
-        #expect(settings?.bujoMode == .traditional)
         #expect(settings?.firstWeekday == 2)
         #expect(settings?.revision == 10)
     }
@@ -273,22 +253,6 @@ struct SettingsSyncTests {
             firstWeekday: 1,
             createdAt: SyncDateFormatting.formatTimestamp(.now),
             deletedAt: SyncDateFormatting.formatTimestamp(.now),
-            revision: 1
-        )
-
-        let settings = SyncSerializer.createSettings(from: row)
-        #expect(settings == nil)
-    }
-
-    /// Conditions: Create settings from a server row with invalid bujo_mode.
-    /// Expected: Should return nil.
-    @Test func testCreateSettingsFromInvalidBujoMode() {
-        let row = ServerSettingsRow(
-            id: UUID(),
-            bujoMode: "invalid_mode",
-            firstWeekday: 1,
-            createdAt: SyncDateFormatting.formatTimestamp(.now),
-            deletedAt: nil,
             revision: 1
         )
 

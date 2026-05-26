@@ -233,7 +233,6 @@ struct LocalSupabaseSyncHarness {
             eventRepository: InMemoryEventRepository(),
             noteRepository: noteRepository,
             collectionRepository: collectionRepository,
-            bujoMode: .conventional
         )
 
         let syncEngine = SyncEngine(

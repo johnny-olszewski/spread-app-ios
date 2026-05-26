@@ -41,8 +41,7 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            groupsByList: true
+            calendar: calendar
         )
 
         #expect(sections.count == 3)
@@ -71,8 +70,7 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            groupsByList: true
+            calendar: calendar
         )
 
         #expect(sections.count == 1)
@@ -80,10 +78,10 @@ struct EntryListGroupingTests {
         #expect(sections[0].entries.count == 4)
     }
 
-    /// When a day spread uses flat grouping (traditional mode),
-    /// all entries appear in a single untitled section regardless of list assignment.
-    @Test("Day spread flat grouping produces one section ignoring list assignments")
-    func daySpreadFlatGroupingIgnoresLists() {
+    /// When a day spread has a task assigned to a named list,
+    /// that task goes into its list's section and unlisted entries go into an untitled section.
+    @Test("Day spread always groups by list — listed task appears in its list section")
+    func daySpreadListAssignedTaskGroupedWithList() {
         let spreadDate = makeDate(year: 2026, month: 6, day: 1)
         let list = DataModel.List(name: "Work")
         let entries: [any Entry] = [
@@ -95,13 +93,14 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            groupsByList: false
+            calendar: calendar
         )
 
-        #expect(sections.count == 1)
-        #expect(sections[0].title.isEmpty)
-        #expect(sections[0].entries.count == 3)
+        #expect(sections.count == 2)
+        #expect(sections[0].title == "Work")
+        #expect(sections[0].entries.map(\.title) == ["Listed task"])
+        #expect(sections[1].title.isEmpty)
+        #expect(sections[1].entries.count == 2)
     }
 
     /// When a day spread has a single entry,
@@ -116,8 +115,7 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            groupsByList: true
+            calendar: calendar
         )
 
         #expect(sections.count == 1)
@@ -131,8 +129,7 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.makeSections(
             from: [],
             spreadDate: spreadDate,
-            calendar: calendar,
-            groupsByList: true
+            calendar: calendar
         )
         #expect(sections.isEmpty)
     }
@@ -151,8 +148,7 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            groupsByList: true
+            calendar: calendar
         )
 
         #expect(sections.count == 1)
@@ -179,8 +175,7 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar,
-            groupsByDay: true
+            calendar: calendar
         )
 
         #expect(sections.count == 4)
@@ -205,8 +200,7 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar,
-            groupsByDay: true
+            calendar: calendar
         )
 
         #expect(sections.count == 3)
@@ -231,8 +225,7 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar,
-            groupsByDay: true
+            calendar: calendar
         )
 
         let aprilFirst = makeDate(year: 2026, month: 4, day: 1)
@@ -242,10 +235,10 @@ struct EntryListGroupingTests {
         #expect(aprilFirstSection?.entries.map(\.title) == ["April 1 Day Task"])
     }
 
-    /// When multiday flat grouping is used (traditional mode),
-    /// all entries appear in a single section regardless of their day.
-    @Test("Multiday flat grouping produces one section")
-    func multidayFlatGroupingProducesOneSection() {
+    /// When a multiday spread contains entries from different days,
+    /// each day always gets its own section — entries from different days never merge.
+    @Test("Multiday spread always groups by day — entries from different days in separate sections")
+    func multidaySpreadEntriesFromDifferentDaysAppearInSeparateSections() {
         let startDate = makeDate(year: 2026, month: 1, day: 6)
         let endDate = makeDate(year: 2026, month: 1, day: 8)
         let entries: [any Entry] = [
@@ -258,12 +251,15 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar,
-            groupsByDay: false
+            calendar: calendar
         )
 
-        #expect(sections.count == 1)
-        #expect(sections[0].entries.count == 2)
+        #expect(sections.count == 3)
+        #expect(sections[0].entries.count == 1) // Jan 6
+        #expect(sections[0].entries.map(\.title) == ["Day 6 task"])
+        #expect(sections[1].entries.isEmpty)    // Jan 7 — no entries
+        #expect(sections[2].entries.count == 1) // Jan 8
+        #expect(sections[2].entries.map(\.title) == ["Day 8 task"])
     }
 
     /// Multiday-assigned entries appear in the "This Range" section above day sections.
@@ -281,8 +277,7 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar,
-            groupsByDay: true
+            calendar: calendar
         )
 
         let rangeSection = sections.first { $0.creationPeriod == .multiday }

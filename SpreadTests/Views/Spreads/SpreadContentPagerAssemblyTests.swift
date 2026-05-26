@@ -27,7 +27,6 @@ struct SpreadContentPagerAssemblyTests {
         let manager = try await JournalManager.make(
             calendar: Self.calendar,
             today: today,
-            bujoMode: .conventional
         )
         _ = try await manager.addSpread(period: .year, date: today)
 
@@ -45,7 +44,6 @@ struct SpreadContentPagerAssemblyTests {
         let manager = try await JournalManager.make(
             calendar: Self.calendar,
             today: today,
-            bujoMode: .conventional
         )
         _ = try await manager.addSpread(period: .day, date: today)
         _ = try await manager.addTask(title: "Task A", date: today, period: .day)
@@ -55,47 +53,6 @@ struct SpreadContentPagerAssemblyTests {
         let dataModel = manager.dataModel[.day]?[normalizedDate]
 
         #expect(dataModel?.tasks.count == 2)
-    }
-
-    // MARK: - Traditional Data Model Routing
-
-    /// Condition: Traditional mode, tasks added for a specific day.
-    /// Expected: TraditionalSpreadService produces a virtual spread data model carrying those tasks.
-    @Test("Traditional day virtual spread data model carries tasks")
-    func testTraditionalDayVirtualDataModelCarriesTasks() {
-        let today = Self.makeDate(year: 2026, month: 4, day: 13)
-        let service = TraditionalSpreadService(calendar: Self.calendar)
-
-        let tasks = [
-            DataModel.Task(title: "Task A", date: today, period: .day),
-            DataModel.Task(title: "Task B", date: today, period: .day),
-        ]
-
-        let dataModel = service.virtualSpreadDataModel(
-            period: .day, date: today, tasks: tasks, notes: [], events: []
-        )
-
-        #expect(dataModel.tasks.count == 2)
-    }
-
-    /// Condition: Traditional mode, month-period tasks are NOT included in a day virtual spread.
-    /// Expected: day virtual spread carries 0 tasks for a date with only month-period tasks.
-    @Test("Traditional day virtual spread excludes month-period tasks")
-    func testTraditionalDayExcludesMonthTasks() {
-        let today = Self.makeDate(year: 2026, month: 4, day: 13)
-        let service = TraditionalSpreadService(calendar: Self.calendar)
-
-        let monthTask = DataModel.Task(
-            title: "Month task",
-            date: Self.makeDate(year: 2026, month: 4),
-            period: .month
-        )
-
-        let dataModel = service.virtualSpreadDataModel(
-            period: .day, date: today, tasks: [monthTask], notes: [], events: []
-        )
-
-        #expect(dataModel.tasks.isEmpty)
     }
 
     // MARK: - Period Routing
@@ -147,7 +104,6 @@ struct SpreadContentPagerAssemblyTests {
         let manager = try await JournalManager.make(
             calendar: Self.calendar,
             today: today,
-            bujoMode: .conventional
         )
 
         let startDate = Self.makeDate(year: 2026, month: 4, day: 6)
@@ -162,10 +118,10 @@ struct SpreadContentPagerAssemblyTests {
 
     // MARK: - Entry List Grouping
 
-    /// Condition: Traditional mode day spread uses flat grouping (groupsByList: false).
-    /// Expected: All entries appear in one section regardless of list assignment.
-    @Test("Traditional mode day spread uses flat grouping")
-    func testTraditionalDaySpreadUsesFlatGrouping() {
+    /// Condition: Day spread has a task assigned to a named list and an unlisted task.
+    /// Expected: Entries are bucketed by named list, with unlisted entries in an untitled section.
+    @Test("Day spread groups by list")
+    func testDaySpreadGroupsByList() {
         let spreadDate = Self.makeDate(year: 2026, month: 4, day: 13)
         let list = DataModel.List(name: "Work")
         let entries: [any Entry] = [
@@ -176,30 +132,7 @@ struct SpreadContentPagerAssemblyTests {
         let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: Self.calendar,
-            groupsByList: false
-        )
-
-        #expect(sections.count == 1)
-        #expect(sections[0].entries.count == 2)
-    }
-
-    /// Condition: Conventional mode day spread uses list grouping (groupsByList: true).
-    /// Expected: Entries are bucketed by named list.
-    @Test("Conventional mode day spread groups by list")
-    func testConventionalDaySpreadGroupsByList() {
-        let spreadDate = Self.makeDate(year: 2026, month: 4, day: 13)
-        let list = DataModel.List(name: "Work")
-        let entries: [any Entry] = [
-            DataModel.Task(title: "Listed", date: spreadDate, list: list),
-            DataModel.Task(title: "Unlisted", date: spreadDate)
-        ]
-
-        let sections = DaySpreadContentView.makeSections(
-            from: entries,
-            spreadDate: spreadDate,
-            calendar: Self.calendar,
-            groupsByList: true
+            calendar: Self.calendar
         )
 
         #expect(sections.count == 2)

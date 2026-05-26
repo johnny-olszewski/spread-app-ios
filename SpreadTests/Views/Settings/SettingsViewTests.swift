@@ -27,48 +27,6 @@ struct SettingsViewTests {
         )
     }
 
-    // MARK: - Mode Toggle Tests
-
-    /// Conditions: JournalManager created with conventional mode.
-    /// Expected: bujoMode should be .conventional.
-    @Test func testInitialModeIsConventional() async throws {
-        let manager = try await JournalManager.make(
-            calendar: Self.testCalendar,
-            today: Self.testToday,
-            bujoMode: .conventional
-        )
-
-        #expect(manager.bujoMode == .conventional)
-    }
-
-    /// Conditions: JournalManager created with traditional mode.
-    /// Expected: bujoMode should be .traditional.
-    @Test func testInitialModeIsTraditional() async throws {
-        let manager = try await JournalManager.make(
-            calendar: Self.testCalendar,
-            today: Self.testToday,
-            bujoMode: .traditional
-        )
-
-        #expect(manager.bujoMode == .traditional)
-    }
-
-    /// Conditions: JournalManager starts in conventional mode, then mode is changed to traditional.
-    /// Expected: bujoMode should reflect the new value.
-    @Test func testModeToggleReflectsChange() async throws {
-        let manager = try await JournalManager.make(
-            calendar: Self.testCalendar,
-            today: Self.testToday,
-            bujoMode: .conventional
-        )
-
-        manager.bujoMode = .traditional
-        #expect(manager.bujoMode == .traditional)
-
-        manager.bujoMode = .conventional
-        #expect(manager.bujoMode == .conventional)
-    }
-
     // MARK: - First Weekday Tests
 
     /// Conditions: JournalManager created with default firstWeekday.
@@ -133,29 +91,19 @@ struct SettingsViewTests {
         #expect(FirstWeekday.from(weekdayValue: 0) == nil)
     }
 
-    // MARK: - Settings Persistence Integration Tests
+    // MARK: - Settings Persistence Tests
 
-    /// Conditions: Create settings with conventional mode and firstWeekday 1.
+    /// Conditions: Create settings with firstWeekday 1 (Sunday).
     /// Expected: Settings round-trips correctly through DataModel.Settings.
-    @Test func testSettingsRoundTripConventional() {
-        let settings = DataModel.Settings(
-            bujoMode: .conventional,
-            firstWeekday: 1
-        )
-
-        #expect(settings.bujoMode == .conventional)
+    @Test func testSettingsRoundTripFirstWeekdaySunday() {
+        let settings = DataModel.Settings(firstWeekday: 1)
         #expect(settings.firstWeekday == 1)
     }
 
-    /// Conditions: Create settings with traditional mode and firstWeekday 2.
+    /// Conditions: Create settings with firstWeekday 2 (Monday).
     /// Expected: Settings round-trips correctly through DataModel.Settings.
-    @Test func testSettingsRoundTripTraditional() {
-        let settings = DataModel.Settings(
-            bujoMode: .traditional,
-            firstWeekday: 2
-        )
-
-        #expect(settings.bujoMode == .traditional)
+    @Test func testSettingsRoundTripFirstWeekdayMonday() {
+        let settings = DataModel.Settings(firstWeekday: 2)
         #expect(settings.firstWeekday == 2)
     }
 
@@ -203,20 +151,18 @@ struct SettingsViewTests {
 
     // MARK: - Settings Loading Tests
 
-    /// Conditions: AppDependencies creates JournalManager with specified bujoMode and firstWeekday.
-    /// Expected: JournalManager should reflect the configured values.
-    @Test func testAppDependenciesPassesModeAndWeekday() async throws {
+    /// Conditions: AppDependencies creates JournalManager with specified firstWeekday.
+    /// Expected: JournalManager should reflect the configured value.
+    @Test func testAppDependenciesPassesWeekday() async throws {
         let dependencies = try AppDependencies.make(
             makeNetworkMonitor: { MockNetworkMonitor() }
         )
 
         let manager = try await dependencies.makeJournalManager(
             appClock: Self.testAppClock,
-            bujoMode: .traditional,
             firstWeekday: .monday
         )
 
-        #expect(manager.bujoMode == .traditional)
         #expect(manager.firstWeekday == .monday)
     }
 }

@@ -42,9 +42,8 @@ struct TargetedJournalMutationTests {
             spreadRepository: InMemorySpreadRepository(spreads: [daySpread]),
             eventRepository: InMemoryEventRepository(),
             noteRepository: InMemoryNoteRepository(),
-            bujoMode: .conventional,
             creationPolicy: StandardCreationPolicy(today: Self.today, firstWeekday: .systemDefault),
-            conventionalDataModelBuilder: builder
+            dataModelBuilder: builder
         )
 
         await manager.reload()
@@ -79,9 +78,8 @@ struct TargetedJournalMutationTests {
             spreadRepository: InMemorySpreadRepository(spreads: [daySpread]),
             eventRepository: InMemoryEventRepository(),
             noteRepository: noteRepository,
-            bujoMode: .conventional,
             creationPolicy: StandardCreationPolicy(today: Self.today, firstWeekday: .systemDefault),
-            conventionalDataModelBuilder: builder
+            dataModelBuilder: builder
         )
 
         await manager.reload()
@@ -117,9 +115,8 @@ struct TargetedJournalMutationTests {
             spreadRepository: InMemorySpreadRepository(spreads: [daySpread, monthSpread]),
             eventRepository: InMemoryEventRepository(),
             noteRepository: InMemoryNoteRepository(),
-            bujoMode: .conventional,
             creationPolicy: StandardCreationPolicy(today: Self.today, firstWeekday: .systemDefault),
-            conventionalDataModelBuilder: builder
+            dataModelBuilder: builder
         )
         await manager.reload()
 
@@ -154,9 +151,8 @@ struct TargetedJournalMutationTests {
             spreadRepository: InMemorySpreadRepository(spreads: [daySpread, monthSpread]),
             eventRepository: InMemoryEventRepository(),
             noteRepository: InMemoryNoteRepository(),
-            bujoMode: .conventional,
             creationPolicy: StandardCreationPolicy(today: Self.today, firstWeekday: .systemDefault),
-            conventionalDataModelBuilder: builder
+            dataModelBuilder: builder
         )
         await manager.reload()
 
@@ -229,6 +225,7 @@ private final class DataModelBuilderTracker {
 
 @MainActor
 private struct TrackingConventionalBuilder: JournalDataModelBuilder {
+    // Conforms to JournalDataModelBuilder so it can be injected at the JournalManager DI boundary.
     let calendar: Calendar
     let tracker: DataModelBuilderTracker
 

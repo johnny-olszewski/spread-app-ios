@@ -16,12 +16,11 @@ struct SpreadTitleNavigatorSupportTests {
         calendar.date(from: DateComponents(year: year, month: month, day: day))!
     }
 
-    // Verifies that a conventional model with no explicit year/month/day spreads for today
+    // Verifies that a model with no explicit year/month/day spreads for today
     // recommends each missing period in hierarchical order.
     @Test func recommendationProviderReturnsMissingYearMonthAndDayForToday() {
         let provider = TodayMissingSpreadRecommendationProvider()
         let model = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [],
@@ -46,7 +45,6 @@ struct SpreadTitleNavigatorSupportTests {
         let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
         let day = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 29), calendar: Self.calendar)
         let model = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [year, day],
@@ -70,7 +68,6 @@ struct SpreadTitleNavigatorSupportTests {
             calendar: Self.calendar
         )
         let model = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [multiday],
@@ -82,24 +79,6 @@ struct SpreadTitleNavigatorSupportTests {
         let recommendations = provider.recommendations(for: model)
 
         #expect(recommendations.map(\.period) == [.year, .month, .day])
-    }
-
-    // Verifies that traditional mode never surfaces conventional spread-creation recommendations.
-    @Test func recommendationProviderReturnsNoRecommendationsInTraditionalMode() {
-        let provider = TodayMissingSpreadRecommendationProvider()
-        let model = SpreadHeaderNavigatorModel(
-            mode: .traditional,
-            calendar: Self.calendar,
-            today: Self.makeDate(year: 2026, month: 3, day: 29),
-            spreads: [],
-            tasks: [],
-            notes: [],
-            events: []
-        )
-
-        let recommendations = provider.recommendations(for: model)
-
-        #expect(recommendations.isEmpty)
     }
 
     @Test func recommendationFullTitlesUseExpandedDateFormatting() {
@@ -155,7 +134,7 @@ struct SpreadTitleNavigatorSupportTests {
         )
     }
 
-    @Test func conventionalSelectionUsesExplicitSpreadsAcrossEntireYear() {
+    @Test func selectionUsesExplicitSpreadsAcrossEntireYear() {
         let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
         let january = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
         let february = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 2), calendar: Self.calendar)
@@ -175,7 +154,6 @@ struct SpreadTitleNavigatorSupportTests {
         )
         let dayTwentyNine = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 29), calendar: Self.calendar)
         let headerModel = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [dayTwentyNine, multiday, march, dayTen, januaryTwo, januaryMulti, year, january, januaryOne, february],
@@ -185,7 +163,7 @@ struct SpreadTitleNavigatorSupportTests {
         )
 
         let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
-        let items = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(dayTwentyNine))
+        let items = stripModel.items(for: dayTwentyNine)
 
         #expect(items.map { $0.label } == [
             "This year", "Jan", "1", "2-5", "2", "Last month", "This month", "10", "20-22", "Today"
@@ -204,14 +182,13 @@ struct SpreadTitleNavigatorSupportTests {
         ])
     }
 
-    @Test func conventionalStripContentsStayStableWithinSameYear() {
+    @Test func stripContentsStayStableWithinSameYear() {
         let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
         let january = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
         let januaryOne = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 1, day: 1), calendar: Self.calendar)
         let march = DataModel.Spread(period: .month, date: Self.makeDate(year: 2026, month: 3), calendar: Self.calendar)
         let marchTwentyNine = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 29), calendar: Self.calendar)
         let headerModel = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [year, january, januaryOne, march, marchTwentyNine],
@@ -221,13 +198,13 @@ struct SpreadTitleNavigatorSupportTests {
         )
 
         let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
-        let monthItems = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(march))
-        let dayItems = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(marchTwentyNine))
+        let monthItems = stripModel.items(for: march)
+        let dayItems = stripModel.items(for: marchTwentyNine)
 
         #expect(monthItems.map { $0.label } == dayItems.map { $0.label })
     }
 
-    @Test func conventionalStripPlacesMultidayBeforeSameStartDay() {
+    @Test func stripPlacesMultidayBeforeSameStartDay() {
         let day = DataModel.Spread(
             period: .day,
             date: Self.makeDate(year: 2026, month: 3, day: 20),
@@ -239,7 +216,6 @@ struct SpreadTitleNavigatorSupportTests {
             calendar: Self.calendar
         )
         let headerModel = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 20),
             spreads: [day, multiday],
@@ -248,8 +224,7 @@ struct SpreadTitleNavigatorSupportTests {
             events: []
         )
 
-        let items = SpreadTitleNavigatorModel(headerModel: headerModel)
-            .items(for: .conventional(day))
+        let items = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: day)
 
         let multidayIndex = items.firstIndex(where: { $0.style == .multiday })!
         let dayIndex = items.firstIndex(where: { $0.style == .day })!
@@ -268,15 +243,14 @@ struct SpreadTitleNavigatorSupportTests {
     }
 
     /// Setup: overdue items exist on a visible day spread and on an inbox-only task.
-    /// Expected: only the assigned spread item gets a badge count in the conventional strip.
-    @Test func conventionalItemsIncludeOverdueCountsForAssignedSpreadsOnly() {
+    /// Expected: only the assigned spread item gets a badge count in the strip.
+    @Test func itemsIncludeOverdueCountsForAssignedSpreadsOnly() {
         let visibleDay = DataModel.Spread(
             period: .day,
             date: Self.makeDate(year: 2026, month: 1, day: 10),
             calendar: Self.calendar
         )
         let headerModel = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 1, day: 12),
             spreads: [visibleDay],
@@ -309,9 +283,9 @@ struct SpreadTitleNavigatorSupportTests {
                 )
             ]
         )
-        .items(for: .conventional(visibleDay))
+        .items(for: visibleDay)
 
-        let expectedDayID = SpreadHeaderNavigatorModel.Selection.conventional(visibleDay).stableID(calendar: Self.calendar)
+        let expectedDayID = visibleDay.stableID(calendar: Self.calendar)
         let dayItem = items.first(where: { $0.selection.stableID(calendar: Self.calendar) == expectedDayID })
         #expect(dayItem?.badge == .overdue(count: 1))
         #expect(items.filter { $0.badge == .overdue(count: 1) }.count == 1)
@@ -319,14 +293,13 @@ struct SpreadTitleNavigatorSupportTests {
 
     /// Setup: two overdue tasks share the same visible day spread.
     /// Expected: the strip badge count is exact and not propagated to other selections.
-    @Test func conventionalItemsShowExactOverdueCountsWithoutAncestorPropagation() {
+    @Test func itemsShowExactOverdueCountsWithoutAncestorPropagation() {
         let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
         let day = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 1, day: 10), calendar: Self.calendar)
         let taskA = DataModel.Task(title: "A", date: day.date, period: .day, status: .open)
         let taskB = DataModel.Task(title: "B", date: day.date, period: .day, status: .open)
         let items = SpreadTitleNavigatorModel(
             headerModel: SpreadHeaderNavigatorModel(
-                mode: .conventional,
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 12),
                 spreads: [year, day],
@@ -345,7 +318,7 @@ struct SpreadTitleNavigatorSupportTests {
                 ),
             ]
         )
-        .items(for: .conventional(day))
+        .items(for: day)
 
         let yearItem = items.first(where: { $0.style == .year })
         let dayItem = items.first(where: { $0.style == .day })
@@ -353,9 +326,9 @@ struct SpreadTitleNavigatorSupportTests {
         #expect(dayItem?.badge == .overdue(count: 2))
     }
 
-    /// Setup: conventional year, month, and day spreads each have one overdue open task source.
-    /// Expected: each matching explicit spread receives an overdue badge through the badge enum path.
-    @Test func conventionalYearMonthAndDayItemsUseOverdueBadges() {
+    /// Setup: year, month, and day spreads each have one overdue open task source.
+    /// Expected: each matching explicit spread receives an overdue badge.
+    @Test func yearMonthAndDayItemsUseOverdueBadges() {
         let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2025, month: 1), calendar: Self.calendar)
         let month = DataModel.Spread(period: .month, date: Self.makeDate(year: 2025, month: 12), calendar: Self.calendar)
         let day = DataModel.Spread(period: .day, date: Self.makeDate(year: 2025, month: 12, day: 30), calendar: Self.calendar)
@@ -365,7 +338,6 @@ struct SpreadTitleNavigatorSupportTests {
 
         let items = SpreadTitleNavigatorModel(
             headerModel: SpreadHeaderNavigatorModel(
-                mode: .conventional,
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 2),
                 spreads: [year, month, day],
@@ -388,14 +360,14 @@ struct SpreadTitleNavigatorSupportTests {
                 )
             ]
         )
-        .items(for: .conventional(day))
+        .items(for: day)
 
         #expect(items.first(where: { $0.style == .year })?.badge == .overdue(count: 1))
         #expect(items.first(where: { $0.style == .month })?.badge == .overdue(count: 1))
         #expect(items.first(where: { $0.style == .day })?.badge == .overdue(count: 1))
     }
 
-    /// Setup: a conventional explicit spread is favorited and also has overdue work.
+    /// Setup: a favorited explicit spread also has overdue work.
     /// Expected: the overdue badge wins priority and the favorite badge is hidden.
     @Test func overdueBadgeTakesPriorityOverFavoriteBadge() {
         let spread = DataModel.Spread(
@@ -408,7 +380,6 @@ struct SpreadTitleNavigatorSupportTests {
 
         let item = SpreadTitleNavigatorModel(
             headerModel: SpreadHeaderNavigatorModel(
-                mode: .conventional,
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 12),
                 spreads: [spread],
@@ -423,13 +394,13 @@ struct SpreadTitleNavigatorSupportTests {
                 )
             ]
         )
-        .items(for: .conventional(spread))
+        .items(for: spread)
         .first
 
         #expect(item?.badge == .overdue(count: 1))
     }
 
-    /// Setup: a conventional explicit spread is favorited and has no overdue work.
+    /// Setup: a favorited explicit spread has no overdue work.
     /// Expected: the item receives a favorite badge.
     @Test func favoriteBadgeAppearsWhenNoOverdueBadgeExists() {
         let spread = DataModel.Spread(
@@ -441,7 +412,6 @@ struct SpreadTitleNavigatorSupportTests {
 
         let item = SpreadTitleNavigatorModel(
             headerModel: SpreadHeaderNavigatorModel(
-                mode: .conventional,
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 12),
                 spreads: [spread],
@@ -450,15 +420,15 @@ struct SpreadTitleNavigatorSupportTests {
                 events: []
             )
         )
-        .items(for: .conventional(spread))
+        .items(for: spread)
         .first
 
         #expect(item?.badge == .favorite)
     }
 
-    /// Setup: a conventional multiday spread contains overdue open preferred-assignment tasks, including Inbox tasks.
+    /// Setup: a multiday spread contains overdue open preferred-assignment tasks, including Inbox tasks.
     /// Expected: the multiday item shows the exact overdue count for tasks in the date range.
-    @Test func conventionalMultidayItemCountsOverduePreferredAssignmentsInsideRange() {
+    @Test func multidayItemCountsOverduePreferredAssignmentsInsideRange() {
         let multiday = DataModel.Spread(
             startDate: Self.makeDate(year: 2026, month: 1, day: 10),
             endDate: Self.makeDate(year: 2026, month: 1, day: 12),
@@ -487,7 +457,6 @@ struct SpreadTitleNavigatorSupportTests {
 
         let item = SpreadTitleNavigatorModel(
             headerModel: SpreadHeaderNavigatorModel(
-                mode: .conventional,
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 13),
                 spreads: [multiday],
@@ -496,15 +465,15 @@ struct SpreadTitleNavigatorSupportTests {
                 events: []
             )
         )
-        .items(for: .conventional(multiday))
+        .items(for: multiday)
         .first
 
         #expect(item?.badge == .overdue(count: 2))
     }
 
-    /// Setup: completed, cancelled, and migrated tasks fall inside an overdue conventional multiday range.
+    /// Setup: completed, cancelled, and migrated tasks fall inside an overdue multiday range.
     /// Expected: non-open tasks do not contribute to the multiday overdue badge.
-    @Test func conventionalMultidayBadgeExcludesCompletedCancelledAndMigratedTasks() {
+    @Test func multidayBadgeExcludesCompletedCancelledAndMigratedTasks() {
         let multiday = DataModel.Spread(
             startDate: Self.makeDate(year: 2026, month: 1, day: 10),
             endDate: Self.makeDate(year: 2026, month: 1, day: 12),
@@ -531,7 +500,6 @@ struct SpreadTitleNavigatorSupportTests {
 
         let item = SpreadTitleNavigatorModel(
             headerModel: SpreadHeaderNavigatorModel(
-                mode: .conventional,
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 13),
                 spreads: [multiday],
@@ -540,80 +508,13 @@ struct SpreadTitleNavigatorSupportTests {
                 events: []
             )
         )
-        .items(for: .conventional(multiday))
+        .items(for: multiday)
         .first
 
         #expect(item?.badge == nil)
     }
 
-    /// Setup: a traditional strip with an overdue day assignment and a multiday overdue source.
-    /// Expected: only the matching day selection gets a badge because multiday assignments do not map to traditional selections.
-    @Test func traditionalItemsBadgeMatchingPeriodsOnly() {
-        let overdueDay = DataModel.Task(title: "Day", date: Self.makeDate(year: 2026, month: 1, day: 10), period: .day, status: .open)
-        let overdueMultiday = DataModel.Task(title: "Multi", date: Self.makeDate(year: 2026, month: 1, day: 10), period: .multiday, status: .open)
-        let multiday = DataModel.Spread(
-            startDate: Self.makeDate(year: 2026, month: 1, day: 10),
-            endDate: Self.makeDate(year: 2026, month: 1, day: 12),
-            calendar: Self.calendar
-        )
-        let items = SpreadTitleNavigatorModel(
-            headerModel: SpreadHeaderNavigatorModel(
-                mode: .traditional,
-                calendar: Self.calendar,
-                today: Self.makeDate(year: 2026, month: 1, day: 12),
-                spreads: [multiday],
-                tasks: [],
-                notes: [],
-                events: []
-            ),
-            overdueItems: [
-                OverdueTaskItem(
-                    task: overdueDay,
-                    sourceKey: TaskReviewSourceKey(kind: .spread(id: UUID(), period: .day, date: overdueDay.date))
-                ),
-                OverdueTaskItem(
-                    task: overdueMultiday,
-                    sourceKey: TaskReviewSourceKey(kind: .spread(id: multiday.id, period: .multiday, date: overdueMultiday.date))
-                )
-            ]
-        )
-        .items(for: .traditionalDay(Self.makeDate(year: 2026, month: 1, day: 12)))
-
-        let expectedDayID = SpreadHeaderNavigatorModel.Selection
-            .traditionalDay(Self.makeDate(year: 2026, month: 1, day: 10))
-            .stableID(calendar: Self.calendar)
-        let dayItem = items.first(where: { $0.selection.stableID(calendar: Self.calendar) == expectedDayID })
-        #expect(dayItem?.badge == .overdue(count: 1))
-        #expect(items.filter { $0.badge == .overdue(count: 1) }.count == 1)
-    }
-
-    /// Setup: traditional mode has an explicit favorite spread in the same year but no overdue items.
-    /// Expected: virtual traditional title-strip items never receive favorite badges.
-    @Test func traditionalItemsNeverShowFavoriteBadges() {
-        let favorite = DataModel.Spread(
-            period: .day,
-            date: Self.makeDate(year: 2026, month: 1, day: 10),
-            calendar: Self.calendar,
-            isFavorite: true
-        )
-
-        let items = SpreadTitleNavigatorModel(
-            headerModel: SpreadHeaderNavigatorModel(
-                mode: .traditional,
-                calendar: Self.calendar,
-                today: Self.makeDate(year: 2026, month: 1, day: 12),
-                spreads: [favorite],
-                tasks: [],
-                notes: [],
-                events: []
-            )
-        )
-        .items(for: .traditionalDay(Self.makeDate(year: 2026, month: 1, day: 12)))
-
-        #expect(items.allSatisfy { $0.badge != .favorite })
-    }
-
-    /// Setup: the selected conventional item has an overdue badge.
+    /// Setup: the selected item has an overdue badge.
     /// Expected: selected state does not suppress the item's badge value.
     @Test func selectedTitleStripItemKeepsBadge() {
         let spread = DataModel.Spread(
@@ -625,7 +526,6 @@ struct SpreadTitleNavigatorSupportTests {
 
         let items = SpreadTitleNavigatorModel(
             headerModel: SpreadHeaderNavigatorModel(
-                mode: .conventional,
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 12),
                 spreads: [spread],
@@ -640,9 +540,9 @@ struct SpreadTitleNavigatorSupportTests {
                 )
             ]
         )
-        .items(for: .conventional(spread))
+        .items(for: spread)
 
-        let selectedID = SpreadHeaderNavigatorModel.Selection.conventional(spread).stableID(calendar: Self.calendar)
+        let selectedID = spread.stableID(calendar: Self.calendar)
         let selectedItem = items.first(where: { $0.id == selectedID })
         #expect(selectedItem?.badge == .overdue(count: 1))
     }
@@ -668,46 +568,19 @@ struct SpreadTitleNavigatorSupportTests {
         #expect(overdue.accessibilityLabel(style: .multiday) == "3 overdue tasks in this date range")
         #expect(favorite.accessibilityLabel(style: .year) == "Favorited spread")
         #expect(
-            overdue.accessibilityIdentifier(for: .conventional(day), calendar: Self.calendar) ==
+            overdue.accessibilityIdentifier(for: day, calendar: Self.calendar) ==
                 "overdue-2026-03-01-day"
         )
         #expect(
-            favorite.accessibilityIdentifier(for: .conventional(year), calendar: Self.calendar) ==
+            favorite.accessibilityIdentifier(for: year, calendar: Self.calendar) ==
                 "favorite-2026-01-01-year"
         )
-    }
-
-    @Test func traditionalSelectionUsesFullYearSequence() {
-        let headerModel = SpreadHeaderNavigatorModel(
-            mode: .traditional,
-            calendar: Self.calendar,
-            today: Self.makeDate(year: 2026, month: 3, day: 29),
-            spreads: [],
-            tasks: [],
-            notes: [],
-            events: []
-        )
-
-        let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
-        let items = stripModel.items(for: .traditionalDay(Self.makeDate(year: 2026, month: 3, day: 29)))
-
-        #expect(items.first?.label == "2026")
-        #expect(items.first?.style == SpreadTitleNavigatorItemStyle.year)
-        #expect(items[1].label == "Jan")
-        #expect(items[1].style == SpreadTitleNavigatorItemStyle.month)
-        #expect(items[2].label == "1")
-        #expect(items[2].style == SpreadTitleNavigatorItemStyle.day)
-        #expect(items.contains(where: { $0.label == "Feb" && $0.style == SpreadTitleNavigatorItemStyle.month }))
-        #expect(items.contains(where: { $0.label == "Mar" && $0.style == SpreadTitleNavigatorItemStyle.month }))
-        #expect(items.last?.label == "31")
-        #expect(items.last?.style == SpreadTitleNavigatorItemStyle.day)
     }
 
     @Test func stripRebuildsWhenSelectionMovesToDifferentYear() {
         let day2026 = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 29), calendar: Self.calendar)
         let day2027 = DataModel.Spread(period: .day, date: Self.makeDate(year: 2027, month: 4, day: 1), calendar: Self.calendar)
         let headerModel = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [day2026, day2027],
@@ -717,53 +590,11 @@ struct SpreadTitleNavigatorSupportTests {
         )
         let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
 
-        let items2026 = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(day2026))
-        let items2027 = stripModel.items(for: SpreadHeaderNavigatorModel.Selection.conventional(day2027))
+        let items2026 = stripModel.items(for: day2026)
+        let items2027 = stripModel.items(for: day2027)
 
         #expect(items2026.map { $0.label } == ["Today"])
         #expect(items2027.map { $0.label } == ["1"])
-    }
-
-    @Test func liveWindowKeepsCurrentPlusTwoNeighborsPerSide() {
-        let headerModel = SpreadHeaderNavigatorModel(
-            mode: .traditional,
-            calendar: Self.calendar,
-            today: Self.makeDate(year: 2026, month: 3, day: 29),
-            spreads: [],
-            tasks: [],
-            notes: [],
-            events: []
-        )
-        let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
-        let items = stripModel.items(for: .traditionalDay(Self.makeDate(year: 2026, month: 1, day: 3)))
-
-        let window = stripModel.liveWindowIDs(
-            items: items,
-            anchorID: items[3].id,
-            radius: 2
-        )
-
-        #expect(window == Set(items[1...5].map(\.id)))
-    }
-
-    @Test func liveWindowClampsAtSequenceEdges() {
-        let headerModel = SpreadHeaderNavigatorModel(
-            mode: .traditional,
-            calendar: Self.calendar,
-            today: Self.makeDate(year: 2026, month: 3, day: 29),
-            spreads: [],
-            tasks: [],
-            notes: [],
-            events: []
-        )
-        let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
-        let items = stripModel.items(for: .traditionalYear(Self.makeDate(year: 2026, month: 1)))
-
-        let leadingWindow = stripModel.liveWindowIDs(items: items, anchorID: items[0].id, radius: 2)
-        let trailingWindow = stripModel.liveWindowIDs(items: items, anchorID: items.last!.id, radius: 2)
-
-        #expect(leadingWindow == Set(items.prefix(3).map(\.id)))
-        #expect(trailingWindow == Set(items.suffix(3).map(\.id)))
     }
 
     @Test func yearDisplayUsesStackedCenturyAndSuffix() {
@@ -774,7 +605,6 @@ struct SpreadTitleNavigatorSupportTests {
             usesDynamicName: false
         )
         let headerModel = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 1, day: 1),
             spreads: [year],
@@ -782,7 +612,7 @@ struct SpreadTitleNavigatorSupportTests {
             notes: [],
             events: []
         )
-        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: .conventional(year)).first
+        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: year).first
 
         #expect(item?.label == "2026")
         #expect(item?.display.top == "20")
@@ -815,7 +645,6 @@ struct SpreadTitleNavigatorSupportTests {
             usesDynamicName: false
         )
         let headerModel = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [day],
@@ -823,7 +652,7 @@ struct SpreadTitleNavigatorSupportTests {
             notes: [],
             events: []
         )
-        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: .conventional(day)).first
+        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: day).first
 
         #expect(item?.label == "29")
         #expect(item?.display.top == "MAR")
@@ -838,7 +667,6 @@ struct SpreadTitleNavigatorSupportTests {
             calendar: Self.calendar
         )
         let headerModel = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 20),
             spreads: [multiday],
@@ -846,7 +674,7 @@ struct SpreadTitleNavigatorSupportTests {
             notes: [],
             events: []
         )
-        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: .conventional(multiday)).first
+        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: multiday).first
 
         #expect(item?.display.top == "MAR")
         #expect(item?.display.bottom == "20-22")
@@ -860,7 +688,6 @@ struct SpreadTitleNavigatorSupportTests {
             calendar: Self.calendar
         )
         let headerModel = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 30),
             spreads: [multiday],
@@ -868,7 +695,7 @@ struct SpreadTitleNavigatorSupportTests {
             notes: [],
             events: []
         )
-        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: .conventional(multiday)).first
+        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: multiday).first
 
         #expect(item?.display.top == "MAR-APR")
         #expect(item?.display.bottom == "30-5")
@@ -955,7 +782,7 @@ struct SpreadTitleNavigatorSupportTests {
 
     // MARK: - compactBarLabel
 
-    /// Setup: a non-personalized conventional year spread is selected.
+    /// Setup: a non-personalized year spread is selected.
     /// Expected: primary is the year number, secondary is nil.
     @Test func compactBarLabelForNonPersonalizedYear() {
         let year = DataModel.Spread(
@@ -964,13 +791,13 @@ struct SpreadTitleNavigatorSupportTests {
             calendar: Self.calendar,
             usesDynamicName: false
         )
-        let label = makeCompactBarLabel(for: .conventional(year))
+        let label = makeCompactBarLabel(for: year)
 
         #expect(label.primary == "2026")
         #expect(label.secondary == nil)
     }
 
-    /// Setup: a non-personalized conventional month spread is selected.
+    /// Setup: a non-personalized month spread is selected.
     /// Expected: primary is the month name, secondary is the year string for disambiguation.
     @Test func compactBarLabelForNonPersonalizedMonth() {
         let month = DataModel.Spread(
@@ -979,13 +806,13 @@ struct SpreadTitleNavigatorSupportTests {
             calendar: Self.calendar,
             usesDynamicName: false
         )
-        let label = makeCompactBarLabel(for: .conventional(month))
+        let label = makeCompactBarLabel(for: month)
 
         #expect(label.primary == "April")
         #expect(label.secondary == "2026")
     }
 
-    /// Setup: a non-personalized conventional day spread is selected.
+    /// Setup: a non-personalized day spread is selected.
     /// Expected: primary is the full date, secondary is the weekday name.
     @Test func compactBarLabelForNonPersonalizedDay() {
         let day = DataModel.Spread(
@@ -994,13 +821,13 @@ struct SpreadTitleNavigatorSupportTests {
             calendar: Self.calendar,
             usesDynamicName: false
         )
-        let label = makeCompactBarLabel(for: .conventional(day))
+        let label = makeCompactBarLabel(for: day)
 
         #expect(label.primary == "March 29, 2026")
         #expect(label.secondary == "Sunday")
     }
 
-    /// Setup: a personalized conventional month spread is selected.
+    /// Setup: a personalized month spread is selected.
     /// Expected: primary is the custom name; secondary is the canonical context for disambiguation.
     @Test func compactBarLabelForPersonalizedSpread() {
         let month = DataModel.Spread(
@@ -1010,13 +837,13 @@ struct SpreadTitleNavigatorSupportTests {
             customName: "Launch month",
             usesDynamicName: false
         )
-        let label = makeCompactBarLabel(for: .conventional(month))
+        let label = makeCompactBarLabel(for: month)
 
         #expect(label.primary == "Launch month")
         #expect(label.secondary == "April 2026")
     }
 
-    /// Setup: a dynamically-named conventional day spread is selected (today).
+    /// Setup: a dynamically-named day spread is selected (today).
     /// Expected: primary is the dynamic name ("Today"), secondary is the canonical date context.
     @Test func compactBarLabelForDynamicDaySpread() {
         let today = Self.makeDate(year: 2026, month: 4, day: 18)
@@ -1026,58 +853,27 @@ struct SpreadTitleNavigatorSupportTests {
             calendar: Self.calendar,
             usesDynamicName: true
         )
-        let label = makeCompactBarLabel(for: .conventional(day), today: today)
+        let label = makeCompactBarLabel(for: day, today: today)
 
         #expect(label.primary == "Today")
         #expect(label.secondary == "April 18, 2026")
     }
 
-    /// Setup: a traditional year selection.
-    /// Expected: primary is the year number, secondary is nil.
-    @Test func compactBarLabelForTraditionalYear() {
-        let label = makeCompactBarLabel(for: .traditionalYear(Self.makeDate(year: 2026, month: 1)))
-
-        #expect(label.primary == "2026")
-        #expect(label.secondary == nil)
-    }
-
-    /// Setup: a traditional month selection.
-    /// Expected: primary is the month name, secondary is the year for disambiguation.
-    @Test func compactBarLabelForTraditionalMonth() {
-        let label = makeCompactBarLabel(for: .traditionalMonth(Self.makeDate(year: 2026, month: 4)))
-
-        #expect(label.primary == "April")
-        #expect(label.secondary == "2026")
-    }
-
-    /// Setup: a traditional day selection.
-    /// Expected: primary is the full date, secondary is the weekday name.
-    @Test func compactBarLabelForTraditionalDay() {
-        let label = makeCompactBarLabel(for: .traditionalDay(Self.makeDate(year: 2026, month: 3, day: 29)))
-
-        #expect(label.primary == "March 29, 2026")
-        #expect(label.secondary == "Sunday")
-    }
-
     // MARK: - Helpers
 
     private func makeCompactBarLabel(
-        for selection: SpreadHeaderNavigatorModel.Selection,
+        for spread: DataModel.Spread,
         today: Date = SpreadTitleNavigatorSupportTests.makeDate(year: 2026, month: 4, day: 18)
     ) -> SpreadCompactBarLabel {
         let headerModel = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: today,
-            spreads: {
-                if case .conventional(let spread) = selection { return [spread] }
-                return []
-            }(),
+            spreads: [spread],
             tasks: [],
             notes: [],
             events: []
         )
-        return SpreadTitleNavigatorModel(headerModel: headerModel).compactBarLabel(for: selection)
+        return SpreadTitleNavigatorModel(headerModel: headerModel).compactBarLabel(for: spread)
     }
 
     private func expectDisplay(
@@ -1098,7 +894,6 @@ struct SpreadTitleNavigatorSupportTests {
         today: Date
     ) -> SpreadTitleNavigatorModel.Item? {
         let headerModel = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: today,
             firstWeekday: .sunday,
@@ -1109,11 +904,11 @@ struct SpreadTitleNavigatorSupportTests {
         )
 
         return SpreadTitleNavigatorModel(headerModel: headerModel)
-            .items(for: .conventional(spread))
+            .items(for: spread)
             .first
     }
 
     private func stableID(for spread: DataModel.Spread) -> String {
-        SpreadHeaderNavigatorModel.Selection.conventional(spread).stableID(calendar: Self.calendar)
+        spread.stableID(calendar: Self.calendar)
     }
 }

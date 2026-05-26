@@ -47,22 +47,6 @@ struct JournalManagerTests {
         #expect(manager.today == today)
     }
 
-    /// Conditions: Create a testing JournalManager without specifying bujo mode.
-    /// Expected: Manager defaults to conventional bujo mode.
-    @Test @MainActor func testInitializesWithDefaultBujoMode() async throws {
-        let manager = try await JournalManager.make()
-
-        #expect(manager.bujoMode == .conventional)
-    }
-
-    /// Conditions: Create a testing JournalManager with bujo mode set to traditional.
-    /// Expected: Manager uses traditional bujo mode.
-    @Test @MainActor func testInitializesWithCustomBujoMode() async throws {
-        let manager = try await JournalManager.make(bujoMode: .traditional)
-
-        #expect(manager.bujoMode == .traditional)
-    }
-
     // MARK: - Data Loading Tests
 
     /// Conditions: Provide a spread repository containing one spread.
@@ -280,18 +264,6 @@ struct JournalManagerTests {
         await manager.reload()
 
         #expect(manager.dataVersion == initialVersion + 1)
-    }
-
-    // MARK: - BujoMode Tests
-
-    /// Conditions: Create a testing JournalManager and change bujo mode.
-    /// Expected: Manager reflects the updated bujo mode.
-    @Test @MainActor func testBujoModeCanBeChanged() async throws {
-        let manager = try await JournalManager.make(bujoMode: .conventional)
-
-        manager.bujoMode = .traditional
-
-        #expect(manager.bujoMode == .traditional)
     }
 
     // MARK: - Empty State Tests

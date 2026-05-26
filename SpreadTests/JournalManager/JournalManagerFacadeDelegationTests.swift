@@ -38,9 +38,8 @@ struct JournalManagerFacadeDelegationTests {
             spreadRepository: InMemorySpreadRepository(spreads: [spread]),
             eventRepository: InMemoryEventRepository(),
             noteRepository: InMemoryNoteRepository(),
-            bujoMode: .conventional,
             creationPolicy: StandardCreationPolicy(today: Self.today, firstWeekday: .systemDefault),
-            conventionalDataModelBuilder: builder
+            dataModelBuilder: builder
         )
 
         await manager.reload()
@@ -59,7 +58,6 @@ struct JournalManagerFacadeDelegationTests {
             spreadRepository: InMemorySpreadRepository(spreads: [spread]),
             eventRepository: InMemoryEventRepository(),
             noteRepository: InMemoryNoteRepository(),
-            bujoMode: .conventional,
             creationPolicy: StandardCreationPolicy(today: Self.today, firstWeekday: .systemDefault),
             taskMigrationCoordinator: TrackingTaskMigrationCoordinator(
                 tracker: migrationTracker,
@@ -86,7 +84,6 @@ struct JournalManagerFacadeDelegationTests {
             spreadRepository: InMemorySpreadRepository(spreads: [spread]),
             eventRepository: InMemoryEventRepository(),
             noteRepository: InMemoryNoteRepository(),
-            bujoMode: .conventional,
             creationPolicy: StandardCreationPolicy(today: Self.today, firstWeekday: .systemDefault),
             spreadDeletionCoordinator: TrackingSpreadDeletionCoordinator(
                 tracker: deletionTracker,

@@ -16,12 +16,10 @@ struct SpreadHeaderNavigatorRowOverlayTests {
     }
 
     private static func makeModel(
-        mode: SpreadHeaderNavigatorModel.Mode = .conventional,
         spreads: [DataModel.Spread],
         today: Date = makeDate(year: 2026, month: 3, day: 29)
     ) -> SpreadHeaderNavigatorModel {
         SpreadHeaderNavigatorModel(
-            mode: mode,
             calendar: calendar,
             today: today,
             spreads: spreads,
@@ -69,27 +67,6 @@ struct SpreadHeaderNavigatorRowOverlayTests {
             Self.makeDate(year: 2026, month: 3, day: 26),
         ])
         #expect(overlays.map(\.payload.isCurrent) == [true, false])
-    }
-
-    /// Traditional rooted-navigator month rows do not currently participate in multiday row overlays.
-    /// Expected: overlay derivation returns no overlays even when conventional multiday spreads exist in the shared spread list.
-    @Test func traditionalMonthRowBuildsNoOverlays() throws {
-        let multiday = DataModel.Spread(
-            startDate: Self.makeDate(year: 2026, month: 3, day: 20),
-            endDate: Self.makeDate(year: 2026, month: 3, day: 24),
-            calendar: Self.calendar
-        )
-
-        let model = Self.makeModel(mode: .traditional, spreads: [multiday])
-        let march = try #require(model.months(in: 2026).first(where: { Self.calendar.component(.month, from: $0.date) == 3 }))
-
-        let overlays = SpreadHeaderNavigatorRowOverlayGenerator.makeOverlays(
-            model: model,
-            monthRow: march,
-            currentSpread: multiday
-        )
-
-        #expect(overlays.isEmpty)
     }
 
     /// App-side rooted-navigator overlay data should feed into foundation packing without altering existing day-target semantics.

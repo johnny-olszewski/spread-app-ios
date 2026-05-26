@@ -32,13 +32,11 @@ struct MigrationPlannerTests {
         let monthCandidates = planner.migrationCandidates(
             tasks: [task],
             spreads: [yearSpread, monthSpread, daySpread],
-            bujoMode: .conventional,
             to: monthSpread
         )
         let dayCandidates = planner.migrationCandidates(
             tasks: [task],
             spreads: [yearSpread, monthSpread, daySpread],
-            bujoMode: .conventional,
             to: daySpread
         )
 
@@ -78,7 +76,6 @@ struct MigrationPlannerTests {
         let candidates = planner.parentHierarchyMigrationCandidates(
             tasks: [yearTask, monthTask, inboxTask],
             spreads: [yearSpread, monthSpread, daySpread],
-            bujoMode: .conventional,
             to: daySpread
         )
 
@@ -118,7 +115,7 @@ struct MigrationPlannerTests {
         #expect(displayed?.id == daySpread.id)
     }
 
-    @Test func testMigrationDestinationRequiresConventionalSourceAssignment() {
+    @Test func testMigrationDestinationPrefersMoreGranularSpread() {
         let taskDate = Self.makeDate(year: 2026, month: 1, day: 10)
         let yearSpread = DataModel.Spread(period: .year, date: taskDate, calendar: Self.calendar)
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
@@ -132,20 +129,12 @@ struct MigrationPlannerTests {
 
         let planner = StandardMigrationPlanner(calendar: Self.calendar)
 
-        let conventionalDestination = planner.migrationDestination(
+        let destination = planner.migrationDestination(
             for: task,
             on: yearSpread,
-            spreads: [yearSpread, daySpread],
-            bujoMode: .conventional
-        )
-        let traditionalDestination = planner.migrationDestination(
-            for: task,
-            on: yearSpread,
-            spreads: [yearSpread, daySpread],
-            bujoMode: .traditional
+            spreads: [yearSpread, daySpread]
         )
 
-        #expect(conventionalDestination?.id == daySpread.id)
-        #expect(traditionalDestination == nil)
+        #expect(destination?.id == daySpread.id)
     }
 }

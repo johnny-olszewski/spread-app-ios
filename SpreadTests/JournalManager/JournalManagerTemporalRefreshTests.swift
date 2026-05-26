@@ -20,7 +20,6 @@ struct JournalManagerTemporalRefreshTests {
         let appClock = AppClock(source: clockSource, notificationBridge: nil)
         let manager = try await JournalManager.make(
             appClock: appClock,
-            bujoMode: .conventional
         )
         _ = try await manager.addTask(
             title: "Follow up",
@@ -55,7 +54,6 @@ struct JournalManagerTemporalRefreshTests {
         let appClock = AppClock(source: clockSource, notificationBridge: nil)
         let manager = try await JournalManager.make(
             appClock: appClock,
-            bujoMode: .conventional
         )
         let provider = TodayMissingSpreadRecommendationProvider()
 

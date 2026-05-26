@@ -26,7 +26,6 @@ struct SpreadHeaderNavigatorSupportTests {
         )
 
         let model = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [januaryMonth, marchDay, aprilMultiday],
@@ -50,7 +49,6 @@ struct SpreadHeaderNavigatorSupportTests {
         )
 
         let model = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [directDay, multiday],
@@ -69,32 +67,10 @@ struct SpreadHeaderNavigatorSupportTests {
         #expect(noTargets.isEmpty)
     }
 
-    /// A traditional navigator should always show all months for a year and every day in the month as selectable.
-    @Test func traditionalYearPagesAlwaysShowAllMonthsAndDays() throws {
-        let today = Self.makeDate(year: 2026, month: 3, day: 29)
-        let model = SpreadHeaderNavigatorModel(
-            mode: .traditional,
-            calendar: Self.calendar,
-            today: today,
-            spreads: [],
-            tasks: [],
-            notes: [],
-            events: []
-        )
-
-        let page = try #require(model.yearPages().first(where: { $0.year == 2026 }))
-        let march = try #require(page.months.first(where: { Self.calendar.component(.month, from: $0.date) == 3 }))
-
-        #expect(page.months.count == 12)
-        #expect(march.targets(for: Self.makeDate(year: 2026, month: 3, day: 1), calendar: Self.calendar).count == 1)
-        #expect(march.targets(for: Self.makeDate(year: 2026, month: 3, day: 31), calendar: Self.calendar).count == 1)
-    }
-
     /// The navigator should open on the selected spread's year and expand its month when the current spread is month/day/multiday scoped.
     @Test func initialYearAndExpandedMonthReflectCurrentSpread() {
         let currentSpread = DataModel.Spread(period: .day, date: Self.makeDate(year: 2027, month: 5, day: 12), calendar: Self.calendar)
         let model = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [currentSpread],
@@ -115,7 +91,6 @@ struct SpreadHeaderNavigatorSupportTests {
             calendar: Self.calendar
         )
         let model = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [currentSpread],
@@ -168,7 +143,6 @@ struct SpreadHeaderNavigatorSupportTests {
         )
 
         let model = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [marchMonth, marchDay],
@@ -229,7 +203,6 @@ struct SpreadHeaderNavigatorSupportTests {
         )
 
         let model = SpreadHeaderNavigatorModel(
-            mode: .conventional,
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
             spreads: [yearSpread, marchMonth],

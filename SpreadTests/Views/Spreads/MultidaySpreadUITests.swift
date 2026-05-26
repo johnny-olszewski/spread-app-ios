@@ -109,8 +109,7 @@ struct MultidaySpreadUITests {
             spreadDate: spreadDate,
             startDate: spreadDate,
             endDate: endDate,
-            calendar: calendar,
-            groupsByDay: true
+            calendar: calendar
         )
 
         #expect(sections.count == 3)
@@ -134,8 +133,7 @@ struct MultidaySpreadUITests {
             spreadDate: spreadDate,
             startDate: spreadDate,
             endDate: endDate,
-            calendar: calendar,
-            groupsByDay: true
+            calendar: calendar
         )
 
         #expect(sections.count == 3)
@@ -266,71 +264,6 @@ struct MultidaySpreadUITests {
         #expect(config.taskCount == 2)
         #expect(config.noteCount == 1)
         #expect(config.countSummaryText == "2 tasks, 1 note")
-    }
-
-    // MARK: - Hierarchy Organization Tests
-
-    /// Conditions: Multiday spread in the hierarchy organizer.
-    /// Expected: Multiday spread appears under the correct month at the day level.
-    @Test("Multiday spread appears in hierarchy under correct month")
-    func multidayAppearsInHierarchy() {
-        let yearDate = makeDate(year: 2026, month: 1, day: 1)
-        let monthDate = makeDate(year: 2026, month: 1, day: 1)
-        let multidaySpread = makeMultidaySpread(
-            startYear: 2026, startMonth: 1, startDay: 6,
-            endYear: 2026, endMonth: 1, endDay: 12
-        )
-
-        let spreads = [
-            DataModel.Spread(period: .year, date: yearDate, calendar: calendar),
-            DataModel.Spread(period: .month, date: monthDate, calendar: calendar),
-            multidaySpread
-        ]
-
-        let organizer = SpreadHierarchyOrganizer(spreads: spreads, calendar: calendar)
-
-        #expect(organizer.years.count == 1)
-        #expect(organizer.years[0].months.count == 1)
-        #expect(organizer.years[0].months[0].days.count == 1)
-        #expect(organizer.years[0].months[0].days[0].spread.period == .multiday)
-    }
-
-    /// Conditions: Multiday spread alongside day spreads in the same month.
-    /// Expected: Both appear in the hierarchy, sorted chronologically.
-    @Test("Multiday spread sorted with day spreads in hierarchy")
-    func multidaySortedWithDaySpreads() {
-        let yearDate = makeDate(year: 2026, month: 1, day: 1)
-        let monthDate = makeDate(year: 2026, month: 1, day: 1)
-        let daySpread = DataModel.Spread(
-            period: .day,
-            date: makeDate(year: 2026, month: 1, day: 5),
-            calendar: calendar
-        )
-        let multidaySpread = makeMultidaySpread(
-            startYear: 2026, startMonth: 1, startDay: 6,
-            endYear: 2026, endMonth: 1, endDay: 12
-        )
-        let daySpread2 = DataModel.Spread(
-            period: .day,
-            date: makeDate(year: 2026, month: 1, day: 15),
-            calendar: calendar
-        )
-
-        let spreads = [
-            DataModel.Spread(period: .year, date: yearDate, calendar: calendar),
-            DataModel.Spread(period: .month, date: monthDate, calendar: calendar),
-            daySpread,
-            multidaySpread,
-            daySpread2
-        ]
-
-        let organizer = SpreadHierarchyOrganizer(spreads: spreads, calendar: calendar)
-        let days = organizer.years[0].months[0].days
-
-        #expect(days.count == 3)
-        #expect(days[0].spread.period == .day)
-        #expect(days[1].spread.period == .multiday)
-        #expect(days[2].spread.period == .day)
     }
 
     // MARK: - Date Containment Tests

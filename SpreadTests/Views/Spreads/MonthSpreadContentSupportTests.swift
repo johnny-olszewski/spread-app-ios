@@ -147,8 +147,7 @@ struct MonthSpreadContentSupportTests {
             calendar: Self.calendar,
             today: dayDate,
             taskRepository: InMemoryTaskRepository(tasks: [currentMonthTask, migratedAwayTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread, daySpread]),
-            bujoMode: .conventional
+            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread, daySpread])
         )
 
         let monthDataModel = try #require(
