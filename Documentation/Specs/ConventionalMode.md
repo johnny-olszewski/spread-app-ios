@@ -101,21 +101,12 @@
   - Otherwise fall back to an explicit year spread for today's year.
   - If multiple multiday spreads contain today, choose the narrowest containing range; break ties by the existing chronological spread ordering.
   - If no explicit spread contains today, the button currently does nothing.
-- Traditional mode `Today` always navigates to the traditional day destination for today. [SPRD-130]
 - If `Today` is pressed while today is already the selected spread, it still refreshes the compact context bar and content pager on today's selection if needed. [SPRD-130]
 
-### Modes
-- Conventional: [SPRD-13, SPRD-14, SPRD-25, SPRD-31]
-  - Entries may appear on multiple spreads with per-spread status. [SPRD-15]
-  - Spreads must be created explicitly. [SPRD-12, SPRD-26]
-  - Unassigned entries go to global Inbox. [SPRD-14, SPRD-31]
-  - Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
-  - Inline migration affordances exist only in conventional mode. [SPRD-110, SPRD-140]
-- Traditional: [SPRD-17, SPRD-35, SPRD-38]
-  - Entries appear only on preferred assignment, no migration history visible. [SPRD-17, SPRD-35]
-  - All spreads available for navigation regardless of created spread records. [SPRD-17, SPRD-38]
-  - Must not mutate the "created spreads" data used by conventional mode. [SPRD-17, SPRD-53]
-  - Migrating updates the preferred date/period; conventional assignments recomputed. [SPRD-17, SPRD-15]
-  - If no conventional spread exists for migration target, assign to nearest parent or Inbox. [SPRD-17, SPRD-14]
-  - Traditional mode does not show migration prompts because all calendar spreads are navigable without waiting for created conventional spreads. [SPRD-110]
-- Traditional mode does not gain any separate overdue review affordance; overdue spread badges are only shown in navigator surfaces where spread destinations are listed. [SPRD-147]
+### Mode
+The app operates in conventional mode only. Traditional mode is out of scope for v1. [SPRD-226]
+- Entries may appear on multiple spreads with per-spread status. [SPRD-15]
+- Spreads must be created explicitly. [SPRD-12, SPRD-26]
+- Unassigned entries go to global Inbox. [SPRD-14, SPRD-31]
+- Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
+- Inline migration affordances exist in conventional mode. [SPRD-110, SPRD-140]

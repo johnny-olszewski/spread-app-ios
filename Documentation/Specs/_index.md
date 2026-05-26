@@ -28,7 +28,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | [Migration.md](Migration.md) | Migration rules, eligibility, source/destination affordances, entry reassignment | SPRD-15, SPRD-110, SPRD-113, SPRD-140 |
 | [AppClock.md](AppClock.md) | Temporal context service, time-sensitive behaviors | SPRD-179, SPRD-180, SPRD-181 |
 | [JournalManager.md](JournalManager.md) | JournalManager facade, business rule architecture, BuJo mode | SPRD-11, SPRD-13, SPRD-154–SPRD-158 |
-| [ConventionalMode.md](ConventionalMode.md) | Functional requirements: spreads, entries, task status, overdue, inbox, modes | SPRD-24, SPRD-25, SPRD-27, SPRD-29, SPRD-30 |
+| [ConventionalMode.md](ConventionalMode.md) | Functional requirements: spreads, entries, task status, overdue, inbox (conventional mode only — traditional mode removed in SPRD-226) | SPRD-24, SPRD-25, SPRD-27, SPRD-29, SPRD-30, SPRD-226 |
 | [SpreadNavigation.md](SpreadNavigation.md) | Compact context bar, rooted navigator, pager, spread surface architecture | SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199 |
 | [SpreadPersonalization.md](SpreadPersonalization.md) | WKFLW-17: favorites, custom/dynamic naming, spread deletion, multiday date edit, visual refresh | SPRD-167–SPRD-178 |
 | [TaskMetadata.md](TaskMetadata.md) | WKFLW-17: task body, priority, due date, nil assignment; SESH-21: List and Tags fields | SPRD-170, SPRD-221 |

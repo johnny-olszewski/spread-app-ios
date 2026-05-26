@@ -9,7 +9,7 @@
   - `SpreadContentPagerView`
   - shared sheet presentation
   - shared bottom controls [SPRD-163]
-- `ConventionalSpreadsView` and `TraditionalSpreadsView` should be removed once the shared `SpreadsView` fully replaces them. Mode-specific behavior should be expressed through injected models/data rather than separate root layouts. [SPRD-163, SPRD-165]
+- Any legacy `ConventionalSpreadsView` and `TraditionalSpreadsView` split views should be removed. [SPRD-163, SPRD-165]
 - A `SpreadsViewModel` should own spread-shell UI state only, such as:
   - current selection
   - recenter token
@@ -18,7 +18,7 @@
 - `SpreadsViewModel` should not become a replacement business-logic owner. Journal mutations and journal-derived data remain sourced from `JournalManager`. [SPRD-163, SPRD-164, SPRD-165]
 - `SpreadTitleNavigatorView` should depend on a new `SpreadTitleNavigatorProviding` protocol rather than mode-specific root-view wiring. [SPRD-164]
 - `JournalManager` should conform to `SpreadTitleNavigatorProviding`, with the conformance placed in `JournalManager+SpreadTitleNavigatorProviding.swift`. [SPRD-164]
-- `JournalManager` should provide the correct strip/title navigator model and items based on the current `bujoMode`, so mode-aware strip generation stays out of the root shell UI. [SPRD-164]
+- `JournalManager` should provide the title navigator model and items for conventional mode. [SPRD-164]
 - `SpreadContentPagerView` should own page assembly for the shared spread shell. [SPRD-165]
 - `SpreadContentPagerView` should assemble, inside the horizontal pager, one page per spread item consisting of:
   - `SpreadHeaderView`
@@ -45,7 +45,7 @@
 - The search field should remain visibly present at the top of the search screen rather than requiring a second toolbar/search affordance press to reveal it. [SPRD-148]
 - Search results are grouped into hidden-when-empty sections:
   - `Inbox` first.
-  - Remaining sections follow the same ordering model as `SpreadTitleNavigatorView` for the active mode (`conventional` vs `traditional`). [SPRD-148]
+  - Remaining sections follow the spread ordering model from `SpreadTitleNavigatorView`. [SPRD-148]
 - The global task browser uses the complete spread ordering model. There is no compact-bar-specific filtering layer that can hide or reorder search sections. [SPRD-176]
 - Each task appears exactly once in search, under the spread where it is currently shown. Migrated historical entries are excluded. [SPRD-148]
 - Tapping a search result navigates to the task's current spread and then opens the task edit sheet there. [SPRD-148]
@@ -67,13 +67,13 @@
     - Personalized labels remain primary when present; canonical date context is shown as secondary support text where space allows. [SPRD-169, SPRD-172]
   - The context bar height is content-driven with a compact visual floor; it must not be hardcoded or allowed to expand to absorb unrelated vertical space from surrounding layout. [SPRD-136]
 
-### Shared Spread Surface Architecture
-- Conventional and traditional modes must render through the same shared spread UI architecture. [SPRD-151]
-- Shared shell responsibilities: [SPRD-151]
+### Spread Surface Architecture
+- The app operates in conventional mode only. There is no mode-switching or mode-branching in the spread surface. [SPRD-226]
+- Shell responsibilities: [SPRD-151]
   - render `SpreadTitleNavigatorView`
   - render `SpreadContentPagerView`
   - accept injected shell-control configuration for controls such as `Today`, create actions, and auth actions
-- Shared spread-surface responsibilities: [SPRD-151]
+- Spread-surface responsibilities: [SPRD-151]
   - render `SpreadHeaderView`
   - render one or more sections
   - render one or more `EntryListView` instances inside those sections
@@ -87,11 +87,8 @@
 - Builders and dependency injection: [SPRD-151]
   - shared UI components should prefer injected data, config, and action closures over direct manager/service access
   - `SpreadDataModel` remains the core domain input
-  - mode-specific builders/adapters translate domain state into shared UI configuration
-- Mode-specific inclusion rules remain explicit even when visual components are shared. [SPRD-151]
-  - Conventional spread content is driven by current live assignment only. Spread content does not retain migrated-history rows or source-history sections after an entry has been reassigned elsewhere. [SPRD-186]
-  - Parent spreads may still organize currently assigned entries into calendar-derived presentation sections. For example, year spreads may organize year-assigned entries under month cards, and month spreads may organize month-assigned day-period entries under day sections, without changing the underlying current assignment. [SPRD-186]
-  - In traditional mode, shared surface layouts remain aligned with the same visual system, but availability and navigation semantics continue to follow the traditional calendar hierarchy rather than explicit-spread existence. [SPRD-186]
+- Conventional spread content is driven by current live assignment only. Spread content does not retain migrated-history rows or source-history sections after an entry has been reassigned elsewhere. [SPRD-186]
+- Parent spreads may still organize currently assigned entries into calendar-derived presentation sections. For example, year spreads may organize year-assigned entries under month cards, and month spreads may organize month-assigned day-period entries under day sections, without changing the underlying current assignment. [SPRD-186]
 
 ---
 
@@ -125,10 +122,9 @@
 - Years and months are presented as collapsible table rows; month contents are presented as grid tiles within the expanded month section. [SPRD-125]
 - Year and month rows use split interaction: row-body tap navigates when the row is a valid destination, while a trailing disclosure expands or collapses that section. Derived conventional rows use disclosure-only behavior. [SPRD-125]
 - The hierarchy uses accordion behavior: only one year is expanded at a time, and only one month is expanded within that year. [SPRD-125]
-- The month grid always shows calendar day cells. In conventional mode, explicit multiday spreads are shown as decorative row-bounded overlay lanes rather than as separate tiles; traditional-mode month grids show all calendar days and no multiday overlays in v1. [SPRD-125]
+- The month grid always shows calendar day cells. Explicit multiday spreads are shown as decorative row-bounded overlay lanes rather than as separate tiles. [SPRD-125]
 - The current spread opens with its year/month context already expanded and is highlighted with a light shape background. [SPRD-125]
-- Conventional mode derives root years and month rows when child spreads make them navigable, but explicit day spread existence alone controls whether a day cell appears created; multiday coverage is decorative and does not make a day cell appear created by itself. [SPRD-125]
-- Traditional mode uses the full calendar structure, with the root year list spanning from the first year with entry data or created spreads through current year plus ten years, and month grids showing all calendar days with no multiday overlays in v1. [SPRD-125]
+- Root years and month rows are derived when child spreads make them navigable, but explicit day spread existence alone controls whether a day cell appears created; multiday coverage is decorative and does not make a day cell appear created by itself. [SPRD-125]
 - Keyboard/trackpad-specific navigation enhancements are deferred from the initial implementation. [SPRD-125]
 - The rooted navigator surface should be implemented with a separable model/support layer so hierarchy derivation, expansion state, and current-context opening rules can be unit tested independently from the popover/sheet view. [SPRD-125]
 - The compact spread context bar should use a separable support/model layer so current-selection title derivation, personalized/canonical secondary context, compact sizing rules, and rooted-navigator trigger behavior can be unit tested independently from the SwiftUI view. [SPRD-126]

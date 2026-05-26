@@ -2,10 +2,6 @@
 
 > Source: Documentation/spec.md
 
-### BuJo Mode
-- Conventional: show only current assignments in spread content while preserving assignment history for migration logic and feedback. [SPRD-29, SPRD-186]
-- Traditional: show entries only on their preferred assignment, no migration history visible, and expose the full year/month/day hierarchy through the same shared spread navigation and surface components used by conventional mode. [SPRD-17, SPRD-35, SPRD-151]
-
 ### Journal Logic Architecture
 - `JournalManager` should remain the sole UI-facing journal facade. Views and view models should not call low-level business-rule engines directly; `JournalManager` delegates internally and remains responsible for repository effects, state refresh, logging, and `dataVersion` invalidation. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
 - `JournalManager` should not remain a rule engine. Beyond collaborator selection based on runtime mode and workflow orchestration, business-rule branching should live in extracted services/coordinators. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
@@ -15,13 +11,13 @@
 - Each refactor slice must land with exhaustive unit coverage for its extracted seam before the task is considered complete; no deferred testing sweep. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
 - Each slice task must also remove or shrink the superseded private `JournalManager` helpers in the same change so duplicate rule paths do not remain in the codebase. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
 - Preferred extracted seams for journal logic are: [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
-  - `JournalDataModelBuilder` protocol with separate `ConventionalJournalDataModelBuilder` and `TraditionalJournalDataModelBuilder` implementations.
+  - `JournalDataModelBuilder` protocol with a single `ConventionalJournalDataModelBuilder` implementation.
   - `InboxResolver` protocol for Inbox membership and count resolution.
   - `OverdueEvaluator` protocol for overdue state and source resolution.
   - `MigrationPlanner` protocol for migration eligibility, current displayed/destination spread resolution, hierarchy traversal, and destination planning.
   - `AssignmentReconciliationCoordinator` protocol(s) for task/note preferred-assignment reconciliation and mutation workflows.
   - `SpreadDeletionCoordinator` protocol for deletion planning, reassignment, and persistence orchestration.
-- `JournalManager` may select mode-specific implementations internally based on `bujoMode` when that keeps runtime wiring simpler, but the implementations themselves should remain behind injected protocol boundaries. [SPRD-154, SPRD-158]
+- `JournalManager` wires the single conventional implementation at init; no runtime mode switching is required. [SPRD-226]
 
 ### Targeted Journal Mutation Architecture
 - The app should preserve the current user-visible behavior while reducing full `JournalDataModel` reconstruction after ordinary mutations. This is an internal performance and maintainability refactor, not a product behavior change. [SPRD-159, SPRD-160, SPRD-161, SPRD-162]
@@ -43,11 +39,11 @@
 - Expected mutation handling tiers:
   - simple content edits: patch only affected spread surfaces and any directly impacted summary slices
   - spread membership changes such as migration or date/period reassignment: rebuild source, destination, and any affected parent/multiday/Inbox/overdue slices
-  - structural changes such as reload, mode change, first-weekday change, large sync refresh, or other broad invalidation: full rebuild [SPRD-160, SPRD-161]
+  - structural changes such as reload, first-weekday change, large sync refresh, or other broad invalidation: full rebuild [SPRD-160, SPRD-161]
 - During rollout, correctness wins over maximal optimization. If mutation scope is ambiguous, `JournalManager` should use the structural fallback rather than risk stale UI state. [SPRD-160, SPRD-161, SPRD-162]
 - The refactor should remove redundant full-repository re-fetches on simple single-entity edits where the updated entity is already known, unless a specific repository boundary requires a verified reload. [SPRD-159]
 - Testing requirements for this architecture are strict:
   - all existing unit tests must remain green
   - new unit tests must cover mutation result scope, targeted patch behavior, and full-rebuild fallback behavior
-  - targeted patch tests must prove no user-visible regression in conventional, traditional, multiday, Inbox, migration, and overdue scenarios
+  - targeted patch tests must prove no user-visible regression in conventional, multiday, Inbox, migration, and overdue scenarios
   - tests should verify that simple mutations do not trigger unnecessary full rebuild paths once the targeted path is implemented [SPRD-159, SPRD-160, SPRD-161, SPRD-162]
