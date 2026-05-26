@@ -56,21 +56,31 @@ struct SpreadsView: View {
             if case .error = syncEngine?.status {
                 SyncErrorBanner()
             }
+            
+            SpreadTitleNavigatorView(
+                stripModel: stripModel,
+                onRecommendedSpreadTapped: onRecommendedSpreadTapped,
+                recommendationProvider: recommendationProvider,
+                selection: selectionBinding
+            )
 
-            contentArea
+            
+            SpreadContentPagerView(
+                coordinator: coordinator,
+                syncEngine: syncEngine,
+                model: stripModel,
+                items: completeItems,
+                recenterToken: coordinator.recenterToken,
+                selection: selectionBinding
+            )
+            .environment(coordinator)
+            .environment(journalManager)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .localhostTemporalHarness(spreadDiagnostics: currentSpreadDiagnostics)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                SpreadTitleNavigatorView(
-                    stripModel: stripModel,
-                    onRecommendedSpreadTapped: onRecommendedSpreadTapped,
-                    recommendationProvider: recommendationProvider,
-                    selection: selectionBinding
-                )
-            }
             ToolbarItem(placement: .topBarLeading) {
                 if let syncEngine {
                     SyncIconButton(
@@ -80,16 +90,19 @@ struct SpreadsView: View {
                     )
                 }
             }
+            
             if journalManager.bujoMode == .conventional {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .automatic) {
                     favoritesMenu
                 }
             }
-            ToolbarItem(placement: .primaryAction) {
+            
+            ToolbarItem(placement: .automatic) {
                 AuthButton(isSignedIn: authManager.state.isSignedIn, action: { coordinator.showAuth() })
             }
+            
             if let spread = currentConventionalSpread {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .automatic) {
                     spreadActionsMenu(for: spread)
                 }
             }
@@ -117,32 +130,6 @@ struct SpreadsView: View {
     }
 
     // MARK: - Content
-
-    @ViewBuilder
-    private var contentArea: some View {
-        if !completeItems.isEmpty {
-            SpreadContentPagerView(
-                coordinator: coordinator,
-                syncEngine: syncEngine,
-                model: stripModel,
-                items: completeItems,
-                recenterToken: coordinator.recenterToken,
-                selection: selectionBinding
-            )
-            .environment(coordinator)
-            .environment(journalManager)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
-        } else {
-            ContentUnavailableView {
-                Label("No Spread Selected", systemImage: "book")
-            } description: {
-                Text("Select a spread from the bar above.")
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
-        }
-    }
 
     @ViewBuilder
     private var bottomInsetControls: some View {
