@@ -324,10 +324,7 @@ struct SpreadsView: View {
         coordinator.clearConvenienceNavigation()
         switch journalManager.bujoMode {
         case .conventional:
-            guard let targetSpread = SpreadHierarchyOrganizer(
-                spreads: journalManager.spreads,
-                calendar: journalManager.calendar
-            ).initialSelection(for: journalManager.today) else { return }
+            guard let targetSpread = journalManager.bestSpread(for: journalManager.today) else { return }
 
             if case .conventional(let current) = currentSelection, current.id == targetSpread.id {
                 coordinator.recenterToken += 1
@@ -353,28 +350,17 @@ struct SpreadsView: View {
     // MARK: - Conventional Helpers
 
     private func conventionalFallbackSpread() -> DataModel.Spread {
-        conventionalFallbackSpreadIfAvailable()
+        journalManager.bestSpread(for: journalManager.today)
+            ?? journalManager.spreads.first
             ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
-    }
-
-    private func conventionalFallbackSpreadIfAvailable() -> DataModel.Spread? {
-        SpreadSelectionFallbackSupport.fallbackSpread(
-            spreads: journalManager.spreads,
-            calendar: journalManager.calendar,
-            today: journalManager.today
-        )
     }
 
     private func resetConventionalSelectionIfNeeded() {
         guard case .conventional(let spread) = coordinator.selectedSelection else { return }
-        if journalManager.spreads.contains(where: { $0.id == spread.id }) { return }
+        guard !journalManager.spreads.contains(where: { $0.id == spread.id }) else { return }
 
-        coordinator.selectedSelection = SpreadSelectionFallbackSupport.replacementSelection(
-            currentSelection: coordinator.selectedSelection,
-            spreads: journalManager.spreads,
-            calendar: journalManager.calendar,
-            today: journalManager.today
-        )
+        coordinator.selectedSelection = journalManager.bestSpread(for: journalManager.today)
+            .map { .conventional($0) }
         coordinator.recenterToken += 1
     }
 
@@ -535,34 +521,6 @@ enum SpreadFavoritesMenuSupport {
     }
 }
 
-enum SpreadSelectionFallbackSupport {
-    static func fallbackSpread(
-        spreads: [DataModel.Spread],
-        calendar: Calendar,
-        today: Date
-    ) -> DataModel.Spread? {
-        SpreadHierarchyOrganizer(spreads: spreads, calendar: calendar).initialSelection(for: today)
-            ?? spreads.first
-    }
-
-    static func replacementSelection(
-        currentSelection: SpreadHeaderNavigatorModel.Selection?,
-        spreads: [DataModel.Spread],
-        calendar: Calendar,
-        today: Date
-    ) -> SpreadHeaderNavigatorModel.Selection? {
-        guard case .conventional(let spread) = currentSelection else {
-            return currentSelection
-        }
-        guard !spreads.contains(where: { $0.id == spread.id }) else {
-            return currentSelection
-        }
-        guard let fallback = fallbackSpread(spreads: spreads, calendar: calendar, today: today) else {
-            return nil
-        }
-        return .conventional(fallback)
-    }
-}
 
 #Preview {
     SpreadsView(

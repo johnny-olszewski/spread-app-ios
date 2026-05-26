@@ -120,11 +120,7 @@ struct SpreadTitleNavigatorModel {
     func todaySemanticID(for currentSelection: SpreadHeaderNavigatorModel.Selection) -> String? {
         switch currentSelection {
         case .conventional:
-            let organizer = SpreadHierarchyOrganizer(
-                spreads: headerModel.spreads,
-                calendar: calendar
-            )
-            guard let spread = organizer.initialSelection(for: today) else { return nil }
+            guard let spread = headerModel.spreads.bestSpread(for: today, calendar: calendar) else { return nil }
             return SpreadHeaderNavigatorModel.Selection
                 .conventional(spread)
                 .stableID(calendar: calendar)
