@@ -2,7 +2,7 @@ import Foundation
 
 extension JournalManager {
 
-    /// Returns the most contextually relevant spread for a given date.
+    /// Returns the most contextually relevant spread for a given date in conventional mode.
     ///
     /// Delegates to `[DataModel.Spread].bestSpread(for:calendar:)` using the journal's
     /// current spread list and calendar.
@@ -12,6 +12,7 @@ extension JournalManager {
     func bestSpread(for date: Date) -> DataModel.Spread? {
         spreads.bestSpread(for: date, calendar: calendar)
     }
+
 }
 
 extension [DataModel.Spread] {

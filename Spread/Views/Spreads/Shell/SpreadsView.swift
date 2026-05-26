@@ -151,7 +151,7 @@ struct SpreadsView: View {
         }
         .onAppear {
             if coordinator.selectedSelection == nil {
-                coordinator.selectedSelection = defaultSelection
+                coordinator.selectedSelection = journalManager.defaultNavigationSelection
             }
             handlePendingNavigationRequest()
         }
@@ -213,22 +213,7 @@ struct SpreadsView: View {
     }
 
     private var currentSelection: SpreadHeaderNavigatorModel.Selection {
-        coordinator.selectedSelection ?? defaultSelection
-    }
-
-    private var defaultSelection: SpreadHeaderNavigatorModel.Selection {
-        switch journalManager.bujoMode {
-        case .conventional:
-            return .conventional(conventionalFallbackSpread())
-        case .traditional:
-            return .traditionalYear(defaultTraditionalYearDate)
-        }
-    }
-
-    private var defaultTraditionalYearDate: Date {
-        let calendar = journalManager.calendar
-        let year = calendar.component(.year, from: journalManager.today)
-        return calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
+        coordinator.selectedSelection ?? journalManager.defaultNavigationSelection
     }
 
     private var onRecommendedSpreadTapped: ((SpreadTitleNavigatorRecommendation) -> Void)? {
@@ -345,23 +330,11 @@ struct SpreadsView: View {
     // MARK: - Navigation
 
     private func navigateToToday() {
-        switch journalManager.bujoMode {
-        case .conventional:
-            guard let spread = journalManager.bestSpread(for: journalManager.today) else { return }
-            coordinator.navigate(to: .conventional(spread))
-        case .traditional:
-            let date = Period.day.normalizeDate(journalManager.today, calendar: journalManager.calendar)
-            coordinator.navigate(to: .traditionalDay(date))
-        }
+        guard let selection = journalManager.todayNavigationSelection else { return }
+        coordinator.navigate(to: selection)
     }
 
     // MARK: - Conventional Helpers
-
-    private func conventionalFallbackSpread() -> DataModel.Spread {
-        journalManager.bestSpread(for: journalManager.today)
-            ?? journalManager.spreads.first
-            ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
-    }
 
     private func resetConventionalSelectionIfNeeded() {
         guard case .conventional(let spread) = coordinator.selectedSelection else { return }
