@@ -17,6 +17,11 @@ struct TaskDetailSheet: View {
         var isSaving = false
         var isShowingDeleteConfirmation = false
         var isShowingSpreadPicker = false
+        var isCreatingList = false
+        var newListName = ""
+        var isCreatingTag = false
+        var newTagName = ""
+        var isTagsExpanded = false
 
         init(task: DataModel.Task, journalManager: JournalManager) {
             let context = PresentedTemporalContext(journalManager: journalManager)
@@ -171,9 +176,13 @@ struct TaskDetailSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Title")
             HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-                TaskStatusToggleButton(
-                    status: $viewModel.selectedStatus,
-                    accessibilityIdentifier: Definitions.AccessibilityIdentifiers.TaskDetailSheet.statusToggle
+                EntryLeadingIconButton(
+                    configuration: EntryLeadingIconButton.Configuration(
+                        entryType: .task,
+                        taskStatus: viewModel.selectedStatus,
+                        color: viewModel.selectedStatus.statusIconColor,
+                        isDisabled: !viewModel.selectedStatus.canToggleCompletionInTaskSheet
+                    )
                 )
 
                 TextField("Task title", text: $viewModel.formModel.title)
@@ -206,7 +215,98 @@ struct TaskDetailSheet: View {
                 )
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.dueDatePicker)
             }
+
+            listPickerRow
+            tagsPickerSection
         }
+        .alert("New List", isPresented: $viewModel.isCreatingList) {
+            TextField("List name", text: $viewModel.newListName)
+            Button("Create") { createList() }
+            Button("Cancel", role: .cancel) { viewModel.newListName = "" }
+        }
+        .alert("New Tag", isPresented: $viewModel.isCreatingTag) {
+            TextField("Tag name", text: $viewModel.newTagName)
+            Button("Create") { createTag() }
+            Button("Cancel", role: .cancel) { viewModel.newTagName = "" }
+        }
+    }
+
+    private var listPickerRow: some View {
+        Menu {
+            Button("None") { viewModel.formModel.selectedList = nil }
+            Divider()
+            ForEach(journalManager.lists) { list in
+                Button {
+                    viewModel.formModel.selectedList =
+                        viewModel.formModel.selectedList?.id == list.id ? nil : list
+                } label: {
+                    if viewModel.formModel.selectedList?.id == list.id {
+                        Label(list.name, systemImage: "checkmark")
+                    } else {
+                        Text(list.name)
+                    }
+                }
+            }
+            Divider()
+            Button("New List…") { viewModel.isCreatingList = true }
+        } label: {
+            selectionSummaryRow(
+                title: "List",
+                value: viewModel.formModel.selectedList?.name ?? "None",
+                isEnabled: true
+            )
+        }
+    }
+
+    private var tagsPickerSection: some View {
+        DisclosureGroup(
+            isExpanded: $viewModel.isTagsExpanded
+        ) {
+            ForEach(journalManager.tags) { tag in
+                let isSelected = viewModel.formModel.selectedTagIDs.contains(tag.id)
+                let atLimit = viewModel.formModel.selectedTagIDs.count >= 5
+                Button {
+                    if isSelected {
+                        viewModel.formModel.selectedTagIDs.remove(tag.id)
+                    } else if !atLimit {
+                        viewModel.formModel.selectedTagIDs.insert(tag.id)
+                    }
+                } label: {
+                    HStack {
+                        Text(tag.name)
+                        Spacer()
+                        if isSelected {
+                            Image(systemName: "checkmark").foregroundStyle(.tint)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(!isSelected && atLimit)
+            }
+            if viewModel.formModel.selectedTagIDs.count >= 5 {
+                Text("Maximum 5 tags")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Button("New Tag…") { viewModel.isCreatingTag = true }
+                    .foregroundStyle(.secondary)
+            }
+        } label: {
+            HStack {
+                Text("Tags")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(tagsSummary)
+                    .foregroundStyle(.primary)
+            }
+            .font(.subheadline)
+        }
+    }
+
+    private var tagsSummary: String {
+        let selected = journalManager.tags.filter { viewModel.formModel.selectedTagIDs.contains($0.id) }
+        if selected.isEmpty { return "None" }
+        return selected.map(\.name).sorted().joined(separator: ", ")
     }
 
     private var detailsSection: some View {
@@ -514,14 +614,23 @@ struct TaskDetailSheet: View {
                     try await journalManager.updateTaskStatus(task, newStatus: viewModel.selectedStatus)
                 }
 
-                if viewModel.formModel.sanitizedBody != task.body ||
-                   viewModel.formModel.priority != task.priority ||
-                   viewModel.formModel.effectiveDueDate != task.dueDate {
+                let selectedTags = journalManager.tags.filter {
+                    viewModel.formModel.selectedTagIDs.contains($0.id)
+                }
+                let metadataChanged =
+                    viewModel.formModel.sanitizedBody != task.body ||
+                    viewModel.formModel.priority != task.priority ||
+                    viewModel.formModel.effectiveDueDate != task.dueDate ||
+                    viewModel.formModel.selectedList?.id != task.list?.id ||
+                    Set(selectedTags.map(\.id)) != Set(task.tags.map(\.id))
+                if metadataChanged {
                     try await journalManager.updateTaskMetadata(
                         task,
                         body: viewModel.formModel.sanitizedBody,
                         priority: viewModel.formModel.priority,
-                        dueDate: viewModel.formModel.effectiveDueDate
+                        dueDate: viewModel.formModel.effectiveDueDate,
+                        list: viewModel.formModel.selectedList,
+                        tags: selectedTags
                     )
                 }
 
@@ -551,6 +660,28 @@ struct TaskDetailSheet: View {
                 dismiss()
             } catch {
                 viewModel.isSaving = false
+            }
+        }
+    }
+
+    private func createList() {
+        let name = viewModel.newListName.trimmingCharacters(in: .whitespacesAndNewlines)
+        viewModel.newListName = ""
+        guard !name.isEmpty else { return }
+        Task { @MainActor in
+            if let list = try? await journalManager.createList(name: name) {
+                viewModel.formModel.selectedList = list
+            }
+        }
+    }
+
+    private func createTag() {
+        let name = viewModel.newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
+        viewModel.newTagName = ""
+        guard !name.isEmpty, viewModel.formModel.selectedTagIDs.count < 5 else { return }
+        Task { @MainActor in
+            if let tag = try? await journalManager.createTag(name: name) {
+                viewModel.formModel.selectedTagIDs.insert(tag.id)
             }
         }
     }

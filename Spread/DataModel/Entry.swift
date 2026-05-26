@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// A journal entry with a unique identity and creation timestamp.
 ///
@@ -16,6 +17,51 @@ protocol Entry: Identifiable, Hashable {
 
     /// The type of entry (task, event, or note).
     var entryType: EntryType { get }
+
+    // MARK: - Display requirements (default implementations in extension below)
+
+    /// Optional icon color. When non-nil, the leading accessory renders as a colored bar.
+    var iconColor: Color? { get }
+
+    /// Tag chips shown inline with the title, one per assigned tag.
+    var displayTagChips: [(title: String, color: Color)] { get }
+
+    /// Optional one-line body preview shown below the title.
+    var displayBodyPreview: String? { get }
+
+    /// Display-only task priority.
+    var displayPriority: DataModel.Task.Priority { get }
+
+    /// Task status for display, or nil if not a task.
+    var displayTaskStatus: DataModel.Task.Status? { get }
+
+    /// Note status for display, or nil if not a note.
+    var displayNoteStatus: DataModel.Note.Status? { get }
+}
+
+extension Entry {
+    var iconColor: Color? { nil }
+    var displayTagChips: [(title: String, color: Color)] { [] }
+    var displayBodyPreview: String? { nil }
+    var displayPriority: DataModel.Task.Priority { .none }
+    var displayTaskStatus: DataModel.Task.Status? { nil }
+    var displayNoteStatus: DataModel.Note.Status? { nil }
+
+    /// Accessibility label for the leading icon button.
+    var leadingIconAccessibilityLabel: String {
+        displayTaskStatus?.leadingIconAccessibilityLabel ?? entryType.rawValue.capitalized
+    }
+
+    /// Configuration for the leading icon in an entry row.
+    var leadingIconConfiguration: EntryLeadingIconButton.Configuration {
+        EntryLeadingIconButton.Configuration(
+            entryType: entryType,
+            taskStatus: displayTaskStatus,
+            noteStatus: displayNoteStatus,
+            color: iconColor ?? .primary,
+            isDisabled: !(displayTaskStatus?.canToggleCompletionInTaskSheet ?? false)
+        )
+    }
 }
 
 /// An entry that can be assigned to spreads.

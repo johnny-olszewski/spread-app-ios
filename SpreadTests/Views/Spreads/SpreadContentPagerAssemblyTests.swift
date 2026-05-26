@@ -160,23 +160,50 @@ struct SpreadContentPagerAssemblyTests {
         // ensures migration config is never computed for multiday.
     }
 
-    // MARK: - Entry List Configuration
+    // MARK: - Entry List Grouping
 
-    /// Condition: Traditional mode uses flat grouping and no migration history.
-    /// Expected: EntryListConfiguration has flat grouping and showsMigrationHistory false.
-    @Test("Traditional mode uses flat grouping without migration history")
-    func testTraditionalEntryListConfiguration() {
-        let config = EntryListConfiguration(groupingStyle: .flat, showsMigrationHistory: false)
-        #expect(config.groupingStyle == .flat)
-        #expect(config.showsMigrationHistory == false)
+    /// Condition: Traditional mode day spread uses flat grouping (groupsByList: false).
+    /// Expected: All entries appear in one section regardless of list assignment.
+    @Test("Traditional mode day spread uses flat grouping")
+    func testTraditionalDaySpreadUsesFlatGrouping() {
+        let spreadDate = Self.makeDate(year: 2026, month: 4, day: 13)
+        let list = DataModel.List(name: "Work")
+        let entries: [any Entry] = [
+            DataModel.Task(title: "Listed", date: spreadDate, list: list),
+            DataModel.Task(title: "Unlisted", date: spreadDate)
+        ]
+
+        let sections = DaySpreadContentView.makeSections(
+            from: entries,
+            spreadDate: spreadDate,
+            calendar: Self.calendar,
+            groupsByList: false
+        )
+
+        #expect(sections.count == 1)
+        #expect(sections[0].entries.count == 2)
     }
 
-    /// Condition: Conventional mode uses default configuration.
-    /// Expected: EntryListConfiguration uses automatic grouping and shows migration history.
-    @Test("Conventional mode uses automatic grouping with migration history")
-    func testConventionalDefaultEntryListConfiguration() {
-        let config = EntryListConfiguration()
-        #expect(config.groupingStyle == .automatic)
-        #expect(config.showsMigrationHistory == true)
+    /// Condition: Conventional mode day spread uses list grouping (groupsByList: true).
+    /// Expected: Entries are bucketed by named list.
+    @Test("Conventional mode day spread groups by list")
+    func testConventionalDaySpreadGroupsByList() {
+        let spreadDate = Self.makeDate(year: 2026, month: 4, day: 13)
+        let list = DataModel.List(name: "Work")
+        let entries: [any Entry] = [
+            DataModel.Task(title: "Listed", date: spreadDate, list: list),
+            DataModel.Task(title: "Unlisted", date: spreadDate)
+        ]
+
+        let sections = DaySpreadContentView.makeSections(
+            from: entries,
+            spreadDate: spreadDate,
+            calendar: Self.calendar,
+            groupsByList: true
+        )
+
+        #expect(sections.count == 2)
+        #expect(sections[0].title == "Work")
+        #expect(sections[1].title.isEmpty)
     }
 }

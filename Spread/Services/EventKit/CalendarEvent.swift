@@ -5,7 +5,7 @@ import SwiftUI
 ///
 /// A pure value type — not a SwiftData model, not an Entry, not assignable.
 /// Used only for display; fetched on demand and never persisted.
-struct CalendarEvent: Identifiable, Sendable {
+struct CalendarEvent: Identifiable, Equatable, Sendable {
     /// The EventKit event identifier.
     let id: String
     /// The event title.

@@ -30,4 +30,10 @@ enum DataModel {
 
     /// Records once-per-entry/account assignment repair checks.
     typealias SyncRepairMarker = DataModelSchemaV1.SyncRepairMarker
+
+    /// A broad domain grouping for tasks and notes (e.g. "Work", "Home"). [SPRD-221]
+    typealias List = DataModelSchemaV1.List
+
+    /// A specific project or theme label for tasks and notes. [SPRD-221]
+    typealias Tag = DataModelSchemaV1.Tag
 }

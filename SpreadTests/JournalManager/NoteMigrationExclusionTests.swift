@@ -110,32 +110,24 @@ struct NoteMigrationExclusionTests {
         #expect(eligible.isEmpty)
     }
 
-    // MARK: - Note Swipe Action Availability
+    // MARK: - Note Display Status
 
-    /// Condition: Active note on a spread.
-    /// Expected: canMigrate is true (explicit migration via swipe is allowed).
-    @Test("Active notes can migrate via explicit swipe action")
-    func testActiveNoteCanMigrateExplicitly() {
-        let config = EntryRowConfiguration(
-            entryType: .note,
-            noteStatus: .active,
-            title: "Test note"
-        )
+    /// Condition: Active note.
+    /// Expected: displayNoteStatus returns .active.
+    @Test("Active note displayNoteStatus is .active")
+    func testActiveNoteDisplayStatus() {
+        let note = DataModel.Note(title: "Test note", status: .active)
 
-        #expect(config.canMigrate == true)
+        #expect(note.displayNoteStatus == .active)
     }
 
-    /// Condition: Migrated note on a spread.
-    /// Expected: canMigrate is false (already migrated).
-    @Test("Migrated notes cannot migrate again")
-    func testMigratedNoteCannotMigrate() {
-        let config = EntryRowConfiguration(
-            entryType: .note,
-            noteStatus: .migrated,
-            title: "Test note"
-        )
+    /// Condition: Migrated note.
+    /// Expected: displayNoteStatus returns .migrated.
+    @Test("Migrated note displayNoteStatus is .migrated")
+    func testMigratedNoteDisplayStatus() {
+        let note = DataModel.Note(title: "Test note", status: .migrated)
 
-        #expect(config.canMigrate == false)
+        #expect(note.displayNoteStatus == .migrated)
     }
 
     /// Condition: A note is assigned to an overdue spread alongside an overdue task.
