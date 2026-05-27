@@ -42,7 +42,9 @@ struct SpreadsView: View {
 
             SpreadContentPagerView(
                 coordinator: coordinator,
-                syncEngine: syncEngine
+                syncEngine: syncEngine,
+                items: journalManager.titleNavigatorModel.items(for: currentSelection),
+                currentSelection: currentSelection
             )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

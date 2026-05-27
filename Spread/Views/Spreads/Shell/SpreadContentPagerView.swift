@@ -1,30 +1,28 @@
 import SwiftUI
 
 /// Horizontally pages through spread content, assembling each page as a header and period-appropriate content view.
+///
+/// `items` and `currentSelection` are passed in from `SpreadsView` so the pager shell does not
+/// read from `JournalManager` directly. Scroll-driven re-renders (from `scrollPhase` and
+/// `pagerSettledTargetID` state changes) therefore only perform cheap lookups against already-
+/// computed values — the expensive `titleNavigatorModel` rebuild stays in the parent.
 struct SpreadContentPagerView: View {
     private let liveRadius = 2
 
-    @Environment(JournalManager.self) private var journalManager
     let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
+    /// Pre-computed by the parent so this view does not observe JournalManager during scrolling.
+    let items: [SpreadPickerModel.Item]
+    /// Pre-computed by the parent so this view does not observe JournalManager during scrolling.
+    let currentSelection: DataModel.Spread
+
+    /// Not accessed in `body` — stored here only for the `deleteSpread` action which fires
+    /// outside of scroll-driven re-renders and therefore does not create a scroll-time observation.
+    @Environment(JournalManager.self) private var journalManager
 
     @State private var pagerSettledTargetID: String?
     @State private var scrollPhase: ScrollPhase = .idle
     @State private var lastSequenceSignature: [String] = []
-
-    // MARK: - Derived from Environment
-
-    private var pickerModel: SpreadPickerModel {
-        journalManager.titleNavigatorModel
-    }
-
-    private var currentSelection: DataModel.Spread {
-        coordinator.selectedSelection ?? journalManager.defaultNavigationSelection
-    }
-
-    private var items: [SpreadPickerModel.Item] {
-        pickerModel.items(for: currentSelection)
-    }
 
     // MARK: - Pager State
 
@@ -32,8 +30,9 @@ struct SpreadContentPagerView: View {
         items.map(\.id)
     }
 
+    /// Stable ID derived directly from the spread's UUID — no calendar or JournalManager needed.
     private var selectedSemanticID: String {
-        currentSelection.stableID(calendar: pickerModel.calendar)
+        currentSelection.stableID(calendar: .current)
     }
 
     private func pagerID(for semanticID: String) -> String {
@@ -57,7 +56,7 @@ struct SpreadContentPagerView: View {
     }
 
     private var liveWindowIDs: Set<String> {
-        pickerModel.liveWindowIDs(items: items, anchorID: liveAnchorID, radius: liveRadius)
+        liveWindow(items: items, anchorID: liveAnchorID, radius: liveRadius)
     }
 
     var body: some View {
@@ -69,8 +68,7 @@ struct SpreadContentPagerView: View {
                             SpreadPageContentView(
                                 item: item,
                                 coordinator: coordinator,
-                                syncEngine: syncEngine,
-                                model: pickerModel
+                                syncEngine: syncEngine
                             )
                         } else {
                             Color.clear
@@ -182,6 +180,21 @@ struct SpreadContentPagerView: View {
             }
         }
     }
+
+    /// Returns the set of item IDs within `radius` positions of `anchorID`.
+    /// Pure array logic — no model state accessed.
+    private func liveWindow(
+        items: [SpreadPickerModel.Item],
+        anchorID: String,
+        radius: Int
+    ) -> Set<String> {
+        guard let anchorIndex = items.firstIndex(where: { $0.id == anchorID }) else {
+            return Set(items.prefix(radius * 2 + 1).map(\.id))
+        }
+        let lower = max(0, anchorIndex - radius)
+        let upper = min(items.count - 1, anchorIndex + radius)
+        return Set(items[lower...upper].map(\.id))
+    }
 }
 
 // MARK: - Page Assembly
@@ -192,7 +205,6 @@ private struct SpreadPageContentView: View {
     @Environment(JournalManager.self) private var journalManager
     let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
-    let model: SpreadPickerModel
 
     @Environment(\.eventKitService) private var eventKitService
 
@@ -207,8 +219,7 @@ private struct SpreadPageContentView: View {
 
     var body: some View {
         let spread = item.selection
-        let selectedID = coordinator.selectedSelection?.stableID(calendar: model.calendar)
-        let isCurrentPage = item.id == selectedID
+        let isCurrentPage = item.id == coordinator.selectedSelection?.stableID(calendar: .current)
         let navState = isCurrentPage ? coordinator.convenienceNavigation : nil
         VStack(spacing: 0) {
             SpreadHeaderView(
