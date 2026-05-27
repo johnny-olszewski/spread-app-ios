@@ -8,20 +8,31 @@ struct EntryLeadingIconButton: View {
         var noteStatus: DataModel.Note.Status?
         var color: Color
         var isDisabled: Bool
+        var onTap: (() -> Void)?
+        var accessibilityLabel: String?
     }
 
     let configuration: Configuration
 
     var body: some View {
-        StatusIcon(
-            configuration: StatusIconConfiguration(
-                entryType: configuration.entryType,
-                taskStatus: configuration.taskStatus,
-                noteStatus: configuration.noteStatus
-            ),
-            color: configuration.color
-        )
-        .frame(width: 24, height: 24)
+
+        Button {
+            configuration.onTap?()
+        } label: {
+            StatusIcon(
+                configuration: StatusIconConfiguration(
+                    entryType: configuration.entryType,
+                    taskStatus: configuration.taskStatus,
+                    noteStatus: configuration.noteStatus
+                ),
+                color: configuration.color
+            )
+            .frame(width: 24, height: 24)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .accessibilityLabel(configuration.accessibilityLabel ?? "")
+        .allowsHitTesting(configuration.onTap != nil)
     }
 }
 

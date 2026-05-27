@@ -74,10 +74,24 @@ struct EntryRowView: View {
 
     // MARK: - Subviews
     
+    private var rowLeadingIconConfiguration: EntryLeadingIconButton.Configuration {
+        let effectiveStatus = inlineTaskStatus ?? entry.displayTaskStatus
+        var config = entry.leadingIconConfiguration
+        if let status = effectiveStatus {
+            config.taskStatus = status
+            config.color = rowIconColor
+            config.isDisabled = !status.canToggleCompletionInTaskSheet
+        }
+        if entry.entryType == .task, configuration.onComplete != nil, !config.isDisabled {
+            config.onTap = { handleIconTap() }
+            config.accessibilityLabel = effectiveStatus?.leadingIconAccessibilityLabel
+        }
+        return config
+    }
+
     private var rowMainContent: some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            // TODO: Readd tap functionality
-            EntryLeadingIconButton(configuration: entry.leadingIconConfiguration)
+            EntryLeadingIconButton(configuration: rowLeadingIconConfiguration)
 
             VStack(alignment: .leading, spacing: 3) {
                 
@@ -261,6 +275,17 @@ struct EntryRowView: View {
         }
     }
 
+    private func handleIconTap() {
+        if isInlineActive { commitEdit() }
+        let current = inlineTaskStatus ?? entry.displayTaskStatus
+        if current == .open {
+            inlineTaskStatus = .complete
+        } else if current == .complete {
+            inlineTaskStatus = .open
+        }
+        configuration.onComplete?(entry)
+    }
+
     /// Inline editing is supported when the configuration provides a title-commit handler
     /// and the effective status is open. The call site controls both signals via configuration
     /// closures — no entry-type checks here.
@@ -306,6 +331,14 @@ struct EntryRowView: View {
     }
 
     // MARK: - Styling
+
+    private var rowIconColor: Color {
+        guard let status = inlineTaskStatus ?? entry.displayTaskStatus else { return .primary }
+        switch status {
+        case .open: return .primary
+        case .complete, .migrated, .cancelled: return .secondary
+        }
+    }
 
     private var rowColor: Color {
         if let inlineStatus = inlineTaskStatus {
