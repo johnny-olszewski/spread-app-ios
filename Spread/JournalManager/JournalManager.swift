@@ -169,7 +169,7 @@ final class JournalManager {
     }
 
     /// The title navigator model for the current journal state.
-    var titleNavigatorModel: SpreadTitleNavigatorModel {
+    var titleNavigatorModel: SpreadPickerModel {
         let headerModel = SpreadHeaderNavigatorModel(
             calendar: calendar,
             today: today,
@@ -179,7 +179,7 @@ final class JournalManager {
             notes: notes,
             events: events
         )
-        return SpreadTitleNavigatorModel(
+        return SpreadPickerModel(
             headerModel: headerModel,
             overdueItems: overdueTaskItems
         )

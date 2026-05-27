@@ -1,14 +1,14 @@
 import Foundation
 import SwiftUI
 
-enum SpreadTitleNavigatorItemStyle: Equatable {
+enum SpreadPickerItemStyle: Equatable {
     case year
     case month
     case day
     case multiday
 }
 
-enum SpreadTitleNavigatorBadge: Equatable {
+enum SpreadPickerBadge: Equatable {
     case overdue(count: Int)
     case favorite
 
@@ -21,7 +21,7 @@ enum SpreadTitleNavigatorBadge: Equatable {
         }
     }
 
-    func accessibilityLabel(style: SpreadTitleNavigatorItemStyle) -> String {
+    func accessibilityLabel(style: SpreadPickerItemStyle) -> String {
         switch self {
         case .overdue(let count):
             let noun = count == 1 ? "task" : "tasks"
@@ -35,7 +35,7 @@ enum SpreadTitleNavigatorBadge: Equatable {
     }
 
     func accessibilityIdentifier(
-        for selection: SpreadHeaderNavigatorModel.Selection,
+        for selection: DataModel.Spread,
         calendar: Calendar
     ) -> String {
         let date: Date = selection.period == .multiday
@@ -52,7 +52,7 @@ struct SpreadCompactBarLabel: Equatable {
     let secondary: String?
 }
 
-struct SpreadTitleNavigatorModel {
+struct SpreadPickerModel {
     struct Item: Identifiable {
         struct Display: Equatable {
             let top: String?
@@ -63,10 +63,10 @@ struct SpreadTitleNavigatorModel {
 
         let id: String
         let label: String
-        let selection: SpreadHeaderNavigatorModel.Selection
-        let style: SpreadTitleNavigatorItemStyle
+        let selection: DataModel.Spread
+        let style: SpreadPickerItemStyle
         let display: Display
-        let badge: SpreadTitleNavigatorBadge?
+        let badge: SpreadPickerBadge?
     }
 
     let headerModel: SpreadHeaderNavigatorModel
@@ -83,16 +83,16 @@ struct SpreadTitleNavigatorModel {
     var calendar: Calendar { headerModel.calendar }
     var today: Date { headerModel.today }
 
-    func todaySemanticID(for currentSelection: SpreadHeaderNavigatorModel.Selection) -> String? {
+    func todaySemanticID(for currentSelection: DataModel.Spread) -> String? {
         guard let spread = headerModel.spreads.bestSpread(for: today, calendar: calendar) else { return nil }
         return spread.stableID(calendar: calendar)
     }
 
-    func items(for currentSelection: SpreadHeaderNavigatorModel.Selection) -> [Item] {
+    func items(for currentSelection: DataModel.Spread) -> [Item] {
         conventionalYearItems(in: calendar.component(.year, from: currentSelection.startDate ?? currentSelection.date))
     }
 
-    func item(for recommendation: SpreadTitleNavigatorRecommendation) -> Item {
+    func item(for recommendation: SpreadPickerRecommendation) -> Item {
         let spread = DataModel.Spread(
             period: recommendation.period,
             date: recommendation.date,
@@ -102,7 +102,7 @@ struct SpreadTitleNavigatorModel {
     }
 
     /// Compact primary + optional secondary label for the persistent context bar.
-    func compactBarLabel(for selection: SpreadHeaderNavigatorModel.Selection) -> SpreadCompactBarLabel {
+    func compactBarLabel(for selection: DataModel.Spread) -> SpreadCompactBarLabel {
         let name = displayName(for: selection, allowsPersonalization: true)
         return SpreadCompactBarLabel(primary: name.primary, secondary: name.secondaryForHeader)
     }
@@ -141,7 +141,7 @@ struct SpreadTitleNavigatorModel {
         }
     }
 
-    private func style(for spread: DataModel.Spread) -> SpreadTitleNavigatorItemStyle {
+    private func style(for spread: DataModel.Spread) -> SpreadPickerItemStyle {
         switch spread.period {
         case .year:
             return .year
@@ -320,8 +320,8 @@ struct SpreadTitleNavigatorModel {
 
     private func badge(
         for spread: DataModel.Spread,
-        selection: SpreadHeaderNavigatorModel.Selection
-    ) -> SpreadTitleNavigatorBadge? {
+        selection: DataModel.Spread
+    ) -> SpreadPickerBadge? {
         let overdueCount = spread.period == .multiday
             ? multidayOverdueCount(for: spread)
             : overdueCount(for: spread)
@@ -335,7 +335,7 @@ struct SpreadTitleNavigatorModel {
         return nil
     }
 
-    private func overdueCount(for spread: SpreadHeaderNavigatorModel.Selection) -> Int {
+    private func overdueCount(for spread: DataModel.Spread) -> Int {
         overdueCountsBySelectionID[spread.stableID(calendar: calendar), default: 0]
     }
 
@@ -406,7 +406,7 @@ struct SpreadTitleNavigatorModel {
         return lhsKey.date < rhsKey.date
     }
 
-    private func sortKey(for selection: SpreadHeaderNavigatorModel.Selection) -> (date: Date, rank: Int) {
+    private func sortKey(for selection: DataModel.Spread) -> (date: Date, rank: Int) {
         let rank: Int = switch selection.period {
         case .year: 0
         case .month: 1
@@ -417,13 +417,13 @@ struct SpreadTitleNavigatorModel {
     }
 }
 
-enum SpreadNavigatorPresentationSupport {
+enum SpreadPickerPresentationSupport {
     static func presentsAsPopover(horizontalSizeClass: UserInterfaceSizeClass?) -> Bool {
         horizontalSizeClass == .regular
     }
 }
 
-extension SpreadTitleNavigatorModel {
+extension SpreadPickerModel {
     func liveWindowIDs(
         items: [Item],
         anchorID: String,

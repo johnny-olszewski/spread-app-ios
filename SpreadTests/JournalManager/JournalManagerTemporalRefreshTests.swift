@@ -55,7 +55,7 @@ struct JournalManagerTemporalRefreshTests {
         let manager = try await JournalManager.make(
             appClock: appClock,
         )
-        let provider = TodayMissingSpreadRecommendationProvider()
+        let provider = TodayMissingSpreadCreationRecommendationProvider()
 
         let initialRecommendations = provider.recommendations(for: manager.titleNavigatorModel.headerModel)
         #expect(initialRecommendations.map(\.date) == [

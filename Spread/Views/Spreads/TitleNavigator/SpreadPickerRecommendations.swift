@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-struct SpreadTitleNavigatorRecommendation: Identifiable, Equatable {
+struct SpreadPickerRecommendation: Identifiable, Equatable {
     let period: Period
     let date: Date
     let calendar: Calendar
@@ -33,7 +33,7 @@ struct SpreadTitleNavigatorRecommendation: Identifiable, Equatable {
     }
 }
 
-enum SpreadTitleNavigatorRecommendationLayout {
+enum SpreadPickerRecommendationLayout {
     static let aspectRatio: CGFloat = 3.0 / 5.0
 
     static func cardSize(widths: [CGFloat], heights: [CGFloat]) -> CGSize? {
@@ -54,12 +54,12 @@ enum SpreadTitleNavigatorRecommendationLayout {
     }
 }
 
-protocol SpreadTitleNavigatorRecommendationProviding {
-    func recommendations(for model: SpreadHeaderNavigatorModel) -> [SpreadTitleNavigatorRecommendation]
+protocol SpreadPickerRecommendationProviding {
+    func recommendations(for model: SpreadHeaderNavigatorModel) -> [SpreadPickerRecommendation]
 }
 
-struct TodayMissingSpreadRecommendationProvider: SpreadTitleNavigatorRecommendationProviding {
-    func recommendations(for model: SpreadHeaderNavigatorModel) -> [SpreadTitleNavigatorRecommendation] {
+struct TodayMissingSpreadCreationRecommendationProvider: SpreadPickerRecommendationProviding {
+    func recommendations(for model: SpreadHeaderNavigatorModel) -> [SpreadPickerRecommendation] {
         let calendar = model.calendar
         let today = model.today
         let yearDate = Period.year.normalizeDate(today, calendar: calendar)
@@ -68,23 +68,23 @@ struct TodayMissingSpreadRecommendationProvider: SpreadTitleNavigatorRecommendat
 
         let explicitSpreads = model.spreads.filter { $0.period != .multiday }
 
-        var recommendations: [SpreadTitleNavigatorRecommendation] = []
+        var recommendations: [SpreadPickerRecommendation] = []
 
         if !containsExplicitSpread(period: .year, date: yearDate, in: explicitSpreads, calendar: calendar) {
             recommendations.append(
-                SpreadTitleNavigatorRecommendation(period: .year, date: yearDate, calendar: calendar)
+                SpreadPickerRecommendation(period: .year, date: yearDate, calendar: calendar)
             )
         }
 
         if !containsExplicitSpread(period: .month, date: monthDate, in: explicitSpreads, calendar: calendar) {
             recommendations.append(
-                SpreadTitleNavigatorRecommendation(period: .month, date: monthDate, calendar: calendar)
+                SpreadPickerRecommendation(period: .month, date: monthDate, calendar: calendar)
             )
         }
 
         if !containsExplicitSpread(period: .day, date: dayDate, in: explicitSpreads, calendar: calendar) {
             recommendations.append(
-                SpreadTitleNavigatorRecommendation(period: .day, date: dayDate, calendar: calendar)
+                SpreadPickerRecommendation(period: .day, date: dayDate, calendar: calendar)
             )
         }
 

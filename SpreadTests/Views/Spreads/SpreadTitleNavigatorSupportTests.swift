@@ -19,7 +19,7 @@ struct SpreadTitleNavigatorSupportTests {
     // Verifies that a model with no explicit year/month/day spreads for today
     // recommends each missing period in hierarchical order.
     @Test func recommendationProviderReturnsMissingYearMonthAndDayForToday() {
-        let provider = TodayMissingSpreadRecommendationProvider()
+        let provider = TodayMissingSpreadCreationRecommendationProvider()
         let model = SpreadHeaderNavigatorModel(
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 3, day: 29),
@@ -41,7 +41,7 @@ struct SpreadTitleNavigatorSupportTests {
 
     // Verifies that existing explicit year/month/day spreads suppress their matching recommendations.
     @Test func recommendationProviderOmitsExistingExplicitPeriods() {
-        let provider = TodayMissingSpreadRecommendationProvider()
+        let provider = TodayMissingSpreadCreationRecommendationProvider()
         let year = DataModel.Spread(period: .year, date: Self.makeDate(year: 2026, month: 1), calendar: Self.calendar)
         let day = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 3, day: 29), calendar: Self.calendar)
         let model = SpreadHeaderNavigatorModel(
@@ -61,7 +61,7 @@ struct SpreadTitleNavigatorSupportTests {
 
     // Verifies that a multiday spread containing today does not satisfy the explicit day recommendation.
     @Test func recommendationProviderDoesNotTreatMultidayAsDayCoverage() {
-        let provider = TodayMissingSpreadRecommendationProvider()
+        let provider = TodayMissingSpreadCreationRecommendationProvider()
         let multiday = DataModel.Spread(
             startDate: Self.makeDate(year: 2026, month: 3, day: 27),
             endDate: Self.makeDate(year: 2026, month: 3, day: 31),
@@ -82,17 +82,17 @@ struct SpreadTitleNavigatorSupportTests {
     }
 
     @Test func recommendationFullTitlesUseExpandedDateFormatting() {
-        let yearRecommendation = SpreadTitleNavigatorRecommendation(
+        let yearRecommendation = SpreadPickerRecommendation(
             period: .year,
             date: Self.makeDate(year: 2026, month: 1, day: 1),
             calendar: Self.calendar
         )
-        let monthRecommendation = SpreadTitleNavigatorRecommendation(
+        let monthRecommendation = SpreadPickerRecommendation(
             period: .month,
             date: Self.makeDate(year: 2026, month: 4, day: 1),
             calendar: Self.calendar
         )
-        let dayRecommendation = SpreadTitleNavigatorRecommendation(
+        let dayRecommendation = SpreadPickerRecommendation(
             period: .day,
             date: Self.makeDate(year: 2026, month: 4, day: 5),
             calendar: Self.calendar
@@ -104,7 +104,7 @@ struct SpreadTitleNavigatorSupportTests {
     }
 
     @Test func recommendationCardLayoutUsesSharedThreeToFiveAspectRatio() {
-        let size = SpreadTitleNavigatorRecommendationLayout.cardSize(
+        let size = SpreadPickerRecommendationLayout.cardSize(
             widths: [42, 60, 38],
             heights: [70, 64, 68]
         )
@@ -115,19 +115,19 @@ struct SpreadTitleNavigatorSupportTests {
 
     @Test func recommendationCardsCollapseToMenuOnlyOnCompactWhenMultiple() {
         #expect(
-            SpreadTitleNavigatorRecommendationLayout.collapsesToMenu(
+            SpreadPickerRecommendationLayout.collapsesToMenu(
                 horizontalSizeClass: .compact,
                 recommendationCount: 2
             )
         )
         #expect(
-            !SpreadTitleNavigatorRecommendationLayout.collapsesToMenu(
+            !SpreadPickerRecommendationLayout.collapsesToMenu(
                 horizontalSizeClass: .compact,
                 recommendationCount: 1
             )
         )
         #expect(
-            !SpreadTitleNavigatorRecommendationLayout.collapsesToMenu(
+            !SpreadPickerRecommendationLayout.collapsesToMenu(
                 horizontalSizeClass: .regular,
                 recommendationCount: 3
             )
@@ -162,14 +162,14 @@ struct SpreadTitleNavigatorSupportTests {
             events: []
         )
 
-        let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
+        let stripModel = SpreadPickerModel(headerModel: headerModel)
         let items = stripModel.items(for: dayTwentyNine)
 
         #expect(items.map { $0.label } == [
             "This year", "Jan", "1", "2-5", "2", "Last month", "This month", "10", "20-22", "Today"
         ])
         #expect(items.map { $0.style } == [
-            SpreadTitleNavigatorItemStyle.year,
+            SpreadPickerItemStyle.year,
             .month,
             .day,
             .multiday,
@@ -197,7 +197,7 @@ struct SpreadTitleNavigatorSupportTests {
             events: []
         )
 
-        let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
+        let stripModel = SpreadPickerModel(headerModel: headerModel)
         let monthItems = stripModel.items(for: march)
         let dayItems = stripModel.items(for: marchTwentyNine)
 
@@ -224,7 +224,7 @@ struct SpreadTitleNavigatorSupportTests {
             events: []
         )
 
-        let items = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: day)
+        let items = SpreadPickerModel(headerModel: headerModel).items(for: day)
 
         let multidayIndex = items.firstIndex(where: { $0.style == .multiday })!
         let dayIndex = items.firstIndex(where: { $0.style == .day })!
@@ -237,9 +237,9 @@ struct SpreadTitleNavigatorSupportTests {
     /// Setup: The rooted navigator trigger runs under compact and regular horizontal size classes.
     /// Expected: Regular width presents as a popover; compact width presents as a large sheet.
     @Test func rootedNavigatorTriggerUsesAdaptivePresentationSurface() {
-        #expect(SpreadNavigatorPresentationSupport.presentsAsPopover(horizontalSizeClass: .regular))
-        #expect(!SpreadNavigatorPresentationSupport.presentsAsPopover(horizontalSizeClass: .compact))
-        #expect(!SpreadNavigatorPresentationSupport.presentsAsPopover(horizontalSizeClass: nil))
+        #expect(SpreadPickerPresentationSupport.presentsAsPopover(horizontalSizeClass: .regular))
+        #expect(!SpreadPickerPresentationSupport.presentsAsPopover(horizontalSizeClass: .compact))
+        #expect(!SpreadPickerPresentationSupport.presentsAsPopover(horizontalSizeClass: nil))
     }
 
     /// Setup: overdue items exist on a visible day spread and on an inbox-only task.
@@ -270,7 +270,7 @@ struct SpreadTitleNavigatorSupportTests {
             period: .day,
             status: .open
         )
-        let items = SpreadTitleNavigatorModel(
+        let items = SpreadPickerModel(
             headerModel: headerModel,
             overdueItems: [
                 OverdueTaskItem(
@@ -298,7 +298,7 @@ struct SpreadTitleNavigatorSupportTests {
         let day = DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 1, day: 10), calendar: Self.calendar)
         let taskA = DataModel.Task(title: "A", date: day.date, period: .day, status: .open)
         let taskB = DataModel.Task(title: "B", date: day.date, period: .day, status: .open)
-        let items = SpreadTitleNavigatorModel(
+        let items = SpreadPickerModel(
             headerModel: SpreadHeaderNavigatorModel(
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 12),
@@ -336,7 +336,7 @@ struct SpreadTitleNavigatorSupportTests {
         let monthTask = DataModel.Task(title: "Month", date: month.date, period: .month, status: .open)
         let dayTask = DataModel.Task(title: "Day", date: day.date, period: .day, status: .open)
 
-        let items = SpreadTitleNavigatorModel(
+        let items = SpreadPickerModel(
             headerModel: SpreadHeaderNavigatorModel(
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 2),
@@ -378,7 +378,7 @@ struct SpreadTitleNavigatorSupportTests {
         )
         let task = DataModel.Task(title: "Overdue", date: spread.date, period: .day, status: .open)
 
-        let item = SpreadTitleNavigatorModel(
+        let item = SpreadPickerModel(
             headerModel: SpreadHeaderNavigatorModel(
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 12),
@@ -410,7 +410,7 @@ struct SpreadTitleNavigatorSupportTests {
             isFavorite: true
         )
 
-        let item = SpreadTitleNavigatorModel(
+        let item = SpreadPickerModel(
             headerModel: SpreadHeaderNavigatorModel(
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 12),
@@ -455,7 +455,7 @@ struct SpreadTitleNavigatorSupportTests {
             status: .open
         )
 
-        let item = SpreadTitleNavigatorModel(
+        let item = SpreadPickerModel(
             headerModel: SpreadHeaderNavigatorModel(
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 13),
@@ -498,7 +498,7 @@ struct SpreadTitleNavigatorSupportTests {
             status: .migrated
         )
 
-        let item = SpreadTitleNavigatorModel(
+        let item = SpreadPickerModel(
             headerModel: SpreadHeaderNavigatorModel(
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 13),
@@ -524,7 +524,7 @@ struct SpreadTitleNavigatorSupportTests {
         )
         let task = DataModel.Task(title: "Overdue", date: spread.date, period: .day, status: .open)
 
-        let items = SpreadTitleNavigatorModel(
+        let items = SpreadPickerModel(
             headerModel: SpreadHeaderNavigatorModel(
                 calendar: Self.calendar,
                 today: Self.makeDate(year: 2026, month: 1, day: 12),
@@ -561,8 +561,8 @@ struct SpreadTitleNavigatorSupportTests {
             calendar: Self.calendar
         )
 
-        let overdue = SpreadTitleNavigatorBadge.overdue(count: 3)
-        let favorite = SpreadTitleNavigatorBadge.favorite
+        let overdue = SpreadPickerBadge.overdue(count: 3)
+        let favorite = SpreadPickerBadge.favorite
 
         #expect(overdue.accessibilityLabel(style: .day) == "3 overdue tasks")
         #expect(overdue.accessibilityLabel(style: .multiday) == "3 overdue tasks in this date range")
@@ -588,7 +588,7 @@ struct SpreadTitleNavigatorSupportTests {
             notes: [],
             events: []
         )
-        let stripModel = SpreadTitleNavigatorModel(headerModel: headerModel)
+        let stripModel = SpreadPickerModel(headerModel: headerModel)
 
         let items2026 = stripModel.items(for: day2026)
         let items2027 = stripModel.items(for: day2027)
@@ -612,7 +612,7 @@ struct SpreadTitleNavigatorSupportTests {
             notes: [],
             events: []
         )
-        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: year).first
+        let item = SpreadPickerModel(headerModel: headerModel).items(for: year).first
 
         #expect(item?.label == "2026")
         #expect(item?.display.top == "20")
@@ -652,7 +652,7 @@ struct SpreadTitleNavigatorSupportTests {
             notes: [],
             events: []
         )
-        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: day).first
+        let item = SpreadPickerModel(headerModel: headerModel).items(for: day).first
 
         #expect(item?.label == "29")
         #expect(item?.display.top == "MAR")
@@ -674,7 +674,7 @@ struct SpreadTitleNavigatorSupportTests {
             notes: [],
             events: []
         )
-        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: multiday).first
+        let item = SpreadPickerModel(headerModel: headerModel).items(for: multiday).first
 
         #expect(item?.display.top == "MAR")
         #expect(item?.display.bottom == "20-22")
@@ -695,7 +695,7 @@ struct SpreadTitleNavigatorSupportTests {
             notes: [],
             events: []
         )
-        let item = SpreadTitleNavigatorModel(headerModel: headerModel).items(for: multiday).first
+        let item = SpreadPickerModel(headerModel: headerModel).items(for: multiday).first
 
         #expect(item?.display.top == "MAR-APR")
         #expect(item?.display.bottom == "30-5")
@@ -873,11 +873,11 @@ struct SpreadTitleNavigatorSupportTests {
             notes: [],
             events: []
         )
-        return SpreadTitleNavigatorModel(headerModel: headerModel).compactBarLabel(for: spread)
+        return SpreadPickerModel(headerModel: headerModel).compactBarLabel(for: spread)
     }
 
     private func expectDisplay(
-        _ display: SpreadTitleNavigatorModel.Item.Display?,
+        _ display: SpreadPickerModel.Item.Display?,
         top: String?,
         bottom: String,
         footer: String?,
@@ -892,7 +892,7 @@ struct SpreadTitleNavigatorSupportTests {
     private func titleNavigatorItem(
         for spread: DataModel.Spread,
         today: Date
-    ) -> SpreadTitleNavigatorModel.Item? {
+    ) -> SpreadPickerModel.Item? {
         let headerModel = SpreadHeaderNavigatorModel(
             calendar: Self.calendar,
             today: today,
@@ -903,7 +903,7 @@ struct SpreadTitleNavigatorSupportTests {
             events: []
         )
 
-        return SpreadTitleNavigatorModel(headerModel: headerModel)
+        return SpreadPickerModel(headerModel: headerModel)
             .items(for: spread)
             .first
     }
