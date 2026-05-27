@@ -7,21 +7,33 @@ struct SpreadContentPagerView: View {
     @Environment(JournalManager.self) private var journalManager
     let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
-    let model: SpreadTitleNavigatorModel
-    let items: [SpreadTitleNavigatorModel.Item]
-    let recenterToken: Int
-    @Binding var selection: SpreadHeaderNavigatorModel.Selection
 
     @State private var pagerSettledTargetID: String?
     @State private var scrollPhase: ScrollPhase = .idle
     @State private var lastSequenceSignature: [String] = []
+
+    // MARK: - Derived from Environment
+
+    private var pickerModel: SpreadPickerModel {
+        journalManager.titleNavigatorModel
+    }
+
+    private var currentSelection: DataModel.Spread {
+        coordinator.selectedSelection ?? journalManager.defaultNavigationSelection
+    }
+
+    private var items: [SpreadPickerModel.Item] {
+        pickerModel.items(for: currentSelection)
+    }
+
+    // MARK: - Pager State
 
     private var sequenceSignature: [String] {
         items.map(\.id)
     }
 
     private var selectedSemanticID: String {
-        selection.stableID(calendar: model.calendar)
+        currentSelection.stableID(calendar: pickerModel.calendar)
     }
 
     private func pagerID(for semanticID: String) -> String {
@@ -45,7 +57,7 @@ struct SpreadContentPagerView: View {
     }
 
     private var liveWindowIDs: Set<String> {
-        model.liveWindowIDs(items: items, anchorID: liveAnchorID, radius: liveRadius)
+        pickerModel.liveWindowIDs(items: items, anchorID: liveAnchorID, radius: liveRadius)
     }
 
     var body: some View {
@@ -58,7 +70,7 @@ struct SpreadContentPagerView: View {
                                 item: item,
                                 coordinator: coordinator,
                                 syncEngine: syncEngine,
-                                model: model
+                                model: pickerModel
                             )
                         } else {
                             Color.clear
@@ -87,7 +99,7 @@ struct SpreadContentPagerView: View {
             guard pagerID(for: newValue) != pagerSettledTargetID else { return }
             center(on: newValue, animated: false)
         }
-        .onChange(of: recenterToken) { _, _ in
+        .onChange(of: coordinator.recenterToken) { _, _ in
             center(on: selectedSemanticID, animated: false)
         }
         .onChange(of: pagerSettledTargetID) { _, newValue in
@@ -95,7 +107,8 @@ struct SpreadContentPagerView: View {
                   let semanticID = semanticID(from: newValue),
                   semanticID != selectedSemanticID else { return }
             guard let item = items.first(where: { $0.id == semanticID }) else { return }
-            selection = item.selection
+            coordinator.selectedSelection = item.selection
+            coordinator.clearConvenienceNavigation()
         }
         .onScrollPhaseChange { _, newPhase in
             scrollPhase = newPhase
@@ -105,7 +118,8 @@ struct SpreadContentPagerView: View {
                 return
             }
             guard let item = items.first(where: { $0.id == currentVisibleID }) else { return }
-            selection = item.selection
+            coordinator.selectedSelection = item.selection
+            coordinator.clearConvenienceNavigation()
         }
         .alert(item: activeAlertBinding) { destination in
             switch destination {
@@ -174,11 +188,11 @@ struct SpreadContentPagerView: View {
 
 /// Assembles a single spread page: `SpreadHeaderView` followed by the period-appropriate content view.
 private struct SpreadPageContentView: View {
-    let item: SpreadTitleNavigatorModel.Item
+    let item: SpreadPickerModel.Item
     @Environment(JournalManager.self) private var journalManager
     let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
-    let model: SpreadTitleNavigatorModel
+    let model: SpreadPickerModel
 
     @Environment(\.eventKitService) private var eventKitService
 

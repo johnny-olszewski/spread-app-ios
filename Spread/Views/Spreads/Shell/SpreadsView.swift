@@ -8,19 +8,12 @@ struct SpreadsView: View {
 
     @State private var coordinator = SpreadsCoordinator()
 
-    private let recommendationProvider: any SpreadTitleNavigatorRecommendationProviding =
-        TodayMissingSpreadRecommendationProvider()
-
     private var calendar: Calendar {
         journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
     }
 
-    private var stripModel: SpreadTitleNavigatorModel {
-        journalManager.titleNavigatorModel
-    }
-
-    private var completeItems: [SpreadTitleNavigatorModel.Item] {
-        stripModel.items(for: currentSelection)
+    private var currentSelection: DataModel.Spread {
+        coordinator.selectedSelection ?? journalManager.defaultNavigationSelection
     }
 
     private var currentSpreadDiagnostics: LocalhostTemporalHarnessSpreadDiagnostics {
@@ -44,37 +37,26 @@ struct SpreadsView: View {
             if case .error = syncEngine?.status {
                 SyncErrorBanner()
             }
-            
-            SpreadTitleNavigatorView(
-                stripModel: stripModel,
-                onRecommendedSpreadTapped: onRecommendedSpreadTapped,
-                recommendationProvider: recommendationProvider,
-                selection: selectionBinding
-            )
 
-            
+            SpreadPickerButton()
+
             SpreadContentPagerView(
                 coordinator: coordinator,
-                syncEngine: syncEngine,
-                model: stripModel,
-                items: completeItems,
-                recenterToken: coordinator.recenterToken,
-                selection: selectionBinding
+                syncEngine: syncEngine
             )
-            .environment(coordinator)
-            .environment(journalManager)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .environment(coordinator)
+        .environment(journalManager)
         .localhostTemporalHarness(spreadDiagnostics: currentSpreadDiagnostics)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                
                 Button("Today", action: navigateToToday)
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
             }
-            
+
             ToolbarItemGroup(placement: .automatic) {
-    
+
                 if let syncEngine {
                     SyncIconButton(
                         status: syncEngine.status,
@@ -82,46 +64,43 @@ struct SpreadsView: View {
                         onSyncNow: { Task { @MainActor in await syncEngine.syncNow() } }
                     )
                 }
-                
+
                 favoritesMenu
-                
+
                 AuthButton(isSignedIn: authManager.state.isSignedIn, action: { coordinator.showAuth() })
-                
-                if let spread = currentConventionalSpread {
-                    
-                    Button {
-                        toggleFavorite(for: spread)
-                    } label: {
-                        Label(
-                            spread.isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                            systemImage: spread.isFavorite ? "star.fill" : "star"
-                        )
-                    }
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
 
-                    Button {
-                        coordinator.showSpreadNameEdit(spread)
-                    } label: {
-                        Label("Edit Name", systemImage: "pencil")
-                    }
-
-                    if spread.period == .multiday {
-                        Button {
-                            coordinator.showSpreadDateEdit(spread)
-                        } label: {
-                            Label("Edit Dates", systemImage: "calendar")
-                        }
-                        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.editDatesButton)
-                    }
-
-                    Button(role: .destructive) {
-                        coordinator.showSpreadDeleteConfirmation(spread)
-                    } label: {
-                        Label("Delete Spread", systemImage: "trash")
-                    }
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.deleteSpreadButton)
-
+                Button {
+                    toggleFavorite(for: currentSelection)
+                } label: {
+                    Label(
+                        currentSelection.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                        systemImage: currentSelection.isFavorite ? "star.fill" : "star"
+                    )
                 }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
+
+                Button {
+                    coordinator.showSpreadNameEdit(currentSelection)
+                } label: {
+                    Label("Edit Name", systemImage: "pencil")
+                }
+
+                if currentSelection.period == .multiday {
+                    Button {
+                        coordinator.showSpreadDateEdit(currentSelection)
+                    } label: {
+                        Label("Edit Dates", systemImage: "calendar")
+                    }
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.editDatesButton)
+                }
+
+                Button(role: .destructive) {
+                    coordinator.showSpreadDeleteConfirmation(currentSelection)
+                } label: {
+                    Label("Delete Spread", systemImage: "trash")
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.deleteSpreadButton)
+
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -182,33 +161,7 @@ struct SpreadsView: View {
         .background(Color.clear)
     }
 
-    // MARK: - Selection
-
-    private var selectionBinding: Binding<SpreadHeaderNavigatorModel.Selection> {
-        Binding(
-            get: { currentSelection },
-            set: {
-                coordinator.selectedSelection = $0
-                coordinator.clearConvenienceNavigation()
-            }
-        )
-    }
-
-    private var currentSelection: SpreadHeaderNavigatorModel.Selection {
-        coordinator.selectedSelection ?? journalManager.defaultNavigationSelection
-    }
-
-    private var onRecommendedSpreadTapped: ((SpreadTitleNavigatorRecommendation) -> Void)? {
-        { recommendation in
-            coordinator.showSpreadCreation(
-                prefill: .init(period: recommendation.period, date: recommendation.date)
-            )
-        }
-    }
-
     // MARK: - Spread Actions
-
-    private var currentConventionalSpread: DataModel.Spread? { currentSelection }
 
     private func spreadActionsMenu(for spread: DataModel.Spread) -> some View {
         Menu {
@@ -259,8 +212,8 @@ struct SpreadsView: View {
 
     // MARK: - Favorites
 
-    private var favoriteItemsForCurrentYear: [SpreadTitleNavigatorModel.Item] {
-        completeItems.filter { $0.selection.isFavorite }
+    private var favoriteItemsForCurrentYear: [SpreadPickerModel.Item] {
+        journalManager.titleNavigatorModel.items(for: currentSelection).filter { $0.selection.isFavorite }
     }
 
     private var favoriteNameFormatter: SpreadDisplayNameFormatter {
@@ -278,7 +231,9 @@ struct SpreadsView: View {
             } else {
                 ForEach(favoriteItemsForCurrentYear) { item in
                     Button {
-                        selectFavorite(item)
+                        coordinator.clearConvenienceNavigation()
+                        coordinator.selectedSelection = item.selection
+                        coordinator.recenterToken += 1
                     } label: {
                         Label(
                             favoriteNameFormatter.display(for: item.selection).primary,
@@ -292,12 +247,6 @@ struct SpreadsView: View {
         }
         .accessibilityLabel("Favorite Spreads")
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoritesMenu)
-    }
-
-    private func selectFavorite(_ item: SpreadTitleNavigatorModel.Item) {
-        coordinator.clearConvenienceNavigation()
-        coordinator.selectedSelection = item.selection
-        coordinator.recenterToken += 1
     }
 
     // MARK: - Navigation
@@ -362,7 +311,7 @@ struct SpreadsView: View {
         case .taskCreation:
             TaskCreationSheet(
                 journalManager: journalManager,
-                selectedSpread: selectedSpreadForSheet,
+                selectedSpread: currentSelection,
                 onTaskCreated: { _ in
                     Task { @MainActor in await syncEngine?.syncNow() }
                 }
@@ -370,7 +319,7 @@ struct SpreadsView: View {
         case .noteCreation:
             NoteCreationSheet(
                 journalManager: journalManager,
-                selectedSpread: selectedSpreadForSheet,
+                selectedSpread: currentSelection,
                 onNoteCreated: { _ in
                     Task { @MainActor in await syncEngine?.syncNow() }
                 }
@@ -399,11 +348,7 @@ struct SpreadsView: View {
                 onClose: { coordinator.dismiss() },
                 onNavigate: { destination in
                     coordinator.dismiss()
-                    if let source = currentConventionalSpread {
-                        coordinator.navigateViaPeek(to: destination, from: source)
-                    } else {
-                        coordinator.selectSpread(destination)
-                    }
+                    coordinator.selectSpread(destination)
                 },
                 onTaskTap: nil
             )
@@ -411,8 +356,6 @@ struct SpreadsView: View {
             AuthEntrySheet(authManager: authManager, isBlocking: false)
         }
     }
-
-    private var selectedSpreadForSheet: DataModel.Spread? { currentSelection }
 
     // MARK: - Pending Navigation
 
