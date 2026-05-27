@@ -17,7 +17,7 @@ struct EntriesBrowserView: View {
     let journalManager: JournalManager
     let listRepository: any ListRepository
     let tagRepository: any TagRepository
-    let onOpenTask: (UUID, SpreadHeaderNavigatorModel.Selection?) -> Void
+    let onOpenTask: (UUID, DataModel.Spread?) -> Void
 
     @State private var viewModel = EntriesBrowserViewModel()
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass

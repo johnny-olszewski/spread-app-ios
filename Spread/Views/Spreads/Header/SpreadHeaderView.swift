@@ -37,7 +37,7 @@ struct SpreadHeaderView: View {
     }
 }
 
-struct SpreadNavigatorPresentationModifier: ViewModifier {
+struct SpreadPickerPresentationModifier: ViewModifier {
     @Binding var isPresented: Bool
     let presentsAsPopover: Bool
     let navigatorContent: () -> AnyView
@@ -63,12 +63,12 @@ extension View {
         presentsAsPopover: Bool,
         model: SpreadHeaderNavigatorModel,
         currentSpread: DataModel.Spread,
-        recommendations: [SpreadTitleNavigatorRecommendation] = [],
-        onSelect: @escaping (SpreadHeaderNavigatorModel.Selection) -> Void,
-        onRecommendationTapped: ((SpreadTitleNavigatorRecommendation) -> Void)? = nil
+        recommendations: [SpreadPickerRecommendation] = [],
+        onSelect: @escaping (DataModel.Spread) -> Void,
+        onRecommendationTapped: ((SpreadPickerRecommendation) -> Void)? = nil
     ) -> some View {
         modifier(
-            SpreadNavigatorPresentationModifier(
+            SpreadPickerPresentationModifier(
                 isPresented: isPresented,
                 presentsAsPopover: presentsAsPopover,
                 navigatorContent: {

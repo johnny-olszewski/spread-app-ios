@@ -1,7 +1,6 @@
 import Foundation
 
 struct SpreadHeaderNavigatorModel {
-    typealias Selection = DataModel.Spread
 
     struct YearPage: Identifiable {
         let year: Int
@@ -15,7 +14,7 @@ struct SpreadHeaderNavigatorModel {
         let date: Date
         let explicitSpread: DataModel.Spread?
         let isDerived: Bool
-        let monthSelection: Selection?
+        let monthSelection: DataModel.Spread?
         let dayTargetsByDate: [Date: [SelectionTarget]]
         let dayStateByDate: [Date: MonthDayState]
 
@@ -36,7 +35,7 @@ struct SpreadHeaderNavigatorModel {
 
     struct SelectionTarget: Identifiable {
         let id: String
-        let selection: Selection
+        let selection: DataModel.Spread
         let title: String
         let isMultiday: Bool
     }
@@ -77,7 +76,7 @@ struct SpreadHeaderNavigatorModel {
         conventionalMonthRows(in: year)
     }
 
-    func selectionTarget(for monthRow: MonthRow) -> Selection? {
+    func selectionTarget(for monthRow: MonthRow) -> DataModel.Spread? {
         monthRow.monthSelection
     }
 

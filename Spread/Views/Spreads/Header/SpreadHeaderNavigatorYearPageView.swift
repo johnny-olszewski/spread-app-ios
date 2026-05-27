@@ -7,7 +7,7 @@ struct SpreadHeaderNavigatorYearPageView: View {
     let model: SpreadHeaderNavigatorModel
     let currentSpread: DataModel.Spread
     @Binding var expandedMonth: Date?
-    let onSelect: (SpreadHeaderNavigatorModel.Selection) -> Void
+    let onSelect: (DataModel.Spread) -> Void
     let onDismiss: () -> Void
 
     @State private var dialogTargets: [SpreadHeaderNavigatorModel.SelectionTarget] = []
@@ -16,7 +16,7 @@ struct SpreadHeaderNavigatorYearPageView: View {
     private struct CalendarDelegate: MonthCalendarActionDelegate {
         let monthRow: SpreadHeaderNavigatorModel.MonthRow
         let calendar: Calendar
-        let onSingleTarget: (SpreadHeaderNavigatorModel.Selection) -> Void
+        let onSingleTarget: (DataModel.Spread) -> Void
         let onMultipleTargets: ([SpreadHeaderNavigatorModel.SelectionTarget]) -> Void
 
         func monthCalendarDidTapDay(_ context: MonthCalendarDayContext) {

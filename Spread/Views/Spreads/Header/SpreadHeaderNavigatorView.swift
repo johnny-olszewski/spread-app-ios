@@ -3,9 +3,9 @@ import SwiftUI
 struct SpreadHeaderNavigatorPopoverView: View {
     let model: SpreadHeaderNavigatorModel
     let currentSpread: DataModel.Spread
-    let recommendations: [SpreadTitleNavigatorRecommendation]
-    let onSelect: (SpreadHeaderNavigatorModel.Selection) -> Void
-    let onRecommendationTapped: ((SpreadTitleNavigatorRecommendation) -> Void)?
+    let recommendations: [SpreadPickerRecommendation]
+    let onSelect: (DataModel.Spread) -> Void
+    let onRecommendationTapped: ((SpreadPickerRecommendation) -> Void)?
     let onDismiss: () -> Void
 
     @State private var settledYear: Int?

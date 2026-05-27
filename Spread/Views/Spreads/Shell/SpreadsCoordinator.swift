@@ -73,7 +73,7 @@ final class SpreadsCoordinator {
     // MARK: - Shell State
 
     /// The current navigator selection, nil until resolved on appear.
-    var selectedSelection: SpreadHeaderNavigatorModel.Selection?
+    var selectedSelection: DataModel.Spread?
 
     /// Incremented to force the pager and strip to recenter on the current selection.
     var recenterToken: Int = 0
@@ -119,7 +119,7 @@ final class SpreadsCoordinator {
     /// Falls back to direct navigation when no current selection exists.
     func finishSpreadCreation(
         _ result: SpreadCreationOperationResult,
-        currentSelection: SpreadHeaderNavigatorModel.Selection?,
+        currentSelection: DataModel.Spread?,
         calendar: Calendar
     ) {
         guard let source = currentSelection else {
@@ -187,7 +187,7 @@ final class SpreadsCoordinator {
     ///
     /// If the selection is already active, only recenters (increments `recenterToken`) without
     /// changing `selectedSelection`. If it differs, updates `selectedSelection` and recenters.
-    func navigate(to selection: SpreadHeaderNavigatorModel.Selection) {
+    func navigate(to selection: DataModel.Spread) {
         clearConvenienceNavigation()
         if isSameSelection(selection, selectedSelection) {
             recenterToken += 1
@@ -251,8 +251,8 @@ final class SpreadsCoordinator {
     // MARK: - Private
 
     private func isSameSelection(
-        _ lhs: SpreadHeaderNavigatorModel.Selection,
-        _ rhs: SpreadHeaderNavigatorModel.Selection?
+        _ lhs: DataModel.Spread,
+        _ rhs: DataModel.Spread?
     ) -> Bool {
         lhs.id == rhs?.id
     }

@@ -3,7 +3,7 @@ import SwiftUI
 struct TaskSearchView: View {
     let journalManager: JournalManager
     let isActive: Bool
-    let onOpenTask: (UUID, SpreadHeaderNavigatorModel.Selection?) -> Void
+    let onOpenTask: (UUID, DataModel.Spread?) -> Void
 
     @State private var searchText = ""
     @State private var isSearchPresented = false
