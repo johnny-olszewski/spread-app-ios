@@ -22,7 +22,6 @@ struct EntryRowView: View {
 
     @State private var editingText: String
     @State private var titleSelection: TextSelection?
-    @State private var inlineTaskStatus: DataModel.Task.Status?
     @State private var hasAcquiredTitleFocus: Bool = false
     @State private var isPerformingInlineAction: Bool = false
     @State private var isInlineActive: Bool = false
@@ -34,16 +33,33 @@ struct EntryRowView: View {
         self.entry = entry
         self.configuration = configuration
         _editingText = State(initialValue: entry.title)
-        _inlineTaskStatus = State(initialValue: configuration.effectiveTaskStatus?(entry) ?? entry.displayTaskStatus)
     }
 
     // MARK: - Body
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            rowMainContent
-                .contentShape(Rectangle())
-                .onTapGesture { handlePrimaryTap() }
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+                EntryStatusButton(status: entry.status, color: rowIconColor, onTap: rowIconOnTap)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    
+                    // title and chips
+                    titleArea
+                    
+                    if let subtitle = configuration.subtitle?(entry) {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    
+    //                taskMetadataArea
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture { handlePrimaryTap() }
 
             inlineActionRow
         }
@@ -59,9 +75,6 @@ struct EntryRowView: View {
                 commitEdit()
             }
         }
-        .onChange(of: configuration.effectiveTaskStatus?(entry) ?? entry.displayTaskStatus) { _, newStatus in
-            inlineTaskStatus = newStatus
-        }
         .onChange(of: entry.title) { _, newTitle in
             guard !isInlineActive else { return }
             editingText = newTitle
@@ -76,31 +89,9 @@ struct EntryRowView: View {
     
     private var rowIconOnTap: (() -> Void)? {
         guard entry.entryType == .task, configuration.onComplete != nil else { return nil }
-        let effectiveStatus = inlineTaskStatus ?? entry.displayTaskStatus
+        let effectiveStatus = configuration.effectiveTaskStatus?(entry) ?? entry.displayTaskStatus
         guard effectiveStatus?.canToggleCompletionInTaskSheet == true else { return nil }
         return { handleIconTap() }
-    }
-
-    private var rowMainContent: some View {
-        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            EntryStatusButton(status: inlineTaskStatus ?? entry.status, color: rowIconColor, onTap: rowIconOnTap)
-
-            VStack(alignment: .leading, spacing: 3) {
-                
-                // title and chips
-                titleArea
-                
-                if let subtitle = configuration.subtitle?(entry) {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                
-//                taskMetadataArea
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -269,12 +260,6 @@ struct EntryRowView: View {
 
     private func handleIconTap() {
         if isInlineActive { commitEdit() }
-        let current = inlineTaskStatus ?? entry.displayTaskStatus
-        if current == .open {
-            inlineTaskStatus = .complete
-        } else if current == .complete {
-            inlineTaskStatus = .open
-        }
         configuration.onComplete?(entry)
     }
 
@@ -325,7 +310,7 @@ struct EntryRowView: View {
     // MARK: - Styling
 
     private var rowIconColor: Color {
-        guard let status = inlineTaskStatus ?? entry.displayTaskStatus else { return .primary }
+        guard let status = entry.displayTaskStatus else { return .primary }
         switch status {
         case .open: return .primary
         case .complete, .migrated, .cancelled: return .secondary
@@ -333,12 +318,6 @@ struct EntryRowView: View {
     }
 
     private var rowColor: Color {
-        if let inlineStatus = inlineTaskStatus {
-            switch inlineStatus {
-            case .open: return .primary
-            case .complete, .migrated, .cancelled: return .secondary
-            }
-        }
         let greyed = configuration.isGreyedOut?(entry) ?? false
         let strikethrough = configuration.hasStrikethrough?(entry) ?? false
         return (greyed || strikethrough) ? .secondary : .primary
@@ -381,7 +360,7 @@ struct EntryRowView: View {
         if let onEdit = configuration.onEdit {
             Button { onEdit(entry) } label: { Label("Edit", systemImage: "pencil") }
         }
-        if configuration.onComplete != nil, inlineTaskStatus == .open {
+        if configuration.onComplete != nil, entry.displayTaskStatus == .open {
             Button { configuration.onComplete?(entry) } label: { Label("Complete", systemImage: "checkmark.circle") }
         }
         if let onDelete = configuration.onDelete {
