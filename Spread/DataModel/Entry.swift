@@ -50,6 +50,19 @@ extension Entry {
     var displayTaskStatus: DataModel.Task.Status? { nil }
     var displayNoteStatus: DataModel.Note.Status? { nil }
     var displayEventStatus: DataModel.Event.Status? { nil }
+
+    /// The entry's current status as a renderable value.
+    ///
+    /// Derived from whichever typed status property is non-nil. Use this for rendering
+    /// (e.g. `EntryStatusButton(status: entry.status)`). Use the typed accessors
+    /// (`displayTaskStatus`, `displayNoteStatus`, `displayEventStatus`) when you need
+    /// to compare against specific enum cases in business logic.
+    var status: any EntryStatusButtonRepresentable {
+        if let s = displayTaskStatus { return s }
+        if let s = displayNoteStatus { return s }
+        if let s = displayEventStatus { return s }
+        return DataModel.Task.Status.open
+    }
 }
 
 /// An entry that can be assigned to spreads.

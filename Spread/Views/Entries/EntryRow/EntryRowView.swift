@@ -74,13 +74,6 @@ struct EntryRowView: View {
 
     // MARK: - Subviews
     
-    private var rowEntryStatus: any EntryStatusButtonRepresentable {
-        if let status = inlineTaskStatus ?? entry.displayTaskStatus { return status }
-        if let status = entry.displayNoteStatus { return status }
-        if let status = entry.displayEventStatus { return status }
-        return DataModel.Task.Status.open
-    }
-
     private var rowIconOnTap: (() -> Void)? {
         guard entry.entryType == .task, configuration.onComplete != nil else { return nil }
         let effectiveStatus = inlineTaskStatus ?? entry.displayTaskStatus
@@ -90,7 +83,7 @@ struct EntryRowView: View {
 
     private var rowMainContent: some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            EntryStatusButton(status: rowEntryStatus, color: rowIconColor, onTap: rowIconOnTap)
+            EntryStatusButton(status: inlineTaskStatus ?? entry.status, color: rowIconColor, onTap: rowIconOnTap)
 
             VStack(alignment: .leading, spacing: 3) {
                 
