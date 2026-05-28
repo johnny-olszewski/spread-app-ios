@@ -45,7 +45,7 @@ struct EntryRowView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     
                     // title and chips
-                    titleArea
+                    topRow
                     
                     if let subtitle = configuration.subtitle?(entry) {
                         Text(subtitle)
@@ -62,6 +62,9 @@ struct EntryRowView: View {
             .onTapGesture { handlePrimaryTap() }
 
             inlineActionRow
+                .padding(.leading, 24 + SpreadTheme.Spacing.entryIconSpacing)
+                .frame(minHeight: 44)
+                .transition(.opacity)
         }
         .foregroundStyle(rowColor)
         .contextMenu { contextMenuActions }
@@ -79,7 +82,6 @@ struct EntryRowView: View {
             guard !isInlineActive else { return }
             editingText = newTitle
         }
-        .animation(.easeInOut(duration: 0.18), value: isInlineActive)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(accessibilityValue ?? "")
@@ -95,7 +97,7 @@ struct EntryRowView: View {
     }
 
     @ViewBuilder
-    private var titleArea: some View {
+    private var topRow: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             TextField("", text: $editingText, selection: $titleSelection)
                 .font(.body)
@@ -111,14 +113,13 @@ struct EntryRowView: View {
                     Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(entry.title)
                 )
 
-            if !entry.displayTagChips.isEmpty {
+            if !entry.displayTagChips.isEmpty && !isInlineActive {
                 HStack(spacing: 4) {
                     ForEach(entry.displayTagChips, id: \.title) { chip in
                         LabelChip(title: chip.title, color: chip.color)
                     }
                 }
                 .padding(.leading, 4)
-                .opacity(isInlineActive ? 0 : 1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -220,9 +221,6 @@ struct EntryRowView: View {
 
                 Spacer()
             }
-            .padding(.leading, 24 + SpreadTheme.Spacing.entryIconSpacing)
-            .frame(minHeight: 44)
-            .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
 
@@ -233,13 +231,13 @@ struct EntryRowView: View {
         editingText = entry.title
         titleSelection = endOfTextCursor(for: editingText)
         hasAcquiredTitleFocus = false
-        isInlineActive = true
+        withAnimation(.easeInOut(duration: 0.18)) { isInlineActive = true }
         isTitleFocused = true
     }
 
     private func commitEdit() {
         let trimmed = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
-        isInlineActive = false
+        withAnimation(.easeInOut(duration: 0.18)) { isInlineActive = false }
         isTitleFocused = false
         titleSelection = nil
         hasAcquiredTitleFocus = false
