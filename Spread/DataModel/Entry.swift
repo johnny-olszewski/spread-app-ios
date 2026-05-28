@@ -37,6 +37,9 @@ protocol Entry: Identifiable, Hashable {
 
     /// Note status for display, or nil if not a note.
     var displayNoteStatus: DataModel.Note.Status? { get }
+
+    /// Event status for display, or nil if not an event.
+    var displayEventStatus: DataModel.Event.Status? { get }
 }
 
 extension Entry {
@@ -46,22 +49,7 @@ extension Entry {
     var displayPriority: DataModel.Task.Priority { .none }
     var displayTaskStatus: DataModel.Task.Status? { nil }
     var displayNoteStatus: DataModel.Note.Status? { nil }
-
-    /// Accessibility label for the leading icon button.
-    var leadingIconAccessibilityLabel: String {
-        displayTaskStatus?.leadingIconAccessibilityLabel ?? entryType.rawValue.capitalized
-    }
-
-    /// Configuration for the leading icon in an entry row.
-    var leadingIconConfiguration: EntryLeadingIconButton.Configuration {
-        EntryLeadingIconButton.Configuration(
-            entryType: entryType,
-            taskStatus: displayTaskStatus,
-            noteStatus: displayNoteStatus,
-            color: iconColor ?? .primary,
-            isDisabled: !(displayTaskStatus?.canToggleCompletionInTaskSheet ?? false)
-        )
-    }
+    var displayEventStatus: DataModel.Event.Status? { nil }
 }
 
 /// An entry that can be assigned to spreads.

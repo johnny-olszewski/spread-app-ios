@@ -149,7 +149,6 @@ struct SpreadPeekPanelView: View {
         }
         let entry = DataModel.Event(calendarEvent: event)
         let config = EntryRowView.Configuration(
-            isEventPast: { _ in event.endDate < today },
             subtitle: { _ in subtitle }
         )
         return EntryRowView(entry: entry, configuration: config)
@@ -157,7 +156,7 @@ struct SpreadPeekPanelView: View {
 
     private func peekTaskRow(_ task: DataModel.Task) -> some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            StatusIcon(entryType: .task, taskStatus: .open, color: .primary)
+            EntryStatusIcon(status: DataModel.Task.Status.open, color: .primary)
                 .frame(width: 24, height: 24)
             Text(task.title)
                 .font(SpreadTheme.Typography.body)

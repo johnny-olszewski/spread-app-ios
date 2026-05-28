@@ -26,9 +26,6 @@ extension EntryRowView {
         /// Returns whether the due date label should use urgent styling.
         var isDueDateHighlighted: ((any Entry) -> Bool)?
 
-        /// Returns whether the event has already ended (events only).
-        var isEventPast: ((any Entry) -> Bool)?
-
         /// Returns the subtitle shown below the title (e.g. event time range + calendar name).
         var subtitle: ((any Entry) -> String?)?
 
@@ -133,10 +130,6 @@ extension EntryRowView.Configuration {
         let today = journalManager.today
         return EntryRowView.Configuration(
             isGreyedOut: { entry in
-                guard let event = entry as? DataModel.Event else { return false }
-                return (event.calendarEvent?.endDate ?? event.endDate) < today
-            },
-            isEventPast: { entry in
                 guard let event = entry as? DataModel.Event else { return false }
                 return (event.calendarEvent?.endDate ?? event.endDate) < today
             },

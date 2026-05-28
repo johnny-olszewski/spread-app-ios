@@ -31,6 +31,65 @@ protocol EntryStatusButtonRepresentable {
     var isInteractive: Bool { get }
 }
 
+// MARK: - DataModel.Task.Status
+
+extension DataModel.Task.Status: EntryStatusButtonRepresentable {
+    var iconBaseShape: EntryIconBaseShape { .filledCircle }
+    var iconOverlay: EntryIconOverlay? {
+        switch self {
+        case .open:      return nil
+        case .complete:  return .xmark
+        case .migrated:  return .arrowRight
+        case .cancelled: return .slash
+        }
+    }
+    var statusColor: Color {
+        switch self {
+        case .open:                          return .primary
+        case .complete, .migrated, .cancelled: return .secondary
+        }
+    }
+    var accessibilityLabel: String {
+        switch self {
+        case .open:      return "Open task"
+        case .complete:  return "Complete task"
+        case .migrated:  return "Migrated task"
+        case .cancelled: return "Cancelled task"
+        }
+    }
+    var isInteractive: Bool {
+        switch self {
+        case .open, .complete:     return true
+        case .migrated, .cancelled: return false
+        }
+    }
+}
+
+// MARK: - DataModel.Note.Status
+
+extension DataModel.Note.Status: EntryStatusButtonRepresentable {
+    var iconBaseShape: EntryIconBaseShape { .dash }
+    var iconOverlay: EntryIconOverlay? {
+        switch self {
+        case .active:   return nil
+        case .migrated: return .arrowRight
+        }
+    }
+    var statusColor: Color {
+        switch self {
+        case .active:   return .primary
+        case .migrated: return .secondary
+        }
+    }
+    var accessibilityLabel: String {
+        switch self {
+        case .active:   return "Active note"
+        case .migrated: return "Migrated note"
+        }
+    }
+    var isInteractive: Bool { false }
+}
+
 // MARK: - DataModel.Event.Status
 
 extension DataModel.Event.Status: EntryStatusButtonRepresentable {

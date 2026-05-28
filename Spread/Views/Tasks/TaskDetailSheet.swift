@@ -176,13 +176,9 @@ struct TaskDetailSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Title")
             HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-                EntryLeadingIconButton(
-                    configuration: EntryLeadingIconButton.Configuration(
-                        entryType: .task,
-                        taskStatus: viewModel.selectedStatus,
-                        color: viewModel.selectedStatus.statusIconColor,
-                        isDisabled: !viewModel.selectedStatus.canToggleCompletionInTaskSheet
-                    )
+                EntryStatusButton(
+                    status: viewModel.selectedStatus,
+                    color: viewModel.selectedStatus.statusIconColor
                 )
 
                 TextField("Task title", text: $viewModel.formModel.title)
@@ -440,12 +436,8 @@ struct TaskDetailSheet: View {
 
             ForEach(Array(task.assignments.enumerated()), id: \.element) { index, assignment in
                 HStack {
-                    StatusIcon(
-                        configuration: StatusIconConfiguration(
-                            entryType: .task,
-                            taskStatus: assignment.status,
-                            size: .caption
-                        ),
+                    EntryStatusIcon(
+                        status: assignment.status,
                         color: assignment.status.statusIconColor
                     )
 

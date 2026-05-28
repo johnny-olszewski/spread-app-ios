@@ -74,24 +74,23 @@ struct EntryRowView: View {
 
     // MARK: - Subviews
     
-    private var rowLeadingIconConfiguration: EntryLeadingIconButton.Configuration {
+    private var rowEntryStatus: any EntryStatusButtonRepresentable {
+        if let status = inlineTaskStatus ?? entry.displayTaskStatus { return status }
+        if let status = entry.displayNoteStatus { return status }
+        if let status = entry.displayEventStatus { return status }
+        return DataModel.Task.Status.open
+    }
+
+    private var rowIconOnTap: (() -> Void)? {
+        guard entry.entryType == .task, configuration.onComplete != nil else { return nil }
         let effectiveStatus = inlineTaskStatus ?? entry.displayTaskStatus
-        var config = entry.leadingIconConfiguration
-        if let status = effectiveStatus {
-            config.taskStatus = status
-            config.color = rowIconColor
-            config.isDisabled = !status.canToggleCompletionInTaskSheet
-        }
-        if entry.entryType == .task, configuration.onComplete != nil, !config.isDisabled {
-            config.onTap = { handleIconTap() }
-            config.accessibilityLabel = effectiveStatus?.leadingIconAccessibilityLabel
-        }
-        return config
+        guard effectiveStatus?.canToggleCompletionInTaskSheet == true else { return nil }
+        return { handleIconTap() }
     }
 
     private var rowMainContent: some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            EntryLeadingIconButton(configuration: rowLeadingIconConfiguration)
+            EntryStatusButton(status: rowEntryStatus, color: rowIconColor, onTap: rowIconOnTap)
 
             VStack(alignment: .leading, spacing: 3) {
                 

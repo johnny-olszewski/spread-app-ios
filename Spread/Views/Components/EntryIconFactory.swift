@@ -1,89 +1,68 @@
 import SwiftUI
 import JohnnyOFoundationUI
 
-/// Constructs a composed entry icon view for a given entry type and status.
+/// Constructs a composed entry icon view for a given entry status.
 ///
 /// This factory is the only place in the app that knows which combination of
 /// `EntryIconView` primitives and decorators corresponds to each entry state.
-/// Call sites (e.g. `StatusIcon`) remain unaware of the concrete generic types.
+/// Call sites (e.g. `EntryStatusIcon`) remain unaware of the concrete generic types.
 @MainActor
 enum EntryIconFactory {
 
     // MARK: - Public
 
-    /// Creates the appropriate icon view for the given entry type and state.
+    /// Creates the appropriate icon view for the given status.
+    ///
+    /// The base shape and overlay are read from the `EntryStatusButtonRepresentable`
+    /// conformance, eliminating the need for entry-type branching at call sites.
     ///
     /// - Parameters:
-    ///   - entryType: The type of journal entry.
-    ///   - taskStatus: The task status, if entry type is `.task`.
-    ///   - noteStatus: The note status, if entry type is `.note`.
-    ///   - isEventPast: Whether the event is in the past, if entry type is `.event`.
+    ///   - status: A value conforming to `EntryStatusButtonRepresentable`.
     ///   - size: The icon dimension in points (use `EntryIconSize` to convert from `Font.TextStyle`).
     ///   - color: The icon color.
     @ViewBuilder
     static func icon(
-        entryType: EntryType,
-        taskStatus: DataModel.Task.Status? = nil,
-        noteStatus: DataModel.Note.Status? = nil,
-        isEventPast: Bool = false,
+        status: any EntryStatusButtonRepresentable,
         size: CGFloat = 12,
         color: Color = .primary
     ) -> some View {
-        switch entryType {
-        case .task:  taskIcon(status: taskStatus, size: size, color: color)
-        case .event: eventIcon(isPast: isEventPast, size: size, color: color)
-        case .note:  noteIcon(status: noteStatus, size: size, color: color)
-        }
-    }
-
-    // MARK: - Private
-
-    @ViewBuilder
-    private static func taskIcon(
-        status: DataModel.Task.Status?,
-        size: CGFloat,
-        color: Color
-    ) -> some View {
-        switch status {
-        case .none, .open:
+        switch (status.iconBaseShape, status.iconOverlay) {
+        case (.filledCircle, nil):
             TaskCircleIcon(color: color, iconSize: size)
-        case .complete:
+        case (.filledCircle, .xmark?):
             XMarkDecorator(
                 base: TaskCircleIcon(color: color, iconSize: size),
                 color: color,
                 configuration: .init(strokeWidthFraction: 0.28)
             )
-        case .migrated:
+        case (.filledCircle, .arrowRight?):
             ArrowDecorator(base: TaskCircleIcon(color: color, iconSize: size), color: color)
-        case .cancelled:
+        case (.filledCircle, .slash?):
             SlashDecorator(base: TaskCircleIcon(color: color, iconSize: size), color: color)
-        }
-    }
-
-    @ViewBuilder
-    private static func eventIcon(isPast: Bool, size: CGFloat, color: Color) -> some View {
-        if isPast {
+        case (.emptyCircle, nil):
+            EventCircleIcon(color: color, iconSize: size)
+        case (.emptyCircle, .xmark?):
             XMarkDecorator(
                 base: EventCircleIcon(color: color, iconSize: size),
                 color: color,
                 configuration: .init(strokeWidthFraction: 0.28)
             )
-        } else {
-            EventCircleIcon(color: color, iconSize: size)
-        }
-    }
-
-    @ViewBuilder
-    private static func noteIcon(
-        status: DataModel.Note.Status?,
-        size: CGFloat,
-        color: Color
-    ) -> some View {
-        switch status {
-        case .none, .active:
+        case (.emptyCircle, .arrowRight?):
+            ArrowDecorator(base: EventCircleIcon(color: color, iconSize: size), color: color)
+        case (.emptyCircle, .slash?):
+            SlashDecorator(base: EventCircleIcon(color: color, iconSize: size), color: color)
+        case (.dash, nil):
             NoteDashIcon(color: color, iconSize: size)
-        case .migrated:
+        case (.dash, .xmark?):
+            XMarkDecorator(
+                base: NoteDashIcon(color: color, iconSize: size),
+                color: color,
+                configuration: .init(strokeWidthFraction: 0.28)
+            )
+        case (.dash, .arrowRight?):
             ArrowDecorator(base: NoteDashIcon(color: color, iconSize: size), color: color)
+        case (.dash, .slash?):
+            SlashDecorator(base: NoteDashIcon(color: color, iconSize: size), color: color)
         }
     }
 }

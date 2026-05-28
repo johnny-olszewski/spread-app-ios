@@ -1,240 +1,130 @@
-import SwiftUI
 import Testing
 @testable import Spread
 
-struct StatusIconTests {
+/// Tests for `EntryStatusButtonRepresentable` conformances on all three entry status types.
+///
+/// Each conformance determines the icon shape, overlay, interactivity, and accessibility
+/// label for that status — eliminating entry-type branching from rendering components.
+@Suite("EntryStatusButtonRepresentable Conformance Tests")
+struct EntryStatusButtonRepresentableTests {
 
-    // MARK: - Entry Type Base Symbol Tests
+    // MARK: - DataModel.Task.Status — base shape
 
-    /// Conditions: Entry type is task.
-    /// Expected: Base symbol is "circle.fill" (solid circle).
-    @Test func testTaskEntryTypeHasSolidCircleSymbol() {
-        let config = StatusIconConfiguration(entryType: .task)
-
-        #expect(config.baseSymbol == "circle.fill")
+    /// Conditions: Any task status.
+    /// Expected: Base shape is .filledCircle for all task statuses.
+    @Test("Task statuses all use filledCircle base shape")
+    func testTaskStatusBaseShape() {
+        for status in DataModel.Task.Status.allCases {
+            #expect(status.iconBaseShape == .filledCircle)
+        }
     }
 
-    /// Conditions: Entry type is event.
-    /// Expected: Base symbol is "circle" (empty circle).
-    @Test func testEventEntryTypeHasEmptyCircleSymbol() {
-        let config = StatusIconConfiguration(entryType: .event)
+    // MARK: - DataModel.Task.Status — overlays
 
-        #expect(config.baseSymbol == "circle")
+    /// Conditions: Task status is .open.
+    /// Expected: No overlay.
+    @Test("Open task has no overlay")
+    func testOpenTaskHasNoOverlay() {
+        #expect(DataModel.Task.Status.open.iconOverlay == nil)
     }
 
-    /// Conditions: Entry type is note.
-    /// Expected: Base symbol is "minus" (dash).
-    @Test func testNoteEntryTypeHasDashSymbol() {
-        let config = StatusIconConfiguration(entryType: .note)
-
-        #expect(config.baseSymbol == "minus")
+    /// Conditions: Task status is .complete.
+    /// Expected: xmark overlay.
+    @Test("Complete task has xmark overlay")
+    func testCompleteTaskHasXmarkOverlay() {
+        #expect(DataModel.Task.Status.complete.iconOverlay == .xmark)
     }
 
-    // MARK: - Task Status Overlay Tests
-
-    /// Conditions: Task status is open.
-    /// Expected: No overlay symbol (nil).
-    @Test func testOpenTaskStatusHasNoOverlay() {
-        let config = StatusIconConfiguration(entryType: .task, taskStatus: .open)
-
-        #expect(config.overlaySymbol == nil)
+    /// Conditions: Task status is .migrated.
+    /// Expected: arrowRight overlay.
+    @Test("Migrated task has arrowRight overlay")
+    func testMigratedTaskHasArrowRightOverlay() {
+        #expect(DataModel.Task.Status.migrated.iconOverlay == .arrowRight)
     }
 
-    /// Conditions: Task status is complete.
-    /// Expected: Overlay symbol is "xmark".
-    @Test func testCompleteTaskStatusHasXmarkOverlay() {
-        let config = StatusIconConfiguration(entryType: .task, taskStatus: .complete)
-
-        #expect(config.overlaySymbol == "xmark")
+    /// Conditions: Task status is .cancelled.
+    /// Expected: slash overlay.
+    @Test("Cancelled task has slash overlay")
+    func testCancelledTaskHasSlashOverlay() {
+        #expect(DataModel.Task.Status.cancelled.iconOverlay == .slash)
     }
 
-    /// Conditions: Task status is migrated.
-    /// Expected: Overlay symbol is "arrow.right".
-    @Test func testMigratedTaskStatusHasArrowRightOverlay() {
-        let config = StatusIconConfiguration(entryType: .task, taskStatus: .migrated)
+    // MARK: - DataModel.Task.Status — interactivity
 
-        #expect(config.overlaySymbol == "arrow.right")
+    /// Conditions: Task status is .open or .complete.
+    /// Expected: Interactive (can toggle completion).
+    @Test("Open and complete tasks are interactive")
+    func testOpenAndCompleteAreInteractive() {
+        #expect(DataModel.Task.Status.open.isInteractive == true)
+        #expect(DataModel.Task.Status.complete.isInteractive == true)
     }
 
-    /// Conditions: Task status is cancelled.
-    /// Expected: Overlay symbol is "line.diagonal".
-    @Test func testCancelledTaskStatusHasSlashOverlay() {
-        let config = StatusIconConfiguration(entryType: .task, taskStatus: .cancelled)
-
-        #expect(config.overlaySymbol == "line.diagonal")
+    /// Conditions: Task status is .migrated or .cancelled.
+    /// Expected: Not interactive.
+    @Test("Migrated and cancelled tasks are not interactive")
+    func testMigratedAndCancelledAreNotInteractive() {
+        #expect(DataModel.Task.Status.migrated.isInteractive == false)
+        #expect(DataModel.Task.Status.cancelled.isInteractive == false)
     }
 
-    // MARK: - Non-Task Overlay Tests
+    // MARK: - DataModel.Note.Status — base shape
 
-    /// Conditions: Entry type is event (no task status).
-    /// Expected: No overlay symbol.
-    @Test func testEventHasNoOverlay() {
-        let config = StatusIconConfiguration(entryType: .event)
-
-        #expect(config.overlaySymbol == nil)
+    /// Conditions: Any note status.
+    /// Expected: Base shape is .dash for all note statuses.
+    @Test("Note statuses all use dash base shape")
+    func testNoteStatusBaseShape() {
+        for status in DataModel.Note.Status.allCases {
+            #expect(status.iconBaseShape == .dash)
+        }
     }
 
-    /// Conditions: Entry type is note (no task status).
-    /// Expected: No overlay symbol.
-    @Test func testNoteHasNoOverlay() {
-        let config = StatusIconConfiguration(entryType: .note)
+    // MARK: - DataModel.Note.Status — overlays
 
-        #expect(config.overlaySymbol == nil)
+    /// Conditions: Note status is .active.
+    /// Expected: No overlay.
+    @Test("Active note has no overlay")
+    func testActiveNoteHasNoOverlay() {
+        #expect(DataModel.Note.Status.active.iconOverlay == nil)
     }
 
-    // MARK: - Default Configuration Tests
-
-    /// Conditions: Configuration created with only entry type.
-    /// Expected: Task status is nil by default.
-    @Test func testDefaultTaskStatusIsNil() {
-        let config = StatusIconConfiguration(entryType: .task)
-
-        #expect(config.taskStatus == nil)
+    /// Conditions: Note status is .migrated.
+    /// Expected: arrowRight overlay.
+    @Test("Migrated note has arrowRight overlay")
+    func testMigratedNoteHasArrowRightOverlay() {
+        #expect(DataModel.Note.Status.migrated.iconOverlay == .arrowRight)
     }
 
-    /// Conditions: Configuration created with entry type and no task status.
-    /// Expected: No overlay is shown.
-    @Test func testTaskWithNoStatusHasNoOverlay() {
-        let config = StatusIconConfiguration(entryType: .task, taskStatus: nil)
+    // MARK: - DataModel.Note.Status — interactivity
 
-        #expect(config.overlaySymbol == nil)
+    /// Conditions: Any note status.
+    /// Expected: Notes are never interactive.
+    @Test("Notes are not interactive")
+    func testNotesAreNotInteractive() {
+        for status in DataModel.Note.Status.allCases {
+            #expect(status.isInteractive == false)
+        }
     }
 
-    // MARK: - Size Configuration Tests
+    // MARK: - DataModel.Event.Status
 
-    /// Conditions: Configuration created with default size.
-    /// Expected: Size is .caption (default row icon size).
-    @Test func testDefaultSizeIsCaption() {
-        let config = StatusIconConfiguration(entryType: .task)
-
-        #expect(config.size == .caption)
+    /// Conditions: Event status is .upcoming.
+    /// Expected: Base shape is .emptyCircle.
+    @Test("Upcoming event uses emptyCircle base shape")
+    func testUpcomingEventBaseShape() {
+        #expect(DataModel.Event.Status.upcoming.iconBaseShape == .emptyCircle)
     }
 
-    /// Conditions: Configuration created with custom size.
-    /// Expected: Size matches the provided value.
-    @Test func testCustomSizeIsRespected() {
-        let config = StatusIconConfiguration(entryType: .task, size: .title)
-
-        #expect(config.size == .title)
+    /// Conditions: Event status is .upcoming.
+    /// Expected: No overlay.
+    @Test("Upcoming event has no overlay")
+    func testUpcomingEventHasNoOverlay() {
+        #expect(DataModel.Event.Status.upcoming.iconOverlay == nil)
     }
 
-    // MARK: - Overlay Scale Tests
-
-    /// Conditions: Overlay symbol exists.
-    /// Expected: Overlay scale uses the tuned default.
-    @Test func testOverlayScaleIsSmallerThanBase() {
-        let config = StatusIconConfiguration(entryType: .task, taskStatus: .complete)
-
-        #expect(config.overlayScale == 0.65)
-    }
-
-    /// Conditions: No overlay symbol.
-    /// Expected: Overlay scale still uses the tuned default.
-    @Test func testOverlayScaleDefinedEvenWithoutOverlay() {
-        let config = StatusIconConfiguration(entryType: .task)
-
-        #expect(config.overlayScale == 0.65)
-    }
-
-    // MARK: - Note Status Overlay Tests
-
-    /// Conditions: Note with active status.
-    /// Expected: No overlay symbol (active notes show plain dash).
-    @Test func testActiveNoteHasNoOverlay() {
-        let config = StatusIconConfiguration(entryType: .note, noteStatus: .active)
-
-        #expect(config.overlaySymbol == nil)
-    }
-
-    /// Conditions: Note with migrated status.
-    /// Expected: Overlay symbol is "arrow.right" (migrated notes show arrow on dash).
-    @Test func testMigratedNoteHasArrowRightOverlay() {
-        let config = StatusIconConfiguration(entryType: .note, noteStatus: .migrated)
-
-        #expect(config.overlaySymbol == "arrow.right")
-    }
-
-    /// Conditions: Note with no status specified.
-    /// Expected: No overlay symbol.
-    @Test func testNoteWithNoStatusHasNoOverlay() {
-        let config = StatusIconConfiguration(entryType: .note, noteStatus: nil)
-
-        #expect(config.overlaySymbol == nil)
-    }
-
-    // MARK: - Past Event Overlay Tests
-
-    /// Conditions: Event that is not past.
-    /// Expected: No overlay symbol (current events show plain empty circle).
-    @Test func testCurrentEventHasNoOverlay() {
-        let config = StatusIconConfiguration(entryType: .event, isEventPast: false)
-
-        #expect(config.overlaySymbol == nil)
-    }
-
-    /// Conditions: Event that is past.
-    /// Expected: Overlay symbol is "xmark" (past events show X on empty circle).
-    @Test func testPastEventHasXmarkOverlay() {
-        let config = StatusIconConfiguration(entryType: .event, isEventPast: true)
-
-        #expect(config.overlaySymbol == "xmark")
-    }
-
-    /// Conditions: Event with no past status specified.
-    /// Expected: No overlay symbol (defaults to current).
-    @Test func testEventWithNoPastStatusHasNoOverlay() {
-        let config = StatusIconConfiguration(entryType: .event)
-
-        #expect(config.overlaySymbol == nil)
-    }
-
-    // MARK: - Mixed Parameter Tests
-
-    /// Conditions: Task entry type with note status provided.
-    /// Expected: Note status is ignored, only task status matters.
-    @Test func testTaskIgnoresNoteStatus() {
-        let config = StatusIconConfiguration(
-            entryType: .task,
-            taskStatus: .open,
-            noteStatus: .migrated
-        )
-
-        #expect(config.overlaySymbol == nil)
-    }
-
-    /// Conditions: Note entry type with task status provided.
-    /// Expected: Task status is ignored, only note status matters.
-    @Test func testNoteIgnoresTaskStatus() {
-        let config = StatusIconConfiguration(
-            entryType: .note,
-            taskStatus: .complete,
-            noteStatus: .active
-        )
-
-        #expect(config.overlaySymbol == nil)
-    }
-
-    /// Conditions: Event entry type with isEventPast false but task status provided.
-    /// Expected: Task status is ignored, event past status determines overlay.
-    @Test func testEventIgnoresTaskStatus() {
-        let config = StatusIconConfiguration(
-            entryType: .event,
-            taskStatus: .complete,
-            isEventPast: false
-        )
-
-        #expect(config.overlaySymbol == nil)
-    }
-
-    /// Conditions: Task entry type with isEventPast true.
-    /// Expected: Event past status is ignored for tasks.
-    @Test func testTaskIgnoresEventPastStatus() {
-        let config = StatusIconConfiguration(
-            entryType: .task,
-            taskStatus: .open,
-            isEventPast: true
-        )
-
-        #expect(config.overlaySymbol == nil)
+    /// Conditions: Event status is .upcoming.
+    /// Expected: Not interactive.
+    @Test("Events are not interactive")
+    func testEventsAreNotInteractive() {
+        #expect(DataModel.Event.Status.upcoming.isInteractive == false)
     }
 }
