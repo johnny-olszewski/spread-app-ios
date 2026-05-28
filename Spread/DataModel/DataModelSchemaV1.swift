@@ -461,6 +461,11 @@ enum DataModelSchemaV1: VersionedSchema {
     /// by checking if their date range overlaps with the spread's time period.
     @Model
     final class Event: DateRangeEntry {
+        /// The display status of an event.
+        enum Status: String, CaseIterable, Codable, Sendable {
+            case upcoming
+        }
+
         /// Unique identifier for the event.
         @Attribute(.unique) var id: UUID
 
