@@ -59,6 +59,7 @@ final class SpreadsCoordinator {
     enum AlertDestination: Identifiable {
         case deleteSpreadConfirmation(DataModel.Spread)
         case deleteSpreadFailed(message: String)
+        case discardChanges(onSave: @MainActor () async -> Void, onDiscard: @MainActor () async -> Void)
 
         var id: String {
             switch self {
@@ -66,6 +67,8 @@ final class SpreadsCoordinator {
                 return "deleteSpreadConfirmation-\(spread.id)"
             case .deleteSpreadFailed:
                 return "deleteSpreadFailed"
+            case .discardChanges:
+                return "discardChanges"
             }
         }
     }
@@ -241,6 +244,14 @@ final class SpreadsCoordinator {
     /// Dismisses the currently active sheet.
     func dismiss() {
         activeSheet = nil
+    }
+
+    /// Presents the discard-changes alert when an inline action is triggered with a pending title edit.
+    func showDiscardChanges(
+        onSave: @escaping @MainActor () async -> Void,
+        onDiscard: @escaping @MainActor () async -> Void
+    ) {
+        activeAlert = .discardChanges(onSave: onSave, onDiscard: onDiscard)
     }
 
     /// Dismisses the currently active alert.

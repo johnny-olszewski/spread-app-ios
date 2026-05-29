@@ -143,6 +143,17 @@ struct SpreadContentPagerView: View {
                         coordinator.dismissAlert()
                     }
                 )
+            case .discardChanges(let onSave, let onDiscard):
+                return Alert(
+                    title: Text("Unsaved Changes"),
+                    message: Text("Save your title changes before continuing?"),
+                    primaryButton: .default(Text("Save")) {
+                        Task { @MainActor in await onSave() }
+                    },
+                    secondaryButton: .destructive(Text("Discard")) {
+                        Task { @MainActor in await onDiscard() }
+                    }
+                )
             }
         }
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.pager)
