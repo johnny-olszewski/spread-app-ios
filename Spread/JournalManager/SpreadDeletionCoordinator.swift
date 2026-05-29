@@ -29,13 +29,12 @@ struct TaskSpreadDeletionPlan: Sendable {
     /// The status to carry over to the replacement assignment (e.g., `.open` or `.complete`).
     ///
     /// Ensures the task's status on the parent spread reflects what it had on the deleted spread.
-    let preservedStatus: DataModel.Task.Status
+    let preservedStatus: EntryStatus
 }
 
 /// Captures the assignment reassignment plan for a single note when its spread is deleted.
 ///
-/// Mirrors `TaskSpreadDeletionPlan` for notes. Note assignments use `NoteAssignment.Status`
-/// rather than `DataModel.Task.Status`.
+/// Mirrors `TaskSpreadDeletionPlan` for notes.
 struct NoteSpreadDeletionPlan: Sendable {
     /// The ID of the note this plan applies to.
     let noteID: UUID
@@ -51,7 +50,7 @@ struct NoteSpreadDeletionPlan: Sendable {
     let replacementAssignment: NoteAssignment?
 
     /// The status to carry over to the replacement assignment.
-    let preservedStatus: DataModel.Note.Status
+    let preservedStatus: EntryStatus
 }
 
 /// A complete plan for deleting a spread and reassigning all of its entries.

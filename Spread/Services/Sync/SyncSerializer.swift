@@ -1478,14 +1478,14 @@ enum SyncSerializer {
             task.period = period
         }
         task.hasPreferredAssignment = row.date != nil && row.period != nil
-        if let status = DataModel.Task.Status(rawValue: row.status) { task.status = status }
+        if let status = EntryStatus(rawValue: row.status) { task.status = status }
         return true
     }
 
     /// Creates a new local task from a server row.
     static func createTask(from row: ServerTaskRow) -> DataModel.Task? {
         guard row.deletedAt == nil,
-              let status = DataModel.Task.Status(rawValue: row.status),
+              let status = EntryStatus(rawValue: row.status),
               let priority = DataModel.Task.Priority(rawValue: row.priority),
               let createdAt = SyncDateFormatting.parseTimestamp(row.createdAt) else {
             return nil
@@ -1517,7 +1517,7 @@ enum SyncSerializer {
         note.content = row.content
         if let date = SyncDateFormatting.parseDate(row.date) { note.date = date }
         if let period = Period(rawValue: row.period) { note.period = period }
-        if let status = DataModel.Note.Status(rawValue: row.status) { note.status = status }
+        if let status = EntryStatus(rawValue: row.status) { note.status = status }
         return true
     }
 
@@ -1526,7 +1526,7 @@ enum SyncSerializer {
         guard row.deletedAt == nil,
               let date = SyncDateFormatting.parseDate(row.date),
               let period = Period(rawValue: row.period),
-              let status = DataModel.Note.Status(rawValue: row.status),
+              let status = EntryStatus(rawValue: row.status),
               let createdAt = SyncDateFormatting.parseTimestamp(row.createdAt) else {
             return nil
         }
@@ -1572,7 +1572,7 @@ enum SyncSerializer {
         guard row.deletedAt == nil,
               let period = Period(rawValue: row.period),
               let date = SyncDateFormatting.parseDate(row.date),
-              let status = DataModel.Task.Status(rawValue: row.status) else {
+              let status = EntryStatus(rawValue: row.status) else {
             return nil
         }
         return TaskAssignment(
@@ -1589,7 +1589,7 @@ enum SyncSerializer {
         guard row.deletedAt == nil,
               let period = Period(rawValue: row.period),
               let date = SyncDateFormatting.parseDate(row.date),
-              let status = DataModel.Note.Status(rawValue: row.status) else {
+              let status = EntryStatus(rawValue: row.status) else {
             return nil
         }
         return NoteAssignment(

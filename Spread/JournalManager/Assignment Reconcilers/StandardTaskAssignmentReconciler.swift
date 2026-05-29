@@ -31,7 +31,7 @@ struct StandardTaskAssignmentReconciler: TaskAssignmentReconciler {
             in: spreads,
             preferredSpreadID: preferredSpreadID
         )
-        let destinationStatus = task.status == .complete ? DataModel.Task.Status.complete : task.status
+        let destinationStatus = task.status
 
         if let destination {
             if let destinationIndex = task.assignments.firstIndex(where: { assignment in
