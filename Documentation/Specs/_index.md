@@ -43,6 +43,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | [Accessibility.md](Accessibility.md) | Accessibility labels, VoiceOver, dynamic type | SPRD-218 |
 | [ErrorHandling.md](ErrorHandling.md) | Error handling UX: auth, sync, network, app init, entry/spread ops | — |
 | [ResolvedDecisions.md](ResolvedDecisions.md) | Edge cases resolved, resolved decisions, open questions | — |
+| [EntryComponents.md](EntryComponents.md) | Entry status icon rendering pipeline: EntryStatusIcon, EntryStatusButton, EntryStatusButtonRepresentable | SPRD-227 |
 
 ---
 

@@ -5986,3 +5986,37 @@ Supabase: SPRD-85A -> SPRD-85C
   - No new tests required — this task deletes tests and simplifies logic. Verify the build is green and all surviving unit tests pass after removal.
 - **Open Questions**:
   - The `p_bujo_mode` and `p_bujo_mode_updated_at` columns remain in the Supabase `settings` table. A follow-up migration can drop them if they cause issues during future schema evolution.
+
+---
+
+### [SPRD-227] Refactor: Entry status icon pipeline and single Entry.status protocol requirement - [ ] Pending
+
+- **Context**: The entry status icon pipeline splits rendering knowledge across `EntryStatusButtonRepresentable`, `EntryIconFactory`, and `EntryStatusIcon`. Separately, the `Entry` protocol exposes three typed optional status accessors (`displayTaskStatus`, `displayNoteStatus`, `displayEventStatus`) plus a derived `status` extension default — four properties where one should suffice.
+- **Description**: Two coordinated changes. (1) Icon pipeline: introduce `EntryStatusIcon.BaseShape` and `EntryStatusIcon.Overlay` nested enums with `color: Color?` and `size: CGFloat?` associated values on every case; make `EntryStatusIcon` a pure primitive renderer; make `EntryStatusButton` the protocol bridge; remove `statusColor` from the protocol; delete `EntryIconFactory.swift` and `EntryIconSize`; remove `rowIconColor` from `EntryRowView`. (2) Entry protocol: replace `displayTaskStatus`, `displayNoteStatus`, `displayEventStatus` with a single `status: any EntryStatusButtonRepresentable` protocol requirement; the concrete model types satisfy it via Swift's implicit existential covariance without any bridging code; delete the three display shim files; update view and configuration code that needs typed comparisons to cast to the concrete type.
+- **Spec**: `Documentation/Specs/EntryComponents.md` — Requirements and Design Decisions
+- **Acceptance Criteria**:
+  - `EntryStatusIcon` defines nested `BaseShape` enum with cases `filledCircle(color: Color?, size: CGFloat?)`, `emptyCircle(color: Color?, size: CGFloat?)`, `dash(color: Color?, size: CGFloat?)`.
+  - `EntryStatusIcon` defines nested `Overlay` enum with cases `xmark(color: Color?, size: CGFloat?)`, `arrowRight(color: Color?, size: CGFloat?)`, `slash(color: Color?, size: CGFloat?)`.
+  - `EntryStatusIcon` accepts `baseShape: BaseShape` and `overlay: Overlay?` as its only inputs. No `color`, `size`, or `status` parameters.
+  - Color coalescing in `EntryStatusIcon`: overlay `color` → base shape `color` → `.primary`.
+  - Size coalescing in `EntryStatusIcon`: case `size` → 12.0pt.
+  - `EntryStatusButton` accepts `status: any EntryStatusButtonRepresentable` only (no `color` parameter). It reads `iconBaseShape` and `iconOverlay` from the protocol and passes them to `EntryStatusIcon`.
+  - `statusColor` is removed from `EntryStatusButtonRepresentable`. All three conformances (`Task.Status`, `Note.Status`, `Event.Status`) embed color in their `iconBaseShape` return values.
+  - `EntryIconFactory.swift` is deleted with no remaining references in the project.
+  - `EntryIconSize` is deleted with no remaining references in the project.
+  - `rowIconColor` is removed from `EntryRowView`. `EntryStatusButton` is called without a `color` argument.
+  - `TaskDetailSheet` and any other direct `EntryStatusIcon` users construct `BaseShape` directly with their desired color.
+  - The `Entry` protocol requires `var status: any EntryStatusButtonRepresentable { get }` and no longer declares `displayTaskStatus`, `displayNoteStatus`, or `displayEventStatus`.
+  - The `Entry` extension default `status` property is removed; `status` is a first-class protocol requirement.
+  - `DataModel.Task.status: DataModel.Task.Status` satisfies the protocol requirement without any new computed property or wrapper.
+  - `DataModel.Note.status: DataModel.Note.Status` satisfies the protocol requirement the same way.
+  - `DataModel.Event` has a computed `var status: DataModel.Event.Status { .upcoming }` satisfying the requirement.
+  - `DataModel.Task+DisplayHelpers.swift` has only its `displayTaskStatus` line removed; the file is otherwise unchanged.
+  - `DataModel.Note+Display.swift` is deleted (its only content was `displayNoteStatus`).
+  - `DataModel.Event+Display.swift` is deleted (its only content was `displayEventStatus`). `DataModel.Event` gains `var status: DataModel.Event.Status { .upcoming }` in `DataModelSchemaV1.swift` or a new `DataModel.Event+Entry.swift` extension.
+  - Tests in `EntryRowAccessibilityTests.swift` and `NoteMigrationExclusionTests.swift` that used `displayTaskStatus` / `displayNoteStatus` are updated to use `task.status` / `note.status` directly.
+  - All call sites that previously used `entry.displayTaskStatus`, `entry.displayNoteStatus`, or `entry.displayEventStatus` for typed comparisons are updated to cast to the concrete type (e.g. `(entry as? DataModel.Task)?.status == .open`).
+  - All existing Previews for `EntryStatusIcon`, `EntryStatusButton`, and `EntryRowView` render correctly with no visual regression.
+  - Project builds with no errors or warnings.
+- **Tests**:
+  - Visual inspection of existing Previews in `EntryStatusIcon.swift`, `EntryStatusButton.swift`, and `EntryRowView.swift` covers all icon/overlay combinations. No unit tests required.
