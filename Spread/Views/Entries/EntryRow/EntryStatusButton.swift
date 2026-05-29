@@ -8,8 +8,8 @@ struct EntryStatusButton: View {
 
     // MARK: - Properties
 
-    let status: any EntryStatusButtonRepresentable
-    var color: Color = .primary
+    let status: EntryStatus
+    let entryType: EntryType
     var onTap: (() -> Void)?
 
     // MARK: - Body
@@ -18,12 +18,12 @@ struct EntryStatusButton: View {
         Button {
             onTap?()
         } label: {
-            EntryStatusIcon(baseShape: status.iconBaseShape, overlay: status.iconOverlay)
+            EntryStatusIcon(baseShape: status.iconBaseShape(for: entryType), overlay: status.iconOverlay)
                 .frame(width: 24, height: 24)
         }
         .buttonStyle(.plain)
         .contentShape(Rectangle())
-        .accessibilityLabel(status.accessibilityLabel)
+        .accessibilityLabel(status.accessibilityLabel(for: entryType))
         .allowsHitTesting(onTap != nil)
     }
 }
@@ -32,11 +32,11 @@ struct EntryStatusButton: View {
 
 #Preview {
     VStack(spacing: 12) {
-        EntryStatusButton(status: DataModel.Task.Status.open, onTap: {})
-        EntryStatusButton(status: DataModel.Task.Status.complete, color: .secondary)
-        EntryStatusButton(status: DataModel.Task.Status.cancelled, color: .secondary)
-        EntryStatusButton(status: DataModel.Event.Status.upcoming)
-        EntryStatusButton(status: DataModel.Note.Status.active)
+        EntryStatusButton(status: .open, entryType: .task, onTap: {})
+        EntryStatusButton(status: .complete, entryType: .task)
+        EntryStatusButton(status: .cancelled, entryType: .task)
+        EntryStatusButton(status: .upcoming, entryType: .event)
+        EntryStatusButton(status: .active, entryType: .note)
     }
     .padding()
 }

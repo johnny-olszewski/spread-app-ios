@@ -29,7 +29,6 @@ extension DataModel.Task {
 
     // MARK: - Entry display protocol requirements
 
-    var displayTaskStatus: DataModel.Task.Status? { status }
     var displayBodyPreview: String? { bodyPreview }
     var displayPriority: DataModel.Task.Priority { priority }
     var displayTagChips: [(title: String, color: Color)] {
