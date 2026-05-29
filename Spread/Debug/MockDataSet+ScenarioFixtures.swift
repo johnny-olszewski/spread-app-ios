@@ -646,7 +646,7 @@ extension MockDataSet {
         period: Period,
         assignmentPeriod: Period? = nil,
         assignmentDate: Date? = nil,
-        status: DataModel.Task.Status = .open,
+        status: EntryStatus = .open,
         calendar: Calendar
     ) -> DataModel.Task {
         let assignments: [TaskAssignment]

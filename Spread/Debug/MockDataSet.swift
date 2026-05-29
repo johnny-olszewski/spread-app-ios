@@ -545,7 +545,7 @@ enum MockDataSet: String, CaseIterable {
             if let taskDate = calendar.date(byAdding: .day, value: dayOffset, to: today) {
                 let normalizedDate = Period.day.normalizeDate(taskDate, calendar: calendar)
                 let title = taskTitles[i % taskTitles.count]
-                let status: DataModel.Task.Status = i % 5 == 0 ? .complete : .open
+                let status: EntryStatus = i % 5 == 0 ? .complete : .open
 
                 tasks.append(DataModel.Task(
                     title: "\(title) #\(i + 1)",

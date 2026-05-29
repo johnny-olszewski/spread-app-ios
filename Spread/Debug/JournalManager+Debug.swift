@@ -74,7 +74,7 @@ extension JournalManager {
         title: String,
         date: Date,
         period: Period,
-        status: DataModel.Task.Status = .open,
+        status: EntryStatus = .open,
         reloadAfter: Bool = true
     ) async throws -> DataModel.Task {
         let task = DataModel.Task(
