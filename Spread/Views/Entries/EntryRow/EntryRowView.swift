@@ -1,12 +1,6 @@
 import SwiftUI
 import JohnnyOFoundationUI
 
-struct EntryRowInlineActionConfiguration {
-    let migrationOptions: [EntryRowInlineMigrationOption]
-    let onEditSheet: () -> Void
-    let onMigrationSelected: (EntryRowInlineMigrationOption) async -> Void
-}
-
 /// A row component for displaying an entry with type symbol, title, and actions.
 ///
 /// Receives a type-level `EntryRowView.Configuration` from the caller and an `Entry` to render.
@@ -23,7 +17,6 @@ struct EntryRowView: View {
     @State private var editingText: String
     @State private var titleSelection: TextSelection?
     @State private var hasAcquiredTitleFocus: Bool = false
-    @State private var isPerformingInlineAction: Bool = false
     @State private var isInlineActive: Bool = false
     @FocusState private var isTitleFocused: Bool
 
@@ -61,10 +54,6 @@ struct EntryRowView: View {
             .contentShape(Rectangle())
             .onTapGesture { handlePrimaryTap() }
 
-            inlineActionRow
-                .padding(.leading, 24 + SpreadTheme.Spacing.entryIconSpacing)
-                .frame(minHeight: 44)
-                .transition(.opacity)
         }
         .foregroundStyle(rowColor)
         .contextMenu { contextMenuActions }
@@ -74,7 +63,7 @@ struct EntryRowView: View {
                     titleSelection = endOfTextCursor(for: editingText)
                 }
                 hasAcquiredTitleFocus = true
-            } else if isInlineActive && hasAcquiredTitleFocus && !isPerformingInlineAction {
+            } else if isInlineActive && hasAcquiredTitleFocus {
                 commitEdit()
             }
         }
@@ -112,6 +101,13 @@ struct EntryRowView: View {
                 .accessibilityIdentifier(
                     Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(entry.title)
                 )
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        ForEach(configuration.actions) { action in
+                            toolbarItem(for: action)
+                        }
+                    }
+                }
 
             if !entry.displayTagChips.isEmpty && !isInlineActive {
                 HStack(spacing: 4) {
@@ -165,61 +161,50 @@ struct EntryRowView: View {
 //    }
 
     @ViewBuilder
-    private var inlineActionRow: some View {
-        if supportsInlineEditing && isInlineActive {
-            HStack(spacing: 16) {
-                Button {
-                    Task { @MainActor in await openEditSheetFromInlineActions() }
+    private func toolbarItem(for action: Configuration.Action) -> some View {
+        switch action {
+        case .edit(let onTap):
+            Button {
+                Task { @MainActor in await performAction { onTap(entry) } }
+            } label: {
+                Image(systemName: action.systemImageName)
+                    .font(.system(size: SpreadTheme.IconSize.medium))
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .accessibilityLabel("Edit")
+            .accessibilityIdentifier(
+                Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineEditButton(entry.title)
+            )
+        case .migrate(let migrationOptions, let onMigrationSelected):
+            let options = migrationOptions(entry)
+            if !options.isEmpty {
+                Menu {
+                    ForEach(options) { option in
+                        Button {
+                            Task { @MainActor in
+                                await performAction { await onMigrationSelected(entry, option) }
+                            }
+                        } label: {
+                            Text(option.label)
+                        }
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationOption(
+                                entry.title,
+                                option: option.kind.rawValue
+                            )
+                        )
+                    }
                 } label: {
-                    Image(systemName: "square.and.pencil")
+                    Image(systemName: action.systemImageName)
                         .font(.system(size: SpreadTheme.IconSize.medium))
                         .foregroundStyle(.secondary)
                         .frame(minWidth: 44, minHeight: 44)
                 }
-                .buttonStyle(.plain)
-                .contentShape(Rectangle())
-                .accessibilityLabel("Edit task")
+                .accessibilityLabel("Migrate")
                 .accessibilityIdentifier(
-                    Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineEditButton(entry.title)
+                    Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu(entry.title)
                 )
-                .accessibilityElement(children: .ignore)
-
-                if let inlineConfig = configuration.inlineActionConfiguration?(entry) {
-                    Menu {
-                        ForEach(inlineConfig.migrationOptions) { option in
-                            Button {
-                                Task { @MainActor in await performInlineMigration(option, inlineConfig: inlineConfig) }
-                            } label: {
-                                Text(option.label)
-                            }
-                            .accessibilityIdentifier(
-                                Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationOption(
-                                    entry.title,
-                                    option: option.kind.rawValue
-                                )
-                            )
-                        }
-                        if !inlineConfig.migrationOptions.isEmpty { Divider() }
-                        Button {
-                            Task { @MainActor in await openEditSheetFromInlineActions() }
-                        } label: {
-                            Text("Custom...")
-                        }
-                    } label: {
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: SpreadTheme.IconSize.medium))
-                            .foregroundStyle(.secondary)
-                            .frame(minWidth: 44, minHeight: 44)
-                    }
-                    .contentShape(Rectangle())
-                    .accessibilityLabel("Migrate task")
-                    .accessibilityIdentifier(
-                        Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu(entry.title)
-                    )
-                    .accessibilityElement(children: .ignore)
-                }
-
-                Spacer()
             }
         }
     }
@@ -270,35 +255,33 @@ struct EntryRowView: View {
         return status == .open
     }
 
-    private func openEditSheetFromInlineActions() async {
-        isPerformingInlineAction = true
-        isTitleFocused = false
-        await EntryRowInlineEditSupport.performInlineAction(
-            draftTitle: editingText,
-            originalTitle: entry.title,
-            onCommit: { title in await configuration.onTitleCommit?(entry, title) },
-            action: {
-                isInlineActive = false
-                await Task.yield()
-                configuration.onEdit?(entry)
-            }
-        )
-        isPerformingInlineAction = false
-    }
+    private func performAction(_ action: @escaping @MainActor () async -> Void) async {
+        let trimmed = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasChanges = !trimmed.isEmpty && trimmed != entry.title
 
-    private func performInlineMigration(_ option: EntryRowInlineMigrationOption, inlineConfig: EntryRowInlineActionConfiguration) async {
-        isPerformingInlineAction = true
+        // Deactivate inline mode before dismissing focus so the onChange observer
+        // sees isInlineActive == false and skips the auto-commit via commitEdit().
+        isInlineActive = false
+        titleSelection = nil
+        hasAcquiredTitleFocus = false
         isTitleFocused = false
-        await EntryRowInlineEditSupport.performInlineAction(
-            draftTitle: editingText,
-            originalTitle: entry.title,
-            onCommit: { title in await configuration.onTitleCommit?(entry, title) },
-            action: {
-                isInlineActive = false
-                await inlineConfig.onMigrationSelected(option)
-            }
-        )
-        isPerformingInlineAction = false
+
+        if hasChanges, let showAlert = configuration.showDiscardChangesAlert {
+            let entry = self.entry
+            let onTitleCommit = configuration.onTitleCommit
+            showAlert(
+                {
+                    await onTitleCommit?(entry, trimmed)
+                    await action()
+                },
+                {
+                    await action()
+                }
+            )
+        } else {
+            await Task.yield()
+            await action()
+        }
     }
 
     private func endOfTextCursor(for text: String) -> TextSelection {

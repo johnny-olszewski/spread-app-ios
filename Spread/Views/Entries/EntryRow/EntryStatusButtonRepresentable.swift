@@ -43,12 +43,14 @@ extension DataModel.Task.Status: EntryStatusButtonRepresentable {
         case .cancelled: return .slash
         }
     }
+    
     var statusColor: Color {
         switch self {
         case .open:                          return .primary
         case .complete, .migrated, .cancelled: return .secondary
         }
     }
+    
     var accessibilityLabel: String {
         switch self {
         case .open:      return "Open task"
@@ -57,6 +59,7 @@ extension DataModel.Task.Status: EntryStatusButtonRepresentable {
         case .cancelled: return "Cancelled task"
         }
     }
+    
     var isInteractive: Bool {
         switch self {
         case .open, .complete:     return true

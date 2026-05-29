@@ -9,6 +9,44 @@ extension EntryRowView {
     /// date formatting, persistence callbacks — lives in closures built at the call site.
     struct Configuration {
 
+        enum Action: Identifiable {
+            case edit(onTap: (any Entry) -> Void)
+            case migrate(
+                migrationOptions: (any Entry) -> [MigrationOption],
+                onMigrationSelected: (any Entry, MigrationOption) async -> Void
+            )
+
+            var id: String {
+                switch self {
+                case .edit: return "edit"
+                case .migrate: return "migrate"
+                }
+            }
+            
+            var systemImageName: String {
+                switch self {
+                case .edit(_): "square.and.pencil"
+                case .migrate(_, _): "arrow.right"
+                }
+            }
+
+            struct MigrationOption: Identifiable, Equatable {
+                enum Kind: String, CaseIterable {
+                    case today
+                    case tomorrow
+                    case nextMonth
+                    case nextMonthSameDay
+                }
+
+                let kind: Kind
+                let label: String
+                let date: Date
+                let period: Period
+
+                var id: String { kind.rawValue }
+            }
+        }
+
         // MARK: - Context-dependent display derivations
 
         /// Returns the effective task status for display purposes.
@@ -35,7 +73,12 @@ extension EntryRowView {
         var onEdit: ((any Entry) -> Void)?
         var onDelete: ((any Entry) -> Void)?
         var onTitleCommit: (@MainActor (any Entry, String) async -> Void)?
-        var inlineActionConfiguration: ((any Entry) -> EntryRowInlineActionConfiguration?)?
+
+        /// Called when a toolbar action is triggered while the user has an uncommitted title edit.
+        /// The view passes `onSave` and `onDiscard` — the call site decides how to present the prompt.
+        var showDiscardChangesAlert: ((_ onSave: @escaping @MainActor () async -> Void, _ onDiscard: @escaping @MainActor () async -> Void) -> Void)?
+
+        var actions: [Action] = []
     }
 }
 
@@ -50,8 +93,10 @@ extension EntryRowView.Configuration {
         syncEngine: SyncEngine?,
         coordinator: SpreadsCoordinator
     ) -> EntryRowView.Configuration {
+        
         let calendar = journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
         let today = journalManager.today
+        
         return EntryRowView.Configuration(
             effectiveTaskStatus: { $0.displayTaskStatus },
             isGreyedOut: { entry in
@@ -86,18 +131,25 @@ extension EntryRowView.Configuration {
                 try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
                 Task { @MainActor in await syncEngine?.syncNow() }
             },
-            inlineActionConfiguration: { entry in
-                guard let task = entry as? DataModel.Task, task.status == .open else { return nil }
-                let options = EntryRowInlineEditSupport.migrationOptions(for: task, today: today, calendar: calendar)
-                return EntryRowInlineActionConfiguration(
-                    migrationOptions: options,
-                    onEditSheet: { coordinator.showTaskDetail(task) },
-                    onMigrationSelected: { option in
+            showDiscardChangesAlert: { onSave, onDiscard in
+                coordinator.showDiscardChanges(onSave: onSave, onDiscard: onDiscard)
+            },
+            actions: [
+                .edit(onTap: { entry in
+                    if let task = entry as? DataModel.Task { coordinator.showTaskDetail(task) }
+                }),
+                .migrate(
+                    migrationOptions: { entry in
+                        guard let task = entry as? DataModel.Task else { return [] }
+                        return taskMigrationOptions(for: task, today: today, calendar: calendar)
+                    },
+                    onMigrationSelected: { entry, option in
+                        guard let task = entry as? DataModel.Task else { return }
                         try? await journalManager.updateTaskDateAndPeriod(task, newDate: option.date, newPeriod: option.period)
                         await syncEngine?.syncNow()
                     }
                 )
-            }
+            ]
         )
     }
 
@@ -149,4 +201,72 @@ extension EntryRowView.Configuration {
             }
         )
     }
+}
+
+// MARK: - Migration option computation
+
+fileprivate func taskMigrationOptions(
+    for task: DataModel.Task,
+    today: Date,
+    calendar: Calendar
+) -> [EntryRowView.Configuration.Action.MigrationOption] {
+    guard task.status == .open else { return [] }
+
+    let normalizedToday = Period.day.normalizeDate(today, calendar: calendar)
+    let tomorrow = calendar.date(byAdding: .day, value: 1, to: normalizedToday)
+    let nextMonthStart = calendar.date(byAdding: .month, value: 1, to: normalizedToday)?
+        .firstDayOfMonth(calendar: calendar)
+    let sameDayNextMonth = calendar.date(byAdding: .month, value: 1, to: normalizedToday)
+
+    let todayComponents = calendar.dateComponents([.day], from: normalizedToday)
+    let sameDayComponents = sameDayNextMonth.map { calendar.dateComponents([.day], from: $0) }
+
+    var options: [EntryRowView.Configuration.Action.MigrationOption] = []
+
+    if task.period != .day || !calendar.isDate(task.date, inSameDayAs: normalizedToday) {
+        options.append(.init(kind: .today, label: "Today", date: normalizedToday, period: .day))
+    }
+
+    if let tomorrow, (task.period != .day || !calendar.isDate(task.date, inSameDayAs: tomorrow)) {
+        options.append(.init(kind: .tomorrow, label: "Tomorrow", date: tomorrow, period: .day))
+    }
+
+    if let nextMonthStart,
+       task.period != .month || !calendar.isDate(task.date, equalTo: nextMonthStart, toGranularity: .month) {
+        options.append(.init(
+            kind: .nextMonth,
+            label: migrationMonthLabel(for: nextMonthStart, calendar: calendar),
+            date: nextMonthStart,
+            period: .month
+        ))
+    }
+
+    if let sameDayNextMonth,
+       todayComponents.day == sameDayComponents?.day,
+       task.period != .day || !calendar.isDate(task.date, inSameDayAs: sameDayNextMonth) {
+        options.append(.init(
+            kind: .nextMonthSameDay,
+            label: migrationDayLabel(for: sameDayNextMonth, calendar: calendar),
+            date: sameDayNextMonth,
+            period: .day
+        ))
+    }
+
+    return options
+}
+
+fileprivate func migrationMonthLabel(for date: Date, calendar: Calendar) -> String {
+    let formatter = DateFormatter()
+    formatter.calendar = calendar
+    formatter.timeZone = calendar.timeZone
+    formatter.dateFormat = "LLLL yyyy"
+    return formatter.string(from: date)
+}
+
+fileprivate func migrationDayLabel(for date: Date, calendar: Calendar) -> String {
+    let formatter = DateFormatter()
+    formatter.calendar = calendar
+    formatter.timeZone = calendar.timeZone
+    formatter.dateFormat = "MMMM d, yyyy"
+    return formatter.string(from: date)
 }
