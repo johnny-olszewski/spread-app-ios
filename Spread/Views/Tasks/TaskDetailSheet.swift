@@ -12,7 +12,7 @@ struct TaskDetailSheet: View {
 
     @Observable @MainActor final class ViewModel {
         var presentedTemporalContext: PresentedTemporalContext
-        var selectedStatus: DataModel.Task.Status
+        var selectedStatus: EntryStatus
         var formModel: TaskEditorFormModel
         var isSaving = false
         var isShowingDeleteConfirmation = false
@@ -178,7 +178,7 @@ struct TaskDetailSheet: View {
             HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
                 EntryStatusButton(
                     status: viewModel.selectedStatus,
-                    color: viewModel.selectedStatus.statusIconColor
+                    entryType: .task
                 )
 
                 TextField("Task title", text: $viewModel.formModel.title)
@@ -439,7 +439,7 @@ struct TaskDetailSheet: View {
                 assignment in
                 HStack {
                     EntryStatusIcon(
-                        baseShape: assignment.status.iconBaseShape,
+                        baseShape: assignment.status.iconBaseShape(for: .task),
                         overlay: assignment.status.iconOverlay
                     )
 
@@ -470,7 +470,7 @@ struct TaskDetailSheet: View {
         title: String,
         icon: String,
         role: ButtonRole?,
-        resultStatus: DataModel.Task.Status
+        resultStatus: EntryStatus
     ) -> some View {
         Button(role: role) {
             viewModel.selectedStatus = resultStatus

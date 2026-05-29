@@ -107,12 +107,12 @@ struct EntriesBrowserView: View {
                                 EntryRowView(
                                     entry: row.task,
                                     configuration: EntryRowView.Configuration(
-                                        effectiveTaskStatus: { $0.displayTaskStatus },
+                                        effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
                                         isGreyedOut: { entry in
-                                            guard let s = entry.displayTaskStatus else { return false }
-                                            return s == .complete || s == .migrated || s == .cancelled
+                                            guard entry.entryType == .task else { return false }
+                                            return entry.status == .complete || entry.status == .migrated || entry.status == .cancelled
                                         },
-                                        hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
+                                        hasStrikethrough: { entry in entry.status == .cancelled },
                                         onEdit: { _ in onOpenTask(row.task.id, nil) }
                                     )
                                 )

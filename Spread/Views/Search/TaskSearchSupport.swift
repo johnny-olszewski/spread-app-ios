@@ -7,7 +7,7 @@ struct TaskSearchSection: Identifiable {
         let bodyPreview: String?
         let priority: DataModel.Task.Priority
         let dueDate: Date?
-        let status: DataModel.Task.Status
+        let status: EntryStatus
         let period: Period
         let date: Date
         let hasPreferredAssignment: Bool

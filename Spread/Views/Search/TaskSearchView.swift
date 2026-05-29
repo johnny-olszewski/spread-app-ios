@@ -103,12 +103,12 @@ private struct TaskSearchRowContent: View {
     let priority: DataModel.Task.Priority
     let dueDateLabel: String?
     let isDueDateHighlighted: Bool
-    let status: DataModel.Task.Status
+    let status: EntryStatus
     let subtitle: String
 
     var body: some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            EntryStatusIcon(baseShape: status.iconBaseShape, overlay: status.iconOverlay)
+            EntryStatusIcon(baseShape: status.iconBaseShape(for: .task), overlay: status.iconOverlay)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)

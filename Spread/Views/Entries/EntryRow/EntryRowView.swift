@@ -33,7 +33,7 @@ struct EntryRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-                EntryStatusButton(status: entry.status, color: rowIconColor, onTap: rowIconOnTap)
+                EntryStatusButton(status: entry.status, entryType: entry.entryType, onTap: rowIconOnTap)
 
                 VStack(alignment: .leading, spacing: 2) {
                     
@@ -80,8 +80,8 @@ struct EntryRowView: View {
     
     private var rowIconOnTap: (() -> Void)? {
         guard entry.entryType == .task, configuration.onComplete != nil else { return nil }
-        let effectiveStatus = configuration.effectiveTaskStatus?(entry) ?? entry.displayTaskStatus
-        guard effectiveStatus?.canToggleCompletionInTaskSheet == true else { return nil }
+        let effectiveStatus = configuration.effectiveTaskStatus?(entry) ?? entry.status
+        guard effectiveStatus.canToggleCompletionInTaskSheet else { return nil }
         return { handleIconTap() }
     }
 
@@ -251,7 +251,7 @@ struct EntryRowView: View {
     /// closures — no entry-type checks here.
     private var supportsInlineEditing: Bool {
         guard configuration.onTitleCommit != nil else { return false }
-        let status = configuration.effectiveTaskStatus?(entry) ?? entry.displayTaskStatus
+        let status = configuration.effectiveTaskStatus?(entry) ?? entry.status
         return status == .open
     }
 
@@ -290,14 +290,6 @@ struct EntryRowView: View {
 
     // MARK: - Styling
 
-    private var rowIconColor: Color {
-        guard let status = entry.displayTaskStatus else { return .primary }
-        switch status {
-        case .open: return .primary
-        case .complete, .migrated, .cancelled: return .secondary
-        }
-    }
-
     private var rowColor: Color {
         let greyed = configuration.isGreyedOut?(entry) ?? false
         let strikethrough = configuration.hasStrikethrough?(entry) ?? false
@@ -314,9 +306,12 @@ struct EntryRowView: View {
         case .event: typeName = "Event"
         }
         var parts = [entry.title, typeName]
-        if let status = (configuration.effectiveTaskStatus?(entry) ?? entry.displayTaskStatus) {
-            parts.append(status.displayName)
-        } else if let status = entry.displayNoteStatus {
+        let effectiveStatus: EntryStatus? = switch entry.entryType {
+        case .task: configuration.effectiveTaskStatus?(entry) ?? entry.status
+        case .note: entry.status
+        case .event: nil
+        }
+        if let status = effectiveStatus {
             parts.append(status.displayName)
         }
         return parts.joined(separator: ", ")
@@ -341,7 +336,7 @@ struct EntryRowView: View {
         if let onEdit = configuration.onEdit {
             Button { onEdit(entry) } label: { Label("Edit", systemImage: "pencil") }
         }
-        if configuration.onComplete != nil, entry.displayTaskStatus == .open {
+        if configuration.onComplete != nil, entry.entryType == .task, entry.status == .open {
             Button { configuration.onComplete?(entry) } label: { Label("Complete", systemImage: "checkmark.circle") }
         }
         if let onDelete = configuration.onDelete {
@@ -396,7 +391,7 @@ struct AddTaskButton: View {
 #Preview("Task - Open") {
     let task = DataModel.Task(title: "Buy groceries", status: .open)
     let config = EntryRowView.Configuration(
-        effectiveTaskStatus: { $0.displayTaskStatus },
+        effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
         isGreyedOut: { _ in false },
         hasStrikethrough: { _ in false },
         onComplete: { _ in },
@@ -404,29 +399,29 @@ struct AddTaskButton: View {
         onDelete: { _ in },
         onTitleCommit: { _, _ in }
     )
-    return List { EntryRowView(entry: task, configuration: config) }
+    List { EntryRowView(entry: task, configuration: config) }
 }
 
 #Preview("Task - Complete") {
     let task = DataModel.Task(title: "File taxes", status: .complete)
     let config = EntryRowView.Configuration(
-        effectiveTaskStatus: { $0.displayTaskStatus },
-        isGreyedOut: { entry in entry.displayTaskStatus.map { $0 == .complete || $0 == .migrated || $0 == .cancelled } ?? false },
+        effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
+        isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .migrated || entry.status == .cancelled) },
         hasStrikethrough: { _ in false },
         onEdit: { _ in },
         onDelete: { _ in }
     )
-    return List { EntryRowView(entry: task, configuration: config) }
+    List { EntryRowView(entry: task, configuration: config) }
 }
 
 #Preview("Task - Cancelled") {
     let task = DataModel.Task(title: "Buy a boat", status: .cancelled)
     let config = EntryRowView.Configuration(
-        effectiveTaskStatus: { $0.displayTaskStatus },
+        effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
         isGreyedOut: { _ in true },
         hasStrikethrough: { _ in true }
     )
-    return List { EntryRowView(entry: task, configuration: config) }
+    List { EntryRowView(entry: task, configuration: config) }
 }
 
 #Preview("Note - Active") {

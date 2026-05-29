@@ -150,17 +150,15 @@ struct EntryListView: View {
     let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: entries, creationPeriod: .day, creationDate: today)]
     let configMap: [EntryType: EntryRowView.Configuration] = [
         .task: EntryRowView.Configuration(
-            effectiveTaskStatus: { $0.displayTaskStatus },
-            isGreyedOut: { entry in
-                entry.displayTaskStatus.map { $0 == .complete || $0 == .cancelled } ?? false
-            },
-            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
+            effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
+            isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
+            hasStrikethrough: { entry in entry.status == .cancelled },
             onEdit: { _ in },
             onDelete: { _ in }
         ),
         .note: EntryRowView.Configuration(onEdit: { _ in }, onDelete: { _ in })
     ]
-    return EntryListView(sections: sections, configurationMap: configMap)
+    EntryListView(sections: sections, configurationMap: configMap)
 }
 
 #Preview("Day Spread - With Add Task") {
@@ -170,21 +168,19 @@ struct EntryListView: View {
     let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: tasks, creationPeriod: .day, creationDate: today)]
     let configMap: [EntryType: EntryRowView.Configuration] = [
         .task: EntryRowView.Configuration(
-            effectiveTaskStatus: { $0.displayTaskStatus },
-            isGreyedOut: { entry in
-                entry.displayTaskStatus.map { $0 == .complete || $0 == .cancelled } ?? false
-            },
-            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
+            effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
+            isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
+            hasStrikethrough: { entry in entry.status == .cancelled },
             onEdit: { _ in },
             onDelete: { _ in }
         ),
         .note: EntryRowView.Configuration(onEdit: { _ in }, onDelete: { _ in })
     ]
-    return EntryListView(sections: sections, configurationMap: configMap, onAddTask: { _, _, _ in })
+    EntryListView(sections: sections, configurationMap: configMap, onAddTask: { _, _, _ in })
 }
 
 #Preview("Empty State") {
-    return EntryListView(sections: [], configurationMap: [:])
+    EntryListView(sections: [], configurationMap: [:])
 }
 
 #Preview("All Entry Types") {
@@ -199,15 +195,13 @@ struct EntryListView: View {
     let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: entries, creationPeriod: .day, creationDate: today)]
     let configMap: [EntryType: EntryRowView.Configuration] = [
         .task: EntryRowView.Configuration(
-            effectiveTaskStatus: { $0.displayTaskStatus },
-            isGreyedOut: { entry in
-                entry.displayTaskStatus.map { $0 == .complete || $0 == .cancelled } ?? false
-            },
-            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
+            effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
+            isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
+            hasStrikethrough: { entry in entry.status == .cancelled },
             onEdit: { _ in },
             onDelete: { _ in }
         ),
         .note: EntryRowView.Configuration(onEdit: { _ in }, onDelete: { _ in })
     ]
-    return EntryListView(sections: sections, configurationMap: configMap)
+    EntryListView(sections: sections, configurationMap: configMap)
 }

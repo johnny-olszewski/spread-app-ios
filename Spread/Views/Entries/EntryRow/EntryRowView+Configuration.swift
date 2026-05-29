@@ -50,7 +50,7 @@ extension EntryRowView {
         // MARK: - Context-dependent display derivations
 
         /// Returns the effective task status for display purposes.
-        var effectiveTaskStatus: ((any Entry) -> DataModel.Task.Status?)?
+        var effectiveTaskStatus: ((any Entry) -> EntryStatus?)?
 
         /// Returns whether the row should render greyed out.
         var isGreyedOut: ((any Entry) -> Bool)?
@@ -98,12 +98,12 @@ extension EntryRowView.Configuration {
         let today = journalManager.today
         
         return EntryRowView.Configuration(
-            effectiveTaskStatus: { $0.displayTaskStatus },
+            effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
             isGreyedOut: { entry in
-                guard let s = entry.displayTaskStatus else { return false }
-                return s == .complete || s == .migrated || s == .cancelled
+                guard entry.entryType == .task else { return false }
+                return entry.status == .complete || entry.status == .migrated || entry.status == .cancelled
             },
-            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
+            hasStrikethrough: { entry in entry.status == .cancelled },
             dueDateLabel: { entry in (entry as? DataModel.Task)?.dueDateLabel(calendar: calendar) },
             isDueDateHighlighted: { entry in
                 (entry as? DataModel.Task)?.isDueDateHighlighted(today: today, calendar: calendar) ?? false
@@ -111,7 +111,7 @@ extension EntryRowView.Configuration {
             onComplete: { entry in
                 guard let task = entry as? DataModel.Task else { return }
                 Task { @MainActor in
-                    let newStatus: DataModel.Task.Status = task.status == .complete ? .open : .complete
+                    let newStatus: EntryStatus = task.status == .complete ? .open : .complete
                     try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
                     await syncEngine?.syncNow()
                 }
