@@ -5989,7 +5989,7 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-227] Refactor: Entry status icon pipeline and single Entry.status protocol requirement - [ ] Pending
+### [SPRD-227] Refactor: Entry status icon pipeline and single Entry.status protocol requirement - [x] Done
 
 - **Context**: The entry status icon pipeline splits rendering knowledge across `EntryStatusButtonRepresentable`, `EntryIconFactory`, and `EntryStatusIcon`. Separately, the `Entry` protocol exposes three typed optional status accessors (`displayTaskStatus`, `displayNoteStatus`, `displayEventStatus`) plus a derived `status` extension default — four properties where one should suffice.
 - **Description**: Two coordinated changes. (1) Icon pipeline: introduce `EntryStatusIcon.BaseShape` and `EntryStatusIcon.Overlay` nested enums with `color: Color?` and `size: CGFloat?` associated values on every case; make `EntryStatusIcon` a pure primitive renderer; make `EntryStatusButton` the protocol bridge; remove `statusColor` from the protocol; delete `EntryIconFactory.swift` and `EntryIconSize`; remove `rowIconColor` from `EntryRowView`. (2) Entry protocol: replace `displayTaskStatus`, `displayNoteStatus`, `displayEventStatus` with a single `status: any EntryStatusButtonRepresentable` protocol requirement; the concrete model types satisfy it via Swift's implicit existential covariance without any bridging code; delete the three display shim files; update view and configuration code that needs typed comparisons to cast to the concrete type.
