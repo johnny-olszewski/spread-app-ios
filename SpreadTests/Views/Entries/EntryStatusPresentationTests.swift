@@ -4,19 +4,19 @@ import Testing
 struct EntryStatusPresentationTests {
 
     @Test func userEditableTaskStatusesExcludeMigrated() {
-        #expect(DataModel.Task.Status.userEditableTaskStatuses == [.open, .complete, .cancelled])
+        #expect(EntryStatus.userEditableTaskStatuses == [.open, .complete, .cancelled])
     }
 
     @Test func cancelledTaskDisablesAssignmentEditingInTaskSheet() {
-        #expect(DataModel.Task.Status.cancelled.allowsAssignmentEditingInTaskSheet == false)
-        #expect(DataModel.Task.Status.complete.allowsAssignmentEditingInTaskSheet == false)
-        #expect(DataModel.Task.Status.open.allowsAssignmentEditingInTaskSheet == true)
+        #expect(EntryStatus.cancelled.allowsAssignmentEditingInTaskSheet == false)
+        #expect(EntryStatus.complete.allowsAssignmentEditingInTaskSheet == false)
+        #expect(EntryStatus.open.allowsAssignmentEditingInTaskSheet == true)
     }
 
     @Test func taskLifecycleActionsMatchTaskSheetBehavior() {
-        #expect(DataModel.Task.Status.open.lifecycleActionTitleInTaskSheet == "Cancel Task")
-        #expect(DataModel.Task.Status.complete.lifecycleActionTitleInTaskSheet == "Cancel Task")
-        #expect(DataModel.Task.Status.cancelled.lifecycleActionTitleInTaskSheet == "Restore Task")
-        #expect(DataModel.Task.Status.migrated.lifecycleActionTitleInTaskSheet == nil)
+        #expect(EntryStatus.open.lifecycleActionTitleInTaskSheet == "Cancel Task")
+        #expect(EntryStatus.complete.lifecycleActionTitleInTaskSheet == "Cancel Task")
+        #expect(EntryStatus.cancelled.lifecycleActionTitleInTaskSheet == "Restore Task")
+        #expect(EntryStatus.migrated.lifecycleActionTitleInTaskSheet == nil)
     }
 }

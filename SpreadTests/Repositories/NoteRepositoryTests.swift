@@ -329,7 +329,7 @@ struct NoteRepositoryTests {
         #expect(assignmentUpdate?.entityId == assignment.id)
 
         let record = try decodeRecord(assignmentUpdate?.recordData)
-        #expect(record?["status"] as? String == DataModel.Note.Status.migrated.rawValue)
+        #expect(record?["status"] as? String == EntryStatus.migrated.rawValue)
         #expect(record?["deleted_at"] is NSNull)
     }
 

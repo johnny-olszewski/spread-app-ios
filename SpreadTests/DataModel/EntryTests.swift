@@ -130,24 +130,22 @@ struct EntryTests {
         #expect(task.assignments == assignments)
     }
 
-    /// Conditions: Access Task.Status.allCases.
-    /// Expected: Should contain 4 statuses: open, complete, migrated, cancelled.
+    /// Conditions: Access EntryStatus.allCases for task-relevant statuses.
+    /// Expected: Should contain open, complete, migrated, cancelled.
     @Test func testTaskStatusCases() {
-        let cases = DataModel.Task.Status.allCases
-        #expect(cases.count == 4)
-        #expect(cases.contains(.open))
-        #expect(cases.contains(.complete))
-        #expect(cases.contains(.migrated))
-        #expect(cases.contains(.cancelled))
+        #expect(EntryStatus.allCases.contains(.open))
+        #expect(EntryStatus.allCases.contains(.complete))
+        #expect(EntryStatus.allCases.contains(.migrated))
+        #expect(EntryStatus.allCases.contains(.cancelled))
     }
 
-    /// Conditions: Access Task.Status rawValues.
+    /// Conditions: Access EntryStatus rawValues for task statuses.
     /// Expected: Should return lowercase status names.
     @Test func testTaskStatusRawValues() {
-        #expect(DataModel.Task.Status.open.rawValue == "open")
-        #expect(DataModel.Task.Status.complete.rawValue == "complete")
-        #expect(DataModel.Task.Status.migrated.rawValue == "migrated")
-        #expect(DataModel.Task.Status.cancelled.rawValue == "cancelled")
+        #expect(EntryStatus.open.rawValue == "open")
+        #expect(EntryStatus.complete.rawValue == "complete")
+        #expect(EntryStatus.migrated.rawValue == "migrated")
+        #expect(EntryStatus.cancelled.rawValue == "cancelled")
     }
 
     /// Conditions: Create Task with default initializer.
@@ -273,20 +271,18 @@ struct EntryTests {
         #expect(note.assignments == assignments)
     }
 
-    /// Conditions: Access Note.Status.allCases.
-    /// Expected: Should contain 2 statuses: active, migrated.
+    /// Conditions: Access EntryStatus.allCases for note-relevant statuses.
+    /// Expected: Should contain active, migrated.
     @Test func testNoteStatusCases() {
-        let cases = DataModel.Note.Status.allCases
-        #expect(cases.count == 2)
-        #expect(cases.contains(.active))
-        #expect(cases.contains(.migrated))
+        #expect(EntryStatus.allCases.contains(.active))
+        #expect(EntryStatus.allCases.contains(.migrated))
     }
 
-    /// Conditions: Access Note.Status rawValues.
+    /// Conditions: Access EntryStatus rawValues for note statuses.
     /// Expected: Should return lowercase status names.
     @Test func testNoteStatusRawValues() {
-        #expect(DataModel.Note.Status.active.rawValue == "active")
-        #expect(DataModel.Note.Status.migrated.rawValue == "migrated")
+        #expect(EntryStatus.active.rawValue == "active")
+        #expect(EntryStatus.migrated.rawValue == "migrated")
     }
 
     /// Conditions: Create Note with default initializer.

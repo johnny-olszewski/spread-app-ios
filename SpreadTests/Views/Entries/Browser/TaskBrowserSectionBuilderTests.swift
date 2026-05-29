@@ -45,7 +45,7 @@ struct TaskBrowserSectionBuilderTests {
 
     private func makeTask(
         title: String = "Task",
-        status: DataModel.Task.Status = .open,
+        status: EntryStatus = .open,
         hasPreferredAssignment: Bool = false,
         date: Date? = nil,
         period: Period = .day,

@@ -219,7 +219,7 @@ struct SwiftDataRepositoryTests {
         #expect(assignmentUpdate?.entityId == assignment.id)
 
         let record = try decodeRecord(assignmentUpdate?.recordData)
-        #expect(record?["status"] as? String == DataModel.Task.Status.complete.rawValue)
+        #expect(record?["status"] as? String == EntryStatus.complete.rawValue)
         #expect(record?["deleted_at"] is NSNull)
     }
 

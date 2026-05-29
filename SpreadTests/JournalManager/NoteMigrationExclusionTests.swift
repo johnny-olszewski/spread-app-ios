@@ -110,24 +110,24 @@ struct NoteMigrationExclusionTests {
         #expect(eligible.isEmpty)
     }
 
-    // MARK: - Note Display Status
+    // MARK: - Note Status
 
     /// Condition: Active note.
-    /// Expected: displayNoteStatus returns .active.
-    @Test("Active note displayNoteStatus is .active")
-    func testActiveNoteDisplayStatus() {
+    /// Expected: status is .active.
+    @Test("Active note status is .active")
+    func testActiveNoteStatus() {
         let note = DataModel.Note(title: "Test note", status: .active)
 
-        #expect(note.displayNoteStatus == .active)
+        #expect(note.status == .active)
     }
 
     /// Condition: Migrated note.
-    /// Expected: displayNoteStatus returns .migrated.
-    @Test("Migrated note displayNoteStatus is .migrated")
-    func testMigratedNoteDisplayStatus() {
+    /// Expected: status is .migrated.
+    @Test("Migrated note status is .migrated")
+    func testMigratedNoteStatus() {
         let note = DataModel.Note(title: "Test note", status: .migrated)
 
-        #expect(note.displayNoteStatus == .migrated)
+        #expect(note.status == .migrated)
     }
 
     /// Condition: A note is assigned to an overdue spread alongside an overdue task.

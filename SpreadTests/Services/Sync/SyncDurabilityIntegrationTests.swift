@@ -304,13 +304,13 @@ final class SyncDurabilityIntegrationTests: XCTestCase {
         return try XCTUnwrap(manager.dataModel[period]?[normalizedDate])
     }
 
-    private func status(for task: DataModel.Task, period: Period, date: Date) -> DataModel.Task.Status? {
+    private func status(for task: DataModel.Task, period: Period, date: Date) -> EntryStatus? {
         task.assignments.first { assignment in
             assignment.matches(period: period, date: date, calendar: calendar)
         }?.status
     }
 
-    private func noteStatus(for note: DataModel.Note, period: Period, date: Date) -> DataModel.Note.Status? {
+    private func noteStatus(for note: DataModel.Note, period: Period, date: Date) -> EntryStatus? {
         note.assignments.first { assignment in
             assignment.matches(period: period, date: date, calendar: calendar)
         }?.status
