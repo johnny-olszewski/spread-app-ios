@@ -3,7 +3,7 @@ import SwiftUI
 /// A filled circle icon representing a task entry.
 ///
 /// Renders as a solid `Circle` fill. Use as the base for task status decorators.
-public struct TaskCircleIcon: EntryIconView {
+public struct CircleIcon: EntryIconView {
 
     public let color: Color
     public let iconSize: CGFloat
@@ -27,10 +27,10 @@ public struct TaskCircleIcon: EntryIconView {
 
 #Preview {
     HStack(spacing: 12) {
-        TaskCircleIcon(color: .primary, iconSize: 12)
-        TaskCircleIcon(color: .green, iconSize: 17)
-        TaskCircleIcon(color: .orange, iconSize: 22)
-        TaskCircleIcon(color: .secondary, iconSize: 28)
+        CircleIcon(color: .primary, iconSize: 12)
+        CircleIcon(color: .green, iconSize: 17)
+        CircleIcon(color: .orange, iconSize: 22)
+        CircleIcon(color: .secondary, iconSize: 28)
     }
     .padding()
 }

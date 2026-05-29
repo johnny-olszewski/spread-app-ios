@@ -3,7 +3,7 @@ import SwiftUI
 /// A stroked circle icon representing an event entry.
 ///
 /// Renders as an empty `Circle` strokeBorder. Use as the base for event status decorators.
-public struct EventCircleIcon: EntryIconView {
+public struct RingIcon: EntryIconView {
 
     public let color: Color
     public let iconSize: CGFloat
@@ -32,10 +32,10 @@ public struct EventCircleIcon: EntryIconView {
 
 #Preview {
     HStack(spacing: 12) {
-        EventCircleIcon(color: .primary, iconSize: 12)
-        EventCircleIcon(color: .primary, iconSize: 17)
-        EventCircleIcon(color: .primary, iconSize: 22)
-        EventCircleIcon(color: .primary, iconSize: 28)
+        RingIcon(color: .primary, iconSize: 12)
+        RingIcon(color: .primary, iconSize: 17)
+        RingIcon(color: .primary, iconSize: 22)
+        RingIcon(color: .primary, iconSize: 28)
     }
     .padding()
 }

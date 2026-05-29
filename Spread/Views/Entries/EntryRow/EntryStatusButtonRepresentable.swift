@@ -1,21 +1,5 @@
 import SwiftUI
 
-// MARK: - Supporting Enums
-
-/// The base icon shape drawn for an entry status.
-enum EntryIconBaseShape {
-    case filledCircle
-    case emptyCircle
-    case dash
-}
-
-/// The overlay indicator drawn on top of the base icon.
-enum EntryIconOverlay {
-    case xmark
-    case arrowRight
-    case slash
-}
-
 // MARK: - Protocol
 
 /// A type that provides all information needed to render an `EntryStatusButton`.
@@ -24,9 +8,8 @@ enum EntryIconOverlay {
 /// display color, and accessibility label — eliminating the need for `entryType` branching
 /// in any component that renders an entry status.
 protocol EntryStatusButtonRepresentable {
-    var iconBaseShape: EntryIconBaseShape { get }
-    var iconOverlay: EntryIconOverlay? { get }
-    var statusColor: Color { get }
+    var iconBaseShape: EntryStatusIcon.BaseShape { get }
+    var iconOverlay: EntryStatusIcon.OverlayShape? { get }
     var accessibilityLabel: String { get }
     var isInteractive: Bool { get }
 }
@@ -34,20 +17,20 @@ protocol EntryStatusButtonRepresentable {
 // MARK: - DataModel.Task.Status
 
 extension DataModel.Task.Status: EntryStatusButtonRepresentable {
-    var iconBaseShape: EntryIconBaseShape { .filledCircle }
-    var iconOverlay: EntryIconOverlay? {
+    
+    var iconBaseShape: EntryStatusIcon.BaseShape {
         switch self {
-        case .open:      return nil
-        case .complete:  return .xmark
-        case .migrated:  return .arrowRight
-        case .cancelled: return .slash
+        case .open:         .filledCircle(nil, nil)
+        default:            .filledCircle(.secondary, nil)
         }
     }
     
-    var statusColor: Color {
+    var iconOverlay: EntryStatusIcon.OverlayShape? {
         switch self {
-        case .open:                          return .primary
-        case .complete, .migrated, .cancelled: return .secondary
+        case .open:         nil
+        case .complete:     .xmark(.secondary, nil)
+        case .migrated:     .arrowRight(.secondary, nil)
+        case .cancelled:    .slash(.secondary, nil)
         }
     }
     
@@ -71,34 +54,32 @@ extension DataModel.Task.Status: EntryStatusButtonRepresentable {
 // MARK: - DataModel.Note.Status
 
 extension DataModel.Note.Status: EntryStatusButtonRepresentable {
-    var iconBaseShape: EntryIconBaseShape { .dash }
-    var iconOverlay: EntryIconOverlay? {
+    
+    var iconBaseShape: EntryStatusIcon.BaseShape { .dash(.primary, nil) }
+    
+    var iconOverlay: EntryStatusIcon.OverlayShape? {
         switch self {
-        case .active:   return nil
-        case .migrated: return .arrowRight
+        case .active:   nil
+        case .migrated: .arrowRight(.secondary, nil)
         }
     }
-    var statusColor: Color {
-        switch self {
-        case .active:   return .primary
-        case .migrated: return .secondary
-        }
-    }
+    
     var accessibilityLabel: String {
         switch self {
         case .active:   return "Active note"
         case .migrated: return "Migrated note"
         }
     }
+    
     var isInteractive: Bool { false }
 }
 
 // MARK: - DataModel.Event.Status
 
 extension DataModel.Event.Status: EntryStatusButtonRepresentable {
-    var iconBaseShape: EntryIconBaseShape { .emptyCircle }
-    var iconOverlay: EntryIconOverlay? { nil }
-    var statusColor: Color { .primary }
+    
+    var iconBaseShape: EntryStatusIcon.BaseShape { .emptyCircle(.primary, nil) }
+    var iconOverlay: EntryStatusIcon.OverlayShape? { nil }
     var accessibilityLabel: String { "Event" }
     var isInteractive: Bool { false }
 }

@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// Renders as a short `Rectangle` fill centered in the icon frame.
 /// Use as the base for note status decorators.
-public struct NoteDashIcon: EntryIconView {
+public struct DashIcon: EntryIconView {
 
     public let color: Color
     public let iconSize: CGFloat
@@ -33,10 +33,10 @@ public struct NoteDashIcon: EntryIconView {
 
 #Preview {
     HStack(spacing: 12) {
-        NoteDashIcon(color: .primary, iconSize: 12)
-        NoteDashIcon(color: .primary, iconSize: 17)
-        NoteDashIcon(color: .primary, iconSize: 22)
-        NoteDashIcon(color: .primary, iconSize: 28)
+        DashIcon(color: .primary, iconSize: 12)
+        DashIcon(color: .primary, iconSize: 17)
+        DashIcon(color: .primary, iconSize: 22)
+        DashIcon(color: .primary, iconSize: 28)
     }
     .padding()
 }

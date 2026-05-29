@@ -434,11 +434,13 @@ struct TaskDetailSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Assignment History")
 
-            ForEach(Array(task.assignments.enumerated()), id: \.element) { index, assignment in
+            ForEach(Array(task.assignments.enumerated()), id: \.element) {
+                index,
+                assignment in
                 HStack {
                     EntryStatusIcon(
-                        status: assignment.status,
-                        color: assignment.status.statusIconColor
+                        baseShape: assignment.status.iconBaseShape,
+                        overlay: assignment.status.iconOverlay
                     )
 
                     VStack(alignment: .leading, spacing: 2) {

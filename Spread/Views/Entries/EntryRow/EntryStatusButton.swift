@@ -18,7 +18,7 @@ struct EntryStatusButton: View {
         Button {
             onTap?()
         } label: {
-            EntryStatusIcon(status: status, color: color)
+            EntryStatusIcon(baseShape: status.iconBaseShape, overlay: status.iconOverlay)
                 .frame(width: 24, height: 24)
         }
         .buttonStyle(.plain)
