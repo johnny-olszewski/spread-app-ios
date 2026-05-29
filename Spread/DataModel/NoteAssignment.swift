@@ -15,7 +15,7 @@ struct NoteAssignment: Codable, Hashable, AssignmentMatchable {
     var spreadID: UUID?
 
     /// The status of the note on this spread.
-    var status: DataModel.Note.Status
+    var status: EntryStatus
 
     /// LWW timestamp for the `status` field.
     var statusUpdatedAt: Date?
@@ -25,7 +25,7 @@ struct NoteAssignment: Codable, Hashable, AssignmentMatchable {
         period: Period,
         date: Date,
         spreadID: UUID? = nil,
-        status: DataModel.Note.Status,
+        status: EntryStatus,
         statusUpdatedAt: Date? = nil
     ) {
         self.id = id
@@ -51,7 +51,7 @@ struct NoteAssignment: Codable, Hashable, AssignmentMatchable {
         period = try container.decode(Period.self, forKey: .period)
         date = try container.decode(Date.self, forKey: .date)
         spreadID = try container.decodeIfPresent(UUID.self, forKey: .spreadID)
-        status = try container.decode(DataModel.Note.Status.self, forKey: .status)
+        status = try container.decode(EntryStatus.self, forKey: .status)
         statusUpdatedAt = try container.decodeIfPresent(Date.self, forKey: .statusUpdatedAt)
     }
 

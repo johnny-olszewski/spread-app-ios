@@ -276,21 +276,6 @@ enum DataModelSchemaV1: VersionedSchema {
     /// Assignment history is tracked via TaskAssignment (SPRD-10).
     @Model
     final class Task: AssignableEntry {
-        /// The status of a task on a spread.
-        enum Status: String, CaseIterable, Codable, Sendable {
-            /// Task is open and not yet completed.
-            case open
-
-            /// Task has been completed.
-            case complete
-
-            /// Task has been migrated to another spread.
-            case migrated
-
-            /// Task has been cancelled and hidden from default views.
-            case cancelled
-        }
-
         /// Display-only task priority.
         enum Priority: String, CaseIterable, Codable, Sendable {
             case none
@@ -341,7 +326,7 @@ enum DataModelSchemaV1: VersionedSchema {
         }
 
         /// The current status of the task.
-        var status: Status
+        var status: EntryStatus
 
         /// Assignment history for this task across spreads.
         var assignments: [TaskAssignment]
@@ -410,7 +395,7 @@ enum DataModelSchemaV1: VersionedSchema {
             date: Date = .now,
             period: Period = .day,
             hasPreferredAssignment: Bool = true,
-            status: Status = .open,
+            status: EntryStatus = .open,
             assignments: [TaskAssignment] = [],
             list: DataModelSchemaV1.List? = nil,
             tags: [DataModelSchemaV1.Tag] = [],
@@ -461,11 +446,6 @@ enum DataModelSchemaV1: VersionedSchema {
     /// by checking if their date range overlaps with the spread's time period.
     @Model
     final class Event: DateRangeEntry {
-        /// The display status of an event.
-        enum Status: String, CaseIterable, Codable, Sendable {
-            case upcoming
-        }
-
         /// Unique identifier for the event.
         @Attribute(.unique) var id: UUID
 
@@ -626,15 +606,6 @@ enum DataModelSchemaV1: VersionedSchema {
     /// Notes only migrate when explicitly triggered by the user.
     @Model
     final class Note: AssignableEntry {
-        /// The status of a note on a spread.
-        enum Status: String, CaseIterable, Codable, Sendable {
-            /// Note is active on the spread.
-            case active
-
-            /// Note has been migrated to another spread.
-            case migrated
-        }
-
         /// Unique identifier for the note.
         @Attribute(.unique) var id: UUID
 
@@ -654,7 +625,7 @@ enum DataModelSchemaV1: VersionedSchema {
         var period: Period
 
         /// The current status of the note.
-        var status: Status
+        var status: EntryStatus
 
         /// Assignment history for this note across spreads.
         var assignments: [NoteAssignment]
@@ -715,7 +686,7 @@ enum DataModelSchemaV1: VersionedSchema {
             createdDate: Date = .now,
             date: Date = .now,
             period: Period = .day,
-            status: Status = .active,
+            status: EntryStatus = .active,
             assignments: [NoteAssignment] = [],
             list: DataModelSchemaV1.List? = nil,
             tags: [DataModelSchemaV1.Tag] = [],
