@@ -34,6 +34,7 @@ struct SpreadsView: View {
             }
 
             SpreadPickerButton()
+                .padding(.vertical, 16)
 
             SpreadContentPagerView(
                 coordinator: coordinator,
@@ -43,64 +44,66 @@ struct SpreadsView: View {
             )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+//        .background(.background)
+        .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
         .environment(coordinator)
         .environment(journalManager)
         .localhostTemporalHarness(spreadDiagnostics: currentSpreadDiagnostics)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Today", action: navigateToToday)
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
-            }
-
-            ToolbarItemGroup(placement: .automatic) {
-
-                if let syncEngine {
-                    SyncIconButton(
-                        status: syncEngine.status,
-                        outboxCount: syncEngine.outboxCount,
-                        onSyncNow: { Task { @MainActor in await syncEngine.syncNow() } }
-                    )
-                }
-
-                favoritesMenu
-
-                AuthButton(isSignedIn: authManager.state.isSignedIn, action: { coordinator.showAuth() })
-
-                Button {
-                    toggleFavorite(for: currentSelection)
-                } label: {
-                    Label(
-                        currentSelection.isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                        systemImage: currentSelection.isFavorite ? "star.fill" : "star"
-                    )
-                }
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
-
-                Button {
-                    coordinator.showSpreadNameEdit(currentSelection)
-                } label: {
-                    Label("Edit Name", systemImage: "pencil")
-                }
-
-                if currentSelection.period == .multiday {
-                    Button {
-                        coordinator.showSpreadDateEdit(currentSelection)
-                    } label: {
-                        Label("Edit Dates", systemImage: "calendar")
-                    }
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.editDatesButton)
-                }
-
-                Button(role: .destructive) {
-                    coordinator.showSpreadDeleteConfirmation(currentSelection)
-                } label: {
-                    Label("Delete Spread", systemImage: "trash")
-                }
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.deleteSpreadButton)
-
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
+//        .toolbar {
+//            ToolbarItem(placement: .topBarLeading) {
+//                Button("Today", action: navigateToToday)
+//                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
+//            }
+//
+//            ToolbarItemGroup(placement: .automatic) {
+//
+//                if let syncEngine {
+//                    SyncIconButton(
+//                        status: syncEngine.status,
+//                        outboxCount: syncEngine.outboxCount,
+//                        onSyncNow: { Task { @MainActor in await syncEngine.syncNow() } }
+//                    )
+//                }
+//
+//                favoritesMenu
+//
+//                AuthButton(isSignedIn: authManager.state.isSignedIn, action: { coordinator.showAuth() })
+//
+//                Button {
+//                    toggleFavorite(for: currentSelection)
+//                } label: {
+//                    Label(
+//                        currentSelection.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+//                        systemImage: currentSelection.isFavorite ? "star.fill" : "star"
+//                    )
+//                }
+//                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
+//
+//                Button {
+//                    coordinator.showSpreadNameEdit(currentSelection)
+//                } label: {
+//                    Label("Edit Name", systemImage: "pencil")
+//                }
+//
+//                if currentSelection.period == .multiday {
+//                    Button {
+//                        coordinator.showSpreadDateEdit(currentSelection)
+//                    } label: {
+//                        Label("Edit Dates", systemImage: "calendar")
+//                    }
+//                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.editDatesButton)
+//                }
+//
+//                Button(role: .destructive) {
+//                    coordinator.showSpreadDeleteConfirmation(currentSelection)
+//                } label: {
+//                    Label("Delete Spread", systemImage: "trash")
+//                }
+//                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.deleteSpreadButton)
+//
+//            }
+//        }
+        .overlay(alignment: .bottom) {
             bottomInsetControls
         }
         .onChange(of: journalManager.dataVersion) { _, _ in

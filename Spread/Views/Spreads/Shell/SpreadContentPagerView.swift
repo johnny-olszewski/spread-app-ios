@@ -63,20 +63,29 @@ struct SpreadContentPagerView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 0) {
                 ForEach(items) { item in
-                    Group {
-                        if liveWindowIDs.contains(item.id) {
-                            SpreadPageContentView(
-                                item: item,
-                                coordinator: coordinator,
-                                syncEngine: syncEngine
-                            )
-                        } else {
-                            Color.clear
-                                .accessibilityHidden(true)
-                        }
-                    }
+                    SpreadPageContentView(
+                        item: item,
+                        coordinator: coordinator,
+                        syncEngine: syncEngine
+                    )
                     .containerRelativeFrame(.horizontal)
                     .id(pagerID(for: item.id))
+                    .background {
+//                        DotGridView(configuration: .paper)
+//                            .clipShape(
+//                                UnevenRoundedRectangle(
+//                                    topLeadingRadius: 48,
+//                                    bottomLeadingRadius: 48,
+//                                    bottomTrailingRadius: 48,
+//                                    topTrailingRadius: 48
+//                                )
+//                            )
+                        UnevenRoundedRectangle(
+                            topLeadingRadius: 48,
+                            topTrailingRadius: 48
+                        )
+                        .fill(.background.opacity(0.6))
+                    }
                 }
             }
             .scrollTargetLayout()
