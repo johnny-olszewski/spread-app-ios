@@ -150,13 +150,10 @@ struct EntryListView: View {
     let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: entries, creationPeriod: .day, creationDate: today)]
     let configMap: [EntryType: EntryRowView.Configuration] = [
         .task: EntryRowView.Configuration(
-            effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
             isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
-            hasStrikethrough: { entry in entry.status == .cancelled },
-            onEdit: { _ in },
-            onDelete: { _ in }
+            hasStrikethrough: { entry in entry.status == .cancelled }
         ),
-        .note: EntryRowView.Configuration(onEdit: { _ in }, onDelete: { _ in })
+        .note: EntryRowView.Configuration()
     ]
     EntryListView(sections: sections, configurationMap: configMap)
 }
@@ -168,13 +165,10 @@ struct EntryListView: View {
     let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: tasks, creationPeriod: .day, creationDate: today)]
     let configMap: [EntryType: EntryRowView.Configuration] = [
         .task: EntryRowView.Configuration(
-            effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
             isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
-            hasStrikethrough: { entry in entry.status == .cancelled },
-            onEdit: { _ in },
-            onDelete: { _ in }
+            hasStrikethrough: { entry in entry.status == .cancelled }
         ),
-        .note: EntryRowView.Configuration(onEdit: { _ in }, onDelete: { _ in })
+        .note: EntryRowView.Configuration()
     ]
     EntryListView(sections: sections, configurationMap: configMap, onAddTask: { _, _, _ in })
 }
@@ -195,13 +189,51 @@ struct EntryListView: View {
     let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: entries, creationPeriod: .day, creationDate: today)]
     let configMap: [EntryType: EntryRowView.Configuration] = [
         .task: EntryRowView.Configuration(
-            effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
             isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
-            hasStrikethrough: { entry in entry.status == .cancelled },
-            onEdit: { _ in },
-            onDelete: { _ in }
+            hasStrikethrough: { entry in entry.status == .cancelled }
         ),
-        .note: EntryRowView.Configuration(onEdit: { _ in }, onDelete: { _ in })
+        .note: EntryRowView.Configuration()
     ]
     EntryListView(sections: sections, configurationMap: configMap)
+}
+
+// MARK: - Add Task Button
+
+/// Tappable "Add Task" affordance that presents a native alert for quick task entry.
+struct AddTaskButton: View {
+    
+    let date: Date
+    let period: Period
+    let onAddTask: @MainActor (String, Date, Period) async throws -> Void
+    
+    @State private var isPresented = false
+    @State private var title = ""
+    
+    var body: some View {
+        Button {
+            isPresented = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+                Text("Add Task")
+                    .font(SpreadTheme.Typography.body)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+        }
+        .buttonStyle(.plain)
+        .alert("New Task", isPresented: $isPresented) {
+            TextField("Task title", text: $title)
+            Button("Save") {
+                let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+                title = ""
+                guard !trimmed.isEmpty else { return }
+                Task { @MainActor in try? await onAddTask(trimmed, date, period) }
+            }
+            Button("Cancel", role: .cancel) { title = "" }
+        }
+    }
 }

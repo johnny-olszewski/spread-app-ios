@@ -246,9 +246,6 @@ enum SpreadTheme {
 
         /// Vertical padding for entry rows in spread lists.
         static let entryRowVertical: CGFloat = 8
-
-        /// Horizontal gap between the status icon and entry title.
-        static let entryIconSpacing: CGFloat = 8
     }
 
     // MARK: - Overlay

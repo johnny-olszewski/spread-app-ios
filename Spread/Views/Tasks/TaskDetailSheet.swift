@@ -175,7 +175,7 @@ struct TaskDetailSheet: View {
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Title")
-            HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+            HStack(spacing: 8) {
                 Button {} label: {
                     EntryStatusIcon(
                         baseShape: EntryType.task.statusIconBaseShape,
@@ -187,7 +187,7 @@ struct TaskDetailSheet: View {
                 }
                 .buttonStyle(.plain)
                 .contentShape(Rectangle())
-                .accessibilityLabel(viewModel.selectedStatus.accessibilityLabel(for: .task))
+//                .accessibilityLabel(viewModel.selectedStatus.accessibilityLabel(for: .task))
                 .allowsHitTesting(false)
 
                 TextField("Task title", text: $viewModel.formModel.title)

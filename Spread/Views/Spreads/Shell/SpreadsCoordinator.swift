@@ -60,6 +60,7 @@ final class SpreadsCoordinator {
         case deleteSpreadConfirmation(DataModel.Spread)
         case deleteSpreadFailed(message: String)
         case discardChanges(onSave: @MainActor () async -> Void, onDiscard: @MainActor () async -> Void)
+        case deleteEntryConfirmation(confirmAction: () -> Void)
 
         var id: String {
             switch self {
@@ -69,6 +70,8 @@ final class SpreadsCoordinator {
                 return "deleteSpreadFailed"
             case .discardChanges:
                 return "discardChanges"
+            case .deleteEntryConfirmation(let entry):
+                return "deleteEntryConfirmation"
             }
         }
     }

@@ -155,7 +155,7 @@ struct SpreadPeekPanelView: View {
     }
 
     private func peekTaskRow(_ task: DataModel.Task) -> some View {
-        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
+        HStack(spacing: 8) {
             EntryStatusIcon(
                 baseShape: EntryType.task.statusIconBaseShape,
                 bseeShapeConfig: .init(color: EntryStatus.open.iconColor, iconSize: SpreadTheme.IconSize.medium),

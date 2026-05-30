@@ -42,7 +42,9 @@ struct SpreadNameEditSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
-                        dismiss()
+                        withAnimation {
+                            dismiss()
+                        }
                     }
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNameEditSheet.cancelButton)
                 }

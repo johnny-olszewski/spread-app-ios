@@ -65,6 +65,57 @@ struct RootNavigationView: View {
                 spreadsSheetContent(for: destination)
             }
         }
+        .alert(item: Binding(
+            get: { spreadsCoordinator.activeAlert },
+            set: { spreadsCoordinator.activeAlert = $0 }
+        )) { destination in
+            switch destination {
+            case .deleteSpreadConfirmation(let spread):
+                return Alert(
+                    title: Text("Delete Spread"),
+                    message: Text(
+                        "Only this spread will be deleted. Tasks and notes are preserved and moved to " +
+                        "the nearest parent spread or Inbox. This action cannot be undone."
+                    ),
+                    primaryButton: .destructive(Text("Delete Spread")) {
+                        deleteSpread(spread)
+                    },
+                    secondaryButton: .cancel {
+                        spreadsCoordinator.dismissAlert()
+                    }
+                )
+            case .deleteSpreadFailed(let message):
+                return Alert(
+                    title: Text("Couldn't Delete Spread"),
+                    message: Text(message),
+                    dismissButton: .default(Text("OK")) {
+                        spreadsCoordinator.dismissAlert()
+                    }
+                )
+            case .discardChanges(let onSave, let onDiscard):
+                return Alert(
+                    title: Text("Unsaved Changes"),
+                    message: Text("Save your title changes before continuing?"),
+                    primaryButton: .default(Text("Save")) {
+                        Task { @MainActor in await onSave() }
+                    },
+                    secondaryButton: .destructive(Text("Discard")) {
+                        Task { @MainActor in await onDiscard() }
+                    }
+                )
+            case .deleteEntryConfirmation(let confirmAction):
+                return Alert(
+                    title: Text("Confirm Delete"),
+                    message: Text("Are you sure you want to delete this entry?"),
+                    primaryButton: .default(Text("Delete")) {
+                        Task { @MainActor in await confirmAction() }
+                    },
+                    secondaryButton: .destructive(Text("Cancel")) {
+                        Task { @MainActor in await spreadsCoordinator.activeAlert = nil }
+                    }
+                )
+            }
+        }
     }
 
     @ViewBuilder
@@ -113,13 +164,27 @@ struct RootNavigationView: View {
                     }
                 }
             }
-            .overlay {
-                if spreadsCoordinator.activeSheet != nil {
-                    DotGridView(configuration: .paper)
-                        .opacity(0.4)
-                        .background(ignoresSafeAreaEdges: .all)
-                        .transition(.opacity)
-                }
+//            .overlay {
+//                if spreadsCoordinator.activeSheet != nil {
+//                    DotGridView(configuration: .paper)
+//                        .opacity(0.2)
+//                        .background(ignoresSafeAreaEdges: .all)
+//                        .transition(.opacity)
+//                }
+//            }
+        }
+    }
+
+    private func deleteSpread(_ spread: DataModel.Spread) {
+        spreadsCoordinator.dismissAlert()
+        Task { @MainActor in
+            do {
+                try await journalManager.deleteSpread(spread)
+                await syncEngine?.syncNow()
+            } catch {
+                spreadsCoordinator.showSpreadDeleteFailure(
+                    message: "Failed to delete spread: \(error.localizedDescription)"
+                )
             }
         }
     }
@@ -175,6 +240,7 @@ struct RootNavigationView: View {
                     Task { @MainActor in await syncEngine?.syncNow() }
                 }
             )
+            .inspectorColumnWidth(800)
         case .spreadDateEdit(let spread):
             if spread.period == .multiday {
                 SpreadCreationSheet(

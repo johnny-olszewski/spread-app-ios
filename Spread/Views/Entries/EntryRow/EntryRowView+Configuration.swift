@@ -10,23 +10,26 @@ extension EntryRowView {
     struct Configuration {
 
         enum Action: Identifiable {
-            case edit(onTap: (any Entry) -> Void)
+            case openEdit(onTapEditButton: (any Entry) -> Void)
             case migrate(
                 migrationOptions: (any Entry) -> [MigrationOption],
                 onMigrationSelected: (any Entry, MigrationOption) async -> Void
             )
+            case delete(deleteEntry: ((any Entry) -> Void))
 
             var id: String {
                 switch self {
-                case .edit: return "edit"
+                case .openEdit: return "edit"
                 case .migrate: return "migrate"
+                case .delete: return "delete"
                 }
             }
             
             var systemImageName: String {
                 switch self {
-                case .edit(_): "square.and.pencil"
+                case .openEdit(_): "square.and.pencil"
                 case .migrate(_, _): "arrow.right"
+                case .delete(_): "trash"
                 }
             }
 
@@ -49,9 +52,6 @@ extension EntryRowView {
 
         // MARK: - Context-dependent display derivations
 
-        /// Returns the effective task status for display purposes.
-        var effectiveTaskStatus: ((any Entry) -> EntryStatus?)?
-
         /// Returns whether the row should render greyed out.
         var isGreyedOut: ((any Entry) -> Bool)?
 
@@ -69,14 +69,11 @@ extension EntryRowView {
 
         // MARK: - Action callbacks
 
-        var onComplete: ((any Entry) -> Void)?
-        var onEdit: ((any Entry) -> Void)?
-        var onDelete: ((any Entry) -> Void)?
-        var onTitleCommit: (@MainActor (any Entry, String) async -> Void)?
+        var onStatusIconTap: ((any Entry) -> Void)?
 
-        /// Called when a toolbar action is triggered while the user has an uncommitted title edit.
-        /// The view passes `onSave` and `onDiscard` — the call site decides how to present the prompt.
-        var showDiscardChangesAlert: ((_ onSave: @escaping @MainActor () async -> Void, _ onDiscard: @escaping @MainActor () async -> Void) -> Void)?
+        var onTitleCommit: (@MainActor (any Entry, String) async -> Void)?
+        
+        var showAlert: ((SpreadsCoordinator.AlertDestination) -> Void)?
 
         var actions: [Action] = []
     }
@@ -98,31 +95,27 @@ extension EntryRowView.Configuration {
         let today = journalManager.today
         
         return EntryRowView.Configuration(
-            effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
             isGreyedOut: { entry in
                 guard entry.entryType == .task else { return false }
                 return entry.status == .complete || entry.status == .migrated || entry.status == .cancelled
             },
-            hasStrikethrough: { entry in entry.status == .cancelled },
-            dueDateLabel: { entry in (entry as? DataModel.Task)?.dueDateLabel(calendar: calendar) },
+            hasStrikethrough: {
+                entry in entry.status == .cancelled
+            },
+            dueDateLabel: {
+                entry in (entry as? DataModel.Task)?.dueDateLabel(calendar: calendar)
+            },
             isDueDateHighlighted: { entry in
                 (entry as? DataModel.Task)?.isDueDateHighlighted(today: today, calendar: calendar) ?? false
             },
-            onComplete: { entry in
+            onStatusIconTap: { entry in
+                
+                // impossible path if configuration is associated with tasks
                 guard let task = entry as? DataModel.Task else { return }
+                
                 Task { @MainActor in
-                    let newStatus: EntryStatus = task.status == .complete ? .open : .complete
+                    let newStatus: EntryStatus = task.status.rotate(in: [.open, .complete, .cancelled])
                     try? await journalManager.updateTaskStatus(task, newStatus: newStatus)
-                    await syncEngine?.syncNow()
-                }
-            },
-            onEdit: { entry in
-                if let task = entry as? DataModel.Task { coordinator.showTaskDetail(task) }
-            },
-            onDelete: { entry in
-                guard let task = entry as? DataModel.Task else { return }
-                Task { @MainActor in
-                    try? await journalManager.deleteTask(task)
                     await syncEngine?.syncNow()
                 }
             },
@@ -131,11 +124,11 @@ extension EntryRowView.Configuration {
                 try? await journalManager.updateTaskTitle(task, newTitle: newTitle)
                 Task { @MainActor in await syncEngine?.syncNow() }
             },
-            showDiscardChangesAlert: { onSave, onDiscard in
-                coordinator.showDiscardChanges(onSave: onSave, onDiscard: onDiscard)
+            showAlert: { alert in
+                coordinator.activeAlert = alert
             },
             actions: [
-                .edit(onTap: { entry in
+                .openEdit(onTapEditButton: { entry in
                     if let task = entry as? DataModel.Task { coordinator.showTaskDetail(task) }
                 }),
                 .migrate(
@@ -147,8 +140,15 @@ extension EntryRowView.Configuration {
                         guard let task = entry as? DataModel.Task else { return }
                         try? await journalManager.updateTaskDateAndPeriod(task, newDate: option.date, newPeriod: option.period)
                         await syncEngine?.syncNow()
+                    }),
+                .delete(deleteEntry: { entry in
+                    guard let task = entry as? DataModel.Task else { return }
+                    Task { @MainActor in
+                        try? await journalManager.deleteTask(task)
+                        await syncEngine?.syncNow()
                     }
-                )
+                })
+                
             ]
         )
     }
@@ -162,16 +162,16 @@ extension EntryRowView.Configuration {
     ) -> EntryRowView.Configuration {
         return EntryRowView.Configuration(
             isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
-            onEdit: { entry in
-                if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
-            },
-            onDelete: { entry in
-                guard let note = entry as? DataModel.Note else { return }
-                Task { @MainActor in
-                    try? await journalManager.deleteNote(note)
-                    await syncEngine?.syncNow()
-                }
-            }
+//            onEdit: { entry in
+//                if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
+//            },
+//            onDelete: { entry in
+//                guard let note = entry as? DataModel.Note else { return }
+//                Task { @MainActor in
+//                    try? await journalManager.deleteNote(note)
+//                    await syncEngine?.syncNow()
+//                }
+//            }
         )
     }
 
@@ -198,7 +198,7 @@ extension EntryRowView.Configuration {
                     fmt.dateStyle = .none
                     return "\(fmt.string(from: calEvent.startDate))–\(fmt.string(from: calEvent.endDate)) · \(calEvent.calendarTitle)"
                 }
-            }
+            },
         )
     }
 }

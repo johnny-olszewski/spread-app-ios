@@ -6,334 +6,33 @@ import JohnnyOFoundationUI
 /// Receives a type-level `EntryRowView.Configuration` from the caller and an `Entry` to render.
 /// All type-specific logic lives in configuration closures; the view has no type knowledge.
 struct EntryRowView: View {
-
+    
     // MARK: - Properties
-
+    
     let entry: any Entry
     let configuration: Configuration
-
+    
     // MARK: - Inline edit state (view-owned)
-
+    
     @State private var editingText: String
     @State private var titleSelection: TextSelection?
-    @State private var hasAcquiredTitleFocus: Bool = false
-    @State private var isInlineActive: Bool = false
+    @State private var isConfirmingChanges: Bool = false
     @FocusState private var isTitleFocused: Bool
-
+    
     // MARK: - Initialisation
-
+    
     init(entry: any Entry, configuration: Configuration) {
         self.entry = entry
         self.configuration = configuration
         _editingText = State(initialValue: entry.title)
     }
-
-    // MARK: - Body
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-                Button {
-                    rowIconOnTap?()
-                } label: {
-                    EntryStatusIcon(
-                        baseShape: entry.baseShape,
-                        bseeShapeConfig: .init(color: entry.status.iconColor, iconSize: nil),
-                        overlay: entry.status.overlayShape,
-                        overlayConfig: .init(color: entry.status.iconColor, iconSize: nil)
-                    )
-                }
-                .buttonStyle(.plain)
-                .contentShape(Rectangle())
-                .accessibilityLabel(entry.status.accessibilityLabel(for: entry.entryType))
-                .allowsHitTesting(rowIconOnTap != nil)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    
-                    // title and chips
-                    topRow
-                    
-                    if let subtitle = configuration.subtitle?(entry) {
-                        Text(subtitle)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    
-    //                taskMetadataArea
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture { handlePrimaryTap() }
-
-        }
-        .foregroundStyle(rowColor)
-        .contextMenu { contextMenuActions }
-        .onChange(of: isTitleFocused) { _, focused in
-            if focused {
-                if isInlineActive && !hasAcquiredTitleFocus {
-                    titleSelection = endOfTextCursor(for: editingText)
-                }
-                hasAcquiredTitleFocus = true
-            } else if isInlineActive && hasAcquiredTitleFocus {
-                commitEdit()
-            }
-        }
-        .onChange(of: entry.title) { _, newTitle in
-            guard !isInlineActive else { return }
-            editingText = newTitle
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(accessibilityValue ?? "")
-    }
-
-    // MARK: - Subviews
     
-    private var rowIconOnTap: (() -> Void)? {
-        guard entry.entryType == .task, configuration.onComplete != nil else { return nil }
-        guard entry.status.canToggleCompletionInTaskSheet else { return nil }
-        return { handleIconTap() }
-    }
-
-    @ViewBuilder
-    private var topRow: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            TextField("", text: $editingText, selection: $titleSelection)
-                .font(.body)
-                .textFieldStyle(.plain)
-                .strikethrough(configuration.hasStrikethrough?(entry) ?? false)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .focused($isTitleFocused)
-                .submitLabel(.done)
-                .onSubmit { commitEdit() }
-                .allowsHitTesting(isInlineActive)
-                .accessibilityIdentifier(
-                    Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(entry.title)
-                )
-                .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        ForEach(configuration.actions) { action in
-                            toolbarItem(for: action)
-                        }
-                    }
-                }
-
-            if !entry.displayTagChips.isEmpty && !isInlineActive {
-                HStack(spacing: 4) {
-                    ForEach(entry.displayTagChips, id: \.title) { chip in
-                        LabelChip(title: chip.title, color: chip.color)
-                    }
-                }
-                .padding(.leading, 4)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-//    @ViewBuilder
-//    private var taskMetadataArea: some View {
-//        let priority = entry.displayPriority
-//        let dueLabel = configuration.dueDateLabel?(entry)
-//        let bodyPreview = entry.displayBodyPreview
-//        if priority != .none || dueLabel != nil || bodyPreview != nil {
-//            VStack(alignment: .leading, spacing: 2) {
-//                if priority != .none || dueLabel != nil {
-//                    HStack(spacing: 6) {
-//                        if let badgeTitle = priority.badgeTitle {
-//                            Text(badgeTitle)
-//                                .font(.caption2.weight(.semibold))
-//                                .foregroundStyle(priority.badgeColor)
-//                                .padding(.horizontal, 5)
-//                                .padding(.vertical, 2)
-//                                .overlay {
-//                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-//                                        .stroke(priority.badgeColor.opacity(0.35), lineWidth: 1)
-//                                }
-//                        }
-//                        if let dueLabel {
-//                            Text(dueLabel)
-//                                .font(.caption)
-//                                .foregroundStyle(
-//                                    (configuration.isDueDateHighlighted?(entry) ?? false) ? Color.orange : Color.secondary
-//                                )
-//                        }
-//                    }
-//                }
-//                if let preview = bodyPreview {
-//                    Text(preview)
-//                        .font(.caption)
-//                        .foregroundStyle(.secondary)
-//                        .lineLimit(1)
-//                }
-//            }
-//        }
-//    }
-
-    @ViewBuilder
-    private func toolbarItem(for action: Configuration.Action) -> some View {
-        switch action {
-        case .edit(let onTap):
-            Button {
-                Task { @MainActor in await performAction {
-                    withAnimation {
-                        onTap(entry)
-                    }
-                }
-                }
-            } label: {
-                Image(systemName: action.systemImageName)
-                    .font(.system(size: SpreadTheme.IconSize.medium))
-                    .foregroundStyle(.secondary)
-                    .frame(minWidth: 44, minHeight: 44)
-            }
-            .accessibilityLabel("Edit")
-            .accessibilityIdentifier(
-                Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineEditButton(entry.title)
-            )
-        case .migrate(let migrationOptions, let onMigrationSelected):
-            let options = migrationOptions(entry)
-            if !options.isEmpty {
-                Menu {
-                    ForEach(options) { option in
-                        Button {
-                            Task { @MainActor in
-                                await performAction { await onMigrationSelected(entry, option) }
-                            }
-                        } label: {
-                            Text(option.label)
-                        }
-                        .accessibilityIdentifier(
-                            Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationOption(
-                                entry.title,
-                                option: option.kind.rawValue
-                            )
-                        )
-                    }
-                } label: {
-                    Image(systemName: action.systemImageName)
-                        .font(.system(size: SpreadTheme.IconSize.medium))
-                        .foregroundStyle(.secondary)
-                        .frame(minWidth: 44, minHeight: 44)
-                }
-                .accessibilityLabel("Migrate")
-                .accessibilityIdentifier(
-                    Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu(entry.title)
-                )
-            }
-        }
-    }
-
-    // MARK: - Inline Edit Helpers
-
-    private func beginEditing() {
-        guard supportsInlineEditing, !isInlineActive else { return }
-        editingText = entry.title
-        titleSelection = endOfTextCursor(for: editingText)
-        hasAcquiredTitleFocus = false
-        withAnimation(.easeInOut(duration: 0.18)) { isInlineActive = true }
-        isTitleFocused = true
-    }
-
-    private func commitEdit() {
-        let trimmed = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
-        withAnimation(.easeInOut(duration: 0.18)) { isInlineActive = false }
-        isTitleFocused = false
-        titleSelection = nil
-        hasAcquiredTitleFocus = false
-        guard !trimmed.isEmpty, trimmed != entry.title else { return }
-        Task { @MainActor in
-            await configuration.onTitleCommit?(entry, trimmed)
-        }
-    }
-
-    private func handlePrimaryTap() {
-        guard !isInlineActive else { return }
-        if supportsInlineEditing {
-            beginEditing()
-        } else {
-            configuration.onEdit?(entry)
-        }
-    }
-
-    private func handleIconTap() {
-        if isInlineActive { commitEdit() }
-        configuration.onComplete?(entry)
-    }
-
-    /// Inline editing is supported when the configuration provides a title-commit handler
-    /// and the effective status is open. The call site controls both signals via configuration
-    /// closures — no entry-type checks here.
-    private var supportsInlineEditing: Bool {
-        guard configuration.onTitleCommit != nil else { return false }
-        let status = configuration.effectiveTaskStatus?(entry) ?? entry.status
-        return status == .open
-    }
-
-    private func performAction(_ action: @escaping @MainActor () async -> Void) async {
-        let trimmed = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let hasChanges = !trimmed.isEmpty && trimmed != entry.title
-
-        // Deactivate inline mode before dismissing focus so the onChange observer
-        // sees isInlineActive == false and skips the auto-commit via commitEdit().
-        isInlineActive = false
-        titleSelection = nil
-        hasAcquiredTitleFocus = false
-        isTitleFocused = false
-
-        if hasChanges, let showAlert = configuration.showDiscardChangesAlert {
-            let entry = self.entry
-            let onTitleCommit = configuration.onTitleCommit
-            showAlert(
-                {
-                    await onTitleCommit?(entry, trimmed)
-                    await action()
-                },
-                {
-                    await action()
-                }
-            )
-        } else {
-            await Task.yield()
-            await action()
-        }
-    }
-
-    private func endOfTextCursor(for text: String) -> TextSelection {
-        TextSelection(insertionPoint: text.endIndex)
-    }
-
-    // MARK: - Styling
-
-    private var rowColor: Color {
-        let greyed = configuration.isGreyedOut?(entry) ?? false
-        let strikethrough = configuration.hasStrikethrough?(entry) ?? false
-        return (greyed || strikethrough) ? .secondary : .primary
-    }
-
     // MARK: - Accessibility
-
+    
     private var accessibilityLabel: String {
-        let typeName: String
-        switch entry.entryType {
-        case .task: typeName = "Task"
-        case .note: typeName = "Note"
-        case .event: typeName = "Event"
-        }
-        var parts = [entry.title, typeName]
-        let effectiveStatus: EntryStatus? = switch entry.entryType {
-        case .task: configuration.effectiveTaskStatus?(entry) ?? entry.status
-        case .note: entry.status
-        case .event: nil
-        }
-        if let status = effectiveStatus {
-            parts.append(status.displayName)
-        }
-        return parts.joined(separator: ", ")
+        return "\(entry.status.displayName)-\(entry.entryType.displayName)-\(entry.title)"
     }
-
+    
     private var accessibilityValue: String? {
         let priority = entry.displayPriority
         var parts: [String] = []
@@ -345,75 +44,277 @@ struct EntryRowView: View {
         }
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
-
-    // MARK: - Context Menu
-
-    @ViewBuilder
-    private var contextMenuActions: some View {
-        if let onEdit = configuration.onEdit {
-            Button { onEdit(entry) } label: { Label("Edit", systemImage: "pencil") }
+    
+    // MARK: - Convenience
+    
+    private var onEdit: ((any Entry) -> Void)? {
+        
+        for action in configuration.actions {
+            if case .openEdit(let onEdit) = action {
+                return onEdit
+            }
         }
-        if configuration.onComplete != nil, entry.entryType == .task, entry.status == .open {
-            Button { configuration.onComplete?(entry) } label: { Label("Complete", systemImage: "checkmark.circle") }
-        }
-        if let onDelete = configuration.onDelete {
-            Button(role: .destructive) { onDelete(entry) } label: { Label("Delete", systemImage: "trash") }
-        }
+        
+        return nil
     }
-}
-
-// MARK: - Add Task Button
-
-/// Tappable "Add Task" affordance that presents a native alert for quick task entry.
-struct AddTaskButton: View {
-
-    let date: Date
-    let period: Period
-    let onAddTask: @MainActor (String, Date, Period) async throws -> Void
-
-    @State private var isPresented = false
-    @State private var title = ""
-
+    
+    /// Inline editing is supported when the configuration provides a title-commit handler
+    /// and the effective status is open. The call site controls both signals via configuration
+    /// closures — no entry-type checks here.
+    private var supportsInlineEditing: Bool {
+        return configuration.onTitleCommit != nil
+    }
+    
+    // MARK: - Body
+    
     var body: some View {
-        Button {
-            isPresented = true
-        } label: {
-            HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-                Image(systemName: "plus")
+        
+        VStack(alignment: .leading, spacing: 2) {
+            
+            TextField("", text: $editingText, selection: $titleSelection)
+                .font(.body)
+                .foregroundStyle(entry.status.iconColor)
+                .textFieldStyle(.plain)
+                .strikethrough(configuration.hasStrikethrough?(entry) ?? false, color: .secondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .disabled(entry.status.inlineChangesAreLocked)
+                .focused($isTitleFocused)
+                .submitLabel(.done)
+                .onSubmit { commitTitleEdit() }
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(entry.title)
+                )
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        menuButtons(labelVisibility: .hidden)
+                    }
+                }
+            
+            if let subtitle = configuration.subtitle?(entry) {
+                Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .frame(width: 24, height: 24)
-                Text("Add Task")
-                    .font(SpreadTheme.Typography.body)
-                    .foregroundStyle(.secondary)
-                Spacer()
+                    .lineLimit(1)
             }
+        }
+        .safeAreaInset(edge: .leading) {
+            statusButton
+        }
+        .safeAreaInset(edge: .trailing) {
+            if $isTitleFocused.wrappedValue {
+                editEntryButton(.hidden)
+            }
+        }
+        .contentShape(Rectangle())
+        .contextMenu {
+            menuButtons(labelVisibility: .visible)
+        }
+        
+        //        }
+        .onChange(of: isTitleFocused) { _, isFocused in
+            if isFocused {
+                editingText = entry.title
+                titleSelection = TextSelection(insertionPoint: editingText.endIndex)
+            } else {
+                if isConfirmingChanges == false {
+                    editingText = entry.title
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(accessibilityValue ?? "")
+    }
+    
+    // MARK: - Subviews
+    
+    //    @ViewBuilder
+    //    private var taskMetadataArea: some View {
+    //        let priority = entry.displayPriority
+    //        let dueLabel = configuration.dueDateLabel?(entry)
+    //        let bodyPreview = entry.displayBodyPreview
+    //        if priority != .none || dueLabel != nil || bodyPreview != nil {
+    //            VStack(alignment: .leading, spacing: 2) {
+    //                if priority != .none || dueLabel != nil {
+    //                    HStack(spacing: 6) {
+    //                        if let badgeTitle = priority.badgeTitle {
+    //                            Text(badgeTitle)
+    //                                .font(.caption2.weight(.semibold))
+    //                                .foregroundStyle(priority.badgeColor)
+    //                                .padding(.horizontal, 5)
+    //                                .padding(.vertical, 2)
+    //                                .overlay {
+    //                                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+    //                                        .stroke(priority.badgeColor.opacity(0.35), lineWidth: 1)
+    //                                }
+    //                        }
+    //                        if let dueLabel {
+    //                            Text(dueLabel)
+    //                                .font(.caption)
+    //                                .foregroundStyle(
+    //                                    (configuration.isDueDateHighlighted?(entry) ?? false) ? Color.orange : Color.secondary
+    //                                )
+    //                        }
+    //                    }
+    //                }
+    //                if let preview = bodyPreview {
+    //                    Text(preview)
+    //                        .font(.caption)
+    //                        .foregroundStyle(.secondary)
+    //                        .lineLimit(1)
+    //                }
+    //            }
+    //        }
+    //    }
+    
+    @ViewBuilder
+    private var statusButton: some View {
+        Button {
+            if isTitleFocused {
+                /// if title was being edited when status button was hit, lose focus, save the title, then update the status
+                isTitleFocused = false
+                commitTitleEdit()
+            }
+            configuration.onStatusIconTap?(entry)
+        } label: {
+            EntryStatusIcon(
+                baseShape: entry.baseShape,
+                bseeShapeConfig: .init(color: entry.status.iconColor, iconSize: nil),
+                overlay: entry.status.overlayShape,
+                overlayConfig: .init(color: entry.status.iconColor, iconSize: nil)
+            )
         }
         .buttonStyle(.plain)
-        .alert("New Task", isPresented: $isPresented) {
-            TextField("Task title", text: $title)
-            Button("Save") {
-                let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-                title = ""
-                guard !trimmed.isEmpty else { return }
-                Task { @MainActor in try? await onAddTask(trimmed, date, period) }
+        .contentShape(Rectangle())
+        .allowsHitTesting(configuration.onStatusIconTap != nil)
+    }
+    
+    @ViewBuilder
+    private func editEntryButton(_ labelVisibility: Visibility = .visible) -> some View {
+        
+        if let onEdit = self.onEdit {
+            Button {
+                onEdit(entry)
+            } label: {
+                Label("Edit", systemImage: "square.and.pencil")
             }
-            Button("Cancel", role: .cancel) { title = "" }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .allowsHitTesting(true)
+            .transition(.slide)
+            .labelsVisibility(labelVisibility)
         }
+    }
+    
+    @ViewBuilder
+    private func menuButtons(labelVisibility: Visibility) -> some View {
+        ForEach(configuration.actions) { action in
+            toolbarItem(for: action, labelVisibility: labelVisibility)
+        }
+    }
+    
+    @ViewBuilder
+    private func toolbarItem(for action: Configuration.Action, labelVisibility: Visibility) -> some View {
+        switch action {
+        case .openEdit(_):
+            editEntryButton(labelVisibility)
+        case .migrate(let migrationOptions, let onMigrationSelected):
+            let options = migrationOptions(entry)
+            if !options.isEmpty {
+                Menu {
+                    ForEach(options) { option in
+                        Button {
+                            isConfirmingChanges = true
+                            
+                            guard configuration.showAlert != nil else {
+                                return
+                            }
+                            
+                            Task { @MainActor in
+                                await confirmChanges { await onMigrationSelected(entry, option) }
+                            }
+                        } label: {
+                            Label(option.label, systemImage: action.systemImageName)
+                        }
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationOption(
+                                entry.title,
+                                option: option.kind.rawValue
+                            )
+                        )
+                    }
+                } label: {
+                    Label("Migrate", systemImage: action.systemImageName)
+                        .font(.system(size: SpreadTheme.IconSize.medium))
+                        .labelsVisibility(labelVisibility)
+                }
+                .accessibilityLabel("Migrate")
+                .accessibilityIdentifier(
+                    Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu(entry.title)
+                )
+            }
+        case .delete(let deleteEntry):
+            Button {
+                let alert = SpreadsCoordinator.AlertDestination.deleteEntryConfirmation(confirmAction: {
+                    deleteEntry(entry)
+                })
+                
+                configuration.showAlert?(alert)
+            } label: {
+                Label("Delete", systemImage: action.systemImageName)
+            }
+        }
+    }
+    
+    // MARK: - Inline Edit Helpers
+    
+    private func commitTitleEdit() {
+        let trimmed = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        isTitleFocused = false
+        titleSelection = nil
+        
+        guard !trimmed.isEmpty, trimmed != entry.title else { return }
+        
+        Task { @MainActor in
+            await configuration.onTitleCommit?(entry, trimmed)
+        }
+    }
+    
+    private func confirmChanges(_ completion: @escaping @MainActor () async -> Void) async {
+    
+        let trimmedTitle = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedTitle.isEmpty else {
+            await completion()
+            return
+        }
+        
+        let hasChanges = trimmedTitle != entry.title
+        
+        titleSelection = nil
+        isTitleFocused = false
+        
+        let alert = SpreadsCoordinator.AlertDestination.discardChanges {
+            commitTitleEdit()
+            await completion()
+        } onDiscard: {
+            await completion()
+        }
+        
+        configuration.showAlert?(alert)
     }
 }
 
 // MARK: - Previews
 
 #Preview("Task - Open") {
-    let task = DataModel.Task(title: "Buy groceries", status: .open)
+    var task = DataModel.Task(title: "Buy groceries", status: .open)
+    
     let config = EntryRowView.Configuration(
-        effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
         isGreyedOut: { _ in false },
         hasStrikethrough: { _ in false },
-        onComplete: { _ in },
-        onEdit: { _ in },
-        onDelete: { _ in },
+        onStatusIconTap: { _ in },
         onTitleCommit: { _, _ in }
     )
     List { EntryRowView(entry: task, configuration: config) }
@@ -422,11 +323,8 @@ struct AddTaskButton: View {
 #Preview("Task - Complete") {
     let task = DataModel.Task(title: "File taxes", status: .complete)
     let config = EntryRowView.Configuration(
-        effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
         isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .migrated || entry.status == .cancelled) },
         hasStrikethrough: { _ in false },
-        onEdit: { _ in },
-        onDelete: { _ in }
     )
     List { EntryRowView(entry: task, configuration: config) }
 }
@@ -434,9 +332,8 @@ struct AddTaskButton: View {
 #Preview("Task - Cancelled") {
     let task = DataModel.Task(title: "Buy a boat", status: .cancelled)
     let config = EntryRowView.Configuration(
-        effectiveTaskStatus: { $0.entryType == .task ? $0.status : nil },
         isGreyedOut: { _ in true },
-        hasStrikethrough: { _ in true }
+        hasStrikethrough: { _ in true },
     )
     List { EntryRowView(entry: task, configuration: config) }
 }
@@ -444,9 +341,7 @@ struct AddTaskButton: View {
 #Preview("Note - Active") {
     let note = DataModel.Note(title: "Project ideas", status: .active)
     let config = EntryRowView.Configuration(
-        isGreyedOut: { _ in false },
-        onEdit: { _ in },
-        onDelete: { _ in }
+        isGreyedOut: { _ in false }
     )
     return List { EntryRowView(entry: note, configuration: config) }
 }

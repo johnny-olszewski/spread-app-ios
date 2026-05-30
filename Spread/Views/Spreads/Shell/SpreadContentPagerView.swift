@@ -128,51 +128,7 @@ struct SpreadContentPagerView: View {
             coordinator.selectedSelection = item.selection
             coordinator.clearConvenienceNavigation()
         }
-        .alert(item: activeAlertBinding) { destination in
-            switch destination {
-            case .deleteSpreadConfirmation(let spread):
-                return Alert(
-                    title: Text("Delete Spread"),
-                    message: Text(
-                        "Only this spread will be deleted. Tasks and notes are preserved and moved to " +
-                        "the nearest parent spread or Inbox. This action cannot be undone."
-                    ),
-                    primaryButton: .destructive(Text("Delete Spread")) {
-                        deleteSpread(spread)
-                    },
-                    secondaryButton: .cancel {
-                        coordinator.dismissAlert()
-                    }
-                )
-            case .deleteSpreadFailed(let message):
-                return Alert(
-                    title: Text("Couldn't Delete Spread"),
-                    message: Text(message),
-                    dismissButton: .default(Text("OK")) {
-                        coordinator.dismissAlert()
-                    }
-                )
-            case .discardChanges(let onSave, let onDiscard):
-                return Alert(
-                    title: Text("Unsaved Changes"),
-                    message: Text("Save your title changes before continuing?"),
-                    primaryButton: .default(Text("Save")) {
-                        Task { @MainActor in await onSave() }
-                    },
-                    secondaryButton: .destructive(Text("Discard")) {
-                        Task { @MainActor in await onDiscard() }
-                    }
-                )
-            }
-        }
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.pager)
-    }
-
-    private var activeAlertBinding: Binding<SpreadsCoordinator.AlertDestination?> {
-        Binding(
-            get: { coordinator.activeAlert },
-            set: { coordinator.activeAlert = $0 }
-        )
     }
 
     private func center(on id: String, animated: Bool) {
@@ -184,20 +140,6 @@ struct SpreadContentPagerView: View {
             }
         } else {
             pagerSettledTargetID = targetID
-        }
-    }
-
-    private func deleteSpread(_ spread: DataModel.Spread) {
-        coordinator.dismissAlert()
-        Task { @MainActor in
-            do {
-                try await journalManager.deleteSpread(spread)
-                await syncEngine?.syncNow()
-            } catch {
-                coordinator.showSpreadDeleteFailure(
-                    message: "Failed to delete spread: \(error.localizedDescription)"
-                )
-            }
         }
     }
 

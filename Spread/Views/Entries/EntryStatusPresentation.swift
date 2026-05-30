@@ -23,20 +23,6 @@ extension EntryStatus {
         case .complete, .migrated, .cancelled: return .secondary
         }
     }
-
-    /// A localized accessibility label describing the status in context of the entry type.
-    func accessibilityLabel(for entryType: EntryType) -> String {
-        switch (entryType, self) {
-        case (.task, .open):      return "Open task"
-        case (.task, .complete):  return "Complete task"
-        case (.task, .migrated):  return "Migrated task"
-        case (.task, .cancelled): return "Cancelled task"
-        case (.note, .active):    return "Active note"
-        case (.note, .migrated):  return "Migrated note"
-        case (.event, _):         return "Event"
-        default:                  return displayName
-        }
-    }
 }
 
 extension EntryType {
@@ -60,17 +46,6 @@ extension EntryStatus {
         [.open, .complete, .cancelled]
     }
 
-    var displayName: String {
-        switch self {
-        case .open:      return "Open"
-        case .active:    return "Active"
-        case .complete:  return "Complete"
-        case .migrated:  return "Migrated"
-        case .cancelled: return "Cancelled"
-        case .upcoming:  return "Upcoming"
-        }
-    }
-
     var statusIconOverlaySymbol: String? {
         switch self {
         case .open, .active, .upcoming: return nil
@@ -83,8 +58,6 @@ extension EntryStatus {
     // MARK: Task sheet interaction
 
     var allowsAssignmentEditingInTaskSheet: Bool { self == .open }
-
-    var canToggleCompletionInTaskSheet: Bool { self == .open || self == .complete }
 
     var toggledCompletionStatusInTaskSheet: Self {
         switch self {
