@@ -113,6 +113,14 @@ struct RootNavigationView: View {
                     }
                 }
             }
+            .overlay {
+                if spreadsCoordinator.activeSheet != nil {
+                    DotGridView(configuration: .paper)
+                        .opacity(0.4)
+                        .background(ignoresSafeAreaEdges: .all)
+                        .transition(.opacity)
+                }
+            }
         }
     }
 

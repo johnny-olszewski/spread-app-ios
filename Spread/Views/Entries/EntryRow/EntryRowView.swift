@@ -177,7 +177,12 @@ struct EntryRowView: View {
         switch action {
         case .edit(let onTap):
             Button {
-                Task { @MainActor in await performAction { onTap(entry) } }
+                Task { @MainActor in await performAction {
+                    withAnimation {
+                        onTap(entry)
+                    }
+                }
+                }
             } label: {
                 Image(systemName: action.systemImageName)
                     .font(.system(size: SpreadTheme.IconSize.medium))
