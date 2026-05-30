@@ -176,10 +176,19 @@ struct TaskDetailSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Title")
             HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-                EntryStatusButton(
-                    status: viewModel.selectedStatus,
-                    entryType: .task
-                )
+                Button {} label: {
+                    EntryStatusIcon(
+                        baseShape: EntryType.task.statusIconBaseShape,
+                        bseeShapeConfig: .init(color: viewModel.selectedStatus.iconColor, iconSize: 24),
+                        overlay: viewModel.selectedStatus.overlayShape,
+                        overlayConfig: .init(color: viewModel.selectedStatus.iconColor, iconSize: 24)
+                    )
+                    .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .contentShape(Rectangle())
+                .accessibilityLabel(viewModel.selectedStatus.accessibilityLabel(for: .task))
+                .allowsHitTesting(false)
 
                 TextField("Task title", text: $viewModel.formModel.title)
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.titleField)
@@ -439,8 +448,10 @@ struct TaskDetailSheet: View {
                 assignment in
                 HStack {
                     EntryStatusIcon(
-                        baseShape: assignment.status.iconBaseShape(for: .task),
-                        overlay: assignment.status.iconOverlay
+                        baseShape: EntryType.task.statusIconBaseShape,
+                        bseeShapeConfig: .init(color: assignment.status.iconColor, iconSize: SpreadTheme.IconSize.medium),
+                        overlay: assignment.status.overlayShape,
+                        overlayConfig: .init(color: assignment.status.iconColor, iconSize: SpreadTheme.IconSize.medium)
                     )
 
                     VStack(alignment: .leading, spacing: 2) {

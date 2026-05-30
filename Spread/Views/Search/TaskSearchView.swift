@@ -108,7 +108,12 @@ private struct TaskSearchRowContent: View {
 
     var body: some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            EntryStatusIcon(baseShape: status.iconBaseShape(for: .task), overlay: status.iconOverlay)
+            EntryStatusIcon(
+                baseShape: EntryType.task.statusIconBaseShape,
+                bseeShapeConfig: .init(color: status.iconColor, iconSize: SpreadTheme.IconSize.medium),
+                overlay: status.overlayShape,
+                overlayConfig: .init(color: status.iconColor, iconSize: SpreadTheme.IconSize.medium)
+            )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)

@@ -33,7 +33,20 @@ struct EntryRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-                EntryStatusButton(status: entry.status, entryType: entry.entryType, onTap: rowIconOnTap)
+                Button {
+                    rowIconOnTap?()
+                } label: {
+                    EntryStatusIcon(
+                        baseShape: entry.baseShape,
+                        bseeShapeConfig: .init(color: entry.status.iconColor, iconSize: nil),
+                        overlay: entry.status.overlayShape,
+                        overlayConfig: .init(color: entry.status.iconColor, iconSize: nil)
+                    )
+                }
+                .buttonStyle(.plain)
+                .contentShape(Rectangle())
+                .accessibilityLabel(entry.status.accessibilityLabel(for: entry.entryType))
+                .allowsHitTesting(rowIconOnTap != nil)
 
                 VStack(alignment: .leading, spacing: 2) {
                     
@@ -80,8 +93,7 @@ struct EntryRowView: View {
     
     private var rowIconOnTap: (() -> Void)? {
         guard entry.entryType == .task, configuration.onComplete != nil else { return nil }
-        let effectiveStatus = configuration.effectiveTaskStatus?(entry) ?? entry.status
-        guard effectiveStatus.canToggleCompletionInTaskSheet else { return nil }
+        guard entry.status.canToggleCompletionInTaskSheet else { return nil }
         return { handleIconTap() }
     }
 

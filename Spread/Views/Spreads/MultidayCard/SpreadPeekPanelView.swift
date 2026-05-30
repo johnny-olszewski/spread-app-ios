@@ -156,7 +156,12 @@ struct SpreadPeekPanelView: View {
 
     private func peekTaskRow(_ task: DataModel.Task) -> some View {
         HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            EntryStatusIcon(baseShape: EntryStatus.open.iconBaseShape(for: .task), overlay: EntryStatus.open.iconOverlay)
+            EntryStatusIcon(
+                baseShape: EntryType.task.statusIconBaseShape,
+                bseeShapeConfig: .init(color: EntryStatus.open.iconColor, iconSize: SpreadTheme.IconSize.medium),
+                overlay: EntryStatus.open.overlayShape,
+                overlayConfig: .init(color: EntryStatus.open.iconColor, iconSize: SpreadTheme.IconSize.medium)
+            )
                 .frame(width: 24, height: 24)
             Text(task.title)
                 .font(SpreadTheme.Typography.body)
