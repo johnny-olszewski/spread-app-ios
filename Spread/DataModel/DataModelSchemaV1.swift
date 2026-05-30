@@ -374,6 +374,8 @@ enum DataModelSchemaV1: VersionedSchema {
 
         /// LWW timestamp for the `list` relationship field.
         var listUpdatedAt: Date?
+        
+        var baseShape: EntryStatusIcon.BaseShape { .filledCircle }
 
         /// Creates a new task.
         ///
@@ -505,6 +507,8 @@ enum DataModelSchemaV1: VersionedSchema {
 
         /// LWW timestamp for the `endTime` field.
         var endTimeUpdatedAt: Date?
+        
+        var baseShape: EntryStatusIcon.BaseShape { .emptyCircle }
 
         /// Ephemeral EventKit backing data. Not persisted; nil for all stored events.
         @Transient var calendarEvent: CalendarEvent? = nil
@@ -667,6 +671,8 @@ enum DataModelSchemaV1: VersionedSchema {
 
         /// LWW timestamp for the `list` relationship field.
         var listUpdatedAt: Date?
+        
+        var baseShape: EntryStatusIcon.BaseShape { .dash }
 
         /// Creates a new note.
         ///

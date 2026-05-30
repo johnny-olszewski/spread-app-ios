@@ -5,7 +5,7 @@ import SwiftUI
 ///
 /// Entry is the parent protocol for all journal items: tasks, events, and notes.
 /// Each entry type has distinct behavior around assignments and visibility.
-protocol Entry: Identifiable, Hashable {
+protocol Entry: Identifiable, Hashable, EntryStatusIconRepresentable {
     /// Unique identifier for the entry.
     var id: UUID { get }
 
@@ -19,9 +19,6 @@ protocol Entry: Identifiable, Hashable {
     var entryType: EntryType { get }
 
     // MARK: - Display requirements (default implementations in extension below)
-
-    /// Optional icon color. When non-nil, the leading accessory renders as a colored bar.
-    var iconColor: Color? { get }
 
     /// Tag chips shown inline with the title, one per assigned tag.
     var displayTagChips: [(title: String, color: Color)] { get }
@@ -81,4 +78,8 @@ protocol DateRangeEntry: Entry {
     ///   - calendar: The calendar to use for date calculations.
     /// - Returns: `true` if this entry's date range overlaps with the spread.
     func appearsOn(period: Period, date: Date, calendar: Calendar) -> Bool
+}
+
+protocol EntryStatusIconRepresentable {
+    var baseShape: EntryStatusIcon.BaseShape { get }
 }

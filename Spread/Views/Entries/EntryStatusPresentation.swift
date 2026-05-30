@@ -4,32 +4,23 @@ import SwiftUI
 
 extension EntryStatus {
 
-    /// Returns the base icon shape for the given entry type.
-    ///
-    /// The shape is determined by entry type. Within the task type, open tasks use the primary
-    /// color while all other statuses use secondary to indicate non-actionable state.
-    func iconBaseShape(for entryType: EntryType) -> EntryStatusIcon.BaseShape {
-        switch entryType {
-        case .task:
-            return self == .open ? .filledCircle(nil, nil) : .filledCircle(.secondary, nil)
-        case .note:
-            return .dash(.primary, nil)
-        case .event:
-            return .emptyCircle(.primary, nil)
-        }
-    }
-
-    /// The animated overlay drawn on top of the base icon, if any.
-    var iconOverlay: EntryStatusIcon.OverlayShape? {
+    var overlayShape: EntryStatusIcon.OverlayShape? {
         switch self {
         case .open, .active, .upcoming:
             return nil
         case .complete:
-            return .xmark(.secondary, nil)
+            return .xmark
         case .migrated:
-            return .arrowRight(.secondary, nil)
+            return .arrowRight
         case .cancelled:
-            return .slash(.secondary, nil)
+            return .slash
+        }
+    }
+    
+    var iconColor: Color {
+        switch self {
+        case .open, .active, .upcoming: return .primary
+        case .complete, .migrated, .cancelled: return .secondary
         }
     }
 
@@ -44,6 +35,19 @@ extension EntryStatus {
         case (.note, .migrated):  return "Migrated note"
         case (.event, _):         return "Event"
         default:                  return displayName
+        }
+    }
+}
+
+extension EntryType {
+    var statusIconBaseShape: EntryStatusIcon.BaseShape {
+        switch self {
+        case .task:
+            return .filledCircle
+        case .event:
+            return .emptyCircle
+        case .note:
+            return .dash
         }
     }
 }
@@ -73,15 +77,6 @@ extension EntryStatus {
         case .complete:  return "xmark"
         case .migrated:  return "arrow.right"
         case .cancelled: return "line.diagonal"
-        }
-    }
-
-    var statusIconColor: Color {
-        switch self {
-        case .open, .active, .upcoming: return .primary
-        case .complete:  return .green
-        case .migrated:  return .orange
-        case .cancelled: return .secondary
         }
     }
 
