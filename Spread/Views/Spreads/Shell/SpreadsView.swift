@@ -1,16 +1,11 @@
 import SwiftUI
 
 struct SpreadsView: View {
+    let coordinator: SpreadsCoordinator
     @Bindable var journalManager: JournalManager
     let authManager: AuthManager
     let syncEngine: SyncEngine?
     let navigationState: SpreadsNavigationState
-
-    @State private var coordinator = SpreadsCoordinator()
-
-    private var calendar: Calendar {
-        journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
-    }
 
     private var currentSelection: DataModel.Spread {
         coordinator.selectedSelection ?? journalManager.defaultNavigationSelection
@@ -107,9 +102,6 @@ struct SpreadsView: View {
         }
         .safeAreaInset(edge: .bottom) {
             bottomInsetControls
-        }
-        .sheet(item: $coordinator.activeSheet) { destination in
-            sheetContent(for: destination)
         }
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()
@@ -268,97 +260,6 @@ struct SpreadsView: View {
         coordinator.recenterToken += 1
     }
 
-    // MARK: - Sheet Content
-
-    @ViewBuilder
-    private func sheetContent(for destination: SpreadsCoordinator.SheetDestination) -> some View {
-        switch destination {
-        case .spreadCreation(let prefill):
-            SpreadCreationSheet(
-                journalManager: journalManager,
-                firstWeekday: journalManager.firstWeekday,
-                initialPeriod: prefill?.period,
-                initialDate: prefill?.date,
-                onSpreadCreated: { result in
-                    coordinator.finishSpreadCreation(
-                        result,
-                        currentSelection: currentSelection,
-                        calendar: journalManager.calendar
-                    )
-                    Task { @MainActor in await syncEngine?.syncNow() }
-                }
-            )
-        case .spreadNameEdit(let spread):
-            SpreadNameEditSheet(
-                journalManager: journalManager,
-                spread: spread,
-                onSaved: {
-                    Task { @MainActor in await syncEngine?.syncNow() }
-                }
-            )
-        case .spreadDateEdit(let spread):
-            if spread.period == .multiday {
-                SpreadCreationSheet(
-                    journalManager: journalManager,
-                    firstWeekday: journalManager.firstWeekday,
-                    editingMultidaySpread: spread,
-                    onSpreadDatesSaved: { updatedSpread in
-                        coordinator.finishSpreadDateEdit(updatedSpread)
-                        Task { @MainActor in await syncEngine?.syncNow() }
-                    }
-                )
-            } else {
-                Color.clear
-            }
-        case .taskCreation:
-            TaskCreationSheet(
-                journalManager: journalManager,
-                selectedSpread: currentSelection,
-                onTaskCreated: { _ in
-                    Task { @MainActor in await syncEngine?.syncNow() }
-                }
-            )
-        case .noteCreation:
-            NoteCreationSheet(
-                journalManager: journalManager,
-                selectedSpread: currentSelection,
-                onNoteCreated: { _ in
-                    Task { @MainActor in await syncEngine?.syncNow() }
-                }
-            )
-        case .taskDetail(let task):
-            TaskDetailSheet(
-                task: task,
-                journalManager: journalManager,
-                onDelete: {
-                    Task { @MainActor in await syncEngine?.syncNow() }
-                }
-            )
-        case .noteDetail(let note):
-            NoteDetailSheet(
-                note: note,
-                journalManager: journalManager,
-                onDelete: {
-                    Task { @MainActor in await syncEngine?.syncNow() }
-                }
-            )
-        case .peekData(let data):
-            SpreadPeekPanelView(
-                data: data,
-                calendar: calendar,
-                today: journalManager.today,
-                onClose: { coordinator.dismiss() },
-                onNavigate: { destination in
-                    coordinator.dismiss()
-                    coordinator.selectSpread(destination)
-                },
-                onTaskTap: nil
-            )
-        case .auth:
-            AuthEntrySheet(authManager: authManager, isBlocking: false)
-        }
-    }
-
     // MARK: - Pending Navigation
 
     private func handlePendingNavigationRequest() {
@@ -382,6 +283,7 @@ struct SpreadsView: View {
 
 #Preview {
     SpreadsView(
+        coordinator: SpreadsCoordinator(),
         journalManager: .previewInstance,
         authManager: .makeForPreview(),
         syncEngine: nil,
