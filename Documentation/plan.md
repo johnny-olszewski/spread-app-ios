@@ -6020,3 +6020,25 @@ Supabase: SPRD-85A -> SPRD-85C
   - Project builds with no errors or warnings.
 - **Tests**:
   - Visual inspection of existing Previews in `EntryStatusIcon.swift`, `EntryStatusButton.swift`, and `EntryRowView.swift` covers all icon/overlay combinations. No unit tests required.
+
+---
+
+### [SPRD-228] Refactor: Extract CalendarEventService from view-local CalendarEventStore - [ ] Pending
+
+- **Context**: `CalendarEventStore` is a nested `@Observable` class duplicated inside `DaySpreadContentView` and `MultidaySpreadContentView`. It owns both the EventKit fetch logic and the resulting `[CalendarEvent]` state. This makes the fetch strategy (EventKit today, Google Calendar or others in v2) impossible to mock in tests/previews and tightly coupled to the view layer.
+- **Description**: Introduce a `CalendarEventService` protocol with a single `fetchEvents(for:calendar:) async -> [CalendarEvent]` method. Implement `LiveCalendarEventService` (wraps `EventKitService`), `MockCalendarEventService` (returns seeded data), and `EmptyCalendarEventService` (returns `[]`). Add `calendarEventService` to `AppDependencies` and `SpreadPageContext`. Delete `CalendarEventStore` from both content views; replace with `@State var calendarEvents: [CalendarEvent] = []` and a `.task` call to the service.
+- **Spec**: `Documentation/Specs/EventKit.md` — Calendar Event Fetching Service (SPRD-228)
+- **Acceptance Criteria**:
+  - `CalendarEventService` protocol exists in `Spread/Services/` with `@MainActor func fetchEvents(for spread: DataModel.Spread, calendar: Calendar) async -> [CalendarEvent]`.
+  - `LiveCalendarEventService` implements the protocol, handles `.notDetermined` auth request, returns `[]` when not `.authorized`, and delegates the date-range fetch to its injected `EventKitService`.
+  - `MockCalendarEventService` implements the protocol and returns a configurable `[CalendarEvent]` array (defaults to `[]`).
+  - `EmptyCalendarEventService` implements the protocol and always returns `[]`.
+  - `AppDependencies` has `let calendarEventService: any CalendarEventService`. `makeForLive` uses `LiveCalendarEventService`, `makeForPreview` and `make(...)` use `MockCalendarEventService`.
+  - `SpreadPageContext` has `let calendarEventService: any CalendarEventService`. `eventKitService` remains on `SpreadPageContext` for `openEvent(_:)` calls only.
+  - `DaySpreadContentView.CalendarEventStore` is deleted. The view has `@State private var calendarEvents: [CalendarEvent] = []` and calls `context.calendarEventService.fetchEvents(for: spread, calendar: context.journalManager.calendar)` in `.task(id: spread.id)`.
+  - `MultidaySpreadContentView`'s `CalendarEventStore` is deleted with the same replacement pattern.
+  - All existing behaviour (events section, timeline card, all-day/timed split) is unchanged.
+  - Project builds with no errors or warnings.
+- **Tests**:
+  - Unit test `LiveCalendarEventService` authorization handling: returns `[]` when service is not authorized; calls through when authorized.
+  - Unit test `MockCalendarEventService` returns the seeded array.
