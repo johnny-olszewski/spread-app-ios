@@ -37,12 +37,15 @@ struct DaySpreadContentView: View {
         return Self.makeSections(
             from: base + eventEntries,
             spreadDate: spreadDataModel.spread.date,
-            calendar: cal
+            calendar: cal,
+            listConfigurationMap: entryConfigurationMap,
+            unassignedConfigurationMap: entryConfigurationMap,
+            eventConfigurationMap: eventConfigurationMap
         )
     }
 
-    private var configurationMap: [EntryType: EntryRowView.Configuration] {
-        var map: [EntryType: EntryRowView.Configuration] = [
+    private var entryConfigurationMap: [EntryType: EntryRowView.Configuration] {
+        [
             .task: .standardTaskConfig(
                 journalManager: context.journalManager,
                 syncEngine: context.syncEngine,
@@ -54,12 +57,12 @@ struct DaySpreadContentView: View {
                 coordinator: context.coordinator
             )
         ]
+    }
 
-        if !shouldShowTimelineCard {
-            map[.event] = .standardEventConfig(journalManager: context.journalManager)
-        }
-
-        return map
+    private var eventConfigurationMap: [EntryType: EntryRowView.Configuration] {
+        shouldShowTimelineCard
+            ? [:]
+            : [.event: .standardEventConfig(journalManager: context.journalManager)]
     }
 
     private var onAddTask: (@MainActor (String, Date, Period) async throws -> Void) {
@@ -132,7 +135,7 @@ struct DaySpreadContentView: View {
     private var entryList: some View {
         EntryListView(
             sections: sections,
-            configurationMap: configurationMap,
+            configurationMap: entryConfigurationMap,
             onAddTask: onAddTask
         )
     }
@@ -207,11 +210,15 @@ extension DaySpreadContentView {
     static func makeSections(
         from entries: [any Entry],
         spreadDate: Date,
-        calendar: Calendar
+        calendar: Calendar,
+        listConfigurationMap: [EntryType: EntryRowView.Configuration],
+        unassignedConfigurationMap: [EntryType: EntryRowView.Configuration],
+        eventConfigurationMap: [EntryType: EntryRowView.Configuration]
     ) -> [EntryList.Section] {
         guard !entries.isEmpty else { return [] }
 
         let sectionID = String(spreadDate.timeIntervalSinceReferenceDate)
+        let eventSectionID = "\(sectionID)-events"
 
         func entryDate(_ entry: any Entry) -> Date {
             switch entry.entryType {
@@ -225,43 +232,68 @@ extension DaySpreadContentView {
             entries.sorted { entryDate($0) < entryDate($1) }
         }
 
-        var listGroups: [UUID?: [any Entry]] = [:]
-        var listCriteria: [UUID: DataModel.List] = [:]
+        func list(for entry: any Entry) -> DataModel.List? {
+            if let task = entry as? DataModel.Task { return task.list }
+            if let note = entry as? DataModel.Note { return note.list }
+            return nil
+        }
+
+        var listGroups: [UUID: [any Entry]] = [:]
+        var listsByID: [UUID: DataModel.List] = [:]
+        var unassignedEntries: [any Entry] = []
+        var eventEntries: [any Entry] = []
 
         for entry in entries {
-            if let task = entry as? DataModel.Task {
-                let listID = task.list?.id
-                listGroups[listID, default: []].append(entry)
-                if let list = task.list { listCriteria[list.id] = list }
+            if entry.entryType == .event {
+                eventEntries.append(entry)
+            } else if let list = list(for: entry) {
+                listGroups[list.id, default: []].append(entry)
+                listsByID[list.id] = list
             } else {
-                listGroups[nil, default: []].append(entry)
+                unassignedEntries.append(entry)
             }
         }
 
         var sections: [EntryList.Section] = []
 
-        let sortedListIDs = listCriteria.keys.sorted {
-            listCriteria[$0]!.sectionTitle < listCriteria[$1]!.sectionTitle
+        let sortedListIDs = listsByID.keys.sorted {
+            listsByID[$0]!.name < listsByID[$1]!.name
         }
         for listID in sortedListIDs {
             sections.append(EntryList.Section(
                 id: listID.uuidString,
-                criteria: listCriteria[listID],
+                title: listsByID[listID]?.name ?? "",
                 date: spreadDate,
                 entries: sorted(listGroups[listID] ?? []),
                 creationPeriod: .day,
-                creationDate: spreadDate
+                creationDate: spreadDate,
+                configurationMap: listConfigurationMap
             ))
         }
 
-        if let noListEntries = listGroups[nil], !noListEntries.isEmpty {
+        if !unassignedEntries.isEmpty {
             sections.append(EntryList.Section(
                 id: sectionID,
-                criteria: nil,
+                title: "No List",
+                titleStyle: .secondary,
                 date: spreadDate,
-                entries: sorted(noListEntries),
+                entries: sorted(unassignedEntries),
                 creationPeriod: .day,
-                creationDate: spreadDate
+                creationDate: spreadDate,
+                configurationMap: unassignedConfigurationMap
+            ))
+        }
+
+        if !eventEntries.isEmpty {
+            sections.append(EntryList.Section(
+                id: eventSectionID,
+                title: "Events",
+                date: spreadDate,
+                entries: sorted(eventEntries),
+                creationPeriod: .day,
+                creationDate: spreadDate,
+                configurationMap: eventConfigurationMap,
+                allowsTaskCreation: false
             ))
         }
 

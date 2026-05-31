@@ -93,7 +93,7 @@ struct MonthSpreadContentView: View {
                 EntryListView(
                     sections: [EntryList.Section(
                         id: "month-entries",
-                        criteria: nil,
+                        title: "",
                         date: spread.date,
                         entries: entries,
                         creationPeriod: .month,
@@ -120,7 +120,7 @@ struct MonthSpreadContentView: View {
                 EntryListView(
                     sections: [EntryList.Section(
                         id: section.date.timeIntervalSinceReferenceDate.description,
-                        criteria: nil,
+                        title: "",
                         date: section.date,
                         entries: section.entries,
                         creationPeriod: .day,

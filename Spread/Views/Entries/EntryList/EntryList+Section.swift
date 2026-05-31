@@ -3,24 +3,23 @@ import Foundation
 enum EntryList {}
 
 extension EntryList {
+    enum SectionTitleStyle {
+        case primary
+        case secondary
+    }
+
     /// A section of grouped entries for display in an entry list.
     ///
-    /// Contains optional grouping criteria, date, and the entries belonging to this section.
+    /// Contains a title, date, and the entries belonging to this section.
     /// Used by `EntryListView` to render grouped entries.
     struct Section: Identifiable {
         /// Unique identifier for the section.
         let id: String
 
-        /// The criteria used to group this section.
-        ///
-        /// Nil criteria means the section has no rendered header.
-        /// Day spread list sections use the backing list as criteria.
-        let criteria: (any EntrySectionCriteria)?
-
         /// The display title for the section header.
-        var title: String {
-            criteria?.sectionTitle ?? ""
-        }
+        let title: String
+
+        let titleStyle: SectionTitleStyle
 
         /// The date this section represents.
         ///
@@ -35,20 +34,34 @@ extension EntryList {
         /// The period/date context used when creating a new task from this section.
         let creationPeriod: Period
         let creationDate: Date
+
+        /// Optional per-section row rendering configuration. Falls back to the
+        /// `EntryListView` configuration map when nil.
+        let configurationMap: [EntryType: EntryRowView.Configuration]?
+
+        /// Whether this section should show the inline add-task affordance.
+        let allowsTaskCreation: Bool
+
+        init(
+            id: String,
+            title: String,
+            titleStyle: SectionTitleStyle = .primary,
+            date: Date,
+            entries: [any Entry],
+            creationPeriod: Period,
+            creationDate: Date,
+            configurationMap: [EntryType: EntryRowView.Configuration]? = nil,
+            allowsTaskCreation: Bool = true
+        ) {
+            self.id = id
+            self.title = title
+            self.titleStyle = titleStyle
+            self.date = date
+            self.entries = entries
+            self.creationPeriod = creationPeriod
+            self.creationDate = creationDate
+            self.configurationMap = configurationMap
+            self.allowsTaskCreation = allowsTaskCreation
+        }
     }
-}
-
-protocol EntrySectionCriteria {
-    var sectionID: String { get }
-    var sectionTitle: String { get }
-}
-
-extension DataModel.List: EntrySectionCriteria {
-    var sectionID: String { id.uuidString }
-    var sectionTitle: String { name }
-}
-
-struct EntryTitleSectionCriteria: EntrySectionCriteria {
-    let sectionID: String
-    let sectionTitle: String
 }

@@ -34,7 +34,7 @@ struct EntryListView: View {
     )
 
     private var hasAnyEntries: Bool {
-        !sections.allSatisfy { $0.entries.isEmpty }
+        sections.contains { !renderableEntries(in: $0).isEmpty }
     }
 
     // MARK: - Body
@@ -60,11 +60,16 @@ struct EntryListView: View {
     private var listLayout: some View {
         List {
             ForEach(sections) { section in
-                if section.title.isEmpty {
-                    listSectionRows(section)
-                } else {
-                    Section(section.title) {
+                if shouldRender(section) {
+                    if section.title.isEmpty {
                         listSectionRows(section)
+                    } else {
+                        Section {
+                            listSectionRows(section)
+                        } header: {
+                            Text(section.title)
+                                .foregroundStyle(section.titleStyle == .secondary ? .secondary : .primary)
+                        }
                     }
                 }
             }
@@ -78,15 +83,15 @@ struct EntryListView: View {
 
     @ViewBuilder
     private func listSectionRows(_ section: EntryList.Section) -> some View {
-        ForEach(section.entries, id: \.id) { entry in
-            if let configuration = configurationMap[entry.entryType] {
+        ForEach(renderableEntries(in: section), id: \.id) { entry in
+            if let configuration = rowConfiguration(for: entry, in: section) {
                 EntryRowView(entry: entry, configuration: configuration)
                     .listRowInsets(Self.rowInsets)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
         }
-        if let onAddTask {
+        if let onAddTask, section.allowsTaskCreation {
             AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: onAddTask)
                 .listRowInsets(Self.rowInsets)
                 .listRowBackground(Color.clear)
@@ -100,16 +105,18 @@ struct EntryListView: View {
     private var inlineLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(sections) { section in
-                inlineSectionRows(section)
+                if shouldRender(section) {
+                    inlineSectionRows(section)
+                }
             }
         }
     }
 
     @ViewBuilder
     private func inlineSectionRows(_ section: EntryList.Section) -> some View {
-        let entries = section.entries
+        let entries = renderableEntries(in: section)
         ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-            if let configuration = configurationMap[entry.entryType] {
+            if let configuration = rowConfiguration(for: entry, in: section) {
                 EntryRowView(entry: entry, configuration: configuration)
                     .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
             }
@@ -117,12 +124,27 @@ struct EntryListView: View {
                 Divider()
             }
         }
-        if let onAddTask {
+        if let onAddTask, section.allowsTaskCreation {
             if !entries.isEmpty { Divider() }
             AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: onAddTask)
                 .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton)
         }
+    }
+
+    private func rowConfiguration(
+        for entry: any Entry,
+        in section: EntryList.Section
+    ) -> EntryRowView.Configuration? {
+        (section.configurationMap ?? configurationMap)[entry.entryType]
+    }
+
+    private func renderableEntries(in section: EntryList.Section) -> [any Entry] {
+        section.entries.filter { rowConfiguration(for: $0, in: section) != nil }
+    }
+
+    private func shouldRender(_ section: EntryList.Section) -> Bool {
+        !renderableEntries(in: section).isEmpty || (section.allowsTaskCreation && onAddTask != nil)
     }
 
     // MARK: - Empty State (list style only)
@@ -147,7 +169,7 @@ struct EntryListView: View {
     ]
     let notes = [DataModel.Note(title: "A note", date: today)]
     let entries: [any Entry] = tasks + notes
-    let sections = [EntryList.Section(id: "preview", criteria: nil, date: today, entries: entries, creationPeriod: .day, creationDate: today)]
+    let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: entries, creationPeriod: .day, creationDate: today)]
     let configMap: [EntryType: EntryRowView.Configuration] = [
         .task: EntryRowView.Configuration(
             isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
@@ -162,7 +184,7 @@ struct EntryListView: View {
     let calendar = Calendar.current
     let today = Date()
     let tasks = [DataModel.Task(title: "Existing task", date: today)]
-    let sections = [EntryList.Section(id: "preview", criteria: nil, date: today, entries: tasks, creationPeriod: .day, creationDate: today)]
+    let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: tasks, creationPeriod: .day, creationDate: today)]
     let configMap: [EntryType: EntryRowView.Configuration] = [
         .task: EntryRowView.Configuration(
             isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
@@ -186,7 +208,7 @@ struct EntryListView: View {
         DataModel.Task(title: "Cancelled task", date: today, status: .cancelled),
         DataModel.Note(title: "Active note", date: today, status: .active)
     ]
-    let sections = [EntryList.Section(id: "preview", criteria: nil, date: today, entries: entries, creationPeriod: .day, creationDate: today)]
+    let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: entries, creationPeriod: .day, creationDate: today)]
     let configMap: [EntryType: EntryRowView.Configuration] = [
         .task: EntryRowView.Configuration(
             isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
