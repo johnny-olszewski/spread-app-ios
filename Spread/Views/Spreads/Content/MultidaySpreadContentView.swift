@@ -7,14 +7,14 @@ struct MultidaySpreadContentView: View {
     let context: SpreadPageContext
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
 
-    @State private var calendarEventStore = CalendarEventStore()
+    @State private var calendarEvents: [CalendarEvent] = []
 
     // MARK: - Computed
 
     private var sections: [EntryList.Section] {
         let cal = context.calendar
         let base = EntryListDisplaySupport.displayedEntries(for: spreadDataModel, calendar: cal)
-        let eventEntries: [DataModel.Event] = calendarEventStore.calendarEvents.map { DataModel.Event(calendarEvent: $0) }
+        let eventEntries: [DataModel.Event] = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
         return Self.makeSections(
             from: base + eventEntries,
             spreadDate: spreadDataModel.spread.date,
@@ -54,9 +54,8 @@ struct MultidaySpreadContentView: View {
     var body: some View {
         grid
             .task(id: spread.id) {
-                await calendarEventStore.fetchCalendarEvents(
+                calendarEvents = await context.calendarEventService.fetchEvents(
                     for: spread,
-                    service: context.eventKitService,
                     calendar: context.journalManager.calendar
                 )
             }
@@ -87,7 +86,7 @@ struct MultidaySpreadContentView: View {
                 guard let dayEnd = context.journalManager.calendar.date(byAdding: .day, value: 1, to: dayStart) else {
                     return nil
                 }
-                let dayEvents = calendarEventStore.calendarEvents.filter {
+                let dayEvents = calendarEvents.filter {
                     $0.startDate < dayEnd && $0.endDate > dayStart
                 }
                 return SpreadPeekPanelView.Data(spread: daySpread, spreadDataModel: dm, calendarEvents: dayEvents)

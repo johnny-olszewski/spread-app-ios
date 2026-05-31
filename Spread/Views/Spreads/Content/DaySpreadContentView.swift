@@ -20,11 +20,11 @@ struct DaySpreadContentView: View {
     let context: SpreadPageContext
     var config: Config = .default
 
-    @State private var calendarEventStore = CalendarEventStore()
+    @State private var calendarEvents: [CalendarEvent] = []
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var shouldShowTimelineCard: Bool {
-        horizontalSizeClass.isRegular && !calendarEventStore.calendarEvents.isEmpty
+        horizontalSizeClass.isRegular && !calendarEvents.isEmpty
     }
 
     // MARK: - Computed
@@ -32,7 +32,7 @@ struct DaySpreadContentView: View {
     private var sections: [EntryList.Section] {
         let cal = context.calendar
         let base: [any Entry] = spreadDataModel.tasks + spreadDataModel.notes
-        let eventEntries = calendarEventStore.calendarEvents.map { DataModel.Event(calendarEvent: $0) }
+        let eventEntries = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
 
         return Self.makeSections(
             from: base + eventEntries,
@@ -85,9 +85,8 @@ struct DaySpreadContentView: View {
             }
         }
         .task(id: spread.id) {
-            await calendarEventStore.fetchCalendarEvents(
-                spread: spread,
-                service: context.eventKitService,
+            calendarEvents = await context.calendarEventService.fetchEvents(
+                for: spread,
                 calendar: context.journalManager.calendar
             )
         }
@@ -103,7 +102,7 @@ struct DaySpreadContentView: View {
         HStack(alignment: .top, spacing: 0) {
             DayTimelineScrollView(
                 generator: SpreadDayTimelineContentGenerator(),
-                items: calendarEventStore.calendarEvents,
+                items: calendarEvents,
                 date: spread.date,
                 visibleStartHour: 0,
                 visibleEndHour: 24,
@@ -171,36 +170,6 @@ extension DaySpreadContentView {
         }
 
         static let `default` = Config()
-    }
-
-    /// Owns fetched calendar events for `DaySpreadContentView`.
-    @Observable @MainActor
-    final class CalendarEventStore {
-        private(set) var calendarEvents: [CalendarEvent] = []
-
-        var allDayEvents: [CalendarEvent] { calendarEvents.filter { $0.isAllDay } }
-        var timedEvents: [CalendarEvent] { calendarEvents.filter { !$0.isAllDay } }
-
-        init() {}
-
-        /// Fetches calendar events for the spread day.
-        func fetchCalendarEvents(
-            spread: DataModel.Spread,
-            service: (any EventKitService)?,
-            calendar: Calendar
-        ) async {
-            guard let service else { return }
-            if service.authorizationStatus == .notDetermined {
-                _ = await service.requestAuthorization()
-            }
-            guard service.authorizationStatus == .authorized else {
-                calendarEvents = []
-                return
-            }
-            let dayStart = spread.date.startOfDay(calendar: calendar)
-            guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return }
-            calendarEvents = service.fetchEvents(from: dayStart, to: dayEnd)
-        }
     }
 
     // MARK: - Section Grouping

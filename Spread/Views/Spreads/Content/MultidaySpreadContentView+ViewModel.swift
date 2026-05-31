@@ -2,39 +2,6 @@ import SwiftUI
 
 extension MultidaySpreadContentView {
 
-    /// Owns fetched calendar events for `MultidaySpreadContentView`.
-    @Observable @MainActor
-    final class CalendarEventStore {
-        private(set) var calendarEvents: [CalendarEvent] = []
-
-        init() {}
-
-        /// Fetches calendar events for the multiday spread range.
-        func fetchCalendarEvents(
-            for spread: DataModel.Spread,
-            service: (any EventKitService)?,
-            calendar: Calendar
-        ) async {
-            guard let service,
-                  let startDate = spread.startDate,
-                  let endDate = spread.endDate else { return }
-            if service.authorizationStatus == .notDetermined {
-                _ = await service.requestAuthorization()
-            }
-            guard service.authorizationStatus == .authorized else {
-                calendarEvents = []
-                return
-            }
-            let start = startDate.startOfDay(calendar: calendar)
-            guard let end = calendar.date(
-                byAdding: .day,
-                value: 1,
-                to: endDate.startOfDay(calendar: calendar)
-            ) else { return }
-            calendarEvents = service.fetchEvents(from: start, to: end)
-        }
-    }
-
     // MARK: - Section Grouping
 
     /// Groups multiday spread entries into per-day sections.
