@@ -284,24 +284,23 @@ struct EntryRowView: View {
     private func confirmChanges(_ completion: @escaping @MainActor () async -> Void) async {
     
         let trimmedTitle = editingText.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        guard !trimmedTitle.isEmpty else {
+        let hasChanges = !trimmedTitle.isEmpty && trimmedTitle != entry.title
+
+        titleSelection = nil
+        isTitleFocused = false
+
+        guard hasChanges else {
             await completion()
             return
         }
-        
-        let hasChanges = trimmedTitle != entry.title
-        
-        titleSelection = nil
-        isTitleFocused = false
-        
+
         let alert = SpreadsCoordinator.AlertDestination.discardChanges {
             commitTitleEdit()
             await completion()
         } onDiscard: {
             await completion()
         }
-        
+
         configuration.showAlert?(alert)
     }
 }
