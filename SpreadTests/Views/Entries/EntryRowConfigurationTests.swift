@@ -16,8 +16,6 @@ struct EntryRowConfigurationTests {
         #expect(config.isGreyedOut == nil)
         #expect(config.hasStrikethrough == nil)
         #expect(config.onStatusIconTap == nil)
-        #expect(config.onEdit == nil)
-        #expect(config.onDelete == nil)
         #expect(config.onTitleCommit == nil)
     }
 
