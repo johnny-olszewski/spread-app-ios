@@ -160,16 +160,17 @@ extension EntryRowView.Configuration {
     ) -> EntryRowView.Configuration {
         return EntryRowView.Configuration(
             isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
-//            onEdit: { entry in
-//                if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
-//            },
-//            onDelete: { entry in
-//                guard let note = entry as? DataModel.Note else { return }
-//                Task { @MainActor in
-//                    try? await journalManager.deleteNote(note)
-//                    await syncEngine?.syncNow()
-//                }
-//            }
+            showAlert: { alert in coordinator.activeAlert = alert },
+            actions: [
+                .openEdit(onTapEditButton: { entry in
+                    if let note = entry as? DataModel.Note { coordinator.showNoteDetail(note) }
+                }),
+                .delete(deleteEntry: { entry in
+                    guard let note = entry as? DataModel.Note else { return }
+                    try? await journalManager.deleteNote(note)
+                    await syncEngine?.syncNow()
+                })
+            ]
         )
     }
 
