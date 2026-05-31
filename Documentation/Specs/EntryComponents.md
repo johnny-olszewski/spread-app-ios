@@ -83,6 +83,63 @@ This spec covers the view-layer component architecture for rendering entry statu
 
 ---
 
+---
+
+## EntryRowView Architecture (SESH-22)
+
+### EntryRowView.Configuration
+
+`EntryRowView` is a type-blind renderer. All entry-type-specific logic lives in `Configuration` closures and `Action` cases supplied by the call site. The view has no concrete-type knowledge.
+
+**Closure properties:**
+
+| Property | Type | Purpose |
+|---|---|---|
+| `isGreyedOut` | `((any Entry) -> Bool)?` | Returns whether the row text renders at secondary opacity |
+| `hasStrikethrough` | `((any Entry) -> Bool)?` | Returns whether the title renders with strikethrough |
+| `dueDateLabel` | `((any Entry) -> String?)?` | Returns a due date string for display |
+| `isDueDateHighlighted` | `((any Entry) -> Bool)?` | Returns whether the due date renders highlighted |
+| `subtitle` | `((any Entry) -> String?)?` | Returns an optional subtitle beneath the title |
+| `onStatusIconTap` | `((any Entry) -> Void)?` | Called when the leading status icon is tapped; nil disables the button |
+| `onTitleCommit` | `(@MainActor (any Entry, String) async -> Void)?` | Called when the user submits a title edit |
+| `showAlert` | `((SpreadsCoordinator.AlertDestination) -> Void)?` | Routes alert presentation to the owning coordinator |
+
+**Action cases** (rendered in context menu and keyboard toolbar):
+
+| Case | Associated value | Rendered as |
+|---|---|---|
+| `.openEdit(onTapEditButton:)` | `(any Entry) -> Void` | Edit button (pencil icon) |
+| `.migrate(migrationOptions:onMigrationSelected:)` | options closure + async selection handler | Migrate menu |
+| `.delete(deleteEntry:)` | `(any Entry) async -> Void` | Delete button (trash icon), triggers `deleteEntryConfirmation` alert |
+
+### EntryStatus additions
+
+- `displayName: String` — human-readable name; moved from `EntryStatusPresentation` to `EntryStatus` directly.
+- `rotate(in options: [EntryStatus]) -> EntryStatus` — returns the next status in the options array, wrapping around. Used by the status icon tap handler to cycle through `[.open, .complete, .cancelled]`.
+- `inlineChangesAreLocked: Bool` — `false` for `.open` and `.active`; `true` for all terminal statuses. Controls `TextField.disabled` state so users cannot edit titles on completed/cancelled/migrated entries.
+
+### Status icon tap behavior
+
+Tapping the leading status icon on a task row rotates the status through `[.open, .complete, .cancelled]`. This is intentional — all three user-editable statuses are reachable from the row without opening the task sheet.
+
+### Inline title editing
+
+The `TextField` is always present in the layout (no `isInlineActive` mode switch). Editing is gated by `entry.status.inlineChangesAreLocked`. When a toolbar action fires while the title has unsaved edits, `confirmChanges(_:)` checks whether there are actual pending changes:
+- **No changes**: calls `completion()` directly, no alert.
+- **Has changes**: presents `SpreadsCoordinator.AlertDestination.discardChanges` to let the user save or discard before the action runs.
+
+`isConfirmingChanges` is a `@State` flag that prevents the `onChange(of: isTitleFocused)` observer from resetting `editingText` when focus is lost as part of the confirmation flow. It is reset in all three exit paths of `confirmChanges`.
+
+### Alert routing
+
+All alerts (spread delete, entry delete, discard title changes) are handled by a single `.alert(item:)` modifier on `RootNavigationView` bound to `spreadsCoordinator.activeAlert`. Previously, spread-related alerts were handled in `SpreadContentPagerView`; they were lifted to `RootNavigationView` in SESH-22 so the entry-row delete and discard-changes alerts could be routed through the same coordinator without threading a separate alert binding into each row.
+
+### Note row configuration
+
+`standardNoteConfig` provides `.openEdit` (opens the note detail sheet) and `.delete` (triggers the `deleteEntryConfirmation` alert) actions, matching the task row pattern. Notes do not have a status icon tap handler — the leading icon is display-only.
+
+---
+
 ## Open Questions
 
 - `EntryStatusIconRepresentable` returns `EntryStatusIcon.BaseShape`, coupling model-layer conformances to a view-nested type. If `EntryStatusIcon` is ever renamed, all conformances break. Consider whether `BaseShape` and `OverlayShape` should be top-level types in a future cleanup pass.
