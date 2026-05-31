@@ -226,13 +226,13 @@ extension DaySpreadContentView {
         }
 
         var listGroups: [UUID?: [any Entry]] = [:]
-        var listNames: [UUID: String] = [:]
+        var listCriteria: [UUID: DataModel.List] = [:]
 
         for entry in entries {
             if let task = entry as? DataModel.Task {
                 let listID = task.list?.id
                 listGroups[listID, default: []].append(entry)
-                if let list = task.list { listNames[list.id] = list.name }
+                if let list = task.list { listCriteria[list.id] = list }
             } else {
                 listGroups[nil, default: []].append(entry)
             }
@@ -240,11 +240,13 @@ extension DaySpreadContentView {
 
         var sections: [EntryList.Section] = []
 
-        let sortedListIDs = listNames.keys.sorted { listNames[$0]! < listNames[$1]! }
+        let sortedListIDs = listCriteria.keys.sorted {
+            listCriteria[$0]!.sectionTitle < listCriteria[$1]!.sectionTitle
+        }
         for listID in sortedListIDs {
             sections.append(EntryList.Section(
                 id: listID.uuidString,
-                title: listNames[listID] ?? "",
+                criteria: listCriteria[listID],
                 date: spreadDate,
                 entries: sorted(listGroups[listID] ?? []),
                 creationPeriod: .day,
@@ -255,7 +257,7 @@ extension DaySpreadContentView {
         if let noListEntries = listGroups[nil], !noListEntries.isEmpty {
             sections.append(EntryList.Section(
                 id: sectionID,
-                title: "",
+                criteria: nil,
                 date: spreadDate,
                 entries: sorted(noListEntries),
                 creationPeriod: .day,

@@ -196,6 +196,24 @@ enum MockDataSet: String, CaseIterable {
         let tasks: [DataModel.Task]
         let events: [DataModel.Event]
         let notes: [DataModel.Note]
+        let lists: [DataModel.List]
+        let tags: [DataModel.Tag]
+
+        init(
+            spreads: [DataModel.Spread],
+            tasks: [DataModel.Task],
+            events: [DataModel.Event],
+            notes: [DataModel.Note],
+            lists: [DataModel.List] = [],
+            tags: [DataModel.Tag] = []
+        ) {
+            self.spreads = spreads
+            self.tasks = tasks
+            self.events = events
+            self.notes = notes
+            self.lists = lists
+            self.tags = tags
+        }
     }
 
     /// Generates the mock data for this data set.
@@ -258,6 +276,19 @@ enum MockDataSet: String, CaseIterable {
         var tasks: [DataModel.Task] = []
         var events: [DataModel.Event] = []
         var notes: [DataModel.Note] = []
+        var lists: [DataModel.List] = []
+        var tags: [DataModel.Tag] = []
+
+        let workList = DataModel.List(name: "Work")
+        let personalList = DataModel.List(name: "Personal")
+        let errandsList = DataModel.List(name: "Errands")
+        lists.append(contentsOf: [errandsList, personalList, workList])
+
+        let focusTag = DataModel.Tag(name: "Focus")
+        let planningTag = DataModel.Tag(name: "Planning")
+        let homeTag = DataModel.Tag(name: "Home")
+        let waitingTag = DataModel.Tag(name: "Waiting")
+        tags.append(contentsOf: [focusTag, homeTag, planningTag, waitingTag])
 
         // Create year spread for current year
         let yearSpread = DataModel.Spread(period: .year, date: today, calendar: calendar)
@@ -277,45 +308,170 @@ enum MockDataSet: String, CaseIterable {
             spreads.append(tomorrowSpread)
         }
 
-        // Sample tasks with assignments to the day spread
         let normalizedDay = Period.day.normalizeDate(today, calendar: calendar)
+        let normalizedMonth = Period.month.normalizeDate(today, calendar: calendar)
+        let normalizedYear = Period.year.normalizeDate(today, calendar: calendar)
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        let normalizedTomorrow = Period.day.normalizeDate(tomorrow, calendar: calendar)
+
+        func time(dayOffset: Int = 0, hour: Int, minute: Int = 0) -> Date {
+            let day = calendar.date(byAdding: .day, value: dayOffset, to: today) ?? today
+            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+        }
+
         tasks.append(DataModel.Task(
             title: "Review project timeline",
+            body: "Check milestone dates and confirm the next delivery window.",
+            priority: .high,
             date: today,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)]
+            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)],
+            list: workList,
+            tags: [planningTag, focusTag]
         ))
         tasks.append(DataModel.Task(
             title: "Send weekly status update",
+            body: "Include blockers, shipped work, and decisions needed.",
+            priority: .medium,
             date: today,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)]
+            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)],
+            list: workList,
+            tags: [waitingTag]
         ))
         tasks.append(DataModel.Task(
             title: "Schedule team meeting",
             date: today,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .complete)]
+            status: .complete,
+            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .complete)],
+            list: workList,
+            tags: [planningTag]
+        ))
+        tasks.append(DataModel.Task(
+            title: "Pick up groceries",
+            priority: .medium,
+            date: today,
+            period: .day,
+            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)],
+            list: errandsList,
+            tags: [homeTag]
+        ))
+        tasks.append(DataModel.Task(
+            title: "Book dentist appointment",
+            date: today,
+            period: .day,
+            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)],
+            list: personalList,
+            tags: [waitingTag]
+        ))
+        tasks.append(DataModel.Task(
+            title: "Plan weekend meals",
+            date: tomorrow,
+            period: .day,
+            assignments: [TaskAssignment(period: .day, date: normalizedTomorrow, status: .open)],
+            list: personalList,
+            tags: [homeTag, planningTag]
+        ))
+        tasks.append(DataModel.Task(
+            title: "Draft monthly budget",
+            priority: .low,
+            date: today,
+            period: .month,
+            assignments: [TaskAssignment(period: .month, date: normalizedMonth, status: .open)],
+            list: personalList,
+            tags: [planningTag]
+        ))
+        tasks.append(DataModel.Task(
+            title: "Define yearly learning theme",
+            date: today,
+            period: .year,
+            assignments: [TaskAssignment(period: .year, date: normalizedYear, status: .open)],
+            tags: [focusTag]
         ))
 
-        // Sample event for today
         events.append(DataModel.Event(
             title: "Team standup",
             timing: .timed,
             startDate: today,
+            endDate: today,
+            startTime: time(hour: 9, minute: 30),
+            endTime: time(hour: 9, minute: 50)
+        ))
+        events.append(DataModel.Event(
+            title: "Design review",
+            timing: .timed,
+            startDate: today,
+            endDate: today,
+            startTime: time(hour: 14),
+            endTime: time(hour: 15)
+        ))
+        events.append(DataModel.Event(
+            title: "Focus block",
+            timing: .timed,
+            startDate: today,
+            endDate: today,
+            startTime: time(hour: 10),
+            endTime: time(hour: 12)
+        ))
+        events.append(DataModel.Event(
+            title: "Renew library books",
+            timing: .allDay,
+            startDate: today,
             endDate: today
         ))
+        events.append(DataModel.Event(
+            title: "Long weekend trip",
+            timing: .multiDay,
+            startDate: today,
+            endDate: calendar.date(byAdding: .day, value: 2, to: today) ?? today
+        ))
+        events.append(DataModel.Event(
+            title: "Coffee with Sam",
+            timing: .timed,
+            startDate: tomorrow,
+            endDate: tomorrow,
+            startTime: time(dayOffset: 1, hour: 8, minute: 30),
+            endTime: time(dayOffset: 1, hour: 9, minute: 15)
+        ))
 
-        // Sample note with assignment
         notes.append(DataModel.Note(
             title: "Meeting notes",
             content: "Discussed project timeline and milestones.",
             date: today,
             period: .day,
-            assignments: [NoteAssignment(period: .day, date: normalizedDay, status: .active)]
+            assignments: [NoteAssignment(period: .day, date: normalizedDay, status: .active)],
+            list: workList,
+            tags: [planningTag]
+        ))
+        notes.append(DataModel.Note(
+            title: "Ideas for next sprint",
+            content: "Explore a tighter day spread toolbar, faster list switching, and clearer tag chips.",
+            date: today,
+            period: .day,
+            assignments: [NoteAssignment(period: .day, date: normalizedDay, status: .active)],
+            list: workList,
+            tags: [focusTag]
+        ))
+        notes.append(DataModel.Note(
+            title: "Home project notes",
+            content: "Measure the hallway shelf before buying brackets.",
+            date: today,
+            period: .day,
+            assignments: [NoteAssignment(period: .day, date: normalizedDay, status: .active)],
+            list: personalList,
+            tags: [homeTag]
+        ))
+        notes.append(DataModel.Note(
+            title: "Monthly reflection",
+            content: "Keep planning lightweight. Use lists for context, tags for intent.",
+            date: today,
+            period: .month,
+            assignments: [NoteAssignment(period: .month, date: normalizedMonth, status: .active)],
+            tags: [planningTag]
         ))
 
-        return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes)
+        return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes, lists: lists, tags: tags)
     }
 
     private func generateMultidayData(calendar: Calendar, today: Date) -> GeneratedData {

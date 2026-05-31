@@ -37,6 +37,14 @@ extension JournalManager {
             try await addMockSpread(spread)
         }
 
+        for list in generatedData.lists {
+            try await listRepository.save(list)
+        }
+
+        for tag in generatedData.tags {
+            try await tagRepository.save(tag)
+        }
+
         // Persist entries verbatim so scenario fixtures can encode exact assignments.
         for task in generatedData.tasks {
             try await taskRepository.save(task)

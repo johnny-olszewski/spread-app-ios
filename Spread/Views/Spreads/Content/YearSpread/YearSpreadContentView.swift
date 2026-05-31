@@ -82,7 +82,7 @@ struct YearSpreadContentView: View {
                 EntryListView(
                     sections: [EntryList.Section(
                         id: "year-entries",
-                        title: "",
+                        criteria: nil,
                         date: spread.date,
                         entries: yearEntries,
                         creationPeriod: .year,
@@ -132,7 +132,7 @@ struct YearSpreadContentView: View {
             let sections: [EntryList.Section] = entries.isEmpty ? [] : [
                 EntryList.Section(
                     id: "month-entries-\(normalizedDate.timeIntervalSinceReferenceDate)",
-                    title: "",
+                    criteria: nil,
                     date: normalizedDate,
                     entries: entries,
                     creationPeriod: .month,

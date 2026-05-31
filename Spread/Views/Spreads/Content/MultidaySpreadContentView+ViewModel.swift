@@ -86,7 +86,7 @@ extension MultidaySpreadContentView {
         if !multidayEntries.isEmpty {
             sections.append(EntryList.Section(
                 id: "multiday-header",
-                title: "This Range",
+                criteria: EntryTitleSectionCriteria(sectionID: "multiday-header", sectionTitle: "This Range"),
                 date: start,
                 entries: multidayEntries,
                 creationPeriod: .multiday,
@@ -98,7 +98,7 @@ extension MultidaySpreadContentView {
         while current <= end {
             sections.append(EntryList.Section(
                 id: String(current.timeIntervalSinceReferenceDate),
-                title: "",
+                criteria: nil,
                 date: current,
                 entries: sorted(dayGroups[current] ?? []),
                 creationPeriod: .day,

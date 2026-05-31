@@ -14,6 +14,8 @@ final class DebugDataService {
     private let spreadRepository: any SpreadRepository
     private let eventRepository: any EventRepository
     private let noteRepository: any NoteRepository
+    private let listRepository: any ListRepository
+    private let tagRepository: any TagRepository
     private let onReload: (() -> Void)?
 
     // MARK: - Initialization
@@ -25,18 +27,24 @@ final class DebugDataService {
     ///   - spreadRepository: Repository for spread operations.
     ///   - eventRepository: Repository for event operations.
     ///   - noteRepository: Repository for note operations.
+    ///   - listRepository: Repository for list operations.
+    ///   - tagRepository: Repository for tag operations.
     ///   - onReload: Optional callback invoked after data is loaded.
     init(
         taskRepository: any TaskRepository,
         spreadRepository: any SpreadRepository,
         eventRepository: any EventRepository,
         noteRepository: any NoteRepository,
+        listRepository: any ListRepository,
+        tagRepository: any TagRepository,
         onReload: (() -> Void)? = nil
     ) {
         self.taskRepository = taskRepository
         self.spreadRepository = spreadRepository
         self.eventRepository = eventRepository
         self.noteRepository = noteRepository
+        self.listRepository = listRepository
+        self.tagRepository = tagRepository
         self.onReload = onReload
     }
 
@@ -68,6 +76,14 @@ final class DebugDataService {
         // Save spreads
         for spread in generatedData.spreads {
             try await spreadRepository.save(spread)
+        }
+
+        for list in generatedData.lists {
+            try await listRepository.save(list)
+        }
+
+        for tag in generatedData.tags {
+            try await tagRepository.save(tag)
         }
 
         // Save tasks
@@ -119,6 +135,16 @@ final class DebugDataService {
         let notes = await noteRepository.getNotes()
         for note in notes {
             try await noteRepository.delete(note)
+        }
+
+        let lists = await listRepository.getLists()
+        for list in lists {
+            try await listRepository.delete(list)
+        }
+
+        let tags = await tagRepository.getTags()
+        for tag in tags {
+            try await tagRepository.delete(tag)
         }
     }
 }

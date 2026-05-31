@@ -629,6 +629,16 @@ final class JournalManager {
                 try await collectionRepository.delete(collection)
             }
         }
+
+        let allLists = await listRepository.getLists()
+        for list in allLists {
+            try await listRepository.delete(list)
+        }
+
+        let allTags = await tagRepository.getTags()
+        for tag in allTags {
+            try await tagRepository.delete(tag)
+        }
     }
 
     // MARK: - Spread Management

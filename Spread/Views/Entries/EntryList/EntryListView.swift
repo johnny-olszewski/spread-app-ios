@@ -147,7 +147,7 @@ struct EntryListView: View {
     ]
     let notes = [DataModel.Note(title: "A note", date: today)]
     let entries: [any Entry] = tasks + notes
-    let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: entries, creationPeriod: .day, creationDate: today)]
+    let sections = [EntryList.Section(id: "preview", criteria: nil, date: today, entries: entries, creationPeriod: .day, creationDate: today)]
     let configMap: [EntryType: EntryRowView.Configuration] = [
         .task: EntryRowView.Configuration(
             isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
@@ -162,7 +162,7 @@ struct EntryListView: View {
     let calendar = Calendar.current
     let today = Date()
     let tasks = [DataModel.Task(title: "Existing task", date: today)]
-    let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: tasks, creationPeriod: .day, creationDate: today)]
+    let sections = [EntryList.Section(id: "preview", criteria: nil, date: today, entries: tasks, creationPeriod: .day, creationDate: today)]
     let configMap: [EntryType: EntryRowView.Configuration] = [
         .task: EntryRowView.Configuration(
             isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
@@ -186,7 +186,7 @@ struct EntryListView: View {
         DataModel.Task(title: "Cancelled task", date: today, status: .cancelled),
         DataModel.Note(title: "Active note", date: today, status: .active)
     ]
-    let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: entries, creationPeriod: .day, creationDate: today)]
+    let sections = [EntryList.Section(id: "preview", criteria: nil, date: today, entries: entries, creationPeriod: .day, creationDate: today)]
     let configMap: [EntryType: EntryRowView.Configuration] = [
         .task: EntryRowView.Configuration(
             isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
