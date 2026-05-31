@@ -406,7 +406,9 @@ struct DebugDataServiceTests {
             taskRepository: taskRepo,
             spreadRepository: spreadRepo,
             eventRepository: eventRepo,
-            noteRepository: noteRepo
+            noteRepository: noteRepo,
+            listRepository: InMemoryListRepository(),
+            tagRepository: InMemoryTagRepository()
         )
 
         // Verify initial data exists
@@ -448,7 +450,9 @@ struct DebugDataServiceTests {
             taskRepository: taskRepo,
             spreadRepository: spreadRepo,
             eventRepository: eventRepo,
-            noteRepository: noteRepo
+            noteRepository: noteRepo,
+            listRepository: InMemoryListRepository(),
+            tagRepository: InMemoryTagRepository()
         )
 
         // Load baseline data set
@@ -477,6 +481,8 @@ struct DebugDataServiceTests {
             spreadRepository: InMemorySpreadRepository(),
             eventRepository: InMemoryEventRepository(),
             noteRepository: InMemoryNoteRepository(),
+            listRepository: InMemoryListRepository(),
+            tagRepository: InMemoryTagRepository(),
             onReload: { reloadCalled = true }
         )
 
@@ -503,7 +509,9 @@ struct DebugDataServiceTests {
             taskRepository: taskRepo,
             spreadRepository: spreadRepo,
             eventRepository: eventRepo,
-            noteRepository: noteRepo
+            noteRepository: noteRepo,
+            listRepository: InMemoryListRepository(),
+            tagRepository: InMemoryTagRepository()
         )
 
         try await service.clearAllData()

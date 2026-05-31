@@ -41,7 +41,10 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar
+            calendar: calendar,
+            listConfigurationMap: [:],
+            unassignedConfigurationMap: [:],
+            eventConfigurationMap: [:]
         )
 
         #expect(sections.count == 3)
@@ -49,7 +52,7 @@ struct EntryListGroupingTests {
         #expect(sections[0].entries.map(\.title) == ["Alpha Task 1"])
         #expect(sections[1].title == "Beta")
         #expect(sections[1].entries.map(\.title) == ["Beta Task"])
-        #expect(sections[2].title.isEmpty)
+        #expect(sections[2].title == "No List")
         let unlisted = sections[2].entries.map(\.title)
         #expect(unlisted.contains("No list"))
         #expect(unlisted.contains("Note"))
@@ -57,25 +60,28 @@ struct EntryListGroupingTests {
 
     /// When a day spread has entries but no list assignments,
     /// a single untitled section is produced.
-    @Test("Day spread with no list assignments produces one untitled section")
+    @Test("Day spread with no list assignments produces one unlisted section")
     func daySpreadWithNoListsProducesOneSection() {
         let spreadDate = makeDate(year: 2026, month: 4, day: 15)
+        // Events are separated into their own section; use only tasks and notes to test unlisted grouping.
         let entries: [any Entry] = [
             DataModel.Task(title: "Task 1", date: spreadDate),
             DataModel.Task(title: "Task 2", date: spreadDate),
-            DataModel.Event(title: "Event 1", startDate: spreadDate),
             DataModel.Note(title: "Note 1", date: spreadDate)
         ]
 
         let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar
+            calendar: calendar,
+            listConfigurationMap: [:],
+            unassignedConfigurationMap: [:],
+            eventConfigurationMap: [:]
         )
 
         #expect(sections.count == 1)
-        #expect(sections[0].title.isEmpty)
-        #expect(sections[0].entries.count == 4)
+        #expect(sections[0].title == "No List")
+        #expect(sections[0].entries.count == 3)
     }
 
     /// When a day spread has a task assigned to a named list,
@@ -93,13 +99,16 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar
+            calendar: calendar,
+            listConfigurationMap: [:],
+            unassignedConfigurationMap: [:],
+            eventConfigurationMap: [:]
         )
 
         #expect(sections.count == 2)
         #expect(sections[0].title == "Work")
         #expect(sections[0].entries.map(\.title) == ["Listed task"])
-        #expect(sections[1].title.isEmpty)
+        #expect(sections[1].title == "No List")
         #expect(sections[1].entries.count == 2)
     }
 
@@ -115,7 +124,10 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar
+            calendar: calendar,
+            listConfigurationMap: [:],
+            unassignedConfigurationMap: [:],
+            eventConfigurationMap: [:]
         )
 
         #expect(sections.count == 1)
@@ -129,7 +141,10 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.makeSections(
             from: [],
             spreadDate: spreadDate,
-            calendar: calendar
+            calendar: calendar,
+            listConfigurationMap: [:],
+            unassignedConfigurationMap: [:],
+            eventConfigurationMap: [:]
         )
         #expect(sections.isEmpty)
     }
@@ -148,7 +163,10 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar
+            calendar: calendar,
+            listConfigurationMap: [:],
+            unassignedConfigurationMap: [:],
+            eventConfigurationMap: [:]
         )
 
         #expect(sections.count == 1)
