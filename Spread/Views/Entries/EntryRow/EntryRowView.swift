@@ -226,11 +226,6 @@ struct EntryRowView: View {
                     ForEach(options) { option in
                         Button {
                             isConfirmingChanges = true
-                            
-                            guard configuration.showAlert != nil else {
-                                return
-                            }
-                            
                             Task { @MainActor in
                                 await confirmChanges { await onMigrationSelected(entry, option) }
                             }
