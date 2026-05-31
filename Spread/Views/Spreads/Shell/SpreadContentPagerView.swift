@@ -169,13 +169,15 @@ private struct SpreadPageContentView: View {
     let syncEngine: SyncEngine?
 
     @Environment(\.eventKitService) private var eventKitService
+    @Environment(\.calendarEventService) private var calendarEventService
 
     private var context: SpreadPageContext {
         SpreadPageContext(
             journalManager: journalManager,
             coordinator: coordinator,
             syncEngine: syncEngine,
-            eventKitService: eventKitService
+            eventKitService: eventKitService,
+            calendarEventService: calendarEventService
         )
     }
 

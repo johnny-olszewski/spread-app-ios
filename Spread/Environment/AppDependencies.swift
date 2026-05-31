@@ -50,6 +50,9 @@ struct AppDependencies: @unchecked Sendable {
     /// EventKit calendar service for fetching and opening device calendar events.
     let eventKitService: any EventKitService
 
+    /// Service for fetching calendar events for a spread's date range.
+    let calendarEventService: any CalendarEventService
+
     // MARK: - Factory Methods
 
     /// Creates app dependencies for live app use.
@@ -77,7 +80,8 @@ struct AppDependencies: @unchecked Sendable {
             listRepository: SwiftDataListRepository(modelContainer: modelContainer),
             tagRepository: SwiftDataTagRepository(modelContainer: modelContainer),
             networkMonitor: makeNetworkMonitor(),
-            eventKitService: LiveEventKitService()
+            eventKitService: LiveEventKitService(),
+            calendarEventService: LiveCalendarEventService(eventKitService: LiveEventKitService())
         )
     }
 
@@ -118,7 +122,8 @@ struct AppDependencies: @unchecked Sendable {
             listRepository: EmptyListRepository(),
             tagRepository: EmptyTagRepository(),
             networkMonitor: makeNetworkMonitor(),
-            eventKitService: eventKitService ?? MockEventKitService()
+            eventKitService: eventKitService ?? MockEventKitService(),
+            calendarEventService: MockCalendarEventService()
         )
     }
 
@@ -146,7 +151,8 @@ struct AppDependencies: @unchecked Sendable {
             listRepository: MockListRepository(),
             tagRepository: MockTagRepository(),
             networkMonitor: makeNetworkMonitor(),
-            eventKitService: MockEventKitService()
+            eventKitService: MockEventKitService(),
+            calendarEventService: MockCalendarEventService()
         )
     }
 
