@@ -290,18 +290,22 @@ struct EntryRowView: View {
         isTitleFocused = false
 
         guard hasChanges else {
+            isConfirmingChanges = false
             await completion()
             return
         }
 
         let alert = SpreadsCoordinator.AlertDestination.discardChanges {
+            isConfirmingChanges = false
             commitTitleEdit()
             await completion()
         } onDiscard: {
+            isConfirmingChanges = false
             await completion()
         }
 
         configuration.showAlert?(alert)
+        isConfirmingChanges = false
     }
 }
 
