@@ -110,8 +110,6 @@ struct EntryRowView: View {
         .contextMenu {
             menuButtons(labelVisibility: .visible)
         }
-        
-        //        }
         .onChange(of: isTitleFocused) { _, isFocused in
             if isFocused {
                 editingText = entry.title

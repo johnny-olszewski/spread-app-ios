@@ -46,15 +46,6 @@ extension EntryStatus {
         [.open, .complete, .cancelled]
     }
 
-    var statusIconOverlaySymbol: String? {
-        switch self {
-        case .open, .active, .upcoming: return nil
-        case .complete:  return "xmark"
-        case .migrated:  return "arrow.right"
-        case .cancelled: return "line.diagonal"
-        }
-    }
-
     // MARK: Task sheet interaction
 
     var allowsAssignmentEditingInTaskSheet: Bool { self == .open }
@@ -98,15 +89,6 @@ extension EntryStatus {
         }
     }
 
-    var leadingIconAccessibilityLabel: String {
-        switch self {
-        case .open:      return "Mark complete"
-        case .complete:  return "Reopen"
-        case .migrated:  return "Migrated task"
-        case .cancelled: return "Cancelled task"
-        default:         return displayName
-        }
-    }
 }
 
 // MARK: - DataModel.Task.Priority
