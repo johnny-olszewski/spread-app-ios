@@ -15,7 +15,7 @@ extension EntryRowView {
                 migrationOptions: (any Entry) -> [MigrationOption],
                 onMigrationSelected: (any Entry, MigrationOption) async -> Void
             )
-            case delete(deleteEntry: ((any Entry) -> Void))
+            case delete(deleteEntry: (any Entry) async -> Void)
 
             var id: String {
                 switch self {
@@ -143,10 +143,8 @@ extension EntryRowView.Configuration {
                     }),
                 .delete(deleteEntry: { entry in
                     guard let task = entry as? DataModel.Task else { return }
-                    Task { @MainActor in
-                        try? await journalManager.deleteTask(task)
-                        await syncEngine?.syncNow()
-                    }
+                    try? await journalManager.deleteTask(task)
+                    await syncEngine?.syncNow()
                 })
                 
             ]

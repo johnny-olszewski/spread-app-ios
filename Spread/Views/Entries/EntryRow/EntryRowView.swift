@@ -257,9 +257,9 @@ struct EntryRowView: View {
         case .delete(let deleteEntry):
             Button {
                 let alert = SpreadsCoordinator.AlertDestination.deleteEntryConfirmation(confirmAction: {
-                    deleteEntry(entry)
+                    await deleteEntry(entry)
                 })
-                
+
                 configuration.showAlert?(alert)
             } label: {
                 Label("Delete", systemImage: action.systemImageName)

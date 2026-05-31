@@ -107,11 +107,11 @@ struct RootNavigationView: View {
                 return Alert(
                     title: Text("Confirm Delete"),
                     message: Text("Are you sure you want to delete this entry?"),
-                    primaryButton: .default(Text("Delete")) {
+                    primaryButton: .destructive(Text("Delete")) {
                         Task { @MainActor in await confirmAction() }
                     },
-                    secondaryButton: .destructive(Text("Cancel")) {
-                        Task { @MainActor in await spreadsCoordinator.activeAlert = nil }
+                    secondaryButton: .cancel(Text("Cancel")) {
+                        spreadsCoordinator.activeAlert = nil
                     }
                 )
             }
