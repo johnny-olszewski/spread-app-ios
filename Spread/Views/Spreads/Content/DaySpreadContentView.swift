@@ -220,24 +220,7 @@ extension DaySpreadContentView {
         let sectionID = String(spreadDate.timeIntervalSinceReferenceDate)
         let eventSectionID = "\(sectionID)-events"
 
-        func entryDate(_ entry: any Entry) -> Date {
-            switch entry.entryType {
-            case .task: return (entry as? DataModel.Task)?.date ?? .now
-            case .event: return (entry as? DataModel.Event)?.startDate ?? .now
-            case .note: return (entry as? DataModel.Note)?.date ?? .now
-            }
-        }
-
-        func sorted(_ entries: [any Entry]) -> [any Entry] {
-            entries.sorted { entryDate($0) < entryDate($1) }
-        }
-
-        func list(for entry: any Entry) -> DataModel.List? {
-            if let task = entry as? DataModel.Task { return task.list }
-            if let note = entry as? DataModel.Note { return note.list }
-            return nil
-        }
-
+        // Partition entries into three buckets: named-list, unassigned, and events.
         var listGroups: [UUID: [any Entry]] = [:]
         var listsByID: [UUID: DataModel.List] = [:]
         var unassignedEntries: [any Entry] = []
@@ -246,7 +229,7 @@ extension DaySpreadContentView {
         for entry in entries {
             if entry.entryType == .event {
                 eventEntries.append(entry)
-            } else if let list = list(for: entry) {
+            } else if let list = entry.assignedList {
                 listGroups[list.id, default: []].append(entry)
                 listsByID[list.id] = list
             } else {
@@ -256,40 +239,41 @@ extension DaySpreadContentView {
 
         var sections: [EntryList.Section] = []
 
-        let sortedListIDs = listsByID.keys.sorted {
-            listsByID[$0]!.name < listsByID[$1]!.name
-        }
+        // Named-list sections — sorted alphabetically by list name.
+        let sortedListIDs = listsByID.keys.sorted { listsByID[$0]!.name < listsByID[$1]!.name }
         for listID in sortedListIDs {
             sections.append(EntryList.Section(
                 id: listID.uuidString,
                 title: listsByID[listID]?.name ?? "",
                 date: spreadDate,
-                entries: sorted(listGroups[listID] ?? []),
+                entries: (listGroups[listID] ?? []).sortedByDate(),
                 creationPeriod: .day,
                 creationDate: spreadDate,
                 configurationMap: listConfigurationMap
             ))
         }
 
+        // Unassigned entries trailing the named-list sections.
         if !unassignedEntries.isEmpty {
             sections.append(EntryList.Section(
                 id: sectionID,
                 title: "No List",
                 titleStyle: .secondary,
                 date: spreadDate,
-                entries: sorted(unassignedEntries),
+                entries: unassignedEntries.sortedByDate(),
                 creationPeriod: .day,
                 creationDate: spreadDate,
                 configurationMap: unassignedConfigurationMap
             ))
         }
 
+        // Calendar events always appear last.
         if !eventEntries.isEmpty {
             sections.append(EntryList.Section(
                 id: eventSectionID,
                 title: "Events",
                 date: spreadDate,
-                entries: sorted(eventEntries),
+                entries: eventEntries.sortedByDate(),
                 creationPeriod: .day,
                 creationDate: spreadDate,
                 configurationMap: eventConfigurationMap,
@@ -307,4 +291,31 @@ extension DaySpreadContentView {
 private extension Optional where Wrapped == UserInterfaceSizeClass {
     /// `true` when the size class is `.regular` (wider layout context).
     var isRegular: Bool { self == .regular }
+}
+
+// MARK: - Entry sorting helpers
+
+private extension Entry {
+    /// The date used to chronologically order this entry within a section.
+    var sortDate: Date {
+        switch entryType {
+        case .task:  return (self as? DataModel.Task)?.date ?? .now
+        case .event: return (self as? DataModel.Event)?.startDate ?? .now
+        case .note:  return (self as? DataModel.Note)?.date ?? .now
+        }
+    }
+
+    /// The list this entry belongs to, or `nil` if it is unassigned or not list-eligible.
+    var assignedList: DataModel.List? {
+        if let task = self as? DataModel.Task { return task.list }
+        if let note = self as? DataModel.Note { return note.list }
+        return nil
+    }
+}
+
+private extension [any Entry] {
+    /// Returns the entries sorted chronologically by their `sortDate`.
+    func sortedByDate() -> [any Entry] {
+        sorted { $0.sortDate < $1.sortDate }
+    }
 }
