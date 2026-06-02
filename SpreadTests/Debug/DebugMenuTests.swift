@@ -29,21 +29,21 @@ struct DebugMenuTests {
 
     /// Verifies that the debug navigation tab uses the correct SF Symbol.
     ///
-    /// Setup: NavigationTab.debug case in DEBUG build
+    /// Setup: RootNavigationView.Content.debug case in DEBUG build
     /// Expected: systemImage is "ant"
     @Test("Debug tab uses ant SF Symbol")
     func debugTabUsesAntSymbol() {
-        let debugTab = NavigationTab.debug
+        let debugTab = RootNavigationView.Content.debug
         #expect(debugTab.systemImage == "ant")
     }
 
     /// Verifies that the debug tab has the correct display title.
     ///
-    /// Setup: NavigationTab.debug case
+    /// Setup: RootNavigationView.Content.debug case
     /// Expected: title is "Debug"
     @Test("Debug tab has correct title")
     func debugTabHasCorrectTitle() {
-        let debugTab = NavigationTab.debug
+        let debugTab = RootNavigationView.Content.debug
         #expect(debugTab.title == "Debug")
     }
 

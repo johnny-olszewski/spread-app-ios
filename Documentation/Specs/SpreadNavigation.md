@@ -259,7 +259,7 @@ Replace the current `TabView`-wrapping-`NavigationStack` pattern with a `Navigat
 ```
 RootNavigationView
 └── NavigationSplitView (3-column)
-    ├── sidebar: List<NavigationTab> → destination labels
+    ├── sidebar: List<RootNavigationView.Content> → destination labels
     ├── content: SpreadNavigatorColumn (spread list) | destination content
     └── detail: SpreadContentPagerView (horizontal pager)
         └── .inspector() panel attached here
