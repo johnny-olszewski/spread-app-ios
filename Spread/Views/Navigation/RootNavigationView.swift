@@ -28,7 +28,6 @@ struct RootNavigationView: View {
     @State private var pagerSettledTargetID: String?
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    @State private var isAuthPresented = false
     @State private var spreadsNavigationState = SpreadsNavigationState()
     @State private var spreadsCoordinator = SpreadsCoordinator()
 
@@ -78,9 +77,6 @@ struct RootNavigationView: View {
         .onChange(of: syncEngine?.status) { _, newValue in
             guard case .synced = newValue else { return }
             Task { @MainActor in await journalManager.reload() }
-        }
-        .sheet(isPresented: $isAuthPresented) {
-            AuthEntrySheet(authManager: authManager, isBlocking: false)
         }
         .sheet(item: Binding(
             get: { spreadsCoordinator.activeSheet },
@@ -166,7 +162,7 @@ struct RootNavigationView: View {
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                    isAuthPresented = true
+                    spreadsCoordinator.showAuth()
                 }
             }
         }
