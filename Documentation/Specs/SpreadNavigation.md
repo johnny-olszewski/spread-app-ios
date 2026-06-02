@@ -203,3 +203,126 @@ None — purely local UI composition and interaction behavior.
 - [ ] Recommendations are visible in the rooted navigator in conventional mode and are no longer rendered as persistent trailing inset cards.
 - [ ] Pager swipes keep the compact bar synchronized without any inline recenter or hidden-group behavior.
 - [ ] The old local title-strip display preference is removed from settings and supporting state.
+
+---
+
+## Adaptive Navigation Shell [SPRD-229, SPRD-230]
+
+**Status**: Draft
+**Date**: 2026-05-31
+
+### Overview
+
+Replace the current `TabView`-wrapping-`NavigationStack` pattern with a `NavigationSplitView` 3-column shell throughout: sidebar (destinations), content column (spread navigator list), detail column (spread pager). SwiftUI handles compact collapse automatically — no explicit size class branching. This eliminates the double-chrome problem on iPad, flattens the nesting hierarchy, and promotes the spread navigator from a hidden popover to a persistent column.
+
+### Problem Statement
+
+`RootNavigationView` uses `TabView` with `.tabViewStyle(.automatic)` wrapping one `NavigationStack` per tab. On iPad (regular horizontal size class) this produces stacked chrome layers — the adaptive tab bar, the `NavigationStack` toolbar, and the `SpreadTitleNavigatorView` context bar — consuming vertical space and making toolbar placement, coordinator wiring, and inspector placement hard to follow. The spread navigator is also hidden behind a chevron tap rather than being persistently available.
+
+### Goals
+
+- Eliminate double-chrome on iPad by switching to `NavigationSplitView`
+- Use a single navigation structure for all size classes — let SwiftUI collapse columns naturally on compact
+- Promote the spread navigator to a persistent content column on iPad
+- Support a full-detail-only mode where both sidebar and content column are hidden
+- Bidirectionally sync the horizontal spread pager (detail column) with the spread selection in the content column on iPad
+- Ensure the `.inspector()` entry panel renders as a side panel on iPad and a sheet on iPhone
+
+### Non-Goals
+
+- Explicit `TabView` branch for compact size class (removed — NavigationSplitView collapses to stack on iPhone)
+- Collapsible sidebar toggle beyond the supported full-detail-only mode
+- Changing entry row tap interactions (inline title editing stays per SPRD-132)
+- Changing which destinations exist or their icons
+
+### Functional Requirements
+
+1. A single `NavigationSplitView` is used throughout — no explicit size class branching between `TabView` and `NavigationSplitView`. SwiftUI's built-in column collapse handles iPhone. [SPRD-229]
+2. The sidebar lists Spreads, Entries, Collections, Settings — and Debug when `BuildInfo.allowsDebugUI` is true. [SPRD-229]
+3. The content column (second column) shows the spread picker list (driven by `SpreadPickerModel.items(for:)`) when Spreads is selected. `SpreadPickerButton` is removed from `SpreadsView` — the content column is the only spread picker surface. For other destinations the content column shows that destination's content. [SPRD-229]
+4. The detail column (third column) shows `SpreadContentPagerView` for the currently selected spread. [SPRD-229]
+5. **Content column selection behavior:** tapping a spread row in the content column (1) sets `selectedSpread`, (2) positions the pager instantly with no scroll animation, (3) always collapses to `columnVisibility = .detailOnly` — even if the tapped spread was already selected. [SPRD-229]
+6. **Pager → content column sync:** swiping the pager past a settle threshold updates `selectedSpread`. The content column list reflects the new selection when it is visible. [SPRD-229]
+7. **iPhone behavior:** on compact, columns collapse to a navigation stack. The spread picker list is a pushed screen; the spread pager is the next pushed screen. The pager still scrolls horizontally as before. [SPRD-229]
+8. **Full-detail-only mode:** tapping a row in the content column automatically collapses to `.detailOnly`. A toolbar button in the detail column restores the content column when the user wants to pick a different spread. [SPRD-229]
+9. `spreadsCoordinator`, `spreadsNavigationState`, `selectedSpread`, and `columnVisibility` remain at `RootNavigationView` level and are shared across all column states and size class changes. [SPRD-229]
+10. Cross-destination navigation (`openTaskFromSearch` switching to Spreads) works correctly. [SPRD-229]
+11. The auth button appears in the detail column toolbar, visible across all destinations. [SPRD-229]
+12. The `.inspector()` modifier is removed entirely. `TaskDetailSheet` and `NoteDetailSheet` are presented as `.popover(item:arrowEdge:.trailing)` anchored to the Edit swipe-action button on each entry row. [SPRD-230]
+13. All other `SpreadsCoordinator.SheetDestination` cases (spread creation, task creation, note creation, spread name edit, spread date edit, peek data, auth) remain as `.sheet`. [SPRD-230]
+14. On compact (iPhone), SwiftUI collapses the `.popover` to a sheet automatically — no manual size-class branching. [SPRD-230]
+
+### Technical Design
+
+#### Architecture
+
+```
+RootNavigationView
+└── NavigationSplitView (3-column)
+    ├── sidebar: List<NavigationTab> → destination labels
+    ├── content: SpreadNavigatorColumn (spread list) | destination content
+    └── detail: SpreadContentPagerView (horizontal pager)
+        └── .inspector() panel attached here
+```
+
+- No `@Environment(\.horizontalSizeClass)` branching at the root level.
+- On iPad (regular), all three columns are visible. The content column shows the spread list. The detail column shows the pager.
+- On iPhone (compact), SwiftUI collapses the split view: sidebar → content → detail renders as a navigation stack. The spread list is a pushed screen, the pager is the next screen.
+- `selectedSpread` is owned at `RootNavigationView` level. The content column's list and the detail pager both bind to it — changes from either side propagate to the other.
+- `columnVisibility: NavigationSplitViewVisibility` is owned at `RootNavigationView` level. Full-detail-only mode sets it to `.detailOnly`.
+
+#### Pager ↔ Content Column Sync
+
+- `selectedSpread` is the single source of truth for both the content column list selection and the pager position.
+- When the user swipes the pager past a settle threshold, `selectedSpread` is updated to the new visible spread. The content column's `List` selection updates automatically.
+- When the user taps a spread row in the content column, `selectedSpread` is updated and the pager jumps (with or without animation) to the matching page.
+- On iPhone, only one view is visible at a time so no sync is needed, but the same `selectedSpread` state drives the pager when it's on screen.
+
+#### Full-Detail-Only Mode
+
+- The detail column toolbar has a button (e.g. `sidebar.left` SF Symbol) that sets `columnVisibility = .detailOnly`.
+- In `.detailOnly`, both sidebar and content column are hidden. The pager has full screen width — important for day spreads with timeline and entry list side by side.
+- The same button (or a `chevron.left` affordance) restores the default visibility.
+
+#### Entry Edit Popover
+
+The `.inspector()` modifier is removed. Task and note detail editing uses `.popover(item:arrowEdge:.trailing)` placed on the entry row's Edit swipe-action button. The popover is anchored directly to the button so the trailing arrow points toward it. On compact (iPhone), SwiftUI automatically collapses the popover to a sheet — no explicit branching. All other sheet destinations remain presented via `.sheet` on `RootNavigationView`.
+
+#### SpreadTitleNavigatorView
+
+The compact spread context bar (`SpreadTitleNavigatorView`) served two roles: showing the current spread identity and opening the rooted navigator. With the content column now being the persistent navigator, this bar's role on iPad reduces to showing current spread identity only. The chevron affordance that opened the navigator popover can be removed on iPad (the content column IS the navigator). On iPhone the bar and its chevron remain as-is since the content column is off-screen.
+
+### Design Decisions
+
+#### Decision: Single NavigationSplitView vs. explicit size-class branch
+
+- **Context**: The previous spec branched between `TabView` (compact) and `NavigationSplitView` (regular) to preserve the iPhone tab bar. The tab bar is an intentional affordance.
+- **Decision**: Use a single `NavigationSplitView` throughout. The iPhone tab bar is not preserved in this design — the sidebar collapses into a navigation stack on compact.
+- **Rationale**: Prototype testing confirmed the 3-column structure works well and the complexity of maintaining two parallel navigation structures outweighs the loss of the bottom tab bar on iPhone. SwiftUI's collapsed split view provides a coherent navigation stack on iPhone. The sidebar-as-navigation-stack on iPhone is a well-established pattern (Apple Notes, Apple Mail, Craft).
+- **SPRD reference**: [SPRD-229]
+
+#### Decision: State ownership during size class transitions
+
+- **Context**: When the device moves between compact and regular (e.g., iPad entering multitasking split view), SwiftUI may not preserve the identity of views deep inside the split view. Child-owned `@State` (e.g., pager position) would reset.
+- **Decision**: All navigation state that must survive a size class transition — selected destination, selected spread, pager position, active sheet destination, column visibility — must be owned at `RootNavigationView` level. Child views receive this as bindings or via injected coordinators.
+- **Rationale**: This is the only reliable way to guarantee continuity across column collapse/expand. Child `@State` cannot survive view recreation caused by size class changes.
+- **SPRD reference**: [SPRD-229]
+
+#### Decision: Select-and-always-collapse content column behavior
+
+- **Context**: The content column is the spread picker. After picking a spread, the user wants to see the spread content — not remain in picker mode. There's also a question of whether re-tapping the current spread should do anything.
+- **Decision**: Tapping any row in the content column always sets `columnVisibility = .detailOnly`, regardless of whether the tapped spread is already selected. The pager teleports to the selected spread instantly (no scroll animation).
+- **Rationale**: "Always hide on select" makes the content column a deliberate picker — you open it, pick, and it gets out of the way. Re-tapping the current spread is a reasonable "go to this spread" action even when already there. Consistent behavior is simpler than a conditional that sometimes collapses and sometimes doesn't.
+- **SPRD reference**: [SPRD-229]
+
+#### Decision: .popover for entry edit, not .inspector
+
+- **Context**: The existing `.inspector()` modifier covers all sheet destinations and renders as a persistent side panel on iPad. The user wants entry editing to feel lighter and directly anchored to the row's Edit button.
+- **Decision**: Remove `.inspector()`. Present `TaskDetailSheet` and `NoteDetailSheet` as `.popover(item:arrowEdge:.trailing)` anchored to the Edit swipe-action button. All other sheet destinations remain as `.sheet`.
+- **Rationale**: A popover anchored to the Edit button makes the spatial relationship between action and result explicit. On iPhone it collapses to a sheet automatically — no branching needed. Limiting the popover to detail/edit only (not creation flows) keeps creation workflows at full-sheet scale where they belong.
+- **SPRD reference**: [SPRD-230]
+
+### Open Questions
+
+- Does `SpreadTitleNavigatorView` need to be removed entirely on iPad (replaced by the content column), or simplified to show spread identity only (no chevron, no navigator trigger)? — Resolve during SPRD-229 implementation.
+- On iPhone, does the back button from the spread pager read "Spreads" (the content column title) or something more descriptive? — Resolve during SPRD-229 implementation.

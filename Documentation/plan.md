@@ -6023,6 +6023,54 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
+### [SPRD-229] Refactor: Adaptive navigation shell — NavigationSplitView 3-column - [ ] Pending
+
+- **Context**: `RootNavigationView` uses `TabView(.automatic)` wrapping one `NavigationStack` per tab. On iPad this stacks multiple chrome layers, consuming vertical space and making the hierarchy hard to follow. The spread navigator is also hidden behind a chevron popover rather than being persistently available.
+- **Description**: Replace `RootNavigationView` with a single `NavigationSplitView` 3-column structure — no explicit size class branching. Sidebar: navigation destinations (current tabs). Content column: the spread picker list (existing `SpreadPickerModel` items, replacing `SpreadPickerButton` in `SpreadsView`). Detail column: `SpreadContentPagerView`. SwiftUI handles compact collapse automatically. Selecting a spread from the content column instantly positions the pager (no animation) and always collapses to `.detailOnly` — even if the same spread was already selected. Swiping the pager updates the content column selection bidirectionally.
+- **Spec**: `Documentation/Specs/SpreadNavigation.md` — Adaptive Navigation Shell
+- **Acceptance Criteria**:
+  - A single `NavigationSplitView` is used — no `TabView` branch, no `@Environment(\.horizontalSizeClass)` branching at the root.
+  - Sidebar lists Spreads, Entries, Collections, Settings (and Debug when `BuildInfo.allowsDebugUI`).
+  - Content column shows the spread picker list (driven by `SpreadPickerModel.items(for:)`) when Spreads is selected. For other destinations, content column shows that destination's content.
+  - `SpreadPickerButton` is removed from `SpreadsView.body`. The content column is now the only spread picker surface.
+  - Detail column shows `SpreadContentPagerView` for the currently selected spread.
+  - Tapping a row in the content column: (1) sets `selectedSpread` to the tapped spread, (2) positions the pager to that spread instantly with no scroll animation, (3) always sets `columnVisibility = .detailOnly` — even if the tapped spread was already selected.
+  - Swiping the pager past a settle threshold updates `selectedSpread` and the content column list reflects the new selection when visible.
+  - A toolbar button in the detail column restores the content column (`columnVisibility = .automatic` or equivalent) when the user wants to pick a different spread.
+  - On iPhone (compact), SwiftUI collapses the split view to a navigation stack: sidebar → spread picker list → spread pager. Pager scrolls horizontally as before.
+  - Double-chrome is eliminated on iPad — no stacked tab bar above a NavigationStack toolbar.
+  - Auth button appears in the detail column toolbar.
+  - `openTaskFromSearch` cross-destination navigation works correctly.
+  - `spreadsCoordinator`, `spreadsNavigationState`, `selectedSpread`, and `columnVisibility` are all owned at `RootNavigationView` level.
+  - **Size class transition contract**: when the app moves between compact and regular (iPad entering/leaving multitasking split view), selected destination, selected spread, pager position, and active sheet destination are all preserved with no visible reset or flash.
+  - Spread pager position is lifted out of any child `@State` and owned at root level so it survives the size class branch swap.
+  - Project builds with no errors or warnings.
+- **Tests**:
+  - No unit tests required. Manual verification on iPad simulator: (1) navigate to a non-default spread via content column — confirm pager teleports instantly and content column hides; (2) tap the already-selected spread in the content column — confirm column still hides; (3) swipe pager to a different spread — confirm content column list reflects new selection when reopened; (4) enter split-screen multitasking — confirm selected spread and pager position are preserved.
+
+---
+
+### [SPRD-230] Refactor: Entry edit popover, remove inspector - [ ] Pending
+
+- **Context**: `RootNavigationView` uses `.inspector()` for all `SpreadsCoordinator.SheetDestination` cases. After SPRD-229, the inspector approach is replaced: task and note detail editing should open as a `.popover` anchored to the Edit swipe-action button with a trailing arrow. Other sheet destinations (creation sheets, spread name edit, etc.) remain as `.sheet`.
+- **Description**: Remove the `.inspector()` modifier from `RootNavigationView`. Wire `TaskDetailSheet` and `NoteDetailSheet` as `.popover(item:arrowEdge:.trailing)` anchored to the swipe-action Edit button on each entry row. All other `SpreadsCoordinator.SheetDestination` cases (spread creation, task creation, note creation, spread name edit, spread date edit, peek data, auth) remain presented as `.sheet`. On compact (iPhone), SwiftUI automatically collapses `.popover` to a sheet — no manual branching needed.
+- **Spec**: `Documentation/Specs/SpreadNavigation.md` — Adaptive Navigation Shell
+- **Acceptance Criteria**:
+  - The `.inspector()` modifier is removed from `RootNavigationView` with no remaining references.
+  - Pressing Edit on a task row's swipe actions opens `TaskDetailSheet` as a `.popover` with `arrowEdge: .trailing`, anchored to the Edit button.
+  - Pressing Edit on a note row's swipe actions opens `NoteDetailSheet` as a `.popover` with `arrowEdge: .trailing`, anchored to the Edit button.
+  - On iPad (regular), the popover appears as a floating panel with a trailing arrow pointing to the Edit button.
+  - On iPhone (compact), SwiftUI collapses the popover to a sheet automatically — no explicit branching required.
+  - All other `SpreadsCoordinator.SheetDestination` cases continue to present as `.sheet` and are unaffected.
+  - Popover dismisses correctly when the user taps outside or when `spreadsCoordinator.activeSheet` is set to `nil`.
+  - No entry row tap behavior changes — inline title editing (SPRD-132) is unaffected.
+  - Project builds with no errors or warnings.
+- **Tests**:
+  - Manual verification on iPad simulator: swipe a task row, tap Edit — confirm popover appears with trailing arrow. Tap outside — confirm it dismisses. Swipe a note row, tap Edit — confirm same popover behavior.
+- **Dependencies**: SPRD-229
+
+---
+
 ### [SPRD-228] Refactor: Extract CalendarEventService from view-local CalendarEventStore - [x] Done
 
 - **Context**: `CalendarEventStore` is a nested `@Observable` class duplicated inside `DaySpreadContentView` and `MultidaySpreadContentView`. It owns both the EventKit fetch logic and the resulting `[CalendarEvent]` state. This makes the fetch strategy (EventKit today, Google Calendar or others in v2) impossible to mock in tests/previews and tightly coupled to the view layer.
