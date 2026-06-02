@@ -2,10 +2,13 @@ import SwiftUI
 
 /// Horizontally pages through spread content, assembling each page as a header and period-appropriate content view.
 ///
-/// `items` and `currentSelection` are passed in from `SpreadsView` so the pager shell does not
+/// `items` and `currentSelection` are passed in from `RootNavigationView` so the pager shell does not
 /// read from `JournalManager` directly. Scroll-driven re-renders (from `scrollPhase` and
 /// `pagerSettledTargetID` state changes) therefore only perform cheap lookups against already-
 /// computed values — the expensive `titleNavigatorModel` rebuild stays in the parent.
+///
+/// `pagerSettledTargetID` is owned at the root level (`RootNavigationView`) and passed in as a
+/// binding so its value survives size class transitions without resetting.
 struct SpreadContentPagerView: View {
     private let liveRadius = 2
 
@@ -15,12 +18,13 @@ struct SpreadContentPagerView: View {
     let items: [SpreadPickerModel.Item]
     /// Pre-computed by the parent so this view does not observe JournalManager during scrolling.
     let currentSelection: DataModel.Spread
+    /// Root-owned scroll position binding — lifted so it survives size class transitions.
+    @Binding var pagerSettledTargetID: String?
 
     /// Not accessed in `body` — stored here only for the `deleteSpread` action which fires
     /// outside of scroll-driven re-renders and therefore does not create a scroll-time observation.
     @Environment(JournalManager.self) private var journalManager
 
-    @State private var pagerSettledTargetID: String?
     @State private var scrollPhase: ScrollPhase = .idle
     @State private var lastSequenceSignature: [String] = []
 
