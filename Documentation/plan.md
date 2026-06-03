@@ -6090,3 +6090,47 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**:
   - [x] Unit test `LiveCalendarEventService` authorization handling: returns `[]` when service is not authorized; calls through when authorized.
   - [x] Unit test `MockCalendarEventService` returns the seeded array.
+
+
+---
+
+### [SPRD-231] Feature: CalendarView multi-month component in johnnyo-foundation - [ ] Pending
+
+- **Context**: `SpreadsContentColumnView` needs to render a full year of months as a vertically scrolling calendar grid. The existing `MonthCalendarView` handles a single month. A reusable multi-month shell is needed in `johnnyo-foundation` so the calendar-column pattern can be used in other app contexts without duplicating month-stacking logic.
+- **Description**: Add a `CalendarView` to `JohnnyOFoundationUI` that renders a vertical `LazyVStack` of `MonthCalendarView` instances from a start date to an end date. Accepts the same `CalendarContentGenerator` and optional `MonthCalendarRowOverlayGenerator` used by `MonthCalendarView`. Accepts an `onDateTapped: (Date) -> Void` callback. Foundation does not own disambiguation UI for multi-spread dates.
+- **Spec**: `Documentation/Specs/CalendarFoundation.md` — Multi-Month CalendarView
+- **Acceptance Criteria**:
+  - `CalendarView` exists in `JohnnyOFoundationUI` accepting `startDate: Date`, `endDate: Date`, `calendar: Calendar`, `today: Date`, `contentGenerator: some CalendarContentGenerator`, and `onDateTapped: (Date) -> Void`.
+  - An overload accepts an additional `rowOverlayGenerator: some MonthCalendarRowOverlayGenerator`; when omitted, months render without overlays.
+  - The view renders one `MonthCalendarView` per calendar month from the month containing `startDate` to the month containing `endDate`, inclusive.
+  - Months are stacked in a `LazyVStack` inside a `ScrollView(.vertical)` — off-screen months are not constructed until scrolled into view.
+  - The same generator instance is passed to every `MonthCalendarView` in the stack.
+  - Tapping a date cell fires `onDateTapped` with the tapped `Date`. Foundation does not present any popover or disambiguation UI.
+  - Package-local unit tests cover: correct month count between two dates, inclusive boundary handling, same-month start/end, and ascending order.
+  - Project builds with no errors or warnings.
+- **Tests**:
+  - Unit tests in `johnnyo-foundation` package tests covering month range computation (see ACs above).
+  - Package-local preview demonstrating a 12-month calendar with a simple content generator.
+
+---
+
+### [SPRD-232] Refactor: Calendar-based SpreadsContentColumnView + sidebar year subitems - [ ] Pending
+
+- **Context**: `SpreadsContentColumnView` currently renders a flat indented list of `SpreadPickerModel.Item` values. The sidebar has no year-level navigation. This task replaces the flat list with a `CalendarView`-backed grid and introduces year subitems in the sidebar so the user can navigate by year.
+- **Description**: Refactor `SpreadsContentColumnView` to accept `[DataModel.Spread]` and use `CalendarView` internally with a generator defined in a nested extension. Add a `RootNavigationView.SidebarItem` enum to accommodate both destination and year selections in a single `List(selection:)` binding. Sidebar shows year subitems (always visible, indented) below the Spreads destination row, derived from the spread list. Selecting a year drives the content column's date range.
+- **Spec**: `Documentation/Specs/SpreadNavigation.md` — Calendar Content Column
+- **Acceptance Criteria**:
+  - `RootNavigationView.SidebarItem` enum exists with cases `.destination(RootNavigationView.Content)` and `.spreadsYear(Int)`. The sidebar `List(selection:)` binds to `SidebarItem?`.
+  - The sidebar shows Spreads, Entries, Collections, Settings (and Debug when enabled) as destination rows. Below Spreads, year rows are always visible and indented, one per unique year in the spread list (ascending).
+  - Selecting a year row sets the content column to a `SpreadsContentColumnView` spanning Jan 1 – Dec 31 of that year.
+  - `SpreadsContentColumnView` accepts `spreads: [DataModel.Spread]`, `selectedYear: Int`, `calendar: Calendar`, and `selectedSpread: Binding<DataModel.Spread?>`. It no longer accepts `[SpreadPickerModel.Item]`.
+  - `SpreadsContentColumnView` uses `CalendarView` internally. The generator is defined in a `SpreadsContentColumnView` extension (separate file `SpreadsContentColumnView+CalendarGenerator.swift`).
+  - Date cells containing one or more spreads are visually distinguished from empty cells (exact treatment determined at implementation).
+  - Tapping a date cell with exactly one spread sets `selectedSpread` and collapses the content column (regular width only).
+  - Tapping a date cell with two or more spreads shows a SwiftUI `.popover` listing each spread's label/period. Tapping a spread in the popover sets `selectedSpread` and dismisses the popover.
+  - Tapping a date cell with no spreads is a no-op.
+  - `RootNavigationView` no longer passes `[SpreadPickerModel.Item]` to the content column — it passes the spread list from `journalManager.spreads` directly.
+  - Project builds with no errors or warnings.
+- **Tests**:
+  - Manual verification: select a year in the sidebar, confirm content column shows that year's calendar. Tap a date with one spread — confirm navigation. Tap a date with multiple spreads — confirm disambiguation popover appears and selection works.
+- **Dependencies**: SPRD-231

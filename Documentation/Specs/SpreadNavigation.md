@@ -1,6 +1,7 @@
 # Spread Navigation
 
-> Source: Documentation/spec.md
+> Source: Documentation/spec.md  
+> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232
 
 ### Spread View Architecture
 - The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
@@ -326,3 +327,46 @@ The compact spread context bar (`SpreadTitleNavigatorView`) served two roles: sh
 
 - Does `SpreadTitleNavigatorView` need to be removed entirely on iPad (replaced by the content column), or simplified to show spread identity only (no chevron, no navigator trigger)? — Resolve during SPRD-229 implementation.
 - On iPhone, does the back button from the spread pager read "Spreads" (the content column title) or something more descriptive? — Resolve during SPRD-229 implementation.
+
+---
+
+## Calendar Content Column [SPRD-231, SPRD-232]
+
+### Overview
+
+The Spreads content column is refactored from a flat indented list (`SpreadsContentColumnView` backed by `[SpreadPickerModel.Item]`) to a calendar-based view backed by `CalendarView` from `johnnyo-foundation`. The sidebar gains year subitems under the Spreads destination. Selecting a year populates the content column with a full-year calendar grid. Spreads are visualized within the grid; tapping a date cell navigates to the spread(s) on that date.
+
+### Functional Requirements
+
+1. The sidebar lists navigation destinations (Spreads, Entries, Collections, Settings, Debug). Under the Spreads item, year subitems are always visible and indented — no expand/collapse toggle. Only years that have at least one spread are shown, derived from the passed-in spread list. [SPRD-232]
+2. Selecting a year subitem sets the content column to show a `CalendarView` spanning January 1 – December 31 of that year. [SPRD-232]
+3. `SpreadsContentColumnView` accepts `[DataModel.Spread]` and a `selectedSpread: Binding<DataModel.Spread?>`. It no longer accepts `[SpreadPickerModel.Item]`. [SPRD-232]
+4. `SpreadsContentColumnView` uses `CalendarView` from `johnnyo-foundation` internally, providing a generator defined in a nested extension (`SpreadsContentColumnView+CalendarGenerator.swift` or equivalent). [SPRD-232]
+5. The generator highlights date cells that have one or more spreads (visual treatment TBD at implementation — e.g. filled background, dot indicator, or border). [SPRD-232]
+6. Tapping a date cell with exactly one spread navigates to that spread — sets `selectedSpread` and collapses the content column. [SPRD-232]
+7. Tapping a date cell with more than one spread shows an app-owned popover listing each spread's description/label. The user taps a spread in the popover to select it. Foundation does not own this disambiguation UI. [SPRD-232]
+8. Tapping a date cell with no spreads is a no-op. [SPRD-232]
+9. The sidebar selection type must accommodate both destination items (`.spreads`, `.entries`, etc.) and year subitems in a single `List(selection:)` binding. A new `SidebarItem` enum (or equivalent) wraps both. [SPRD-232]
+
+### Design Decisions
+
+#### Decision: SpreadsContentColumnView accepts spreads, not picker items
+
+- **Context**: The previous implementation passed `[SpreadPickerModel.Item]` — a pre-computed model coupling label, style, badge, and display fields specific to the flat-list row rendering. `CalendarView` needs raw dates to position spreads in the grid, and `SpreadPickerModel.Item` does not expose dates directly.
+- **Decision**: `SpreadsContentColumnView` accepts `[DataModel.Spread]` directly. The generator extension maps spread dates to calendar cells.
+- **Rationale**: `DataModel.Spread` carries the period and date needed for calendar positioning. Passing spreads directly removes the dependency on `SpreadPickerModel` from the content column and makes the view useful in other contexts without a picker model.
+- **SPRD reference**: [SPRD-232]
+
+#### Decision: App-owned disambiguation popover for multi-spread dates
+
+- **Context**: When multiple spreads cover the same date (e.g., a year spread, a month spread, and a day spread all include January 15), tapping that cell needs to resolve which spread to navigate to.
+- **Decision**: `CalendarView` fires `onDateTapped: (Date) -> Void`. The `SpreadsContentColumnView` generator (or the view itself) maps the date to the overlapping spreads and presents a SwiftUI `.popover` listing them. Foundation owns no disambiguation UI.
+- **Rationale**: Foundation stays structural. The app owns the visual disambiguation treatment and can tailor it (spread labels, periods, badges) without requiring a foundation API change.
+- **SPRD reference**: [SPRD-232]
+
+#### Decision: SidebarItem enum for mixed sidebar selection
+
+- **Context**: The sidebar `List(selection:)` currently binds to `RootNavigationView.Content?`. Adding year subitems requires the selection to represent either a destination or a specific year-under-spreads. Two types cannot share one binding without a wrapper.
+- **Decision**: Introduce a `RootNavigationView.SidebarItem` enum with cases `.destination(Content)` and `.spreadsYear(Int)`. The sidebar list binds to `SidebarItem?`. `RootNavigationView` derives `selectedContent` and `selectedSpreadsYear` from this single selection.
+- **Rationale**: A single selection binding on `List` is the SwiftUI-idiomatic approach. A typed enum keeps the two concerns distinct without maintaining separate state variables that can drift out of sync.
+- **SPRD reference**: [SPRD-232]

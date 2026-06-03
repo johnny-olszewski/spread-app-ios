@@ -1,6 +1,7 @@
 # Calendar Foundation
 
-> Source: Documentation/spec.md
+> Source: Documentation/spec.md  
+> **SPRD tasks**: SPRD-152, SPRD-153, SPRD-183, SPRD-184, SPRD-231
 
 ### Shared Foundations Package
 - The repository may contain a local Swift Package named `johnnyo-foundation` for reusable components and utilities intended to be publishable independently later. [SPRD-152]
@@ -63,3 +64,13 @@
   - visible-lane limiting
   - overflow metadata derivation [SPRD-183]
 - App-level integration tests must verify that `Spread` converts multiday spread semantics into the new overlay contract and renders the intended row-bounded overlay visuals in the rooted navigator without regressing existing month-grid interactions. [SPRD-184]
+
+### Multi-Month CalendarView
+
+- `johnnyo-foundation` must provide a `CalendarView` component that renders a vertical scrolling sequence of `MonthCalendarView` instances covering all months from a given start date to a given end date, inclusive. [SPRD-231]
+- `CalendarView` accepts `startDate: Date`, `endDate: Date`, `calendar: Calendar`, `today: Date`, and the same `CalendarContentGenerator` used by `MonthCalendarView`. The month range is computed internally — callers supply raw dates, not a pre-computed list of months. [SPRD-231]
+- `CalendarView` optionally accepts a `MonthCalendarRowOverlayGenerator` using the same seam already defined for `MonthCalendarView`. When omitted, months render without row overlays. [SPRD-231]
+- `CalendarView` accepts an `onDateTapped: (Date) -> Void` callback. When a date cell is tapped, the callback fires with the tapped date. Foundation does not own any disambiguation UI for dates with multiple associated items — that is the caller's responsibility. [SPRD-231]
+- Each month in the sequence is rendered as a `MonthCalendarView` with the shared generator and overlay generator. The generator is stateless and called per-cell across all months — the same generator instance serves all months in the view. [SPRD-231]
+- `CalendarView` renders months in a `LazyVStack` inside a `ScrollView(.vertical)` so months off-screen are not constructed until needed. [SPRD-231]
+- Package-local tests must verify the month range computation: correct number of months between two dates, inclusive of both boundary months, handling of same-month start and end, and correct ordering (ascending). [SPRD-231]
