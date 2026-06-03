@@ -107,16 +107,16 @@ struct SpreadHeaderNavigatorCalendarGenerator: CalendarContentGenerator {
 
     private func cellFill(isSelected: Bool, visualState: SpreadCardStyle) -> Color {
         if isSelected { return SpreadSelectionVisualStyle.surfaceFill }
-        if visualState.isToday { return visualState.fill }
-        return Color.clear
+        return (visualState.isToday || visualState.isCreated) ? visualState.fill : .clear
     }
 
     private func foregroundColor(
         targets: [SpreadHeaderNavigatorModel.SelectionTarget],
         visualState: SpreadCardStyle
     ) -> Color {
-        if visualState.isToday { return SpreadTheme.Accent.todayEmphasis }
-        return targets.isEmpty ? .secondary : .primary
+        if visualState.isToday { return SpreadTheme.Accent.todayCellBorder }
+        if !targets.isEmpty { return SpreadTheme.Accent.createdDayBorder }
+        return .secondary
     }
 
     @ViewBuilder

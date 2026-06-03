@@ -156,6 +156,30 @@ enum SpreadTheme {
             todaySelectedEmphasis.opacity(0.34)
         }
 
+        // MARK: Calendar Cell Surfaces
+
+        /// Subtle fill for a day cell that has an explicit day spread.
+        /// Uses the blue accent family so created days read as active and navigable.
+        static var createdDaySurface: Color {
+            todaySelectedEmphasis.opacity(0.08)
+        }
+
+        /// Border for a created day cell — intentionally more defined than the fill.
+        static var createdDayBorder: Color {
+            todaySelectedEmphasis.opacity(0.34)
+        }
+
+        /// Subtle fill for today's cell in calendar grids.
+        /// Uses the warm yellow selection family to distinguish today from created days.
+        static var todayCellSurface: Color {
+            selectedSurface.opacity(0.7)
+        }
+
+        /// Border for today's cell — paired with `todayCellSurface`.
+        static var todayCellBorder: Color {
+            selectedSurfaceBorder.opacity(0.7)
+        }
+
         /// Warm highlight used for current selection surfaces so they remain distinct from the today emphasis color.
         /// Intentionally the same across all palettes — warm yellow is the universal "current spread" signal.
         static let selectedSurface = Color(

@@ -69,8 +69,7 @@ private struct CalendarDayCellView: View {
 
     private var cellFill: Color {
         if context.isPeripheral { return .clear }
-        if visualState.isToday { return visualState.fill }
-        return visualState.isCreated ? Color.primary.opacity(0.04) : .clear
+        return (visualState.isToday || visualState.isCreated) ? visualState.fill : .clear
     }
 
     var body: some View {
@@ -110,7 +109,7 @@ private struct CalendarDayCellView: View {
         Text("\(calendar.component(.day, from: context.date))")
             .font(SpreadTheme.Typography.body)
             .fontWeight(context.isToday ? .semibold : .regular)
-            .foregroundStyle(context.isToday ? SpreadTheme.Accent.todayEmphasis : foreground)
+            .foregroundStyle(context.isToday ? SpreadTheme.Accent.todayCellBorder : foreground)
     }
 
     @ViewBuilder

@@ -26,7 +26,10 @@ enum SpreadCardStyle: Equatable {
 
     var fill: Color {
         if isToday {
-            return SpreadTheme.Accent.todayEmphasis.opacity(0.08)
+            return SpreadTheme.Accent.todayCellSurface
+        }
+        if isCreated {
+            return SpreadTheme.Accent.createdDaySurface
         }
         return SpreadTheme.Paper.primary.opacity(0.6)
     }
@@ -34,9 +37,9 @@ enum SpreadCardStyle: Equatable {
     var borderColor: Color {
         switch self {
         case .todayCreated, .todayUncreated:
-            return SpreadTheme.Accent.todayEmphasisBorder
+            return SpreadTheme.Accent.todayCellBorder
         case .created:
-            return Color.secondary.opacity(0.12)
+            return SpreadTheme.Accent.createdDayBorder
         case .uncreated:
             return Color.secondary.opacity(0.24)
         }
@@ -56,11 +59,15 @@ enum SpreadCardStyle: Equatable {
     }
 
     var primaryHeaderColor: Color {
-        isToday ? SpreadTheme.Accent.todayEmphasis : .primary
+        if isToday { return SpreadTheme.Accent.todayCellBorder }
+        if isCreated { return SpreadTheme.Accent.createdDayBorder }
+        return .primary
     }
 
     var secondaryHeaderColor: Color {
-        isToday ? SpreadTheme.Accent.todayEmphasis.opacity(0.9) : .secondary
+        if isToday { return SpreadTheme.Accent.todayCellBorder.opacity(0.8) }
+        if isCreated { return SpreadTheme.Accent.createdDayBorder.opacity(0.8) }
+        return .secondary
     }
 
     var headerWeight: Font.Weight {
