@@ -20,7 +20,8 @@ struct RootNavigationView: View {
 
     // MARK: - Root-owned Navigation State
 
-    @State private var selectedContent: Content? = .spreads
+    /// The currently selected sidebar item — either a top-level destination or a spreads year subitem.
+    @State private var selectedSidebarItem: SidebarItem?
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     /// Drives the content column list selection and NavigationSplitView column navigation.
     @State private var selectedColumnSpread: DataModel.Spread?
@@ -140,6 +141,10 @@ struct RootNavigationView: View {
                 spreadsCoordinator.selectedSelection = journalManager.defaultNavigationSelection
                 selectedColumnSpread = spreadsCoordinator.selectedSelection
             }
+            if selectedSidebarItem == nil {
+                let defaultYear = spreadsCalendar.component(.year, from: journalManager.today)
+                selectedSidebarItem = .spreadsYear(defaultYear)
+            }
         }
         .onChange(of: spreadsNavigationState.pendingRequest?.id) { _, _ in
             handlePendingNavigationRequest()
@@ -152,10 +157,24 @@ struct RootNavigationView: View {
     // MARK: - Sidebar Column
 
     private var sidebarColumn: some View {
-        List(selection: $selectedContent) {
-            ForEach(Content.allCases) { content in
+        List(selection: $selectedSidebarItem) {
+            // Spreads section — always-expanded with year subitems
+            Section {
+                ForEach(availableYears, id: \.self) { year in
+                    Label("\(year)", systemImage: "calendar")
+                        .tag(SidebarItem.spreadsYear(year) as SidebarItem?)
+                }
+            } header: {
+                Label(Content.spreads.title, systemImage: Content.spreads.systemImage)
+                    .textCase(nil)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+            }
+
+            // Other top-level destinations
+            ForEach(nonSpreadContents) { content in
                 Label(content.title, systemImage: content.systemImage)
-                    .tag(content as Content?)
+                    .tag(SidebarItem.destination(content) as SidebarItem?)
             }
         }
         .navigationTitle("Spread")
@@ -175,7 +194,10 @@ struct RootNavigationView: View {
         switch selectedContent ?? .spreads {
         case .spreads:
             SpreadsContentColumnView(
-                items: pickerItems,
+                spreads: journalManager.spreads,
+                selectedYear: selectedYear,
+                today: journalManager.today,
+                calendar: spreadsCalendar,
                 selectedSpread: $selectedColumnSpread
             )
         case .entries:
@@ -225,6 +247,7 @@ struct RootNavigationView: View {
     private var spreadsDetailContent: some View {
         ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
+                spreadDetailTitle
                 if isSyncError { SyncErrorBanner() }
                 SpreadContentPagerView(
                     coordinator: spreadsCoordinator,
@@ -254,7 +277,35 @@ struct RootNavigationView: View {
                     .accessibilityLabel("Show spread list")
                 }
             }
+
         }
+    }
+
+    /// In-content title header for the detail column — shows the current spread's title
+    /// and optional subtitle, updating dynamically as the selection changes.
+    private var spreadDetailTitle: some View {
+        let config = SpreadHeaderConfiguration(
+            spread: currentSelection,
+            calendar: journalManager.calendar,
+            today: journalManager.today,
+            firstWeekday: journalManager.firstWeekday,
+            allowsPersonalization: true
+        )
+        return VStack(spacing: 2) {
+            Text(config.title)
+                .font(SpreadTheme.Typography.heading(size: 17, weight: .semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+            if let subtitle = config.subtitle {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .animation(.easeInOut(duration: 0.15), value: currentSelection.id)
     }
 
     // MARK: - Bottom Controls
@@ -298,7 +349,35 @@ struct RootNavigationView: View {
         spreadsCoordinator.selectedSelection ?? journalManager.defaultNavigationSelection
     }
 
-    /// Picker items for the current selection's year — shared by the content column and pager.
+    /// The top-level content destination derived from the current sidebar selection.
+    private var selectedContent: Content? {
+        switch selectedSidebarItem {
+        case .destination(let content): return content
+        case .spreadsYear: return .spreads
+        case nil: return nil
+        }
+    }
+
+    /// The calendar year displayed in the content column spreads calendar.
+    private var selectedYear: Int {
+        if case .spreadsYear(let year) = selectedSidebarItem { return year }
+        return spreadsCalendar.component(.year, from: journalManager.today)
+    }
+
+    /// All calendar years that have at least one spread, in descending order.
+    private var availableYears: [Int] {
+        let years = journalManager.spreads.map {
+            spreadsCalendar.component(.year, from: $0.date)
+        }
+        return Array(Set(years)).sorted(by: >)
+    }
+
+    /// Top-level destination content items excluding `.spreads` (handled via year subitems).
+    private var nonSpreadContents: [Content] {
+        Content.allCases.filter { $0 != .spreads }
+    }
+
+    /// Picker items for the current selection's year — used by the spread pager.
     private var pickerItems: [SpreadPickerModel.Item] {
         journalManager.titleNavigatorModel.items(for: currentSelection)
     }
@@ -438,7 +517,8 @@ struct RootNavigationView: View {
     // MARK: - Cross-tab Navigation
 
     private func openTaskFromSearch(taskID: UUID, selection: DataModel.Spread?) {
-        selectedContent = .spreads
+        let resolvedYear = spreadsCalendar.component(.year, from: selection?.date ?? journalManager.today)
+        selectedSidebarItem = .spreadsYear(resolvedYear)
         let resolvedSelection = selection ?? fallbackSearchSelection()
         spreadsCoordinator.selectedSelection = resolvedSelection
         selectedColumnSpread = resolvedSelection
