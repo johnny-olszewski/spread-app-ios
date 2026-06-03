@@ -174,7 +174,7 @@ struct RootNavigationView: View {
     private var contentColumn: some View {
         switch selectedContent ?? .spreads {
         case .spreads:
-            SpreadNavigatorColumnView(
+            SpreadsContentColumnView(
                 items: pickerItems,
                 selectedSpread: $selectedColumnSpread
             )

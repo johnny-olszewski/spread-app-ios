@@ -6,7 +6,7 @@ import SwiftUI
 /// `.tag` value drives the `NavigationSplitView` detail column selection — on
 /// compact this produces a push to the detail; on regular it updates the
 /// highlighted row and the detail column renders the chosen spread.
-struct SpreadNavigatorColumnView: View {
+struct SpreadsContentColumnView: View {
 
     let items: [SpreadPickerModel.Item]
 
@@ -93,7 +93,7 @@ private struct SpreadNavigatorRowView: View {
 
 // MARK: - Preview
 
-#Preview("Spread navigator column") {
+#Preview("Spreads content column") {
     let journalManager = JournalManager.previewInstance
     let model = journalManager.titleNavigatorModel
     let currentSelection = journalManager.defaultNavigationSelection
@@ -102,7 +102,7 @@ private struct SpreadNavigatorRowView: View {
     NavigationSplitView {
         Text("Sidebar")
     } content: {
-        SpreadNavigatorColumnView(
+        SpreadsContentColumnView(
             items: items,
             selectedSpread: .constant(currentSelection)
         )
