@@ -11,6 +11,7 @@ import SwiftUI
 /// binding so its value survives size class transitions without resetting.
 struct SpreadContentPagerView: View {
     private let liveRadius = 2
+    private let backgroundShape = UnevenRoundedRectangle(topLeadingRadius: 48,topTrailingRadius: 48)
 
     let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
@@ -84,12 +85,10 @@ struct SpreadContentPagerView: View {
 //                                    topTrailingRadius: 48
 //                                )
 //                            )
-                        UnevenRoundedRectangle(
-                            topLeadingRadius: 48,
-                            topTrailingRadius: 48
-                        )
+                        self.backgroundShape
                         .fill(.background.opacity(0.6))
                     }
+                    .clipShape(self.backgroundShape)
                 }
             }
             .scrollTargetLayout()
