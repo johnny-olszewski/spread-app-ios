@@ -87,7 +87,7 @@ struct EntryRowView: View {
                 )
                 .toolbar {
                     ToolbarItemGroup(placement: .keyboard) {
-                        menuButtons(labelVisibility: .hidden)
+                        menuButtons(labelStyle: .iconOnly)
                     }
                 }
             
@@ -103,12 +103,12 @@ struct EntryRowView: View {
         }
         .safeAreaInset(edge: .trailing) {
             if $isTitleFocused.wrappedValue {
-                editEntryButton(.hidden)
+                editEntryButton(.iconOnly)
             }
         }
         .contentShape(Rectangle())
         .contextMenu {
-            menuButtons(labelVisibility: .visible)
+            menuButtons(labelStyle: .titleAndIcon)
         }
         .onChange(of: isTitleFocused) { _, isFocused in
             if isFocused {
@@ -189,8 +189,8 @@ struct EntryRowView: View {
     }
     
     @ViewBuilder
-    private func editEntryButton(_ labelVisibility: Visibility = .visible) -> some View {
-        
+    private func editEntryButton(_ labelStyle: some LabelStyle = TitleAndIconLabelStyle()) -> some View {
+
         if let onEdit = self.onEdit {
             Button {
                 onEdit(entry)
@@ -201,22 +201,22 @@ struct EntryRowView: View {
             .contentShape(Rectangle())
             .allowsHitTesting(true)
             .transition(.slide)
-            .labelsVisibility(labelVisibility)
+            .labelStyle(labelStyle)
         }
     }
-    
+
     @ViewBuilder
-    private func menuButtons(labelVisibility: Visibility) -> some View {
+    private func menuButtons(labelStyle: some LabelStyle) -> some View {
         ForEach(configuration.actions) { action in
-            toolbarItem(for: action, labelVisibility: labelVisibility)
+            toolbarItem(for: action, labelStyle: labelStyle)
         }
     }
-    
+
     @ViewBuilder
-    private func toolbarItem(for action: Configuration.Action, labelVisibility: Visibility) -> some View {
+    private func toolbarItem(for action: Configuration.Action, labelStyle: some LabelStyle) -> some View {
         switch action {
         case .openEdit(_):
-            editEntryButton(labelVisibility)
+            editEntryButton(labelStyle)
         case .migrate(let migrationOptions, let onMigrationSelected):
             let options = migrationOptions(entry)
             if !options.isEmpty {
@@ -240,7 +240,7 @@ struct EntryRowView: View {
                 } label: {
                     Label("Migrate", systemImage: action.systemImageName)
                         .font(.system(size: SpreadTheme.IconSize.medium))
-                        .labelsVisibility(labelVisibility)
+                        .labelStyle(labelStyle)
                 }
                 .accessibilityLabel("Migrate")
                 .accessibilityIdentifier(
