@@ -123,7 +123,7 @@ public struct CalendarView<
                 // Defer one run-loop iteration so LazyVStack has established geometry
                 // for items beyond the initial visible window before scrollTo fires.
                 DispatchQueue.main.async {
-                    proxy.scrollTo(target, anchor: .top)
+                    proxy.scrollTo(target, anchor: .center)
                 }
             }
         }
