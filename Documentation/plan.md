@@ -6133,3 +6133,45 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**:
   - Manual verification: select a year in the sidebar, confirm content column shows that year's calendar. Tap a date with one spread — confirm navigation. Tap a date with multiple spreads — confirm disambiguation popover appears and selection works.
 - **Dependencies**: SPRD-231
+
+---
+
+### [SPRD-233] Refactor: Generic AlertModel replacing typed AlertDestination cases - [ ] Pending
+
+- **Context**: `SpreadsCoordinator.AlertDestination` had one case per alert scenario. Adding new alerts required growing the enum and duplicating coordinator factory methods. Structurally identical cases (title + message + two buttons) couldn't be reused.
+- **Description**: Replace the multi-case `AlertDestination` enum with a single `.alert(AlertModel)` case. `AlertModel` carries `title`, optional `message`, and `[AlertModel.Button]` (each with `label`, `role`, and optional async `action`). Static presets (`AlertModel.deleteSpreadConfirmation(spread:)` etc.) live as static factory methods on `AlertModel`. Coordinator action methods stay but build `AlertModel` inline. `RootNavigationView`'s `.alert(item:)` handler renders from `AlertModel` generically using `ForEach` over buttons.
+- **Spec**: `Documentation/Specs/ErrorHandling.md` — Alert Infrastructure Refactor (SPRD-233)
+- **Acceptance Criteria**:
+  - [ ] `AlertModel` struct exists with `title: String`, `message: String?`, and `buttons: [AlertModel.Button]`.
+  - [ ] `AlertModel.Button` has `label: String`, `role: ButtonRole?`, and `action: (@MainActor () async -> Void)?`.
+  - [ ] `AlertDestination` is reduced to a single `case alert(AlertModel)` (plus `id` computed from title to satisfy `Identifiable`).
+  - [ ] Static presets exist on `AlertModel`: `deleteSpreadConfirmation(spread:)`, `deleteSpreadFailed(message:)`, `discardChanges(onSave:onDiscard:)`, `deleteEntryConfirmation(confirmAction:)`.
+  - [ ] `SpreadsCoordinator` action methods (`showDeleteSpreadConfirmation`, etc.) set `activeAlert = .alert(AlertModel.deleteSpreadConfirmation(spread:))` rather than constructing typed cases.
+  - [ ] `RootNavigationView` `.alert(item:)` renders title, optional message, and buttons from `AlertModel` — no switch statement over cases.
+  - [ ] All existing alert behavior (destructive roles, cancel roles, async actions) is preserved.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - Manual verification: trigger each existing alert scenario and confirm it still renders and behaves correctly.
+
+---
+
+### [SPRD-234] Feature: List and Tag quick-pick in AddTaskButton keyboard toolbar - [ ] Pending
+
+- **Context**: The `AddTaskButton` alert lets users quickly create a task by title, but offers no way to assign a list or tag without opening the full `TaskCreationSheet`. Since native alerts don't support pickers, the keyboard toolbar above the alert's text field is the right surface.
+- **Description**: Add "List" and "Tag" buttons to the `ToolbarItemGroup(placement: .keyboard)` on `AddTaskButton`'s alert `TextField`. Each button opens a `.popover` for single-select from available lists/tags. Selected values are held as `@State`, shown as active on the button, and passed through `onAddTask` to `JournalManager`. `AddTaskButton` receives `availableLists` and `availableTags` from its call site.
+- **Spec**: `Documentation/Specs/TaskMetadata.md` — AddTaskButton Keyboard Toolbar: List and Tag Quick-Pick (SPRD-234)
+- **Acceptance Criteria**:
+  - [ ] `AddTaskButton` has parameters `availableLists: [DataModel.List]` and `availableTags: [DataModel.Tag]`, both defaulting to `[]`.
+  - [ ] `onAddTask` signature is extended to `(String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void`. All call sites updated.
+  - [ ] When `availableLists` is non-empty, a "List" toolbar button appears in the keyboard toolbar. When empty, it is hidden.
+  - [ ] When `availableTags` is non-empty, a "Tag" toolbar button appears. When empty, it is hidden.
+  - [ ] Tapping "List" presents a `.popover` with the available lists; selecting one sets the local state and dismisses the popover. Tapping again clears the selection.
+  - [ ] Tapping "Tag" presents a `.popover` with the available tags (single-select); same behavior.
+  - [ ] Active selection is visually indicated on the toolbar button (tinted or filled label/icon).
+  - [ ] On "Save", the selected list and tag (or nil) are passed to `onAddTask`.
+  - [ ] On "Cancel", local list/tag state is cleared alongside `title`.
+  - [ ] Enhancement is scoped to `AddTaskButton` only — `EntryRowView` and `TaskCreationSheet` are unchanged.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - Manual verification: tap "Add Task", confirm List and Tag buttons appear above keyboard, select each, confirm the created task has the correct list and tag set.
+- **Dependencies**: SPRD-221

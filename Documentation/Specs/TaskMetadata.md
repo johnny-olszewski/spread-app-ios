@@ -18,3 +18,14 @@
 - In task create/edit UI, assignment is controlled by an explicit optional `Assign to spread` section. Creating from an explicit year/month/day spread defaults assignment on and prefilled to that spread. Creating from an explicit multiday spread defaults assignment on and prefilled to that multiday spread as a true multiday assignment. Creating from a non-spread context defaults assignment off; if the user turns it on, it prepopulates today at day granularity. Editing a true nil-assignment task follows the same assign-on prefill. [SPRD-170, SPRD-193]
 - Editing an Inbox task shows `Assign to spread` on when it has a preferred assignment but no matching spread, and off only for true nil-assignment tasks. [SPRD-170]
 - Clearing assignment from a task with a real current open spread assignment moves it to Inbox and converts the current open assignment into historical migrated state. Clearing assignment from a task that only had an unmaterialized preferred assignment clears preferred assignment to nil without creating migrated history. [SPRD-170]
+
+---
+
+## AddTaskButton Keyboard Toolbar: List and Tag Quick-Pick (SPRD-234)
+
+- The `AddTaskButton`'s native alert `TextField` gets a `ToolbarItemGroup(placement: .keyboard)` with two additional buttons: **List** and **Tag**. [SPRD-234]
+- Tapping "List" presents a `.popover` listing available lists (single-select). Tapping "Tag" presents a `.popover` listing available tags (single-select for the quick-add flow only). [SPRD-234]
+- Selected list and tag are held as `@State` on `AddTaskButton` and shown as active indicators on the toolbar buttons (e.g. filled icon or tinted label). Selecting again clears the selection. [SPRD-234]
+- `AddTaskButton.onAddTask` signature is extended to accept optional `list: DataModel.List?` and `tag: DataModel.Tag?`. All call sites pass the new arguments; existing callers default both to `nil`. [SPRD-234]
+- `AddTaskButton` receives `availableLists: [DataModel.List]` and `availableTags: [DataModel.Tag]` from its call site. When both arrays are empty, the toolbar buttons are hidden. When one array is empty, only that button is hidden. [SPRD-234]
+- This enhancement is scoped to `AddTaskButton` only — it does not apply to `EntryRowView` inline editing or `TaskCreationSheet`. [SPRD-234]
