@@ -86,8 +86,14 @@ struct EntryRowView: View {
                     Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(entry.title)
                 )
                 .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        menuButtons(labelStyle: .iconOnly)
+                    if isTitleFocused {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            HStack(spacing: 8) {
+                                menuButtons(labelStyle: .iconOnly)
+                            }
+                            .padding(.horizontal, 8)
+                            Spacer()
+                        }
                     }
                 }
             
