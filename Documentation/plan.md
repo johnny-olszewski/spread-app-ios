@@ -6136,42 +6136,42 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-233] Refactor: Generic AlertModel replacing typed AlertDestination cases - [ ] Pending
+### [SPRD-233] Refactor: Generic AlertModel replacing typed AlertDestination cases - [x] Done
 
 - **Context**: `SpreadsCoordinator.AlertDestination` had one case per alert scenario. Adding new alerts required growing the enum and duplicating coordinator factory methods. Structurally identical cases (title + message + two buttons) couldn't be reused.
 - **Description**: Replace the multi-case `AlertDestination` enum with a single `.alert(AlertModel)` case. `AlertModel` carries `title`, optional `message`, and `[AlertModel.Button]` (each with `label`, `role`, and optional async `action`). Static presets (`AlertModel.deleteSpreadConfirmation(spread:)` etc.) live as static factory methods on `AlertModel`. Coordinator action methods stay but build `AlertModel` inline. `RootNavigationView`'s `.alert(item:)` handler renders from `AlertModel` generically using `ForEach` over buttons.
 - **Spec**: `Documentation/Specs/ErrorHandling.md` — Alert Infrastructure Refactor (SPRD-233)
 - **Acceptance Criteria**:
-  - [ ] `AlertModel` struct exists with `title: String`, `message: String?`, and `buttons: [AlertModel.Button]`.
-  - [ ] `AlertModel.Button` has `label: String`, `role: ButtonRole?`, and `action: (@MainActor () async -> Void)?`.
-  - [ ] `AlertDestination` is reduced to a single `case alert(AlertModel)` (plus `id` computed from title to satisfy `Identifiable`).
-  - [ ] Static presets exist on `AlertModel`: `deleteSpreadConfirmation(spread:)`, `deleteSpreadFailed(message:)`, `discardChanges(onSave:onDiscard:)`, `deleteEntryConfirmation(confirmAction:)`.
-  - [ ] `SpreadsCoordinator` action methods (`showDeleteSpreadConfirmation`, etc.) set `activeAlert = .alert(AlertModel.deleteSpreadConfirmation(spread:))` rather than constructing typed cases.
-  - [ ] `RootNavigationView` `.alert(item:)` renders title, optional message, and buttons from `AlertModel` — no switch statement over cases.
-  - [ ] All existing alert behavior (destructive roles, cancel roles, async actions) is preserved.
-  - [ ] Project builds with no errors or warnings.
+  - [x] `AlertModel` struct exists with `title: String`, `message: String?`, and `buttons: [AlertModel.Button]`.
+  - [x] `AlertModel.Button` has `label: String`, `role: ButtonRole?`, and `action: (@MainActor () async -> Void)?`.
+  - [x] `AlertDestination` is reduced to a single `case alert(AlertModel)` (plus `id` computed from title to satisfy `Identifiable`).
+  - [x] Static presets exist on `AlertModel`: `deleteSpreadConfirmation(spread:)`, `deleteSpreadFailed(message:)`, `discardChanges(onSave:onDiscard:)`, `deleteEntryConfirmation(confirmAction:)`.
+  - [x] `SpreadsCoordinator` action methods (`showDeleteSpreadConfirmation`, etc.) set `activeAlert = .alert(AlertModel.deleteSpreadConfirmation(spread:))` rather than constructing typed cases.
+  - [x] `RootNavigationView` `.alert(item:)` renders title, optional message, and buttons from `AlertModel` — no switch statement over cases.
+  - [x] All existing alert behavior (destructive roles, cancel roles, async actions) is preserved.
+  - [x] Project builds with no errors or warnings.
 - **Tests**:
   - Manual verification: trigger each existing alert scenario and confirm it still renders and behaves correctly.
 
 ---
 
-### [SPRD-234] Feature: List and Tag quick-pick in AddTaskButton keyboard toolbar - [ ] Pending
+### [SPRD-234] Feature: List and Tag quick-pick in AddTaskButton popover - [x] Done
 
-- **Context**: The `AddTaskButton` alert lets users quickly create a task by title, but offers no way to assign a list or tag without opening the full `TaskCreationSheet`. Since native alerts don't support pickers, the keyboard toolbar above the alert's text field is the right surface.
-- **Description**: Add "List" and "Tag" buttons to the `ToolbarItemGroup(placement: .keyboard)` on `AddTaskButton`'s alert `TextField`. Each button opens a `.popover` for single-select from available lists/tags. Selected values are held as `@State`, shown as active on the button, and passed through `onAddTask` to `JournalManager`. `AddTaskButton` receives `availableLists` and `availableTags` from its call site.
-- **Spec**: `Documentation/Specs/TaskMetadata.md` — AddTaskButton Keyboard Toolbar: List and Tag Quick-Pick (SPRD-234)
+- **Context**: The `AddTaskButton` alert lets users quickly create a task by title, but offers no way to assign a list or tag without opening the full `TaskCreationSheet`. Native alerts don't support pickers, and `.toolbar` modifiers inside alert content are silently ignored by SwiftUI. A `.popover` is in the real view hierarchy so keyboard toolbar items render correctly.
+- **Description**: Replace `AddTaskButton`'s native `.alert` with a `.popover` (`attachmentAnchor: .rect(.bounds)`, `arrowEdge: .leading`) containing a title header, auto-focused `TextField`, and keyboard toolbar `Menu` buttons for List and Tag. On compact-width (iPhone) the popover becomes a bottom sheet via `.presentationDetents([.height(130)])`. `AddTaskButton` receives `availableLists` and `availableTags` from its call site.
+- **Spec**: `Documentation/Specs/TaskMetadata.md` — AddTaskButton Quick-Pick Popover: List and Tag (SPRD-234)
 - **Acceptance Criteria**:
-  - [ ] `AddTaskButton` has parameters `availableLists: [DataModel.List]` and `availableTags: [DataModel.Tag]`, both defaulting to `[]`.
-  - [ ] `onAddTask` signature is extended to `(String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void`. All call sites updated.
-  - [ ] When `availableLists` is non-empty, a "List" toolbar button appears in the keyboard toolbar. When empty, it is hidden.
-  - [ ] When `availableTags` is non-empty, a "Tag" toolbar button appears. When empty, it is hidden.
-  - [ ] Tapping "List" presents a `.popover` with the available lists; selecting one sets the local state and dismisses the popover. Tapping again clears the selection.
-  - [ ] Tapping "Tag" presents a `.popover` with the available tags (single-select); same behavior.
-  - [ ] Active selection is visually indicated on the toolbar button (tinted or filled label/icon).
-  - [ ] On "Save", the selected list and tag (or nil) are passed to `onAddTask`.
-  - [ ] On "Cancel", local list/tag state is cleared alongside `title`.
-  - [ ] Enhancement is scoped to `AddTaskButton` only — `EntryRowView` and `TaskCreationSheet` are unchanged.
-  - [ ] Project builds with no errors or warnings.
+  - [x] `AddTaskButton` has parameters `availableLists: [DataModel.List]` and `availableTags: [DataModel.Tag]`, both defaulting to `[]`.
+  - [x] `onAddTask` signature is extended to `(String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void`. All call sites updated.
+  - [x] Tapping "Add Task" opens a popover with leading arrow edge on regular-width; becomes a bottom sheet on compact-width.
+  - [x] The popover contains a "New Task" header with dismiss (×) button and an auto-focused `TextField`.
+  - [x] Submitting the field (Return) or tapping "Add" in the keyboard toolbar saves the task and closes the popover.
+  - [x] When `availableLists` is non-empty, a List `Menu` button appears in the keyboard toolbar. When empty, it is hidden.
+  - [x] When `availableTags` is non-empty, a Tag `Menu` button appears. When empty, it is hidden.
+  - [x] Active selection shown with filled icon tinted with `SpreadTheme.Accent.todaySelectedEmphasis`. A destructive "Clear" option inside the menu resets it.
+  - [x] State (title, list, tag) is cleared on popover dismiss.
+  - [x] Enhancement is scoped to `AddTaskButton` only — `EntryRowView` and `TaskCreationSheet` are unchanged.
+  - [x] Project builds with no errors or warnings.
 - **Tests**:
-  - Manual verification: tap "Add Task", confirm List and Tag buttons appear above keyboard, select each, confirm the created task has the correct list and tag set.
+  - Manual verification: tap "Add Task", confirm popover/sheet appears, List and Tag menus visible in keyboard toolbar, selections persist to created task.
 - **Dependencies**: SPRD-221

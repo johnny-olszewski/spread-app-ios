@@ -21,11 +21,12 @@
 
 ---
 
-## AddTaskButton Keyboard Toolbar: List and Tag Quick-Pick (SPRD-234)
+## AddTaskButton Quick-Pick Popover: List and Tag (SPRD-234)
 
-- The `AddTaskButton`'s native alert `TextField` gets a `ToolbarItemGroup(placement: .keyboard)` with two additional buttons: **List** and **Tag**. [SPRD-234]
-- Tapping "List" presents a `.popover` listing available lists (single-select). Tapping "Tag" presents a `.popover` listing available tags (single-select for the quick-add flow only). [SPRD-234]
-- Selected list and tag are held as `@State` on `AddTaskButton` and shown as active indicators on the toolbar buttons (e.g. filled icon or tinted label). Selecting again clears the selection. [SPRD-234]
-- `AddTaskButton.onAddTask` signature is extended to accept optional `list: DataModel.List?` and `tag: DataModel.Tag?`. All call sites pass the new arguments; existing callers default both to `nil`. [SPRD-234]
-- `AddTaskButton` receives `availableLists: [DataModel.List]` and `availableTags: [DataModel.Tag]` from its call site. When both arrays are empty, the toolbar buttons are hidden. When one array is empty, only that button is hidden. [SPRD-234]
+- The `AddTaskButton` native alert is replaced with a `.popover` attached to the button (`attachmentAnchor: .rect(.bounds)`, `arrowEdge: .leading`). On compact-width (iPhone) the popover automatically becomes a bottom sheet via `.presentationDetents([.height(130)])`. [SPRD-234]
+- The popover contains a title header with dismiss (×) button, and a `TextField` auto-focused on appear. Submitting the field (Return key) or tapping "Add" in the keyboard toolbar saves the task and closes the popover. [SPRD-234]
+- When `availableLists` is non-empty, a **List** `Menu` button appears in the keyboard `ToolbarItemGroup`; selecting an item sets it as the active list. When `availableTags` is non-empty, a **Tag** `Menu` button appears similarly (single-select). Active selections show a filled icon tinted with `SpreadTheme.Accent.todaySelectedEmphasis`. A "Clear" destructive button inside each menu resets the selection. [SPRD-234]
+- `AddTaskButton.onAddTask` signature is extended to accept optional `list: DataModel.List?` and `tag: DataModel.Tag?`. All call sites updated. [SPRD-234]
+- `AddTaskButton` receives `availableLists: [DataModel.List]` and `availableTags: [DataModel.Tag]` from its call site (defaulting to `[]`). When both arrays are empty the menu buttons are hidden. [SPRD-234]
+- State (title, selectedList, selectedTag) is cleared on `onDisappear` so re-opening the popover starts fresh. [SPRD-234]
 - This enhancement is scoped to `AddTaskButton` only — it does not apply to `EntryRowView` inline editing or `TaskCreationSheet`. [SPRD-234]
