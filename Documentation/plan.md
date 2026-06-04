@@ -6175,3 +6175,27 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**:
   - Manual verification: tap "Add Task", confirm popover/sheet appears, List and Tag menus visible in keyboard toolbar, selections persist to created task.
 - **Dependencies**: SPRD-221
+
+---
+
+### [SPRD-235] Feature: Overdue task card in DaySpreadContentView - [ ] Pending
+
+- **Context**: Users have no in-spread signal that they have overdue tasks on today's spread. `JournalManager.overdueTaskItems` already computes the global overdue set, but there is no UI surface for it on the day spread itself.
+- **Description**: Show a card-style section above the entry list in `DaySpreadContentView` when the spread is today and `journalManager.overdueTaskItems` is non-empty. Introduce `EntryList.Section.Style` (enum with `.card(Color)`) on `EntryList.Section` and teach `EntryListView` to render card-styled sections above its internal `List`. `DaySpreadContentView` builds the overdue sections from `overdueTaskItems`, grouped by source spread/Inbox, and passes them with `.card(color)` style. `EntryListView` and `EntryRowView` remain unaware of the overdue concept.
+- **Spec**: `Documentation/Specs/ConventionalMode.md` — Overdue Card in Day Spread (SPRD-235)
+- **Acceptance Criteria**:
+  - [ ] `EntryList.Section.Style` enum exists with one case: `.card(Color)`.
+  - [ ] `EntryList.Section` has `style: EntryList.Section.Style?` property, defaulting to `nil`.
+  - [ ] `EntryListView` in `.list` mode renders card-styled sections above the `List {}`, each wrapped in a `RoundedRectangle` with low-opacity fill and solid stroke using the supplied `Color`.
+  - [ ] `EntryListView` and `EntryRowView` have no knowledge of overdue tasks — they respond only to `Section.Style`.
+  - [ ] `DaySpreadContentView` reads `context.journalManager.overdueTaskItems` and builds `EntryList.Section` values (one per source spread/Inbox) with `style: .card(color)` when the spread date is today and overdue items exist.
+  - [ ] The overdue card disappears automatically when `overdueTaskItems` is empty.
+  - [ ] Overdue task rows use the same `EntryRowView.Configuration` as standard task rows (status toggle, migrate, delete, edit).
+  - [ ] Card sections in `.inline` mode render identically to standard sections (no card chrome).
+  - [ ] All existing `EntryListView` call sites compile without changes (new `style` property is optional with `nil` default).
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - Manual: open today's day spread with at least one overdue task — confirm overdue card appears above the entry list with card styling.
+  - Manual: migrate or complete all overdue tasks — confirm card disappears.
+  - Manual: open a past day spread — confirm no overdue card appears.
+  - Unit: `EntryList.Section` initializer sets `style` correctly when provided and defaults to `nil` when omitted.

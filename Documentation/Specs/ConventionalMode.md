@@ -85,6 +85,25 @@
 | `February 1, 2026` | `Inbox` task with desired assignment `January 2026` month | Yes | Inbox falls back to the desired assignment period/date when no open spread assignment exists. |
 | `January 11, 2026` | `Inbox` task with desired assignment `January 10, 2026` day | Yes | Inbox day tasks become overdue after the desired day passes. |
 
+### Overdue Card in Day Spread (SPRD-235)
+
+- When the current spread is a day spread for today, an overdue card is shown above the entry list when `JournalManager.overdueTaskItems` is non-empty. [SPRD-235]
+- The overdue card is rendered as a visually distinct card: `RoundedRectangle` background at low opacity with a solid stroke border. Color is caller-supplied via `EntryList.Section.Style.card(Color)`. [SPRD-235]
+- The overdue card contains one `EntryList.Section` per distinct source spread (or Inbox) that has overdue tasks, grouped by `OverdueTaskItem.sourceKey`. [SPRD-235]
+- Each section in the card renders tasks using the same `EntryRowView.Configuration` as the standard task rows (status toggle, migrate, delete, edit). No overdue-specific actions in v1. [SPRD-235]
+- The card disappears automatically when all overdue tasks have been acted on (i.e., `overdueTaskItems` becomes empty). There is no manual dismiss. [SPRD-235]
+- The card is scoped to `DaySpreadContentView` only in v1. The general mechanism (`Section.Style`) is designed for reuse but no other call site uses it yet. [SPRD-235]
+
+#### `EntryList.Section.Style` — Generic Section Styling
+
+- `EntryList.Section` gains an optional `style: EntryList.Section.Style?` property, defaulting to `nil` (standard rendering). [SPRD-235]
+- `EntryList.Section.Style` is an enum with one case in v1: `.card(Color)`. [SPRD-235]
+- `EntryListView` in `.list` mode splits sections into two groups before rendering:
+  - Card-styled sections (`style != nil`) are rendered above the `List {}` in a `VStack`, each wrapped in the appropriate card chrome.
+  - Standard sections (`style == nil`) are rendered inside the `List {}` as today.
+- `EntryListView` and `EntryRowView` have no knowledge of the overdue concept — they only respond to `Section.Style`. [SPRD-235]
+- Card sections in `.inline` mode render identically to standard sections (card chrome is list-mode-only in v1). [SPRD-235]
+
 ### Inbox
 - Unassigned entries (tasks/notes) are stored in a global Inbox. [SPRD-14]
 - Inbox is surfaced as the first section inside the global search tab's task browser rather than a spread-toolbar button or standalone sheet. [SPRD-148]
