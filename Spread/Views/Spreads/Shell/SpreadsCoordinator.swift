@@ -57,21 +57,11 @@ final class SpreadsCoordinator {
 
     /// All possible alert presentations in the spreads view.
     enum AlertDestination: Identifiable {
-        case deleteSpreadConfirmation(DataModel.Spread)
-        case deleteSpreadFailed(message: String)
-        case discardChanges(onSave: @MainActor () async -> Void, onDiscard: @MainActor () async -> Void)
-        case deleteEntryConfirmation(confirmAction: @MainActor () async -> Void)
+        case alert(AlertModel)
 
         var id: String {
             switch self {
-            case .deleteSpreadConfirmation(let spread):
-                return "deleteSpreadConfirmation-\(spread.id)"
-            case .deleteSpreadFailed:
-                return "deleteSpreadFailed"
-            case .discardChanges:
-                return "discardChanges"
-            case .deleteEntryConfirmation(let entry):
-                return "deleteEntryConfirmation"
+            case .alert(let model): return model.id
             }
         }
     }
@@ -146,13 +136,13 @@ final class SpreadsCoordinator {
     }
 
     /// Presents spread deletion confirmation for a conventional explicit spread.
-    func showSpreadDeleteConfirmation(_ spread: DataModel.Spread) {
-        activeAlert = .deleteSpreadConfirmation(spread)
+    func showSpreadDeleteConfirmation(_ spread: DataModel.Spread, onDelete: @escaping @MainActor () async -> Void) {
+        activeAlert = .alert(AlertModel.deleteSpreadConfirmation(spread: spread, onDelete: onDelete))
     }
 
     /// Presents a spread deletion failure alert.
     func showSpreadDeleteFailure(message: String) {
-        activeAlert = .deleteSpreadFailed(message: message)
+        activeAlert = .alert(AlertModel.deleteSpreadFailed(message: message, onDismiss: dismissAlert))
     }
 
     /// Presents the task creation sheet.
@@ -254,7 +244,7 @@ final class SpreadsCoordinator {
         onSave: @escaping @MainActor () async -> Void,
         onDiscard: @escaping @MainActor () async -> Void
     ) {
-        activeAlert = .discardChanges(onSave: onSave, onDiscard: onDiscard)
+        activeAlert = .alert(AlertModel.discardChanges(onSave: onSave, onDiscard: onDiscard))
     }
 
     /// Dismisses the currently active alert.

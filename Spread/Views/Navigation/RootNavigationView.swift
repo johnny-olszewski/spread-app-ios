@@ -85,57 +85,13 @@ struct RootNavigationView: View {
         )) { destination in
             spreadsSheetContent(for: destination)
         }
-        .alert(item: Binding(
-            get: { spreadsCoordinator.activeAlert },
-            set: { spreadsCoordinator.activeAlert = $0 }
-        )) { destination -> Alert in
-            switch destination {
-            case .deleteSpreadConfirmation(let spread):
-                Alert(
-                    title: Text("Delete Spread"),
-                    message: Text(
-                        "Only this spread will be deleted. Tasks and notes are preserved and moved to " +
-                        "the nearest parent spread or Inbox. This action cannot be undone."
-                    ),
-                    primaryButton: .destructive(Text("Delete Spread")) {
-                        deleteSpread(spread)
-                    },
-                    secondaryButton: .cancel {
-                        spreadsCoordinator.dismissAlert()
-                    }
-                )
-            case .deleteSpreadFailed(let message):
-                Alert(
-                    title: Text("Couldn't Delete Spread"),
-                    message: Text(message),
-                    dismissButton: .default(Text("OK")) {
-                        spreadsCoordinator.dismissAlert()
-                    }
-                )
-            case .discardChanges(let onSave, let onDiscard):
-                Alert(
-                    title: Text("Unsaved Changes"),
-                    message: Text("Save your title changes before continuing?"),
-                    primaryButton: .default(Text("Save")) {
-                        Task { @MainActor in await onSave() }
-                    },
-                    secondaryButton: .destructive(Text("Discard")) {
-                        Task { @MainActor in await onDiscard() }
-                    }
-                )
-            case .deleteEntryConfirmation(let confirmAction):
-                Alert(
-                    title: Text("Confirm Delete"),
-                    message: Text("Are you sure you want to delete this entry?"),
-                    primaryButton: .destructive(Text("Delete")) {
-                        Task { @MainActor in await confirmAction() }
-                    },
-                    secondaryButton: .cancel(Text("Cancel")) {
-                        spreadsCoordinator.activeAlert = nil
-                    }
-                )
-            }
-        }
+        .modifier(AlertModelModifier(
+            model: activeAlertModel,
+            isPresented: Binding(
+                get: { spreadsCoordinator.activeAlert != nil },
+                set: { if !$0 { spreadsCoordinator.activeAlert = nil } }
+            )
+        ))
         .onAppear {
             if spreadsCoordinator.selectedSelection == nil {
                 spreadsCoordinator.selectedSelection = journalManager.defaultNavigationSelection
@@ -380,6 +336,12 @@ struct RootNavigationView: View {
     /// Picker items for the current selection's year — used by the spread pager.
     private var pickerItems: [SpreadPickerModel.Item] {
         journalManager.titleNavigatorModel.items(for: currentSelection)
+    }
+
+    /// Extracts the `AlertModel` from the active alert destination for generic rendering.
+    private var activeAlertModel: AlertModel? {
+        guard case .alert(let model) = spreadsCoordinator.activeAlert else { return nil }
+        return model
     }
 
     private var spreadsCalendar: Calendar {

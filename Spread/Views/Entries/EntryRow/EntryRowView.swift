@@ -255,10 +255,9 @@ struct EntryRowView: View {
             }
         case .delete(let deleteEntry):
             Button {
-                let alert = SpreadsCoordinator.AlertDestination.deleteEntryConfirmation(confirmAction: {
-                    await deleteEntry(entry)
-                })
-
+                let alert = SpreadsCoordinator.AlertDestination.alert(
+                    AlertModel.deleteEntryConfirmation(confirmAction: { await deleteEntry(entry) })
+                )
                 configuration.showAlert?(alert)
             } label: {
                 Label("Delete", systemImage: action.systemImageName)
@@ -294,14 +293,19 @@ struct EntryRowView: View {
             return
         }
 
-        let alert = SpreadsCoordinator.AlertDestination.discardChanges {
-            isConfirmingChanges = false
-            commitTitleEdit()
-            await completion()
-        } onDiscard: {
-            isConfirmingChanges = false
-            await completion()
-        }
+        let alert = SpreadsCoordinator.AlertDestination.alert(
+            AlertModel.discardChanges(
+                onSave: {
+                    isConfirmingChanges = false
+                    commitTitleEdit()
+                    await completion()
+                },
+                onDiscard: {
+                    isConfirmingChanges = false
+                    await completion()
+                }
+            )
+        )
 
         configuration.showAlert?(alert)
         isConfirmingChanges = false

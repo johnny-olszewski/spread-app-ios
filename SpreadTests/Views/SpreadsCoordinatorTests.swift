@@ -109,7 +109,7 @@ struct SpreadsCoordinatorTests {
     }
 
     /// Condition: Call showSpreadDeleteConfirmation with a selected spread.
-    /// Expected: Active alert is .deleteSpreadConfirmation and carries that spread without changing selection.
+    /// Expected: Active alert is .alert wrapping an AlertModel whose id matches the spread, without changing selection.
     @Test("showSpreadDeleteConfirmation sets delete confirmation alert")
     func testShowSpreadDeleteConfirmation() {
         var calendar = Calendar(identifier: .gregorian)
@@ -118,13 +118,13 @@ struct SpreadsCoordinatorTests {
         let coordinator = SpreadsCoordinator()
         coordinator.selectedSelection = spread
 
-        coordinator.showSpreadDeleteConfirmation(spread)
+        coordinator.showSpreadDeleteConfirmation(spread, onDelete: {})
 
-        guard case .deleteSpreadConfirmation(let destinationSpread) = coordinator.activeAlert else {
-            Issue.record("Expected .deleteSpreadConfirmation, got \(String(describing: coordinator.activeAlert))")
+        guard case .alert(let model) = coordinator.activeAlert else {
+            Issue.record("Expected .alert, got \(String(describing: coordinator.activeAlert))")
             return
         }
-        #expect(destinationSpread.id == spread.id)
+        #expect(model.id == "deleteSpreadConfirmation-\(spread.id)")
         guard let selectedSpread = coordinator.selectedSelection else {
             Issue.record("Expected a selection")
             return
@@ -141,7 +141,7 @@ struct SpreadsCoordinatorTests {
         let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
         let coordinator = SpreadsCoordinator()
         coordinator.selectedSelection = spread
-        coordinator.showSpreadDeleteConfirmation(spread)
+        coordinator.showSpreadDeleteConfirmation(spread, onDelete: {})
 
         coordinator.dismissAlert()
 
@@ -165,11 +165,12 @@ struct SpreadsCoordinatorTests {
 
         coordinator.showSpreadDeleteFailure(message: "Failed to delete spread: forced failure")
 
-        guard case .deleteSpreadFailed(let message) = coordinator.activeAlert else {
-            Issue.record("Expected .deleteSpreadFailed, got \(String(describing: coordinator.activeAlert))")
+        guard case .alert(let model) = coordinator.activeAlert else {
+            Issue.record("Expected .alert, got \(String(describing: coordinator.activeAlert))")
             return
         }
-        #expect(message == "Failed to delete spread: forced failure")
+        #expect(model.id == "deleteSpreadFailed")
+        #expect(model.message == "Failed to delete spread: forced failure")
         guard let selectedSpread = coordinator.selectedSelection else {
             Issue.record("Expected a selection")
             return
