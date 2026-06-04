@@ -42,8 +42,8 @@ struct SpreadsContentColumnView: View {
         )
         .listStyle(.sidebar)
         .navigationTitle("Spreads")
-        .popover(item: $disambiguationContext) { context in
-            disambiguationPopover(for: context)
+        .overlayPreferenceValue(DateCellAnchorKey.self) { anchors in
+            cellPopoverAnchor(anchors: anchors)
         }
     }
 
@@ -65,6 +65,35 @@ struct SpreadsContentColumnView: View {
         return calendar.date(from: comps) ?? today
     }
 
+    // MARK: - Cell Popover Anchor
+
+    /// Renders an invisible view precisely over the tapped cell and attaches the
+    /// disambiguation popover to it. `GeometryProxy` resolves the `Anchor<CGRect>`
+    /// from the preference into a concrete rect in the overlay's coordinate space.
+    @ViewBuilder
+    private func cellPopoverAnchor(anchors: [Date: Anchor<CGRect>]) -> some View {
+        GeometryReader { proxy in
+            if let date = disambiguationContext?.date, let anchor = anchors[date] {
+                let rect = proxy[anchor]
+                Color.clear
+                    .frame(width: rect.width, height: rect.height)
+                    .position(x: rect.midX, y: rect.midY)
+                    .popover(
+                        isPresented: Binding(
+                            get: { disambiguationContext != nil },
+                            set: { if !$0 { disambiguationContext = nil } }
+                        ),
+                        arrowEdge: .leading
+                    ) {
+                        if let context = disambiguationContext {
+                            disambiguationPopover(for: context)
+                        }
+                    }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
     // MARK: - Date Tap Handling
 
     private func handleDateTap(_ date: Date) {
@@ -82,6 +111,7 @@ struct SpreadsContentColumnView: View {
         }
     }
 
+
     // MARK: - Disambiguation Popover
 
     @ViewBuilder
@@ -97,8 +127,6 @@ struct SpreadsContentColumnView: View {
 
             ForEach(context.spreads) { spread in
                 Button {
-                    // Dismiss the popover first, then write the selection on the next
-                    // run loop so the binding update isn't dropped during teardown.
                     disambiguationContext = nil
                     let target = spread
                     DispatchQueue.main.async {

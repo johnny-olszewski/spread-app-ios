@@ -2,6 +2,17 @@ import SwiftUI
 import JohnnyOFoundationUI
 import JohnnyOFoundationCore
 
+// MARK: - Anchor Preference
+
+/// Bubbles each day cell's bounds up so `SpreadsContentColumnView` can anchor
+/// the disambiguation popover precisely on the tapped cell.
+struct DateCellAnchorKey: PreferenceKey {
+    static let defaultValue: [Date: Anchor<CGRect>] = [:]
+    static func reduce(value: inout [Date: Anchor<CGRect>], nextValue: () -> [Date: Anchor<CGRect>]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}
+
 // MARK: - Calendar Generator
 
 extension SpreadsContentColumnView {
@@ -35,11 +46,44 @@ extension SpreadsContentColumnView {
         // MARK: Day Cell
 
         func dayCellView(context: MonthCalendarDayContext) -> some View {
+            let isPeripheral = !context.isInDisplayedMonth
             let hasDaySpread = spreads.contains {
                 $0.period == .day &&
                 $0.contains(date: context.date, calendar: calendar)
             }
-            return DayCellView(context: context, calendar: calendar, hasDaySpread: hasDaySpread)
+            let dayNumber = calendar.component(.day, from: context.date)
+            let visualState = MultidayDayCardSupport.visualState(isToday: context.isToday, isCreated: hasDaySpread)
+
+            let fillColor: Color = isPeripheral ? .clear
+                : (visualState.isToday || visualState.isCreated) ? visualState.fill : .clear
+
+            let strokeColor: Color = isPeripheral ? .clear
+                : (!visualState.isToday && !hasDaySpread) ? .clear
+                : visualState.borderColor
+
+            let textColor: Color = isPeripheral ? Color.primary.opacity(0.2)
+                : visualState.isToday ? SpreadTheme.Accent.todayCellBorder
+                : hasDaySpread ? SpreadTheme.Accent.createdDayBorder
+                : .secondary
+
+            return Text("\(dayNumber)")
+                .font(.subheadline)
+                .fontWeight(visualState.headerWeight)
+                .foregroundStyle(textColor)
+                .lineLimit(1)
+                .padding(4)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.badge, style: .continuous)
+                        .fill(fillColor)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.badge, style: .continuous)
+                        .strokeBorder(strokeColor, style: visualState.borderStyle)
+                )
+                .aspectRatio(1, contentMode: .fit)
+                .padding(2)
+                .anchorPreference(key: DateCellAnchorKey.self, value: .bounds) { [context.date: $0] }
         }
 
         // MARK: Placeholder Cell
@@ -132,66 +176,3 @@ private struct MonthHeaderView: View {
     }
 }
 
-// MARK: - Day Cell View
-
-private struct DayCellView: View {
-
-    let context: MonthCalendarDayContext
-    let calendar: Calendar
-    /// True only when a `.day`-period spread explicitly covers this date.
-    /// Multiday spans are shown via the row overlay bar and do not affect cell styling.
-    let hasDaySpread: Bool
-
-    private var dayNumber: Int {
-        calendar.component(.day, from: context.date)
-    }
-
-    private var isPeripheral: Bool { !context.isInDisplayedMonth }
-
-    /// Resolved card style — mirrors `MultidayDayCardSupport.visualState` so styling stays
-    /// consistent with the month calendar and multiday grid.
-    private var visualState: SpreadCardStyle {
-        MultidayDayCardSupport.visualState(isToday: context.isToday, isCreated: hasDaySpread)
-    }
-
-    /// Subtle fill: today gets a tinted wash; created days get a near-invisible primary tint;
-    /// everything else is clear. Peripheral dates are always clear.
-    private var fillColor: Color {
-        if isPeripheral { return .clear }
-        return (visualState.isToday || visualState.isCreated) ? visualState.fill : .clear
-    }
-
-    /// Stroke is intentionally more visible than the fill, giving the rectangle its definition.
-    /// No stroke is rendered for plain (non-today, non-created) cells or peripheral dates.
-    private var strokeColor: Color {
-        if isPeripheral { return .clear }
-        if !visualState.isToday && !hasDaySpread { return .clear }
-        return visualState.borderColor
-    }
-
-    private var textColor: Color {
-        if isPeripheral { return Color.primary.opacity(0.2) }
-        if visualState.isToday { return SpreadTheme.Accent.todayCellBorder }
-        return hasDaySpread ? SpreadTheme.Accent.createdDayBorder : .secondary
-    }
-
-    var body: some View {
-        Text("\(dayNumber)")
-            .font(.subheadline)
-            .fontWeight(visualState.headerWeight)
-            .foregroundStyle(textColor)
-            .lineLimit(1)
-            .padding(4)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.badge, style: .continuous)
-                    .fill(fillColor)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.badge, style: .continuous)
-                    .strokeBorder(strokeColor, style: visualState.borderStyle)
-            )
-            .aspectRatio(1, contentMode: .fit)
-            .padding(2)
-    }
-}
