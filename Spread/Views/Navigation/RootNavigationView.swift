@@ -212,6 +212,7 @@ struct RootNavigationView: View {
                     currentSelection: currentSelection,
                     pagerSettledTargetID: $pagerSettledTargetID
                 )
+                .ignoresSafeArea(edges: .bottom)
             }
             bottomInsetControls
         }
@@ -223,17 +224,30 @@ struct RootNavigationView: View {
             // On regular width (iPad), show an explicit sidebar toggle since columnVisibility
             // is set to .detailOnly on spread selection and SwiftUI does not add one automatically.
             // On compact (iPhone), SwiftUI's NavigationSplitView injects its own back/sidebar button.
-            if horizontalSizeClass == .regular {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        withAnimation { columnVisibility = .automatic }
-                    } label: {
-                        Image(systemName: "sidebar.left")
-                    }
-                    .accessibilityLabel("Show spread list")
-                }
-            }
+//            if horizontalSizeClass == .regular {
+//                ToolbarItem(placement: .topBarLeading) {
+//                    Button {
+//                        withAnimation { columnVisibility = .automatic }
+//                    } label: {
+//                        Image(systemName: "sidebar.left")
+//                    }
+//                    .accessibilityLabel("Show spread list")
+//                }
+//            }
 
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if let syncEngine {
+                    SyncIconButton(
+                        status: syncEngine.status,
+                        outboxCount: syncEngine.outboxCount,
+                        onSyncNow: { Task { @MainActor in await syncEngine.syncNow() } }
+                    )
+                }
+                AuthButton(isSignedIn: authManager.state.isSignedIn) {
+                    spreadsCoordinator.showAuth()
+                }
+                spreadActionsMenu(for: currentSelection)
+            }
         }
     }
 
@@ -461,6 +475,54 @@ struct RootNavigationView: View {
     }
 
     // MARK: - Spread Actions
+
+    /// Spread-level actions menu shown in the detail column toolbar.
+    private func spreadActionsMenu(for spread: DataModel.Spread) -> some View {
+        Menu {
+            Button {
+                toggleFavorite(for: spread)
+            } label: {
+                Label(
+                    spread.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                    systemImage: spread.isFavorite ? "star.fill" : "star"
+                )
+            }
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
+
+            Button {
+                spreadsCoordinator.showSpreadNameEdit(spread)
+            } label: {
+                Label("Edit Name", systemImage: "pencil")
+            }
+
+            if spread.period == .multiday {
+                Button {
+                    spreadsCoordinator.showSpreadDateEdit(spread)
+                } label: {
+                    Label("Edit Dates", systemImage: "calendar")
+                }
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.editDatesButton)
+            }
+
+            Button(role: .destructive) {
+                spreadsCoordinator.showSpreadDeleteConfirmation(spread, onDelete: { deleteSpread(spread) })
+            } label: {
+                Label("Delete Spread", systemImage: "trash")
+            }
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.deleteSpreadButton)
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .accessibilityLabel("Spread Actions")
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.spreadActionsMenu)
+    }
+
+    private func toggleFavorite(for spread: DataModel.Spread) {
+        Task { @MainActor in
+            try? await journalManager.updateSpreadFavorite(spread, isFavorite: !spread.isFavorite)
+            await syncEngine?.syncNow()
+        }
+    }
 
     private func deleteSpread(_ spread: DataModel.Spread) {
         spreadsCoordinator.dismissAlert()
