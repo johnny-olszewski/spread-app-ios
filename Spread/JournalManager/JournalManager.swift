@@ -1185,8 +1185,14 @@ final class JournalManager {
     ///   - period: The preferred period for the task.
     /// - Returns: The newly created task.
     /// - Throws: Repository errors if persistence fails.
-    func addTask(title: String, date: Date, period: Period) async throws -> DataModel.Task {
-        try await addTask(
+    func addTask(
+        title: String,
+        date: Date,
+        period: Period,
+        list: DataModel.List? = nil,
+        tag: DataModel.Tag? = nil
+    ) async throws -> DataModel.Task {
+        let task = try await addTask(
             title: title,
             date: date,
             period: period,
@@ -1195,6 +1201,12 @@ final class JournalManager {
             priority: .none,
             dueDate: nil
         )
+        guard list != nil || tag != nil else { return task }
+        if let list { task.list = list }
+        if let tag { task.tags = [tag] }
+        try await taskRepository.save(task)
+        tasks = await taskRepository.getTasks()
+        return task
     }
 
     /// Creates a new task with metadata and explicit preferred-assignment state.
