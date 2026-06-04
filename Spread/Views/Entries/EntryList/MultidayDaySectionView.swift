@@ -13,7 +13,9 @@ struct MultidayDaySectionView<RowContent: View>: View {
     let openTaskCount: Int
     let calendar: Calendar
     let today: Date
-    let onAddTask: (@MainActor (String, Date, Period) async throws -> Void)?
+    let onAddTask: (@MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void)?
+    var availableLists: [DataModel.List] = []
+    var availableTags: [DataModel.Tag] = []
     let onFooterTap: () -> Void
     let onPeek: (() -> Void)?
     @ViewBuilder var rowContent: (any Entry) -> RowContent
@@ -118,7 +120,7 @@ struct MultidayDaySectionView<RowContent: View>: View {
                 }
 
                 if let onAddTask {
-                    AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: onAddTask)
+                    AddTaskButton(date: section.creationDate, period: section.creationPeriod, availableLists: availableLists, availableTags: availableTags, onAddTask: onAddTask)
                         .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                         .accessibilityIdentifier(
                             Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID)

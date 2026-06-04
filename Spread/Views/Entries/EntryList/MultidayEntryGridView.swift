@@ -15,7 +15,9 @@ struct MultidayEntryGridView<RowContent: View>: View {
     let sections: [EntryList.Section]
     let calendar: Calendar
     let today: Date
-    var onAddTask: (@MainActor (String, Date, Period) async throws -> Void)?
+    var onAddTask: (@MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void)?
+    var availableLists: [DataModel.List] = []
+    var availableTags: [DataModel.Tag] = []
 
     /// The multiday spread being displayed. Used for overdue calculations.
     let spread: DataModel.Spread
@@ -94,6 +96,8 @@ struct MultidayEntryGridView<RowContent: View>: View {
             calendar: calendar,
             today: today,
             onAddTask: onAddTask,
+            availableLists: availableLists,
+            availableTags: availableTags,
             onFooterTap: {
                 if let daySpread = explicitDaySpread {
                     onSelectSpread?(daySpread)

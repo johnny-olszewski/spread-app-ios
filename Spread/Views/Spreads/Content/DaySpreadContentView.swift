@@ -65,11 +65,11 @@ struct DaySpreadContentView: View {
             : [.event: .standardEventConfig(journalManager: context.journalManager)]
     }
 
-    private var onAddTask: (@MainActor (String, Date, Period) async throws -> Void) {
+    private var onAddTask: (@MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void) {
         let jm = context.journalManager
         let se = context.syncEngine
-        return { @MainActor title, date, period in
-            _ = try await jm.addTask(title: title, date: date, period: period)
+        return { @MainActor title, date, period, list, tag in
+            _ = try await jm.addTask(title: title, date: date, period: period, list: list, tag: tag)
             Task { @MainActor in await se?.syncNow() }
         }
     }
@@ -135,7 +135,9 @@ struct DaySpreadContentView: View {
         EntryListView(
             sections: sections,
             configurationMap: entryConfigurationMap,
-            onAddTask: onAddTask
+            onAddTask: onAddTask,
+            availableLists: context.journalManager.lists,
+            availableTags: context.journalManager.tags
         )
     }
 }

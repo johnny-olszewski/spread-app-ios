@@ -21,7 +21,9 @@ struct EntryListView: View {
 
     let sections: [EntryList.Section]
     let configurationMap: [EntryType: EntryRowView.Configuration]
-    var onAddTask: (@MainActor (String, Date, Period) async throws -> Void)?
+    var onAddTask: (@MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void)?
+    var availableLists: [DataModel.List] = []
+    var availableTags: [DataModel.Tag] = []
     var style: Style = .list
 
     // MARK: - Computed
@@ -92,7 +94,7 @@ struct EntryListView: View {
             }
         }
         if let onAddTask, section.allowsTaskCreation {
-            AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: onAddTask)
+            AddTaskButton(date: section.creationDate, period: section.creationPeriod, availableLists: availableLists, availableTags: availableTags, onAddTask: onAddTask)
                 .listRowInsets(Self.rowInsets)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
@@ -126,7 +128,7 @@ struct EntryListView: View {
         }
         if let onAddTask, section.allowsTaskCreation {
             if !entries.isEmpty { Divider() }
-            AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: onAddTask)
+            AddTaskButton(date: section.creationDate, period: section.creationPeriod, availableLists: availableLists, availableTags: availableTags, onAddTask: onAddTask)
                 .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton)
         }
@@ -192,7 +194,7 @@ struct EntryListView: View {
         ),
         .note: EntryRowView.Configuration()
     ]
-    EntryListView(sections: sections, configurationMap: configMap, onAddTask: { _, _, _ in })
+    EntryListView(sections: sections, configurationMap: configMap, onAddTask: { _, _, _, _, _ in })
 }
 
 #Preview("Empty State") {
@@ -221,16 +223,40 @@ struct EntryListView: View {
 
 // MARK: - Add Task Button
 
-/// Tappable "Add Task" affordance that presents a native alert for quick task entry.
+/// Tappable "Add Task" affordance that presents a popover for quick task entry.
+///
+/// On regular-width (iPad), a true popover appears with an arrow on the leading edge.
+/// On compact-width (iPhone), it becomes a small bottom sheet via `presentationDetents`.
+/// When `availableLists` or `availableTags` are non-empty, keyboard toolbar buttons
+/// above the text field allow single-select assignment before saving.
 struct AddTaskButton: View {
-    
+
     let date: Date
     let period: Period
-    let onAddTask: @MainActor (String, Date, Period) async throws -> Void
-    
+    let availableLists: [DataModel.List]
+    let availableTags: [DataModel.Tag]
+    let onAddTask: @MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void
+
     @State private var isPresented = false
     @State private var title = ""
-    
+    @State private var selectedList: DataModel.List?
+    @State private var selectedTag: DataModel.Tag?
+    @FocusState private var isTitleFocused: Bool
+
+    init(
+        date: Date,
+        period: Period,
+        availableLists: [DataModel.List] = [],
+        availableTags: [DataModel.Tag] = [],
+        onAddTask: @escaping @MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void
+    ) {
+        self.date = date
+        self.period = period
+        self.availableLists = availableLists
+        self.availableTags = availableTags
+        self.onAddTask = onAddTask
+    }
+
     var body: some View {
         Button {
             isPresented = true
@@ -247,15 +273,140 @@ struct AddTaskButton: View {
             }
         }
         .buttonStyle(.plain)
-        .alert("New Task", isPresented: $isPresented) {
-            TextField("Task title", text: $title)
-            Button("Save") {
-                let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-                title = ""
-                guard !trimmed.isEmpty else { return }
-                Task { @MainActor in try? await onAddTask(trimmed, date, period) }
-            }
-            Button("Cancel", role: .cancel) { title = "" }
+        .popover(
+            isPresented: $isPresented,
+            attachmentAnchor: .rect(.bounds),
+            arrowEdge: .leading
+        ) {
+            popoverContent
+                .presentationDetents([.height(200)])
         }
+    }
+
+    // MARK: - Popover Content
+
+    private var popoverContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("New Task")
+                    .font(.headline)
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .font(.title3)
+                }
+                .buttonStyle(.plain)
+            }
+
+            TextField("Task title", text: $title)
+                .focused($isTitleFocused)
+                .submitLabel(.done)
+                .onSubmit { submitTask() }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+
+            if !availableLists.isEmpty || !availableTags.isEmpty {
+                HStack(spacing: 8) {
+                    if !availableLists.isEmpty { listPickerButton }
+                    if !availableTags.isEmpty { tagPickerButton }
+                    Spacer()
+                    Button("Add") { submitTask() }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            } else {
+                HStack {
+                    Spacer()
+                    Button("Add") { submitTask() }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .padding(16)
+        .frame(minWidth: 280)
+        .task { isTitleFocused = true }
+        .onDisappear { clearState() }
+    }
+
+    // MARK: - Picker Buttons
+
+    private var listPickerButton: some View {
+        Menu {
+            if selectedList != nil {
+                Button("Clear List", role: .destructive) { selectedList = nil }
+            }
+            ForEach(availableLists) { list in
+                Button {
+                    selectedList = list
+                } label: {
+                    if selectedList?.id == list.id {
+                        Label(list.name, systemImage: "checkmark")
+                    } else {
+                        Text(list.name)
+                    }
+                }
+            }
+        } label: {
+            Label(
+                selectedList?.name ?? "List",
+                systemImage: selectedList != nil ? "folder.fill" : "folder"
+            )
+            .foregroundStyle(selectedList != nil ? SpreadTheme.Accent.todaySelectedEmphasis : .secondary)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
+
+    private var tagPickerButton: some View {
+        Menu {
+            if selectedTag != nil {
+                Button("Clear Tag", role: .destructive) { selectedTag = nil }
+            }
+            ForEach(availableTags) { tag in
+                Button {
+                    selectedTag = tag
+                } label: {
+                    if selectedTag?.id == tag.id {
+                        Label(tag.name, systemImage: "checkmark")
+                    } else {
+                        Text(tag.name)
+                    }
+                }
+            }
+        } label: {
+            Label(
+                selectedTag?.name ?? "Tag",
+                systemImage: selectedTag != nil ? "tag.fill" : "tag"
+            )
+            .foregroundStyle(selectedTag != nil ? SpreadTheme.Accent.todaySelectedEmphasis : .secondary)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
+
+    // MARK: - Helpers
+
+    private func submitTask() {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let list = selectedList
+        let tag = selectedTag
+        isPresented = false
+        Task { @MainActor in try? await onAddTask(trimmed, date, period, list, tag) }
+    }
+
+    private func dismiss() {
+        isPresented = false
+    }
+
+    private func clearState() {
+        title = ""
+        selectedList = nil
+        selectedTag = nil
     }
 }
