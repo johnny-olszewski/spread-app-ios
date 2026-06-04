@@ -3,10 +3,11 @@ import SwiftUI
 /// Applies a rounded card appearance: secondary system background fill with a
 /// subtle separator border.
 struct SpreadCardModifier: ViewModifier {
-    var cornerRadius: CGFloat = 16
+    var cornerRadius: CGFloat = SpreadTheme.CornerRadius.section
 
     func body(content: Content) -> some View {
         content
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(Color(uiColor: .secondarySystemBackground))
@@ -19,7 +20,7 @@ struct SpreadCardModifier: ViewModifier {
 }
 
 extension View {
-    func spreadCard(cornerRadius: CGFloat = 16) -> some View {
+    func spreadCard(cornerRadius: CGFloat = SpreadTheme.CornerRadius.section) -> some View {
         modifier(SpreadCardModifier(cornerRadius: cornerRadius))
     }
 }

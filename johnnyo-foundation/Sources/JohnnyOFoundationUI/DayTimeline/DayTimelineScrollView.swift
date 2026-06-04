@@ -44,6 +44,9 @@ public struct DayTimelineScrollView<Provider: DayTimelineContentProvider>: View 
 
     public var calendar: Calendar = .current
 
+    /// Corner radius forwarded to `DayTimelineView` for its clip shape. Default `0`.
+    public var cornerRadius: CGFloat = 0
+
     /// Optional external scroll position. When `nil` the component manages
     /// scroll state internally.
     public var scrollPosition: Binding<ScrollPosition>?
@@ -66,6 +69,7 @@ public struct DayTimelineScrollView<Provider: DayTimelineContentProvider>: View 
         verticalCount: Int = 1,
         verticalSpan: Int = 3,
         calendar: Calendar = .current,
+        cornerRadius: CGFloat = 0,
         scrollPosition: Binding<ScrollPosition>? = nil
     ) {
         self.generator = generator
@@ -76,6 +80,7 @@ public struct DayTimelineScrollView<Provider: DayTimelineContentProvider>: View 
         self.verticalCount = verticalCount
         self.verticalSpan = verticalSpan
         self.calendar = calendar
+        self.cornerRadius = cornerRadius
         self.scrollPosition = scrollPosition
     }
 
@@ -106,6 +111,7 @@ public struct DayTimelineScrollView<Provider: DayTimelineContentProvider>: View 
                         visibleStartHour: visibleStartHour,
                         visibleEndHour: visibleEndHour,
                         height: proxy.size.height,
+                        cornerRadius: cornerRadius,
                         calendar: calendar
                     )
                     .padding(8)

@@ -39,6 +39,12 @@ public struct DayTimelineView<Provider: DayTimelineContentProvider>: View {
     /// Total height of the rendered view, in points. Default `240`.
     public var height: CGFloat = 240
 
+    /// Corner radius applied to the outer clip shape. Pass `0` for rectangular clipping (default).
+    ///
+    /// Set to match the corner radius of any surrounding card or container so timeline content
+    /// clips flush with the border.
+    public var cornerRadius: CGFloat = 0
+
     /// Calendar used to resolve hour components for the visible window.
     public var calendar: Calendar = .current
 
@@ -56,6 +62,7 @@ public struct DayTimelineView<Provider: DayTimelineContentProvider>: View {
         visibleStartHour: Int = 6,
         visibleEndHour: Int = 22,
         height: CGFloat = 240,
+        cornerRadius: CGFloat = 0,
         calendar: Calendar = .current
     ) {
         self.provider = provider
@@ -64,6 +71,7 @@ public struct DayTimelineView<Provider: DayTimelineContentProvider>: View {
         self.visibleStartHour = visibleStartHour
         self.visibleEndHour = visibleEndHour
         self.height = height
+        self.cornerRadius = cornerRadius
         self.calendar = calendar
     }
 
@@ -75,7 +83,7 @@ public struct DayTimelineView<Provider: DayTimelineContentProvider>: View {
             eventZone
         }
         .frame(height: height)
-        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
     // MARK: - Subviews

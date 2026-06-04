@@ -296,7 +296,9 @@ enum SpreadTheme {
         static let standard: CGFloat = 8
         /// 12pt — cards and shimmer placeholders.
         static let card: CGFloat = 12
-        /// 16pt — day spread content and section backgrounds.
+        /// 16pt — day spread content, section backgrounds, and spread card surfaces.
+        /// Shared by `SpreadCardModifier` and the `DayTimelineView` clip shape so
+        /// the timeline content clips flush with the card border.
         static let section: CGFloat = 16
         /// 20pt — large containers such as the entry list rounded rectangle.
         static let large: CGFloat = 20
