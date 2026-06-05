@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum EntryList {}
 
@@ -6,6 +7,17 @@ extension EntryList {
     enum SectionTitleStyle {
         case primary
         case secondary
+    }
+
+    /// Controls the visual chrome applied to a section by `EntryListView`.
+    ///
+    /// When `nil` (the default), sections render inside the standard `List`.
+    /// When non-nil, `EntryListView` extracts the section and renders it with
+    /// the specified style above the standard list.
+    enum SectionStyle {
+        /// Renders the section inside a rounded-rectangle card with a low-opacity
+        /// fill and solid stroke in the given color.
+        case card(Color)
     }
 
     /// A section of grouped entries for display in an entry list.
@@ -40,7 +52,14 @@ extension EntryList {
         let configurationMap: [EntryType: EntryRowView.Configuration]?
 
         /// Whether this section should show the inline add-task affordance.
-        let allowsTaskCreation: Bool
+        let shouldShowAddTaskButton: Bool
+
+        /// Optional visual style applied by `EntryListView`. `nil` means standard list rendering.
+        let style: EntryList.SectionStyle?
+        
+        let rowSpacing: CGFloat
+        let rowInsets: EdgeInsets
+        let rowAreaPadding: EdgeInsets
 
         init(
             id: String,
@@ -51,7 +70,11 @@ extension EntryList {
             creationPeriod: Period,
             creationDate: Date,
             configurationMap: [EntryType: EntryRowView.Configuration]? = nil,
-            allowsTaskCreation: Bool = true
+            allowsTaskCreation: Bool = true,
+            style: EntryList.SectionStyle? = nil,
+            rowSpacing: CGFloat = 8,
+            rowInsets: EdgeInsets = .init(top: 0, leading: 8, bottom: 0, trailing: 8),
+            rowAreaPadding: EdgeInsets = .init(top: 0, leading: 0, bottom: 8, trailing: 0)
         ) {
             self.id = id
             self.title = title
@@ -61,7 +84,11 @@ extension EntryList {
             self.creationPeriod = creationPeriod
             self.creationDate = creationDate
             self.configurationMap = configurationMap
-            self.allowsTaskCreation = allowsTaskCreation
+            self.shouldShowAddTaskButton = allowsTaskCreation
+            self.style = style
+            self.rowSpacing = rowSpacing
+            self.rowInsets = rowInsets
+            self.rowAreaPadding = rowAreaPadding
         }
     }
 }

@@ -11,20 +11,27 @@ struct EntryRowView: View {
     
     let entry: any Entry
     let configuration: Configuration
-    
+
     // MARK: - Inline edit state (view-owned)
-    
+
     @State private var editingText: String
     @State private var titleSelection: TextSelection?
     @State private var isConfirmingChanges: Bool = false
     @FocusState private var isTitleFocused: Bool
-    
+
     // MARK: - Initialisation
-    
+
     init(entry: any Entry, configuration: Configuration) {
         self.entry = entry
         self.configuration = configuration
         _editingText = State(initialValue: entry.title)
+    }
+
+    // MARK: - Computed
+
+    /// Chips derived from the configuration's `getChips` closure, or empty if not provided.
+    private var chips: [any LabelChipRepresentable] {
+        configuration.getChips?(entry) ?? []
     }
     
     // MARK: - Accessibility
@@ -71,31 +78,38 @@ struct EntryRowView: View {
         
         VStack(alignment: .leading, spacing: 2) {
             
-            TextField("", text: $editingText, selection: $titleSelection)
-                .font(.body)
-                .foregroundStyle(entry.status.iconColor)
-                .textFieldStyle(.plain)
-                .strikethrough(configuration.hasStrikethrough?(entry) ?? false, color: .secondary)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .disabled(entry.status.inlineChangesAreLocked)
-                .focused($isTitleFocused)
-                .submitLabel(.done)
-                .onSubmit { commitTitleEdit() }
-                .accessibilityIdentifier(
-                    Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(entry.title)
-                )
-                .toolbar {
-                    if isTitleFocused {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            HStack(spacing: 8) {
-                                menuButtons(labelStyle: .iconOnly)
+            HStack {
+                
+                TextField("", text: $editingText, selection: $titleSelection)
+                    .font(.body)
+                    .foregroundStyle(entry.status.iconColor)
+                    .textFieldStyle(.plain)
+                    .strikethrough(configuration.hasStrikethrough?(entry) ?? false, color: .secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .disabled(entry.status.inlineChangesAreLocked)
+                    .focused($isTitleFocused)
+                    .submitLabel(.done)
+                    .onSubmit { commitTitleEdit() }
+                    .accessibilityIdentifier(
+                        Definitions.AccessibilityIdentifiers.SpreadContent.taskTitleField(entry.title)
+                    )
+                    .toolbar {
+                        if isTitleFocused {
+                            ToolbarItemGroup(placement: .keyboard) {
+                                HStack(spacing: 8) {
+                                    menuButtons(labelStyle: .iconOnly)
+                                }
+                                .padding(.horizontal, 8)
+                                Spacer()
                             }
-                            .padding(.horizontal, 8)
-                            Spacer()
                         }
                     }
+                
+                ForEach(chips.indices, id: \.self) { i in
+                    LabelChip(chips[i])
                 }
+            }
             
             if let subtitle = configuration.subtitle?(entry) {
                 Text(subtitle)

@@ -1,4 +1,5 @@
 import SwiftUI
+import JohnnyOFoundationUI
 
 extension EntryRowView {
 
@@ -76,6 +77,8 @@ extension EntryRowView {
         var showAlert: ((SpreadsCoordinator.AlertDestination) -> Void)?
 
         var actions: [Action] = []
+        
+        var getChips: ((any Entry) -> [any LabelChipRepresentable])?
     }
 }
 
@@ -88,7 +91,8 @@ extension EntryRowView.Configuration {
     static func standardTaskConfig(
         journalManager: JournalManager,
         syncEngine: SyncEngine?,
-        coordinator: SpreadsCoordinator
+        coordinator: SpreadsCoordinator,
+        getChips: ((any Entry) -> [any LabelChipRepresentable])? = nil
     ) -> EntryRowView.Configuration {
         
         let calendar = journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
@@ -147,7 +151,11 @@ extension EntryRowView.Configuration {
                     await syncEngine?.syncNow()
                 })
                 
-            ]
+            ],
+            getChips: { entry in
+                guard let task = entry as? DataModel.Task else { return [] }
+                return getChips?(task) ?? task.tags
+            }
         )
     }
 
