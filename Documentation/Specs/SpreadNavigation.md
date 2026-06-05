@@ -1,7 +1,7 @@
 # Spread Navigation
 
 > Source: Documentation/spec.md  
-> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232
+> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236
 
 ### Spread View Architecture
 - The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
@@ -370,3 +370,104 @@ The Spreads content column is refactored from a flat indented list (`SpreadsCont
 - **Decision**: Introduce a `RootNavigationView.SidebarItem` enum with cases `.destination(Content)` and `.spreadsYear(Int)`. The sidebar list binds to `SidebarItem?`. `RootNavigationView` derives `selectedContent` and `selectedSpreadsYear` from this single selection.
 - **Rationale**: A single selection binding on `List` is the SwiftUI-idiomatic approach. A typed enum keeps the two concerns distinct without maintaining separate state variables that can drift out of sync.
 - **SPRD reference**: [SPRD-232]
+
+---
+
+## Leading Toolbar: Column Toggle and Parent Spread Navigation [SPRD-236]
+
+**Status**: Draft
+**Date**: 2026-06-05
+
+### Overview
+
+Add a leading toolbar button group to the spread detail column that lets the user toggle the content column and jump directly to any ancestor spread of the currently selected spread. The group is split across two views: `RootNavigationView` owns the column toggle button (it owns `columnVisibility`), and `SpreadContentPagerView` owns the parent spread buttons (it owns the current spread context).
+
+### Functional Requirements
+
+1. A calendar icon button appears at the leading edge of the detail column navigation bar. When the content column is visible, the icon changes to a left chevron (`chevron.left`). [SPRD-236]
+2. Tapping the calendar icon shows the content column. Tapping the chevron hides it. This is a direct toggle of `columnVisibility` in `RootNavigationView`. [SPRD-236]
+3. The calendar/chevron button is implemented in `RootNavigationView` as a `ToolbarItem(placement: .topBarLeading)` inside the `spreadsDetailContent` toolbar, since `columnVisibility` is owned there. [SPRD-236]
+4. Parent spread buttons appear to the trailing side of the calendar/chevron button, from broadest period to narrowest. They are implemented in `SpreadContentPagerView` as a `ToolbarItemGroup(placement: .topBarLeading)`. SwiftUI merges the two leading toolbar contributions in hierarchy order. [SPRD-236]
+5. Parent periods shown per current spread period: [SPRD-236]
+   - `.day` → year button, then month button
+   - `.month` → year button only
+   - `.year` → no parent buttons
+   - `.multiday` → year button, then month button (multiday is day-scope for hierarchy purposes)
+6. Each parent button label uses a fixed format, not the spread's custom name: [SPRD-236]
+   - Year spread button: `"YYYY"` (e.g. `"2026"`)
+   - Month spread button: `"MMM"` (e.g. `"Jun"`)
+   - Multiday spread button: `"DD MMM – DD MMM"` (e.g. `"3 Jun – 9 Jun"`)
+7. A parent button is **enabled** when a spread of that period covering the current spread's date exists in `JournalManager`. It is **disabled** (but still visible) when no such spread exists. [SPRD-236]
+8. Tapping an enabled parent button sets `selectedSpread` directly with no pager scroll animation. Column visibility is unchanged. [SPRD-236]
+9. Parent spread lookup is performed via a new `JournalManager` method `parentSpreads(for:)` rather than filtering `journalManager.spreads` inline in the view, keeping the lookup logic testable. [SPRD-236]
+
+### Technical Design
+
+#### `JournalManager.parentSpreads(for:)`
+
+Returns one entry per parent period, ordered broadest → narrowest, each carrying the period and the matching spread if one exists:
+
+```swift
+func parentSpreads(for spread: DataModel.Spread) -> [(period: Period, spread: DataModel.Spread?)]
+```
+
+- `.day` spread on 2026-06-05 → `[(.year, yearSpread?), (.month, juneSpread?)]`
+- `.month` spread on 2026-06 → `[(.year, yearSpread?)]`
+- `.year` spread → `[]`
+- `.multiday` spread starting 2026-06-03 → `[(.year, yearSpread?), (.month, juneSpread?)]` — uses start date to find the containing month
+
+A spread matches a parent period if its period equals the target period and its date range contains the child spread's reference date (start date for multiday, `date` for all others).
+
+#### Toolbar Split
+
+```
+RootNavigationView  (.topBarLeading)
+└── ToolbarItem: calendar / chevron.left toggle   ← owns columnVisibility
+
+SpreadContentPagerView  (.topBarLeading)
+└── ToolbarItemGroup: [year button?] [month button?]   ← calls journalManager.parentSpreads(for:)
+```
+
+`SpreadContentPagerView` receives a `Binding<DataModel.Spread?>` for `selectedSpread` so tapping a parent button sets it directly without animation.
+
+#### Label Formatting
+
+Label formatting lives in a new extension method on `DataModel.Spread` (e.g., `Spread/Additions/Spread+ParentNavigation.swift`) rather than inline in the toolbar:
+
+```swift
+func parentNavigationLabel(calendar: Calendar) -> String
+```
+
+- `.year` spread: `"YYYY"`
+- `.month` spread: `"MMM"`
+- `.multiday` spread: `"DD MMM – DD MMM"` using start/end dates
+
+### Design Decisions
+
+#### Decision: Toolbar split between RootNavigationView and SpreadContentPagerView
+
+- **Context**: The column toggle needs `columnVisibility` (owned at `RootNavigationView`). The parent spread buttons need the current spread and `JournalManager` (available in `SpreadContentPagerView`). Passing one set of state to the other adds coupling with no benefit.
+- **Decision**: Each view contributes its own toolbar items at `.topBarLeading`. SwiftUI merges them in hierarchy order.
+- **Rationale**: Each view owns only what it renders. No new bindings or coordinator state required. Hierarchy order guarantees the calendar/chevron appears first since `RootNavigationView` is the ancestor.
+- **SPRD reference**: [SPRD-236]
+
+#### Decision: Parent buttons disabled (not hidden) when spread doesn't exist
+
+- **Context**: If a parent spread hasn't been created yet, the button could be hidden entirely or shown as disabled.
+- **Decision**: Always show the button; disable it when no matching spread exists.
+- **Rationale**: Consistent presence helps the user understand the hierarchy at a glance. A disabled button communicates "this period exists conceptually but hasn't been created" rather than silently omitting the affordance.
+- **SPRD reference**: [SPRD-236]
+
+#### Decision: Fixed-format labels (not custom spread names)
+
+- **Context**: Spreads can have custom names. Using a custom name could make the button label long or ambiguous (e.g., "Summer" for a month spread).
+- **Decision**: Labels use fixed date formats: `"YYYY"` for year, `"MMM"` for month, `"DD MMM – DD MMM"` for multiday.
+- **Rationale**: These buttons are navigation affordances, not spread identity displays. Compact canonical labels scan faster and never overflow the toolbar.
+- **SPRD reference**: [SPRD-236]
+
+#### Decision: JournalManager helper for parent spread lookup
+
+- **Context**: Parent spread lookup could be done inline in `SpreadContentPagerView` by filtering `journalManager.spreads`. But the lookup has non-trivial rules (date containment per period, multiday start-date logic) that belong in a testable model layer.
+- **Decision**: Add `parentSpreads(for:)` to `JournalManager`.
+- **Rationale**: Keeps view code thin and makes the lookup rules unit-testable without UI scaffolding.
+- **SPRD reference**: [SPRD-236]

@@ -6199,3 +6199,32 @@ Supabase: SPRD-85A -> SPRD-85C
   - Manual: migrate or complete all overdue tasks — confirm card disappears.
   - Manual: open a past day spread — confirm no overdue card appears.
   - Unit: `EntryList.Section` initializer sets `style` correctly when provided and defaults to `nil` when omitted.
+
+---
+
+### [SPRD-236] Feature: Leading toolbar column toggle and parent spread navigation - [ ] Pending
+
+- **Context**: The detail column has no leading toolbar chrome. The only way to re-show the content column is a toolbar button added in SPRD-229 (`sidebar.left`). There is also no quick way to jump to an ancestor spread (year, month) from within a day or month spread.
+- **Description**: Add a leading toolbar button group to the spread detail column split across two views. `RootNavigationView` contributes a calendar icon button (shows content column) / chevron.left button (hides content column), toggling `columnVisibility`. `SpreadContentPagerView` contributes parent spread buttons — one per ancestor period (year, month) — ordered broadest to narrowest. Buttons are always visible; disabled when no matching spread exists. Tapping sets `selectedSpread` directly with no pager animation. A new `JournalManager.parentSpreads(for:)` method drives the lookup. Labels use fixed date formats: `"YYYY"` for year, `"MMM"` for month, `"DD MMM – DD MMM"` for multiday.
+- **Spec**: `Documentation/Specs/SpreadNavigation.md` — Leading Toolbar: Column Toggle and Parent Spread Navigation [SPRD-236]
+- **Acceptance Criteria**:
+  - [ ] A calendar icon button appears at the leading edge of the detail column nav bar when the content column is hidden; it becomes `chevron.left` when the content column is visible.
+  - [ ] Tapping the calendar icon sets `columnVisibility` to show the content column; tapping the chevron hides it.
+  - [ ] The calendar/chevron button is a `ToolbarItem(placement: .topBarLeading)` in `RootNavigationView`'s `spreadsDetailContent` toolbar block.
+  - [ ] For a `.day` spread, two parent buttons appear to the trailing side of the toggle: year (label `"YYYY"`) then month (label `"MMM"`).
+  - [ ] For a `.month` spread, one parent button appears: year (label `"YYYY"`).
+  - [ ] For a `.year` spread, no parent buttons appear.
+  - [ ] For a `.multiday` spread, two parent buttons appear: year (label `"YYYY"`) then month (label `"MMM"`), using the spread's start date to determine the containing month.
+  - [ ] Each parent button is enabled when `JournalManager.parentSpreads(for:)` returns a non-nil spread for that period; disabled otherwise.
+  - [ ] Tapping an enabled parent button sets `selectedSpread` with no pager scroll animation; column visibility is unchanged.
+  - [ ] `JournalManager.parentSpreads(for:)` returns `[(period: Period, spread: DataModel.Spread?)]` ordered broadest → narrowest, with `nil` when no matching spread exists.
+  - [ ] Label formatting lives in `DataModel.Spread.parentNavigationLabel(calendar:)`, not inline in the view.
+  - [ ] Parent spread buttons are implemented as a `ToolbarItemGroup(placement: .topBarLeading)` in `SpreadContentPagerView`.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - Unit: `JournalManager.parentSpreads(for:)` returns correct periods and spreads for `.day`, `.month`, `.year`, and `.multiday` inputs.
+  - Unit: `JournalManager.parentSpreads(for:)` returns `nil` spread entries when no matching parent spread exists.
+  - Unit: `DataModel.Spread.parentNavigationLabel(calendar:)` returns `"YYYY"` for year, `"MMM"` for month, and `"DD MMM – DD MMM"` for multiday.
+  - Manual: view a day spread — confirm calendar/chevron toggle works and year + month buttons appear, enabled only when those spreads exist.
+  - Manual: view a month spread — confirm only year button appears.
+  - Manual: view a year spread — confirm no parent buttons appear.
