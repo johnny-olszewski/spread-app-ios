@@ -13,10 +13,6 @@ import SwiftUI
 /// Use `MultidayEntryGridView` for multiday spread grid layouts.
 struct EntryListView: View {
 
-    // MARK: - Style
-
-    enum Style { case list, inline }
-
     // MARK: - Properties
 
     let sections: [EntryList.Section]
@@ -24,16 +20,17 @@ struct EntryListView: View {
     var onAddTask: (@MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void)?
     var availableLists: [DataModel.List] = []
     var availableTags: [DataModel.Tag] = []
-    var style: Style = .list
 
     // MARK: - Computed
 
-    private static let rowInsets = EdgeInsets(
-        top: SpreadTheme.Spacing.entryRowVertical,
-        leading: 16,
-        bottom: SpreadTheme.Spacing.entryRowVertical,
-        trailing: 16
-    )
+    private static var rowInsets: EdgeInsets {
+        EdgeInsets(
+            top: SpreadTheme.Spacing.entryRowVertical,
+            leading: 16,
+            bottom: SpreadTheme.Spacing.entryRowVertical,
+            trailing: 16
+        )
+    }
 
     private var hasAnyEntries: Bool {
         sections.contains { !renderableEntries(in: $0).isEmpty }
@@ -46,7 +43,17 @@ struct EntryListView: View {
             ForEach(sections) { section in
                 if shouldRender(section) {
                     VStack(alignment: .leading, spacing: section.rowSpacing) {
-                        Text(section.title)
+                        HStack {
+                            Text(section.title)
+                            
+                            Spacer()
+                            
+                            if let headerButtonViewModel = section.headerButtonViewModel {
+                                SpreadButton(viewModel: headerButtonViewModel)
+                            }
+                        }
+                        .padding(.leading, section.rowAreaPadding.leading + section.rowInsets.leading)
+                        .padding(.trailing, section.rowAreaPadding.trailing + section.rowInsets.trailing)
                         
                         VStack {
                             ForEach(renderableEntries(in: section), id: \.id) { entry in
@@ -64,6 +71,7 @@ struct EntryListView: View {
                         .padding(.leading, section.rowAreaPadding.leading)
                         .padding(.trailing,  section.rowAreaPadding.trailing)
                     }
+                    .padding(.vertical, section.style?.verticalPadding ?? 0)
                     .background {
                         if case .card(let color) = section.style {
                             RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.section)
@@ -76,144 +84,6 @@ struct EntryListView: View {
         }
         .conditionalScrollView()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
-//        switch style {
-//        case .list:
-//            if hasAnyEntries || onAddTask != nil {
-//                listLayout
-//            } else {
-//                emptyState
-//            }
-//        case .inline:
-//            if hasAnyEntries || onAddTask != nil {
-//                inlineLayout
-//            }
-//        }
-    }
-
-    // MARK: - List Layout
-
-    @ViewBuilder
-    private var listLayout: some View {
-        VStack(spacing: 0) {
-            let cardSections = sections.filter { if case .card = $0.style { return true }; return false }
-            if !cardSections.isEmpty {
-                VStack(spacing: 8) {
-                    ForEach(cardSections) { section in
-                        if case .card(let color) = section.style {
-                            styledCardSection(section, color: color)
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 4)
-            }
-
-            let standardSections = sections.filter { $0.style == nil }
-            List {
-                ForEach(standardSections) { section in
-                    if shouldRender(section) {
-                        if section.title.isEmpty {
-                            listSectionRows(section)
-                        } else {
-                            Section {
-                                listSectionRows(section)
-                            } header: {
-                                Text(section.title)
-                                    .foregroundStyle(section.titleStyle == .secondary ? .secondary : .primary)
-                            }
-                        }
-                    }
-                }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
-            .environment(\.defaultMinListRowHeight, 0)
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
-        }
-    }
-
-    /// Renders a section with card chrome: low-opacity tinted fill and solid stroke in `color`.
-    @ViewBuilder
-    private func styledCardSection(_ section: EntryList.Section, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if !section.title.isEmpty {
-                Text(section.title)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(color)
-                    .padding(.horizontal, 12)
-                    .padding(.top, 10)
-                    .padding(.bottom, 2)
-            }
-            ForEach(renderableEntries(in: section), id: \.id) { entry in
-                if let configuration = rowConfiguration(for: entry, in: section) {
-                    EntryRowView(entry: entry, configuration: configuration)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                }
-            }
-        }
-        .padding(.bottom, 4)
-        .background(
-            RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.section, style: .continuous)
-                .fill(color.opacity(0.07))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.section, style: .continuous)
-                .strokeBorder(color.opacity(0.45), lineWidth: 1)
-        )
-    }
-
-    @ViewBuilder
-    private func listSectionRows(_ section: EntryList.Section) -> some View {
-        ForEach(renderableEntries(in: section), id: \.id) { entry in
-            if let configuration = rowConfiguration(for: entry, in: section) {
-                EntryRowView(entry: entry, configuration: configuration)
-                    .listRowInsets(Self.rowInsets)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-            }
-        }
-        if let onAddTask, section.shouldShowAddTaskButton {
-            AddTaskButton(date: section.creationDate, period: section.creationPeriod, availableLists: availableLists, availableTags: availableTags, onAddTask: onAddTask)
-                .listRowInsets(Self.rowInsets)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton)
-        }
-    }
-
-    // MARK: - Inline Layout
-
-    private var inlineLayout: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(sections) { section in
-                if shouldRender(section) {
-                    inlineSectionRows(section)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func inlineSectionRows(_ section: EntryList.Section) -> some View {
-        let entries = renderableEntries(in: section)
-        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-            if let configuration = rowConfiguration(for: entry, in: section) {
-                EntryRowView(entry: entry, configuration: configuration)
-                    .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-            }
-            if index < entries.count - 1 {
-                Divider()
-            }
-        }
-        if let onAddTask, section.shouldShowAddTaskButton {
-            if !entries.isEmpty { Divider() }
-            AddTaskButton(date: section.creationDate, period: section.creationPeriod, availableLists: availableLists, availableTags: availableTags, onAddTask: onAddTask)
-                .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton)
-        }
     }
 
     private func rowConfiguration(
@@ -228,7 +98,7 @@ struct EntryListView: View {
     }
 
     private func shouldRender(_ section: EntryList.Section) -> Bool {
-        !renderableEntries(in: section).isEmpty || (section.shouldShowAddTaskButton && onAddTask != nil)
+        !renderableEntries(in: section).isEmpty
     }
 
     // MARK: - Empty State (list style only)
