@@ -63,7 +63,6 @@ struct DaySpreadContentView: View {
                         }
                     )
                 ],
-                allowsTaskCreation: false,
                 style: .card(.orange)
             )
         ]
@@ -74,7 +73,7 @@ struct DaySpreadContentView: View {
         let base: [any Entry] = spreadDataModel.tasks + spreadDataModel.notes
         let eventEntries = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
 
-        return Self.makeSections(
+        return makeSections(
             from: base + eventEntries,
             spreadDate: spreadDataModel.spread.date,
             calendar: cal,
@@ -114,22 +113,94 @@ struct DaySpreadContentView: View {
         }
     }
 
+    private var addTaskHeaderButtonViewModel: SpreadButton.ViewModel {
+        SpreadButton.ViewModel(
+            title: "Add Task",
+            systemImage: "plus",
+            accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton
+        ) {
+            context.coordinator.showTaskCreation()
+        }
+    }
+
     // MARK: - Body
 
     var body: some View {
-        Group {
-            if shouldShowTimelineCard {
-                regularLayout
-            } else {
-                compactLayout
+        VStack {
+            HStack {
+                Capsule()
+                    .stroke(SpreadTheme.DotGrid.defaultDots)
+                    .frame(height: SpreadTheme.CornerRadius.xxlarge)
+                    .padding(.leading, SpreadTheme.Spacing.large)
+                    .padding(.vertical, SpreadTheme.Spacing.large)
+                    .padding(.trailing, SpreadTheme.Spacing.medium)
+
+                HStack(spacing: SpreadTheme.Spacing.medium) {
+                    Button {
+                        toggleFavorite()
+                    } label: {
+                        Image(systemName: spread.isFavorite ? "star.fill" : "star")
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel(spread.isFavorite ? "Remove from Favorites" : "Add to Favorites")
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
+
+                    Button {
+                        context.coordinator.showSpreadNameEdit(spread)
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel("Edit Spread")
+                    .padding(SpreadTheme.Spacing.large)
+                }
             }
+            
+            HStack(alignment: .top, spacing: SpreadTheme.Spacing.large) {
+                if shouldShowTimelineCard {
+                    DayTimelineScrollView(
+                        generator: SpreadDayTimelineContentGenerator(),
+                        items: calendarEvents,
+                        date: spread.date,
+                        visibleStartHour: 0,
+                        visibleEndHour: 24,
+                        verticalCount: config.wideTimelineRowCount,
+                        verticalSpan: config.wideTimelineRowSpan,
+                        calendar: context.journalManager.calendar
+                    )
+                    .containerRelativeFrame(
+                        .horizontal,
+                        count: config.wideTimelineColumnCount,
+                        span: config.wideTimelineColumnSpan,
+                        spacing: 0
+                    )
+                    .spreadCard()
+                }
+
+                EntryListView(
+                    sections: overdueSections + sections,
+                    configurationMap: entryConfigurationMap,
+                    onAddTask: onAddTask,
+                    availableLists: context.journalManager.lists,
+                    availableTags: context.journalManager.tags
+                )
+            }
+            .frame(maxHeight: .infinity)
+            .padding(.horizontal, SpreadTheme.Spacing.large)
+            .task(id: spread.id) {
+                calendarEvents = await context.calendarEventService.fetchEvents(
+                    for: spread,
+                    calendar: context.journalManager.calendar
+                )
+            }
+            
+            Spacer()
         }
-        .task(id: spread.id) {
-            calendarEvents = await context.calendarEventService.fetchEvents(
-                for: spread,
-                calendar: context.journalManager.calendar
-            )
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Layout variants
@@ -160,8 +231,14 @@ struct DaySpreadContentView: View {
             .padding(.leading, 16)
             .padding(.trailing, 8)
             .padding(.vertical, 12)
-
-            entryList
+            
+            EntryListView(
+                sections: overdueSections + sections,
+                configurationMap: entryConfigurationMap,
+                onAddTask: onAddTask,
+                availableLists: context.journalManager.lists,
+                availableTags: context.journalManager.tags
+            )
         }
         .frame(maxHeight: .infinity)
     }
@@ -179,6 +256,13 @@ struct DaySpreadContentView: View {
             availableLists: context.journalManager.lists,
             availableTags: context.journalManager.tags
         )
+    }
+
+    private func toggleFavorite() {
+        Task { @MainActor in
+            try? await context.journalManager.updateSpreadFavorite(spread, isFavorite: !spread.isFavorite)
+            await context.syncEngine?.syncNow()
+        }
     }
 }
 
@@ -218,7 +302,7 @@ extension DaySpreadContentView {
 
     /// Groups day spread entries into named-list sections (alphabetical),
     /// with a trailing untitled section for entries with no list.
-    static func makeSections(
+    func makeSections(
         from entries: [any Entry],
         spreadDate: Date,
         calendar: Calendar,
@@ -260,22 +344,26 @@ extension DaySpreadContentView {
                 entries: (listGroups[listID] ?? []).sortedByDate(),
                 creationPeriod: .day,
                 creationDate: spreadDate,
-                configurationMap: listConfigurationMap
+                configurationMap: listConfigurationMap,
+                headerButtonViewModel: addTaskHeaderButtonViewModel
             ))
         }
 
         // Unassigned entries trailing the named-list sections.
         if !unassignedEntries.isEmpty {
-            sections.append(EntryList.Section(
-                id: sectionID,
-                title: "No List",
-                titleStyle: .secondary,
-                date: spreadDate,
-                entries: unassignedEntries.sortedByDate(),
-                creationPeriod: .day,
-                creationDate: spreadDate,
-                configurationMap: unassignedConfigurationMap
-            ))
+            sections.append(
+                EntryList.Section(
+                    id: sectionID,
+                    title: "No List",
+                    titleStyle: .secondary,
+                    date: spreadDate,
+                    entries: unassignedEntries.sortedByDate(),
+                    creationPeriod: .day,
+                    creationDate: spreadDate,
+                    configurationMap: unassignedConfigurationMap,
+                    headerButtonViewModel: addTaskHeaderButtonViewModel
+                )
+            )
         }
 
         // Calendar events always appear last.
@@ -287,15 +375,13 @@ extension DaySpreadContentView {
                 entries: eventEntries.sortedByDate(),
                 creationPeriod: .day,
                 creationDate: spreadDate,
-                configurationMap: eventConfigurationMap,
-                allowsTaskCreation: false
+                configurationMap: eventConfigurationMap
             ))
         }
 
         return sections
     }
 }
-
 
 // MARK: - UserInterfaceSizeClass
 
