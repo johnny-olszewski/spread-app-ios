@@ -221,21 +221,34 @@ struct RootNavigationView: View {
         .environment(journalManager)
         .localhostTemporalHarness(spreadDiagnostics: currentSpreadDiagnostics)
         .toolbar {
-            // On regular width (iPad), show an explicit sidebar toggle since columnVisibility
-            // is set to .detailOnly on spread selection and SwiftUI does not add one automatically.
-            // On compact (iPhone), SwiftUI's NavigationSplitView injects its own back/sidebar button.
-//            if horizontalSizeClass == .regular {
-//                ToolbarItem(placement: .topBarLeading) {
-//                    Button {
-//                        withAnimation { columnVisibility = .automatic }
-//                    } label: {
-//                        Image(systemName: "sidebar.left")
-//                    }
-//                    .accessibilityLabel("Show spread list")
-//                }
-//            }
+            // On regular width (iPad), show a back chevron when the content column is visible
+            // so the user can collapse it. On compact (iPhone) SwiftUI injects its own back
+            // button, so we leave the leading slot alone.
+            if horizontalSizeClass == .regular && columnVisibility != .detailOnly {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        columnVisibility = .detailOnly
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                    .accessibilityLabel("Hide spread list")
+                    .animation(.easeInOut, value: columnVisibility)
+                }
+            }
 
             ToolbarItemGroup(placement: .topBarTrailing) {
+                let todayTarget = journalManager.todayNavigationSelection ?? journalManager.defaultNavigationSelection
+                let isOnToday = currentSelection.id == journalManager.todayNavigationSelection?.id
+                if !isOnToday {
+                    Button {
+                        spreadsCoordinator.navigate(to: todayTarget)
+                    } label: {
+                        Label("Today", systemImage: "calendar")
+                    }
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
+                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                }
+
                 if let syncEngine {
                     SyncIconButton(
                         status: syncEngine.status,
@@ -246,9 +259,9 @@ struct RootNavigationView: View {
                 AuthButton(isSignedIn: authManager.state.isSignedIn) {
                     spreadsCoordinator.showAuth()
                 }
-                spreadActionsMenu(for: currentSelection)
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: currentSelection.id)
     }
 
     /// In-content title header for the detail column — shows the current spread's title
@@ -471,70 +484,6 @@ struct RootNavigationView: View {
             )
         case .auth:
             AuthEntrySheet(authManager: authManager, isBlocking: false)
-        }
-    }
-
-    // MARK: - Spread Actions
-
-    /// Spread-level actions menu shown in the detail column toolbar.
-    private func spreadActionsMenu(for spread: DataModel.Spread) -> some View {
-        Menu {
-            Button {
-                toggleFavorite(for: spread)
-            } label: {
-                Label(
-                    spread.isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                    systemImage: spread.isFavorite ? "star.fill" : "star"
-                )
-            }
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
-
-            Button {
-                spreadsCoordinator.showSpreadNameEdit(spread)
-            } label: {
-                Label("Edit Name", systemImage: "pencil")
-            }
-
-            if spread.period == .multiday {
-                Button {
-                    spreadsCoordinator.showSpreadDateEdit(spread)
-                } label: {
-                    Label("Edit Dates", systemImage: "calendar")
-                }
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.editDatesButton)
-            }
-
-            Button(role: .destructive) {
-                spreadsCoordinator.showSpreadDeleteConfirmation(spread, onDelete: { deleteSpread(spread) })
-            } label: {
-                Label("Delete Spread", systemImage: "trash")
-            }
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.deleteSpreadButton)
-        } label: {
-            Image(systemName: "ellipsis.circle")
-        }
-        .accessibilityLabel("Spread Actions")
-        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.spreadActionsMenu)
-    }
-
-    private func toggleFavorite(for spread: DataModel.Spread) {
-        Task { @MainActor in
-            try? await journalManager.updateSpreadFavorite(spread, isFavorite: !spread.isFavorite)
-            await syncEngine?.syncNow()
-        }
-    }
-
-    private func deleteSpread(_ spread: DataModel.Spread) {
-        spreadsCoordinator.dismissAlert()
-        Task { @MainActor in
-            do {
-                try await journalManager.deleteSpread(spread)
-                await syncEngine?.syncNow()
-            } catch {
-                spreadsCoordinator.showSpreadDeleteFailure(
-                    message: "Failed to delete spread: \(error.localizedDescription)"
-                )
-            }
         }
     }
 
