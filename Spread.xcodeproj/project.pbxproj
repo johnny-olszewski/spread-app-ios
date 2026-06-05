@@ -42,6 +42,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		3194927E2FD31F5B00F5E441 /* Exceptions for "johnnyo-foundation" folder in "Spread" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Sources/JohnnyOFoundationUI/View Modifiers/ConditionalScrollViewModifier.swift",
+			);
+			target = 31E0DA7F2F0DB76200B0A403 /* Spread */;
+		};
 		31E0DAA32F0DB76400B0A403 /* Exceptions for "Spread" folder in "Spread" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -77,6 +84,9 @@
 		};
 		A7B9000320F1000000000001 /* johnnyo-foundation */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				3194927E2FD31F5B00F5E441 /* Exceptions for "johnnyo-foundation" folder in "Spread" target */,
+			);
 			path = "johnnyo-foundation";
 			sourceTree = "<group>";
 		};
