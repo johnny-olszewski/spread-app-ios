@@ -327,10 +327,9 @@ struct SpreadsCoordinatorTests {
     /// Expected: Alert destinations have stable unique identifiers.
     @Test("Alert destinations have unique identifiers")
     func testAlertDestinationsHaveUniqueIdentifiers() {
-        let spread = DataModel.Spread(period: .day, date: .now, calendar: Calendar(identifier: .gregorian))
         let destinations: [SpreadsCoordinator.AlertDestination] = [
-            .deleteSpreadConfirmation(spread),
-            .deleteSpreadFailed(message: "Failure")
+            .alert(AlertModel(id: "delete-spread", title: "Delete Spread?", message: nil, buttons: [])),
+            .alert(AlertModel(id: "delete-failed", title: "Delete Failed", message: nil, buttons: []))
         ]
 
         let ids = destinations.map(\.id)

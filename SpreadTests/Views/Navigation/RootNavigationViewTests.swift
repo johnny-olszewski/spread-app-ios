@@ -31,7 +31,7 @@ struct RootNavigationViewTests {
         #expect(tab.systemImage == "gear")
     }
 
-    @Test func testRootNavigationView.ContentsAreInCorrectOrder() {
+    @Test func testRootNavigationViewContentsAreInCorrectOrder() {
         let tabs = RootNavigationView.Content.allCases
 
         #expect(tabs.count >= 4)
