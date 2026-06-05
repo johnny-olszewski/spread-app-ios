@@ -11,7 +11,7 @@ import SwiftUI
 /// binding so its value survives size class transitions without resetting.
 struct SpreadContentPagerView: View {
     private let liveRadius = 2
-    private let backgroundShape = UnevenRoundedRectangle(topLeadingRadius: 48,topTrailingRadius: 48)
+    private let backgroundShape = UnevenRoundedRectangle(topLeadingRadius: SpreadTheme.CornerRadius.xxlarge,topTrailingRadius: SpreadTheme.CornerRadius.xxlarge)
 
     let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
@@ -62,6 +62,39 @@ struct SpreadContentPagerView: View {
 
     private var liveWindowIDs: Set<String> {
         liveWindow(items: items, anchorID: liveAnchorID, radius: liveRadius)
+    }
+
+    // MARK: - Parent Spread Navigation
+
+    /// Parent spread entries for the current selection, used to build the leading toolbar buttons.
+    private var parentSpreadEntries: [(period: Period, spread: DataModel.Spread?)] {
+        journalManager.parentSpreads(for: currentSelection)
+    }
+
+    /// Toolbar button label for a parent entry.
+    ///
+    /// Uses the spread's own `parentNavigationLabel` when the spread exists, otherwise
+    /// derives the expected label from the current selection's reference date.
+    private func parentButtonLabel(period: Period, spread: DataModel.Spread?) -> String {
+        if let spread {
+            return spread.parentNavigationLabel(calendar: journalManager.calendar)
+        }
+        let formatter = DateFormatter()
+        formatter.calendar = journalManager.calendar
+        formatter.locale = .current
+        let referenceDate = currentSelection.period == .multiday
+            ? (currentSelection.startDate ?? currentSelection.date)
+            : currentSelection.date
+        switch period {
+        case .year:
+            formatter.dateFormat = "yyyy"
+            return formatter.string(from: referenceDate)
+        case .month:
+            formatter.dateFormat = "MMM"
+            return formatter.string(from: referenceDate)
+        case .day, .multiday:
+            return ""
+        }
     }
 
     var body: some View {
@@ -131,6 +164,18 @@ struct SpreadContentPagerView: View {
             coordinator.selectedSelection = item.selection
             coordinator.clearConvenienceNavigation()
         }
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarLeading) {
+                ForEach(parentSpreadEntries, id: \.period) { entry in
+                    Button(parentButtonLabel(period: entry.period, spread: entry.spread)) {
+                        coordinator.selectedSelection = entry.spread
+                    }
+                    .disabled(entry.spread == nil)
+                    .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .leading)))
+                }
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: parentSpreadEntries.map(\.period))
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.pager)
     }
 
