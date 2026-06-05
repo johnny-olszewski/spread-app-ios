@@ -151,7 +151,7 @@ struct MonthCardView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .list(let sections, let configurationMap):
             VStack(alignment: .leading, spacing: Layout.cardSpacing) {
-                EntryListView(sections: sections, configurationMap: configurationMap, style: .inline)
+                EntryListView(sections: sections, configurationMap: configurationMap)
                 if let onCreateSpread {
                     Button("Create Spread") {
                         onCreateSpread()

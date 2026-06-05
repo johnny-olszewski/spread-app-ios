@@ -99,8 +99,7 @@ struct MonthSpreadContentView: View {
                         creationPeriod: .month,
                         creationDate: spread.date
                     )],
-                    configurationMap: configurationMap,
-                    style: .inline
+                    configurationMap: configurationMap
                 )
             }
         }
@@ -126,8 +125,7 @@ struct MonthSpreadContentView: View {
                         creationPeriod: .day,
                         creationDate: section.date
                     )],
-                    configurationMap: configurationMap,
-                    style: .inline
+                    configurationMap: configurationMap
                 )
             }
         }

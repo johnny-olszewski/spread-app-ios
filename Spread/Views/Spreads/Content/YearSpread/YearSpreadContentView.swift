@@ -88,8 +88,7 @@ struct YearSpreadContentView: View {
                         creationPeriod: .year,
                         creationDate: spread.date
                     )],
-                    configurationMap: configurationMap,
-                    style: .inline
+                    configurationMap: configurationMap
                 )
             }
         }
