@@ -302,6 +302,8 @@ enum SpreadTheme {
         static let section: CGFloat = 16
         /// 20pt — large containers such as the entry list rounded rectangle.
         static let large: CGFloat = 20
+        /// 48pt — xxl containers like the pager view
+        static let xxlarge: CGFloat = 48
     }
 
     // MARK: - Motion
