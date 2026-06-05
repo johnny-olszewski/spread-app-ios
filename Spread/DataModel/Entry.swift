@@ -20,9 +20,6 @@ protocol Entry: Identifiable, Hashable, EntryStatusIconRepresentable {
 
     // MARK: - Display requirements (default implementations in extension below)
 
-    /// Tag chips shown inline with the title, one per assigned tag.
-    var displayTagChips: [(title: String, color: Color)] { get }
-
     /// Optional one-line body preview shown below the title.
     var displayBodyPreview: String? { get }
 
@@ -34,7 +31,6 @@ protocol Entry: Identifiable, Hashable, EntryStatusIconRepresentable {
 
 extension Entry {
     var iconColor: Color? { nil }
-    var displayTagChips: [(title: String, color: Color)] { [] }
     var displayBodyPreview: String? { nil }
     var displayPriority: DataModel.Task.Priority { .none }
 }
