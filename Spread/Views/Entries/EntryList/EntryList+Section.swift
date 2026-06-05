@@ -18,6 +18,13 @@ extension EntryList {
         /// Renders the section inside a rounded-rectangle card with a low-opacity
         /// fill and solid stroke in the given color.
         case card(Color)
+        
+        var verticalPadding: CGFloat {
+            switch self {
+            case .card: 8
+            }
+        
+        }
     }
 
     /// A section of grouped entries for display in an entry list.
@@ -50,12 +57,11 @@ extension EntryList {
         /// Optional per-section row rendering configuration. Falls back to the
         /// `EntryListView` configuration map when nil.
         let configurationMap: [EntryType: EntryRowView.Configuration]?
-
-        /// Whether this section should show the inline add-task affordance.
-        let shouldShowAddTaskButton: Bool
-
+        
         /// Optional visual style applied by `EntryListView`. `nil` means standard list rendering.
         let style: EntryList.SectionStyle?
+
+        let headerButtonViewModel: SpreadButton.ViewModel?
         
         let rowSpacing: CGFloat
         let rowInsets: EdgeInsets
@@ -70,8 +76,8 @@ extension EntryList {
             creationPeriod: Period,
             creationDate: Date,
             configurationMap: [EntryType: EntryRowView.Configuration]? = nil,
-            allowsTaskCreation: Bool = true,
             style: EntryList.SectionStyle? = nil,
+            headerButtonViewModel: SpreadButton.ViewModel? = nil,
             rowSpacing: CGFloat = 8,
             rowInsets: EdgeInsets = .init(top: 0, leading: 8, bottom: 0, trailing: 8),
             rowAreaPadding: EdgeInsets = .init(top: 0, leading: 0, bottom: 8, trailing: 0)
@@ -84,8 +90,8 @@ extension EntryList {
             self.creationPeriod = creationPeriod
             self.creationDate = creationDate
             self.configurationMap = configurationMap
-            self.shouldShowAddTaskButton = allowsTaskCreation
             self.style = style
+            self.headerButtonViewModel = headerButtonViewModel
             self.rowSpacing = rowSpacing
             self.rowInsets = rowInsets
             self.rowAreaPadding = rowAreaPadding
