@@ -29,6 +29,46 @@ struct DaySpreadContentView: View {
 
     // MARK: - Computed
 
+    /// Card-styled sections for overdue tasks, shown above the standard entry list.
+    ///
+    /// Only populated when the spread represents today and there are overdue items.
+    /// Each distinct source spread (or Inbox) produces one card section.
+    private var overdueSections: [EntryList.Section] {
+        guard context.calendar.isDateInToday(spread.date) else { return [] }
+
+        let overdueItems = context.journalManager.overdueTaskItems
+        guard !overdueItems.isEmpty else { return [] }
+
+        // Map task ID → source key so the chip closure can look up each task's origin.
+        let sourceKeyByTaskID = Dictionary(uniqueKeysWithValues: overdueItems.map { ($0.task.id, $0.sourceKey) })
+        let entries: [any Entry] = overdueItems.map { $0.task }
+
+        return [
+            EntryList.Section(
+                id: "overdue",
+                title: "Overdue",
+                date: spread.date,
+                entries: entries,
+                creationPeriod: .day,
+                creationDate: spread.date,
+                configurationMap: [
+                    .task: .standardTaskConfig(
+                        journalManager: context.journalManager,
+                        syncEngine: context.syncEngine,
+                        coordinator: context.coordinator,
+                        getChips: { entry in
+                            guard let task = entry as? DataModel.Task,
+                                  let key = sourceKeyByTaskID[task.id] else { return [] }
+                            return [key]
+                        }
+                    )
+                ],
+                allowsTaskCreation: false,
+                style: .card(.orange)
+            )
+        ]
+    }
+
     private var sections: [EntryList.Section] {
         let cal = context.calendar
         let base: [any Entry] = spreadDataModel.tasks + spreadDataModel.notes
@@ -133,7 +173,7 @@ struct DaySpreadContentView: View {
 
     private var entryList: some View {
         EntryListView(
-            sections: sections,
+            sections: overdueSections + sections,
             configurationMap: entryConfigurationMap,
             onAddTask: onAddTask,
             availableLists: context.journalManager.lists,
