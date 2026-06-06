@@ -23,6 +23,9 @@ struct RootNavigationView: View {
     /// The currently selected sidebar item — either a top-level destination or a spreads year subitem.
     @State private var selectedSidebarItem: SidebarItem?
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
+    /// Explicit flag tracking whether the content column is shown on regular width.
+    /// Decouples the chevron button from SwiftUI's internally-managed `columnVisibility` value.
+    @State private var isContentColumnVisible = false
     /// Drives the content column list selection and NavigationSplitView column navigation.
     @State private var selectedColumnSpread: DataModel.Spread?
     /// Root-owned pager scroll position — lifted so it survives size class transitions.
@@ -108,6 +111,41 @@ struct RootNavigationView: View {
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()
         }
+        // Sidebar selection → reveal the content column on regular width so the user
+        // can see what they selected.
+        .onChange(of: selectedSidebarItem) { _, _ in
+            guard horizontalSizeClass == .regular else { return }
+            isContentColumnVisible = true
+            columnVisibility = .automatic
+        }
+        // Sync the explicit flag when SwiftUI changes columnVisibility externally
+        // (e.g. edge-swipe gestures, size class transitions).
+        .onChange(of: columnVisibility) { _, newValue in
+            isContentColumnVisible = (newValue != .detailOnly)
+        }
+        // Size class transition: decide what to show based on which destination is active.
+        .onChange(of: horizontalSizeClass) { _, newClass in
+            guard newClass == .compact else { return }
+            handleCompactTransition()
+        }
+    }
+
+    /// Called when the device transitions to compact width.
+    ///
+    /// Behaviour per destination:
+    /// - Spreads with a selected spread → bump `selectedColumnSpread` so the compact
+    ///   navigation stack re-evaluates and pushes to the spread detail.
+    /// - Any other destination → do nothing; the content column is the right place.
+    private func handleCompactTransition() {
+        switch selectedSidebarItem {
+        case .spreadsYear where selectedColumnSpread != nil:
+            // Re-trigger the binding so the compact stack pushes to the detail.
+            let saved = selectedColumnSpread
+            selectedColumnSpread = nil
+            selectedColumnSpread = saved
+        default:
+            break
+        }
     }
 
     // MARK: - Sidebar Column
@@ -127,10 +165,13 @@ struct RootNavigationView: View {
                     .foregroundStyle(.primary)
             }
 
-            // Other top-level destinations
-            ForEach(nonSpreadContents) { content in
-                Label(content.title, systemImage: content.systemImage)
-                    .tag(SidebarItem.destination(content) as SidebarItem?)
+            // Other top-level destinations — wrapped in a Section to ensure List(selection:)
+            // registers taps reliably alongside the Spreads Section above.
+            Section {
+                ForEach(nonSpreadContents) { content in
+                    Label(content.title, systemImage: content.systemImage)
+                        .tag(SidebarItem.destination(content) as SidebarItem?)
+                }
             }
         }
         .navigationTitle("Spread")
@@ -222,17 +263,19 @@ struct RootNavigationView: View {
         .localhostTemporalHarness(spreadDiagnostics: currentSpreadDiagnostics)
         .toolbar {
             // On regular width (iPad), show a back chevron when the content column is visible
-            // so the user can collapse it. On compact (iPhone) SwiftUI injects its own back
-            // button, so we leave the leading slot alone.
-            if horizontalSizeClass == .regular && columnVisibility != .detailOnly {
+            // so the user can collapse it. Uses an explicit boolean rather than reading
+            // columnVisibility directly, which can be mutated by SwiftUI at any time.
+            // On compact (iPhone) SwiftUI injects its own back button.
+            if horizontalSizeClass == .regular && isContentColumnVisible {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
+                        isContentColumnVisible = false
                         columnVisibility = .detailOnly
                     } label: {
                         Image(systemName: "chevron.left")
                     }
                     .accessibilityLabel("Hide spread list")
-                    .animation(.easeInOut, value: columnVisibility)
+                    .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .leading)))
                 }
             }
 
