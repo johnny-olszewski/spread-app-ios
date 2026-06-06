@@ -56,7 +56,7 @@ extension EntryList {
 
         /// Optional per-section row rendering configuration. Falls back to the
         /// `EntryListView` configuration map when nil.
-        let configurationMap: [EntryType: EntryRowView.Configuration]?
+        let configurationMap: EntryRowView.ConfigurationMap?
         
         /// Optional visual style applied by `EntryListView`. `nil` means standard list rendering.
         let style: EntryList.SectionStyle?
@@ -75,7 +75,7 @@ extension EntryList {
             entries: [any Entry],
             creationPeriod: Period,
             creationDate: Date,
-            configurationMap: [EntryType: EntryRowView.Configuration]? = nil,
+            configurationMap: EntryRowView.ConfigurationMap? = nil,
             style: EntryList.SectionStyle? = nil,
             headerButtonViewModel: SpreadButton.ViewModel? = nil,
             rowSpacing: CGFloat = 8,

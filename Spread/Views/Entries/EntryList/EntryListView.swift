@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// `EntryListView` is a pure renderer — it knows nothing about `SpreadDataModel` or
 /// period-based grouping. Callers compute `[EntryList.Section]` and configure an
-/// `[EntryType: EntryRowView.Configuration]` map before passing them here.
+/// `EntryRowView.ConfigurationMap` map before passing them here.
 ///
 /// Use `style: .list` (default) for a standalone scrollable `List`. Use `style: .inline`
 /// to embed the rows inside an existing scroll container (e.g., Month or Year views) —
@@ -16,7 +16,7 @@ struct EntryListView: View {
     // MARK: - Properties
 
     let sections: [EntryList.Section]
-    let configurationMap: [EntryType: EntryRowView.Configuration]
+    let configurationMap: EntryRowView.ConfigurationMap
     var onAddTask: (@MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void)?
     var availableLists: [DataModel.List] = []
     var availableTags: [DataModel.Tag] = []
@@ -90,7 +90,7 @@ struct EntryListView: View {
         for entry: any Entry,
         in section: EntryList.Section
     ) -> EntryRowView.Configuration? {
-        (section.configurationMap ?? configurationMap)[entry.entryType]
+        (section.configurationMap ?? configurationMap)[ObjectIdentifier(type(of: entry))]
     }
 
     private func renderableEntries(in section: EntryList.Section) -> [any Entry] {
@@ -124,12 +124,12 @@ struct EntryListView: View {
     let notes = [DataModel.Note(title: "A note", date: today)]
     let entries: [any Entry] = tasks + notes
     let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: entries, creationPeriod: .day, creationDate: today)]
-    let configMap: [EntryType: EntryRowView.Configuration] = [
-        .task: EntryRowView.Configuration(
+    let configMap: EntryRowView.ConfigurationMap = [
+        DataModel.Task.configurationKey: EntryRowView.Configuration(
             isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
             hasStrikethrough: { entry in entry.status == .cancelled }
         ),
-        .note: EntryRowView.Configuration()
+        DataModel.Note.configurationKey: EntryRowView.Configuration()
     ]
     EntryListView(sections: sections, configurationMap: configMap)
 }
@@ -139,12 +139,12 @@ struct EntryListView: View {
     let today = Date()
     let tasks = [DataModel.Task(title: "Existing task", date: today)]
     let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: tasks, creationPeriod: .day, creationDate: today)]
-    let configMap: [EntryType: EntryRowView.Configuration] = [
-        .task: EntryRowView.Configuration(
+    let configMap: EntryRowView.ConfigurationMap = [
+        DataModel.Task.configurationKey: EntryRowView.Configuration(
             isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
             hasStrikethrough: { entry in entry.status == .cancelled }
         ),
-        .note: EntryRowView.Configuration()
+        DataModel.Note.configurationKey: EntryRowView.Configuration()
     ]
     EntryListView(sections: sections, configurationMap: configMap, onAddTask: { _, _, _, _, _ in })
 }
@@ -163,12 +163,12 @@ struct EntryListView: View {
         DataModel.Note(title: "Active note", date: today, status: .active)
     ]
     let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: entries, creationPeriod: .day, creationDate: today)]
-    let configMap: [EntryType: EntryRowView.Configuration] = [
-        .task: EntryRowView.Configuration(
+    let configMap: EntryRowView.ConfigurationMap = [
+        DataModel.Task.configurationKey: EntryRowView.Configuration(
             isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
             hasStrikethrough: { entry in entry.status == .cancelled }
         ),
-        .note: EntryRowView.Configuration()
+        DataModel.Note.configurationKey: EntryRowView.Configuration()
     ]
     EntryListView(sections: sections, configurationMap: configMap)
 }
