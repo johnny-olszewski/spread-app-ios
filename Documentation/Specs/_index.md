@@ -38,6 +38,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | [Sync.md](Sync.md) | Supabase offline-first sync, persistence, conflict scenarios | SPRD-80, SPRD-85 |
 | [Authentication.md](Authentication.md) | Auth UI, email confirmation, deeplinks, WKFLW-19, account management | SPRD-104, SPRD-106, SPRD-200–SPRD-207 |
 | [EventKit.md](EventKit.md) | Read-only EventKit events, day timeline, DayTimelineView, CalendarEventService, v2 future | SPRD-57, SPRD-194–SPRD-197, SPRD-228 |
+| [DayTimeline.md](DayTimeline.md) | Day timeline visual overhaul: column layout, current-time indicator, event block content, all-day chips | SPRD-237 |
 | [Settings.md](Settings.md) | Settings v1, collections, first launch and onboarding | SPRD-39 |
 | [DevelopmentTooling.md](DevelopmentTooling.md) | Dev tooling, testing strategy, secrets and configuration | SPRD-105, SPRD-107 |
 | [Accessibility.md](Accessibility.md) | Accessibility labels, VoiceOver, dynamic type | SPRD-218 |

@@ -6228,3 +6228,34 @@ Supabase: SPRD-85A -> SPRD-85C
   - Manual: view a day spread — confirm calendar/chevron toggle works and year + month buttons appear, enabled only when those spreads exist.
   - Manual: view a month spread — confirm only year button appears.
   - Manual: view a year spread — confirm no parent buttons appear.
+
+---
+
+### [SPRD-237] Visual: Day timeline overhaul — column layout, current-time indicator, event block polish - [ ] Pending
+
+- **Context**: `DayTimelineView` uses a cascading offset approach for concurrent events, has no current-time indicator, shows only event titles, and scrolls to the first event regardless of whether the displayed day is today. The visual quality is significantly below Apple Calendar's standard.
+- **Description**: Overhaul `DayTimelineView` (in `johnnyo-foundation`) and `SpreadDayTimelineContentGenerator` (in the app) with: (1) side-by-side column layout for overlapping events using a greedy interval-scheduling algorithm surfaced via `DayTimelineItemContext.columnIndex`/`columnCount`; (2) a live current-time red line + circle rendered with `TimelineView(.everyMinute)`, visible only when the date is today; (3) `DayTimelineScrollView` scrolling to the current time (minus 60pt margin) on today, first event otherwise; (4) event blocks showing title + time range (locale-aware 12h/24h) + optional location; (5) 44pt minimum block height floor enforced in foundation; (6) `CalendarEvent.location: String?` added and mapped from `EKEvent.location`; (7) all-day chip polish — pill capsules with calendar color tint.
+- **Spec**: `Documentation/Specs/DayTimeline.md` — Full spec
+- **Acceptance Criteria**:
+  - [ ] `DayTimelineItemContext` has `columnIndex: Int` and `columnCount: Int`; `overlapOffset` is removed.
+  - [ ] Events that share overlapping time ranges are assigned to separate columns; non-overlapping events occupy the full width.
+  - [ ] `SpreadDayTimelineContentGenerator` renders each event at `x = columnIndex * (availableWidth / columnCount)`, width `= availableWidth / columnCount`.
+  - [ ] `DayTimelineView` renders a red horizontal line + small red filled circle at the current minute's Y position when the date is today and the current time is within the visible window.
+  - [ ] The current-time indicator updates automatically via `TimelineView(.everyMinute)` — no app-side timer.
+  - [ ] The indicator is not visible when the displayed date is not today.
+  - [ ] `DayTimelineScrollView` scrolls to current time (minus ~60pt) on appear when date is today; scrolls to first event otherwise.
+  - [ ] Each timed event block shows: title (top-leading, semibold caption), time range below (caption2, locale 12h/24h), location below time (caption2, secondary, omitted when nil/empty).
+  - [ ] Events shorter than 30 min receive a minimum rendered height of 44pt; title remains readable.
+  - [ ] `CalendarEvent` has `var location: String?`; `LiveEventKitService` maps `EKEvent.location`.
+  - [ ] All-day chips render as pill capsules with low-opacity calendar color fill and title-only label.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - Unit: column partitioning algorithm assigns non-overlapping events to column 0 with columnCount 1.
+  - Unit: two fully-overlapping events produce columnCount 2 with columnIndex 0 and 1.
+  - Unit: three events where A overlaps B, B overlaps C, but A does not overlap C produces correct column assignments.
+  - Unit: events shorter than 30 min get `height == 44` in `DayTimelineItemContext`.
+  - Unit: events longer than 30 min get proportional height (not clamped).
+  - Manual: view today's day spread with events — confirm red line appears at current time and scrolls into view.
+  - Manual: view a past day spread — confirm no red line appears.
+  - Manual: view two concurrent events — confirm side-by-side rendering.
+  - Manual: view an event with location set — confirm location appears below the time range.
