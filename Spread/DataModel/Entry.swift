@@ -33,6 +33,13 @@ extension Entry {
     var iconColor: Color? { nil }
     var displayBodyPreview: String? { nil }
     var displayPriority: DataModel.Task.Priority { .none }
+
+    /// A stable key identifying this concrete type for use in `EntryRowView.Configuration.Map`.
+    ///
+    /// Uses `ObjectIdentifier` over the `EntryType` enum so new `Entry` conformers are
+    /// automatically keyed without touching the enum. Call sites use `DataModel.Task.configurationKey`
+    /// etc. to build maps, and `EntryListView` looks up via `ObjectIdentifier(type(of: entry))`.
+    static var configurationKey: ObjectIdentifier { ObjectIdentifier(Self.self) }
 }
 
 /// An entry that can be assigned to spreads.

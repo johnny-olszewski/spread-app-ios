@@ -8,6 +8,14 @@ extension EntryRowView {
     /// One configuration per entry type is stored in `EntryListViewModel.configurationMap`. At render time
     /// `EntryRowView` calls each closure with the specific entry to derive per-row values. All business logic —
     /// date formatting, persistence callbacks — lives in closures built at the call site.
+    /// A dictionary mapping concrete `Entry` metatypes (via `ObjectIdentifier`) to row configurations.
+    ///
+    /// Build maps using `Entry.configurationKey` on each conforming type:
+    /// ```swift
+    /// [DataModel.Task.configurationKey: taskConfig, DataModel.Note.configurationKey: noteConfig]
+    /// ```
+    typealias ConfigurationMap = [ObjectIdentifier: Configuration]
+
     struct Configuration {
 
         enum Action: Identifiable {
