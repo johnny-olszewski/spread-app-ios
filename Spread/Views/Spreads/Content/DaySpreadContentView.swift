@@ -52,7 +52,7 @@ struct DaySpreadContentView: View {
                 creationPeriod: .day,
                 creationDate: spread.date,
                 configurationMap: [
-                    .task: .standardTaskConfig(
+                    DataModel.Task.configurationKey: .standardTaskConfig(
                         journalManager: context.journalManager,
                         syncEngine: context.syncEngine,
                         coordinator: context.coordinator,
@@ -83,14 +83,14 @@ struct DaySpreadContentView: View {
         )
     }
 
-    private var entryConfigurationMap: [EntryType: EntryRowView.Configuration] {
+    private var entryConfigurationMap: EntryRowView.ConfigurationMap {
         [
-            .task: .standardTaskConfig(
+            DataModel.Task.configurationKey: .standardTaskConfig(
                 journalManager: context.journalManager,
                 syncEngine: context.syncEngine,
                 coordinator: context.coordinator
             ),
-            .note: .standardNoteConfig(
+            DataModel.Note.configurationKey: .standardNoteConfig(
                 journalManager: context.journalManager,
                 syncEngine: context.syncEngine,
                 coordinator: context.coordinator
@@ -98,10 +98,10 @@ struct DaySpreadContentView: View {
         ]
     }
 
-    private var eventConfigurationMap: [EntryType: EntryRowView.Configuration] {
+    private var eventConfigurationMap: EntryRowView.ConfigurationMap {
         shouldShowTimelineCard
             ? [:]
-            : [.event: .standardEventConfig(journalManager: context.journalManager)]
+            : [DataModel.Event.configurationKey: .standardEventConfig(journalManager: context.journalManager)]
     }
 
     private var onAddTask: (@MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void) {
@@ -142,7 +142,6 @@ struct DaySpreadContentView: View {
                         Image(systemName: spread.isFavorite ? "star.fill" : "star")
                     }
                     .buttonStyle(.plain)
-                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
                     .accessibilityLabel(spread.isFavorite ? "Remove from Favorites" : "Add to Favorites")
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
@@ -153,7 +152,6 @@ struct DaySpreadContentView: View {
                         Image(systemName: "pencil")
                     }
                     .buttonStyle(.plain)
-                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
                     .accessibilityLabel("Edit Spread")
                     .padding(SpreadTheme.Spacing.large)
@@ -202,62 +200,7 @@ struct DaySpreadContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-
-    // MARK: - Layout variants
-
-    /// Regular-width: full-height side-by-side layout with independent scrolls.
-    ///
-    /// Calendar events are surfaced in the timeline card only; the entry list
-    /// receives an empty events array so it does not duplicate them.
-    private var regularLayout: some View {
-        HStack(alignment: .top, spacing: 0) {
-            DayTimelineScrollView(
-                generator: SpreadDayTimelineContentGenerator(),
-                items: calendarEvents,
-                date: spread.date,
-                visibleStartHour: 0,
-                visibleEndHour: 24,
-                verticalCount: config.wideTimelineRowCount,
-                verticalSpan: config.wideTimelineRowSpan,
-                calendar: context.journalManager.calendar
-            )
-            .containerRelativeFrame(
-                .horizontal,
-                count: config.wideTimelineColumnCount,
-                span: config.wideTimelineColumnSpan,
-                spacing: 0
-            )
-            .spreadCard()
-            .padding(.leading, 16)
-            .padding(.trailing, 8)
-            .padding(.vertical, 12)
-            
-            EntryListView(
-                sections: overdueSections + sections,
-                configurationMap: entryConfigurationMap,
-                onAddTask: onAddTask,
-                availableLists: context.journalManager.lists,
-                availableTags: context.journalManager.tags
-            )
-        }
-        .frame(maxHeight: .infinity)
-    }
-
-    /// Compact-width: a single scrollable entry list with calendar events in a dedicated section.
-    private var compactLayout: some View {
-        entryList
-    }
-
-    private var entryList: some View {
-        EntryListView(
-            sections: overdueSections + sections,
-            configurationMap: entryConfigurationMap,
-            onAddTask: onAddTask,
-            availableLists: context.journalManager.lists,
-            availableTags: context.journalManager.tags
-        )
-    }
-
+    
     private func toggleFavorite() {
         Task { @MainActor in
             try? await context.journalManager.updateSpreadFavorite(spread, isFavorite: !spread.isFavorite)
@@ -306,9 +249,9 @@ extension DaySpreadContentView {
         from entries: [any Entry],
         spreadDate: Date,
         calendar: Calendar,
-        listConfigurationMap: [EntryType: EntryRowView.Configuration],
-        unassignedConfigurationMap: [EntryType: EntryRowView.Configuration],
-        eventConfigurationMap: [EntryType: EntryRowView.Configuration]
+        listConfigurationMap: EntryRowView.ConfigurationMap,
+        unassignedConfigurationMap: EntryRowView.ConfigurationMap,
+        eventConfigurationMap: EntryRowView.ConfigurationMap
     ) -> [EntryList.Section] {
         guard !entries.isEmpty else { return [] }
 

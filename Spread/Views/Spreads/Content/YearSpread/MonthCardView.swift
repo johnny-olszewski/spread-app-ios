@@ -17,7 +17,7 @@ struct MonthCardView: View {
         /// Displays an optional entry list with an optional create-spread action.
         case list(
             sections: [EntryList.Section],
-            configurationMap: [EntryType: EntryRowView.Configuration]
+            configurationMap: EntryRowView.ConfigurationMap
         )
     }
 

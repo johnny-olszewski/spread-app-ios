@@ -29,14 +29,14 @@ struct MonthSpreadContentView: View {
         )
     }
 
-    private var configurationMap: [EntryType: EntryRowView.Configuration] {
+    private var configurationMap: EntryRowView.ConfigurationMap {
         [
-            .task: .standardTaskConfig(
+            DataModel.Task.configurationKey: .standardTaskConfig(
                 journalManager: context.journalManager,
                 syncEngine: context.syncEngine,
                 coordinator: context.coordinator
             ),
-            .note: .standardNoteConfig(
+            DataModel.Note.configurationKey: .standardNoteConfig(
                 journalManager: context.journalManager,
                 syncEngine: context.syncEngine,
                 coordinator: context.coordinator

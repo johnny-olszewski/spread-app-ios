@@ -24,19 +24,19 @@ struct MultidaySpreadContentView: View {
         )
     }
 
-    private var configurationMap: [EntryType: EntryRowView.Configuration] {
+    private var configurationMap: EntryRowView.ConfigurationMap {
         [
-            .task: .standardTaskConfig(
+            DataModel.Task.configurationKey: .standardTaskConfig(
                 journalManager: context.journalManager,
                 syncEngine: context.syncEngine,
                 coordinator: context.coordinator
             ),
-            .note: .standardNoteConfig(
+            DataModel.Note.configurationKey: .standardNoteConfig(
                 journalManager: context.journalManager,
                 syncEngine: context.syncEngine,
                 coordinator: context.coordinator
             ),
-            .event: .standardEventConfig(journalManager: context.journalManager)
+            DataModel.Event.configurationKey: .standardEventConfig(journalManager: context.journalManager)
         ]
     }
 
@@ -107,7 +107,7 @@ struct MultidaySpreadContentView: View {
 
     @ViewBuilder
     private func entryRow(entry: any Entry) -> some View {
-        if let config = configurationMap[entry.entryType] {
+        if let config = configurationMap[ObjectIdentifier(type(of: entry))] {
             EntryRowView(entry: entry, configuration: config)
         }
     }
