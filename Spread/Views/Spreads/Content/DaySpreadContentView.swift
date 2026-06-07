@@ -73,13 +73,14 @@ struct DaySpreadContentView: View {
         let base: [any Entry] = spreadDataModel.tasks + spreadDataModel.notes
         let eventEntries = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
 
-        return makeSections(
+        return DaySpreadContentView.makeSections(
             from: base + eventEntries,
             spreadDate: spreadDataModel.spread.date,
             calendar: cal,
             listConfigurationMap: entryConfigurationMap,
             unassignedConfigurationMap: entryConfigurationMap,
-            eventConfigurationMap: eventConfigurationMap
+            eventConfigurationMap: eventConfigurationMap,
+            headerButtonViewModel: addTaskHeaderButtonViewModel
         )
     }
 
@@ -245,13 +246,14 @@ extension DaySpreadContentView {
 
     /// Groups day spread entries into named-list sections (alphabetical),
     /// with a trailing untitled section for entries with no list.
-    func makeSections(
+    static func makeSections(
         from entries: [any Entry],
         spreadDate: Date,
         calendar: Calendar,
         listConfigurationMap: EntryRowView.ConfigurationMap,
         unassignedConfigurationMap: EntryRowView.ConfigurationMap,
-        eventConfigurationMap: EntryRowView.ConfigurationMap
+        eventConfigurationMap: EntryRowView.ConfigurationMap,
+        headerButtonViewModel: SpreadButton.ViewModel? = nil
     ) -> [EntryList.Section] {
         guard !entries.isEmpty else { return [] }
 
@@ -288,7 +290,7 @@ extension DaySpreadContentView {
                 creationPeriod: .day,
                 creationDate: spreadDate,
                 configurationMap: listConfigurationMap,
-                headerButtonViewModel: addTaskHeaderButtonViewModel
+                headerButtonViewModel: headerButtonViewModel
             ))
         }
 
@@ -304,7 +306,7 @@ extension DaySpreadContentView {
                     creationPeriod: .day,
                     creationDate: spreadDate,
                     configurationMap: unassignedConfigurationMap,
-                    headerButtonViewModel: addTaskHeaderButtonViewModel
+                    headerButtonViewModel: headerButtonViewModel
                 )
             )
         }
