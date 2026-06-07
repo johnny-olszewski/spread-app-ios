@@ -33,9 +33,9 @@ public protocol DayTimelineContentProvider {
 
     /// Returns a view representing the item's visual content in the timed grid.
     ///
-    /// The package positions the returned view using `context.yOffset`,
-    /// `context.height`, and `context.overlapOffset`; the conformer need only
-    /// render the appearance (background, text, borders, etc.).
+    /// The package positions the returned view using `context.yOffset` and `context.height`.
+    /// Use `context.columnIndex` and `context.columnCount` to position the item horizontally
+    /// within its collision cluster. The conformer is responsible only for appearance.
     @ViewBuilder func itemView(context: DayTimelineItemContext<Item>) -> ItemContent
 
     /// Returns a view for an all-day item rendered in the pinned header section.
