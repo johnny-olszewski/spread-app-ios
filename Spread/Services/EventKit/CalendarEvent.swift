@@ -22,4 +22,26 @@ struct CalendarEvent: Identifiable, Equatable, Sendable {
     let calendarTitle: String
     /// The display color of the source calendar.
     let calendarColor: Color
+    /// The event's location string, or `nil` when the field is not set in EventKit.
+    let location: String?
+
+    init(
+        id: String,
+        title: String,
+        startDate: Date,
+        endDate: Date,
+        isAllDay: Bool,
+        calendarTitle: String,
+        calendarColor: Color,
+        location: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.startDate = startDate
+        self.endDate = endDate
+        self.isAllDay = isAllDay
+        self.calendarTitle = calendarTitle
+        self.calendarColor = calendarColor
+        self.location = location
+    }
 }

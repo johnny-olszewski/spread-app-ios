@@ -60,5 +60,7 @@ private extension CalendarEvent {
         } else {
             self.calendarColor = .blue
         }
+        let loc = ekEvent.location
+        self.location = (loc?.isEmpty == false) ? loc : nil
     }
 }
