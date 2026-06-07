@@ -1,7 +1,7 @@
 # Spread Navigation
 
 > Source: Documentation/spec.md  
-> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236
+> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238
 
 ### Spread View Architecture
 - The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
@@ -471,3 +471,180 @@ func parentNavigationLabel(calendar: Calendar) -> String
 - **Decision**: Add `parentSpreads(for:)` to `JournalManager`.
 - **Rationale**: Keeps view code thin and makes the lookup rules unit-testable without UI scaffolding.
 - **SPRD reference**: [SPRD-236]
+
+---
+
+## TabView Shell Redesign [SPRD-238]
+
+**Status**: Draft
+**Date**: 2026-06-07
+
+### Overview
+
+Replace the `NavigationSplitView` 3-column shell (introduced in the Adaptive Navigation Shell section, SPRD-229) with a `TabView`-based shell. `RootNavigationView` becomes a plain `TabView` with one tab per top-level destination (Spreads, Entries, Collections, Settings, and Debug when enabled). The Spreads tab's content is extracted into a new self-contained view, `SpreadsTabView`, which lays out the calendar content column and the spread detail content side-by-side in an `HStack`, with the content column togglable via a leading toolbar button. This supersedes the sidebar/content/detail-column architecture — the sidebar list of destinations is replaced by tabs, and the persistent content column becomes a togglable left pane scoped entirely to the Spreads tab.
+
+### Problem Statement
+
+The `NavigationSplitView` shell couples Spreads-specific navigation state (`selectedColumnSpread`, `spreadsCoordinator`, `pagerSettledTargetID`, year selection via `selectedSidebarItem`) to `RootNavigationView`, because column-collapse transitions require that state to survive at the root. This makes `RootNavigationView` a long file tightly coupled to Spreads-tab internals it shouldn't need to know about, and forces fragile state-mirroring (`selectedColumnSpread` ↔ `spreadsCoordinator.selectedSelection`). A `TabView` shell scopes each destination's state to its own tab — `SpreadsTabView` can own its state directly, `RootNavigationView` shrinks to cross-tab routing only, and content-column visibility becomes a simple local `Bool` rather than a `columnVisibility` enum synced across the hierarchy.
+
+### Goals
+
+- Replace `NavigationSplitView` with a plain `TabView` (`.tabViewStyle(.automatic)`), one tab per top-level destination.
+- Extract the Spreads destination's content into a self-contained `SpreadsTabView` that owns its own navigation state.
+- Lay out `SpreadsTabView` as an `HStack`: calendar content column (left pane) + spread detail content (right pane).
+- Make the left pane togglable: a leading toolbar button (calendar icon) shows/hides it on regular width; on compact width the same button presents it as a `fullScreenCover`.
+- Simplify state ownership — remove state that existed solely to survive `NavigationSplitView` column-collapse transitions.
+- Preserve cross-tab navigation (`openTaskFromSearch`) via a shared, lightweight pending-navigation mechanism.
+
+### Non-Goals
+
+- Changing which destinations exist or their icons.
+- Changing the calendar content column's internal rendering (`SpreadsContentColumnView` + `CalendarView`) beyond adding self-contained year selection.
+- Changing entry row tap interactions, task/note detail presentation, or sheet destinations — these remain as specced in the Adaptive Navigation Shell section (SPRD-230).
+- Adapting the `TabView` to a sidebar style on iPad (e.g. `.sidebarAdaptable`) — out of scope; can be revisited later.
+
+### Functional Requirements
+
+1. `RootNavigationView` uses a plain `TabView` with `.tabViewStyle(.automatic)` — a standard tab bar on both iPhone and iPad. One tab per `Content` case (Spreads, Entries, Collections, Settings, Debug when `BuildInfo.allowsDebugUI`). [SPRD-238]
+2. Each tab wraps its destination content in its own `NavigationStack`, giving each tab independent navigation history. [SPRD-238]
+3. The Spreads tab's content is `SpreadsTabView` — a new view extracted from the current `spreadsDetailContent`. [SPRD-238]
+4. `SpreadsTabView`'s top-level structure is an `HStack`: [SPRD-238]
+   - **Left pane**: `SpreadsContentColumnView` (the calendar content column), gaining its own year-selection control so it is fully self-contained (no longer dependent on sidebar year subitems).
+   - **Right pane**: the current `spreadsDetailContent` implementation (title header, sync banner, `SpreadContentPagerView`, bottom inset controls, toolbar).
+5. A single leading toolbar button (calendar icon) controls a local `Bool` binding owned by `SpreadsTabView` (`isContentColumnVisible`): [SPRD-238]
+   - **Regular width**: tapping the button toggles `isContentColumnVisible`. The left pane is shown — with a leading-edge slide + fade transition — only when `isContentColumnVisible == true` AND the horizontal size class is `.regular`. The button's icon swaps between `calendar` (pane hidden) and `chevron.left` (pane visible), replacing the SPRD-236 chevron button entirely.
+   - **Compact width**: tapping the button presents the left pane as a `.fullScreenCover`. The right pane is always full-width on compact.
+6. Selecting a spread in the left pane (calendar cell tap) sets the shared spread selection and hides the left pane — on regular width by setting `isContentColumnVisible = false`, on compact width by dismissing the full-screen cover. [SPRD-238]
+7. `SpreadsTabView` owns its own Spreads-specific navigation state — `spreadsCoordinator`, the selected spread, `pagerSettledTargetID`, and year selection — directly as `@State`/`@Observable`, rather than receiving it from `RootNavigationView`. State that existed solely to survive `NavigationSplitView` column-collapse transitions (`columnVisibility`, the `selectedColumnSpread`/`spreadsCoordinator.selectedSelection` mirror, `selectedSidebarItem`) is removed. [SPRD-238]
+8. Cross-tab navigation (`openTaskFromSearch`, triggered from the Entries tab) continues to work: `RootNavigationView` switches `selectedTab` to `.spreads` and populates a shared `spreadsNavigationState.pendingRequest`; `SpreadsTabView` observes that state and reacts (selects the spread, opens the task detail) — the same pending-request pattern as today, relocated. [SPRD-238]
+9. The detail content's toolbar (today button, sync icon, auth button) remains, attached to the right pane / `SpreadContentPagerView` as before. The SPRD-236 parent-spread navigation buttons (`SpreadContentPagerView.parentSpreadEntries`/`parentButtonLabel`, `JournalManager.parentSpreads(for:)`, `Spread+ParentNavigation.swift`, and their tests) are removed entirely — the content-column toggle supersedes them as the primary way to jump across periods. [SPRD-238]
+10. Project builds with no errors or warnings; existing Spreads navigation behaviors (spread selection, pager sync, today button, cross-tab task open) continue to function. [SPRD-238]
+
+### Technical Design
+
+#### Architecture
+
+```
+RootNavigationView
+└── TabView (.automatic)
+    ├── Tab "Spreads"     → NavigationStack { SpreadsTabView }
+    ├── Tab "Entries"     → NavigationStack { EntriesBrowserView }
+    ├── Tab "Collections" → NavigationStack { CollectionsListView }
+    ├── Tab "Settings"    → NavigationStack { SettingsView }
+    └── Tab "Debug"       → NavigationStack { debugMenuView }   (when allowsDebugUI)
+
+SpreadsTabView
+├── @State isContentColumnVisible: Bool
+├── @State isContentColumnCoverPresented: Bool   (compact-width fullScreenCover trigger)
+├── @State spreadsCoordinator, selectedSpread, pagerSettledTargetID, selectedYear, ...
+├── HStack
+│   ├── SpreadsContentColumnView   (left pane; shown when isContentColumnVisible && .regular)
+│   └── spreadsDetailContent       (right pane; always shown)
+├── .toolbar { calendar / chevron.left toggle button }
+└── .fullScreenCover(isPresented:) { SpreadsContentColumnView }   (compact only)
+```
+
+#### Toggle Behavior — Reference Pattern
+
+Mirrors the `ContentView` example provided during speccing:
+
+```swift
+@Environment(\.horizontalSizeClass) private var horizontalSizeClass
+@State private var isContentColumnVisible = false
+@State private var isContentColumnCoverPresented = false
+
+var body: some View {
+    Group {
+        if horizontalSizeClass == .regular {
+            HStack(spacing: 0) {
+                if isContentColumnVisible {
+                    SpreadsContentColumnView(...)
+                        .frame(width: 320)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
+                spreadsDetailContent
+            }
+        } else {
+            spreadsDetailContent
+        }
+    }
+    .toolbar {
+        ToolbarItem(placement: .topBarLeading) {
+            Button {
+                if horizontalSizeClass == .regular {
+                    withAnimation { isContentColumnVisible.toggle() }
+                } else {
+                    isContentColumnCoverPresented = true
+                }
+            } label: {
+                Image(systemName: isContentColumnVisible ? "chevron.left" : "calendar")
+            }
+        }
+    }
+    .fullScreenCover(isPresented: $isContentColumnCoverPresented) {
+        NavigationStack {
+            SpreadsContentColumnView(...)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Close") { isContentColumnCoverPresented = false }
+                    }
+                }
+        }
+    }
+}
+```
+
+#### Year Selection in the Content Column
+
+`SpreadsContentColumnView` gains its own year-selection control (e.g. header chevrons or a `Menu`), making it self-sufficient now that the sidebar's `.spreadsYear(Int)` subitems are gone. Whether `selectedYear` lives as internal `@State` or a binding owned by `SpreadsTabView` is an implementation detail to resolve during SPRD-238 (see Open Questions).
+
+#### Cross-Tab Navigation
+
+`RootNavigationView` keeps:
+- `@State private var selectedTab: Content`
+- `@State private var spreadsNavigationState = SpreadsNavigationState()` (existing `@Observable`, holding `pendingRequest`)
+
+`openTaskFromSearch` sets `selectedTab = .spreads` and `spreadsNavigationState.pendingRequest = SpreadsNavigationRequest(...)`. `SpreadsTabView` receives `spreadsNavigationState` (via init injection or environment) and reacts to `pendingRequest` changes exactly as `RootNavigationView` does today (`handlePendingNavigationRequest`), relocated into `SpreadsTabView`.
+
+### Design Decisions
+
+#### Decision: TabView replaces NavigationSplitView
+
+- **Context**: The `NavigationSplitView` 3-column shell (SPRD-229) was adopted to eliminate double-chrome and promote the spread navigator to a persistent column. In practice it concentrated Spreads-specific state at the root and made content-column visibility (`columnVisibility`) a fragile, externally-mutable enum that required explicit syncing (`isContentColumnVisible` mirroring `columnVisibility`).
+- **Decision**: Replace it with a plain `TabView` (`.tabViewStyle(.automatic)`) — one tab per destination — with the Spreads tab internally laying out a togglable calendar pane beside the detail content via a simple `HStack` + local `Bool` binding.
+- **Rationale**: A `TabView` is simpler to reason about, scopes state naturally to each tab, and removes the column-collapse-survival constraints that forced state up to `RootNavigationView`. The togglable `HStack` pane inside `SpreadsTabView` preserves the "persistent calendar picker beside the content" capability on iPad without `NavigationSplitView`'s coupling.
+- **SPRD reference**: [SPRD-238]
+
+#### Decision: Single calendar/chevron toggle button replaces the SPRD-236 chevron button
+
+- **Context**: SPRD-236 added a `chevron.left` button to the detail column's toolbar to collapse the content column (`columnVisibility = .detailOnly`). With `columnVisibility` removed, that mechanism no longer applies.
+- **Decision**: A single leading toolbar button in `SpreadsTabView` — icon swapping between `calendar` (pane hidden) and `chevron.left` (pane visible) — replaces the SPRD-236 button entirely and drives `isContentColumnVisible` directly.
+- **Rationale**: One button with a state-reflecting icon is simpler than maintaining two separate toggle affordances targeting the same concern. The icon swap communicates the action ("tap to reveal the calendar" vs. "tap to hide it") more directly than a static icon.
+- **SPRD reference**: [SPRD-238]
+
+#### Decision: fullScreenCover for compact-width pane presentation
+
+- **Context**: On compact width (iPhone), there isn't room for a side-by-side `HStack`. The calendar content column needs a presentation mechanism that doesn't depend on `NavigationSplitView` column collapse, which no longer exists in this shell.
+- **Decision**: Present the content column as a `.fullScreenCover` on compact width, driven by the same toggle button (via a derived presentation flag, `isContentColumnCoverPresented`). Selecting a spread inside the cover dismisses it.
+- **Rationale**: `fullScreenCover` is the standard SwiftUI mechanism for presenting a full-screen picker-like flow on compact width, matches the reference `ContentView` example, and keeps the interaction model consistent with the regular-width toggle — same button, same underlying intent ("show me the calendar picker").
+- **SPRD reference**: [SPRD-238]
+
+#### Decision: Spreads-tab state moves into SpreadsTabView; root state is minimized
+
+- **Context**: `spreadsCoordinator`, `spreadsNavigationState`, `selectedColumnSpread`, `pagerSettledTargetID`, and `selectedSidebarItem` lived at `RootNavigationView` because `NavigationSplitView` column-collapse transitions could otherwise reset child `@State`. None of that constraint applies to a `TabView` tab, which persists for the app's lifetime.
+- **Decision**: Move `spreadsCoordinator`, the selected spread (replacing the `selectedColumnSpread`/`spreadsCoordinator.selectedSelection` duality with a single source of truth), `pagerSettledTargetID`, and year selection into `SpreadsTabView`'s own state. `RootNavigationView` retains only `selectedTab` and `spreadsNavigationState` (needed for cross-tab routing). `columnVisibility` and `selectedSidebarItem` are removed entirely.
+- **Rationale**: Scoping state to the tab that uses it reduces `RootNavigationView` to a thin cross-tab router, eliminates a class of state-sync bugs (the `selectedColumnSpread` ↔ `spreadsCoordinator.selectedSelection` mirroring this redesign removes), and makes `SpreadsTabView` independently testable and reusable.
+- **SPRD reference**: [SPRD-238]
+
+#### Decision: Year picker added to SpreadsContentColumnView
+
+- **Context**: Year selection previously lived in the sidebar as `.spreadsYear(Int)` subitems, feeding the content column via `SidebarItem`. Removing the sidebar removes that mechanism, but the calendar content column still needs to know which year to display.
+- **Decision**: `SpreadsContentColumnView` gains its own year-selection control (e.g. header chevrons or a `Menu`) so it is self-sufficient.
+- **Rationale**: Keeps the content column independently usable and avoids re-introducing a cross-view selection wrapper type (`SidebarItem`) solely to carry a year value. The control's exact visual form is an implementation detail to resolve during SPRD-238.
+- **SPRD reference**: [SPRD-238]
+
+### Open Questions
+
+- Should `selectedYear` live as `@State` inside `SpreadsContentColumnView`, or be owned by `SpreadsTabView` and passed as a binding (needed if other parts of `SpreadsTabView` ever need to know the displayed year)? — Resolve during SPRD-238 implementation.
+- Exact visual form of the year picker control (chevron stepper vs. menu vs. segmented control) — resolve during SPRD-238 implementation, consistent with `SpreadTheme`.
+- Left pane fixed width vs. proportional sizing on iPad — resolve during SPRD-238 implementation; the reference example uses a fixed `280`–`320`pt width.

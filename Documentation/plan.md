@@ -6259,3 +6259,32 @@ Supabase: SPRD-85A -> SPRD-85C
   - Manual: view a past day spread — confirm no red line appears.
   - Manual: view two concurrent events — confirm side-by-side rendering.
   - Manual: view an event with location set — confirm location appears below the time range.
+
+---
+
+### [SPRD-238] Refactor: TabView shell — replace NavigationSplitView with TabView and self-contained SpreadsTabView - [x] Done
+
+- **Context**: The `NavigationSplitView` 3-column shell (SPRD-229) concentrates Spreads-specific navigation state at `RootNavigationView` because column-collapse transitions require state to survive at the root, producing a long, tightly-coupled root view and fragile state-mirroring (`selectedColumnSpread` ↔ `spreadsCoordinator.selectedSelection`). A `TabView`-based shell scopes each destination's state to its own tab, letting `RootNavigationView` shrink to cross-tab routing only.
+- **Description**: Replace `RootNavigationView`'s `NavigationSplitView` with a plain `TabView` (`.tabViewStyle(.automatic)`), one tab per top-level destination wrapped in its own `NavigationStack`. Extract the Spreads destination's content into a new self-contained `SpreadsTabView` laid out as an `HStack`: `SpreadsContentColumnView` (calendar content column) as a togglable left pane, and the current `spreadsDetailContent` implementation as the right pane. A single leading toolbar button (calendar icon, swapping to `chevron.left` when shown) toggles the left pane on regular width and presents it as a `.fullScreenCover` on compact width. Move Spreads-specific navigation state (`spreadsCoordinator`, selected spread, `pagerSettledTargetID`, year selection) into `SpreadsTabView`; remove state that existed solely to survive `NavigationSplitView` transitions (`columnVisibility`, `selectedColumnSpread`/`selectedSelection` mirroring, `selectedSidebarItem`). `SpreadsContentColumnView` gains its own year-selection control. `RootNavigationView` retains only `selectedTab` and the shared `spreadsNavigationState` for cross-tab routing (`openTaskFromSearch`).
+- **Spec**: `Documentation/Specs/SpreadNavigation.md` — TabView Shell Redesign [SPRD-238]
+- **Acceptance Criteria**:
+  - [x] `RootNavigationView` uses a plain `TabView` with `.tabViewStyle(.automatic)`, one tab per `Content` case (Spreads, Entries, Collections, Settings, Debug when `BuildInfo.allowsDebugUI`), each wrapping its content in its own `NavigationStack`.
+  - [x] `SpreadsTabView` is a new view extracted from `spreadsDetailContent`, structured as a top-level `HStack` with `SpreadsContentColumnView` as the left pane and the detail content as the right pane.
+  - [x] A single leading toolbar button (`calendar` ↔ `chevron.left`) toggles a local `isContentColumnVisible: Bool` owned by `SpreadsTabView`, replacing the SPRD-236 chevron button entirely.
+  - [x] On regular width, the left pane is shown (with a leading-edge slide + fade transition) only when `isContentColumnVisible == true`; tapping the toggle button animates its appearance/disappearance.
+  - [x] On compact width, tapping the toggle button presents the left pane via `.fullScreenCover`; the right pane is always full-width.
+  - [x] Selecting a spread in the left pane sets the shared spread selection and hides the pane (toggles `isContentColumnVisible = false` on regular width; dismisses the cover on compact width).
+  - [x] `spreadsCoordinator`, the selected spread, `pagerSettledTargetID`, and year selection are owned by `SpreadsTabView`; `columnVisibility`, `selectedColumnSpread`, and `selectedSidebarItem` are removed from `RootNavigationView`.
+  - [x] `SpreadsContentColumnView` includes a self-contained year-selection control (no longer dependent on sidebar `.spreadsYear` subitems).
+  - [x] Cross-tab navigation (`openTaskFromSearch`) continues to work: `RootNavigationView` sets `selectedTab = .spreads` and populates `spreadsNavigationState.pendingRequest`; `SpreadsTabView` reacts and opens the task detail.
+  - [x] The detail content's toolbar (today button, sync icon, auth button) remains functional, attached to the right pane / `SpreadContentPagerView`. (The SPRD-236 parent-spread navigation buttons were removed during this task — see note below — rather than carried over.)
+  - [x] Project builds with no errors or warnings.
+- **Tests**:
+  - Manual: on iPad (regular width), toggle the left pane open/closed via the toolbar button — confirm smooth animated transition and icon swap.
+  - Manual: on iPad, select a spread in the calendar pane — confirm the pane hides and the pager navigates to the selected spread.
+  - Manual: on iPhone (compact width), tap the toggle button — confirm the calendar pane presents as a full-screen cover and dismisses on spread selection.
+  - Manual: rotate / enter multitasking split view to trigger a size class transition — confirm navigation state (selected spread, pager position) survives.
+  - Manual: from the Entries tab, tap a search result — confirm the app switches to the Spreads tab, navigates to the correct spread, and opens the task detail.
+  - Manual: confirm today button, sync icon, and auth button all function as before.
+- **Note**: During implementation, the SPRD-236 parent-spread navigation toolbar buttons (`SpreadContentPagerView.parentSpreadEntries`/`parentButtonLabel`, `JournalManager.parentSpreads(for:)`, `Spread+ParentNavigation.swift`, and their tests) were removed entirely rather than carried forward — the new content-column toggle supersedes them as the primary cross-period navigation affordance.
+- **Dependencies**: SPRD-236
