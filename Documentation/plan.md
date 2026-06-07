@@ -6231,24 +6231,24 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-237] Visual: Day timeline overhaul — column layout, current-time indicator, event block polish - [ ] Pending
+### [SPRD-237] Visual: Day timeline overhaul — column layout, current-time indicator, event block polish - [x] Done
 
 - **Context**: `DayTimelineView` uses a cascading offset approach for concurrent events, has no current-time indicator, shows only event titles, and scrolls to the first event regardless of whether the displayed day is today. The visual quality is significantly below Apple Calendar's standard.
 - **Description**: Overhaul `DayTimelineView` (in `johnnyo-foundation`) and `SpreadDayTimelineContentGenerator` (in the app) with: (1) side-by-side column layout for overlapping events using a greedy interval-scheduling algorithm surfaced via `DayTimelineItemContext.columnIndex`/`columnCount`; (2) a live current-time red line + circle rendered with `TimelineView(.everyMinute)`, visible only when the date is today; (3) `DayTimelineScrollView` scrolling to the current time (minus 60pt margin) on today, first event otherwise; (4) event blocks showing title + time range (locale-aware 12h/24h) + optional location; (5) 44pt minimum block height floor enforced in foundation; (6) `CalendarEvent.location: String?` added and mapped from `EKEvent.location`; (7) all-day chip polish — pill capsules with calendar color tint.
 - **Spec**: `Documentation/Specs/DayTimeline.md` — Full spec
 - **Acceptance Criteria**:
-  - [ ] `DayTimelineItemContext` has `columnIndex: Int` and `columnCount: Int`; `overlapOffset` is removed.
-  - [ ] Events that share overlapping time ranges are assigned to separate columns; non-overlapping events occupy the full width.
-  - [ ] `SpreadDayTimelineContentGenerator` renders each event at `x = columnIndex * (availableWidth / columnCount)`, width `= availableWidth / columnCount`.
-  - [ ] `DayTimelineView` renders a red horizontal line + small red filled circle at the current minute's Y position when the date is today and the current time is within the visible window.
-  - [ ] The current-time indicator updates automatically via `TimelineView(.everyMinute)` — no app-side timer.
-  - [ ] The indicator is not visible when the displayed date is not today.
-  - [ ] `DayTimelineScrollView` scrolls to current time (minus ~60pt) on appear when date is today; scrolls to first event otherwise.
-  - [ ] Each timed event block shows: title (top-leading, semibold caption), time range below (caption2, locale 12h/24h), location below time (caption2, secondary, omitted when nil/empty).
-  - [ ] Events shorter than 30 min receive a minimum rendered height of 44pt; title remains readable.
-  - [ ] `CalendarEvent` has `var location: String?`; `LiveEventKitService` maps `EKEvent.location`.
-  - [ ] All-day chips render as pill capsules with low-opacity calendar color fill and title-only label.
-  - [ ] Project builds with no errors or warnings.
+  - [x] `DayTimelineItemContext` has `columnIndex: Int` and `columnCount: Int`; `overlapOffset` is removed.
+  - [x] Events that share overlapping time ranges are assigned to separate columns; non-overlapping events occupy the full width.
+  - [x] `SpreadDayTimelineContentGenerator` renders each event at `x = columnIndex * (availableWidth / columnCount)`, width `= availableWidth / columnCount`.
+  - [x] `DayTimelineView` renders a red horizontal line + small red filled circle at the current minute's Y position when the date is today and the current time is within the visible window.
+  - [x] The current-time indicator updates automatically via `TimelineView(.everyMinute)` — no app-side timer.
+  - [x] The indicator is not visible when the displayed date is not today.
+  - [x] `DayTimelineScrollView` scrolls to current time (minus ~60pt) on appear when date is today; scrolls to first event otherwise.
+  - [x] Each timed event block shows: title (top-leading, semibold caption), time range below (caption2, locale 12h/24h), location below time (caption2, secondary, omitted when nil/empty).
+  - [x] Events shorter than 30 min receive a minimum rendered height of 44pt; title remains readable.
+  - [x] `CalendarEvent` has `var location: String?`; `LiveEventKitService` maps `EKEvent.location`.
+  - [x] All-day chips render as pill capsules with low-opacity calendar color fill and title-only label.
+  - [x] Project builds with no errors or warnings.
 - **Tests**:
   - Unit: column partitioning algorithm assigns non-overlapping events to column 0 with columnCount 1.
   - Unit: two fully-overlapping events produce columnCount 2 with columnIndex 0 and 1.
