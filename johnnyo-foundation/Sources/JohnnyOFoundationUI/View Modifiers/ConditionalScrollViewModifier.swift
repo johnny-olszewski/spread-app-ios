@@ -14,6 +14,7 @@ struct ConditionalScrollViewModifier: ViewModifier {
             VStack {
                 content
             }
+            .frame(maxHeight: .infinity, alignment: .top)
             
             ScrollView {
                 content

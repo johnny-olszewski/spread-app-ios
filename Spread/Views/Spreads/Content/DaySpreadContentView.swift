@@ -188,7 +188,6 @@ struct DaySpreadContentView: View {
                     availableTags: context.journalManager.tags
                 )
             }
-            .frame(maxHeight: .infinity)
             .padding(.horizontal, SpreadTheme.Spacing.large)
             .task(id: spread.id) {
                 calendarEvents = await context.calendarEventService.fetchEvents(
