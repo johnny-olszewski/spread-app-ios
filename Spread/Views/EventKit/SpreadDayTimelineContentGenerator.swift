@@ -72,6 +72,11 @@ private struct SpreadDayTimelineEventBlock: View {
     let event: CalendarEvent
     let availableHeight: CGFloat
 
+    /// The event whose detail popover is currently presented, or `nil` when dismissed.
+    /// Driving the popover with the event itself (rather than a `Bool`) keeps the
+    /// presented content in sync if `event` changes while the popover is visible.
+    @State private var presentedEvent: CalendarEvent?
+
     // MARK: - Time formatting
 
     /// Locale-aware time range string, e.g. "2:00 PM – 3:30 PM".
@@ -139,5 +144,12 @@ private struct SpreadDayTimelineEventBlock: View {
                 .strokeBorder(event.calendarColor.opacity(0.3), lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            presentedEvent = event
+        }
+        .popover(item: $presentedEvent, arrowEdge: .top) { event in
+            EventDetailPopoverView(event: event)
+        }
     }
 }
