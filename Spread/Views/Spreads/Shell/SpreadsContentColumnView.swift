@@ -2,23 +2,30 @@ import SwiftUI
 import JohnnyOFoundationUI
 import JohnnyOFoundationCore
 
-/// Content column view for the Spreads destination in the NavigationSplitView.
+/// Content column view for the Spreads destination — the left pane of `SpreadsTabView`.
 ///
-/// Renders a vertically scrolling `CalendarView` covering all months in `selectedYear`.
-/// Day cells are styled solid yellow (today), solid blue (has a day/multiday spread), or
-/// plain (no relevant spread). Multiday spreads also render a continuous bar overlay across
-/// week rows. Month and year spreads are intentionally excluded from all visual state and
-/// tap handling — the user cannot navigate to them directly from this view. Tapping a date
-/// with a single day/multiday spread navigates immediately; tapping a date with multiple
-/// spreads presents a disambiguation popover.
+/// Renders a vertically scrolling `CalendarView` covering all months in `selectedYear`,
+/// with a self-contained year-selection control in the toolbar (no longer dependent on
+/// sidebar `.spreadsYear` subitems — `selectedYear` is owned by the caller and bound here
+/// purely so the value survives pane show/hide). Day cells are styled solid yellow (today),
+/// solid blue (has a day/multiday spread), or plain (no relevant spread). Multiday spreads
+/// also render a continuous bar overlay across week rows. Month and year spreads are
+/// intentionally excluded from all visual state and tap handling — the user cannot navigate
+/// to them directly from this view. Tapping a date with a single day/multiday spread
+/// navigates immediately; tapping a date with multiple spreads presents a disambiguation
+/// popover.
 struct SpreadsContentColumnView: View {
 
     let spreads: [DataModel.Spread]
-    let selectedYear: Int
+
+    /// The calendar year displayed. Owned by the caller so it persists across pane
+    /// show/hide and size class transitions; this view supplies the picker UI.
+    @Binding var selectedYear: Int
+
     let today: Date
     let calendar: Calendar
 
-    /// Bound to the root-level column selection that drives NavigationSplitView navigation.
+    /// Bound to the shared spread selection that drives the detail pager.
     @Binding var selectedSpread: DataModel.Spread?
 
     @State private var disambiguationContext: DisambiguationContext?
@@ -42,9 +49,46 @@ struct SpreadsContentColumnView: View {
         )
         .listStyle(.sidebar)
         .navigationTitle("Spreads")
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                yearPicker
+            }
+        }
         .overlayPreferenceValue(DateCellAnchorKey.self) { anchors in
             cellPopoverAnchor(anchors: anchors)
         }
+    }
+
+    // MARK: - Year Selection
+
+    /// Self-contained year-selection control — a menu listing every year that has at
+    /// least one spread (plus the current year), with the active year checked.
+    private var yearPicker: some View {
+        Menu {
+            ForEach(availableYears, id: \.self) { year in
+                Button {
+                    selectedYear = year
+                } label: {
+                    if year == selectedYear {
+                        Label("\(year)", systemImage: "checkmark")
+                    } else {
+                        Text("\(year)")
+                    }
+                }
+            }
+        } label: {
+            Label("\(selectedYear)", systemImage: "chevron.up.chevron.down")
+                .labelStyle(.titleAndIcon)
+                .font(.headline)
+        }
+    }
+
+    /// All calendar years that have at least one spread, plus the current year,
+    /// in descending order.
+    private var availableYears: [Int] {
+        let spreadYears = spreads.map { calendar.component(.year, from: $0.date) }
+        let currentYear = calendar.component(.year, from: today)
+        return Array(Set(spreadYears).union([currentYear])).sorted(by: >)
     }
 
     // MARK: - Year Date Range
@@ -182,17 +226,13 @@ private struct DisambiguationContext: Identifiable {
     let calendar = journalManager.calendar
     let year = calendar.component(.year, from: today)
 
-    NavigationSplitView {
-        Text("Sidebar")
-    } content: {
+    NavigationStack {
         SpreadsContentColumnView(
             spreads: journalManager.spreads,
-            selectedYear: year,
+            selectedYear: .constant(year),
             today: today,
             calendar: calendar,
             selectedSpread: .constant(nil)
         )
-    } detail: {
-        Text("Detail")
     }
 }
