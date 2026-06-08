@@ -9,23 +9,16 @@ public enum MonthCalendarModelBuilder {
     ) -> MonthCalendarModel {
         let normalizedMonth = normalizeMonth(displayedMonth, calendar: calendar)
         let monthInterval = calendar.dateInterval(of: .month, for: normalizedMonth)!
-        let weekdays = orderedWeekdayContexts(calendar: calendar)
+        let weekdays = orderedWeekdays(calendar: calendar)
         let weekRows = buildWeekRows(
             monthInterval: monthInterval,
             calendar: calendar,
             configuration: configuration,
             today: today
         )
-        let header = MonthCalendarHeaderContext(
-            displayedMonth: normalizedMonth,
-            monthInterval: monthInterval,
-            calendar: calendar,
-            configuration: configuration,
-            weekCount: weekRows.count
-        )
 
         return MonthCalendarModel(
-            header: header,
+            displayedMonth: normalizedMonth,
             weekdays: weekdays,
             weeks: weekRows
         )
@@ -36,16 +29,9 @@ public enum MonthCalendarModelBuilder {
         return calendar.date(from: DateComponents(year: components.year, month: components.month, day: 1))!
     }
 
-    private static func orderedWeekdayContexts(calendar: Calendar) -> [MonthCalendarWeekdayContext] {
-        let symbols = calendar.veryShortWeekdaySymbols
-        let firstWeekdayIndex = calendar.firstWeekday - 1
-        let offsets = Array(firstWeekdayIndex..<symbols.count) + Array(0..<firstWeekdayIndex)
-        return offsets.enumerated().map { index, offset in
-            MonthCalendarWeekdayContext(
-                weekday: offset + 1,
-                symbol: symbols[offset],
-                index: index
-            )
+    private static func orderedWeekdays(calendar: Calendar) -> [Int] {
+        (0..<7).map { index in
+            ((calendar.firstWeekday - 1 + index) % 7) + 1
         }
     }
 
@@ -54,7 +40,7 @@ public enum MonthCalendarModelBuilder {
         calendar: Calendar,
         configuration: MonthCalendarConfiguration,
         today: Date
-    ) -> [MonthCalendarWeekContext] {
+    ) -> [MonthCalendarWeek] {
         let firstVisibleDate = startOfWeek(containing: monthInterval.start, calendar: calendar)
         let lastDayOfMonth = calendar.date(byAdding: .day, value: -1, to: monthInterval.end)!
         let lastVisibleWeekStart = startOfWeek(containing: lastDayOfMonth, calendar: calendar)
@@ -66,30 +52,20 @@ public enum MonthCalendarModelBuilder {
                 let date = calendar.date(byAdding: .day, value: column, to: weekStart)!
                 let isInMonth = monthInterval.contains(date)
                 if isInMonth || configuration.showsPeripheralDates {
-                    return MonthCalendarSlotContext.day(
-                        MonthCalendarDayContext(
-                            date: date,
-                            row: weekIndex,
-                            column: column,
-                            isInDisplayedMonth: isInMonth,
-                            isPeripheral: !isInMonth,
-                            isToday: calendar.isDate(date, inSameDayAs: today)
-                        )
+                    return MonthCalendarSlot.day(
+                        date: date,
+                        isPeripheral: !isInMonth,
+                        isToday: calendar.isDate(date, inSameDayAs: today)
                     )
                 } else {
-                    return MonthCalendarSlotContext.placeholder(
-                        MonthCalendarPlaceholderContext(
-                            representedDate: date,
-                            row: weekIndex,
-                            column: column,
-                            isLeading: date < monthInterval.start,
-                            isTrailing: date >= monthInterval.end
-                        )
+                    return MonthCalendarSlot.placeholder(
+                        date: date,
+                        isLeading: date < monthInterval.start
                     )
                 }
             }
 
-            return MonthCalendarWeekContext(index: weekIndex, slots: slots)
+            return MonthCalendarWeek(index: weekIndex, slots: slots)
         }
     }
 

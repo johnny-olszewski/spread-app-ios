@@ -172,7 +172,7 @@ enum SpreadTheme {
         /// Subtle fill for today's cell in calendar grids.
         /// Uses the warm yellow selection family to distinguish today from created days.
         static var todayCellSurface: Color {
-            selectedSurface.opacity(0.7)
+            selectedSurface.opacity(0.4)
         }
 
         /// Border for today's cell — paired with `todayCellSurface`.

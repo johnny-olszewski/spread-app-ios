@@ -32,13 +32,13 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
     }
 
     private static func makeWeekLayout<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>(
-        for week: MonthCalendarWeekContext,
+        for week: MonthCalendarWeek,
         overlays: [NormalizedOverlay<OverlayID, OverlayPayload>],
         visibleLaneCount: Int
     ) -> MonthCalendarPackedRowOverlayWeekLayout<OverlayID, OverlayPayload> {
-        let visibleDays = week.slots.compactMap { slot -> MonthCalendarDayContext? in
-            guard case .day(let context) = slot else { return nil }
-            return context
+        let visibleDays = week.slots.enumerated().compactMap { column, slot -> VisibleDay? in
+            guard case .day(let date, _, _) = slot else { return nil }
+            return VisibleDay(date: date, column: column)
         }
 
         guard !visibleDays.isEmpty else {
@@ -108,8 +108,8 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
 
     private static func makeRowSegment<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>(
         for overlay: NormalizedOverlay<OverlayID, OverlayPayload>,
-        week: MonthCalendarWeekContext,
-        visibleDays: [MonthCalendarDayContext]
+        week: MonthCalendarWeek,
+        visibleDays: [VisibleDay]
     ) -> RowSegment<OverlayID, OverlayPayload>? {
         let coveredDays = visibleDays.filter { day in
             day.date >= overlay.startDate && day.date <= overlay.endDate
@@ -166,7 +166,7 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
     }
 
     private static func overflowContext<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>(
-        week: MonthCalendarWeekContext,
+        week: MonthCalendarWeek,
         overflowedSegments: [RowSegment<OverlayID, OverlayPayload>],
         visibleSegmentLaneCount: Int,
         displayLaneCount: Int
@@ -234,7 +234,7 @@ private struct NormalizedOverlay<OverlayID: Hashable & Sendable, OverlayPayload:
 
 private struct RowSegment<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>: Sendable {
     let overlay: NormalizedOverlay<OverlayID, OverlayPayload>
-    let week: MonthCalendarWeekContext
+    let week: MonthCalendarWeek
     let visibleStartDate: Date
     let visibleEndDate: Date
     let startColumn: Int
@@ -242,4 +242,9 @@ private struct RowSegment<OverlayID: Hashable & Sendable, OverlayPayload: Sendab
     let continuesBeforeWeek: Bool
     let continuesAfterWeek: Bool
     var packedLaneIndex: Int
+}
+
+private struct VisibleDay: Sendable {
+    let date: Date
+    let column: Int
 }

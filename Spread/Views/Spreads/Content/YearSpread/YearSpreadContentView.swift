@@ -145,7 +145,7 @@ struct YearSpreadContentView: View {
                 visualState: visualState,
                 style: .list(sections: sections, configurationMap: configurationMap),
                 onCreateSpread: {
-                    context.coordinator.showSpreadCreation(prefill: .init(period: .month, date: normalizedDate))
+                    context.coordinator.activeSheet = .spreadCreation(.init(period: .month, date: normalizedDate))
                 }
             )
         }

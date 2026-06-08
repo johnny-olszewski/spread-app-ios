@@ -37,57 +37,6 @@ struct SpreadHeaderView: View {
     }
 }
 
-struct SpreadPickerPresentationModifier: ViewModifier {
-    @Binding var isPresented: Bool
-    let presentsAsPopover: Bool
-    let navigatorContent: () -> AnyView
-
-    func body(content: Content) -> some View {
-        if presentsAsPopover {
-            content.popover(isPresented: $isPresented, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
-                navigatorContent()
-            }
-        } else {
-            content.sheet(isPresented: $isPresented) {
-                navigatorContent()
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
-            }
-        }
-    }
-}
-
-extension View {
-    func spreadNavigatorPresentation(
-        isPresented: Binding<Bool>,
-        presentsAsPopover: Bool,
-        model: SpreadHeaderNavigatorModel,
-        currentSpread: DataModel.Spread,
-        recommendations: [SpreadPickerRecommendation] = [],
-        onSelect: @escaping (DataModel.Spread) -> Void,
-        onRecommendationTapped: ((SpreadPickerRecommendation) -> Void)? = nil
-    ) -> some View {
-        modifier(
-            SpreadPickerPresentationModifier(
-                isPresented: isPresented,
-                presentsAsPopover: presentsAsPopover,
-                navigatorContent: {
-                    AnyView(
-                        SpreadHeaderNavigatorPopoverView(
-                            model: model,
-                            currentSpread: currentSpread,
-                            recommendations: recommendations,
-                            onSelect: onSelect,
-                            onRecommendationTapped: onRecommendationTapped,
-                            onDismiss: { isPresented.wrappedValue = false }
-                        )
-                    )
-                }
-            )
-        )
-    }
-}
-
 // MARK: - Preview
 
 #Preview("Go Back button visible") {

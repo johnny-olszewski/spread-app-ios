@@ -16,7 +16,7 @@ struct SpreadsCoordinatorTests {
         let coordinator = SpreadsCoordinator()
         #expect(coordinator.activeSheet == nil)
         #expect(coordinator.activeAlert == nil)
-        #expect(coordinator.selectedSelection == nil)
+        #expect(coordinator.selectedSpread == nil)
         #expect(coordinator.recenterToken == 0)
     }
 
@@ -100,7 +100,7 @@ struct SpreadsCoordinatorTests {
 
         coordinator.finishSpreadDateEdit(spread)
 
-        guard let selectedSpread = coordinator.selectedSelection else {
+        guard let selectedSpread = coordinator.selectedSpread else {
             Issue.record("Expected a selection")
             return
         }
@@ -116,7 +116,7 @@ struct SpreadsCoordinatorTests {
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSelection = spread
+        coordinator.selectedSpread = spread
 
         coordinator.showSpreadDeleteConfirmation(spread, onDelete: {})
 
@@ -125,7 +125,7 @@ struct SpreadsCoordinatorTests {
             return
         }
         #expect(model.id == "deleteSpreadConfirmation-\(spread.id)")
-        guard let selectedSpread = coordinator.selectedSelection else {
+        guard let selectedSpread = coordinator.selectedSpread else {
             Issue.record("Expected a selection")
             return
         }
@@ -140,13 +140,13 @@ struct SpreadsCoordinatorTests {
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSelection = spread
+        coordinator.selectedSpread = spread
         coordinator.showSpreadDeleteConfirmation(spread, onDelete: {})
 
         coordinator.dismissAlert()
 
         #expect(coordinator.activeAlert == nil)
-        guard let selectedSpread = coordinator.selectedSelection else {
+        guard let selectedSpread = coordinator.selectedSpread else {
             Issue.record("Expected a selection")
             return
         }
@@ -161,7 +161,7 @@ struct SpreadsCoordinatorTests {
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .month, date: Date(timeIntervalSince1970: 0), calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSelection = spread
+        coordinator.selectedSpread = spread
 
         coordinator.showSpreadDeleteFailure(message: "Failed to delete spread: forced failure")
 
@@ -171,7 +171,7 @@ struct SpreadsCoordinatorTests {
         }
         #expect(model.id == "deleteSpreadFailed")
         #expect(model.message == "Failed to delete spread: forced failure")
-        guard let selectedSpread = coordinator.selectedSelection else {
+        guard let selectedSpread = coordinator.selectedSpread else {
             Issue.record("Expected a selection")
             return
         }
@@ -361,11 +361,11 @@ struct SpreadsCoordinatorTests {
         let spread = DataModel.Spread(period: .year, date: date, calendar: calendar)
 
         let coordinator = SpreadsCoordinator()
-        #expect(coordinator.selectedSelection == nil)
+        #expect(coordinator.selectedSpread == nil)
 
-        coordinator.selectedSelection = spread
+        coordinator.selectedSpread = spread
 
-        guard let stored = coordinator.selectedSelection else {
+        guard let stored = coordinator.selectedSpread else {
             Issue.record("Expected a selection")
             return
         }
@@ -383,7 +383,7 @@ struct SpreadsCoordinatorTests {
         let year = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
         let month = DataModel.Spread(period: .month, date: calendar.date(from: .init(year: 2026, month: 3, day: 1))!, calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSelection = year
+        coordinator.selectedSpread = year
 
         coordinator.finishSpreadCreation(
             .init(spread: month, autoMigrationSummary: .init(taskCount: 1, noteCount: 1)),
@@ -391,7 +391,7 @@ struct SpreadsCoordinatorTests {
             calendar: calendar
         )
 
-        guard let selectedSpread = coordinator.selectedSelection else {
+        guard let selectedSpread = coordinator.selectedSpread else {
             Issue.record("Expected a selection")
             return
         }
@@ -415,7 +415,7 @@ struct SpreadsCoordinatorTests {
         let year = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
         let month = DataModel.Spread(period: .month, date: calendar.date(from: .init(year: 2026, month: 3, day: 1))!, calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSelection = year
+        coordinator.selectedSpread = year
 
         coordinator.finishSpreadCreation(
             .init(spread: month, autoMigrationSummary: nil),
@@ -423,7 +423,7 @@ struct SpreadsCoordinatorTests {
             calendar: calendar
         )
 
-        guard let selectedSpread = coordinator.selectedSelection else {
+        guard let selectedSpread = coordinator.selectedSpread else {
             Issue.record("Expected a selection")
             return
         }
@@ -451,7 +451,7 @@ struct SpreadsCoordinatorTests {
 
         coordinator.handleConvenienceNavButtonTapped()
 
-        guard let selectedSpread = coordinator.selectedSelection else {
+        guard let selectedSpread = coordinator.selectedSpread else {
             Issue.record("Expected a selection")
             return
         }
@@ -476,7 +476,7 @@ struct SpreadsCoordinatorTests {
 
         coordinator.handleConvenienceNavButtonTapped()
 
-        guard let selectedSpread = coordinator.selectedSelection else {
+        guard let selectedSpread = coordinator.selectedSpread else {
             Issue.record("Expected a selection")
             return
         }
@@ -497,7 +497,7 @@ struct SpreadsCoordinatorTests {
 
         coordinator.selectSpread(target)
 
-        guard let selectedSpread = coordinator.selectedSelection else {
+        guard let selectedSpread = coordinator.selectedSpread else {
             Issue.record("Expected a selection")
             return
         }

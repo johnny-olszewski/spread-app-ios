@@ -49,7 +49,6 @@ struct MonthCalendarModelBuilderTests {
             today: Self.makeDate(year: 2026, month: 2, day: 1, calendar: Self.sundayFirstCalendar)
         )
 
-        #expect(model.header.weekCount == 4)
         #expect(model.weeks.count == 4)
         #expect(model.weeks.allSatisfy { $0.slots.count == 7 })
     }
@@ -62,12 +61,12 @@ struct MonthCalendarModelBuilderTests {
             calendar: Self.mondayFirstCalendar
         )
 
-        #expect(model.weekdays.first?.weekday == 2)
-        #expect(model.weekdays.last?.weekday == 1)
+        #expect(model.weekdays.first == 2)
+        #expect(model.weekdays.last == 1)
     }
 
     /// When peripheral dates are enabled, leading/trailing out-of-month days should be visible day slots.
-    /// Expected: the first visible week for April 2026 exposes three leading peripheral day contexts.
+    /// Expected: the first visible week for April 2026 exposes three leading peripheral day slots.
     @Test func testPeripheralDatesBecomeDaySlotsWhenEnabled() {
         let model = MonthCalendarModelBuilder.makeModel(
             displayedMonth: Self.makeDate(year: 2026, month: 4, calendar: Self.sundayFirstCalendar),
@@ -77,7 +76,7 @@ struct MonthCalendarModelBuilderTests {
 
         let firstWeek = model.weeks[0]
         let leadingPeripheralCount = firstWeek.slots.reduce(into: 0) { partialResult, slot in
-            if case .day(let context) = slot, context.isPeripheral {
+            if case .day(_, let isPeripheral, _) = slot, isPeripheral {
                 partialResult += 1
             }
         }
@@ -96,7 +95,7 @@ struct MonthCalendarModelBuilderTests {
 
         let firstWeek = model.weeks[0]
         let leadingPlaceholderCount = firstWeek.slots.reduce(into: 0) { partialResult, slot in
-            if case .placeholder(let context) = slot, context.isLeading {
+            if case .placeholder(_, let isLeading) = slot, isLeading {
                 partialResult += 1
             }
         }
@@ -104,7 +103,7 @@ struct MonthCalendarModelBuilderTests {
         #expect(leadingPlaceholderCount == 3)
     }
 
-    /// The shell should mark the current day directly in each visible day context.
+    /// The shell should mark the current day directly in each visible day slot.
     /// Expected: the matching April 15 cell is flagged as today.
     @Test func testTodayFlagIsDerivedInDayContext() {
         let today = Self.makeDate(year: 2026, month: 4, day: 15, calendar: Self.sundayFirstCalendar)
@@ -116,11 +115,10 @@ struct MonthCalendarModelBuilderTests {
 
         let matchingDay = model.weeks
             .flatMap(\.slots)
-            .compactMap { slot -> MonthCalendarDayContext? in
-                guard case .day(let context) = slot else { return nil }
-                return Self.sundayFirstCalendar.isDate(context.date, inSameDayAs: today) ? context : nil
+            .first { slot in
+                guard case .day(let date, _, _) = slot else { return false }
+                return Self.sundayFirstCalendar.isDate(date, inSameDayAs: today)
             }
-            .first
 
         #expect(matchingDay?.isToday == true)
     }

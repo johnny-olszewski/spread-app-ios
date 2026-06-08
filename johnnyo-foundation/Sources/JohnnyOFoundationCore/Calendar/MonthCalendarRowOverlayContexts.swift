@@ -49,7 +49,7 @@ public struct MonthCalendarPackedRowOverlayRenderContext<
     OverlayPayload: Sendable
 >: Identifiable, Sendable {
     public let overlay: MonthCalendarLogicalRowOverlay<OverlayID, OverlayPayload>
-    public let week: MonthCalendarWeekContext
+    public let week: MonthCalendarWeek
     public let visibleStartDate: Date
     public let visibleEndDate: Date
     public let startColumn: Int
@@ -67,7 +67,7 @@ public struct MonthCalendarPackedRowOverlayRenderContext<
 
     public init(
         overlay: MonthCalendarLogicalRowOverlay<OverlayID, OverlayPayload>,
-        week: MonthCalendarWeekContext,
+        week: MonthCalendarWeek,
         visibleStartDate: Date,
         visibleEndDate: Date,
         startColumn: Int,
@@ -100,7 +100,7 @@ public struct MonthCalendarOverflowedRowOverlaySegment<
     OverlayPayload: Sendable
 >: Identifiable, Sendable {
     public let overlay: MonthCalendarLogicalRowOverlay<OverlayID, OverlayPayload>
-    public let week: MonthCalendarWeekContext
+    public let week: MonthCalendarWeek
     public let visibleStartDate: Date
     public let visibleEndDate: Date
     public let startColumn: Int
@@ -116,7 +116,7 @@ public struct MonthCalendarOverflowedRowOverlaySegment<
 
     public init(
         overlay: MonthCalendarLogicalRowOverlay<OverlayID, OverlayPayload>,
-        week: MonthCalendarWeekContext,
+        week: MonthCalendarWeek,
         visibleStartDate: Date,
         visibleEndDate: Date,
         startColumn: Int,
@@ -144,7 +144,7 @@ public struct MonthCalendarRowOverlayOverflowRenderContext<
     OverlayID: Hashable & Sendable,
     OverlayPayload: Sendable
 >: Identifiable, Sendable {
-    public let week: MonthCalendarWeekContext
+    public let week: MonthCalendarWeek
     public let visibleSegmentLaneCount: Int
     public let displayLaneCount: Int
     public let hiddenPackedLaneCount: Int
@@ -160,7 +160,7 @@ public struct MonthCalendarRowOverlayOverflowRenderContext<
     }
 
     public init(
-        week: MonthCalendarWeekContext,
+        week: MonthCalendarWeek,
         visibleSegmentLaneCount: Int,
         displayLaneCount: Int,
         hiddenPackedLaneCount: Int,
@@ -181,7 +181,7 @@ public struct MonthCalendarPackedRowOverlayWeekLayout<
     OverlayID: Hashable & Sendable,
     OverlayPayload: Sendable
 >: Identifiable, Sendable {
-    public let week: MonthCalendarWeekContext
+    public let week: MonthCalendarWeek
     public let visibleSegments: [MonthCalendarPackedRowOverlayRenderContext<OverlayID, OverlayPayload>]
     public let overflow: MonthCalendarRowOverlayOverflowRenderContext<OverlayID, OverlayPayload>?
     public let totalPackedLaneCount: Int
@@ -193,7 +193,7 @@ public struct MonthCalendarPackedRowOverlayWeekLayout<
     }
 
     public init(
-        week: MonthCalendarWeekContext,
+        week: MonthCalendarWeek,
         visibleSegments: [MonthCalendarPackedRowOverlayRenderContext<OverlayID, OverlayPayload>],
         overflow: MonthCalendarRowOverlayOverflowRenderContext<OverlayID, OverlayPayload>?,
         totalPackedLaneCount: Int,

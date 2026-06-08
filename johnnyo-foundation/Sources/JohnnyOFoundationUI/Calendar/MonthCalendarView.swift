@@ -68,19 +68,19 @@ public struct MonthCalendarView<
 
     public var body: some View {
         VStack(spacing: 0) {
-            contentGenerator.headerView(context: model.header)
+            contentGenerator.headerView(month: model.displayedMonth)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    actionDelegate?.monthCalendarDidTapHeader(model.header)
+                    actionDelegate?.monthCalendarDidTapHeader(month: model.displayedMonth)
                 }
 
             HStack(spacing: 0) {
-                ForEach(model.weekdays) { weekday in
-                    contentGenerator.weekdayHeaderView(context: weekday)
+                ForEach(model.weekdays, id: \.self) { weekday in
+                    contentGenerator.weekdayHeaderView(weekday: weekday)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            actionDelegate?.monthCalendarDidTapWeekdayHeader(weekday)
+                            actionDelegate?.monthCalendarDidTapWeekdayHeader(weekday: weekday)
                         }
                 }
             }
@@ -91,13 +91,13 @@ public struct MonthCalendarView<
                     let overlayLayout = rowOverlayLayouts[index]
 
                     ZStack(alignment: .topLeading) {
-                        contentGenerator.weekBackgroundView(context: week)
+                        contentGenerator.weekBackgroundView(week: week)
                             .contentShape(Rectangle())
                             .overlay(alignment: .topLeading) {
                                 rowOverlayLayer(for: overlayLayout)
                             }
                             .onTapGesture {
-                                actionDelegate?.monthCalendarDidTapWeek(week)
+                                actionDelegate?.monthCalendarDidTapWeek(week: week)
                             }
 
                         HStack(spacing: 0) {
@@ -156,33 +156,33 @@ public struct MonthCalendarView<
     }
 
     @ViewBuilder
-    private func slotView(for slot: MonthCalendarSlotContext) -> some View {
+    private func slotView(for slot: MonthCalendarSlot) -> some View {
         switch slot {
-        case .day(let context):
-            contentGenerator.dayCellView(context: context)
+        case .day(let date, _, _):
+            contentGenerator.dayCellView(date: date)
                 .contentShape(Rectangle())
-                .accessibilityIdentifier(accessibilityIdentifier(for: context))
+                .accessibilityIdentifier(accessibilityIdentifier(for: date))
                 .onTapGesture {
-                    actionDelegate?.monthCalendarDidTapDay(context)
+                    actionDelegate?.monthCalendarDidTapDay(date: date)
                 }
-        case .placeholder(let context):
-            contentGenerator.placeholderCellView(context: context)
+        case .placeholder(let date, _):
+            contentGenerator.placeholderCellView(date: date)
                 .contentShape(Rectangle())
-                .accessibilityIdentifier(accessibilityIdentifier(for: context))
+                .accessibilityIdentifier(placeholderAccessibilityIdentifier(for: date))
                 .onTapGesture {
-                    actionDelegate?.monthCalendarDidTapPlaceholder(context)
+                    actionDelegate?.monthCalendarDidTapPlaceholder(date: date)
                 }
         }
     }
 
-    private func accessibilityIdentifier(for context: MonthCalendarDayContext) -> String {
-        let components = context.date.formatted(.iso8601.year().month().day())
+    private func accessibilityIdentifier(for date: Date) -> String {
+        let components = date.formatted(.iso8601.year().month().day())
             .replacingOccurrences(of: "-", with: "")
         return "johnnyo.foundation.monthCalendar.day.\(components)"
     }
 
-    private func accessibilityIdentifier(for context: MonthCalendarPlaceholderContext) -> String {
-        let components = context.representedDate.formatted(.iso8601.year().month().day())
+    private func placeholderAccessibilityIdentifier(for date: Date) -> String {
+        let components = date.formatted(.iso8601.year().month().day())
             .replacingOccurrences(of: "-", with: "")
         return "johnnyo.foundation.monthCalendar.placeholder.\(components)"
     }

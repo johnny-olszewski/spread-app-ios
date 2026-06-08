@@ -68,8 +68,11 @@ final class SpreadsCoordinator {
 
     // MARK: - Shell State
 
+    /// The calendar year displayed in the spreads navigator.
+    var selectedYear: Int = Calendar.current.component(.year, from: Date())
+
     /// The current navigator selection, nil until resolved on appear.
-    var selectedSelection: DataModel.Spread?
+    var selectedSpread: DataModel.Spread?
 
     /// Incremented to force the pager and strip to recenter on the current selection.
     var recenterToken: Int = 0
@@ -105,7 +108,7 @@ final class SpreadsCoordinator {
 
     /// Updates selection after a multiday date edit and asks navigator/pager surfaces to recenter.
     func finishSpreadDateEdit(_ spread: DataModel.Spread) {
-        selectedSelection = spread
+        selectedSpread = spread
         recenterToken += 1
     }
 
@@ -119,7 +122,7 @@ final class SpreadsCoordinator {
         calendar: Calendar
     ) {
         guard let source = currentSelection else {
-            selectedSelection = result.spread
+            selectedSpread = result.spread
             recenterToken += 1
             return
         }
@@ -145,20 +148,10 @@ final class SpreadsCoordinator {
         activeAlert = .alert(AlertModel.deleteSpreadFailed(message: message, onDismiss: dismissAlert))
     }
 
-    /// Presents the task creation sheet.
-    func showTaskCreation() {
-        activeSheet = .taskCreation
-    }
-
-    /// Presents the note creation sheet.
-    func showNoteCreation() {
-        activeSheet = .noteCreation
-    }
-
     /// Navigates to `destination` and records `source` as the navigation origin,
     /// enabling the "Go Back" button in `SpreadHeaderView`.
     func navigateViaPeek(to destination: DataModel.Spread, from source: DataModel.Spread) {
-        selectedSelection = destination
+        selectedSpread = destination
         recenterToken += 1
         // Cancel any active fade — go-back state does not fade
         convenienceNavigationFadeTask?.cancel()
@@ -173,9 +166,19 @@ final class SpreadsCoordinator {
         convenienceNavigation = nil
     }
 
+    /// Presents the task creation sheet.
+    func showTaskCreation() {
+        activeSheet = .taskCreation
+    }
+
+    /// Presents the note creation sheet.
+    func showNoteCreation() {
+        activeSheet = .noteCreation
+    }
+
     /// Navigates to a spread and clears any active convenience navigation.
     func selectSpread(_ spread: DataModel.Spread) {
-        selectedSelection = spread
+        selectedSpread = spread
         clearConvenienceNavigation()
     }
 
@@ -185,10 +188,10 @@ final class SpreadsCoordinator {
     /// changing `selectedSelection`. If it differs, updates `selectedSelection` and recenters.
     func navigate(to selection: DataModel.Spread) {
         clearConvenienceNavigation()
-        if isSameSelection(selection, selectedSelection) {
+        if isSameSelection(selection, selectedSpread) {
             recenterToken += 1
         } else {
-            selectedSelection = selection
+            selectedSpread = selection
             recenterToken += 1
         }
     }
@@ -202,12 +205,12 @@ final class SpreadsCoordinator {
         case .offer(_, let destination, let source):
             convenienceNavigationFadeTask?.cancel()
             convenienceNavigationFadeTask = nil
-            selectedSelection = destination
+            selectedSpread = destination
             recenterToken += 1
             convenienceNavigation = .goBack(source: source)
         case .goBack(let source):
             convenienceNavigation = nil
-            selectedSelection = source
+            selectedSpread = source
             recenterToken += 1
         case nil:
             break

@@ -7,35 +7,36 @@ public enum JohnnyOFoundationUINamespace {
 }
 
 private struct ExampleMonthCalendarGenerator: CalendarContentGenerator {
-    func headerView(context: MonthCalendarHeaderContext) -> some View {
-        Text(context.displayedMonth.formatted(.dateTime.month(.wide).year()))
+    func headerView(month: Date) -> some View {
+        Text(month.formatted(.dateTime.month(.wide).year()))
             .font(.headline)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 8)
     }
 
-    func weekdayHeaderView(context: MonthCalendarWeekdayContext) -> some View {
-        Text(context.symbol)
+    func weekdayHeaderView(weekday: Int) -> some View {
+        Text(Calendar.current.veryShortWeekdaySymbols[weekday - 1])
             .font(.caption.weight(.semibold))
             .foregroundStyle(.secondary)
             .padding(.vertical, 6)
     }
 
-    func dayCellView(context: MonthCalendarDayContext) -> some View {
-        Text("\(Calendar.current.component(.day, from: context.date))")
-            .font(.body.weight(context.isToday ? .bold : .regular))
-            .foregroundStyle(context.isPeripheral ? .secondary : .primary)
+    func dayCellView(date: Date) -> some View {
+        let isToday = Calendar.current.isDate(date, inSameDayAs: Date())
+        return Text("\(Calendar.current.component(.day, from: date))")
+            .font(.body.weight(isToday ? .bold : .regular))
+            .foregroundStyle(.primary)
             .frame(maxWidth: .infinity, minHeight: 40, alignment: .topLeading)
             .padding(8)
-            .background(context.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
+            .background(isToday ? Color.accentColor.opacity(0.12) : Color.clear)
     }
 
-    func placeholderCellView(context: MonthCalendarPlaceholderContext) -> some View {
+    func placeholderCellView(date: Date) -> some View {
         Color.clear
             .frame(maxWidth: .infinity, minHeight: 40)
     }
 
-    func weekBackgroundView(context: MonthCalendarWeekContext) -> some View {
+    func weekBackgroundView(week: MonthCalendarWeek) -> some View {
         Color.clear.frame(maxWidth: .infinity, minHeight: 0)
     }
 }

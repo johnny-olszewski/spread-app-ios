@@ -183,7 +183,6 @@ struct Definitions {
         }
 
         struct SpreadToolbar {
-            static let todayButton = "spreads.toolbar.today"
             static let favoritesMenu = "spreads.toolbar.favorites"
             static let favoriteToggle = "spreads.toolbar.favoriteToggle"
             static let spreadActionsMenu = "spreads.toolbar.spreadActions"

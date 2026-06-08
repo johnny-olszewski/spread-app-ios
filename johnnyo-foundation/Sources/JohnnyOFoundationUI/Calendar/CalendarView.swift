@@ -17,6 +17,8 @@ public struct CalendarView<
 >: View {
 
     private let months: [Date]
+    private let startDate: Date
+    private let endDate: Date
     private let calendar: Calendar
     private let today: Date
     private let configuration: MonthCalendarConfiguration
@@ -87,6 +89,8 @@ public struct CalendarView<
         onDateTapped: @escaping (Date) -> Void
     ) {
         self.months = monthDateRange(from: startDate, to: endDate, calendar: calendar)
+        self.startDate = startDate
+        self.endDate = endDate
         self.calendar = calendar
         self.today = today
         self.configuration = configuration
@@ -118,8 +122,12 @@ public struct CalendarView<
                     }
                 }
             }
+            .scrollIndicators(.hidden)
             .onAppear {
                 guard let target = scrollTarget else { return }
+                
+                guard (startDate...endDate).contains(today) else { return }
+                
                 // Defer one run-loop iteration so LazyVStack has established geometry
                 // for items beyond the initial visible window before scrollTo fires.
                 DispatchQueue.main.async {
@@ -179,7 +187,7 @@ private final class DateTapDelegate: MonthCalendarActionDelegate {
         self.handler = handler
     }
 
-    func monthCalendarDidTapDay(_ context: MonthCalendarDayContext) {
-        handler(context.date)
+    func monthCalendarDidTapDay(date: Date) {
+        handler(date)
     }
 }

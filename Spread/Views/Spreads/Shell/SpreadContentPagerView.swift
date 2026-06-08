@@ -2,25 +2,24 @@ import SwiftUI
 
 /// Horizontally pages through spread content, assembling each page as a header and period-appropriate content view.
 ///
-/// `items` and `currentSelection` are passed in from `RootNavigationView` so the pager shell does not
+/// `items` and `currentSelection` are passed in from `SpreadsTabView` so the pager shell does not
 /// read from `JournalManager` directly. Scroll-driven re-renders (from `scrollPhase` and
 /// `pagerSettledTargetID` state changes) therefore only perform cheap lookups against already-
-/// computed values — the expensive `titleNavigatorModel` rebuild stays in the parent.
+/// computed values — the year-spreads filtering stays in the parent.
 ///
 /// `pagerSettledTargetID` is owned at the root level (`RootNavigationView`) and passed in as a
 /// binding so its value survives size class transitions without resetting.
 struct SpreadContentPagerView: View {
-    private let liveRadius = 2
-    private let backgroundShape = UnevenRoundedRectangle(topLeadingRadius: SpreadTheme.CornerRadius.xxlarge,topTrailingRadius: SpreadTheme.CornerRadius.xxlarge)
+    private let backgroundShape = UnevenRoundedRectangle(topLeadingRadius: SpreadTheme.CornerRadius.xxlarge, topTrailingRadius: SpreadTheme.CornerRadius.xxlarge)
 
     let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
     /// Pre-computed by the parent so this view does not observe JournalManager during scrolling.
-    let items: [SpreadPickerModel.Item]
-    /// Pre-computed by the parent so this view does not observe JournalManager during scrolling.
+    let items: [DataModel.Spread]
+    /// Pre-computed by the parent so this view does not observe Jo
+    /// urnalManager during scrolling.
     let currentSelection: DataModel.Spread
-    /// Root-owned scroll position binding — lifted so it survives size class transitions.
-    @Binding var pagerSettledTargetID: String?
+    @State private var pagerSettledTargetID: String?
 
     /// Not accessed in `body` — stored here only for the `deleteSpread` action which fires
     /// outside of scroll-driven re-renders and therefore does not create a scroll-time observation.
@@ -32,7 +31,7 @@ struct SpreadContentPagerView: View {
     // MARK: - Pager State
 
     private var sequenceSignature: [String] {
-        items.map(\.id)
+        items.map { $0.stableID(calendar: .current) }
     }
 
     /// Stable ID derived directly from the spread's UUID — no calendar or JournalManager needed.
@@ -49,42 +48,28 @@ struct SpreadContentPagerView: View {
         return pagerID.replacingOccurrences(of: "pager.", with: "")
     }
 
-    private var liveAnchorID: String {
-        guard let visibleSemanticID = semanticID(from: pagerSettledTargetID),
-              items.contains(where: { $0.id == visibleSemanticID }) else {
-            return selectedSemanticID
-        }
-        if visibleSemanticID != selectedSemanticID && scrollPhase == .idle {
-            return selectedSemanticID
-        }
-        return visibleSemanticID
-    }
-
-    private var liveWindowIDs: Set<String> {
-        liveWindow(items: items, anchorID: liveAnchorID, radius: liveRadius)
-    }
-
     var body: some View {
+        VStack(spacing: 0) {
+            spreadDetailTitle
+            
+            if isSyncError { SyncErrorBanner() }
+            
+            pager
+        }
+    }
+
+    private var pager: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 0) {
-                ForEach(items) { item in
+                ForEach(items) { spread in
                     SpreadPageContentView(
-                        item: item,
+                        spread: spread,
                         coordinator: coordinator,
                         syncEngine: syncEngine
                     )
                     .containerRelativeFrame(.horizontal)
-                    .id(pagerID(for: item.id))
+                    .id(pagerID(for: spread.stableID(calendar: .current)))
                     .background {
-//                        DotGridView(configuration: .paper)
-//                            .clipShape(
-//                                UnevenRoundedRectangle(
-//                                    topLeadingRadius: 48,
-//                                    bottomLeadingRadius: 48,
-//                                    bottomTrailingRadius: 48,
-//                                    topTrailingRadius: 48
-//                                )
-//                            )
                         self.backgroundShape
                         .fill(.background.opacity(0.6))
                     }
@@ -93,7 +78,6 @@ struct SpreadContentPagerView: View {
             }
             .scrollTargetLayout()
         }
-        .scrollClipDisabled()
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $pagerSettledTargetID)
         .onAppear {
@@ -116,8 +100,8 @@ struct SpreadContentPagerView: View {
             guard scrollPhase == .idle,
                   let semanticID = semanticID(from: newValue),
                   semanticID != selectedSemanticID else { return }
-            guard let item = items.first(where: { $0.id == semanticID }) else { return }
-            coordinator.selectedSelection = item.selection
+            guard let spread = items.first(where: { $0.stableID(calendar: .current) == semanticID }) else { return }
+            coordinator.selectedSpread = spread
             coordinator.clearConvenienceNavigation()
         }
         .onScrollPhaseChange { _, newPhase in
@@ -127,11 +111,44 @@ struct SpreadContentPagerView: View {
                   currentVisibleID != selectedSemanticID else {
                 return
             }
-            guard let item = items.first(where: { $0.id == currentVisibleID }) else { return }
-            coordinator.selectedSelection = item.selection
+            guard let spread = items.first(where: { $0.stableID(calendar: .current) == currentVisibleID }) else { return }
+            coordinator.selectedSpread = spread
             coordinator.clearConvenienceNavigation()
         }
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.pager)
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    // MARK: - Detail Title
+
+    private var spreadDetailTitle: some View {
+        let config = SpreadHeaderConfiguration(
+            spread: currentSelection,
+            calendar: journalManager.calendar,
+            today: journalManager.today,
+            firstWeekday: journalManager.firstWeekday,
+            allowsPersonalization: true
+        )
+        return VStack(spacing: 2) {
+            Text(config.title)
+                .font(SpreadTheme.Typography.heading(size: 17, weight: .semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+            if let subtitle = config.subtitle {
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+
+    private var isSyncError: Bool {
+        guard let status = syncEngine?.status else { return false }
+        if case .error = status { return true }
+        return false
     }
 
     private func center(on id: String, animated: Bool) {
@@ -146,27 +163,13 @@ struct SpreadContentPagerView: View {
         }
     }
 
-    /// Returns the set of item IDs within `radius` positions of `anchorID`.
-    /// Pure array logic — no model state accessed.
-    private func liveWindow(
-        items: [SpreadPickerModel.Item],
-        anchorID: String,
-        radius: Int
-    ) -> Set<String> {
-        guard let anchorIndex = items.firstIndex(where: { $0.id == anchorID }) else {
-            return Set(items.prefix(radius * 2 + 1).map(\.id))
-        }
-        let lower = max(0, anchorIndex - radius)
-        let upper = min(items.count - 1, anchorIndex + radius)
-        return Set(items[lower...upper].map(\.id))
-    }
 }
 
 // MARK: - Page Assembly
 
 /// Assembles a single spread page: `SpreadHeaderView` followed by the period-appropriate content view.
 private struct SpreadPageContentView: View {
-    let item: SpreadPickerModel.Item
+    let spread: DataModel.Spread
     @Environment(JournalManager.self) private var journalManager
     let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
@@ -185,8 +188,7 @@ private struct SpreadPageContentView: View {
     }
 
     var body: some View {
-        let spread = item.selection
-        let isCurrentPage = item.id == coordinator.selectedSelection?.stableID(calendar: .current)
+        let isCurrentPage = spread.stableID(calendar: .current) == coordinator.selectedSpread?.stableID(calendar: .current)
         let navState = isCurrentPage ? coordinator.convenienceNavigation : nil
         VStack(spacing: 0) {
             SpreadHeaderView(

@@ -20,8 +20,8 @@ struct SpreadMonthCalendarView: View {
         let calendarActionsByDate: [Date: MonthSpreadCalendarDayAction]
         let onRevealSection: (Date) -> Void
 
-        func monthCalendarDidTapDay(_ context: MonthCalendarDayContext) {
-            let normalizedDate = Period.day.normalizeDate(context.date, calendar: calendar)
+        func monthCalendarDidTapDay(date: Date) {
+            let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
             guard case .revealSection(let sectionDate)? = calendarActionsByDate[normalizedDate] else {
                 return
             }
@@ -46,7 +46,9 @@ struct SpreadMonthCalendarView: View {
             today: journalManager.today,
             configuration: .init(showsPeripheralDates: true),
             contentGenerator: FullMonthCalendarContentGenerator(
+                displayedMonth: monthDate,
                 calendar: calendar,
+                today: journalManager.today,
                 dayStateByDate: dayStateByDate,
                 calendarActionsByDate: calendarActionsByDate,
                 isConventional: true,

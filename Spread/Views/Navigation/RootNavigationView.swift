@@ -3,7 +3,8 @@ import SwiftUI
 /// Root navigation container for the app.
 ///
 /// Uses a plain `TabView` (`.tabViewStyle(.automatic)`) with one tab per top-level
-/// `Content` destination, each wrapped in its own `NavigationStack`. Destination-specific
+/// `Content` destination. Each tab content view owns its own `NavigationStack` internally.
+/// Destination-specific
 /// navigation state is scoped to its own tab — most notably `SpreadsTabView`, which owns
 /// all Spreads-specific state (selection, pager position, year, sheet/alert presentation)
 /// so it survives size class transitions without being lifted to the root.
@@ -47,9 +48,7 @@ struct RootNavigationView: View {
         TabView(selection: $selectedTab) {
             ForEach(Content.allCases) { content in
                 Tab(content.title, systemImage: content.systemImage, value: content) {
-                    NavigationStack {
-                        tabContent(for: content)
-                    }
+                    tabContent(for: content)
                 }
             }
         }

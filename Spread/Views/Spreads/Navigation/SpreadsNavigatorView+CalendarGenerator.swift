@@ -15,7 +15,7 @@ struct DateCellAnchorKey: PreferenceKey {
 
 // MARK: - Calendar Generator
 
-extension SpreadsContentColumnView {
+extension SpreadsNavigatorView {
 
     /// A `CalendarContentGenerator` that renders month headers and day cells.
     ///
@@ -24,19 +24,45 @@ extension SpreadsContentColumnView {
     /// directly from this view.
     struct CalendarGenerator: CalendarContentGenerator {
 
-        let spreads: [DataModel.Spread]
+        typealias Model = [Date: [DataModel.Spread]]
+
+        let model: Model
         let calendar: Calendar
+        let today: Date
+        
+        init(model: Model, calendar: Calendar, today: Date) {
+            self.model = model
+            self.calendar = calendar
+            self.today = today
+        }
 
         // MARK: Header
 
-        func headerView(context: MonthCalendarHeaderContext) -> some View {
-            MonthHeaderView(context: context)
+        func headerView(month: Date) -> some View {
+            
+            let monthYearString: String = {
+                let formatter = DateFormatter()
+                formatter.calendar = calendar
+                formatter.timeZone = calendar.timeZone
+                formatter.dateFormat = "MMMM yyyy"
+                return formatter.string(from: month)
+            }()
+            
+            HStack {
+                Text(monthYearString)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 20)
+            .padding(.bottom, 4)
         }
 
         // MARK: Weekday Header
 
-        func weekdayHeaderView(context: MonthCalendarWeekdayContext) -> some View {
-            Text(context.symbol.prefix(1))
+        func weekdayHeaderView(weekday: Int) -> some View {
+            Text(calendar.veryShortWeekdaySymbols[weekday - 1].prefix(1))
                 .font(.caption2)
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)
@@ -45,65 +71,85 @@ extension SpreadsContentColumnView {
 
         // MARK: Day Cell
 
-        func dayCellView(context: MonthCalendarDayContext) -> some View {
-            let isPeripheral = !context.isInDisplayedMonth
-            let hasDaySpread = spreads.contains {
+        func dayCellView(date: Date) -> some View {
+
+            let isToday = calendar.isDate(date, inSameDayAs: today)
+            
+            let spreads: [DataModel.Spread] = model[date.startOfDay(calendar: calendar)]?.filter {
                 $0.period == .day &&
-                $0.contains(date: context.date, calendar: calendar)
-            }
-            let dayNumber = calendar.component(.day, from: context.date)
-            let visualState = MultidayDayCardSupport.visualState(isToday: context.isToday, isCreated: hasDaySpread)
+                $0.contains(date: date, calendar: calendar)
+            } ?? []
+            
+            let dayNumber = calendar.component(.day, from: date)
 
-            let fillColor: Color = isPeripheral ? .clear
-                : (visualState.isToday || visualState.isCreated) ? visualState.fill : .clear
-
-            let strokeColor: Color = isPeripheral ? .clear
-                : (!visualState.isToday && !hasDaySpread) ? .clear
-                : visualState.borderColor
-
-            let textColor: Color = isPeripheral ? Color.primary.opacity(0.2)
-                : visualState.isToday ? SpreadTheme.Accent.todayCellBorder
-                : hasDaySpread ? SpreadTheme.Accent.createdDayBorder
-                : .secondary
+            let visualState = MultidayDayCardSupport.visualState(isToday: isToday, isCreated: !spreads.isEmpty)
+            let fillColor: Color = visualState.spreadNavigatorFillColor
+            let strokeColor: Color = visualState.spreadNavigatorFillColor
+            let textColor: Color = visualState.textColor
 
             return Text("\(dayNumber)")
                 .font(.subheadline)
                 .fontWeight(visualState.headerWeight)
                 .foregroundStyle(textColor)
                 .lineLimit(1)
-                .padding(4)
+                .padding(8)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.badge, style: .continuous)
                         .fill(fillColor)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.badge, style: .continuous)
                         .strokeBorder(strokeColor, style: visualState.borderStyle)
                 )
                 .aspectRatio(1, contentMode: .fit)
                 .padding(2)
-                .anchorPreference(key: DateCellAnchorKey.self, value: .bounds) { [context.date: $0] }
         }
 
         // MARK: Placeholder Cell
 
-        func placeholderCellView(context: MonthCalendarPlaceholderContext) -> some View {
+        func placeholderCellView(date: Date) -> some View {
             Color.clear
         }
 
         // MARK: Week Background
 
         /// Must return a sized view (not EmptyView) so the row overlay layer has geometry to render against.
-        func weekBackgroundView(context: MonthCalendarWeekContext) -> some View {
+        func weekBackgroundView(week: MonthCalendarWeek) -> some View {
             Color.clear
+        }
+    }
+}
+
+fileprivate extension SpreadCardStyle {
+    var spreadNavigatorFillColor: Color {
+        switch self {
+        case .created, .todayCreated, .todayUncreated:
+            return self.fill
+        case .uncreated:
+            return .clear
+        }
+    }
+    
+    var spreadNavigatorStrokeColor: Color {
+        switch self {
+        case .created, .todayCreated, .todayUncreated:
+            return self.borderColor
+        case .uncreated:
+            return .clear
+        }
+    }
+    
+    var textColor: Color {
+        switch self {
+        case .created, .todayCreated, .todayUncreated:
+            return .primary
+        case .uncreated:
+            return .secondary
         }
     }
 }
 
 // MARK: - Row Overlay Generator
 
-extension SpreadsContentColumnView {
+extension SpreadsNavigatorView {
 
     /// Renders a thin bar across week rows for multiday spreads, making multi-day
     /// spans visually continuous across cells and row breaks.
@@ -148,31 +194,3 @@ extension SpreadsContentColumnView {
         }
     }
 }
-
-// MARK: - Month Header View
-
-private struct MonthHeaderView: View {
-
-    let context: MonthCalendarHeaderContext
-
-    private var monthYearString: String {
-        let formatter = DateFormatter()
-        formatter.calendar = context.calendar
-        formatter.timeZone = context.calendar.timeZone
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: context.displayedMonth)
-    }
-
-    var body: some View {
-        HStack {
-            Text(monthYearString)
-                .font(.headline)
-                .foregroundStyle(.primary)
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 20)
-        .padding(.bottom, 4)
-    }
-}
-

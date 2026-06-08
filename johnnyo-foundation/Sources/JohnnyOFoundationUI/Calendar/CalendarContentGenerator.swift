@@ -9,17 +9,17 @@ public protocol CalendarContentGenerator {
     associatedtype WeekBackgroundContent: View
 
     @ViewBuilder
-    func headerView(context: MonthCalendarHeaderContext) -> HeaderContent
+    func headerView(month: Date) -> HeaderContent
 
     @ViewBuilder
-    func weekdayHeaderView(context: MonthCalendarWeekdayContext) -> WeekdayHeaderContent
+    func weekdayHeaderView(weekday: Int) -> WeekdayHeaderContent
 
     @ViewBuilder
-    func dayCellView(context: MonthCalendarDayContext) -> DayCellContent
+    func dayCellView(date: Date) -> DayCellContent
 
     @ViewBuilder
-    func placeholderCellView(context: MonthCalendarPlaceholderContext) -> PlaceholderCellContent
+    func placeholderCellView(date: Date) -> PlaceholderCellContent
 
     @ViewBuilder
-    func weekBackgroundView(context: MonthCalendarWeekContext) -> WeekBackgroundContent
+    func weekBackgroundView(week: MonthCalendarWeek) -> WeekBackgroundContent
 }

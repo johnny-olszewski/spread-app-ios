@@ -1,4 +1,5 @@
 import SwiftUI
+import JohnnyOFoundationUI
 
 /// Self-contained Spreads tab content.
 ///
@@ -25,18 +26,40 @@ struct SpreadsTabView: View {
     // MARK: - Spreads-owned Navigation State
 
     @State private var spreadsCoordinator = SpreadsCoordinator()
-    @State private var selectedSpread: DataModel.Spread?
-    /// Lifted so it survives size class transitions, mirroring the prior root-owned approach.
-    @State private var pagerSettledTargetID: String?
-    /// Year displayed in the content column's calendar — owned here so it persists
-    /// across pane show/hide and size class transitions; the picker UI lives in
-    /// `SpreadsContentColumnView` itself.
-    @State private var selectedYear: Int
-    /// Whether the calendar content pane is shown — inline on regular width,
-    /// as a full-screen cover on compact width.
-    @State private var isContentColumnVisible = false
+    @State private var shouldShowSpreadsNavigatorSheet = false
+    @State private var shouldShowSpreadsNavigatorColumn = false
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    
+    /// Whether the calendar content pane is shown — inline on regular width,
+    /// as a full-screen cover on compact width.
+    private var isContentColumnVisible: Bool {
+        shouldShowSpreadsNavigatorColumn || shouldShowSpreadsNavigatorSheet
+    }
+    /// The currently active spread selection, defaulting to the journal's default when unset.
+    private var currentSelection: DataModel.Spread {
+        spreadsCoordinator.selectedSpread ?? journalManager.defaultNavigationSelection
+    }
+
+    /// Spreads in the same year as the current selection — used by the spread pager.
+    private var yearSpreads: [DataModel.Spread] {
+        let year = spreadsCalendar.component(.year, from: currentSelection.startDate ?? currentSelection.date)
+        return journalManager.spreads
+            .filter { spreadsCalendar.component(.year, from: $0.startDate ?? $0.date) == year }
+            .sorted { ($0.startDate ?? $0.date) < ($1.startDate ?? $1.date) }
+    }
+
+    private var spreadsCalendar: Calendar {
+        journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
+    }
+
+    /// `CalendarGenerator.Model` keyed by calendar year, built from `journalManager.spreads`.
+    ///
+    /// Computed here — in the parent's observation-tracking scope — so `SpreadsNavigatorView`
+    /// receives an already-built model on every show, paying no per-render iteration cost.
+    /// Only `.day` and `.multiday` spreads contribute; `.year` and `.month` are excluded,
+    /// matching the navigator's display semantics.
+    private var navigatorCalendarModels: [Int: SpreadsNavigatorView.CalendarGenerator.Model]
 
     // MARK: - Init
 
@@ -50,193 +73,172 @@ struct SpreadsTabView: View {
         self.authManager = authManager
         self.syncEngine = syncEngine
         self.spreadsNavigationState = spreadsNavigationState
+        
+        // `spreadsCalendar` is a computed property on `self`, which isn't fully initialized
+        // yet at this point in init. Inline the calendar construction from the already-assigned
+        // `journalManager` instead.
         let calendar = journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
-        _selectedYear = State(initialValue: calendar.component(.year, from: journalManager.today))
+        navigatorCalendarModels = {
+            var result = [Int: SpreadsNavigatorView.CalendarGenerator.Model]()
+            for spread in journalManager.spreads {
+                switch spread.period {
+                case .day:
+                    let year = calendar.component(.year, from: spread.date)
+                    let dayStart = spread.date.startOfDay(calendar: calendar)
+                    result[year, default: SpreadsNavigatorView.CalendarGenerator.Model()][dayStart, default: []].append(spread)
+                case .multiday:
+                    guard let startDate = spread.startDate, let endDate = spread.endDate else { continue }
+                    var date = startDate
+                    while date <= endDate {
+                        let year = calendar.component(.year, from: date)
+                        let dayStart = date.startOfDay(calendar: calendar)
+                        result[year, default: SpreadsNavigatorView.CalendarGenerator.Model()][dayStart, default: []].append(spread)
+                        guard let next = calendar.date(byAdding: .day, value: 1, to: date) else { break }
+                        date = next
+                    }
+                case .year, .month:
+                    continue
+                }
+            }
+            return result
+        }()
     }
 
     // MARK: - Body
 
     var body: some View {
-        HStack(spacing: 0) {
-            if horizontalSizeClass == .regular && isContentColumnVisible {
-                contentColumn
-                    .frame(minWidth: 320, idealWidth: 360, maxWidth: 420)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-            }
-            detailContent
-        }
-        .animation(.easeInOut(duration: 0.25), value: isContentColumnVisible)
-        .fullScreenCover(isPresented: compactCoverBinding) {
-            NavigationStack {
-                contentColumn
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("Done") { isContentColumnVisible = false }
+        NavigationStack {
+            HStack(spacing: 0) {
+                if shouldShowSpreadsNavigatorColumn && horizontalSizeClass == .regular {
+                    spreadsNavigatorView
+                        .background(.ultraThinMaterial.opacity(0.65))
+                        .clipShape(RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.card))
+                        .padding(.horizontal, SpreadTheme.Spacing.medium)
+                        .containerRelativeFrame(.horizontal, count: 10, span: 4, spacing: 0)
+                        .transition(.move(edge: .leading))
+                }
+
+                SpreadContentPagerView(
+                    coordinator: spreadsCoordinator,
+                    syncEngine: syncEngine,
+                    items: yearSpreads,
+                    currentSelection: currentSelection
+                )
+                .environment(spreadsCoordinator)
+                .environment(journalManager)
+                .overlay(alignment: .bottom) {
+                    bottomInsetControls
+                }
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            withAnimation {
+                                switch horizontalSizeClass {
+                                case .regular:
+                                    shouldShowSpreadsNavigatorColumn.toggle()
+                                default:
+                                    shouldShowSpreadsNavigatorSheet.toggle()
+                                }
+                            }
+                        } label: {
+                            Image(systemName: isContentColumnVisible ? "chevron.left" : "calendar")
+                        }
+                        .accessibilityLabel(isContentColumnVisible ? "Hide spread list" : "Show spread list")
+                    }
+
+                    ToolbarItem(placement: .automatic) {
+                        if let syncEngine {
+                            SyncIconButton(
+                                status: syncEngine.status,
+                                outboxCount: syncEngine.outboxCount,
+                                onSyncNow: { Task { @MainActor in await syncEngine.syncNow() } }
+                            )
                         }
                     }
+
+                    ToolbarItem(placement: .automatic) {
+                        AuthButton(isSignedIn: authManager.state.isSignedIn) {
+                            spreadsCoordinator.showAuth()
+                        }
+                    }
+                }
             }
+            .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
         }
-        .sheet(item: Binding(
-            get: { spreadsCoordinator.activeSheet },
-            set: { spreadsCoordinator.activeSheet = $0 }
-        )) { destination in
+        .fullScreenCover(isPresented: $shouldShowSpreadsNavigatorSheet) {
+            spreadsNavigatorView
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { shouldShowSpreadsNavigatorSheet = false }
+                    }
+                }
+        }
+        .onChange(of: horizontalSizeClass) {
+            shouldShowSpreadsNavigatorSheet = false
+            shouldShowSpreadsNavigatorColumn = false
+        }
+        .sheet(item: $spreadsCoordinator.activeSheet) { destination in
             spreadsSheetContent(for: destination)
         }
-        .modifier(AlertModelModifier(
-            model: activeAlertModel,
-            isPresented: Binding(
-                get: { spreadsCoordinator.activeAlert != nil },
-                set: { if !$0 { spreadsCoordinator.activeAlert = nil } }
-            )
-        ))
-        .onAppear {
-            if spreadsCoordinator.selectedSelection == nil {
-                spreadsCoordinator.selectedSelection = journalManager.defaultNavigationSelection
-                selectedSpread = spreadsCoordinator.selectedSelection
-            }
-        }
-        // Content column selection → update coordinator and hide the pane.
-        // Guard prevents redundant updates when the change originated from a pager swipe sync.
-        .onChange(of: selectedSpread) { _, newValue in
-            guard let spread = newValue else { return }
-            guard spread.id != spreadsCoordinator.selectedSelection?.id else { return }
-            spreadsCoordinator.selectedSelection = spread
-            spreadsCoordinator.clearConvenienceNavigation()
-            hideContentColumn()
-        }
-        // Pager settle → sync content column highlight without forcing the pane to hide.
-        .onChange(of: spreadsCoordinator.selectedSelection) { _, newValue in
-            guard newValue?.id != selectedSpread?.id else { return }
-            selectedSpread = newValue
-        }
-        .onChange(of: spreadsNavigationState.pendingRequest?.id) { _, _ in
-            handlePendingNavigationRequest()
-        }
+        // TODO: Re-add alert
+//        .modifier(AlertModelModifier(
+//            model: activeAlertModel,
+//            isPresented: Binding(
+//                get: { spreadsCoordinator.activeAlert != nil },
+//                set: { if !$0 { spreadsCoordinator.activeAlert = nil } }
+//            )
+//        ))
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()
         }
     }
-
-    // MARK: - Content Column (Left Pane)
-
-    private var contentColumn: some View {
-        SpreadsContentColumnView(
-            spreads: journalManager.spreads,
-            selectedYear: $selectedYear,
+    
+    private var spreadsNavigatorView: some View {
+        SpreadsNavigatorView(
+            calendarModels: navigatorCalendarModels,
+            selectedYear: $spreadsCoordinator.selectedYear,
+            selectedSpread: $spreadsCoordinator.selectedSpread,
             today: journalManager.today,
-            calendar: spreadsCalendar,
-            selectedSpread: $selectedSpread
+            calendar: spreadsCalendar
         )
     }
+    
+    /// Re-resolves the selection when the current spread is removed from the journal
+    /// (e.g. deleted via sync), falling back to the best spread for today.
+    private func resetSelectionIfNeeded() {
+        guard let spread = spreadsCoordinator.selectedSpread else { return }
+        guard !journalManager.spreads.contains(where: { $0.id == spread.id }) else { return }
 
-    // MARK: - Detail Content (Right Pane)
-
-    @ViewBuilder
-    private var detailContent: some View {
-        ZStack(alignment: .bottom) {
-            VStack(spacing: 0) {
-                spreadDetailTitle
-                if isSyncError { SyncErrorBanner() }
-                SpreadContentPagerView(
-                    coordinator: spreadsCoordinator,
-                    syncEngine: syncEngine,
-                    items: pickerItems,
-                    currentSelection: currentSelection,
-                    pagerSettledTargetID: $pagerSettledTargetID
-                )
-                .ignoresSafeArea(edges: .bottom)
-            }
-            bottomInsetControls
-        }
-        .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
-        .environment(spreadsCoordinator)
-        .environment(journalManager)
-        .localhostTemporalHarness(spreadDiagnostics: currentSpreadDiagnostics)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        isContentColumnVisible.toggle()
-                    }
-                } label: {
-                    Image(systemName: isContentColumnVisible ? "chevron.left" : "calendar")
-                }
-                .accessibilityLabel(isContentColumnVisible ? "Hide spread list" : "Show spread list")
-                .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .leading)))
-            }
-
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                let todayTarget = journalManager.todayNavigationSelection ?? journalManager.defaultNavigationSelection
-                let isOnToday = currentSelection.id == journalManager.todayNavigationSelection?.id
-                if !isOnToday {
-                    Button {
-                        spreadsCoordinator.navigate(to: todayTarget)
-                    } label: {
-                        Label("Today", systemImage: "calendar")
-                    }
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.todayButton)
-                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
-                }
-
-                if let syncEngine {
-                    SyncIconButton(
-                        status: syncEngine.status,
-                        outboxCount: syncEngine.outboxCount,
-                        onSyncNow: { Task { @MainActor in await syncEngine.syncNow() } }
-                    )
-                }
-                AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                    spreadsCoordinator.showAuth()
-                }
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: currentSelection.id)
-    }
-
-    /// In-content title header for the detail pane — shows the current spread's title
-    /// and optional subtitle, updating dynamically as the selection changes.
-    private var spreadDetailTitle: some View {
-        let config = SpreadHeaderConfiguration(
-            spread: currentSelection,
-            calendar: journalManager.calendar,
-            today: journalManager.today,
-            firstWeekday: journalManager.firstWeekday,
-            allowsPersonalization: true
-        )
-        return VStack(spacing: 2) {
-            Text(config.title)
-                .font(SpreadTheme.Typography.heading(size: 17, weight: .semibold))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-            if let subtitle = config.subtitle {
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .animation(.easeInOut(duration: 0.15), value: currentSelection.id)
+        let newSelection = journalManager.bestSpread(for: journalManager.today)
+        spreadsCoordinator.selectedSpread = newSelection
+        spreadsCoordinator.recenterToken += 1
     }
 
     // MARK: - Bottom Controls
 
     private var bottomInsetControls: some View {
         HStack(spacing: 12) {
+            
             Spacer()
+            
             Menu {
-                Button(action: { spreadsCoordinator.showSpreadCreation() }) {
+                Button {
+                    spreadsCoordinator.activeSheet = .spreadCreation(nil)
+                } label: {
                     Label("Create Spread", systemImage: "book")
                 }
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createSpread)
 
-                Button(action: { spreadsCoordinator.showTaskCreation() }) {
+                Button {
+                    spreadsCoordinator.activeSheet = .taskCreation
+                } label: {
                     Label("Create Task", systemImage: "circle.fill")
                 }
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createTask)
 
-                Button(action: { spreadsCoordinator.showNoteCreation() }) {
+                Button {
+                    spreadsCoordinator.activeSheet = .noteCreation
+                } label: {
                     Label("Create Note", systemImage: "minus")
                 }
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createNote)
@@ -249,74 +251,7 @@ struct SpreadsTabView: View {
             }
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.button)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
-    }
-
-    // MARK: - Pane Visibility
-
-    /// Drives `.fullScreenCover` on compact width only — on regular width the pane
-    /// renders inline in the `HStack`, so the cover must stay dismissed there even
-    /// while `isContentColumnVisible` is `true`.
-    private var compactCoverBinding: Binding<Bool> {
-        Binding(
-            get: { horizontalSizeClass == .compact && isContentColumnVisible },
-            set: { newValue in
-                if !newValue { isContentColumnVisible = false }
-            }
-        )
-    }
-
-    /// Hides the content column — collapses the inline pane on regular width and
-    /// dismisses the full-screen cover on compact width (both driven by the same flag).
-    private func hideContentColumn() {
-        withAnimation(.easeInOut(duration: 0.25)) {
-            isContentColumnVisible = false
-        }
-    }
-
-    // MARK: - Computed Helpers
-
-    /// The currently active spread selection, defaulting to the journal's default when unset.
-    private var currentSelection: DataModel.Spread {
-        spreadsCoordinator.selectedSelection ?? journalManager.defaultNavigationSelection
-    }
-
-    /// Picker items for the current selection's year — used by the spread pager.
-    private var pickerItems: [SpreadPickerModel.Item] {
-        journalManager.titleNavigatorModel.items(for: currentSelection)
-    }
-
-    /// Extracts the `AlertModel` from the active alert destination for generic rendering.
-    private var activeAlertModel: AlertModel? {
-        guard case .alert(let model) = spreadsCoordinator.activeAlert else { return nil }
-        return model
-    }
-
-    private var spreadsCalendar: Calendar {
-        journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
-    }
-
-    private var isSyncError: Bool {
-        guard let status = syncEngine?.status else { return false }
-        if case .error = status { return true }
-        return false
-    }
-
-    private var currentSpreadDiagnostics: LocalhostTemporalHarnessSpreadDiagnostics {
-        let headerConfiguration = SpreadHeaderConfiguration(
-            spread: currentSelection,
-            calendar: journalManager.calendar,
-            today: journalManager.today,
-            firstWeekday: journalManager.firstWeekday,
-            allowsPersonalization: true
-        )
-        return LocalhostTemporalHarnessSpreadDiagnostics(
-            selectionID: currentSelection.stableID(calendar: journalManager.calendar),
-            title: headerConfiguration.title,
-            subtitle: headerConfiguration.subtitle
-        )
+        .padding(.all, SpreadTheme.Spacing.large)
     }
 
     // MARK: - Spreads Sheet Content
@@ -408,45 +343,6 @@ struct SpreadsTabView: View {
         case .auth:
             AuthEntrySheet(authManager: authManager, isBlocking: false)
         }
-    }
-
-    // MARK: - Pending Navigation
-
-    /// Reacts to a cross-tab navigation request populated by `RootNavigationView`
-    /// (e.g. tapping a search result while on the Entries tab): selects the target
-    /// spread, hides the content column, and opens the requested task detail.
-    private func handlePendingNavigationRequest() {
-        guard let request = spreadsNavigationState.pendingRequest else { return }
-
-        spreadsCoordinator.selectedSelection = request.selection
-        spreadsCoordinator.recenterToken += 1
-        selectedSpread = request.selection
-        hideContentColumn()
-
-        guard let task = journalManager.tasks.first(where: { $0.id == request.taskID }) else {
-            spreadsNavigationState.pendingRequest = nil
-            return
-        }
-
-        Task { @MainActor in
-            await Task.yield()
-            spreadsCoordinator.showTaskDetail(task)
-            spreadsNavigationState.pendingRequest = nil
-        }
-    }
-
-    // MARK: - Selection Maintenance
-
-    /// Re-resolves the selection when the current spread is removed from the journal
-    /// (e.g. deleted via sync), falling back to the best spread for today.
-    private func resetSelectionIfNeeded() {
-        guard let spread = spreadsCoordinator.selectedSelection else { return }
-        guard !journalManager.spreads.contains(where: { $0.id == spread.id }) else { return }
-
-        let newSelection = journalManager.bestSpread(for: journalManager.today)
-        spreadsCoordinator.selectedSelection = newSelection
-        spreadsCoordinator.recenterToken += 1
-        selectedSpread = newSelection
     }
 }
 

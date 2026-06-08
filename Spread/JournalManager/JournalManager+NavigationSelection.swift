@@ -11,12 +11,4 @@ extension JournalManager {
             ?? spreads.first
             ?? DataModel.Spread(period: .year, date: today, calendar: calendar)
     }
-
-    /// The navigation selection that corresponds to today, used by the "Today" toolbar button.
-    ///
-    /// Returns `nil` when no spread contains today — callers should skip navigation rather
-    /// than landing on an unrelated spread.
-    var todayNavigationSelection: DataModel.Spread? {
-        bestSpread(for: today)
-    }
 }

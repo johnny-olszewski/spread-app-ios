@@ -168,23 +168,6 @@ final class JournalManager {
         inboxEntries.count
     }
 
-    /// The title navigator model for the current journal state.
-    var titleNavigatorModel: SpreadPickerModel {
-        let headerModel = SpreadHeaderNavigatorModel(
-            calendar: calendar,
-            today: today,
-            firstWeekday: firstWeekday,
-            spreads: spreads,
-            tasks: tasks,
-            notes: notes,
-            events: events
-        )
-        return SpreadPickerModel(
-            headerModel: headerModel,
-            overdueItems: overdueTaskItems
-        )
-    }
-
     /// Tasks eligible to move into created spreads in conventional mode.
     ///
     /// The destination must be the most granular valid existing spread that:
