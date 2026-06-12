@@ -38,7 +38,7 @@ struct TaskSearchSectionBuilder {
             }
 
             if let spread = selection(for: task) {
-                let selectionID = spread.stableID(calendar: journalManager.calendar)
+                let selectionID = spread.id.uuidString
                 selectionByID[selectionID] = spread
                 spreadRowsByID[selectionID, default: []].append(row(for: task, selection: spread))
             } else {
@@ -60,7 +60,7 @@ struct TaskSearchSectionBuilder {
 
         let orderedSpreads = selectionByID.values.sorted(by: isEarlier)
         sections.append(contentsOf: orderedSpreads.compactMap { spread in
-            let selectionID = spread.stableID(calendar: journalManager.calendar)
+            let selectionID = spread.id.uuidString
             guard let rows = spreadRowsByID[selectionID], !rows.isEmpty else { return nil }
             return TaskSearchSection(
                 id: selectionID,

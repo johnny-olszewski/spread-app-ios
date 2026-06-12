@@ -121,7 +121,7 @@ struct SpreadsTabView: View {
                 SpreadContentPagerView(
                     coordinator: spreadsCoordinator,
                     syncEngine: syncEngine,
-                    items: yearSpreads,
+                    spreads: yearSpreads,
                     currentSelection: currentSelection
                 )
                 .environment(spreadsCoordinator)
