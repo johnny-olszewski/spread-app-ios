@@ -16,6 +16,6 @@ struct SpreadPageContext {
 
     /// Calendar derived from the journal manager's locale and first-weekday settings.
     var calendar: Calendar {
-        journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
+        journalManager.configuredCalendar
     }
 }

@@ -32,7 +32,7 @@ struct SpreadMonthCalendarView: View {
     // MARK: - Computed
 
     private var calendar: Calendar {
-        journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
+        journalManager.configuredCalendar
     }
 
     private var dayStateByDate: [Date: MonthDayState] { conventionalDayStateByDate() }

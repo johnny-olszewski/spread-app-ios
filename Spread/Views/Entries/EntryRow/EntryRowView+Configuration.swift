@@ -103,9 +103,9 @@ extension EntryRowView.Configuration {
         getChips: ((any Entry) -> [any LabelChipRepresentable])? = nil
     ) -> EntryRowView.Configuration {
         
-        let calendar = journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
+        let calendar = journalManager.configuredCalendar
         let today = journalManager.today
-        
+
         return EntryRowView.Configuration(
             isGreyedOut: { entry in
                 guard entry.entryType == .task else { return false }
@@ -193,7 +193,7 @@ extension EntryRowView.Configuration {
     /// Standard calendar event row configuration shared across periods that surface calendar events.
     @MainActor
     static func standardEventConfig(journalManager: JournalManager) -> EntryRowView.Configuration {
-        let calendar = journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
+        let calendar = journalManager.configuredCalendar
         let today = journalManager.today
         return EntryRowView.Configuration(
             isGreyedOut: { entry in

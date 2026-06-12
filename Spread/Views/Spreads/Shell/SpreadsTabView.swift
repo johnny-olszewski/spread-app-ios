@@ -43,14 +43,16 @@ struct SpreadsTabView: View {
 
     /// Spreads in the same year as the current selection — used by the spread pager.
     private var yearSpreads: [DataModel.Spread] {
+        
         let year = spreadsCalendar.component(.year, from: currentSelection.startDate ?? currentSelection.date)
+        
         return journalManager.spreads
             .filter { spreadsCalendar.component(.year, from: $0.startDate ?? $0.date) == year }
             .sorted { ($0.startDate ?? $0.date) < ($1.startDate ?? $1.date) }
     }
 
     private var spreadsCalendar: Calendar {
-        journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
+        journalManager.configuredCalendar
     }
 
     /// `CalendarGenerator.Model` keyed by calendar year, built from `journalManager.spreads`.
@@ -77,7 +79,7 @@ struct SpreadsTabView: View {
         // `spreadsCalendar` is a computed property on `self`, which isn't fully initialized
         // yet at this point in init. Inline the calendar construction from the already-assigned
         // `journalManager` instead.
-        let calendar = journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
+        let calendar = journalManager.configuredCalendar
         navigatorCalendarModels = {
             var result = [Int: SpreadsNavigatorView.CalendarGenerator.Model]()
             for spread in journalManager.spreads {

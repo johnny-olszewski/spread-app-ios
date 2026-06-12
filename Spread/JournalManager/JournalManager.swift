@@ -75,6 +75,13 @@ final class JournalManager {
     /// The user's first day of week preference.
     var firstWeekday: FirstWeekday
 
+    /// `calendar` with `firstWeekday` applied — for UI that needs week-start-aware date math
+    /// (e.g. month grids, week labels). Computed live so settings changes to `firstWeekday`
+    /// are reflected immediately without requiring `calendar` itself to be rebuilt.
+    var configuredCalendar: Calendar {
+        firstWeekday.configuredCalendar(from: calendar)
+    }
+
     /// Policy for validating spread creation.
     var creationPolicy: SpreadCreationPolicy
 
