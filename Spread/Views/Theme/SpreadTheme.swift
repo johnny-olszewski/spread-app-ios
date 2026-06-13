@@ -207,11 +207,7 @@ enum SpreadTheme {
 
         /// Dot color using the active palette's accent at reduced opacity.
         static var dots: Color {
-            #if DEBUG
-            return debugDots
-            #else
-            return SpreadTheme.activePalette.accentPrimary.opacity(0.35)
-            #endif
+            SpreadTheme.activePalette.accentPrimary.opacity(0.35)
         }
     }
 
@@ -221,11 +217,7 @@ enum SpreadTheme {
     enum Typography {
         /// Heading font — distinct sans family for titles.
         static func heading(size: CGFloat, weight: Font.Weight = .semibold) -> Font {
-            #if DEBUG
-            return debugHeading(size: size, weight: weight)
-            #else
-            return .custom("Avenir Next", size: size).weight(weight)
-            #endif
+            .custom("Avenir Next", size: size).weight(weight)
         }
 
         /// Large title heading.

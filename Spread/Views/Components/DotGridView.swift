@@ -42,18 +42,13 @@ struct DotGridConfiguration: Equatable {
     /// Paper preset for spread content surfaces.
     /// Uses warm off-white paper background with neutral gray dots.
     /// Per spec: 2pt dots, 26pt spacing, ~35% opacity.
-    /// In DEBUG builds, respects debug appearance overrides.
     static var paper: DotGridConfiguration {
-        #if DEBUG
-        return .debugPaper
-        #else
-        return DotGridConfiguration(
+        DotGridConfiguration(
             dotColor: SpreadTheme.DotGrid.defaultDots,
             dotSize: 2.0,
             dotSpacing: 26,
             backgroundColor: SpreadTheme.Paper.defaultPrimary
         )
-        #endif
     }
 
     /// Subtle, barely visible grid
