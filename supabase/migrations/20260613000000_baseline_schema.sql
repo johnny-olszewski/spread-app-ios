@@ -25,12 +25,6 @@ SET row_security = off;
 
 
 --
--- Name: SCHEMA public; Type: COMMENT; Schema: -; Owner: -
---
-
-
-
---
 -- Name: cleanup_tombstones(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -41,16 +35,10 @@ CREATE FUNCTION public.cleanup_tombstones() RETURNS void
 DECLARE
     cutoff timestamptz := now() - interval '90 days';
 BEGIN
-    -- Delete child assignments first (FK CASCADE would handle this,
-    -- but explicit ordering avoids reliance on cascade timing).
     DELETE FROM task_assignments WHERE deleted_at IS NOT NULL AND deleted_at < cutoff;
     DELETE FROM note_assignments WHERE deleted_at IS NOT NULL AND deleted_at < cutoff;
-
-    -- Delete parent entries
     DELETE FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at < cutoff;
     DELETE FROM notes WHERE deleted_at IS NOT NULL AND deleted_at < cutoff;
-
-    -- Delete other entities
     DELETE FROM spreads WHERE deleted_at IS NOT NULL AND deleted_at < cutoff;
     DELETE FROM collections WHERE deleted_at IS NOT NULL AND deleted_at < cutoff;
     DELETE FROM settings WHERE deleted_at IS NOT NULL AND deleted_at < cutoff;
@@ -120,6 +108,32 @@ BEGIN
     END IF;
     
     RETURN to_jsonb(v_result);
+END;
+$$;
+
+
+--
+-- Name: merge_list(uuid, uuid, uuid, text, timestamp with time zone, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.merge_list(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    INSERT INTO public.lists (
+        id, user_id, device_id, name,
+        created_at, deleted_at, name_updated_at
+    ) VALUES (
+        p_id, p_user_id, p_device_id, p_name,
+        p_created_at, p_deleted_at, p_name_updated_at
+    )
+    ON CONFLICT (id) DO UPDATE SET
+        device_id       = EXCLUDED.device_id,
+        name            = CASE WHEN EXCLUDED.name_updated_at > lists.name_updated_at
+                               THEN EXCLUDED.name ELSE lists.name END,
+        deleted_at      = COALESCE(EXCLUDED.deleted_at, lists.deleted_at),
+        name_updated_at = GREATEST(EXCLUDED.name_updated_at, lists.name_updated_at),
+        revision        = lists.revision + 1;
 END;
 $$;
 
@@ -262,8 +276,25 @@ BEGIN
             WHERE id = v_existing.id RETURNING * INTO v_result;
         END IF;
     END IF;
-    
+
     RETURN to_jsonb(v_result);
+END;
+$$;
+
+
+--
+-- Name: merge_note_tag(uuid, uuid, uuid, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.merge_note_tag(p_note_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    INSERT INTO public.note_tags (note_id, tag_id, user_id, created_at, deleted_at)
+    VALUES (p_note_id, p_tag_id, p_user_id, p_created_at, p_deleted_at)
+    ON CONFLICT (note_id, tag_id) DO UPDATE SET
+        deleted_at = EXCLUDED.deleted_at,
+        revision   = note_tags.revision + 1;
 END;
 $$;
 
@@ -325,16 +356,20 @@ DECLARE
     v_existing RECORD;
     v_result RECORD;
 BEGIN
-    -- Check ownership
     IF p_user_id != auth.uid() THEN
         RAISE EXCEPTION 'Access denied';
     END IF;
 
-    -- Get existing record
+    -- Primary lookup: by id
     SELECT * INTO v_existing FROM spreads WHERE id = p_id AND user_id = p_user_id;
-    
+
+    -- Fallback lookup: by (user_id, period, date) to handle duplicate-UUID conflicts
     IF NOT FOUND THEN
-        -- Insert new record
+        SELECT * INTO v_existing FROM spreads
+        WHERE user_id = p_user_id AND period = p_period AND date = p_date;
+    END IF;
+
+    IF NOT FOUND THEN
         INSERT INTO spreads (
             id, user_id, device_id, period, date, start_date, end_date,
             is_favorite, custom_name, uses_dynamic_name,
@@ -350,15 +385,10 @@ BEGIN
         )
         RETURNING * INTO v_result;
     ELSE
-        -- Delete-wins: if incoming deleted_at is newer, apply it
         IF p_deleted_at IS NOT NULL AND (v_existing.deleted_at IS NULL OR p_deleted_at > v_existing.deleted_at) THEN
-            UPDATE spreads SET
-                deleted_at = p_deleted_at,
-                device_id = p_device_id
-            WHERE id = p_id
-            RETURNING * INTO v_result;
+            UPDATE spreads SET deleted_at = p_deleted_at, device_id = p_device_id
+            WHERE id = v_existing.id RETURNING * INTO v_result;
         ELSE
-            -- Field-level LWW merge
             UPDATE spreads SET
                 device_id = p_device_id,
                 period = CASE WHEN p_period_updated_at > v_existing.period_updated_at THEN p_period ELSE v_existing.period END,
@@ -375,44 +405,69 @@ BEGIN
                 custom_name_updated_at = GREATEST(p_custom_name_updated_at, v_existing.custom_name_updated_at),
                 uses_dynamic_name = CASE WHEN p_uses_dynamic_name_updated_at > v_existing.uses_dynamic_name_updated_at THEN p_uses_dynamic_name ELSE v_existing.uses_dynamic_name END,
                 uses_dynamic_name_updated_at = GREATEST(p_uses_dynamic_name_updated_at, v_existing.uses_dynamic_name_updated_at)
-            WHERE id = p_id
-            RETURNING * INTO v_result;
+            WHERE id = v_existing.id RETURNING * INTO v_result;
         END IF;
     END IF;
-    
+
     RETURN to_jsonb(v_result);
 END;
 $$;
 
 
 --
--- Name: merge_task(uuid, uuid, uuid, text, text, text, date, date, text, text, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+-- Name: merge_tag(uuid, uuid, uuid, text, timestamp with time zone, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone) RETURNS jsonb
+CREATE FUNCTION public.merge_tag(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    INSERT INTO public.tags (
+        id, user_id, device_id, name,
+        created_at, deleted_at, name_updated_at
+    ) VALUES (
+        p_id, p_user_id, p_device_id, p_name,
+        p_created_at, p_deleted_at, p_name_updated_at
+    )
+    ON CONFLICT (id) DO UPDATE SET
+        device_id       = EXCLUDED.device_id,
+        name            = CASE WHEN EXCLUDED.name_updated_at > tags.name_updated_at
+                               THEN EXCLUDED.name ELSE tags.name END,
+        deleted_at      = COALESCE(EXCLUDED.deleted_at, tags.deleted_at),
+        name_updated_at = GREATEST(EXCLUDED.name_updated_at, tags.name_updated_at),
+        revision        = tags.revision + 1;
+END;
+$$;
+
+
+--
+-- Name: merge_task(uuid, uuid, uuid, text, text, text, date, uuid, date, text, text, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
     v_existing RECORD;
-    v_result RECORD;
+    v_result   RECORD;
 BEGIN
     IF p_user_id != auth.uid() THEN
         RAISE EXCEPTION 'Access denied';
     END IF;
 
     SELECT * INTO v_existing FROM tasks WHERE id = p_id AND user_id = p_user_id;
-    
+
     IF NOT FOUND THEN
         INSERT INTO tasks (
-            id, user_id, device_id, title, body, priority, due_date, date, period, status,
+            id, user_id, device_id, title, body, priority, due_date, list_id, date, period, status,
             created_at, deleted_at,
             title_updated_at, date_updated_at, period_updated_at, status_updated_at,
-            body_updated_at, priority_updated_at, due_date_updated_at
+            body_updated_at, priority_updated_at, due_date_updated_at, list_updated_at
         ) VALUES (
-            p_id, p_user_id, p_device_id, p_title, p_body, p_priority, p_due_date, p_date, p_period, p_status,
+            p_id, p_user_id, p_device_id, p_title, p_body, p_priority, p_due_date, p_list_id, p_date, p_period, p_status,
             p_created_at, p_deleted_at,
             p_title_updated_at, p_date_updated_at, p_period_updated_at, p_status_updated_at,
-            p_body_updated_at, p_priority_updated_at, p_due_date_updated_at
+            p_body_updated_at, p_priority_updated_at, p_due_date_updated_at, p_list_updated_at
         )
         RETURNING * INTO v_result;
     ELSE
@@ -421,25 +476,27 @@ BEGIN
             WHERE id = p_id RETURNING * INTO v_result;
         ELSE
             UPDATE tasks SET
-                device_id = p_device_id,
-                title = CASE WHEN p_title_updated_at > v_existing.title_updated_at THEN p_title ELSE v_existing.title END,
-                title_updated_at = GREATEST(p_title_updated_at, v_existing.title_updated_at),
-                date = CASE WHEN p_date_updated_at > v_existing.date_updated_at THEN p_date ELSE v_existing.date END,
-                date_updated_at = GREATEST(p_date_updated_at, v_existing.date_updated_at),
-                period = CASE WHEN p_period_updated_at > v_existing.period_updated_at THEN p_period ELSE v_existing.period END,
-                period_updated_at = GREATEST(p_period_updated_at, v_existing.period_updated_at),
-                status = CASE WHEN p_status_updated_at > v_existing.status_updated_at THEN p_status ELSE v_existing.status END,
-                status_updated_at = GREATEST(p_status_updated_at, v_existing.status_updated_at),
-                body = CASE WHEN p_body_updated_at > v_existing.body_updated_at THEN p_body ELSE v_existing.body END,
-                body_updated_at = GREATEST(p_body_updated_at, v_existing.body_updated_at),
-                priority = CASE WHEN p_priority_updated_at > v_existing.priority_updated_at THEN p_priority ELSE v_existing.priority END,
+                device_id           = p_device_id,
+                title               = CASE WHEN p_title_updated_at    > v_existing.title_updated_at    THEN p_title    ELSE v_existing.title    END,
+                title_updated_at    = GREATEST(p_title_updated_at,    v_existing.title_updated_at),
+                date                = CASE WHEN p_date_updated_at     > v_existing.date_updated_at     THEN p_date     ELSE v_existing.date     END,
+                date_updated_at     = GREATEST(p_date_updated_at,     v_existing.date_updated_at),
+                period              = CASE WHEN p_period_updated_at   > v_existing.period_updated_at   THEN p_period   ELSE v_existing.period   END,
+                period_updated_at   = GREATEST(p_period_updated_at,   v_existing.period_updated_at),
+                status              = CASE WHEN p_status_updated_at   > v_existing.status_updated_at   THEN p_status   ELSE v_existing.status   END,
+                status_updated_at   = GREATEST(p_status_updated_at,   v_existing.status_updated_at),
+                body                = CASE WHEN p_body_updated_at     > v_existing.body_updated_at     THEN p_body     ELSE v_existing.body     END,
+                body_updated_at     = GREATEST(p_body_updated_at,     v_existing.body_updated_at),
+                priority            = CASE WHEN p_priority_updated_at > v_existing.priority_updated_at THEN p_priority ELSE v_existing.priority END,
                 priority_updated_at = GREATEST(p_priority_updated_at, v_existing.priority_updated_at),
-                due_date = CASE WHEN p_due_date_updated_at > v_existing.due_date_updated_at THEN p_due_date ELSE v_existing.due_date END,
-                due_date_updated_at = GREATEST(p_due_date_updated_at, v_existing.due_date_updated_at)
+                due_date            = CASE WHEN p_due_date_updated_at > v_existing.due_date_updated_at THEN p_due_date ELSE v_existing.due_date END,
+                due_date_updated_at = GREATEST(p_due_date_updated_at, v_existing.due_date_updated_at),
+                list_id             = CASE WHEN p_list_updated_at     > v_existing.list_updated_at     THEN p_list_id  ELSE v_existing.list_id  END,
+                list_updated_at     = GREATEST(p_list_updated_at,     v_existing.list_updated_at)
             WHERE id = p_id RETURNING * INTO v_result;
         END IF;
     END IF;
-    
+
     RETURN to_jsonb(v_result);
 END;
 $$;
@@ -529,8 +586,25 @@ BEGIN
             WHERE id = v_existing.id RETURNING * INTO v_result;
         END IF;
     END IF;
-    
+
     RETURN to_jsonb(v_result);
+END;
+$$;
+
+
+--
+-- Name: merge_task_tag(uuid, uuid, uuid, timestamp with time zone, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.merge_task_tag(p_task_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    INSERT INTO public.task_tags (task_id, tag_id, user_id, created_at, deleted_at)
+    VALUES (p_task_id, p_tag_id, p_user_id, p_created_at, p_deleted_at)
+    ON CONFLICT (task_id, tag_id) DO UPDATE SET
+        deleted_at = EXCLUDED.deleted_at,
+        revision   = task_tags.revision + 1;
 END;
 $$;
 
@@ -646,12 +720,10 @@ CREATE FUNCTION public.spreads_trigger_fn() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    -- Always update revision and updated_at
     NEW.revision := next_revision();
     NEW.updated_at := now();
-    
+
     IF TG_OP = 'INSERT' THEN
-        -- On insert, set all field timestamps
         NEW.period_updated_at := COALESCE(NEW.period_updated_at, now());
         NEW.date_updated_at := COALESCE(NEW.date_updated_at, now());
         NEW.start_date_updated_at := COALESCE(NEW.start_date_updated_at, now());
@@ -660,7 +732,6 @@ BEGIN
         NEW.custom_name_updated_at := COALESCE(NEW.custom_name_updated_at, now());
         NEW.uses_dynamic_name_updated_at := COALESCE(NEW.uses_dynamic_name_updated_at, now());
     ELSIF TG_OP = 'UPDATE' THEN
-        -- On update, only update timestamps for changed fields
         IF NEW.period IS DISTINCT FROM OLD.period THEN
             NEW.period_updated_at := now();
         END IF;
@@ -683,7 +754,7 @@ BEGIN
             NEW.uses_dynamic_name_updated_at := now();
         END IF;
     END IF;
-    
+
     RETURN NEW;
 END;
 $$;
@@ -723,7 +794,7 @@ CREATE FUNCTION public.tasks_trigger_fn() RETURNS trigger
 BEGIN
     NEW.revision := next_revision();
     NEW.updated_at := now();
-    
+
     IF TG_OP = 'INSERT' THEN
         NEW.title_updated_at := COALESCE(NEW.title_updated_at, now());
         NEW.date_updated_at := COALESCE(NEW.date_updated_at, now());
@@ -755,7 +826,7 @@ BEGIN
             NEW.due_date_updated_at := now();
         END IF;
     END IF;
-    
+
     RETURN NEW;
 END;
 $$;
@@ -783,6 +854,23 @@ CREATE TABLE public.collections (
 
 
 --
+-- Name: lists; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.lists (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    device_id uuid,
+    name text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    revision bigint DEFAULT 0 NOT NULL,
+    name_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT lists_name_check CHECK ((char_length(TRIM(BOTH FROM name)) > 0))
+);
+
+
+--
 -- Name: note_assignments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -793,15 +881,29 @@ CREATE TABLE public.note_assignments (
     note_id uuid NOT NULL,
     period text NOT NULL,
     date date NOT NULL,
-    spread_id uuid,
     status text DEFAULT 'active'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
     revision bigint DEFAULT 0 NOT NULL,
     status_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    spread_id uuid,
     CONSTRAINT note_assignments_period_check CHECK ((period = ANY (ARRAY['year'::text, 'month'::text, 'day'::text, 'multiday'::text]))),
     CONSTRAINT note_assignments_status_check CHECK ((status = ANY (ARRAY['active'::text, 'migrated'::text])))
+);
+
+
+--
+-- Name: note_tags; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.note_tags (
+    note_id uuid NOT NULL,
+    tag_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    revision bigint DEFAULT 0 NOT NULL
 );
 
 
@@ -827,6 +929,8 @@ CREATE TABLE public.notes (
     date_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     period_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     status_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    list_id uuid,
+    list_updated_at timestamp with time zone DEFAULT now(),
     CONSTRAINT notes_period_check CHECK ((period = ANY (ARRAY['year'::text, 'month'::text, 'day'::text, 'multiday'::text]))),
     CONSTRAINT notes_status_check CHECK ((status = ANY (ARRAY['active'::text, 'migrated'::text])))
 );
@@ -865,9 +969,6 @@ CREATE TABLE public.spreads (
     date date NOT NULL,
     start_date date,
     end_date date,
-    is_favorite boolean DEFAULT false NOT NULL,
-    custom_name text,
-    uses_dynamic_name boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
@@ -876,6 +977,9 @@ CREATE TABLE public.spreads (
     date_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     start_date_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     end_date_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    is_favorite boolean DEFAULT false NOT NULL,
+    custom_name text,
+    uses_dynamic_name boolean DEFAULT false NOT NULL,
     is_favorite_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     custom_name_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     uses_dynamic_name_updated_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -897,6 +1001,23 @@ CREATE SEQUENCE public.sync_revision_seq
 
 
 --
+-- Name: tags; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tags (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    device_id uuid,
+    name text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    revision bigint DEFAULT 0 NOT NULL,
+    name_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT tags_name_check CHECK ((char_length(TRIM(BOTH FROM name)) > 0))
+);
+
+
+--
 -- Name: task_assignments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -907,15 +1028,29 @@ CREATE TABLE public.task_assignments (
     task_id uuid NOT NULL,
     period text NOT NULL,
     date date NOT NULL,
-    spread_id uuid,
     status text DEFAULT 'open'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
     revision bigint DEFAULT 0 NOT NULL,
     status_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    spread_id uuid,
     CONSTRAINT task_assignments_period_check CHECK ((period = ANY (ARRAY['year'::text, 'month'::text, 'day'::text, 'multiday'::text]))),
     CONSTRAINT task_assignments_status_check CHECK ((status = ANY (ARRAY['open'::text, 'complete'::text, 'migrated'::text, 'cancelled'::text])))
+);
+
+
+--
+-- Name: task_tags; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.task_tags (
+    task_id uuid NOT NULL,
+    tag_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone,
+    revision bigint DEFAULT 0 NOT NULL
 );
 
 
@@ -928,9 +1063,6 @@ CREATE TABLE public.tasks (
     user_id uuid NOT NULL,
     device_id uuid NOT NULL,
     title text DEFAULT ''::text NOT NULL,
-    body text,
-    priority text DEFAULT 'none'::text NOT NULL,
-    due_date date,
     date date,
     period text,
     status text DEFAULT 'open'::text NOT NULL,
@@ -942,9 +1074,14 @@ CREATE TABLE public.tasks (
     date_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     period_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     status_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    body text,
+    priority text DEFAULT 'none'::text NOT NULL,
+    due_date date,
     body_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     priority_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     due_date_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    list_id uuid,
+    list_updated_at timestamp with time zone DEFAULT now(),
     CONSTRAINT tasks_period_check CHECK (((period IS NULL) OR (period = ANY (ARRAY['year'::text, 'month'::text, 'day'::text, 'multiday'::text])))),
     CONSTRAINT tasks_priority_check CHECK ((priority = ANY (ARRAY['none'::text, 'low'::text, 'medium'::text, 'high'::text]))),
     CONSTRAINT tasks_status_check CHECK ((status = ANY (ARRAY['open'::text, 'complete'::text, 'migrated'::text, 'cancelled'::text])))
@@ -960,11 +1097,27 @@ ALTER TABLE ONLY public.collections
 
 
 --
+-- Name: lists lists_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lists
+    ADD CONSTRAINT lists_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: note_assignments note_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.note_assignments
     ADD CONSTRAINT note_assignments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: note_tags note_tags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.note_tags
+    ADD CONSTRAINT note_tags_pkey PRIMARY KEY (note_id, tag_id);
 
 
 --
@@ -1000,11 +1153,27 @@ ALTER TABLE ONLY public.spreads
 
 
 --
+-- Name: tags tags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tags
+    ADD CONSTRAINT tags_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: task_assignments task_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.task_assignments
     ADD CONSTRAINT task_assignments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: task_tags task_tags_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.task_tags
+    ADD CONSTRAINT task_tags_pkey PRIMARY KEY (task_id, tag_id);
 
 
 --
@@ -1030,6 +1199,20 @@ CREATE INDEX collections_user_revision_idx ON public.collections USING btree (us
 
 
 --
+-- Name: lists_revision_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lists_revision_idx ON public.lists USING btree (revision);
+
+
+--
+-- Name: lists_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX lists_user_id_idx ON public.lists USING btree (user_id);
+
+
+--
 -- Name: note_assignments_note_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1051,13 +1234,6 @@ CREATE INDEX note_assignments_user_deleted_idx ON public.note_assignments USING 
 
 
 --
--- Name: note_assignments_user_note_period_date_unique; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX note_assignments_user_note_period_date_unique ON public.note_assignments USING btree (user_id, note_id, period, date) WHERE ((deleted_at IS NULL) AND (spread_id IS NULL));
-
-
---
 -- Name: note_assignments_user_note_multiday_spread_unique; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1065,10 +1241,38 @@ CREATE UNIQUE INDEX note_assignments_user_note_multiday_spread_unique ON public.
 
 
 --
+-- Name: note_assignments_user_note_period_date_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX note_assignments_user_note_period_date_unique ON public.note_assignments USING btree (user_id, note_id, period, date) WHERE ((deleted_at IS NULL) AND (spread_id IS NULL));
+
+
+--
 -- Name: note_assignments_user_revision_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX note_assignments_user_revision_idx ON public.note_assignments USING btree (user_id, revision);
+
+
+--
+-- Name: note_tags_note_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX note_tags_note_id_idx ON public.note_tags USING btree (note_id);
+
+
+--
+-- Name: note_tags_revision_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX note_tags_revision_idx ON public.note_tags USING btree (revision);
+
+
+--
+-- Name: note_tags_tag_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX note_tags_tag_id_idx ON public.note_tags USING btree (tag_id);
 
 
 --
@@ -1128,10 +1332,17 @@ CREATE INDEX spreads_user_revision_idx ON public.spreads USING btree (user_id, r
 
 
 --
--- Name: task_assignments_task_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: tags_revision_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX task_assignments_task_id_idx ON public.task_assignments USING btree (task_id);
+CREATE INDEX tags_revision_idx ON public.tags USING btree (revision);
+
+
+--
+-- Name: tags_user_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tags_user_id_idx ON public.tags USING btree (user_id);
 
 
 --
@@ -1139,6 +1350,13 @@ CREATE INDEX task_assignments_task_id_idx ON public.task_assignments USING btree
 --
 
 CREATE INDEX task_assignments_spread_id_idx ON public.task_assignments USING btree (spread_id);
+
+
+--
+-- Name: task_assignments_task_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX task_assignments_task_id_idx ON public.task_assignments USING btree (task_id);
 
 
 --
@@ -1167,6 +1385,27 @@ CREATE UNIQUE INDEX task_assignments_user_task_multiday_spread_unique ON public.
 --
 
 CREATE UNIQUE INDEX task_assignments_user_task_period_date_unique ON public.task_assignments USING btree (user_id, task_id, period, date) WHERE ((deleted_at IS NULL) AND (spread_id IS NULL));
+
+
+--
+-- Name: task_tags_revision_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX task_tags_revision_idx ON public.task_tags USING btree (revision);
+
+
+--
+-- Name: task_tags_tag_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX task_tags_tag_id_idx ON public.task_tags USING btree (tag_id);
+
+
+--
+-- Name: task_tags_task_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX task_tags_task_id_idx ON public.task_tags USING btree (task_id);
 
 
 --
@@ -1233,6 +1472,14 @@ CREATE TRIGGER tasks_before_upsert BEFORE INSERT OR UPDATE ON public.tasks FOR E
 
 
 --
+-- Name: lists lists_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.lists
+    ADD CONSTRAINT lists_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: note_assignments note_assignments_note_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1249,11 +1496,43 @@ ALTER TABLE ONLY public.note_assignments
 
 
 --
--- Name: task_assignments task_assignments_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: note_tags note_tags_note_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.task_assignments
-    ADD CONSTRAINT task_assignments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.note_tags
+    ADD CONSTRAINT note_tags_note_id_fkey FOREIGN KEY (note_id) REFERENCES public.notes(id) ON DELETE CASCADE;
+
+
+--
+-- Name: note_tags note_tags_tag_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.note_tags
+    ADD CONSTRAINT note_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tags(id) ON DELETE CASCADE;
+
+
+--
+-- Name: note_tags note_tags_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.note_tags
+    ADD CONSTRAINT note_tags_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: notes notes_list_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notes
+    ADD CONSTRAINT notes_list_id_fkey FOREIGN KEY (list_id) REFERENCES public.lists(id) ON DELETE SET NULL;
+
+
+--
+-- Name: tags tags_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tags
+    ADD CONSTRAINT tags_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
@@ -1262,6 +1541,46 @@ ALTER TABLE ONLY public.task_assignments
 
 ALTER TABLE ONLY public.task_assignments
     ADD CONSTRAINT task_assignments_spread_id_fkey FOREIGN KEY (spread_id) REFERENCES public.spreads(id) ON DELETE SET NULL;
+
+
+--
+-- Name: task_assignments task_assignments_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.task_assignments
+    ADD CONSTRAINT task_assignments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
+
+
+--
+-- Name: task_tags task_tags_tag_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.task_tags
+    ADD CONSTRAINT task_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES public.tags(id) ON DELETE CASCADE;
+
+
+--
+-- Name: task_tags task_tags_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.task_tags
+    ADD CONSTRAINT task_tags_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id) ON DELETE CASCADE;
+
+
+--
+-- Name: task_tags task_tags_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.task_tags
+    ADD CONSTRAINT task_tags_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: tasks tasks_list_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tasks
+    ADD CONSTRAINT tasks_list_id_fkey FOREIGN KEY (list_id) REFERENCES public.lists(id) ON DELETE SET NULL;
 
 
 --
@@ -1360,6 +1679,34 @@ CREATE POLICY "Users can insert their own task_assignments" ON public.task_assig
 --
 
 CREATE POLICY "Users can insert their own tasks" ON public.tasks FOR INSERT WITH CHECK ((auth.uid() = user_id));
+
+
+--
+-- Name: lists Users can manage their own lists; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can manage their own lists" ON public.lists USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = user_id));
+
+
+--
+-- Name: note_tags Users can manage their own note_tags; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can manage their own note_tags" ON public.note_tags USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = user_id));
+
+
+--
+-- Name: tags Users can manage their own tags; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can manage their own tags" ON public.tags USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = user_id));
+
+
+--
+-- Name: task_tags Users can manage their own task_tags; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can manage their own task_tags" ON public.task_tags USING ((auth.uid() = user_id)) WITH CHECK ((auth.uid() = user_id));
 
 
 --
@@ -1467,10 +1814,22 @@ CREATE POLICY "Users can update their own tasks" ON public.tasks FOR UPDATE USIN
 ALTER TABLE public.collections ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: lists; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.lists ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: note_assignments; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.note_assignments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: note_tags; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.note_tags ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: notes; Type: ROW SECURITY; Schema: public; Owner: -
@@ -1491,10 +1850,22 @@ ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.spreads ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: tags; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.tags ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: task_assignments; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.task_assignments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: task_tags; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.task_tags ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: tasks; Type: ROW SECURITY; Schema: public; Owner: -
@@ -1506,7 +1877,8 @@ ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
 --
 
-GRANT USAGE ON SCHEMA public TO postgres;
+REVOKE USAGE ON SCHEMA public FROM PUBLIC;
+GRANT ALL ON SCHEMA public TO PUBLIC;
 GRANT USAGE ON SCHEMA public TO anon;
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT USAGE ON SCHEMA public TO service_role;
@@ -1516,7 +1888,6 @@ GRANT USAGE ON SCHEMA public TO service_role;
 -- Name: FUNCTION cleanup_tombstones(); Type: ACL; Schema: public; Owner: -
 --
 
-REVOKE ALL ON FUNCTION public.cleanup_tombstones() FROM PUBLIC;
 GRANT ALL ON FUNCTION public.cleanup_tombstones() TO anon;
 GRANT ALL ON FUNCTION public.cleanup_tombstones() TO authenticated;
 GRANT ALL ON FUNCTION public.cleanup_tombstones() TO service_role;
@@ -1541,6 +1912,15 @@ GRANT ALL ON FUNCTION public.merge_collection(p_id uuid, p_user_id uuid, p_devic
 
 
 --
+-- Name: FUNCTION merge_list(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.merge_list(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_list(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_list(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone) TO service_role;
+
+
+--
 -- Name: FUNCTION merge_note(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_content text, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
 --
 
@@ -1556,6 +1936,15 @@ GRANT ALL ON FUNCTION public.merge_note(p_id uuid, p_user_id uuid, p_device_id u
 GRANT ALL ON FUNCTION public.merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO anon;
 GRANT ALL ON FUNCTION public.merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO authenticated;
 GRANT ALL ON FUNCTION public.merge_note_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_note_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO service_role;
+
+
+--
+-- Name: FUNCTION merge_note_tag(p_note_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.merge_note_tag(p_note_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_note_tag(p_note_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_note_tag(p_note_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone) TO service_role;
 
 
 --
@@ -1577,12 +1966,21 @@ GRANT ALL ON FUNCTION public.merge_spread(p_id uuid, p_user_id uuid, p_device_id
 
 
 --
--- Name: FUNCTION merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
+-- Name: FUNCTION merge_tag(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone) TO anon;
-GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone) TO authenticated;
-GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone) TO service_role;
+GRANT ALL ON FUNCTION public.merge_tag(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_tag(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_tag(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone) TO service_role;
+
+
+--
+-- Name: FUNCTION merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_date date, p_period text, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) TO service_role;
 
 
 --
@@ -1592,6 +1990,15 @@ GRANT ALL ON FUNCTION public.merge_task(p_id uuid, p_user_id uuid, p_device_id u
 GRANT ALL ON FUNCTION public.merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO anon;
 GRANT ALL ON FUNCTION public.merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO authenticated;
 GRANT ALL ON FUNCTION public.merge_task_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_task_id uuid, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO service_role;
+
+
+--
+-- Name: FUNCTION merge_task_tag(p_task_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.merge_task_tag(p_task_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_task_tag(p_task_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_task_tag(p_task_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone) TO service_role;
 
 
 --
@@ -1667,12 +2074,30 @@ GRANT ALL ON TABLE public.collections TO service_role;
 
 
 --
+-- Name: TABLE lists; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.lists TO anon;
+GRANT ALL ON TABLE public.lists TO authenticated;
+GRANT ALL ON TABLE public.lists TO service_role;
+
+
+--
 -- Name: TABLE note_assignments; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON TABLE public.note_assignments TO anon;
 GRANT ALL ON TABLE public.note_assignments TO authenticated;
 GRANT ALL ON TABLE public.note_assignments TO service_role;
+
+
+--
+-- Name: TABLE note_tags; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.note_tags TO anon;
+GRANT ALL ON TABLE public.note_tags TO authenticated;
+GRANT ALL ON TABLE public.note_tags TO service_role;
 
 
 --
@@ -1712,12 +2137,30 @@ GRANT ALL ON SEQUENCE public.sync_revision_seq TO service_role;
 
 
 --
+-- Name: TABLE tags; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.tags TO anon;
+GRANT ALL ON TABLE public.tags TO authenticated;
+GRANT ALL ON TABLE public.tags TO service_role;
+
+
+--
 -- Name: TABLE task_assignments; Type: ACL; Schema: public; Owner: -
 --
 
 GRANT ALL ON TABLE public.task_assignments TO anon;
 GRANT ALL ON TABLE public.task_assignments TO authenticated;
 GRANT ALL ON TABLE public.task_assignments TO service_role;
+
+
+--
+-- Name: TABLE task_tags; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.task_tags TO anon;
+GRANT ALL ON TABLE public.task_tags TO authenticated;
+GRANT ALL ON TABLE public.task_tags TO service_role;
 
 
 --
@@ -1732,3 +2175,5 @@ GRANT ALL ON TABLE public.tasks TO service_role;
 --
 -- PostgreSQL database dump complete
 --
+
+
