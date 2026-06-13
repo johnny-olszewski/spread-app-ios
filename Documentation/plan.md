@@ -6309,21 +6309,21 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-240] Refactor: Decommission spread-dev and the QA build configuration - [ ] Pending
+### [SPRD-240] Refactor: Decommission spread-dev and the QA build configuration - [x] Done
 
 - **Context**: `spread-dev` is rarely used, drifts out of sync with `spread-prod`, and adds maintenance burden without serving its intended QA purpose. The "QA" build configuration exists to distribute debug-menu-enabled builds via TestFlight, but the user is pre-release and currently installs Debug builds directly from Xcode onto devices they control — TestFlight distribution isn't in use yet. Since TestFlight installs can't receive launch-arg overrides (they're archived, standalone builds), a future TestFlight configuration would need to be a fixed, debug-UI-disabled build pointed at `spread-prod` — effectively indistinguishable from Release. External TestFlight users should see the prod app with no testing functionality, same as App Store users.
 - **Description**: Remove the QA build configuration entirely. Delete `Configuration/QA.xcconfig`. Remove the `QA` build configuration from `Spread.xcodeproj/project.pbxproj` (the project and all 3 targets — Spread, SpreadTests, SpreadUITests), preferably via Xcode's Project Editor (Project > Info > Configurations > remove "QA") rather than hand-editing the pbxproj. Delete `Spread.xcodeproj/xcshareddata/xcschemes/Spread QA.xcscheme`, leaving only `Spread Localhost` and `Spread Prod` as schemes. Simplify `BuildInfo` to two build configurations: Debug and Release — remove the `.qa` case, and update `buildConfiguration`/`allowsDebugUI`/`isRelease` accordingly (`allowsDebugUI` becomes simply "not Release"). Update `defaultDataEnvironment`: Debug → `.localhost`, Release → `.production` (unchanged). Remove the `spread-dev` Supabase URL/key from `SupabaseConfiguration.KnownEnvironment` and any other dev-pointed defaults. Update `Configuration/Debug.xcconfig` so `localhost` mode (which falls back to `buildURL`/`buildPublishableKey`) has a sensible local-Docker-Supabase-pointed default. Update `docs/supabase-setup.md` and `docs/local-supabase-testing.md` to remove references to `spread-dev` and the QA configuration, and note that a TestFlight configuration (effectively Release + `allowsDebugUI = true` if ever needed) is deferred until TestFlight distribution actually begins post-release.
 - **Spec**: `Documentation/Specs/DevelopmentTooling.md` — Test/Debug Infrastructure Simplification
 - **Acceptance Criteria**:
-  - `Configuration/QA.xcconfig` is deleted and no Xcode build configuration/scheme references it.
-  - The `QA` build configuration is removed from `Spread.xcodeproj/project.pbxproj` for the project and all 3 targets (Spread, SpreadTests, SpreadUITests).
-  - `Spread.xcodeproj/xcshareddata/xcschemes/Spread QA.xcscheme` is deleted; only `Spread Localhost` and `Spread Prod` schemes remain.
-  - `BuildInfo` has only Debug and Release build configurations; `.qa` is removed from the `BuildConfiguration` enum and `allowsDebugUI`/`isRelease`/`defaultDataEnvironment` are updated accordingly.
-  - `BuildInfo.defaultDataEnvironment` returns `.localhost` for Debug and `.production` for Release.
-  - `SupabaseConfiguration.KnownEnvironment` no longer contains `spread-dev`'s URL/key; `DataEnvironment.development`'s mapping in `SupabaseConfiguration` is updated or removed consistently with this (do not leave a dangling reference to a decommissioned project).
-  - `Configuration/Debug.xcconfig` is updated so Debug builds in `localhost` mode resolve to a sensible local Supabase configuration (or document why `buildURL`/`buildPublishableKey` are unused in `localhost` mode).
-  - `docs/supabase-setup.md` and `docs/local-supabase-testing.md` no longer describe `spread-dev` as an in-use backend or refer to a "QA" configuration, and note that TestFlight distribution is a future, currently-unneeded configuration.
-  - Project builds successfully for Debug and Release configurations.
+  - [x] `Configuration/QA.xcconfig` is deleted and no Xcode build configuration/scheme references it.
+  - [x] The `QA` build configuration is removed from `Spread.xcodeproj/project.pbxproj` for the project and all 3 targets (Spread, SpreadTests, SpreadUITests).
+  - [x] `Spread.xcodeproj/xcshareddata/xcschemes/Spread QA.xcscheme` is deleted; only `Spread Localhost` and `Spread Prod` schemes remain.
+  - [x] `BuildInfo` has only Debug and Release build configurations; `.qa` is removed from the `BuildConfiguration` enum and `allowsDebugUI`/`isRelease`/`defaultDataEnvironment` are updated accordingly.
+  - [x] `BuildInfo.defaultDataEnvironment` returns `.localhost` for Debug and `.production` for Release.
+  - [x] `SupabaseConfiguration.KnownEnvironment` no longer contains `spread-dev`'s URL/key; `DataEnvironment.development`'s mapping in `SupabaseConfiguration` is updated or removed consistently with this (do not leave a dangling reference to a decommissioned project).
+  - [x] `Configuration/Debug.xcconfig` is updated so Debug builds in `localhost` mode resolve to a sensible local Supabase configuration (or document why `buildURL`/`buildPublishableKey` are unused in `localhost` mode).
+  - [x] `docs/supabase-setup.md` and `docs/local-supabase-testing.md` no longer describe `spread-dev` as an in-use backend or refer to a "QA" configuration, and note that TestFlight distribution is a future, currently-unneeded configuration.
+  - [x] Project builds successfully for Debug and Release configurations.
 - **Tests**:
   - Manual: build and run Debug and Release configurations and confirm `DataEnvironment.current` and `SupabaseConfiguration.url`/`publishableKey` resolve to the expected environment/backend for each.
   - Manual: launch a Debug build with `-DataEnvironment localhost` and confirm it still operates in local-only mode (no auth, no sync).
