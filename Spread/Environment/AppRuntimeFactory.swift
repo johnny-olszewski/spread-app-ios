@@ -10,7 +10,7 @@ enum AppRuntimeFactory {
 
     /// Creates a live runtime for app launch.
     ///
-    /// - Parameter configuration: Optional overrides for debug/QA builds.
+    /// - Parameter configuration: Optional overrides for debug builds.
     @MainActor
     static func makeLive() async throws -> AppRuntime {
         try await makeLive(configuration: AppRuntimeConfiguration())
@@ -51,7 +51,7 @@ enum AppRuntimeFactory {
     ///
     /// - Parameters:
     ///   - dependencies: The app dependencies to use.
-    ///   - configuration: Optional overrides for debug/QA builds.
+    ///   - configuration: Optional overrides for debug builds.
     @MainActor
     static func make(dependencies: AppDependencies) async throws -> AppRuntime {
         try await make(

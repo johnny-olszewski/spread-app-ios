@@ -18,7 +18,7 @@ struct AppRuntimeConfiguration {
     /// Optional hook to load mock data after JournalManager initialization.
     var loadMockDataSet: ((JournalManager) async throws -> Void)?
 
-    /// Override debug menu view construction for debug/QA builds.
+    /// Override debug menu view construction for debug builds.
     var makeDebugMenuView: DebugMenuViewFactory?
 
     /// Factory for creating the network monitor.

@@ -4,14 +4,14 @@ import Foundation
 ///
 /// Values are read from Info.plist at runtime, which are populated from
 /// xcconfig files at build time:
-/// - Debug builds use `Configuration/Debug.xcconfig` (dev environment)
-/// - QA builds use `Configuration/QA.xcconfig` (dev environment)
-/// - Release builds use `Configuration/Release.xcconfig` (prod environment)
+/// - Debug builds use `Configuration/Debug.xcconfig` (local Docker Supabase by default)
+/// - Release builds use `Configuration/Release.xcconfig` (`spread-prod`)
 ///
 /// The active configuration is determined by `DataEnvironment.current`:
 /// - `localhost`: Supabase is not available (local-only mode).
-/// - `development`: Uses dev Supabase URL/key.
-/// - `production`: Uses prod Supabase URL/key.
+/// - `development`: Uses the build configuration's URL/key (typically overridden via
+///   `-SupabaseURL`/`-SupabaseKey` to point at a local Supabase stack for sync testing).
+/// - `production`: Uses `spread-prod`'s URL/key.
 ///
 /// Explicit URL/key overrides via launch arguments or environment variables
 /// take highest priority in all builds.
@@ -20,9 +20,6 @@ enum SupabaseConfiguration {
     // MARK: - Known Environments
 
     private enum KnownEnvironment {
-        static let devURL = URL(string: "https://apblzzondjcughtgqowd.supabase.co")!
-        static let devKey = "sb_publishable_G74Nb3IoMfnsmrZfp6dcaA_0_UD6QLT"
-
         static let prodURL = URL(string: "https://nzsswqmxodkvgsnabnaj.supabase.co")!
         static let prodKey = "sb_publishable_NSgP9CI8D3Ab3d4QmQ9Lwg_RV2tArlj"
     }
@@ -81,24 +78,28 @@ enum SupabaseConfiguration {
     }
 
     /// Returns the Supabase URL for a specific data environment.
+    ///
+    /// `localhost` and `development` both fall back to the build configuration's
+    /// URL (`buildURL`). `development` is expected to be paired with an explicit
+    /// `-SupabaseURL`/`-SupabaseKey` override (e.g. for local Supabase sync testing).
     static func url(for dataEnvironment: DataEnvironment) -> URL {
         switch dataEnvironment {
-        case .localhost:
+        case .localhost, .development:
             return buildURL
-        case .development:
-            return KnownEnvironment.devURL
         case .production:
             return KnownEnvironment.prodURL
         }
     }
 
     /// Returns the Supabase publishable key for a specific data environment.
+    ///
+    /// `localhost` and `development` both fall back to the build configuration's
+    /// key (`buildPublishableKey`). `development` is expected to be paired with an
+    /// explicit `-SupabaseURL`/`-SupabaseKey` override (e.g. for local Supabase sync testing).
     static func publishableKey(for dataEnvironment: DataEnvironment) -> String {
         switch dataEnvironment {
-        case .localhost:
+        case .localhost, .development:
             return buildPublishableKey
-        case .development:
-            return KnownEnvironment.devKey
         case .production:
             return KnownEnvironment.prodKey
         }

@@ -28,7 +28,7 @@ struct AppRuntime {
 
     /// Optional factory for constructing the debug menu view.
     ///
-    /// Non-nil in debug/QA builds where `AppRuntimeConfiguration.debug()` provides the hook.
+    /// Non-nil in debug builds where `AppRuntimeConfiguration.debug()` provides the hook.
     /// Production builds leave this nil, hiding the debug tab entirely.
     let makeDebugMenuView: DebugMenuViewFactory?
 }

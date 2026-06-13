@@ -3,7 +3,7 @@ import Foundation
 /// Centralizes build configuration gating for the app.
 ///
 /// Use `BuildInfo` to determine what features and UI should be available
-/// based on the current build configuration (Debug, QA, or Release).
+/// based on the current build configuration (Debug or Release).
 enum BuildInfo {
 
     /// The human-readable name of the current build configuration.
@@ -13,7 +13,7 @@ enum BuildInfo {
 
     /// Whether the current build allows debug UI (debug menu and engineering overrides).
     ///
-    /// Returns `true` for Debug and QA builds.
+    /// Returns `true` for Debug builds.
     static var allowsDebugUI: Bool {
         buildConfiguration != .release
     }
@@ -25,15 +25,12 @@ enum BuildInfo {
 
     /// The default data environment for the current build configuration.
     ///
-    /// - Debug: development (dev backend, auth-gated unless launched with localhost override)
-    /// - QA: development (Supabase dev project)
-    /// - Release: production (Supabase prod project)
+    /// - Debug: localhost (local-only, no backend, unless overridden at launch)
+    /// - Release: production (`spread-prod`)
     static var defaultDataEnvironment: DataEnvironment {
         switch buildConfiguration {
         case .debug:
-            return .development
-        case .qa:
-            return .development
+            return .localhost
         case .release:
             return .production
         }
@@ -43,15 +40,12 @@ enum BuildInfo {
 
     private enum BuildConfiguration: Equatable {
         case debug
-        case qa
         case release
 
         var displayName: String {
             switch self {
             case .debug:
                 return "Debug"
-            case .qa:
-                return "QA"
             case .release:
                 return "Release"
             }
@@ -60,9 +54,6 @@ enum BuildInfo {
 
     private static var buildConfiguration: BuildConfiguration {
         let bundleIdentifier = Bundle(for: BuildInfoBundleToken.self).bundleIdentifier ?? ""
-        if bundleIdentifier.hasSuffix(".qa") {
-            return .qa
-        }
         if bundleIdentifier.hasSuffix(".debug") {
             return .debug
         }

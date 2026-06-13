@@ -4,8 +4,10 @@ import Foundation
 ///
 /// `DataEnvironment` determines where data lives and which backend services are used:
 /// - `localhost`: Local-only mode. No Supabase, no auth, no sync.
-/// - `development`: Supabase dev project. Auth and sync enabled.
-/// - `production`: Supabase prod project. Auth and sync enabled.
+/// - `development`: Auth and sync enabled against a Supabase backend supplied via
+///   explicit `-SupabaseURL`/`-SupabaseKey` overrides (e.g. a local Docker Supabase
+///   stack for sync testing; see `scripts/local-supabase.sh`).
+/// - `production`: `spread-prod`. Auth and sync enabled.
 ///
 /// Resolution order (via `resolve`):
 /// 1. Launch arguments (`-DataEnvironment <value>`)
