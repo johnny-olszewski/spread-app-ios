@@ -6349,16 +6349,16 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-242] Refactor: Remove DebugAppearanceSettings singleton and appearance override panel - [ ] Pending
+### [SPRD-242] Refactor: Remove DebugAppearanceSettings singleton and appearance override panel - [x] Done
 
 - **Context**: `DebugAppearanceSettings` is an `@Observable @MainActor` class with `static let shared`, violating the project's no-singleton architecture rule even though it is `#if DEBUG`-scoped. The user does not use the appearance override panel (paper tone, dot grid, heading font, accent color).
 - **Description**: Delete `DebugAppearanceSettings.swift` and its `DebugMenuView` appearance override section. Remove all references to `DebugAppearanceSettings.shared` from production views, reverting those views to their production-defined appearance values.
 - **Spec**: `Documentation/Specs/DevelopmentTooling.md` — Test/Debug Infrastructure Simplification
 - **Acceptance Criteria**:
-  - `DebugAppearanceSettings.swift` no longer exists and no references to `DebugAppearanceSettings` remain in the codebase.
-  - `DebugMenuView` no longer has an appearance override section.
-  - Affected views compile and render using production-defined appearance values (paper tone, dot grid, heading font, accent color) with no behavior change in Release builds.
-  - Project builds with no errors or warnings.
+  - [x] `DebugAppearanceSettings.swift` no longer exists and no references to `DebugAppearanceSettings` remain in the codebase.
+  - [x] `DebugMenuView` no longer has an appearance override section.
+  - [x] Affected views compile and render using production-defined appearance values (paper tone, dot grid, heading font, accent color) with no behavior change in Release builds.
+  - [x] Project builds with no errors or warnings.
 - **Tests**:
   - Manual: launch a Debug build and confirm app appearance matches a Release build's default appearance (no leftover debug overrides).
 
