@@ -6331,18 +6331,18 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-241] Refactor: Remove debug scenario-toggle/fault-injection panel from DebugMenuView - [ ] Pending
+### [SPRD-241] Refactor: Remove debug scenario-toggle/fault-injection panel from DebugMenuView - [x] Done
 
 - **Context**: `DebugMenuView` (673 lines) bundles a read-only data viewer with a runtime scenario-toggle/fault-injection panel (forced auth errors, sync status overrides, outbox seeding, scenario presets, network blocking). A check of `SpreadUITests` found none of these scenario-toggle accessibility identifiers are used by any automated test — only the unrelated temporal harness identifiers are. The user wants debug builds to provide data viewing without runtime mutation, and does not use this panel manually.
 - **Description**: Remove the scenario-toggle/fault-injection panel from `DebugMenuView` entirely: forced auth error injection (`DebugAuthService`), the block-all-network toggle (`DebugNetworkMonitor`), sync status overrides/outbox seeding/scenario presets (`DebugSyncPolicy`), and their corresponding `DebugMenuView` sections and wiring in `AppRuntimeConfiguration+Debug.swift`. Delete `DebugSyncPolicy.swift`. Since removing `DebugSyncPolicy` leaves `SyncPolicy`/`DefaultSyncPolicy` with only one conformance, co-locate the `SyncPolicy` protocol and `DefaultSyncPolicy` struct in a single file (preserving the protocol pattern for future test substitution, per the user's note, rather than collapsing it into a concrete type). Remove any now-unused forced-error/block-network methods from `DebugAuthService`/`DebugNetworkMonitor` (or delete those files if nothing else uses them). `DebugMenuView` retains the data viewer (`DebugRepositoryListView`), environment/build-info readout, and mock data set loader.
 - **Spec**: `Documentation/Specs/DevelopmentTooling.md` — Test/Debug Infrastructure Simplification
 - **Acceptance Criteria**:
-  - `DebugSyncPolicy.swift` is deleted; `SyncPolicy` protocol and `DefaultSyncPolicy` are co-located in a single file with no other conformances.
-  - `DebugMenuView` no longer contains sections for forced auth errors, sync status overrides, outbox seeding, scenario presets, or network blocking.
-  - `DebugAuthService`/`DebugNetworkMonitor` no longer expose forced-error/block-network APIs (or are removed if they become empty).
-  - `AppRuntimeConfiguration+Debug.swift` no longer wires the removed debug services.
-  - `DebugMenuView` continues to show the repository data viewer (`DebugRepositoryListView`), environment/build-info summary, and mock data set loader.
-  - Project builds with no errors or warnings; existing unit tests pass.
+  - [x] `DebugSyncPolicy.swift` is deleted; `SyncPolicy` protocol and `DefaultSyncPolicy` are co-located in a single file with no other conformances.
+  - [x] `DebugMenuView` no longer contains sections for forced auth errors, sync status overrides, outbox seeding, scenario presets, or network blocking.
+  - [x] `DebugAuthService`/`DebugNetworkMonitor` no longer expose forced-error/block-network APIs (or are removed if they become empty). (Both files deleted — each had become a pure passthrough decorator with no remaining behavior.)
+  - [x] `AppRuntimeConfiguration+Debug.swift` no longer wires the removed debug services.
+  - [x] `DebugMenuView` continues to show the repository data viewer (`DebugRepositoryListView`), environment/build-info summary, and mock data set loader.
+  - [~] Project builds with no errors or warnings; existing unit tests pass. Both `Spread Localhost` (Debug) and `Spread Prod` (Release) build successfully. The full `SpreadTests` suite has 4 pre-existing failures unrelated to this task (`AuthIntegrationTests.testDeleteAccount_removesUserAndSignsOut`, `SPRD193MultidayAssignmentContractTests.schemaSnapshotsIncludeSpreadIDForAssignmentOwnership`, `WKFLW17SyncContractTests.schemaSnapshotsIncludeApprovedFieldsAndNoDeferredCandidates`, `WKFLW17SyncContractTests.mergeFunctionsUseIndependentConflictTimestampsAndDeleteWins`) — confirmed present on `HEAD` before this task's changes (a SPRD-239 follow-up gap from the migration squash, tracked separately). All other tests pass.
 - **Tests**:
   - Manual: launch a Debug build, open the Debug destination, confirm the data viewer and environment summary still work and the removed sections are gone.
   - Run the full unit test suite to confirm no test depended on the removed debug services.
