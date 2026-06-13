@@ -11,20 +11,18 @@
 #   ./scripts/local-supabase.sh status
 #   ./scripts/local-supabase.sh env
 #   ./scripts/local-supabase.sh launch-args
-#   ./scripts/local-supabase.sh bootstrap-schema-from-dev
 #   ./scripts/local-supabase.sh reset
 #   ./scripts/local-supabase.sh provision-users
 #
-# One-time bootstrap requirements:
+# One-time requirements:
 #   - Docker Desktop running
 #   - Supabase CLI installed
-#   - psql/pg_dump installed
-#   - export SUPABASE_DB_PASSWORD_DEV="..."
+#
+# `reset` replays supabase/migrations/*.sql (a single baseline schema
+# migration kept in sync with spread-prod) against the local database via
+# `supabase db reset` — no dump/bootstrap step is required.
 
 set -euo pipefail
-
-DEV_REF="apblzzondjcughtgqowd"
-DEV_POOLER_HOST="aws-1-us-east-1.pooler.supabase.com"
 
 DEFAULT_TEST_PASSWORD="${SPREAD_LOCAL_TEST_PASSWORD:-spread-local-pass}"
 DEFAULT_TEST_USERS=(
@@ -36,20 +34,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SUPABASE_DIR="$PROJECT_ROOT/supabase"
 LOCAL_SCHEMA_DIR="$SUPABASE_DIR/local"
-LOCAL_SCHEMA_FILE="$LOCAL_SCHEMA_DIR/public_schema_from_dev.sql"
 LOCAL_ENV_FILE="$LOCAL_SCHEMA_DIR/test.env"
-LOCAL_SECRET_FILE="$SUPABASE_DIR/.env.local"
 
 log()  { echo "→ $*"; }
 ok()   { echo "✓ $*"; }
 err()  { echo "Error: $*" >&2; exit 1; }
-
-load_local_secret_file() {
-  if [[ -f "$LOCAL_SECRET_FILE" ]]; then
-    # shellcheck disable=SC1090
-    source "$LOCAL_SECRET_FILE"
-  fi
-}
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || err "Missing required command: $1"
@@ -59,82 +48,20 @@ require_supabase() {
   require_command supabase
 }
 
-require_psql_tools() {
-  require_command psql
-  require_command pg_dump
-}
-
 require_docker() {
   require_command docker
   docker info >/dev/null 2>&1 || err \
     "Docker Desktop is not running or not accessible. Start Docker Desktop, then retry."
 }
 
-require_dev_password() {
-  load_local_secret_file
-  local dev_db_password="${SUPABASE_DB_PASSWORD_DEV:-}"
-  [[ -n "$dev_db_password" ]] || err \
-    $'SUPABASE_DB_PASSWORD_DEV is not set.\n' \
-    "Set it in your shell or in $LOCAL_SECRET_FILE before running bootstrap-schema-from-dev."
-}
-
-dev_db_password() {
-  load_local_secret_file
-  printf '%s' "${SUPABASE_DB_PASSWORD_DEV:-}"
-}
-
-url_encode() {
-  python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$1"
-}
-
 ensure_local_dirs() {
   mkdir -p "$LOCAL_SCHEMA_DIR"
-}
-
-sanitize_bootstrap_schema_dump() {
-  local source_file="$1"
-  local tmp_file
-  tmp_file="$(mktemp)"
-
-  python3 - "$source_file" "$tmp_file" <<'PY'
-import pathlib
-import sys
-
-source = pathlib.Path(sys.argv[1])
-target = pathlib.Path(sys.argv[2])
-
-skip_default_acl = False
-out_lines = []
-
-for line in source.read_text().splitlines():
-    if line.startswith("-- Name: DEFAULT PRIVILEGES"):
-        skip_default_acl = True
-        continue
-    if skip_default_acl:
-        if line.startswith("-- PostgreSQL database dump complete"):
-            skip_default_acl = False
-            out_lines.append(line)
-        continue
-    if line.startswith("\\restrict ") or line.startswith("\\unrestrict "):
-        continue
-    out_lines.append(line)
-
-target.write_text("\n".join(out_lines) + "\n")
-PY
-
-  mv "$tmp_file" "$source_file"
 }
 
 load_local_status_env() {
   local env_output
   env_output="$(cd "$PROJECT_ROOT" && supabase status -o env)"
   eval "$(printf '%s\n' "$env_output" | sed 's/^/export /')"
-}
-
-require_local_schema_file() {
-  [[ -f "$LOCAL_SCHEMA_FILE" ]] || err \
-    $'Missing '"$LOCAL_SCHEMA_FILE"$'.\n' \
-    "Run ./scripts/local-supabase.sh bootstrap-schema-from-dev after setting SUPABASE_DB_PASSWORD_DEV."
 }
 
 cmd_start() {
@@ -184,47 +111,14 @@ EOF
   ok "Wrote local test environment file: $LOCAL_ENV_FILE"
 }
 
-cmd_bootstrap_schema_from_dev() {
-  require_supabase
-  require_psql_tools
-  require_dev_password
-  ensure_local_dirs
-
-  local encoded_pw dev_db_url
-  encoded_pw="$(url_encode "$(dev_db_password)")"
-  dev_db_url="postgresql://postgres.${DEV_REF}:${encoded_pw}@${DEV_POOLER_HOST}:5432/postgres"
-
-  log "Dumping public schema from remote dev..."
-  pg_dump "$dev_db_url" \
-    --schema-only \
-    --no-owner \
-    --schema=public \
-    -f "$LOCAL_SCHEMA_FILE"
-
-  # `public` itself is managed separately during local reset.
-  sed -i '' '/^CREATE SCHEMA public/d; /^COMMENT ON SCHEMA public/d' "$LOCAL_SCHEMA_FILE"
-  sanitize_bootstrap_schema_dump "$LOCAL_SCHEMA_FILE"
-  ok "Wrote local schema bootstrap: $LOCAL_SCHEMA_FILE"
-}
-
 reset_local_database() {
   require_supabase
   require_docker
-  require_local_schema_file
-  require_psql_tools
+  ensure_local_dirs
 
-  log "Resetting local public schema from bootstrap snapshot..."
-  load_local_status_env
-
-  log "Replacing local public schema with bootstrap snapshot..."
-  psql "$DB_URL" \
-    -c "DROP SCHEMA public CASCADE;" \
-    -c "CREATE SCHEMA public;" \
-    -c "GRANT ALL ON SCHEMA public TO postgres;" \
-    -c "GRANT ALL ON SCHEMA public TO public;"
-
-  psql "$DB_URL" -f "$LOCAL_SCHEMA_FILE" -v ON_ERROR_STOP=1
-  ok "Local public schema restored from bootstrap snapshot."
+  log "Resetting local database from supabase/migrations..."
+  (cd "$PROJECT_ROOT" && supabase db reset)
+  ok "Local database reset from supabase/migrations."
 }
 
 create_or_ignore_user() {
@@ -286,24 +180,20 @@ usage() {
 Usage: $(basename "$0") <command>
 
 Commands:
-  start                     Start local Supabase services
-  stop                      Stop local Supabase services
-  status                    Show local Supabase status
-  env                       Print local Supabase env vars
-  launch-args               Print app launch arguments for local Supabase
-  bootstrap-schema-from-dev Dump the remote dev public schema to ${LOCAL_SCHEMA_FILE}
-  provision-users           Create deterministic local auth users for testing
-  reset                     Reset local DB, restore schema bootstrap, and provision users
+  start            Start local Supabase services
+  stop              Stop local Supabase services
+  status            Show local Supabase status
+  env               Print local Supabase env vars
+  launch-args       Print app launch arguments for local Supabase
+  provision-users   Create deterministic local auth users for testing
+  reset             Reset local DB from supabase/migrations and provision users
 
 Important files:
-  Local schema bootstrap:   ${LOCAL_SCHEMA_FILE}
-  Local env file:           ${LOCAL_ENV_FILE}
+  Local env file:   ${LOCAL_ENV_FILE}
 
 Prerequisites:
   - Supabase CLI
   - Docker Desktop running
-  - psql and pg_dump installed
-  - SUPABASE_DB_PASSWORD_DEV set before bootstrap-schema-from-dev
 EOF
   exit 1
 }
@@ -314,7 +204,6 @@ case "${1:-}" in
   status) cmd_status ;;
   env) cmd_env ;;
   launch-args) cmd_launch_args ;;
-  bootstrap-schema-from-dev) cmd_bootstrap_schema_from_dev ;;
   provision-users) cmd_provision_users ;;
   reset) cmd_reset ;;
   *) usage ;;
