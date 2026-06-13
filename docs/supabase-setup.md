@@ -4,11 +4,10 @@ This document covers the Supabase configuration for the Spread app, including en
 
 ## Environments
 
-The app uses two Supabase projects:
+The app uses one remote Supabase project:
 
 | Environment | Project Name | Project URL | Purpose |
 |-------------|--------------|-------------|---------|
-| Development | spread-dev | `https://apblzzondjcughtgqowd.supabase.co` | Local development, testing |
 | Production | spread-prod | `https://nzsswqmxodkvgsnabnaj.supabase.co` | App Store releases |
 
 The testing workflow also uses two local-only environments:
@@ -18,26 +17,39 @@ The testing workflow also uses two local-only environments:
 | Debug `localhost` | None (local-only app state) | Mock-data/UI logic scenarios with no auth or sync |
 | Local Supabase | Local Docker stack | Destructive sync durability, rebuild, and repair testing |
 
+A separate `spread-dev` Supabase project previously existed but is not in use
+and is not referenced by any build configuration.
+
 ## Build Configuration
+
+The project has two build configurations - Debug and Release - with two
+corresponding schemes, `Spread Localhost` and `Spread Prod`. There is
+currently no separate configuration for TestFlight distribution; that is a
+future configuration that is not needed yet.
 
 Supabase configuration is managed via xcconfig files:
 
-- `Configuration/Debug.xcconfig` - Uses dev environment by default
-- `Configuration/QA.xcconfig` - Uses dev environment
-- `Configuration/Release.xcconfig` - Uses prod environment
+- `Configuration/Debug.xcconfig` - Defaults to `localhost` (local-only, no backend). Also
+  carries the fixed local Docker Supabase URL/key used by `-DataEnvironment development`.
+- `Configuration/Release.xcconfig` - Uses the `spread-prod` environment
 
 These values are injected into `Info.plist` at build time and read by `SupabaseConfiguration.swift` at runtime.
 
 ### Debug Localhost Mode
 
-Runtime environment switching is not part of v1. Debug builds normally use the dev backend, and `localhost` is available only when explicitly selected before launch with `-DataEnvironment localhost`.
+Debug builds default to `localhost` (local-only, no backend). Runtime
+environment switching is not part of v1, but `-DataEnvironment development`
+can be passed at launch (paired with `-SupabaseURL`/`-SupabaseKey` overrides,
+or the local Docker Supabase defaults baked into `Debug.xcconfig`) to test
+against a local Supabase stack. See
+[docs/local-supabase-testing.md](./local-supabase-testing.md) for that workflow.
 
 `localhost` is an engineering-only mode:
 - it bypasses product auth with a mock user
 - it keeps all persistence local for that run
 - it is the only mode where mock data loading is available
 - it is not persisted across launches
-- the app wipes the local store when switching to or from `localhost` so mock data cannot contaminate dev-backed local state
+- the app wipes the local store when switching to or from `localhost` so mock data cannot contaminate backed local state
 
 ## Auth Providers
 
@@ -67,10 +79,7 @@ supabase login
 ### Link to Projects
 
 ```bash
-# Link to dev project
-supabase link --project-ref apblzzondjcughtgqowd
-
-# Or link to prod (use with caution)
+# Link to prod (use with caution)
 supabase link --project-ref nzsswqmxodkvgsnabnaj
 ```
 
@@ -129,9 +138,9 @@ Add to your Claude MCP configuration:
 ```json
 {
   "mcpServers": {
-    "supabase-dev": {
+    "supabase": {
       "command": "npx",
-      "args": ["-y", "@anthropic-ai/mcp-server-supabase", "--project-ref", "apblzzondjcughtgqowd"]
+      "args": ["-y", "@anthropic-ai/mcp-server-supabase", "--project-ref", "nzsswqmxodkvgsnabnaj"]
     }
   }
 }
