@@ -76,62 +76,43 @@ supabase link --project-ref nzsswqmxodkvgsnabnaj
 
 ## Migrations Workflow
 
-### Creating Migrations
+`supabase/migrations/` currently holds a single baseline migration
+(`<timestamp>_baseline_schema.sql`) that reflects `spread-prod`'s schema as of
+the date it was generated. Pre-release, there is no need to preserve a
+historical sequence of incremental migrations; this will be revisited once the
+app ships and remote schema changes must be rolled out incrementally.
+
+### Regenerating the Baseline
+
+When `spread-prod`'s schema changes intentionally, regenerate the baseline
+migration from prod via `pg_dump`:
 
 ```bash
-# Create a new migration file
-supabase migration new <migration_name>
-
-# Example
-supabase migration new create_spreads_table
+pg_dump "<spread-prod connection string>" --schema-only --no-owner --schema=public \
+  -f supabase/migrations/<timestamp>_baseline_schema.sql
 ```
 
-This creates a file in `supabase/migrations/` with a timestamp prefix.
+Then:
 
-### Writing Migrations
+1. Strip the `CREATE SCHEMA public` / `COMMENT ON SCHEMA public` lines, any
+   `-- Name: DEFAULT PRIVILEGES` blocks, and any `\restrict` / `\unrestrict`
+   lines from the dump.
+2. Remove the previous baseline migration file.
+3. Run `./scripts/local-supabase.sh reset` to verify the local database
+   reproduces the new schema.
 
-Edit the generated SQL file in `supabase/migrations/`:
+See [docs/local-supabase-testing.md](./local-supabase-testing.md#updating-the-local-schema)
+for the equivalent local-testing instructions.
 
-```sql
--- Example: supabase/migrations/20260126000000_create_spreads_table.sql
+### Applying Schema Changes to Prod
 
-CREATE TABLE spreads (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES auth.users(id),
-    -- ... more columns
-);
-
--- Enable RLS
-ALTER TABLE spreads ENABLE ROW LEVEL SECURITY;
-
--- Add RLS policies
-CREATE POLICY "Users can only access their own spreads"
-    ON spreads FOR ALL
-    USING (auth.uid() = user_id);
-```
-
-### Applying Migrations
-
-```bash
-# Apply to linked project (dev)
-supabase db push
-
-# Or apply to a specific project
-supabase db push --project-ref apblzzondjcughtgqowd
-```
-
-### Pulling Remote Schema
-
-```bash
-# Pull current schema from remote
-supabase db pull
-```
-
-### Diffing Changes
+Once a schema change has been made directly against `spread-prod` (e.g. via
+the Supabase Dashboard, `supabase db push`, or the Supabase MCP), regenerate
+the baseline migration as described above so local development stays in sync.
 
 ```bash
 # Compare local migrations with remote schema
-supabase db diff
+supabase db diff --linked
 ```
 
 ## MCP Integration
@@ -168,10 +149,7 @@ Use the repo helper script instead of raw CLI commands:
 # Start the local stack
 ./scripts/local-supabase.sh start
 
-# Bootstrap the local public schema from spread-dev (one-time and whenever schema changes)
-./scripts/local-supabase.sh bootstrap-schema-from-dev
-
-# Reset local schema and provision deterministic local test users
+# Reset local schema (replays supabase/migrations/) and provision deterministic local test users
 ./scripts/local-supabase.sh reset
 
 # Print local app launch arguments
@@ -202,23 +180,30 @@ For local Supabase sync testing, keep the app in a sync-enabled mode and overrid
 
 ## Database Schema
 
-Schema created in SPRD-81. Migration: `20260127041350_create_core_entities`
+The schema below reflects `spread-prod`'s current schema, as captured in the
+single baseline migration `supabase/migrations/<timestamp>_baseline_schema.sql`
+(see [Migrations Workflow](#migrations-workflow)).
 
 ### Tables Overview
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `spreads` | Journaling pages tied to time periods | `period`, `date`, `start_date`, `end_date` |
-| `tasks` | Assignable entries with status | `title`, `date`, `period`, `status` |
-| `notes` | Assignable entries with content | `title`, `content`, `date`, `period`, `status` |
-| `task_assignments` | Per-spread status for tasks | `task_id`, `period`, `date`, `status` |
-| `note_assignments` | Per-spread status for notes | `note_id`, `period`, `date`, `status` |
+| `spreads` | Journaling pages tied to time periods | `period`, `date`, `start_date`, `end_date`, `is_favorite`, `custom_name`, `uses_dynamic_name` |
+| `tasks` | Assignable entries with status | `title`, `body`, `date`, `period`, `status`, `priority`, `due_date`, `list_id` |
+| `notes` | Assignable entries with content | `title`, `content`, `date`, `period`, `status`, `list_id` |
+| `task_assignments` | Per-spread status for tasks | `task_id`, `spread_id`, `period`, `date`, `status` |
+| `note_assignments` | Per-spread status for notes | `note_id`, `spread_id`, `period`, `date`, `status` |
 | `collections` | Plain text pages | `title` |
 | `settings` | User preferences (one row per user) | `bujo_mode`, `first_weekday` |
+| `lists` | Named groupings of tasks/notes | `name` |
+| `tags` | User-defined tags | `name` |
+| `task_tags` | Join table: tags applied to tasks | `task_id`, `tag_id` |
+| `note_tags` | Join table: tags applied to notes | `note_id`, `tag_id` |
 
-### Common Columns (All Tables)
+### Common Columns
 
-All tables include these columns for sync:
+Entity tables (`spreads`, `tasks`, `notes`, `task_assignments`,
+`note_assignments`, `collections`, `settings`, `lists`, `tags`) include:
 
 | Column | Type | Purpose |
 |--------|------|---------|
@@ -226,32 +211,48 @@ All tables include these columns for sync:
 | `user_id` | `uuid` | Owner of the record |
 | `device_id` | `uuid` | Device that created/modified the record |
 | `created_at` | `timestamptz` | When record was created |
-| `updated_at` | `timestamptz` | When record was last modified |
 | `deleted_at` | `timestamptz` | Soft delete timestamp (null = active) |
 | `revision` | `bigint` | Monotonic version for incremental sync |
+
+`lists` and `tags` omit `updated_at` (no field-level LWW beyond `name`).
+All other entity tables above also include `updated_at` (`timestamptz`).
+
+The join tables `task_tags` (PK `(task_id, tag_id)`) and `note_tags` (PK
+`(note_id, tag_id)`) omit `id` and `device_id`, and have only `user_id`,
+`created_at`, `deleted_at`, `revision`.
 
 ### Field-Level LWW Timestamps
 
 Each table has per-field `*_updated_at` columns for field-level last-write-wins conflict resolution:
 
-- **spreads**: `period_updated_at`, `date_updated_at`, `start_date_updated_at`, `end_date_updated_at`
-- **tasks**: `title_updated_at`, `date_updated_at`, `period_updated_at`, `status_updated_at`
-- **notes**: `title_updated_at`, `content_updated_at`, `date_updated_at`, `period_updated_at`, `status_updated_at`
+- **spreads**: `period_updated_at`, `date_updated_at`, `start_date_updated_at`, `end_date_updated_at`, `is_favorite_updated_at`, `custom_name_updated_at`, `uses_dynamic_name_updated_at`
+- **tasks**: `title_updated_at`, `date_updated_at`, `period_updated_at`, `status_updated_at`, `body_updated_at`, `priority_updated_at`, `due_date_updated_at`, `list_updated_at`
+- **notes**: `title_updated_at`, `content_updated_at`, `date_updated_at`, `period_updated_at`, `status_updated_at`, `list_updated_at`
 - **collections**: `title_updated_at`
 - **settings**: `bujo_mode_updated_at`, `first_weekday_updated_at`
 - **task_assignments**: `status_updated_at`
 - **note_assignments**: `status_updated_at`
+- **lists**: `name_updated_at`
+- **tags**: `name_updated_at`
+
+`task_tags` and `note_tags` have no field-level LWW columns (they are
+presence-only join rows; conflict resolution is delete-wins via
+`deleted_at`/`revision`).
 
 ### CHECK Constraints
 
-| Table | Field | Allowed Values |
-|-------|-------|----------------|
-| spreads, tasks, notes, assignments | `period` | `year`, `month`, `day`, `multiday` |
+| Table | Field | Constraint |
+|-------|-------|------------|
+| spreads, notes, note_assignments, task_assignments | `period` | `year`, `month`, `day`, `multiday` |
+| tasks | `period` | `NULL` or one of `year`, `month`, `day`, `multiday` |
 | tasks, task_assignments | `status` | `open`, `complete`, `migrated`, `cancelled` |
 | notes, note_assignments | `status` | `active`, `migrated` |
+| tasks | `priority` | `none`, `low`, `medium`, `high` |
 | settings | `bujo_mode` | `conventional`, `traditional` |
 | settings | `first_weekday` | `1` to `7` |
-| spreads | multiday dates | `start_date`/`end_date` required when `period = 'multiday'` |
+| spreads | multiday dates | `start_date`/`end_date` both set when `period = 'multiday'`, both `NULL` otherwise |
+| lists | `name` | non-empty after trimming whitespace |
+| tags | `name` | non-empty after trimming whitespace |
 
 ### Unique Constraints
 
@@ -260,51 +261,71 @@ Each table has per-field `*_updated_at` columns for field-level last-write-wins 
 | spreads | `(user_id, period, date)` | `period != 'multiday'` and not deleted |
 | spreads | `(user_id, start_date, end_date)` | `period = 'multiday'` and not deleted |
 | settings | `user_id` | One settings row per user |
-| task_assignments | `(user_id, task_id, period, date)` | Not deleted |
-| note_assignments | `(user_id, note_id, period, date)` | Not deleted |
+| task_assignments | `(user_id, task_id, period, date)` | `spread_id IS NULL` and not deleted |
+| task_assignments | `(user_id, task_id, spread_id)` | `spread_id IS NOT NULL` and not deleted |
+| note_assignments | `(user_id, note_id, period, date)` | `spread_id IS NULL` and not deleted |
+| note_assignments | `(user_id, note_id, spread_id)` | `spread_id IS NOT NULL` and not deleted |
+| task_tags | `(task_id, tag_id)` | Primary key |
+| note_tags | `(note_id, tag_id)` | Primary key |
 
 ### Foreign Keys
 
 | Table | Column | References | On Delete |
 |-------|--------|------------|-----------|
 | task_assignments | `task_id` | `tasks.id` | CASCADE |
+| task_assignments | `spread_id` | `spreads.id` | SET NULL |
 | note_assignments | `note_id` | `notes.id` | CASCADE |
+| note_assignments | `spread_id` | `spreads.id` | SET NULL |
+| tasks | `list_id` | `lists.id` | SET NULL |
+| notes | `list_id` | `lists.id` | SET NULL |
+| lists | `user_id` | `auth.users.id` | CASCADE |
+| tags | `user_id` | `auth.users.id` | CASCADE |
+| task_tags | `task_id` | `tasks.id` | CASCADE |
+| task_tags | `tag_id` | `tags.id` | CASCADE |
+| task_tags | `user_id` | `auth.users.id` | CASCADE |
+| note_tags | `note_id` | `notes.id` | CASCADE |
+| note_tags | `tag_id` | `tags.id` | CASCADE |
+| note_tags | `user_id` | `auth.users.id` | CASCADE |
 
 ### Indexes
 
-All tables have indexes for efficient sync queries:
-- `(user_id, revision)` - Incremental sync by revision
-- `(user_id, deleted_at)` - Filter active vs deleted records
+All entity tables have indexes for efficient sync queries:
+- `(user_id, revision)` - Incremental sync by revision (`(revision)` only for `lists`/`tags`/`task_tags`/`note_tags`)
+- `(user_id, deleted_at)` - Filter active vs deleted records (entity tables only)
 
-Assignment tables have additional indexes:
-- `(task_id)` / `(note_id)` - FK lookup
+Additional indexes:
+- `task_assignments(task_id)`, `task_assignments(spread_id)` - FK lookups
+- `note_assignments(note_id)`, `note_assignments(spread_id)` - FK lookups
+- `task_tags(task_id)`, `task_tags(tag_id)` - FK lookups
+- `note_tags(note_id)`, `note_tags(tag_id)` - FK lookups
+- `lists(user_id)`, `tags(user_id)` - FK lookups
 
 ### RLS Policies
 
-RLS enabled in SPRD-82. Migration: `20260127042003_enable_rls_policies`
+All 11 tables have RLS enabled.
 
-All 7 tables have RLS enabled with 4 policies each:
-
-| Policy | Command | Condition |
-|--------|---------|-----------|
-| Select own rows | `SELECT` | `auth.uid() = user_id` |
-| Insert own rows | `INSERT` | `auth.uid() = user_id` (WITH CHECK) |
-| Update own rows | `UPDATE` | `auth.uid() = user_id` (USING + WITH CHECK) |
-| Delete own rows | `DELETE` | `auth.uid() = user_id` |
+| Tables | Policy Count | Shape |
+|--------|---------------|-------|
+| `collections`, `notes`, `note_assignments`, `settings`, `spreads`, `tasks`, `task_assignments` | 4 each | Separate `SELECT`/`INSERT`/`UPDATE`/`DELETE` policies, each `auth.uid() = user_id` |
+| `lists`, `tags`, `task_tags`, `note_tags` | 1 each | Single `FOR ALL` policy, `auth.uid() = user_id` |
 
 **Service role** bypasses RLS by default for admin/cleanup operations.
 
 ### Triggers and Revision Sequence
 
-Added in SPRD-83. Migration: `20260127042413_add_triggers_and_merge_rpcs`
+**Global revision sequence** (`next_revision()`) provides monotonic versioning for incremental sync.
 
-**Global revision sequence** (`sync_revision_seq`) provides monotonic versioning for incremental sync.
-
-Each table has a `BEFORE INSERT OR UPDATE` trigger that:
-- Assigns next `revision` from global sequence
-- Sets `updated_at` to current timestamp
+Each table has a `BEFORE INSERT OR UPDATE` trigger function (e.g.
+`tasks_trigger_fn`, `spreads_trigger_fn`, `notes_trigger_fn`,
+`settings_trigger_fn`, `collections_trigger_fn`, `task_assignments_trigger_fn`,
+`note_assignments_trigger_fn`) that:
+- Assigns next `revision` from `next_revision()`
+- Sets `updated_at` to current timestamp (where the table has `updated_at`)
 - On INSERT: initializes all `*_updated_at` fields
 - On UPDATE: only updates `*_updated_at` for fields that actually changed
+
+`lists`, `tags`, `task_tags`, and `note_tags` have their own revision-assigning
+triggers but do not maintain `updated_at`.
 
 ### Merge RPCs
 
@@ -319,18 +340,21 @@ Merge functions implement field-level last-write-wins (LWW) conflict resolution:
 | `merge_settings()` | settings |
 | `merge_task_assignment()` | task_assignments |
 | `merge_note_assignment()` | note_assignments |
+| `merge_list()` | lists |
+| `merge_tag()` | tags |
+| `merge_task_tag()` | task_tags |
+| `merge_note_tag()` | note_tags |
 
 **Merge behavior:**
 1. If record doesn't exist → INSERT
 2. If incoming `deleted_at` is newer → apply delete (delete-wins)
-3. Otherwise → field-level LWW merge (newer timestamp wins per field)
+3. Otherwise → field-level LWW merge (newer timestamp wins per field), or
+   presence-only delete-wins merge for join tables (`task_tags`/`note_tags`)
 4. Returns canonical row as JSON
 
 All merge RPCs use `SECURITY DEFINER` and validate `user_id = auth.uid()`.
 
 ## Tombstone Cleanup Job
-
-Added in SPRD-89. Migration: `20260320000000_tombstone_cleanup_job`
 
 Soft-deleted rows (`deleted_at IS NOT NULL`) older than 90 days are permanently removed by a scheduled PostgreSQL function.
 
@@ -340,9 +364,9 @@ Soft-deleted rows (`deleted_at IS NOT NULL`) older than 90 days are permanently 
 
 ### How It Works
 
-- **Function**: `cleanup_tombstones()` — `SECURITY DEFINER` function that bypasses RLS and hard-deletes expired tombstones from all 7 tables.
+- **Function**: `cleanup_tombstones()` — `SECURITY DEFINER` function that bypasses RLS and hard-deletes expired tombstones from all 11 tables.
 - **Schedule**: Runs daily at 03:00 UTC via `pg_cron`.
-- **Deletion order**: Child assignments first (task_assignments, note_assignments), then parent entries (tasks, notes), then other entities (spreads, collections, settings).
+- **Deletion order**: Join tables and child assignments first (`task_tags`, `note_tags`, `task_assignments`, `note_assignments`), then parent entries (`tasks`, `notes`), then other entities (`spreads`, `collections`, `settings`, `lists`, `tags`).
 
 ### Manual Verification
 
@@ -405,3 +429,4 @@ SELECT cron.unschedule('cleanup-tombstones');
 - SPRD-83: DB triggers + merge RPCs
 - SPRD-84: Supabase client + auth integration
 - SPRD-89: Tombstone cleanup job (90-day cron)
+- SPRD-239: Squash migrations to a single baseline matching `spread-prod` and remove dev-bootstrap machinery
