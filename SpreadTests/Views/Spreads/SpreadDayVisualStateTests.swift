@@ -3,8 +3,7 @@ import SwiftUI
 import Testing
 @testable import Spread
 
-/// Tests for shared day visual style properties on `MultidayDayCardVisualState` and
-/// the visual state mapping logic used by `SpreadHeaderNavigatorCalendarGenerator`.
+/// Tests for shared day visual style properties on `SpreadCardStyle`.
 @Suite("Spread Day Visual State Tests")
 struct SpreadDayVisualStateTests {
 
@@ -73,105 +72,4 @@ struct SpreadDayVisualStateTests {
         #expect(todayCreatedFill != uncreatedFill)
     }
 
-    // MARK: - Visual state mapping helpers
-
-    private static var calendar: Calendar {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = .init(identifier: "UTC")!
-        return cal
-    }
-
-    private static func makeDate(year: Int, month: Int, day: Int = 1) -> Date {
-        calendar.date(from: DateComponents(year: year, month: month, day: day))!
-    }
-
-    // MARK: - Visual state mapping
-
-    /// Condition: today's date, no explicit day target.
-    /// Expected: visual state is .todayUncreated.
-    @Test("today date with no explicit day target maps to .todayUncreated")
-    func testTodayMapsToTodayUncreated() {
-        let state = SpreadHeaderNavigatorCalendarGenerator.visualState(
-            isToday: true,
-            hasExplicitDayTarget: false
-        )
-        #expect(state == .todayUncreated)
-    }
-
-    /// Condition: today's date with an explicit day target.
-    /// Expected: visual state is .todayCreated.
-    @Test("today date with explicit day target maps to .todayCreated")
-    func testTodayWithExplicitDayTargetMapsToTodayCreated() {
-        let state = SpreadHeaderNavigatorCalendarGenerator.visualState(
-            isToday: true,
-            hasExplicitDayTarget: true
-        )
-        #expect(state == .todayCreated)
-    }
-
-    /// Condition: non-today date with an explicit day target.
-    /// Expected: visual state is .created.
-    @Test("date with explicit day target maps to .created")
-    func testWithExplicitDayTargetMapsToCreated() {
-        let state = SpreadHeaderNavigatorCalendarGenerator.visualState(
-            isToday: false,
-            hasExplicitDayTarget: true
-        )
-        #expect(state == .created)
-    }
-
-    /// Condition: non-today date with no explicit day target.
-    /// Expected: visual state is .uncreated (multiday coverage alone does not create a day spread).
-    @Test("date without explicit day target maps to .uncreated")
-    func testMultidayOnlyTargetMapsToUncreated() {
-        let state = SpreadHeaderNavigatorCalendarGenerator.visualState(
-            isToday: false,
-            hasExplicitDayTarget: false
-        )
-        #expect(state == .uncreated)
-    }
-
-    // MARK: - hasExplicitDayTarget helper
-
-    /// Condition: a target list contains only multiday selections.
-    /// Expected: the helper reports no explicit day target.
-    @Test("Target helper ignores multiday-only selections")
-    func testHasExplicitDayTargetIgnoresMultidayOnlySelections() {
-        let date = Self.makeDate(year: 2026, month: 4, day: 13)
-        let spread = DataModel.Spread(period: .day, date: date, calendar: Self.calendar)
-        let multidayOnlyTargets = [
-            SpreadHeaderNavigatorModel.SelectionTarget(
-                id: "multiday-only",
-                selection: spread,
-                title: "Multiday",
-                isMultiday: true
-            )
-        ]
-
-        #expect(!SpreadHeaderNavigatorCalendarGenerator.hasExplicitDayTarget(multidayOnlyTargets))
-    }
-
-    /// Condition: a target list contains an explicit day selection before multiday selections.
-    /// Expected: the helper reports that the date has an explicit day target.
-    @Test("Target helper detects explicit day selection")
-    func testHasExplicitDayTargetDetectsDaySelection() {
-        let date = Self.makeDate(year: 2026, month: 4, day: 13)
-        let spread = DataModel.Spread(period: .day, date: date, calendar: Self.calendar)
-        let mixedTargets = [
-            SpreadHeaderNavigatorModel.SelectionTarget(
-                id: "day",
-                selection: spread,
-                title: "View Day",
-                isMultiday: false
-            ),
-            SpreadHeaderNavigatorModel.SelectionTarget(
-                id: "multiday",
-                selection: spread,
-                title: "Multiday",
-                isMultiday: true
-            )
-        ]
-
-        #expect(SpreadHeaderNavigatorCalendarGenerator.hasExplicitDayTarget(mixedTargets))
-    }
 }
