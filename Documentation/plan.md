@@ -6288,3 +6288,88 @@ Supabase: SPRD-85A -> SPRD-85C
   - Manual: confirm today button, sync icon, and auth button all function as before.
 - **Note**: During implementation, the SPRD-236 parent-spread navigation toolbar buttons (`SpreadContentPagerView.parentSpreadEntries`/`parentButtonLabel`, `JournalManager.parentSpreads(for:)`, `Spread+ParentNavigation.swift`, and their tests) were removed entirely rather than carried forward — the new content-column toggle supersedes them as the primary cross-period navigation affordance.
 - **Dependencies**: SPRD-236
+
+
+---
+
+### [SPRD-239] Refactor: Squash Supabase migrations to a single baseline from spread-prod - [ ] Pending
+
+- **Context**: `supabase/migrations/` contains 7 files that do not reconstruct a coherent history — `docs/supabase-setup.md` references three original Jan 2026 migrations that no longer exist, and `spread-dev`/`spread-prod` have diverged migration bookkeeping (same net schema, different migration names/timestamps for SPRD-193). The local Supabase bootstrap (`scripts/local-supabase.sh bootstrap-schema-from-dev`) works around this by dumping `spread-dev`'s schema directly rather than replaying migrations. The user is pre-release and does not need historical migration replay right now; `pg_dump --schema-only` against `spread-prod` (the project actually in use) captures the current schema completely.
+- **Description**: Generate a single baseline migration file by running `pg_dump --schema-only` against `spread-prod`, sanitized using the same logic `scripts/local-supabase.sh` already applies (strip `CREATE SCHEMA public`/`COMMENT ON SCHEMA public`/`DEFAULT PRIVILEGES`/`\restrict`/`\unrestrict` lines). Delete the 7 existing migration files in `supabase/migrations/` and replace them with this single baseline. Update `scripts/local-supabase.sh` so `reset`/bootstrap relies on plain `supabase db reset` (replaying `supabase/migrations/*.sql`) instead of `bootstrap-schema-from-dev` + `public_schema_from_dev.sql`; remove the `SUPABASE_DB_PASSWORD_DEV` dependency. Update `docs/local-supabase-testing.md` and `docs/supabase-setup.md` to describe the single-baseline workflow and remove references to the non-existent Jan 2026 migrations and the dev-bootstrap flow.
+- **Spec**: `Documentation/Specs/DevelopmentTooling.md` — Test/Debug Infrastructure Simplification
+- **Acceptance Criteria**:
+  - `supabase/migrations/` contains exactly one baseline migration file generated via `pg_dump --schema-only` against `spread-prod`, sanitized to remove ownership/privilege/restrict statements.
+  - The 7 previously-existing migration files are removed.
+  - `supabase db reset` succeeds locally and reproduces `spread-prod`'s schema: all 11 tables (`collections`, `notes`, `note_assignments`, `note_tags`, `settings`, `spreads`, `tasks`, `task_assignments`, `tags`, `task_tags`, `lists`), their columns, RLS policies, triggers, and merge RPCs (`merge_task_assignment`, `merge_note_assignment`, etc.).
+  - `scripts/local-supabase.sh` no longer contains a `bootstrap-schema-from-dev` command, no longer reads/writes `supabase/local/public_schema_from_dev.sql`, and no longer references `SUPABASE_DB_PASSWORD_DEV`.
+  - `docs/local-supabase-testing.md` and `docs/supabase-setup.md` describe the single-baseline-migration workflow and contain no references to the removed Jan 2026 migrations or the dev-bootstrap flow.
+- **Tests**:
+  - Manual: run `supabase db reset` against the local stack and confirm the resulting schema matches `spread-prod` (spot-check tables, RLS policies, and merge RPC signatures via `list_tables`/`execute_sql`).
+  - Manual: run the existing `SyncDurabilityIntegrationTests` against the freshly-reset local stack and confirm they pass unchanged.
+
+---
+
+### [SPRD-240] Refactor: Decommission spread-dev and the QA build configuration - [ ] Pending
+
+- **Context**: `spread-dev` is rarely used, drifts out of sync with `spread-prod`, and adds maintenance burden without serving its intended QA purpose. The "QA" build configuration exists to distribute debug-menu-enabled builds via TestFlight, but the user is pre-release and currently installs Debug builds directly from Xcode onto devices they control — TestFlight distribution isn't in use yet. Since TestFlight installs can't receive launch-arg overrides (they're archived, standalone builds), a future TestFlight configuration would need to be a fixed, debug-UI-disabled build pointed at `spread-prod` — effectively indistinguishable from Release. External TestFlight users should see the prod app with no testing functionality, same as App Store users.
+- **Description**: Remove the QA build configuration entirely. Delete `Configuration/QA.xcconfig`. Simplify `BuildInfo` to two build configurations: Debug and Release — remove the `.qa` case, and update `buildConfiguration`/`allowsDebugUI`/`isRelease` accordingly (`allowsDebugUI` becomes simply "not Release"). Update `defaultDataEnvironment`: Debug → `.localhost`, Release → `.production` (unchanged). Remove the `spread-dev` Supabase URL/key from `SupabaseConfiguration.KnownEnvironment` and any other dev-pointed defaults. Update `Configuration/Debug.xcconfig` so `localhost` mode (which falls back to `buildURL`/`buildPublishableKey`) has a sensible local-Docker-Supabase-pointed default. Update `docs/supabase-setup.md` and `docs/local-supabase-testing.md` to remove references to `spread-dev` and the QA configuration, and note that a TestFlight configuration (effectively Release + `allowsDebugUI = true` if ever needed) is deferred until TestFlight distribution actually begins post-release.
+- **Spec**: `Documentation/Specs/DevelopmentTooling.md` — Test/Debug Infrastructure Simplification
+- **Acceptance Criteria**:
+  - `Configuration/QA.xcconfig` is deleted and no Xcode build configuration/scheme references it.
+  - `BuildInfo` has only Debug and Release build configurations; `.qa` is removed from the `BuildConfiguration` enum and `allowsDebugUI`/`isRelease`/`defaultDataEnvironment` are updated accordingly.
+  - `BuildInfo.defaultDataEnvironment` returns `.localhost` for Debug and `.production` for Release.
+  - `SupabaseConfiguration.KnownEnvironment` no longer contains `spread-dev`'s URL/key; `DataEnvironment.development`'s mapping in `SupabaseConfiguration` is updated or removed consistently with this (do not leave a dangling reference to a decommissioned project).
+  - `Configuration/Debug.xcconfig` is updated so Debug builds in `localhost` mode resolve to a sensible local Supabase configuration (or document why `buildURL`/`buildPublishableKey` are unused in `localhost` mode).
+  - `docs/supabase-setup.md` and `docs/local-supabase-testing.md` no longer describe `spread-dev` as an in-use backend or refer to a "QA" configuration, and note that TestFlight distribution is a future, currently-unneeded configuration.
+  - Project builds successfully for Debug and Release configurations.
+- **Tests**:
+  - Manual: build and run Debug and Release configurations and confirm `DataEnvironment.current` and `SupabaseConfiguration.url`/`publishableKey` resolve to the expected environment/backend for each.
+  - Manual: launch a Debug build with `-DataEnvironment localhost` and confirm it still operates in local-only mode (no auth, no sync).
+- **Note**: Pausing or deleting the `spread-dev` Supabase project itself is a manual follow-up performed by the user once nothing in the codebase references it — not part of this task's acceptance criteria.
+
+---
+
+### [SPRD-241] Refactor: Remove debug scenario-toggle/fault-injection panel from DebugMenuView - [ ] Pending
+
+- **Context**: `DebugMenuView` (673 lines) bundles a read-only data viewer with a runtime scenario-toggle/fault-injection panel (forced auth errors, sync status overrides, outbox seeding, scenario presets, network blocking). A check of `SpreadUITests` found none of these scenario-toggle accessibility identifiers are used by any automated test — only the unrelated temporal harness identifiers are. The user wants debug builds to provide data viewing without runtime mutation, and does not use this panel manually.
+- **Description**: Remove the scenario-toggle/fault-injection panel from `DebugMenuView` entirely: forced auth error injection (`DebugAuthService`), the block-all-network toggle (`DebugNetworkMonitor`), sync status overrides/outbox seeding/scenario presets (`DebugSyncPolicy`), and their corresponding `DebugMenuView` sections and wiring in `AppRuntimeConfiguration+Debug.swift`. Delete `DebugSyncPolicy.swift`. Since removing `DebugSyncPolicy` leaves `SyncPolicy`/`DefaultSyncPolicy` with only one conformance, co-locate the `SyncPolicy` protocol and `DefaultSyncPolicy` struct in a single file (preserving the protocol pattern for future test substitution, per the user's note, rather than collapsing it into a concrete type). Remove any now-unused forced-error/block-network methods from `DebugAuthService`/`DebugNetworkMonitor` (or delete those files if nothing else uses them). `DebugMenuView` retains the data viewer (`DebugRepositoryListView`), environment/build-info readout, and mock data set loader.
+- **Spec**: `Documentation/Specs/DevelopmentTooling.md` — Test/Debug Infrastructure Simplification
+- **Acceptance Criteria**:
+  - `DebugSyncPolicy.swift` is deleted; `SyncPolicy` protocol and `DefaultSyncPolicy` are co-located in a single file with no other conformances.
+  - `DebugMenuView` no longer contains sections for forced auth errors, sync status overrides, outbox seeding, scenario presets, or network blocking.
+  - `DebugAuthService`/`DebugNetworkMonitor` no longer expose forced-error/block-network APIs (or are removed if they become empty).
+  - `AppRuntimeConfiguration+Debug.swift` no longer wires the removed debug services.
+  - `DebugMenuView` continues to show the repository data viewer (`DebugRepositoryListView`), environment/build-info summary, and mock data set loader.
+  - Project builds with no errors or warnings; existing unit tests pass.
+- **Tests**:
+  - Manual: launch a Debug build, open the Debug destination, confirm the data viewer and environment summary still work and the removed sections are gone.
+  - Run the full unit test suite to confirm no test depended on the removed debug services.
+
+---
+
+### [SPRD-242] Refactor: Remove DebugAppearanceSettings singleton and appearance override panel - [ ] Pending
+
+- **Context**: `DebugAppearanceSettings` is an `@Observable @MainActor` class with `static let shared`, violating the project's no-singleton architecture rule even though it is `#if DEBUG`-scoped. The user does not use the appearance override panel (paper tone, dot grid, heading font, accent color).
+- **Description**: Delete `DebugAppearanceSettings.swift` and its `DebugMenuView` appearance override section. Remove all references to `DebugAppearanceSettings.shared` from production views, reverting those views to their production-defined appearance values.
+- **Spec**: `Documentation/Specs/DevelopmentTooling.md` — Test/Debug Infrastructure Simplification
+- **Acceptance Criteria**:
+  - `DebugAppearanceSettings.swift` no longer exists and no references to `DebugAppearanceSettings` remain in the codebase.
+  - `DebugMenuView` no longer has an appearance override section.
+  - Affected views compile and render using production-defined appearance values (paper tone, dot grid, heading font, accent color) with no behavior change in Release builds.
+  - Project builds with no errors or warnings.
+- **Tests**:
+  - Manual: launch a Debug build and confirm app appearance matches a Release build's default appearance (no leftover debug overrides).
+
+---
+
+### [SPRD-243] Refactor: Remove unused MockDataSet cases (highVolume, inboxNextYear) - [ ] Pending
+
+- **Context**: An audit comparing `MockDataSet`'s cases against `SpreadUITests` launch-argument usage found that `.highVolume` and `.inboxNextYear` are not referenced by any test (all other cases, including all 13 `.scenarioXxx` cases, are in active use).
+- **Description**: Remove the `.highVolume` and `.inboxNextYear` cases and their fixture implementations from `MockDataSet.swift`/`MockDataSet+ScenarioFixtures.swift`, and remove any corresponding entries from the `DebugMenuView` mock data set picker.
+- **Spec**: `Documentation/Specs/DevelopmentTooling.md` — Test/Debug Infrastructure Simplification
+- **Acceptance Criteria**:
+  - `MockDataSet` no longer has `.highVolume` or `.inboxNextYear` cases, and their fixture-building code is removed.
+  - `DebugMenuView`'s mock data set picker no longer lists `.highVolume` or `.inboxNextYear`.
+  - Project builds with no errors or warnings.
+- **Tests**:
+  - Manual: open the Debug destination's mock data set picker and confirm the removed cases no longer appear and remaining cases load correctly.

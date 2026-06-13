@@ -131,3 +131,20 @@
 - `DataEnvironment.swift` contains hardcoded URLs and keys for dev/prod as fallback defaults.
 - `.gitignore` blocks `.env` files but does not block `.xcconfig` files; publishable keys are committed to git (acceptable for client-side anon keys).
 - Service role keys and other server-side secrets are never stored in the client codebase. They exist only in the Supabase dashboard and server-side infrastructure.
+
+### Test/Debug Infrastructure Simplification
+
+- `supabase/migrations/` is squashed to a single baseline migration reflecting the current `spread-prod` schema (`pg_dump --schema-only`), rather than a reconstructed migration history. Migration history discipline (incremental, reviewable migrations) is deferred until after v1 release, when schema changes against a live user base require it. [SPRD-239]
+- Local Docker Supabase bootstraps from `supabase/migrations/` via plain `supabase db reset` — no dependency on dumping from a remote project at setup time. [SPRD-239]
+- `spread-dev` is decommissioned as a backend, and the "QA" build configuration is removed entirely. Only Debug and Release configurations remain: Debug defaults to `localhost` (local-only, no backend), and Release defaults to `spread-prod`. [SPRD-240]
+- A TestFlight build configuration is deferred until TestFlight distribution actually begins post-release. Because TestFlight installs are archived/standalone and cannot receive launch-arg overrides, such a configuration would necessarily be fixed to `spread-prod` with `allowsDebugUI = true` — effectively Release plus a visible debug menu. External TestFlight/App Store users should see the prod app with no testing functionality. [SPRD-240]
+- The Debug-build destination's debug menu is split by concern:
+  - A read-only data viewer (`DebugRepositoryListView` + environment/build-info readout) remains, for inspecting local state in Debug builds.
+  - The runtime scenario-toggle/fault-injection panel (forced auth errors, sync status overrides, outbox seeding, scenario presets, network blocking) is removed entirely — it is not exercised by any automated test and is not part of the desired debug-build capability set. [SPRD-241]
+- Where a protocol exists solely to support one production conformance and one now-removed debug conformance (e.g., `SyncPolicy` / `DefaultSyncPolicy` after `DebugSyncPolicy` is removed), the protocol pattern is preserved (for future test substitution) but the protocol and its sole conformance are co-located in a single file rather than split. [SPRD-241]
+- `DebugAppearanceSettings` (and its `.shared` singleton, which violated the no-singleton architecture rule) is removed entirely, along with its debug-menu appearance override section. The app uses its production-defined appearance only. [SPRD-242]
+- `MockDataSet` cases that are not referenced by any `SpreadUITests` scenario or required debug-menu picker entry are removed (currently: `highVolume`, `inboxNextYear`). [SPRD-243]
+
+### Open Questions
+
+- After `spread-dev` is decommissioned (SPRD-240), `DataEnvironment.development` and its associated `SupabaseConfiguration.KnownEnvironment.devURL`/`devKey` become dead (no build defaults to `.development`, and the dev project no longer exists). Re-audit `DataEnvironment`, `SupabaseConfiguration`'s explicit URL/key override path, and `lastUsed`/`requiresWipeOnLaunch` once SPRD-240 lands to confirm what (if anything) should be removed — deferred until that change's diff is visible. Owner: revisit in the session after SPRD-240.
