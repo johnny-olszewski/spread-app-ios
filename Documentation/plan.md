@@ -6364,14 +6364,14 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-243] Refactor: Remove unused MockDataSet cases (highVolume, inboxNextYear) - [ ] Pending
+### [SPRD-243] Refactor: Remove unused MockDataSet cases (highVolume, inboxNextYear) - [x] Done
 
 - **Context**: An audit comparing `MockDataSet`'s cases against `SpreadUITests` launch-argument usage found that `.highVolume` and `.inboxNextYear` are not referenced by any test (all other cases, including all 13 `.scenarioXxx` cases, are in active use).
 - **Description**: Remove the `.highVolume` and `.inboxNextYear` cases and their fixture implementations from `MockDataSet.swift`/`MockDataSet+ScenarioFixtures.swift`, and remove any corresponding entries from the `DebugMenuView` mock data set picker.
 - **Spec**: `Documentation/Specs/DevelopmentTooling.md` — Test/Debug Infrastructure Simplification
 - **Acceptance Criteria**:
-  - `MockDataSet` no longer has `.highVolume` or `.inboxNextYear` cases, and their fixture-building code is removed.
-  - `DebugMenuView`'s mock data set picker no longer lists `.highVolume` or `.inboxNextYear`.
-  - Project builds with no errors or warnings.
+  - [x] `MockDataSet` no longer has `.highVolume` or `.inboxNextYear` cases, and their fixture-building code is removed.
+  - [x] `DebugMenuView`'s mock data set picker no longer lists `.highVolume` or `.inboxNextYear`.
+  - [x] Project builds with no errors or warnings.
 - **Tests**:
   - Manual: open the Debug destination's mock data set picker and confirm the removed cases no longer appear and remaining cases load correctly.
