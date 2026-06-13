@@ -6292,20 +6292,20 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-239] Refactor: Squash Supabase migrations to a single baseline from spread-prod - [ ] Pending
+### [SPRD-239] Refactor: Squash Supabase migrations to a single baseline from spread-prod - [x] Done
 
 - **Context**: `supabase/migrations/` contains 7 files that do not reconstruct a coherent history — `docs/supabase-setup.md` references three original Jan 2026 migrations that no longer exist, and `spread-dev`/`spread-prod` have diverged migration bookkeeping (same net schema, different migration names/timestamps for SPRD-193). The local Supabase bootstrap (`scripts/local-supabase.sh bootstrap-schema-from-dev`) works around this by dumping `spread-dev`'s schema directly rather than replaying migrations. The user is pre-release and does not need historical migration replay right now; `pg_dump --schema-only` against `spread-prod` (the project actually in use) captures the current schema completely.
 - **Description**: Generate a single baseline migration file by running `pg_dump --schema-only` against `spread-prod`, sanitized using the same logic `scripts/local-supabase.sh` already applies (strip `CREATE SCHEMA public`/`COMMENT ON SCHEMA public`/`DEFAULT PRIVILEGES`/`\restrict`/`\unrestrict` lines). Delete the 7 existing migration files in `supabase/migrations/` and replace them with this single baseline. Update `scripts/local-supabase.sh` so `reset`/bootstrap relies on plain `supabase db reset` (replaying `supabase/migrations/*.sql`) instead of `bootstrap-schema-from-dev` + `public_schema_from_dev.sql`; remove the `SUPABASE_DB_PASSWORD_DEV` dependency. Update `docs/local-supabase-testing.md` and `docs/supabase-setup.md` to describe the single-baseline workflow and remove references to the non-existent Jan 2026 migrations and the dev-bootstrap flow.
 - **Spec**: `Documentation/Specs/DevelopmentTooling.md` — Test/Debug Infrastructure Simplification
 - **Acceptance Criteria**:
-  - `supabase/migrations/` contains exactly one baseline migration file generated via `pg_dump --schema-only` against `spread-prod`, sanitized to remove ownership/privilege/restrict statements.
-  - The 7 previously-existing migration files are removed.
-  - `supabase db reset` succeeds locally and reproduces `spread-prod`'s schema: all 11 tables (`collections`, `notes`, `note_assignments`, `note_tags`, `settings`, `spreads`, `tasks`, `task_assignments`, `tags`, `task_tags`, `lists`), their columns, RLS policies, triggers, and merge RPCs (`merge_task_assignment`, `merge_note_assignment`, etc.).
-  - `scripts/local-supabase.sh` no longer contains a `bootstrap-schema-from-dev` command, no longer reads/writes `supabase/local/public_schema_from_dev.sql`, and no longer references `SUPABASE_DB_PASSWORD_DEV`.
-  - `docs/local-supabase-testing.md` and `docs/supabase-setup.md` describe the single-baseline-migration workflow and contain no references to the removed Jan 2026 migrations or the dev-bootstrap flow.
+  - [x] `supabase/migrations/` contains exactly one baseline migration file generated via `pg_dump --schema-only` against `spread-prod`, sanitized to remove ownership/privilege/restrict statements.
+  - [x] The 7 previously-existing migration files are removed.
+  - [x] `supabase db reset` succeeds locally and reproduces `spread-prod`'s schema: all 11 tables (`collections`, `notes`, `note_assignments`, `note_tags`, `settings`, `spreads`, `tasks`, `task_assignments`, `tags`, `task_tags`, `lists`), their columns, RLS policies, triggers, and merge RPCs (`merge_task_assignment`, `merge_note_assignment`, etc.).
+  - [x] `scripts/local-supabase.sh` no longer contains a `bootstrap-schema-from-dev` command, no longer reads/writes `supabase/local/public_schema_from_dev.sql`, and no longer references `SUPABASE_DB_PASSWORD_DEV`.
+  - [x] `docs/local-supabase-testing.md` and `docs/supabase-setup.md` describe the single-baseline-migration workflow and contain no references to the removed Jan 2026 migrations or the dev-bootstrap flow. `docs/supabase-setup.md`'s "Database Schema" section was also rewritten to match the actual dumped/queried `spread-prod` schema (11 tables, including `lists`/`tags`/`task_tags`/`note_tags` and `spread_id` on assignment tables).
 - **Tests**:
-  - Manual: run `supabase db reset` against the local stack and confirm the resulting schema matches `spread-prod` (spot-check tables, RLS policies, and merge RPC signatures via `list_tables`/`execute_sql`).
-  - Manual: run the existing `SyncDurabilityIntegrationTests` against the freshly-reset local stack and confirm they pass unchanged.
+  - [x] Manual: ran `supabase db reset` against the local stack and confirmed the resulting schema matches `spread-prod` (verified all 11 tables, 20 functions/RPCs, columns, check constraints, unique constraints, FKs, indexes, and RLS policy counts via `information_schema`/`pg_constraint`/`pg_indexes`/`pg_policies`).
+  - [~] Manual: `xcodebuild -scheme "Spread Localhost" -only-testing:SpreadTests/SyncDurabilityIntegrationTests test` was attempted against the freshly-reset local stack, but the `SpreadTests` target currently fails to compile for unrelated, pre-existing reasons (missing `SpreadHeaderNavigatorModel`/`SpreadHeaderNavigatorRowOverlayGenerator` types in `SpreadTests/Views/Spreads/*`, last touched by `2eb4da5 [SPRD-226][5/n]`, not modified by this task). The `Spread` app target itself builds successfully (`xcodebuild -scheme "Spread Localhost" build` → BUILD SUCCEEDED). The `SpreadTests` compile failure should be tracked/fixed separately.
 
 ---
 
