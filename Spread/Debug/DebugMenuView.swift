@@ -316,10 +316,6 @@ struct DebugMenuView: View {
             "calendar"
         case .boundary:
             "arrow.left.arrow.right"
-        case .highVolume:
-            "chart.bar.fill"
-        case .inboxNextYear:
-            "tray.full"
         case .scenarioAssignmentExistingSpread,
                 .scenarioAssignmentInboxFallback,
                 .scenarioInboxResolution,

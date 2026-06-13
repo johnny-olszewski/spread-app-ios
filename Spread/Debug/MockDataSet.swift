@@ -8,8 +8,6 @@ import Foundation
 /// - `baseline`: Standard year/month/day spreads for today
 /// - `multiday`: Multiday ranges including preset and custom
 /// - `boundary`: Month and year transition dates
-/// - `highVolume`: Large data set for performance testing
-/// - `inboxNextYear`: Current year spreads with tasks dated in the following year
 /// - `scenario*`: hidden localhost UI-test fixtures for deterministic scenario coverage
 enum MockDataSet: String, CaseIterable {
     /// Clears all data (empty state).
@@ -23,12 +21,6 @@ enum MockDataSet: String, CaseIterable {
 
     /// Spreads at month and year boundaries for edge case testing.
     case boundary
-
-    /// Large data set for performance testing.
-    case highVolume
-
-    /// Current year spreads with next year tasks for inbox testing.
-    case inboxNextYear
 
     /// Hidden scenario fixture: direct assignment to an existing spread.
     case scenarioAssignmentExistingSpread
@@ -81,7 +73,7 @@ enum MockDataSet: String, CaseIterable {
 
     var isVisibleInDebugMenu: Bool {
         switch self {
-        case .empty, .baseline, .multiday, .boundary, .highVolume, .inboxNextYear:
+        case .empty, .baseline, .multiday, .boundary:
             return true
         case .scenarioAssignmentExistingSpread,
                 .scenarioAssignmentInboxFallback,
@@ -111,10 +103,6 @@ enum MockDataSet: String, CaseIterable {
             return "Multiday Ranges"
         case .boundary:
             return "Boundary Dates"
-        case .highVolume:
-            return "High Volume"
-        case .inboxNextYear:
-            return "Inbox (Next Year Tasks)"
         case .scenarioAssignmentExistingSpread:
             return "Scenario: Assignment Existing Spread"
         case .scenarioAssignmentInboxFallback:
@@ -155,10 +143,6 @@ enum MockDataSet: String, CaseIterable {
             return "Multiday spreads using This Week, Next Week presets and custom ranges."
         case .boundary:
             return "Spreads across month and year boundaries for edge case testing."
-        case .highVolume:
-            return "50+ spreads and 100+ tasks for performance testing."
-        case .inboxNextYear:
-            return "Current year spreads only, with tasks dated next year to populate the Inbox."
         case .scenarioAssignmentExistingSpread:
             return "Hidden UI-test fixture for direct assignment to an existing spread."
         case .scenarioAssignmentInboxFallback:
@@ -236,10 +220,6 @@ enum MockDataSet: String, CaseIterable {
         case .boundary:
             return generateBoundaryData(calendar: calendar, today: today)
 
-        case .highVolume:
-            return generateHighVolumeData(calendar: calendar, today: today)
-        case .inboxNextYear:
-            return generateInboxNextYearData(calendar: calendar, today: today)
         case .scenarioAssignmentExistingSpread:
             return generateScenarioAssignmentExistingSpread(calendar: calendar, today: today)
         case .scenarioAssignmentInboxFallback:
@@ -652,131 +632,6 @@ enum MockDataSet: String, CaseIterable {
                 date: feb29,
                 period: .day,
                 assignments: [NoteAssignment(period: .day, date: normalizedFeb29, status: .active)]
-            ))
-        }
-
-        return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes)
-    }
-
-    private func generateHighVolumeData(calendar: Calendar, today: Date) -> GeneratedData {
-        var spreads: [DataModel.Spread] = []
-        var tasks: [DataModel.Task] = []
-        var events: [DataModel.Event] = []
-        var notes: [DataModel.Note] = []
-
-        // Create year spreads for current and next 2 years (3 total)
-        for yearOffset in 0...2 {
-            if let yearDate = calendar.date(byAdding: .year, value: yearOffset, to: today) {
-                spreads.append(DataModel.Spread(period: .year, date: yearDate, calendar: calendar))
-            }
-        }
-
-        // Create month spreads for current year (12 months)
-        if let startOfYear = today.firstDayOfYear(calendar: calendar) {
-            for monthOffset in 0...11 {
-                if let monthDate = calendar.date(byAdding: .month, value: monthOffset, to: startOfYear) {
-                    spreads.append(DataModel.Spread(period: .month, date: monthDate, calendar: calendar))
-                }
-            }
-        }
-
-        // Create day spreads for next 60 days (fills out to ~75 total spreads)
-        for dayOffset in 0...59 {
-            if let dayDate = calendar.date(byAdding: .day, value: dayOffset, to: today) {
-                spreads.append(DataModel.Spread(period: .day, date: dayDate, calendar: calendar))
-            }
-        }
-
-        // Create 100+ tasks spread across the days
-        let taskTitles = [
-            "Review document", "Send email", "Update report", "Schedule meeting",
-            "Call client", "Fix bug", "Write tests", "Code review", "Deploy feature",
-            "Update documentation", "Team sync", "One-on-one", "Sprint planning",
-            "Retrospective", "Design review", "Research topic", "Prepare presentation",
-            "Follow up", "Submit request", "Archive files"
-        ]
-
-        for i in 0..<110 {
-            let dayOffset = i % 60
-            if let taskDate = calendar.date(byAdding: .day, value: dayOffset, to: today) {
-                let normalizedDate = Period.day.normalizeDate(taskDate, calendar: calendar)
-                let title = taskTitles[i % taskTitles.count]
-                let status: EntryStatus = i % 5 == 0 ? .complete : .open
-
-                tasks.append(DataModel.Task(
-                    title: "\(title) #\(i + 1)",
-                    date: taskDate,
-                    period: .day,
-                    status: status,
-                    assignments: [TaskAssignment(period: .day, date: normalizedDate, status: status == .complete ? .complete : .open)]
-                ))
-            }
-        }
-
-        // Create 20 events spread across the period
-        for i in 0..<20 {
-            let dayOffset = i * 3
-            if let eventDate = calendar.date(byAdding: .day, value: dayOffset, to: today) {
-                events.append(DataModel.Event(
-                    title: "Event #\(i + 1)",
-                    timing: i % 2 == 0 ? .allDay : .timed,
-                    startDate: eventDate,
-                    endDate: eventDate
-                ))
-            }
-        }
-
-        // Create 15 notes
-        for i in 0..<15 {
-            let dayOffset = i * 4
-            if let noteDate = calendar.date(byAdding: .day, value: dayOffset, to: today) {
-                let normalizedDate = Period.day.normalizeDate(noteDate, calendar: calendar)
-                notes.append(DataModel.Note(
-                    title: "Note #\(i + 1)",
-                    content: "Sample content for note \(i + 1).",
-                    date: noteDate,
-                    period: .day,
-                    assignments: [NoteAssignment(period: .day, date: normalizedDate, status: .active)]
-                ))
-            }
-        }
-
-        return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes)
-    }
-
-    private func generateInboxNextYearData(calendar: Calendar, today: Date) -> GeneratedData {
-        var spreads: [DataModel.Spread] = []
-        var tasks: [DataModel.Task] = []
-        var events: [DataModel.Event] = []
-        var notes: [DataModel.Note] = []
-
-        // Create only current year spreads (no next-year spreads).
-        spreads.append(DataModel.Spread(period: .year, date: today, calendar: calendar))
-        spreads.append(DataModel.Spread(period: .month, date: today, calendar: calendar))
-        spreads.append(DataModel.Spread(period: .day, date: today, calendar: calendar))
-
-        guard let startOfCurrentYear = today.firstDayOfYear(calendar: calendar),
-              let startOfNextYear = calendar.date(byAdding: .year, value: 1, to: startOfCurrentYear) else {
-            return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes)
-        }
-
-        let nextYearTaskSpecs: [(String, Period, Int)] = [
-            ("File 1099s", .day, 0),
-            ("Plan Q1 roadmap", .day, 14),
-            ("Renew licenses", .day, 60),
-            ("Next year budget review", .month, 90),
-            ("Next year goals", .year, 0)
-        ]
-
-        for (title, period, dayOffset) in nextYearTaskSpecs {
-            guard let taskDate = calendar.date(byAdding: .day, value: dayOffset, to: startOfNextYear) else {
-                continue
-            }
-
-            tasks.append(DataModel.Task(
-                title: title,
-                date: taskDate,
-                period: period
             ))
         }
 
