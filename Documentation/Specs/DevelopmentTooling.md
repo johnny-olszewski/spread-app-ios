@@ -119,16 +119,14 @@
 ### Secrets and Configuration
 - Supabase publishable (anon) keys and project URLs are stored in build-time xcconfig files. These are client-side keys protected by RLS policies; they are not service role keys.
 - Configuration files:
-  - `Configuration/Debug.xcconfig` — dev Supabase URL + key, `development` environment, `dev.johnnyo.Spread.debug` bundle ID.
-  - `Configuration/QA.xcconfig` — dev Supabase URL + key (same as Debug), `development` environment, `dev.johnnyo.Spread.qa` bundle ID.
+  - `Configuration/Debug.xcconfig` — build-config Supabase URL + key, `localhost` environment, `dev.johnnyo.Spread.debug` bundle ID.
   - `Configuration/Release.xcconfig` — prod Supabase URL + key, `production` environment, `dev.johnnyo.Spread` bundle ID.
 - `Info.plist` reads values via build variables: `$(SUPABASE_URL)`, `$(SUPABASE_PUBLISHABLE_KEY)`, `$(DATA_ENVIRONMENT)`.
 - `SupabaseConfiguration.swift` resolves configuration with this priority:
-  1. Debug-only launch selection of `-DataEnvironment localhost` for that run.
-  2. Build configuration defaults (`development` for Debug/QA, `production` for Release).
-  3. `DataEnvironment`-based hardcoded dev/prod fallbacks (in code).
-  4. `Info.plist` build-time values (from xcconfig).
-- `DataEnvironment.swift` contains hardcoded URLs and keys for dev/prod as fallback defaults.
+  1. An explicit `-SupabaseURL`/`-SupabaseKey` launch-arg or env-var override (used by the local-Supabase sync-testing workflow to point `.development` at a local Docker Supabase instance).
+  2. `SupabaseConfiguration.KnownEnvironment` hardcoded `spread-prod` URL/key, when the resolved `DataEnvironment` is `.production`.
+  3. `Info.plist` build-time values (from xcconfig), for `.localhost`/`.development`.
+- `DataEnvironment.swift` itself contains no hardcoded URLs/keys; only `SupabaseConfiguration.KnownEnvironment` retains hardcoded `spread-prod` values as a fallback.
 - `.gitignore` blocks `.env` files but does not block `.xcconfig` files; publishable keys are committed to git (acceptable for client-side anon keys).
 - Service role keys and other server-side secrets are never stored in the client codebase. They exist only in the Supabase dashboard and server-side infrastructure.
 
@@ -147,4 +145,4 @@
 
 ### Open Questions
 
-- After `spread-dev` is decommissioned (SPRD-240), `DataEnvironment.development` and its associated `SupabaseConfiguration.KnownEnvironment.devURL`/`devKey` become dead (no build defaults to `.development`, and the dev project no longer exists). Re-audit `DataEnvironment`, `SupabaseConfiguration`'s explicit URL/key override path, and `lastUsed`/`requiresWipeOnLaunch` once SPRD-240 lands to confirm what (if anything) should be removed — deferred until that change's diff is visible. Owner: revisit in the session after SPRD-240.
+- _Resolved (post-SPRD-240/241/242/243 audit)_: `SupabaseConfiguration.KnownEnvironment.devURL`/`devKey` no longer exist — only `prodURL`/`prodKey` remain. `DataEnvironment.development`, `SupabaseConfiguration`'s explicit `-SupabaseURL`/`-SupabaseKey` override path, and `lastUsed`/`requiresWipeOnLaunch` remain in active use by the local-Supabase sync-testing workflow (`scripts/local-supabase.sh`, `AuthIntegrationTests`, `SyncDurabilityIntegrationTests`) and are not removable. The only stale artifact found was the `Spread Localhost.xcscheme`'s disabled `-SupabaseURL`/`-SupabaseKey` placeholders, which referenced the decommissioned `spread-dev` project (`apblzzondjcughtgqowd.supabase.co`) — updated to point at `./scripts/local-supabase.sh launch-args` instead.
