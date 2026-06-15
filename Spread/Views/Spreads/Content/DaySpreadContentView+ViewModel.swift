@@ -243,15 +243,6 @@ private extension Optional where Wrapped == UserInterfaceSizeClass {
 // MARK: - Entry sorting helpers
 
 private extension Entry {
-    /// The date used to chronologically order this entry within a section.
-    var sortDate: Date {
-        switch entryType {
-        case .task:  return (self as? DataModel.Task)?.date ?? .now
-        case .event: return (self as? DataModel.Event)?.startDate ?? .now
-        case .note:  return (self as? DataModel.Note)?.date ?? .now
-        }
-    }
-
     /// The list this entry belongs to, or `nil` if it is unassigned or not list-eligible.
     var assignedList: DataModel.List? {
         if let task = self as? DataModel.Task { return task.list }

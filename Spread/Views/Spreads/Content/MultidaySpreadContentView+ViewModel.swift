@@ -18,14 +18,6 @@ extension MultidaySpreadContentView {
     ) -> [EntryList.Section] {
         let sectionID = String(spreadDate.timeIntervalSinceReferenceDate)
 
-        func entryDate(_ entry: any Entry) -> Date {
-            switch entry.entryType {
-            case .task: return (entry as? DataModel.Task)?.date ?? .now
-            case .event: return (entry as? DataModel.Event)?.startDate ?? .now
-            case .note: return (entry as? DataModel.Note)?.date ?? .now
-            }
-        }
-
         func entryPeriod(_ entry: any Entry) -> Period {
             if let task = entry as? DataModel.Task { return task.period }
             if let note = entry as? DataModel.Note { return note.period }
@@ -33,7 +25,7 @@ extension MultidaySpreadContentView {
         }
 
         func sorted(_ entries: [any Entry]) -> [any Entry] {
-            entries.sorted { entryDate($0) < entryDate($1) }
+            entries.sorted { $0.sortDate < $1.sortDate }
         }
 
         let start = startDate.startOfDay(calendar: calendar)
@@ -44,7 +36,7 @@ extension MultidaySpreadContentView {
         var dayGroups: [Date: [any Entry]] = [:]
         for entry in entries {
             guard entryPeriod(entry) == .day else { continue }
-            let entryDay = entryDate(entry).startOfDay(calendar: calendar)
+            let entryDay = entry.sortDate.startOfDay(calendar: calendar)
             dayGroups[entryDay, default: []].append(entry)
         }
 

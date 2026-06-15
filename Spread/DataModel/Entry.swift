@@ -27,6 +27,9 @@ protocol Entry: Identifiable, Hashable, EntryStatusIconRepresentable {
     var displayPriority: DataModel.Task.Priority { get }
 
     var status: EntryStatus { get }
+
+    /// The date used to chronologically order this entry within a section.
+    var sortDate: Date { get }
 }
 
 extension Entry {
@@ -61,6 +64,10 @@ protocol AssignableEntry: Entry {
     var assignments: [AssignmentType] { get set }
 }
 
+extension AssignableEntry {
+    var sortDate: Date { date }
+}
+
 /// An entry whose visibility is computed from date range overlap.
 ///
 /// Date range entries (events) do not have assignments. Instead, their
@@ -81,6 +88,10 @@ protocol DateRangeEntry: Entry {
     ///   - calendar: The calendar to use for date calculations.
     /// - Returns: `true` if this entry's date range overlaps with the spread.
     func appearsOn(period: Period, date: Date, calendar: Calendar) -> Bool
+}
+
+extension DateRangeEntry {
+    var sortDate: Date { startDate }
 }
 
 protocol EntryStatusIconRepresentable {
