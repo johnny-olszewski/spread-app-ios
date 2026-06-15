@@ -105,6 +105,7 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 
 - **Ask, don't assume**: When requirements are ambiguous or an architectural decision could go multiple ways (new protocols, new files, dependency patterns), ask for clarification before proceeding. Follow established patterns autonomously for routine implementation.
 - **Pros/cons for decisions**: When presenting options, provide pros and cons and a recommendation for each.
+- **Check for redundancy before implementing**: Before adding new logic (helpers, computed properties, extensions, view models), search for existing code that already does something similar — including the same logic duplicated across files. Prefer extending or sharing existing implementations (e.g., promoting a duplicated helper to a shared protocol extension) over adding a new, parallel one.
 
 ## Session Workflow
 
