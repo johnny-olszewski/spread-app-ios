@@ -84,7 +84,7 @@ extension SpreadsNavigatorView {
 
             let visualState = MultidayDayCardSupport.visualState(isToday: isToday, isCreated: !spreads.isEmpty)
             let fillColor: Color = visualState.spreadNavigatorFillColor
-            let strokeColor: Color = visualState.spreadNavigatorFillColor
+            let strokeColor: Color = visualState.spreadNavigatorStrokeColor
             let textColor: Color = visualState.textColor
 
             return Text("\(dayNumber)")
