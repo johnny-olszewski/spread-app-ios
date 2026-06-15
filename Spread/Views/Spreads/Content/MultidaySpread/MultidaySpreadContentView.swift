@@ -1,114 +1,232 @@
 import SwiftUI
 
-/// Renders the entry list for a multiday spread.
+/// Renders a multiday spread as a responsive grid of day cards.
+///
+/// Each day card shows either a summary tile (when an explicit day spread exists)
+/// or the full entry list for that day. Multiday-assigned tasks appear in a full-width
+/// assignment section above the day cards.
 struct MultidaySpreadContentView: View {
-    let spread: DataModel.Spread
-    let spreadDataModel: SpreadDataModel
-    let context: SpreadPageContext
+
+    @State private var viewModel: ViewModel
     var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
 
-    @State private var calendarEvents: [CalendarEvent] = []
+    @State private var activePeekData: SpreadPeekPanelView.Data?
 
-    // MARK: - Computed
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    private var sections: [EntryList.Section] {
-        let cal = context.calendar
-        let base = EntryListDisplaySupport.displayedEntries(for: spreadDataModel, calendar: cal)
-        let eventEntries: [DataModel.Event] = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
-        return Self.makeSections(
-            from: base + eventEntries,
-            spreadDate: spreadDataModel.spread.date,
-            startDate: spreadDataModel.spread.startDate ?? spreadDataModel.spread.date,
-            endDate: spreadDataModel.spread.endDate ?? spreadDataModel.spread.date,
-            calendar: cal
-        )
+    init(
+        spread: DataModel.Spread,
+        spreadDataModel: SpreadDataModel,
+        context: SpreadPageContext,
+        explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
+    ) {
+        _viewModel = State(wrappedValue: ViewModel(
+            spread: spread,
+            spreadDataModel: spreadDataModel,
+            context: context
+        ))
+        self.explicitDaySpreadForDate = explicitDaySpreadForDate
     }
 
-    private var configurationMap: EntryRowView.ConfigurationMap {
-        [
-            DataModel.Task.configurationKey: .standardTaskConfig(
-                journalManager: context.journalManager,
-                syncEngine: context.syncEngine,
-                coordinator: context.coordinator
-            ),
-            DataModel.Note.configurationKey: .standardNoteConfig(
-                journalManager: context.journalManager,
-                syncEngine: context.syncEngine,
-                coordinator: context.coordinator
-            ),
-            DataModel.Event.configurationKey: .standardEventConfig(journalManager: context.journalManager)
-        ]
-    }
-
-    private var onAddTask: (@MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void) {
-        let jm = context.journalManager
-        let se = context.syncEngine
-        return { @MainActor title, date, period, list, tag in
-            _ = try await jm.addTask(title: title, date: date, period: period, list: list, tag: tag)
-            Task { @MainActor in await se?.syncNow() }
-        }
+    private var columnCount: Int {
+        MultidaySectionLayout.columnCount(for: horizontalSizeClass)
     }
 
     // MARK: - Body
 
     var body: some View {
-        grid
-            .task(id: spread.id) {
-                calendarEvents = await context.calendarEventService.fetchEvents(
-                    for: spread,
-                    calendar: context.journalManager.calendar
-                )
+        ScrollView {
+            LazyVGrid(
+                columns: Array(
+                    repeating: GridItem(.flexible(), spacing: 16, alignment: .top),
+                    count: columnCount
+                ),
+                alignment: .leading,
+                spacing: 16
+            ) {
+                ForEach(viewModel.sections) { section in
+                    if section.creationPeriod == .multiday {
+                        assignmentSection(section)
+                            .gridCellColumns(columnCount)
+                    } else {
+                        daySection(section)
+                    }
+                }
             }
+            .padding(16)
+        }
+        .sheet(item: $activePeekData) { data in
+            SpreadPeekPanelView(
+                data: data,
+                calendar: viewModel.context.calendar,
+                today: viewModel.context.journalManager.today,
+                onClose: { activePeekData = nil },
+                onNavigate: { spread in
+                    activePeekData = nil
+                    viewModel.context.coordinator.navigateViaPeek(to: spread, from: viewModel.spread)
+                },
+                onTaskTap: { task in
+                    activePeekData = nil
+                    viewModel.context.coordinator.navigateViaPeek(to: data.spread, from: viewModel.spread)
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(150))
+                        viewModel.context.coordinator.showTaskDetail(task)
+                    }
+                }
+            )
+        }
+        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
+        .task(id: viewModel.spread.id) {
+            await viewModel.fetchCalendarEvents()
+        }
     }
 
-    private var grid: some View {
-        MultidayEntryGridView(
-            sections: sections,
-            calendar: context.journalManager.calendar,
-            today: context.journalManager.today,
-            onAddTask: onAddTask,
-            availableLists: context.journalManager.lists,
-            availableTags: context.journalManager.tags,
-            spread: spread,
-            explicitDaySpreadForDate: explicitDaySpreadForDate,
-            onSelectSpread: { daySpread in
-                context.coordinator.navigateViaPeek(to: daySpread, from: spread)
-            },
-            onCreateSpread: { date in
-                context.coordinator.showSpreadCreation(prefill: .init(period: .day, date: date))
-            },
-            openTaskCountForDaySpread: { daySpread in
-                let key = SpreadDataModelKey(spread: daySpread, calendar: context.journalManager.calendar)
-                return context.journalManager.dataModel[key: key]?.tasks.filter { $0.status == .open }.count ?? 0
-            },
-            peekDataForDaySpread: { daySpread in
-                let key = SpreadDataModelKey(spread: daySpread, calendar: context.journalManager.calendar)
-                guard let dm = context.journalManager.dataModel[key: key] else { return nil }
-                let dayStart = daySpread.date.startOfDay(calendar: context.journalManager.calendar)
-                guard let dayEnd = context.journalManager.calendar.date(byAdding: .day, value: 1, to: dayStart) else {
-                    return nil
+    // MARK: - Sections
+
+    private func assignmentSection(_ section: EntryList.Section) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(section.title)
+                .font(SpreadTheme.Typography.title3)
+                .foregroundStyle(.primary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(section.entries, id: \.id) { entry in
+                    entryRow(entry: entry)
                 }
-                let dayEvents = calendarEvents.filter {
-                    $0.startDate < dayEnd && $0.endDate > dayStart
-                }
-                return SpreadPeekPanelView.Data(spread: daySpread, spreadDataModel: dm, calendarEvents: dayEvents)
-            },
-            onPeekTaskTap: { daySpread, task in
-                context.coordinator.navigateViaPeek(to: daySpread, from: spread)
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(150))
-                    context.coordinator.showTaskDetail(task)
+
+                AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: viewModel.onAddTask)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemBackground))
+        )
+    }
+
+    @ViewBuilder
+    private func daySection(_ section: EntryList.Section) -> some View {
+        let explicitDaySpread = explicitDaySpreadForDate?(section.date)
+        let calendar = viewModel.context.calendar
+        let dateID = Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: section.date, calendar: calendar)
+        let visualState = MultidayDayCardSupport.visualState(
+            for: section.date,
+            today: viewModel.context.journalManager.today,
+            explicitDaySpread: explicitDaySpread,
+            calendar: calendar
+        )
+        let footerAction = MultidayDayCardSupport.footerAction(for: section.date, explicitDaySpread: explicitDaySpread)
+        let footerAccessibilityLabel: String = {
+            switch footerAction {
+            case .navigate: return "Open day spread"
+            case .createDay: return "Create day spread"
+            }
+        }()
+        let onFooterTap: () -> Void = {
+            if let explicitDaySpread {
+                viewModel.context.coordinator.navigateViaPeek(to: explicitDaySpread, from: viewModel.spread)
+            } else {
+                viewModel.context.coordinator.showSpreadCreation(prefill: .init(period: .day, date: section.date))
+            }
+        }
+        let onPeek: (() -> Void)? = explicitDaySpread.map { daySpread in
+            {
+                if let data = viewModel.peekData(for: daySpread) {
+                    activePeekData = data
                 }
             }
-        ) { entry in
-            entryRow(entry: entry)
         }
+
+        if let explicitDaySpread {
+            let openTaskCount = viewModel.openTaskCount(for: explicitDaySpread)
+            let eventCount = section.entries.filter { $0.entryType == .event }.count
+            MultidayDayCardView(
+                dateID: dateID,
+                visualState: visualState,
+                footerAction: footerAction,
+                overdueCount: 0,
+                shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar),
+                weekdayText: EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar),
+                dayNumberText: EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar),
+                footerAccessibilityLabel: footerAccessibilityLabel,
+                isContentCentered: true,
+                onPeek: onPeek,
+                onFooterTap: onFooterTap
+            ) {
+                summaryContent(taskCount: openTaskCount, eventCount: eventCount)
+            }
+        } else {
+            MultidayDayCardView(
+                dateID: dateID,
+                visualState: visualState,
+                footerAction: footerAction,
+                overdueCount: viewModel.overdueCount(for: section),
+                shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar),
+                weekdayText: EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar),
+                dayNumberText: EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar),
+                footerAccessibilityLabel: footerAccessibilityLabel,
+                onFooterTap: onFooterTap
+            ) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(section.entries, id: \.id) { entry in
+                        entryRow(entry: entry)
+                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                    }
+
+                    AddTaskButton(
+                        date: section.creationDate,
+                        period: section.creationPeriod,
+                        availableLists: viewModel.context.journalManager.lists,
+                        availableTags: viewModel.context.journalManager.tags,
+                        onAddTask: viewModel.onAddTask
+                    )
+                    .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                    .accessibilityIdentifier(
+                        Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID)
+                    )
+                }
+            }
+        }
+    }
+
+    private func summaryContent(taskCount: Int, eventCount: Int) -> some View {
+        HStack(spacing: 24) {
+            Label {
+                Text("\(taskCount)")
+                    .font(SpreadTheme.Typography.title3)
+                    .fontWeight(.medium)
+            } icon: {
+                Image(systemName: "circle")
+                    .font(.system(size: 15))
+            }
+            .foregroundStyle(taskCount > 0 ? Color.primary : Color.secondary)
+
+            Label {
+                Text("\(eventCount)")
+                    .font(SpreadTheme.Typography.title3)
+                    .fontWeight(.medium)
+            } icon: {
+                Image(systemName: "calendar")
+                    .font(.system(size: 15))
+            }
+            .foregroundStyle(eventCount > 0 ? Color.primary : Color.secondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(taskCount) open tasks, \(eventCount) events")
     }
 
     @ViewBuilder
     private func entryRow(entry: any Entry) -> some View {
-        if let config = configurationMap[ObjectIdentifier(type(of: entry))] {
+        if let config = viewModel.configurationMap[ObjectIdentifier(type(of: entry))] {
             EntryRowView(entry: entry, configuration: config)
         }
+    }
+}
+
+// MARK: - Column Count
+
+enum MultidaySectionLayout {
+    static func columnCount(for horizontalSizeClass: UserInterfaceSizeClass?) -> Int {
+        horizontalSizeClass == .regular ? 2 : 1
     }
 }
