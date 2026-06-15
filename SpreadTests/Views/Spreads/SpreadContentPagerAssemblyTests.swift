@@ -129,7 +129,7 @@ struct SpreadContentPagerAssemblyTests {
             DataModel.Task(title: "Unlisted", date: spreadDate)
         ]
 
-        let sections = DaySpreadContentView.makeSections(
+        let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
             calendar: Self.calendar,

@@ -4,8 +4,8 @@ import Testing
 
 /// Tests for entry list grouping logic.
 ///
-/// Day spread grouping is covered via `DaySpreadContentView.makeSections`.
-/// Multiday spread grouping is covered via `MultidaySpreadContentView.makeSections`.
+/// Day spread grouping is covered via `DaySpreadContentView.ViewModel.makeSections`.
+/// Multiday spread grouping is covered via `MultidaySpreadContentView.ViewModel.makeSections`.
 @Suite("Entry List Grouping Tests")
 @MainActor
 struct EntryListGroupingTests {
@@ -38,7 +38,7 @@ struct EntryListGroupingTests {
         let note = DataModel.Note(title: "Note", date: spreadDate)
 
         let entries: [any Entry] = [taskNone, taskB1, taskA1, note]
-        let sections = DaySpreadContentView.makeSections(
+        let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
             calendar: calendar,
@@ -70,7 +70,7 @@ struct EntryListGroupingTests {
             DataModel.Note(title: "Note 1", date: spreadDate)
         ]
 
-        let sections = DaySpreadContentView.makeSections(
+        let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
             calendar: calendar,
@@ -96,7 +96,7 @@ struct EntryListGroupingTests {
             DataModel.Note(title: "Note", date: spreadDate)
         ]
 
-        let sections = DaySpreadContentView.makeSections(
+        let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
             calendar: calendar,
@@ -121,7 +121,7 @@ struct EntryListGroupingTests {
             DataModel.Task(title: "Solo Task", date: spreadDate)
         ]
 
-        let sections = DaySpreadContentView.makeSections(
+        let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
             calendar: calendar,
@@ -138,7 +138,7 @@ struct EntryListGroupingTests {
     @Test("Day spread empty entries returns empty sections")
     func daySpreadEmptyEntriesReturnsEmpty() {
         let spreadDate = makeDate(year: 2026, month: 1, day: 1)
-        let sections = DaySpreadContentView.makeSections(
+        let sections = DaySpreadContentView.ViewModel.makeSections(
             from: [],
             spreadDate: spreadDate,
             calendar: calendar,
@@ -160,7 +160,7 @@ struct EntryListGroupingTests {
             DataModel.Task(title: "Task 2", date: makeDate(year: 2026, month: 1, day: 10))
         ]
 
-        let sections = DaySpreadContentView.makeSections(
+        let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
             calendar: calendar,
@@ -188,7 +188,7 @@ struct EntryListGroupingTests {
             DataModel.Note(title: "Day 6 Note", date: makeDate(year: 2026, month: 1, day: 6))
         ]
 
-        let sections = MultidaySpreadContentView.makeSections(
+        let sections = MultidaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: startDate,
             startDate: startDate,
@@ -213,7 +213,7 @@ struct EntryListGroupingTests {
             DataModel.Task(title: "Middle Task", date: makeDate(year: 2026, month: 1, day: 11))
         ]
 
-        let sections = MultidaySpreadContentView.makeSections(
+        let sections = MultidaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: startDate,
             startDate: startDate,
@@ -238,7 +238,7 @@ struct EntryListGroupingTests {
             DataModel.Task(title: "April 1 Day Task", date: makeDate(year: 2026, month: 4, day: 1), period: .day)
         ]
 
-        let sections = MultidaySpreadContentView.makeSections(
+        let sections = MultidaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: startDate,
             startDate: startDate,
@@ -264,7 +264,7 @@ struct EntryListGroupingTests {
             DataModel.Task(title: "Day 8 task", date: makeDate(year: 2026, month: 1, day: 8))
         ]
 
-        let sections = MultidaySpreadContentView.makeSections(
+        let sections = MultidaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: startDate,
             startDate: startDate,
@@ -290,7 +290,7 @@ struct EntryListGroupingTests {
             DataModel.Task(title: "Day task", date: makeDate(year: 2026, month: 1, day: 7), period: .day)
         ]
 
-        let sections = MultidaySpreadContentView.makeSections(
+        let sections = MultidaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: startDate,
             startDate: startDate,
