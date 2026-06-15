@@ -18,10 +18,10 @@ struct DaySpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel
     let context: SpreadPageContext
+    let horizontalSizeClass: UserInterfaceSizeClass?
     var config: Config = .default
 
     @State private var calendarEvents: [CalendarEvent] = []
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var shouldShowTimelineCard: Bool {
         horizontalSizeClass.isRegular && !calendarEvents.isEmpty

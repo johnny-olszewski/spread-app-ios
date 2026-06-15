@@ -163,6 +163,7 @@ private struct SpreadPageContentView: View {
 
     @Environment(\.eventKitService) private var eventKitService
     @Environment(\.calendarEventService) private var calendarEventService
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var context: SpreadPageContext {
         SpreadPageContext(
@@ -195,7 +196,12 @@ private struct SpreadPageContentView: View {
             case .month:
                 MonthSpreadContentView(spread: spread, spreadDataModel: dataModel, context: context)
             case .day:
-                DaySpreadContentView(spread: spread, spreadDataModel: dataModel, context: context)
+                DaySpreadContentView(
+                    spread: spread,
+                    spreadDataModel: dataModel,
+                    context: context,
+                    horizontalSizeClass: horizontalSizeClass
+                )
             case .multiday:
                 MultidaySpreadContentView(
                     spread: spread,
