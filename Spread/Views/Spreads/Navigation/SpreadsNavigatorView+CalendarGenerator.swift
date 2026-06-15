@@ -82,14 +82,14 @@ extension SpreadsNavigatorView {
             
             let dayNumber = calendar.component(.day, from: date)
 
-            let visualState = MultidayDayCardSupport.visualState(isToday: isToday, isCreated: !spreads.isEmpty)
-            let fillColor: Color = visualState.spreadNavigatorFillColor
-            let strokeColor: Color = visualState.spreadNavigatorStrokeColor
-            let textColor: Color = visualState.textColor
+            let cardStyle = MultidayDayCardSupport.cardStyle(isToday: isToday, isCreated: !spreads.isEmpty)
+            let fillColor: Color = cardStyle.spreadNavigatorFillColor
+            let strokeColor: Color = cardStyle.spreadNavigatorStrokeColor
+            let textColor: Color = cardStyle.textColor
 
             return Text("\(dayNumber)")
                 .font(.subheadline)
-                .fontWeight(visualState.headerWeight)
+                .fontWeight(cardStyle.headerWeight)
                 .foregroundStyle(textColor)
                 .lineLimit(1)
                 .padding(8)
@@ -97,7 +97,7 @@ extension SpreadsNavigatorView {
                 .background(
                     RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.badge, style: .continuous)
                         .fill(fillColor)
-                        .strokeBorder(strokeColor, style: visualState.borderStyle)
+                        .strokeBorder(strokeColor, style: cardStyle.borderStyle)
                 )
                 .aspectRatio(1, contentMode: .fit)
                 .padding(2)

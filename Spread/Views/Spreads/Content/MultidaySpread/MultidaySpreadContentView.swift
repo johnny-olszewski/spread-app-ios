@@ -109,7 +109,7 @@ struct MultidaySpreadContentView: View {
         let explicitDaySpread = explicitDaySpreadForDate?(section.date)
         let calendar = viewModel.context.calendar
         let dateID = Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: section.date, calendar: calendar)
-        let visualState = MultidayDayCardSupport.visualState(
+        let cardStyle = MultidayDayCardSupport.cardStyle(
             for: section.date,
             today: viewModel.context.journalManager.today,
             explicitDaySpread: explicitDaySpread,
@@ -142,7 +142,7 @@ struct MultidaySpreadContentView: View {
             let eventCount = section.entries.filter { $0.entryType == .event }.count
             MultidayDayCardView(
                 dateID: dateID,
-                visualState: visualState,
+                cardStyle: cardStyle,
                 footerAction: footerAction,
                 overdueCount: 0,
                 shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar),
@@ -158,7 +158,7 @@ struct MultidaySpreadContentView: View {
         } else {
             MultidayDayCardView(
                 dateID: dateID,
-                visualState: visualState,
+                cardStyle: cardStyle,
                 footerAction: footerAction,
                 overdueCount: viewModel.overdueCount(for: section),
                 shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar),

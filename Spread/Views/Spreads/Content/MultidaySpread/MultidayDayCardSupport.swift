@@ -116,7 +116,7 @@ enum MultidayDayCardAction: Equatable {
 }
 
 enum MultidayDayCardSupport {
-    static func visualState(
+    static func cardStyle(
         isToday: Bool,
         isCreated: Bool
     ) -> SpreadCardStyle {
@@ -132,13 +132,13 @@ enum MultidayDayCardSupport {
         }
     }
 
-    static func visualState(
+    static func cardStyle(
         for date: Date,
         today: Date,
         explicitDaySpread: DataModel.Spread?,
         calendar: Calendar
     ) -> SpreadCardStyle {
-        visualState(
+        cardStyle(
             isToday: calendar.isDate(date, inSameDayAs: today),
             isCreated: explicitDaySpread != nil
         )

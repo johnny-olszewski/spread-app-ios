@@ -101,7 +101,7 @@ struct YearSpreadContentView: View {
         let normalizedDate = Period.month.normalizeDate(date, calendar: calendar)
         let monthSpreadDataModel = context.journalManager.spreadDataModel(for: date, period: .month)
         let monthSpread = monthSpreadDataModel?.spread
-        let visualState = MultidayDayCardSupport.visualState(
+        let cardStyle = MultidayDayCardSupport.cardStyle(
             isToday: calendar.isDate(normalizedDate, equalTo: context.journalManager.today, toGranularity: .month),
             isCreated: monthSpread != nil
         )
@@ -121,7 +121,7 @@ struct YearSpreadContentView: View {
             MonthCardView(
                 monthDate: normalizedDate,
                 calendar: calendar,
-                visualState: visualState,
+                cardStyle: cardStyle,
                 style: .count(taskCount: openTaskCount),
                 onPeek: peekAction,
                 onViewSpread: { context.coordinator.selectSpread(monthSpread) }
@@ -142,7 +142,7 @@ struct YearSpreadContentView: View {
             MonthCardView(
                 monthDate: normalizedDate,
                 calendar: calendar,
-                visualState: visualState,
+                cardStyle: cardStyle,
                 style: .list(sections: sections, configurationMap: configurationMap),
                 onCreateSpread: {
                     context.coordinator.activeSheet = .spreadCreation(.init(period: .month, date: normalizedDate))

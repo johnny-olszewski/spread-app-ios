@@ -4,10 +4,10 @@ import Testing
 @testable import Spread
 
 /// Tests for shared day visual style properties on `SpreadCardStyle`.
-@Suite("Spread Day Visual State Tests")
-struct SpreadDayVisualStateTests {
+@Suite("Spread Card Style Tests")
+struct SpreadCardStyleTests {
 
-    // MARK: - MultidayDayCardVisualState shared properties
+    // MARK: - SpreadCardStyle shared properties
 
     /// Condition: a created today state.
     /// Expected: fill is a tinted accent color (non-clear), border is solid (no dash), border color is todayEmphasisBorder.

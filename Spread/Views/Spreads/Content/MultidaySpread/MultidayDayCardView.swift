@@ -2,7 +2,7 @@ import SwiftUI
 
 struct MultidayDayCardView<Content: View>: View {
     let dateID: String
-    let visualState: SpreadCardStyle
+    let cardStyle: SpreadCardStyle
     let footerAction: MultidayDayCardAction
     let overdueCount: Int
     let shortMonthText: String
@@ -20,7 +20,7 @@ struct MultidayDayCardView<Content: View>: View {
 
     init(
         dateID: String,
-        visualState: SpreadCardStyle,
+        cardStyle: SpreadCardStyle,
         footerAction: MultidayDayCardAction,
         overdueCount: Int,
         shortMonthText: String,
@@ -33,7 +33,7 @@ struct MultidayDayCardView<Content: View>: View {
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.dateID = dateID
-        self.visualState = visualState
+        self.cardStyle = cardStyle
         self.footerAction = footerAction
         self.overdueCount = overdueCount
         self.shortMonthText = shortMonthText
@@ -64,7 +64,7 @@ struct MultidayDayCardView<Content: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .spreadCardStyle(cornerRadius: 16, fill: visualState.fill, style: visualState)
+        .spreadCardStyle(cornerRadius: 16, fill: cardStyle.fill, style: cardStyle)
         .overlay(alignment: .topTrailing) {
             overdueBadge
                 .offset(x: 8, y: -8)
@@ -77,7 +77,7 @@ struct MultidayDayCardView<Content: View>: View {
     private var header: some View {
         VStack(spacing: 0) {
             HStack(alignment: .lastTextBaseline) {
-                if visualState.isToday {
+                if cardStyle.isToday {
                     Text("Today")
                         .font(SpreadTheme.Typography.caption.smallCaps())
                         .fontWeight(.semibold)
@@ -161,7 +161,7 @@ struct MultidayDayCardView<Content: View>: View {
         }
     }
 
-    private var primaryHeaderColor: Color { visualState.primaryHeaderColor }
-    private var secondaryHeaderColor: Color { visualState.secondaryHeaderColor }
-    private var headerWeight: Font.Weight { visualState.headerWeight }
+    private var primaryHeaderColor: Color { cardStyle.primaryHeaderColor }
+    private var secondaryHeaderColor: Color { cardStyle.secondaryHeaderColor }
+    private var headerWeight: Font.Weight { cardStyle.headerWeight }
 }

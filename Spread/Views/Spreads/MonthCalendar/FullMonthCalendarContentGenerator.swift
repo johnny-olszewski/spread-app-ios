@@ -36,7 +36,7 @@ struct FullMonthCalendarContentGenerator: CalendarContentGenerator {
         let action = isConventional ? calendarActionsByDate[normalizedDate] : nil
         let isToday = calendar.isDate(date, inSameDayAs: today)
         let isPeripheral = !calendar.isDate(date, equalTo: displayedMonth, toGranularity: .month)
-        let visualState = MultidayDayCardSupport.visualState(
+        let cardStyle = MultidayDayCardSupport.cardStyle(
             isToday: isToday,
             isCreated: isConventional ? dayState.hasExplicitDaySpread : true
         )
@@ -45,7 +45,7 @@ struct FullMonthCalendarContentGenerator: CalendarContentGenerator {
             isPeripheral: isPeripheral,
             isToday: isToday,
             calendar: calendar,
-            visualState: visualState,
+            cardStyle: cardStyle,
             action: action,
             onViewDaySpread: onViewDaySpread
         )
@@ -67,7 +67,7 @@ private struct CalendarDayCellView: View {
     let isPeripheral: Bool
     let isToday: Bool
     let calendar: Calendar
-    let visualState: SpreadCardStyle
+    let cardStyle: SpreadCardStyle
     let action: MonthSpreadCalendarDayAction?
     let onViewDaySpread: ((DataModel.Spread) -> Void)?
 
@@ -77,7 +77,7 @@ private struct CalendarDayCellView: View {
 
     private var cellFill: Color {
         if isPeripheral { return .clear }
-        return (isToday || visualState.isCreated) ? visualState.fill : .clear
+        return (isToday || cardStyle.isCreated) ? cardStyle.fill : .clear
     }
 
     var body: some View {
@@ -95,8 +95,8 @@ private struct CalendarDayCellView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(
-                    isPeripheral ? Color.clear : visualState.borderColor,
-                    style: visualState.borderStyle
+                    isPeripheral ? Color.clear : cardStyle.borderColor,
+                    style: cardStyle.borderStyle
                 )
         )
         .padding(2)
