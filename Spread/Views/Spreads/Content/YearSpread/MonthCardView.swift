@@ -55,14 +55,7 @@ struct MonthCardView: View {
             }
         }
         .padding(Layout.cardPadding)
-        .background(
-            RoundedRectangle(cornerRadius: Layout.cardCornerRadius, style: .continuous)
-                .fill(backgroundFill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Layout.cardCornerRadius, style: .continuous)
-                .strokeBorder(visualState.borderColor, style: visualState.borderStyle)
-        )
+        .spreadCardStyle(cornerRadius: Layout.cardCornerRadius, fill: backgroundFill, style: visualState)
     }
 
     // MARK: - Header
@@ -122,29 +115,21 @@ struct MonthCardView: View {
                 HStack {
                     Spacer()
                     if let onPeek {
-                        Button(action: onPeek) {
-                            Image(systemName: "eye")
-                                .font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                                .frame(minWidth: 44, minHeight: 44)
-                        }
-                        .buttonStyle(.plain)
-                        .contentShape(Rectangle())
-                        .accessibilityLabel("Preview month spread")
+                        SpreadButton(viewModel: .init(
+                            title: "Preview month spread",
+                            systemImage: "eye",
+                            style: .secondary,
+                            action: onPeek
+                        ))
                     }
 
                     if let onViewSpread {
-                        Button(action: onViewSpread) {
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
-                                .foregroundStyle(SpreadTheme.Accent.todaySelectedEmphasis)
-                                .frame(width: 30, height: 30)
-                                .background(Circle().fill(.white.opacity(0.94)))
-                        }
-                        .buttonStyle(.plain)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
-                        .accessibilityLabel("View month spread")
+                        SpreadButton(viewModel: .init(
+                            title: "View month spread",
+                            systemImage: "arrow.right",
+                            style: .primary,
+                            action: onViewSpread
+                        ))
                     }
                 }
             }

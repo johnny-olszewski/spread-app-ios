@@ -64,17 +64,7 @@ struct MultidayDayCardView<Content: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(cardFill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(
-                    cardBorder,
-                    style: cardBorderStyle
-                )
-        )
+        .spreadCardStyle(cornerRadius: 16, fill: visualState.fill, style: visualState)
         .overlay(alignment: .topTrailing) {
             overdueBadge
                 .offset(x: 8, y: -8)
@@ -128,37 +118,24 @@ struct MultidayDayCardView<Content: View>: View {
     private var footer: some View {
         HStack {
             if let onPeek {
-                Button(action: onPeek) {
-                    Image(systemName: "eye")
-                        .font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(minWidth: 44, minHeight: 44)
-                }
-                .buttonStyle(.plain)
-                .contentShape(Rectangle())
-                .accessibilityLabel("Preview day spread")
-                .accessibilityIdentifier(
-                    Definitions.AccessibilityIdentifiers.SpreadContent.multidayPeekButton(dateID)
-                )
+                SpreadButton(viewModel: .init(
+                    title: "Preview day spread",
+                    systemImage: "eye",
+                    style: .secondary,
+                    accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayPeekButton(dateID),
+                    action: onPeek
+                ))
             }
 
             Spacer()
 
-            Button(action: onFooterTap) {
-                Image(systemName: footerAction.iconName)
-                    .font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
-                    .foregroundStyle(SpreadTheme.Accent.todaySelectedEmphasis)
-                    .frame(width: 30, height: 30)
-                    .background(Circle().fill(.white.opacity(0.94)))
-            }
-            .buttonStyle(.plain)
-            .frame(minWidth: 44, minHeight: 44)
-            .contentShape(Rectangle())
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(footerAccessibilityLabel)
-            .accessibilityIdentifier(
-                Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID)
-            )
+            SpreadButton(viewModel: .init(
+                title: footerAccessibilityLabel,
+                systemImage: footerAction.iconName,
+                style: .primary,
+                accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID),
+                action: onFooterTap
+            ))
         }
     }
 
@@ -184,9 +161,6 @@ struct MultidayDayCardView<Content: View>: View {
         }
     }
 
-    private var cardFill: Color { visualState.fill }
-    private var cardBorder: Color { visualState.borderColor }
-    private var cardBorderStyle: StrokeStyle { visualState.borderStyle }
     private var primaryHeaderColor: Color { visualState.primaryHeaderColor }
     private var secondaryHeaderColor: Color { visualState.secondaryHeaderColor }
     private var headerWeight: Font.Weight { visualState.headerWeight }
