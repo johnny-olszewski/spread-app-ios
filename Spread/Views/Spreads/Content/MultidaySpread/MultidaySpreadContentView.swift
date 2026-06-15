@@ -116,12 +116,9 @@ struct MultidaySpreadContentView: View {
             calendar: calendar
         )
         let footerAction = MultidayDayCardSupport.footerAction(for: section.date, explicitDaySpread: explicitDaySpread)
-        let footerAccessibilityLabel: String = {
-            switch footerAction {
-            case .navigate: return "Open day spread"
-            case .createDay: return "Create day spread"
-            }
-        }()
+        let shortMonthText = EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar)
+        let weekdayText = EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar)
+        let dayNumberText = EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar)
         let onFooterTap: () -> Void = {
             if let explicitDaySpread {
                 viewModel.context.coordinator.navigateViaPeek(to: explicitDaySpread, from: viewModel.spread)
@@ -145,10 +142,9 @@ struct MultidaySpreadContentView: View {
                 cardStyle: cardStyle,
                 footerAction: footerAction,
                 overdueCount: 0,
-                shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar),
-                weekdayText: EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar),
-                dayNumberText: EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar),
-                footerAccessibilityLabel: footerAccessibilityLabel,
+                shortMonthText: shortMonthText,
+                weekdayText: weekdayText,
+                dayNumberText: dayNumberText,
                 isContentCentered: true,
                 onPeek: onPeek,
                 onFooterTap: onFooterTap
@@ -161,10 +157,9 @@ struct MultidaySpreadContentView: View {
                 cardStyle: cardStyle,
                 footerAction: footerAction,
                 overdueCount: viewModel.overdueCount(for: section),
-                shortMonthText: EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar),
-                weekdayText: EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar),
-                dayNumberText: EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar),
-                footerAccessibilityLabel: footerAccessibilityLabel,
+                shortMonthText: shortMonthText,
+                weekdayText: weekdayText,
+                dayNumberText: dayNumberText,
                 onFooterTap: onFooterTap
             ) {
                 VStack(alignment: .leading, spacing: 0) {

@@ -8,7 +8,6 @@ struct MultidayDayCardView<Content: View>: View {
     let shortMonthText: String
     let weekdayText: String
     let dayNumberText: String
-    let footerAccessibilityLabel: String
     /// When `true`, the content is centered vertically between the header and footer
     /// rather than top-aligned. Used for summary-only cards (e.g. days with an existing
     /// day spread) where a compact HStack replaces the full entry list.
@@ -26,7 +25,6 @@ struct MultidayDayCardView<Content: View>: View {
         shortMonthText: String,
         weekdayText: String,
         dayNumberText: String,
-        footerAccessibilityLabel: String,
         isContentCentered: Bool = false,
         onPeek: (() -> Void)? = nil,
         onFooterTap: @escaping () -> Void,
@@ -39,7 +37,6 @@ struct MultidayDayCardView<Content: View>: View {
         self.shortMonthText = shortMonthText
         self.weekdayText = weekdayText
         self.dayNumberText = dayNumberText
-        self.footerAccessibilityLabel = footerAccessibilityLabel
         self.isContentCentered = isContentCentered
         self.onPeek = onPeek
         self.onFooterTap = onFooterTap
@@ -129,13 +126,24 @@ struct MultidayDayCardView<Content: View>: View {
 
             Spacer()
 
-            SpreadButton(viewModel: .init(
-                title: footerAccessibilityLabel,
-                systemImage: footerAction.iconName,
-                style: .primary,
-                accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID),
-                action: onFooterTap
-            ))
+            switch footerAction {
+            case .navigate:
+                SpreadButton(viewModel: .init(
+                    title: "Open day spread",
+                    systemImage: "arrow.right",
+                    style: .primary,
+                    accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID),
+                    action: onFooterTap
+                ))
+            case .createDay:
+                SpreadButton(viewModel: .init(
+                    title: "Create day spread",
+                    systemImage: "calendar.badge.plus",
+                    style: .primary,
+                    accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID),
+                    action: onFooterTap
+                ))
+            }
         }
     }
 

@@ -103,17 +103,19 @@ struct SpreadButton: View {
     private var styledContent: some View {
         switch viewModel.style {
         case .primary:
-            content
-                .font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
+            iconContent
                 .foregroundStyle(SpreadTheme.Accent.todaySelectedEmphasis)
                 .frame(width: 30, height: 30)
                 .background(Circle().fill(.white.opacity(0.94)))
         case .secondary:
-            content
-                .font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
+            iconContent
                 .foregroundStyle(.secondary)
         case .tertiary:
             content
         }
+    }
+
+    private var iconContent: some View {
+        content.font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
     }
 }
