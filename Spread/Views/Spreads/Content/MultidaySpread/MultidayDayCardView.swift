@@ -3,7 +3,6 @@ import SwiftUI
 struct MultidayDayCardView<Content: View>: View {
     let dateID: String
     let cardStyle: SpreadCardStyle
-    let footerAction: MultidayDayCardAction
     let overdueCount: Int
     let shortMonthText: String
     let weekdayText: String
@@ -20,7 +19,6 @@ struct MultidayDayCardView<Content: View>: View {
     init(
         dateID: String,
         cardStyle: SpreadCardStyle,
-        footerAction: MultidayDayCardAction,
         overdueCount: Int,
         shortMonthText: String,
         weekdayText: String,
@@ -32,7 +30,6 @@ struct MultidayDayCardView<Content: View>: View {
     ) {
         self.dateID = dateID
         self.cardStyle = cardStyle
-        self.footerAction = footerAction
         self.overdueCount = overdueCount
         self.shortMonthText = shortMonthText
         self.weekdayText = weekdayText
@@ -126,8 +123,7 @@ struct MultidayDayCardView<Content: View>: View {
 
             Spacer()
 
-            switch footerAction {
-            case .navigate:
+            if cardStyle.isCreated {
                 SpreadButton(viewModel: .init(
                     title: "Open day spread",
                     systemImage: "arrow.right",
@@ -135,7 +131,7 @@ struct MultidayDayCardView<Content: View>: View {
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID),
                     action: onFooterTap
                 ))
-            case .createDay:
+            } else {
                 SpreadButton(viewModel: .init(
                     title: "Create day spread",
                     systemImage: "calendar.badge.plus",

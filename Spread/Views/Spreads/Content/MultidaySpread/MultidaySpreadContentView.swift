@@ -109,13 +109,12 @@ struct MultidaySpreadContentView: View {
         let explicitDaySpread = explicitDaySpreadForDate?(section.date)
         let calendar = viewModel.context.calendar
         let dateID = Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: section.date, calendar: calendar)
-        let cardStyle = MultidayDayCardSupport.cardStyle(
+        let cardStyle = SpreadCardStyle(
             for: section.date,
             today: viewModel.context.journalManager.today,
             explicitDaySpread: explicitDaySpread,
             calendar: calendar
         )
-        let footerAction = MultidayDayCardSupport.footerAction(for: section.date, explicitDaySpread: explicitDaySpread)
         let shortMonthText = EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar)
         let weekdayText = EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar)
         let dayNumberText = EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar)
@@ -140,7 +139,6 @@ struct MultidaySpreadContentView: View {
             MultidayDayCardView(
                 dateID: dateID,
                 cardStyle: cardStyle,
-                footerAction: footerAction,
                 overdueCount: 0,
                 shortMonthText: shortMonthText,
                 weekdayText: weekdayText,
@@ -155,7 +153,6 @@ struct MultidaySpreadContentView: View {
             MultidayDayCardView(
                 dateID: dateID,
                 cardStyle: cardStyle,
-                footerAction: footerAction,
                 overdueCount: viewModel.overdueCount(for: section),
                 shortMonthText: shortMonthText,
                 weekdayText: weekdayText,
