@@ -57,6 +57,7 @@ struct SpreadContentPagerView: View {
                             onTap: navState != nil ? { coordinator.handleConvenienceNavButtonTapped() } : nil
                         )
                         contentView(for: spread)
+                            .conditionalScrollView()
                     }
                     .containerRelativeFrame(.horizontal)
                     .id(spread.id)

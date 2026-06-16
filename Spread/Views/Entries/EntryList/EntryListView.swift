@@ -82,7 +82,6 @@ struct EntryListView: View {
                 }
             }
         }
-        .conditionalScrollView()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
     }
 

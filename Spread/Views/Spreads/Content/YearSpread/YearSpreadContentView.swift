@@ -50,18 +50,16 @@ struct YearSpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-                topYearSection
+        LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+            topYearSection
 
-                ForEach(monthDates, id: \.self) { date in
-                    monthCard(date)
-                }
+            ForEach(monthDates, id: \.self) { date in
+                monthCard(date)
             }
-            .padding(.horizontal, Layout.contentPadding)
-            .padding(.top, Layout.contentPadding)
-            .padding(.bottom, Layout.sectionSpacing)
         }
+        .padding(.horizontal, Layout.contentPadding)
+        .padding(.top, Layout.contentPadding)
+        .padding(.bottom, Layout.sectionSpacing)
     }
 
     // MARK: - Top Year Section
