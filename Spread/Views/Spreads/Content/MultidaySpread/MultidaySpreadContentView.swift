@@ -9,8 +9,6 @@ struct MultidaySpreadContentView: View {
 
     @State private var viewModel: ViewModel
 
-    @State private var activePeekData: SpreadPeekPanelView.Data?
-
     init(
         spread: DataModel.Spread,
         spreadDataModel: SpreadDataModel,
@@ -43,26 +41,6 @@ struct MultidaySpreadContentView: View {
             }
         }
         .padding(16)
-        .sheet(item: $activePeekData) { data in
-            SpreadPeekPanelView(
-                data: data,
-                calendar: viewModel.context.calendar,
-                today: viewModel.context.journalManager.today,
-                onClose: { activePeekData = nil },
-                onNavigate: { spread in
-                    activePeekData = nil
-                    viewModel.context.coordinator.navigateViaPeek(to: spread, from: viewModel.spread)
-                },
-                onTaskTap: { task in
-                    activePeekData = nil
-                    viewModel.context.coordinator.navigateViaPeek(to: data.spread, from: viewModel.spread)
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(150))
-                        viewModel.context.coordinator.showTaskDetail(task)
-                    }
-                }
-            )
-        }
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
         .task(id: viewModel.spread.id) {
             await viewModel.fetchCalendarEvents()
@@ -116,7 +94,7 @@ struct MultidaySpreadContentView: View {
         let onPeek: (() -> Void)? = explicitDaySpread.map { daySpread in
             {
                 if let data = viewModel.peekData(for: daySpread) {
-                    activePeekData = data
+                    viewModel.context.coordinator.showSpreadPeek(data)
                 }
             }
         }
