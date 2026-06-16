@@ -148,7 +148,7 @@ struct MultidaySpreadUITests {
         let date = makeDate(year: 2026, month: 1, day: 10)
         let daySpread = DataModel.Spread(period: .day, date: date, calendar: calendar)
 
-        let state = MultidayDayCardSupport.cardStyle(
+        let state = SpreadCardStyle(
             for: date,
             today: makeDate(year: 2026, month: 1, day: 12),
             explicitDaySpread: daySpread,
@@ -162,7 +162,7 @@ struct MultidaySpreadUITests {
     func multidayDayCardUsesUncreatedStateWhenDayMissing() {
         let date = makeDate(year: 2026, month: 1, day: 10)
 
-        let state = MultidayDayCardSupport.cardStyle(
+        let state = SpreadCardStyle(
             for: date,
             today: makeDate(year: 2026, month: 1, day: 12),
             explicitDaySpread: nil,
@@ -176,7 +176,7 @@ struct MultidaySpreadUITests {
     func multidayDayCardTodayWithoutDaySpreadUsesTodayUncreatedState() {
         let date = makeDate(year: 2026, month: 1, day: 10)
 
-        let state = MultidayDayCardSupport.cardStyle(
+        let state = SpreadCardStyle(
             for: date,
             today: date,
             explicitDaySpread: nil,
@@ -191,7 +191,7 @@ struct MultidaySpreadUITests {
         let date = makeDate(year: 2026, month: 1, day: 10)
         let daySpread = DataModel.Spread(period: .day, date: date, calendar: calendar)
 
-        let state = MultidayDayCardSupport.cardStyle(
+        let state = SpreadCardStyle(
             for: date,
             today: date,
             explicitDaySpread: daySpread,

@@ -36,7 +36,7 @@ struct FullMonthCalendarContentGenerator: CalendarContentGenerator {
         let action = isConventional ? calendarActionsByDate[normalizedDate] : nil
         let isToday = calendar.isDate(date, inSameDayAs: today)
         let isPeripheral = !calendar.isDate(date, equalTo: displayedMonth, toGranularity: .month)
-        let cardStyle = MultidayDayCardSupport.cardStyle(
+        let cardStyle = SpreadCardStyle(
             isToday: isToday,
             isCreated: isConventional ? dayState.hasExplicitDaySpread : true
         )

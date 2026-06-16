@@ -82,7 +82,7 @@ extension SpreadsNavigatorView {
             
             let dayNumber = calendar.component(.day, from: date)
 
-            let cardStyle = MultidayDayCardSupport.cardStyle(isToday: isToday, isCreated: !spreads.isEmpty)
+            let cardStyle = SpreadCardStyle(isToday: isToday, isCreated: !spreads.isEmpty)
             let fillColor: Color = cardStyle.spreadNavigatorFillColor
             let strokeColor: Color = cardStyle.spreadNavigatorStrokeColor
             let textColor: Color = cardStyle.textColor

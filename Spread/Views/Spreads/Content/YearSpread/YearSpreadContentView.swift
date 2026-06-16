@@ -101,7 +101,7 @@ struct YearSpreadContentView: View {
         let normalizedDate = Period.month.normalizeDate(date, calendar: calendar)
         let monthSpreadDataModel = context.journalManager.spreadDataModel(for: date, period: .month)
         let monthSpread = monthSpreadDataModel?.spread
-        let cardStyle = MultidayDayCardSupport.cardStyle(
+        let cardStyle = SpreadCardStyle(
             isToday: calendar.isDate(normalizedDate, equalTo: context.journalManager.today, toGranularity: .month),
             isCreated: monthSpread != nil
         )
