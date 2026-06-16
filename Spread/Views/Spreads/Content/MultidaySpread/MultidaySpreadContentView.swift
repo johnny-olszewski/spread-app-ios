@@ -33,14 +33,14 @@ struct MultidaySpreadContentView: View {
         ) {
             ForEach(viewModel.sections) { section in
                 if section.creationPeriod == .multiday {
-                    assignmentSection(section)
+                    multidayEntrySection(section)
                         .gridCellColumns(viewModel.columnCount)
                 } else {
                     daySection(section)
                 }
             }
         }
-        .padding(16)
+        .padding(SpreadTheme.Spacing.large)
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
         .task(id: viewModel.spread.id) {
             await viewModel.fetchCalendarEvents()
@@ -49,7 +49,7 @@ struct MultidaySpreadContentView: View {
 
     // MARK: - Sections
 
-    private func assignmentSection(_ section: EntryList.Section) -> some View {
+    private func multidayEntrySection(_ section: EntryList.Section) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(section.title)
                 .font(SpreadTheme.Typography.title3)
@@ -72,8 +72,10 @@ struct MultidaySpreadContentView: View {
 
     @ViewBuilder
     private func daySection(_ section: EntryList.Section) -> some View {
+        
         let explicitDaySpread = viewModel.explicitDaySpread(for: section.date)
         let calendar = viewModel.context.calendar
+        
         let dateID = Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: section.date, calendar: calendar)
         let cardStyle = SpreadCardStyle(
             for: section.date,

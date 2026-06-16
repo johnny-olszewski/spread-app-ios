@@ -35,6 +35,7 @@ extension MultidaySpreadContentView {
             let cal = context.calendar
             let base = EntryListDisplaySupport.displayedEntries(for: spreadDataModel, calendar: cal)
             let eventEntries: [DataModel.Event] = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
+            
             return Self.makeSections(
                 from: base + eventEntries,
                 spreadDate: spreadDataModel.spread.date,
