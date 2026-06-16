@@ -8,7 +8,6 @@ import SwiftUI
 struct MultidaySpreadContentView: View {
 
     @State private var viewModel: ViewModel
-    var explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
 
     @State private var activePeekData: SpreadPeekPanelView.Data?
 
@@ -17,15 +16,13 @@ struct MultidaySpreadContentView: View {
     init(
         spread: DataModel.Spread,
         spreadDataModel: SpreadDataModel,
-        context: SpreadPageContext,
-        explicitDaySpreadForDate: ((Date) -> DataModel.Spread?)? = nil
+        context: SpreadPageContext
     ) {
         _viewModel = State(wrappedValue: ViewModel(
             spread: spread,
             spreadDataModel: spreadDataModel,
             context: context
         ))
-        self.explicitDaySpreadForDate = explicitDaySpreadForDate
     }
 
     private var columnCount: Int {
@@ -106,7 +103,7 @@ struct MultidaySpreadContentView: View {
 
     @ViewBuilder
     private func daySection(_ section: EntryList.Section) -> some View {
-        let explicitDaySpread = explicitDaySpreadForDate?(section.date)
+        let explicitDaySpread = viewModel.explicitDaySpread(for: section.date)
         let calendar = viewModel.context.calendar
         let dateID = Definitions.AccessibilityIdentifiers.SpreadHierarchyTabBar.ymd(from: section.date, calendar: calendar)
         let cardStyle = SpreadCardStyle(

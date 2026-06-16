@@ -206,8 +206,7 @@ private struct SpreadPageContentView: View {
                 MultidaySpreadContentView(
                     spread: spread,
                     spreadDataModel: dataModel,
-                    context: context,
-                    explicitDaySpreadForDate: { date in explicitDaySpread(for: date) }
+                    context: context
                 )
             }
         } else {
@@ -226,14 +225,4 @@ private struct SpreadPageContentView: View {
         return journalManager.dataModel[spread.period]?[normalizedDate]
     }
 
-    private func explicitDaySpread(for date: Date) -> DataModel.Spread? {
-        let normalizedDate = Period.day.normalizeDate(date, calendar: journalManager.calendar)
-        return journalManager.spreads.first { spread in
-            spread.period == .day &&
-            journalManager.calendar.isDate(
-                Period.day.normalizeDate(spread.date, calendar: journalManager.calendar),
-                inSameDayAs: normalizedDate
-            )
-        }
-    }
 }

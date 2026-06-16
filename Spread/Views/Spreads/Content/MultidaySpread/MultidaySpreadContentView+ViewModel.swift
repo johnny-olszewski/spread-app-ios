@@ -77,6 +77,11 @@ extension MultidaySpreadContentView {
 
         // MARK: - Day Card Helpers
 
+        /// Returns the explicit day spread for the given date, if one exists.
+        func explicitDaySpread(for date: Date) -> DataModel.Spread? {
+            context.journalManager.spreadDataModel(for: date, period: .day)?.spread
+        }
+
         /// The entry data for a given day spread, or `nil` if it has not been loaded.
         func dataModel(for daySpread: DataModel.Spread) -> SpreadDataModel? {
             let key = SpreadDataModelKey(spread: daySpread, calendar: context.calendar)
