@@ -8,50 +8,49 @@ import SwiftUI
 struct MultidaySpreadContentView: View {
 
     @State private var viewModel: ViewModel
+    private let horizontalSizeClass: UserInterfaceSizeClass?
 
     @State private var activePeekData: SpreadPeekPanelView.Data?
-
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     init(
         spread: DataModel.Spread,
         spreadDataModel: SpreadDataModel,
-        context: SpreadPageContext
+        context: SpreadPageContext,
+        horizontalSizeClass: UserInterfaceSizeClass?
     ) {
         _viewModel = State(wrappedValue: ViewModel(
             spread: spread,
             spreadDataModel: spreadDataModel,
             context: context
         ))
+        self.horizontalSizeClass = horizontalSizeClass
     }
 
     private var columnCount: Int {
-        MultidaySectionLayout.columnCount(for: horizontalSizeClass)
+        horizontalSizeClass?.multidayColumnCount ?? 1
     }
 
     // MARK: - Body
 
     var body: some View {
-        ScrollView {
-            LazyVGrid(
-                columns: Array(
-                    repeating: GridItem(.flexible(), spacing: 16, alignment: .top),
-                    count: columnCount
-                ),
-                alignment: .leading,
-                spacing: 16
-            ) {
-                ForEach(viewModel.sections) { section in
-                    if section.creationPeriod == .multiday {
-                        assignmentSection(section)
-                            .gridCellColumns(columnCount)
-                    } else {
-                        daySection(section)
-                    }
+        LazyVGrid(
+            columns: Array(
+                repeating: GridItem(.flexible(), spacing: 16, alignment: .top),
+                count: columnCount
+            ),
+            alignment: .leading,
+            spacing: 16
+        ) {
+            ForEach(viewModel.sections) { section in
+                if section.creationPeriod == .multiday {
+                    assignmentSection(section)
+                        .gridCellColumns(columnCount)
+                } else {
+                    daySection(section)
                 }
             }
-            .padding(16)
         }
+        .padding(16)
         .sheet(item: $activePeekData) { data in
             SpreadPeekPanelView(
                 data: data,
@@ -214,8 +213,7 @@ struct MultidaySpreadContentView: View {
 
 // MARK: - Column Count
 
-enum MultidaySectionLayout {
-    static func columnCount(for horizontalSizeClass: UserInterfaceSizeClass?) -> Int {
-        horizontalSizeClass == .regular ? 2 : 1
-    }
+extension UserInterfaceSizeClass {
+    /// The number of day-card columns to use in a multiday spread grid.
+    var multidayColumnCount: Int { self == .regular ? 2 : 1 }
 }
