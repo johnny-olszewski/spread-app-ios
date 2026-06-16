@@ -13,14 +13,16 @@ struct SpreadContentPagerView: View {
     let syncEngine: SyncEngine?
     /// Pre-computed by the parent so this view does not observe JournalManager during scrolling.
     let spreads: [DataModel.Spread]
-    /// Pre-computed by the parent so this view does not observe Jo
-    /// urnalManager during scrolling.
+    /// Pre-computed by the parent so this view does not observe JournalManager during scrolling.
     let currentSelection: DataModel.Spread
     @State private var settledSpreadID: UUID?
 
     /// Not accessed in `body` — stored here only for the `deleteSpread` action which fires
     /// outside of scroll-driven re-renders and therefore does not create a scroll-time observation.
     @Environment(JournalManager.self) private var journalManager
+    @Environment(\.eventKitService) private var eventKitService
+    @Environment(\.calendarEventService) private var calendarEventService
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var scrollPhase: ScrollPhase = .idle
 
@@ -36,9 +38,9 @@ struct SpreadContentPagerView: View {
     var body: some View {
         VStack(spacing: 0) {
             spreadDetailTitle
-            
+
             if isSyncError { SyncErrorBanner() }
-            
+
             pager
         }
     }
@@ -47,16 +49,20 @@ struct SpreadContentPagerView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 0) {
                 ForEach(spreads) { spread in
-                    SpreadPageContentView(
-                        spread: spread,
-                        coordinator: coordinator,
-                        syncEngine: syncEngine
-                    )
+                    let isCurrentPage = spread.id == coordinator.selectedSpread?.id
+                    let navState = isCurrentPage ? coordinator.convenienceNavigation : nil
+                    VStack(spacing: 0) {
+                        SpreadHeaderView(
+                            state: navState,
+                            onTap: navState != nil ? { coordinator.handleConvenienceNavButtonTapped() } : nil
+                        )
+                        contentView(for: spread)
+                    }
                     .containerRelativeFrame(.horizontal)
                     .id(spread.id)
                     .background {
                         self.backgroundShape
-                        .fill(.background.opacity(0.6))
+                            .fill(.background.opacity(0.6))
                     }
                     .clipShape(self.backgroundShape)
                 }
@@ -69,8 +75,6 @@ struct SpreadContentPagerView: View {
             settledSpreadID = selectedSpreadID
         }
         // Recenter whenever the externally-driven selection changes (e.g. tab/title navigation).
-        // `scrollPosition(id:)` is a live binding, so SwiftUI keeps the bound page positioned as
-        // pages come and go in `spreads` — no separate tracking of the spreads list is needed here.
         .onChange(of: selectedSpreadID) { _, newValue in
             guard newValue != settledSpreadID else { return }
             center(on: newValue, animated: false)
@@ -150,20 +154,7 @@ struct SpreadContentPagerView: View {
         }
     }
 
-}
-
-// MARK: - Page Assembly
-
-/// Assembles a single spread page: `SpreadHeaderView` followed by the period-appropriate content view.
-private struct SpreadPageContentView: View {
-    let spread: DataModel.Spread
-    @Environment(JournalManager.self) private var journalManager
-    let coordinator: SpreadsCoordinator
-    let syncEngine: SyncEngine?
-
-    @Environment(\.eventKitService) private var eventKitService
-    @Environment(\.calendarEventService) private var calendarEventService
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    // MARK: - Page Content
 
     private var context: SpreadPageContext {
         SpreadPageContext(
@@ -173,18 +164,6 @@ private struct SpreadPageContentView: View {
             eventKitService: eventKitService,
             calendarEventService: calendarEventService
         )
-    }
-
-    var body: some View {
-        let isCurrentPage = spread.id == coordinator.selectedSpread?.id
-        let navState = isCurrentPage ? coordinator.convenienceNavigation : nil
-        VStack(spacing: 0) {
-            SpreadHeaderView(
-                state: navState,
-                onTap: navState != nil ? { coordinator.handleConvenienceNavButtonTapped() } : nil
-            )
-            contentView(for: spread)
-        }
     }
 
     @ViewBuilder
@@ -206,7 +185,8 @@ private struct SpreadPageContentView: View {
                 MultidaySpreadContentView(
                     spread: spread,
                     spreadDataModel: dataModel,
-                    context: context
+                    context: context,
+                    horizontalSizeClass: horizontalSizeClass
                 )
             }
         } else {
@@ -218,11 +198,8 @@ private struct SpreadPageContentView: View {
         }
     }
 
-    // MARK: - Data Helpers
-
     private func spreadDataModel(for spread: DataModel.Spread) -> SpreadDataModel? {
         let normalizedDate = spread.period.normalizeDate(spread.date, calendar: journalManager.calendar)
         return journalManager.dataModel[spread.period]?[normalizedDate]
     }
-
 }

@@ -8,7 +8,6 @@ import SwiftUI
 struct MultidaySpreadContentView: View {
 
     @State private var viewModel: ViewModel
-    private let horizontalSizeClass: UserInterfaceSizeClass?
 
     @State private var activePeekData: SpreadPeekPanelView.Data?
 
@@ -21,30 +20,23 @@ struct MultidaySpreadContentView: View {
         _viewModel = State(wrappedValue: ViewModel(
             spread: spread,
             spreadDataModel: spreadDataModel,
-            context: context
+            context: context,
+            horizontalSizeClass: horizontalSizeClass
         ))
-        self.horizontalSizeClass = horizontalSizeClass
-    }
-
-    private var columnCount: Int {
-        horizontalSizeClass?.multidayColumnCount ?? 1
     }
 
     // MARK: - Body
 
     var body: some View {
         LazyVGrid(
-            columns: Array(
-                repeating: GridItem(.flexible(), spacing: 16, alignment: .top),
-                count: columnCount
-            ),
+            columns: viewModel.columns,
             alignment: .leading,
-            spacing: 16
+            spacing: SpreadTheme.Spacing.large
         ) {
             ForEach(viewModel.sections) { section in
                 if section.creationPeriod == .multiday {
                     assignmentSection(section)
-                        .gridCellColumns(columnCount)
+                        .gridCellColumns(viewModel.columnCount)
                 } else {
                     daySection(section)
                 }
