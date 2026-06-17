@@ -288,6 +288,16 @@ enum MockDataSet: String, CaseIterable {
             spreads.append(tomorrowSpread)
         }
 
+        // Create "This Week" multiday spread
+        if let thisWeekSpread = DataModel.Spread(
+            preset: .thisWeek,
+            today: today,
+            calendar: calendar,
+            firstWeekday: .sunday
+        ) {
+            spreads.append(thisWeekSpread)
+        }
+
         let normalizedDay = Period.day.normalizeDate(today, calendar: calendar)
         let normalizedMonth = Period.month.normalizeDate(today, calendar: calendar)
         let normalizedYear = Period.year.normalizeDate(today, calendar: calendar)
@@ -369,6 +379,17 @@ enum MockDataSet: String, CaseIterable {
             assignments: [TaskAssignment(period: .year, date: normalizedYear, status: .open)],
             tags: [focusTag]
         ))
+        if let thisWeekSpread = DataModel.Spread(preset: .thisWeek, today: today, calendar: calendar, firstWeekday: .sunday) {
+            let normalizedMultiday = Period.multiday.normalizeDate(thisWeekSpread.date, calendar: calendar)
+            tasks.append(DataModel.Task(
+                title: "Plan the week",
+                date: today,
+                period: .multiday,
+                assignments: [TaskAssignment(period: .multiday, date: normalizedMultiday, status: .open)],
+                list: workList,
+                tags: [planningTag]
+            ))
+        }
 
         events.append(DataModel.Event(
             title: "Team standup",
