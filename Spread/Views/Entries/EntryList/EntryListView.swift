@@ -82,6 +82,7 @@ struct EntryListView: View {
                 }
             }
         }
+        .conditionalScrollView()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
     }
 
@@ -307,7 +308,7 @@ struct AddTaskButton: View {
                 selectedList?.name ?? "List",
                 systemImage: selectedList != nil ? "folder.fill" : "folder"
             )
-            .foregroundStyle(selectedList != nil ? SpreadTheme.Accent.todaySelectedEmphasis : .secondary)
+            .foregroundStyle(selectedList != nil ? SpreadTheme.Accent.today : .secondary)
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
@@ -334,7 +335,7 @@ struct AddTaskButton: View {
                 selectedTag?.name ?? "Tag",
                 systemImage: selectedTag != nil ? "tag.fill" : "tag"
             )
-            .foregroundStyle(selectedTag != nil ? SpreadTheme.Accent.todaySelectedEmphasis : .secondary)
+            .foregroundStyle(selectedTag != nil ? SpreadTheme.Accent.today : .secondary)
         }
         .buttonStyle(.bordered)
         .controlSize(.small)

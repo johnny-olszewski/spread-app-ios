@@ -41,6 +41,7 @@ struct MultidaySpreadContentView: View {
             }
         }
         .padding(SpreadTheme.Spacing.large)
+        .conditionalScrollView()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
         .task(id: viewModel.spread.id) {
             await viewModel.fetchCalendarEvents()

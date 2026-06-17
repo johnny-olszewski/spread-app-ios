@@ -47,29 +47,31 @@ struct MonthSpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollViewReader { proxy in
-            LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-                SpreadMonthCalendarView(
-                    monthDate: spread.date,
-                    journalManager: context.journalManager,
-                    calendarActionsByDate: contentModel.calendarActionsByDate,
-                    onViewDaySpread: { context.coordinator.selectSpread($0) },
-                    onRevealMonthDaySection: { date in
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            proxy.scrollTo(date, anchor: .top)
+        ScrollView {
+            ScrollViewReader { proxy in
+                LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+                    SpreadMonthCalendarView(
+                        monthDate: spread.date,
+                        journalManager: context.journalManager,
+                        calendarActionsByDate: contentModel.calendarActionsByDate,
+                        onViewDaySpread: { context.coordinator.selectSpread($0) },
+                        onRevealMonthDaySection: { date in
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                proxy.scrollTo(date, anchor: .top)
+                            }
                         }
+                    )
+
+                    monthSection(entries: contentModel.monthEntries)
+
+                    ForEach(contentModel.daySections) { section in
+                        daySection(section)
+                            .id(section.id)
                     }
-                )
-
-                monthSection(entries: contentModel.monthEntries)
-
-                ForEach(contentModel.daySections) { section in
-                    daySection(section)
-                        .id(section.id)
                 }
+                .padding(.horizontal, Layout.contentPadding)
+                .padding(.bottom, Layout.sectionSpacing)
             }
-            .padding(.horizontal, Layout.contentPadding)
-            .padding(.bottom, Layout.sectionSpacing)
         }
     }
 
