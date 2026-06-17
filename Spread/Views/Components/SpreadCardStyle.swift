@@ -45,17 +45,27 @@ enum SpreadCardStyle: Equatable {
     }
 
     var fill: Color {
-        if isToday { return SpreadTheme.Accent.selectionSurface.opacity(0.4) }
-        if isCreated { return SpreadTheme.Accent.today.opacity(0.08) }
+        if isToday {
+            return Color(uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(Color.SpreadPalette.yellow300)
+                    : UIColor(Color.SpreadPalette.yellow100)
+            }).opacity(0.4)
+        }
+        if isCreated { return Color.SpreadPalette.blue500.opacity(0.08) }
         return SpreadTheme.Paper.primary.opacity(0.6)
     }
 
     var borderColor: Color {
         switch self {
         case .todayCreated, .todayUncreated:
-            return SpreadTheme.Accent.selectionBorder.opacity(0.7)
+            return Color(uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(Color.SpreadPalette.yellow200)
+                    : UIColor(Color.SpreadPalette.yellow500)
+            }).opacity(0.7)
         case .created:
-            return SpreadTheme.Accent.today.opacity(0.34)
+            return Color.SpreadPalette.blue500.opacity(0.34)
         case .uncreated:
             return Color.secondary.opacity(0.24)
         }
@@ -75,14 +85,26 @@ enum SpreadCardStyle: Equatable {
     }
 
     var primaryHeaderColor: Color {
-        if isToday { return SpreadTheme.Accent.selectionBorder }
-        if isCreated { return SpreadTheme.Accent.today.opacity(0.75) }
+        if isToday {
+            return Color(uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(Color.SpreadPalette.yellow200)
+                    : UIColor(Color.SpreadPalette.yellow500)
+            })
+        }
+        if isCreated { return Color.SpreadPalette.blue500.opacity(0.75) }
         return .primary
     }
 
     var secondaryHeaderColor: Color {
-        if isToday { return SpreadTheme.Accent.selectionBorder.opacity(0.8) }
-        if isCreated { return SpreadTheme.Accent.today.opacity(0.55) }
+        if isToday {
+            return Color(uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(Color.SpreadPalette.yellow200)
+                    : UIColor(Color.SpreadPalette.yellow500)
+            }).opacity(0.8)
+        }
+        if isCreated { return Color.SpreadPalette.blue500.opacity(0.55) }
         return .secondary
     }
 

@@ -40,27 +40,27 @@ enum SpreadTheme {
         static let primary = Color(red: 91/255, green: 122/255, blue: 153/255)
 
         /// Vibrant blue for "today" emphasis across spread surfaces.
-        /// Light: #4578B8  Dark: #6B9FD4 (lightened for dark-surface contrast)
+        /// Light: SpreadPalette.blue500  Dark: SpreadPalette.blue300
         static let today = Color(uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark
-                ? UIColor(red: 107/255, green: 159/255, blue: 212/255, alpha: 1)
-                : UIColor(red: 69/255, green: 120/255, blue: 184/255, alpha: 1)
+                ? UIColor(Color.SpreadPalette.blue300)
+                : UIColor(Color.SpreadPalette.blue500)
         })
 
         /// Warm yellow surface for the currently selected spread.
-        /// Light: #FFF8D0  Dark: #F7EAA4
+        /// Light: SpreadPalette.yellow100  Dark: SpreadPalette.yellow300
         static let selectionSurface = Color(uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark
-                ? UIColor(red: 247/255, green: 234/255, blue: 164/255, alpha: 1)
-                : UIColor(red: 255/255, green: 248/255, blue: 208/255, alpha: 1)
+                ? UIColor(Color.SpreadPalette.yellow300)
+                : UIColor(Color.SpreadPalette.yellow100)
         })
 
         /// Stronger border tint paired with `selectionSurface`.
-        /// Light: #D4BD5E  Dark: #FFF3BE
+        /// Light: SpreadPalette.yellow500  Dark: SpreadPalette.yellow200
         static let selectionBorder = Color(uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark
-                ? UIColor(red: 255/255, green: 243/255, blue: 190/255, alpha: 1)
-                : UIColor(red: 212/255, green: 189/255, blue: 94/255, alpha: 1)
+                ? UIColor(Color.SpreadPalette.yellow200)
+                : UIColor(Color.SpreadPalette.yellow500)
         })
     }
 
