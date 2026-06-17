@@ -180,7 +180,7 @@ extension SpreadsNavigatorView {
             context: MonthCalendarPackedRowOverlayRenderContext<UUID, Bool>
         ) -> some View {
             Capsule(style: .circular)
-                .fill(SpreadTheme.Accent.todaySelectedEmphasis.opacity(0.4))
+                .fill(SpreadTheme.Accent.today.opacity(0.4))
                 .frame(height: Self.laneHeight)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .padding(.horizontal, Self.laneHorizontalPadding)

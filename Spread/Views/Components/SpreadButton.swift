@@ -104,7 +104,7 @@ struct SpreadButton: View {
         switch viewModel.style {
         case .primary:
             iconContent
-                .foregroundStyle(SpreadTheme.Accent.todaySelectedEmphasis)
+                .foregroundStyle(SpreadTheme.Accent.today)
                 .frame(width: 30, height: 30)
                 .background(Circle().fill(.white.opacity(0.94)))
         case .secondary:

@@ -45,17 +45,17 @@ enum SpreadCardStyle: Equatable {
     }
 
     var fill: Color {
-        if isToday { return SpreadTheme.Accent.todayCellSurface }
-        if isCreated { return SpreadTheme.Accent.createdDaySurface }
+        if isToday { return SpreadTheme.Accent.selectionSurface.opacity(0.4) }
+        if isCreated { return SpreadTheme.Accent.today.opacity(0.08) }
         return SpreadTheme.Paper.primary.opacity(0.6)
     }
 
     var borderColor: Color {
         switch self {
         case .todayCreated, .todayUncreated:
-            return SpreadTheme.Accent.todayCellBorder
+            return SpreadTheme.Accent.selectionBorder.opacity(0.7)
         case .created:
-            return SpreadTheme.Accent.createdDayBorder
+            return SpreadTheme.Accent.today.opacity(0.34)
         case .uncreated:
             return Color.secondary.opacity(0.24)
         }
@@ -75,14 +75,14 @@ enum SpreadCardStyle: Equatable {
     }
 
     var primaryHeaderColor: Color {
-        if isToday { return SpreadTheme.Accent.todayCellBorder }
-        if isCreated { return SpreadTheme.Accent.createdDayBorder }
+        if isToday { return SpreadTheme.Accent.selectionBorder }
+        if isCreated { return SpreadTheme.Accent.today.opacity(0.75) }
         return .primary
     }
 
     var secondaryHeaderColor: Color {
-        if isToday { return SpreadTheme.Accent.todayCellBorder.opacity(0.8) }
-        if isCreated { return SpreadTheme.Accent.createdDayBorder.opacity(0.8) }
+        if isToday { return SpreadTheme.Accent.selectionBorder.opacity(0.8) }
+        if isCreated { return SpreadTheme.Accent.today.opacity(0.55) }
         return .secondary
     }
 

@@ -47,7 +47,7 @@ struct DotGridConfiguration: Equatable {
             dotColor: SpreadTheme.DotGrid.defaultDots,
             dotSize: 2.0,
             dotSpacing: 26,
-            backgroundColor: SpreadTheme.Paper.defaultPrimary
+            backgroundColor: SpreadTheme.Paper.primary
         )
     }
 

@@ -123,7 +123,7 @@ struct SpreadPeekPanelView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: { onNavigate(data.spread) }) {
                         Image(systemName: "arrow.right.circle.fill")
-                            .foregroundStyle(SpreadTheme.Accent.todaySelectedEmphasis)
+                            .foregroundStyle(SpreadTheme.Accent.today)
                     }
                     .accessibilityLabel("Open spread")
                 }

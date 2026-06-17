@@ -249,7 +249,7 @@ struct SpreadsTabView: View {
                     .padding(8)
                     .font(.system(size: SpreadTheme.IconSize.extraLarge, weight: .semibold))
                     .foregroundStyle(.white)
-                    .glassEffect(.regular.tint(SpreadTheme.Accent.todaySelectedEmphasis), in: Circle())
+                    .glassEffect(.regular.tint(SpreadTheme.Accent.today), in: Circle())
             }
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.button)
         }

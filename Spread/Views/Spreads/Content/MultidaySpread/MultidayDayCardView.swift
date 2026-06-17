@@ -75,7 +75,7 @@ struct MultidayDayCardView<Content: View>: View {
                     Text("Today")
                         .font(SpreadTheme.Typography.caption.smallCaps())
                         .fontWeight(.semibold)
-                        .foregroundStyle(SpreadTheme.Accent.todayEmphasis.opacity(0.9))
+                        .foregroundStyle(SpreadTheme.Accent.today)
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel("Today")
                         .accessibilityIdentifier(
