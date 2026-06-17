@@ -50,7 +50,7 @@ enum SpreadCardStyle: Equatable {
                 traits.userInterfaceStyle == .dark
                     ? UIColor(Color.SpreadPalette.yellow300)
                     : UIColor(Color.SpreadPalette.yellow100)
-            }).opacity(0.4)
+            }).opacity(0.2)
         }
         if isCreated { return Color.SpreadPalette.blue500.opacity(0.08) }
         return SpreadTheme.Paper.primary.opacity(0.6)

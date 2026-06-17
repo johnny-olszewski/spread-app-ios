@@ -117,7 +117,11 @@ private struct CalendarDayCellView: View {
         Text("\(calendar.component(.day, from: date))")
             .font(SpreadTheme.Typography.body)
             .fontWeight(isToday ? .semibold : .regular)
-            .foregroundStyle(isToday ? SpreadTheme.Accent.selectionBorder.opacity(0.7) : foreground)
+            .foregroundStyle(isToday ? Color(uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(Color.SpreadPalette.yellow200).withAlphaComponent(0.7)
+                    : UIColor(Color.SpreadPalette.yellow500).withAlphaComponent(0.7)
+            }) : foreground)
     }
 
     @ViewBuilder
@@ -136,7 +140,7 @@ private struct CalendarDayCellView: View {
                 } label: {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(SpreadTheme.Accent.today)
+                        .foregroundStyle(SpreadTheme.Accent.primary)
                         .frame(width: 24, height: 24)
                         .background(Circle().fill(.white.opacity(0.94)))
                 }

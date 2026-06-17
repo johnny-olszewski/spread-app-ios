@@ -33,34 +33,14 @@ enum SpreadTheme {
         static let system = Color(.systemBackground)
     }
 
-    /// Accent colors for interactive elements, emphasis, and highlights.
+    /// Accent color for interactive elements, emphasis, and highlights.
     enum Accent {
-        /// Muted blue for controls and highlights.
-        /// Light/Dark: #5B7A99
-        static let primary = Color(red: 91/255, green: 122/255, blue: 153/255)
-
-        /// Vibrant blue for "today" emphasis across spread surfaces.
+        /// Adaptive blue accent — lighter in dark mode for contrast against dark surfaces.
         /// Light: SpreadPalette.blue500  Dark: SpreadPalette.blue300
-        static let today = Color(uiColor: UIColor { traits in
+        static let primary = Color(uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark
                 ? UIColor(Color.SpreadPalette.blue300)
                 : UIColor(Color.SpreadPalette.blue500)
-        })
-
-        /// Warm yellow surface for the currently selected spread.
-        /// Light: SpreadPalette.yellow100  Dark: SpreadPalette.yellow300
-        static let selectionSurface = Color(uiColor: UIColor { traits in
-            traits.userInterfaceStyle == .dark
-                ? UIColor(Color.SpreadPalette.yellow300)
-                : UIColor(Color.SpreadPalette.yellow100)
-        })
-
-        /// Stronger border tint paired with `selectionSurface`.
-        /// Light: SpreadPalette.yellow500  Dark: SpreadPalette.yellow200
-        static let selectionBorder = Color(uiColor: UIColor { traits in
-            traits.userInterfaceStyle == .dark
-                ? UIColor(Color.SpreadPalette.yellow200)
-                : UIColor(Color.SpreadPalette.yellow500)
         })
     }
 

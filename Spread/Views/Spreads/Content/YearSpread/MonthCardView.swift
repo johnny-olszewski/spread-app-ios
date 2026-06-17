@@ -72,12 +72,12 @@ struct MonthCardView: View {
                 Text("This Month")
                     .font(SpreadTheme.Typography.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(SpreadTheme.Accent.today)
+                    .foregroundStyle(SpreadTheme.Accent.primary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(
                         Capsule()
-                            .fill(SpreadTheme.Accent.today.opacity(0.1))
+                            .fill(SpreadTheme.Accent.primary.opacity(0.1))
                     )
             }
         }

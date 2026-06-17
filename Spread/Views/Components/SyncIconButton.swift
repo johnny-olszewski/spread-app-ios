@@ -29,7 +29,7 @@ struct SyncIconButton: View {
     private var iconColor: Color {
         switch status {
         case .syncing, .synced:
-            return SpreadTheme.Accent.today
+            return SpreadTheme.Accent.primary
         case .idle where outboxCount > 0:
             return .secondary.opacity(0.7)
         case .idle:

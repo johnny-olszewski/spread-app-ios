@@ -308,7 +308,7 @@ struct AddTaskButton: View {
                 selectedList?.name ?? "List",
                 systemImage: selectedList != nil ? "folder.fill" : "folder"
             )
-            .foregroundStyle(selectedList != nil ? SpreadTheme.Accent.today : .secondary)
+            .foregroundStyle(selectedList != nil ? SpreadTheme.Accent.primary : .secondary)
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
@@ -335,7 +335,7 @@ struct AddTaskButton: View {
                 selectedTag?.name ?? "Tag",
                 systemImage: selectedTag != nil ? "tag.fill" : "tag"
             )
-            .foregroundStyle(selectedTag != nil ? SpreadTheme.Accent.today : .secondary)
+            .foregroundStyle(selectedTag != nil ? SpreadTheme.Accent.primary : .secondary)
         }
         .buttonStyle(.bordered)
         .controlSize(.small)

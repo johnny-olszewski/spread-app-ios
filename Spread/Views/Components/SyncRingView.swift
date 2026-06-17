@@ -105,7 +105,7 @@ struct SyncRingView: View {
         case .idle where outboxCount > 0:
             return .secondary.opacity(0.6)
         case .idle, .synced, .syncing:
-            return SpreadTheme.Accent.today
+            return SpreadTheme.Accent.primary
         case .error:
             return .orange
         case .offline:
