@@ -83,6 +83,9 @@ final class SpreadsCoordinator {
     /// The currently active alert, or nil if no alert is presented.
     var activeAlert: AlertDestination?
 
+    /// The currently active popover, or nil if no popover is presented.
+    var activePopover: PopoverDestination?
+
     /// State for the convenience navigation button in `SpreadHeaderView`.
     /// Non-nil means the button is visible. `.offer` fades after a timeout if not tapped.
     var convenienceNavigation: ConvenienceNavigationButtonState?
@@ -253,6 +256,34 @@ final class SpreadsCoordinator {
     /// Dismisses the currently active alert.
     func dismissAlert() {
         activeAlert = nil
+    }
+
+    /// Presents the quick-add task popover.
+    ///
+    /// - Parameter anchorID: Identifies the view that triggered the popover. Used to discriminate
+    ///   `.popover` bindings when multiple `QuickAddButton` instances sharing the same `date`/`period`
+    ///   appear on screen simultaneously. Defaults to `""`.
+    func showQuickAdd(
+        anchorID: String = "",
+        date: Date,
+        period: Period,
+        availableLists: [DataModel.List] = [],
+        availableTags: [DataModel.Tag] = [],
+        onAddTask: @escaping @MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void
+    ) {
+        activePopover = .quickAdd(QuickAddPopoverContent(
+            anchorID: anchorID,
+            date: date,
+            period: period,
+            availableLists: availableLists,
+            availableTags: availableTags,
+            onAddTask: onAddTask
+        ))
+    }
+
+    /// Dismisses the currently active popover.
+    func dismissPopover() {
+        activePopover = nil
     }
 
     // MARK: - Private

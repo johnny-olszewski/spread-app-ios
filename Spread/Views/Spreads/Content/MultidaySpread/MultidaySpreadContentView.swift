@@ -61,7 +61,13 @@ struct MultidaySpreadContentView: View {
                     entryRow(entry: entry)
                 }
 
-                AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: viewModel.onAddTask)
+                QuickAddButton(
+                    coordinator: viewModel.context.coordinator,
+                    anchorID: section.id,
+                    date: section.creationDate,
+                    period: section.creationPeriod,
+                    onAddTask: viewModel.onAddTask
+                )
             }
         }
         .padding(16)
@@ -134,17 +140,17 @@ struct MultidaySpreadContentView: View {
                             .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                     }
 
-                    AddTaskButton(
+                    QuickAddButton(
+                        coordinator: viewModel.context.coordinator,
+                        anchorID: section.id,
                         date: section.creationDate,
                         period: section.creationPeriod,
                         availableLists: viewModel.context.journalManager.lists,
                         availableTags: viewModel.context.journalManager.tags,
+                        accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID),
                         onAddTask: viewModel.onAddTask
                     )
                     .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                    .accessibilityIdentifier(
-                        Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID)
-                    )
                 }
             }
         }

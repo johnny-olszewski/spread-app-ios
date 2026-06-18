@@ -61,8 +61,6 @@ extension EntryList {
         /// Optional visual style applied by `EntryListView`. `nil` means standard list rendering.
         let style: EntryList.SectionStyle?
 
-        let headerButtonViewModel: SpreadButton.ViewModel?
-        
         let rowSpacing: CGFloat
         let rowInsets: EdgeInsets
         let rowAreaPadding: EdgeInsets
@@ -77,7 +75,6 @@ extension EntryList {
             creationDate: Date,
             configurationMap: EntryRowView.ConfigurationMap? = nil,
             style: EntryList.SectionStyle? = nil,
-            headerButtonViewModel: SpreadButton.ViewModel? = nil,
             rowSpacing: CGFloat = 8,
             rowInsets: EdgeInsets = .init(top: 0, leading: 8, bottom: 0, trailing: 8),
             rowAreaPadding: EdgeInsets = .init(top: 0, leading: 0, bottom: 8, trailing: 0)
@@ -91,7 +88,6 @@ extension EntryList {
             self.creationDate = creationDate
             self.configurationMap = configurationMap
             self.style = style
-            self.headerButtonViewModel = headerButtonViewModel
             self.rowSpacing = rowSpacing
             self.rowInsets = rowInsets
             self.rowAreaPadding = rowAreaPadding

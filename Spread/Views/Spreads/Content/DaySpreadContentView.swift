@@ -92,11 +92,19 @@ struct DaySpreadContentView: View {
 
                 EntryListView(
                     sections: viewModel.overdueSections + viewModel.sections,
-                    configurationMap: viewModel.entryConfigurationMap,
-                    onAddTask: viewModel.onAddTask,
-                    availableLists: viewModel.context.journalManager.lists,
-                    availableTags: viewModel.context.journalManager.tags
-                )
+                    configurationMap: viewModel.entryConfigurationMap
+                ) { section in
+                    QuickAddButton(
+                        coordinator: viewModel.context.coordinator,
+                        anchorID: section.id,
+                        date: viewModel.spread.date,
+                        period: viewModel.spread.period,
+                        availableLists: viewModel.context.journalManager.lists,
+                        availableTags: viewModel.context.journalManager.tags,
+                        accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton,
+                        onAddTask: viewModel.onAddTask
+                    )
+                }
             }
             .padding(.horizontal, SpreadTheme.Spacing.large)
             .task(id: viewModel.spread.id) {

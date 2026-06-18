@@ -87,8 +87,7 @@ extension DaySpreadContentView {
                 calendar: cal,
                 listConfigurationMap: entryConfigurationMap,
                 unassignedConfigurationMap: entryConfigurationMap,
-                eventConfigurationMap: eventConfigurationMap,
-                headerButtonViewModel: addTaskHeaderButtonViewModel
+                eventConfigurationMap: eventConfigurationMap
             )
         }
 
@@ -122,16 +121,6 @@ extension DaySpreadContentView {
             }
         }
 
-        var addTaskHeaderButtonViewModel: SpreadButton.ViewModel {
-            SpreadButton.ViewModel(
-                title: "Add Task",
-                systemImage: "plus",
-                accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton
-            ) { [context] in
-                context.coordinator.showTaskCreation()
-            }
-        }
-
         // MARK: - Actions
 
         func toggleFavorite() async {
@@ -156,8 +145,7 @@ extension DaySpreadContentView {
             calendar: Calendar,
             listConfigurationMap: EntryRowView.ConfigurationMap,
             unassignedConfigurationMap: EntryRowView.ConfigurationMap,
-            eventConfigurationMap: EntryRowView.ConfigurationMap,
-            headerButtonViewModel: SpreadButton.ViewModel? = nil
+            eventConfigurationMap: EntryRowView.ConfigurationMap
         ) -> [EntryList.Section] {
             guard !entries.isEmpty else { return [] }
 
@@ -193,8 +181,7 @@ extension DaySpreadContentView {
                     entries: (listGroups[listID] ?? []).sortedByDate(),
                     creationPeriod: .day,
                     creationDate: spreadDate,
-                    configurationMap: listConfigurationMap,
-                    headerButtonViewModel: headerButtonViewModel
+                    configurationMap: listConfigurationMap
                 ))
             }
 
@@ -209,8 +196,7 @@ extension DaySpreadContentView {
                         entries: unassignedEntries.sortedByDate(),
                         creationPeriod: .day,
                         creationDate: spreadDate,
-                        configurationMap: unassignedConfigurationMap,
-                        headerButtonViewModel: headerButtonViewModel
+                        configurationMap: unassignedConfigurationMap
                     )
                 )
             }

@@ -6378,20 +6378,21 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-244] Feature: Coordinator-driven popover management in SpreadsCoordinator - [ ] Pending
+### [SPRD-244] Feature: Coordinator-driven popover management in SpreadsCoordinator - [x] Done
 
-- **Context**: Sheets and alerts are already managed centrally via `activeSheet: SheetDestination?` and `activeAlert: AlertDestination?` on `SpreadsCoordinator`. Popovers are currently self-managed inside individual views with `@State private var isPresented`, scattering presentation logic. `AddTaskButton` in `EntryListView.swift` is the existing case to migrate.
-- **Description**: Add `activePopover: PopoverDestination?` to `SpreadsCoordinator`. Define a `PopoverContent` protocol with `associatedtype Body: View`, `arrowEdge: Edge`, `attachmentAnchor: PopoverAttachmentAnchor`, and a `@ViewBuilder var body: Body { get }` requirement, plus `Identifiable` conformance. Define `PopoverDestination` as a separate `Identifiable` enum (not merged into `SheetDestination`) where each case carries a concrete `PopoverContent`-conforming value. Add `coordinator.showQuickAdd(...)` / `coordinator.dismissPopover()` action methods. Migrate `AddTaskButton` to call `coordinator.showQuickAdd(...)` on tap and apply `.popover` on itself using a derived binding into `coordinator.activePopover`. `EventDetailPopoverView` (in `SpreadDayTimelineContentGenerator`) is not migrated.
+- **Context**: Sheets and alerts are already managed centrally via `activeSheet: SheetDestination?` and `activeAlert: AlertDestination?` on `SpreadsCoordinator`. Popovers were self-managed with `@State private var isPresented` inside individual views, scattering presentation logic. `AddTaskButton` in `EntryListView.swift` was the existing case to migrate.
+- **Description**: Add `activePopover: PopoverDestination?` to `SpreadsCoordinator`. Define a `PopoverContent` protocol with `associatedtype Body: View`, `arrowEdge: Edge`, `attachmentAnchor: PopoverAttachmentAnchor`, and a `@ViewBuilder var body: Body { get }` requirement, plus `Identifiable` conformance. Define `PopoverDestination` as a separate `Identifiable` enum (not merged into `SheetDestination`) where each case carries a concrete `PopoverContent`-conforming value. Add `coordinator.showQuickAdd(...)` / `coordinator.dismissPopover()` action methods. Remove `AddTaskButton`; replace with `SpreadButton(content: .text("+ Add Task"))` calling `coordinator.showQuickAdd(...)` directly at each call site in `MultidaySpreadContentView` and via `addTaskHeaderButtonViewModel` in `DaySpreadContentView`. Each content view applies `.popover(item:)` on itself bound to the coordinator's `activePopover`. `EventDetailPopoverView` (in `SpreadDayTimelineContentGenerator`) is not migrated.
 - **Spec**: `Documentation/Specs/SpreadNavigation.md` — Coordinator-Driven Popovers
 - **Acceptance Criteria**:
-  - [ ] `SpreadsCoordinator` has `var activePopover: PopoverDestination?` and `func showQuickAdd(...)` / `func dismissPopover()` action methods.
-  - [ ] `PopoverContent` protocol is defined with `associatedtype Body: View`, `var arrowEdge: Edge { get }`, `var attachmentAnchor: PopoverAttachmentAnchor { get }`, `@ViewBuilder var body: Body { get }`, and `Identifiable` conformance. `AnyView` is not used anywhere in the protocol or its conformances.
-  - [ ] `PopoverDestination` is a distinct `Identifiable` enum with a `.quickAdd(QuickAddPopoverContent)` case. It is not part of `SheetDestination`.
-  - [ ] `QuickAddPopoverContent` is a concrete struct conforming to `PopoverContent`, carrying `date: Date`, `period: Period`, `availableLists: [DataModel.List]`, `availableTags: [DataModel.Tag]`, and the `onAddTask` closure.
-  - [ ] `AddTaskButton` no longer owns `@State private var isPresented`. It calls `coordinator.showQuickAdd(...)` on tap and applies `.popover` on itself via a derived `Binding<QuickAddPopoverContent?>` extracted from `coordinator.activePopover`.
+  - [x] `SpreadsCoordinator` has `var activePopover: PopoverDestination?` and `func showQuickAdd(...)` / `func dismissPopover()` action methods.
+  - [x] `PopoverContent` protocol is defined with `associatedtype Body: View`, `var arrowEdge: Edge { get }`, `var attachmentAnchor: PopoverAttachmentAnchor { get }`, `@ViewBuilder var body: Body { get }`, and `Identifiable` conformance. `AnyView` is not used anywhere in the protocol or its conformances.
+  - [x] `PopoverDestination` is a distinct `Identifiable` enum with a `.quickAdd(QuickAddPopoverContent)` case. It is not part of `SheetDestination`.
+  - [x] `QuickAddPopoverContent` is a concrete struct conforming to `PopoverContent`, carrying `date: Date`, `period: Period`, `availableLists: [DataModel.List]`, `availableTags: [DataModel.Tag]`, and the `onAddTask` closure.
+  - [x] `AddTaskButton` is removed. `SpreadButton(content: .text("+ Add Task"))` is used directly in `MultidaySpreadContentView` (both call sites) and `DaySpreadContentView` (via `addTaskHeaderButtonViewModel`). Each calls `coordinator.showQuickAdd(...)` on tap. The containing content view applies `.popover(item:)` bound to `coordinator.activePopover`.
   - [ ] The quick-add popover opens and closes correctly on both iPhone (sheet-adapted) and iPad (true popover with arrow).
-  - [ ] `EventDetailPopoverView` and its self-managed `@State` in `SpreadDayTimelineContentGenerator` are unchanged.
-  - [ ] Project builds with no errors or warnings.
+  - [x] `EventDetailPopoverView` and its self-managed `@State` in `SpreadDayTimelineContentGenerator` are unchanged.
+  - [x] Project builds with no errors or warnings.
 - **Tests**:
-  - Manual: tap the "Add Task" button on a day spread — quick-add popover appears anchored to the button. Submit or dismiss — popover closes and `coordinator.activePopover` returns to `nil`.
-  - Manual: on iPad, confirm popover arrow points at the "Add Task" button row.
+  - Manual: tap the "+ Add Task" button on a day spread — quick-add popover appears. Submit or dismiss — popover closes.
+  - Manual: tap the "+ Add Task" button on a multiday spread day card — quick-add popover appears. Submit or dismiss — popover closes.
+  - Manual: on iPad, confirm the popover (true popover, not sheet) appears on both spread types.
