@@ -33,14 +33,15 @@ extension MultidaySpreadContentView {
 
         var sections: [EntryList.Section] {
             let cal = context.calendar
-            let base = EntryListDisplaySupport.displayedEntries(for: spreadDataModel, calendar: cal)
+            let live = context.journalManager.spreadDataModel(for: spread.date, period: spread.period) ?? spreadDataModel
+            let base = EntryListDisplaySupport.displayedEntries(for: live, calendar: cal)
             let eventEntries: [DataModel.Event] = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
-            
+
             return Self.makeSections(
                 from: base + eventEntries,
-                spreadDate: spreadDataModel.spread.date,
-                startDate: spreadDataModel.spread.startDate ?? spreadDataModel.spread.date,
-                endDate: spreadDataModel.spread.endDate ?? spreadDataModel.spread.date,
+                spreadDate: spread.date,
+                startDate: spread.startDate ?? spread.date,
+                endDate: spread.endDate ?? spread.date,
                 calendar: cal
             )
         }

@@ -78,12 +78,13 @@ extension DaySpreadContentView {
 
         var sections: [EntryList.Section] {
             let cal = context.calendar
-            let base: [any Entry] = spreadDataModel.tasks + spreadDataModel.notes
+            let live = context.journalManager.spreadDataModel(for: spread.date, period: spread.period) ?? spreadDataModel
+            let base: [any Entry] = live.tasks + live.notes
             let eventEntries = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
 
             return Self.makeSections(
                 from: base + eventEntries,
-                spreadDate: spreadDataModel.spread.date,
+                spreadDate: spread.date,
                 calendar: cal,
                 listConfigurationMap: entryConfigurationMap,
                 unassignedConfigurationMap: entryConfigurationMap,
