@@ -1,7 +1,7 @@
 # Spread Navigation
 
 > Source: Documentation/spec.md  
-> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238
+> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244
 
 ### Spread View Architecture
 - The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
@@ -648,3 +648,48 @@ var body: some View {
 - Should `selectedYear` live as `@State` inside `SpreadsContentColumnView`, or be owned by `SpreadsTabView` and passed as a binding (needed if other parts of `SpreadsTabView` ever need to know the displayed year)? — Resolve during SPRD-238 implementation.
 - Exact visual form of the year picker control (chevron stepper vs. menu vs. segmented control) — resolve during SPRD-238 implementation, consistent with `SpreadTheme`.
 - Left pane fixed width vs. proportional sizing on iPad — resolve during SPRD-238 implementation; the reference example uses a fixed `280`–`320`pt width.
+
+---
+
+## Coordinator-Driven Popovers [SPRD-244]
+
+### Requirements
+
+- `SpreadsCoordinator` owns `activePopover: PopoverDestination?`, parallel to `activeSheet` and `activeAlert`. [SPRD-244]
+- `PopoverDestination` is a separate `Identifiable` enum — it must not be merged into `SheetDestination`. [SPRD-244]
+- Each `PopoverDestination` case carries a concrete associated value conforming to the `PopoverContent` protocol. [SPRD-244]
+- The `PopoverContent` protocol requires: [SPRD-244]
+  - `associatedtype Body: View`
+  - `var arrowEdge: Edge { get }`
+  - `var attachmentAnchor: PopoverAttachmentAnchor { get }`
+  - `@ViewBuilder var body: Body { get }`
+  - Conformance to `Identifiable`
+- Anchor views (not `SpreadsView`) apply `.popover(item:attachmentAnchor:arrowEdge:content:)` on themselves, binding to a derived `Binding` that extracts the relevant case from `coordinator.activePopover`. The coordinator owns the "what"; the anchor view owns the "where." [SPRD-244]
+- `AnyView` must not be used in the protocol or its conformances. [SPRD-244]
+- The initial `PopoverDestination` case is `.quickAdd(QuickAddPopoverContent)`, migrating `AddTaskButton`'s self-managed `@State private var isPresented` to coordinator-driven state. [SPRD-244]
+- `QuickAddPopoverContent` carries: the target `date: Date`, `period: Period`, `availableLists: [DataModel.List]`, `availableTags: [DataModel.Tag]`, and `onAddTask` closure. [SPRD-244]
+- `AddTaskButton` calls `coordinator.showQuickAdd(...)` on tap rather than setting its own `isPresented`. It applies `.popover` on itself, extracting the `.quickAdd` case from `coordinator.activePopover`. [SPRD-244]
+- `EventDetailPopoverView` (in `SpreadDayTimelineContentGenerator`) remains self-managed and is not migrated to coordinator-driven. [SPRD-244]
+
+### Design Decisions
+
+#### Decision: `PopoverDestination` is a separate enum, not a `SheetDestination` case
+
+- **Context**: Sheets and popovers share presentation intent (show some UI above the current content) but use different SwiftUI modifiers with different anchor requirements. Popovers require `attachmentAnchor` and `arrowEdge`; sheets do not. Mixing them into one enum would either bloat `SheetDestination` with popover-only fields or require awkward optionals.
+- **Decision**: Introduce a dedicated `PopoverDestination` enum alongside `SheetDestination` and `AlertDestination`.
+- **Rationale**: Consistent with the existing parallel between `activeSheet` and `activeAlert`. Clear separation of concerns; each enum maps to exactly one SwiftUI modifier family.
+- **SPRD reference**: [SPRD-244]
+
+#### Decision: `PopoverContent` uses an associated type for `Body`, not `AnyView`
+
+- **Context**: The content view returned by each popover case can be any `View`. Two options: erase to `AnyView`, or use `associatedtype Body: View` on the protocol.
+- **Decision**: Use `associatedtype Body: View` with a `@ViewBuilder var body: Body { get }` requirement.
+- **Rationale**: Avoids `AnyView` heap allocation and type erasure. Each `PopoverDestination` case wraps a concrete conforming type, so the associated type is always resolvable at the switch site. The protocol is used as a constraint, not an existential.
+- **SPRD reference**: [SPRD-244]
+
+#### Decision: Anchor view applies the `.popover` modifier, not the coordinator root
+
+- **Context**: SwiftUI's `.popover` modifier anchors visually to the view it is applied to. Applying it once on `SpreadsView` would make every popover appear anchored to the root view bounds, breaking arrow placement.
+- **Decision**: Each anchor view (e.g., `AddTaskButton`) applies `.popover` on itself. It binds to a derived `Binding<ConcreteContent?>` that maps `coordinator.activePopover` to/from the specific case it owns. The coordinator still owns all presentation state — the anchor view only reads and clears it.
+- **Rationale**: Correct visual behavior (arrow points at the button) without duplicating state. The coordinator remains the single source of truth; the anchor view is just a passthrough for the SwiftUI modifier.
+- **SPRD reference**: [SPRD-244]
