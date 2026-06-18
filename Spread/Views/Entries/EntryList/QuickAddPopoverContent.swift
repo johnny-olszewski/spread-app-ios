@@ -13,6 +13,8 @@ struct QuickAddPopoverContent: PopoverContent {
     let period: Period
     let availableLists: [DataModel.List]
     let availableTags: [DataModel.Tag]
+    /// Pre-selected list shown when the popover opens. `nil` leaves the picker blank.
+    let preselectedList: DataModel.List?
     let onAddTask: @MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void
 
     var id: String { "\(anchorID)-\(date.timeIntervalSinceReferenceDate)-\(period.rawValue)" }
@@ -38,6 +40,11 @@ struct QuickAddPopoverBodyView: View {
     @State private var selectedTag: DataModel.Tag?
     @FocusState private var isTitleFocused: Bool
     @Environment(\.dismiss) private var dismiss
+
+    init(content: QuickAddPopoverContent) {
+        self.content = content
+        _selectedList = State(wrappedValue: content.preselectedList)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -76,7 +83,7 @@ struct QuickAddPopoverBodyView: View {
             }
         }
         .padding(16)
-        .frame(minWidth: 280)
+        .frame(minWidth: 320)
         .task { isTitleFocused = true }
         .onDisappear { clearState() }
     }

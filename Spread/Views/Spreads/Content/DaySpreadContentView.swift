@@ -94,6 +94,7 @@ struct DaySpreadContentView: View {
                     sections: viewModel.overdueSections + viewModel.sections,
                     configurationMap: viewModel.entryConfigurationMap
                 ) { section in
+                    let sectionList = viewModel.context.journalManager.lists.first { $0.id.uuidString == section.id }
                     QuickAddButton(
                         coordinator: viewModel.context.coordinator,
                         anchorID: section.id,
@@ -101,6 +102,7 @@ struct DaySpreadContentView: View {
                         period: viewModel.spread.period,
                         availableLists: viewModel.context.journalManager.lists,
                         availableTags: viewModel.context.journalManager.tags,
+                        preselectedList: sectionList,
                         accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton,
                         onAddTask: viewModel.onAddTask
                     )

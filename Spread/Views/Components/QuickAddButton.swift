@@ -23,6 +23,8 @@ struct QuickAddButton: View {
     let period: Period
     let availableLists: [DataModel.List]
     let availableTags: [DataModel.Tag]
+    /// List pre-selected when the popover opens. `nil` leaves the picker blank.
+    let preselectedList: DataModel.List?
     let onAddTask: @MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void
 
     var content: SpreadButton.Content
@@ -37,6 +39,7 @@ struct QuickAddButton: View {
         content: SpreadButton.Content = .text("+ Add Task"),
         availableLists: [DataModel.List] = [],
         availableTags: [DataModel.Tag] = [],
+        preselectedList: DataModel.List? = nil,
         accessibilityIdentifier: String? = nil,
         arrowEdge: Edge = .top,
         onAddTask: @escaping @MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void
@@ -48,6 +51,7 @@ struct QuickAddButton: View {
         self.content = content
         self.availableLists = availableLists
         self.availableTags = availableTags
+        self.preselectedList = preselectedList
         self.accessibilityIdentifier = accessibilityIdentifier
         self.arrowEdge = arrowEdge
         self.onAddTask = onAddTask
@@ -65,6 +69,7 @@ struct QuickAddButton: View {
                 period: period,
                 availableLists: availableLists,
                 availableTags: availableTags,
+                preselectedList: preselectedList,
                 onAddTask: onAddTask
             )
         })

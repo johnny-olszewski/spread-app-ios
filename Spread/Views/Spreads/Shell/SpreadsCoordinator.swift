@@ -269,6 +269,7 @@ final class SpreadsCoordinator {
         period: Period,
         availableLists: [DataModel.List] = [],
         availableTags: [DataModel.Tag] = [],
+        preselectedList: DataModel.List? = nil,
         onAddTask: @escaping @MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void
     ) {
         activePopover = .quickAdd(QuickAddPopoverContent(
@@ -277,6 +278,7 @@ final class SpreadsCoordinator {
             period: period,
             availableLists: availableLists,
             availableTags: availableTags,
+            preselectedList: preselectedList,
             onAddTask: onAddTask
         ))
     }
