@@ -6517,3 +6517,25 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**:
   - [ ] Unit test(s) proving the new `Task` conformance produces byte-identical (or JSON-equivalent) output to `SyncSerializer.serializeTask` for equivalent inputs.
   - [ ] Unit test proving `DataModel.Task.entityType == .task`.
+
+---
+
+### [SPRD-251] Refactor: Coalesce pending outbox mutations per entity - [ ] Open
+
+- **Context**: Raised during a SESH-24 discussion of where remote sync is triggered from. Every repository write (`enqueueTaskMutation`/`enqueueNoteMutation`/assignment equivalents) unconditionally inserts a new `DataModel.SyncMutation` row, even when an unsent mutation for the same entity already sits in the outbox. While offline, repeatedly mutating the same entity (e.g. toggling a task's status, editing it, toggling status back) produces N outbox rows that `SyncEngine.push()` later pushes one at a time, in order, once connectivity returns — even though only the final state matters for eventual consistency. Each mutation's `recordData` is already a full entity snapshot (not a field-delta; see `SyncSerializer.serializeTask` and friends), so the latest pending mutation for an entity already fully supersedes any earlier unsent one — nothing is lost by collapsing them.
+- **Description**: Change the outbox-enqueue step (`enqueueTaskMutation`/`enqueueNoteMutation` and their assignment/tag equivalents, in whichever repository implementation is canonical at implementation time) so that enqueuing a mutation for an `(entityType, entityId)` that already has an *unsent* `SyncMutation` row updates that row in place (new `recordData`/`operation`/timestamp/`changedFields`) instead of inserting a second row. Apply operation precedence rather than naive overwrite: a prior `create` is never downgraded to `update` by a later mutation (stays `create`, with the latest data); a `delete` always wins outright and supersedes any prior unsent mutation for that entity, regardless of arrival order. Already-pushed mutations (deleted from the outbox by `SyncEngine.push()`) are unaffected — coalescing only ever operates on currently-unsent rows. Consider implementing this once, after SPRD-249's cutover, rather than duplicating the logic across both the legacy `SwiftDataTaskRepository`/`SwiftDataNoteRepository` and the additive `SwiftDataChangeAwareTaskRepository`/`SwiftDataChangeAwareNoteRepository`.
+- **Spec**: `Documentation/Specs/Sync.md` — "Outbox Mutation Coalescing"
+- **Acceptance Criteria**:
+  - [ ] Enqueuing a mutation for an entity/assignment that already has an unsent outbox row for the same `(entityType, entityId)` overwrites that row instead of inserting a new one.
+  - [ ] A prior unsent `create` is never overwritten to `update` by a later mutation; it stays `create` with the latest record data.
+  - [ ] A `delete` always overwrites any prior unsent mutation for that entity, regardless of what operation came before it.
+  - [ ] Already-pushed (no longer present) mutation rows are unaffected by coalescing — a new mutation after a successful push inserts a fresh row.
+  - [ ] N consecutive mutations to the same entity while offline result in exactly 1 outbox row for that entity, not N.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - [ ] Unit test: three consecutive updates to the same task produce exactly one outbox row, containing the final state.
+  - [ ] Unit test: create followed by one or more updates produces one outbox row with `operation == .create` and the latest data.
+  - [ ] Unit test: update followed by delete produces one outbox row with `operation == .delete`; the update is never pushed separately.
+  - [ ] Unit test: mutations to two different entities each produce their own outbox row (not coalesced together).
+  - [ ] Unit test: a mutation enqueued after a prior mutation for the same entity has already been pushed (and its row deleted) inserts a fresh row rather than coalescing with the (now-gone) prior one.
+- **Dependencies**: SPRD-245 (uses the same repository save path); recommended after SPRD-249 to implement once against the canonical repository rather than duplicating across legacy and change-aware implementations.
