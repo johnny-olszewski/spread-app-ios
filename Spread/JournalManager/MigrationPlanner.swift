@@ -100,8 +100,8 @@ struct StandardMigrationPlanner: MigrationPlanner {
     /// The calendar used for date normalization and parent hierarchy traversal.
     let calendar: Calendar
 
-    private var spreadService: ConventionalSpreadService {
-        ConventionalSpreadService(calendar: calendar)
+    private var spreadService: SpreadService {
+        SpreadService(calendar: calendar)
     }
 
     func migrationCandidates(

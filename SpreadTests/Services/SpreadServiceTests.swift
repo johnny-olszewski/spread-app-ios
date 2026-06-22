@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Spread
 
-struct ConventionalSpreadServiceTests {
+struct SpreadServiceTests {
 
     // MARK: - Test Helpers
 
@@ -27,8 +27,8 @@ struct ConventionalSpreadServiceTests {
         testCalendar.date(from: .init(year: 2027, month: 1, day: 1))!
     }
 
-    private static func makeService() -> ConventionalSpreadService {
-        ConventionalSpreadService(calendar: testCalendar)
+    private static func makeService() -> SpreadService {
+        SpreadService(calendar: testCalendar)
     }
 
     private static func makeSpread(period: Period, date: Date) -> DataModel.Spread {

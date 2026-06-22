@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// Standard implementation of `NoteAssignmentReconciler` using `ConventionalSpreadService`.
+/// Standard implementation of `NoteAssignmentReconciler` using `SpreadService`.
 ///
 /// Mirrors `StandardTaskAssignmentReconciler` for notes. Destination assignments always
 /// receive `.active` status regardless of the note's current state.
@@ -16,8 +16,8 @@ struct StandardNoteAssignmentReconciler: NoteAssignmentReconciler {
     /// The calendar used for date normalization and spread matching.
     let calendar: Calendar
 
-    private var spreadService: ConventionalSpreadService {
-        ConventionalSpreadService(calendar: calendar)
+    private var spreadService: SpreadService {
+        SpreadService(calendar: calendar)
     }
 
     func reconcilePreferredAssignment(

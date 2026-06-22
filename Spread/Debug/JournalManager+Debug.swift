@@ -94,7 +94,7 @@ extension JournalManager {
         )
 
         // Find best spread for assignment
-        let spreadService = ConventionalSpreadService(calendar: calendar)
+        let spreadService = SpreadService(calendar: calendar)
         if let bestSpread = spreadService.findBestSpread(for: task, in: spreads) {
             let normalizedDate = bestSpread.period.normalizeDate(bestSpread.date, calendar: calendar)
             let assignment = TaskAssignment(
@@ -186,7 +186,7 @@ extension JournalManager {
         )
 
         // Find best spread for assignment
-        let spreadService = ConventionalSpreadService(calendar: calendar)
+        let spreadService = SpreadService(calendar: calendar)
         if let bestSpread = spreadService.findBestSpread(for: note, in: spreads) {
             let normalizedDate = bestSpread.period.normalizeDate(bestSpread.date, calendar: calendar)
             let assignment = NoteAssignment(

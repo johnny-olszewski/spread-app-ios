@@ -12,21 +12,21 @@ import Foundation
 ///
 /// For each existing spread, the builder collects:
 /// - Tasks/notes whose current non-migrated assignment matches the spread's period and date.
-/// - Events whose date range overlaps the spread (via `ConventionalSpreadService`).
+/// - Events whose date range overlaps the spread (via `SpreadService`).
 /// - Multiday spreads collect tasks and notes whose current assignment resolves to that
 ///   explicit multiday spread.
 struct ConventionalJournalDataModelBuilder: JournalDataModelBuilder {
     /// The calendar used for date normalization and event overlap checks.
     private let calendar: Calendar
     /// Service used to determine event-to-spread overlap in conventional mode.
-    private let spreadService: ConventionalSpreadService
+    private let spreadService: SpreadService
     
     /// Creates a builder configured with the given calendar.
     ///
     /// - Parameter calendar: The calendar used for date normalization and event overlap checks.
     init(calendar: Calendar) {
         self.calendar = calendar
-        self.spreadService = ConventionalSpreadService(calendar: calendar)
+        self.spreadService = SpreadService(calendar: calendar)
     }
 
     /// Builds the journal data model by iterating over each explicit spread and collecting

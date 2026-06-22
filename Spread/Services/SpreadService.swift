@@ -8,7 +8,7 @@ import Foundation
 /// - multiday-preferred: containing multiday → month → year
 /// - month-preferred: month → year
 /// - year-preferred: year
-struct ConventionalSpreadService {
+struct SpreadService {
 
     // MARK: - Properties
 

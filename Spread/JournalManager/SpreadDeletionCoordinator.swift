@@ -148,8 +148,8 @@ struct StandardSpreadDeletionPlanner: SpreadDeletionPlanner {
     /// The calendar used for date normalization when matching spreads in the hierarchy.
     let calendar: Calendar
 
-    private var spreadService: ConventionalSpreadService {
-        ConventionalSpreadService(calendar: calendar)
+    private var spreadService: SpreadService {
+        SpreadService(calendar: calendar)
     }
 
     func makePlan(

@@ -11,7 +11,7 @@ import Foundation
 ///
 /// Called after a task is created or its preferred date/period changes. The reconciler
 /// inspects the task's `date` and `period`, finds the best matching conventional spread
-/// using `ConventionalSpreadService`, and updates `task.assignments` in-place so that
+/// using `SpreadService`, and updates `task.assignments` in-place so that
 /// exactly one assignment is active (or none if no spread matches).
 ///
 /// Assignment mutation rules:

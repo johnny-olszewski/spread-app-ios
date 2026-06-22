@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// Standard implementation of `TaskAssignmentReconciler` using `ConventionalSpreadService`.
+/// Standard implementation of `TaskAssignmentReconciler` using `SpreadService`.
 ///
 /// Finds the best spread for a task's preferred date/period and updates assignments to
 /// reflect the result. When the task is complete, the destination assignment inherits
@@ -17,8 +17,8 @@ struct StandardTaskAssignmentReconciler: TaskAssignmentReconciler {
     /// The calendar used for date normalization and spread matching.
     let calendar: Calendar
 
-    private var spreadService: ConventionalSpreadService {
-        ConventionalSpreadService(calendar: calendar)
+    private var spreadService: SpreadService {
+        SpreadService(calendar: calendar)
     }
 
     func reconcilePreferredAssignment(

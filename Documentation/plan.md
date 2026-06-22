@@ -3311,7 +3311,7 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Context**: Entries must be assigned to created spreads or Inbox.
 - **Description**: Assign tasks/notes to year/month/day (events deferred to v2).
 - **Implementation Details**:
-  - `ConventionalSpreadService`:
+  - `SpreadService`:
     - `getAvailableAssignment(for entry:, dataModel:) -> AssignmentResult?`
     - Search periods from finest to coarsest (day → month → year)
     - Skip periods that can't have tasks assigned (multiday)
@@ -3356,7 +3356,7 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**:
   - Unit tests for assignment selection across year/month/day.
 - **Dependencies**: SPRD-14
-- **Note**: Tests implemented as part of SPRD-13 in `ConventionalSpreadServiceTests.swift` and SPRD-14 in `InboxTests.swift`
+- **Note**: Tests implemented as part of SPRD-13 in `SpreadServiceTests.swift` and SPRD-14 in `InboxTests.swift`
 
 ### [SPRD-15] Feature: Migration logic (manual only) - [x] Complete
 - **Context**: Migration must be user-triggered and type-specific.
