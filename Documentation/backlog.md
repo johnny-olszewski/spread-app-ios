@@ -60,6 +60,7 @@ These items are not blockers but represent meaningful quality gaps that should b
 | TF-41 | Smoke test: task and note creation | Add tests covering create task, create note, edit task, edit note, and delete operations through the journal manager layer. | High: these are the core user actions. | Low-Medium | Low |
 | TF-42 | Smoke test: spread creation and navigation | Add tests for creating spreads of each type (day, month, year, multiday) and navigating between them via the conventional and traditional modes. | Medium | Medium | Low |
 | TF-43 | Sync error recovery test | Add a test that exercises the sync engine's behavior when a network error occurs mid-sync: verify state transitions to error, banner is surfaced, and retry succeeds on reconnect. | High: sync durability is a core promise of the app. | Medium | Low |
+| TF-44 | Rename `InMemory*Repository` doubles to `Test*Repository` | Rename `InMemoryTaskRepository`, `InMemorySpreadRepository`, `InMemoryEventRepository`, `InMemoryNoteRepository`, `InMemoryCollectionRepository`, `InMemoryListRepository`, `InMemoryTagRepository` to `Test*Repository` to match the `Test*`/`Mock*` non-production naming convention (see CLAUDE.md Testability section). Pure rename, no behavior change; touches ~40 call sites including `JournalManager`, `JournalManager+Preview`, and most test files. Do as its own dedicated commit, separate from any substantive change. | Low: naming consistency only. | Medium (wide call-site touch, low risk per-site) | Low |
 
 ---
 
