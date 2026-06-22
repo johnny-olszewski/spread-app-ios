@@ -208,6 +208,58 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
         #expect(assignmentDelete?.entityId == assignment.id)
     }
 
+    // MARK: - Batched Saves
+
+    /// Conditions: Save three new notes in a single `saveAll` call.
+    /// Expected: All three notes are persisted, and the outbox contains exactly one create
+    /// mutation per note, in request order — the entire batch is committed as one unit, not
+    /// as three independent `save` calls.
+    @Test func testSaveAllPersistsAllNotesInOneCommit() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let repository = SwiftDataChangeAwareNoteRepository(
+            modelContainer: container,
+            nowProvider: { Date(timeIntervalSince1970: 300) }
+        )
+
+        let notes = [
+            DataModel.Note(title: "Batch Note 1"),
+            DataModel.Note(title: "Batch Note 2"),
+            DataModel.Note(title: "Batch Note 3")
+        ]
+        try await repository.saveAll(notes.map { NoteSaveRequest(note: $0) })
+
+        let savedNotes = await repository.getNotes()
+        #expect(savedNotes.count == 3)
+
+        let mutations = try fetchMutations(from: container)
+        #expect(mutations.count == 3)
+        #expect(mutations.allSatisfy { $0.operation == SyncOperation.create.rawValue })
+        #expect(mutations.map(\.entityId) == notes.map(\.id))
+    }
+
+    /// Conditions: Save one new note and one existing note (via `isNew: false`) in the same
+    /// `saveAll` call.
+    /// Expected: The outbox contains a create mutation for the new note and an update mutation
+    /// for the existing note, proving each request is diffed independently within the batch.
+    @Test func testSaveAllDiffsEachRequestIndependently() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let repository = SwiftDataChangeAwareNoteRepository(
+            modelContainer: container,
+            nowProvider: { Date(timeIntervalSince1970: 310) }
+        )
+
+        let newNote = DataModel.Note(title: "New Note")
+        let existingNote = DataModel.Note(title: "Existing Note")
+        try await repository.saveAll([
+            NoteSaveRequest(note: newNote),
+            NoteSaveRequest(note: existingNote, change: EntityChange(isNew: false))
+        ])
+
+        let mutations = try fetchMutations(from: container)
+        #expect(mutations.first { $0.entityId == newNote.id }?.operation == SyncOperation.create.rawValue)
+        #expect(mutations.first { $0.entityId == existingNote.id }?.operation == SyncOperation.update.rawValue)
+    }
+
     // MARK: - Parity with SwiftDataNoteRepository
 
     /// Conditions: Run the same create-then-update-then-delete sequence through both

@@ -18,6 +18,13 @@ protocol ChangeAwareTaskRepository: Sendable {
     /// - Throws: An error if the save operation fails.
     func save(_ task: DataModel.Task, change: EntityChange<TaskAssignment>) async throws
 
+    /// Saves multiple tasks in a single persistence commit, each diffed against its own
+    /// caller-supplied pre-mutation state.
+    ///
+    /// - Parameter requests: The tasks to save, paired with their pre-mutation change descriptors.
+    /// - Throws: An error if the save operation fails.
+    func saveAll(_ requests: [TaskSaveRequest]) async throws
+
     /// Deletes a task from storage.
     ///
     /// - Parameter task: The task to delete.

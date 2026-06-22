@@ -56,23 +56,33 @@ final class SwiftDataChangeAwareTaskRepository: ChangeAwareTaskRepository {
     /// Persists `task` and enqueues sync-outbox mutations for the task, its assignments, and
     /// its tags, diffing against `change` rather than re-fetching pre-mutation state from disk.
     func save(_ task: DataModel.Task, change: EntityChange<TaskAssignment>) async throws {
-        let operation: SyncOperation = change.isNew ? .create : .update
+        try await saveAll([TaskSaveRequest(task: task, change: change)])
+    }
+
+    /// Persists every task in `requests` and enqueues their sync-outbox mutations in a single
+    /// persistence commit, regardless of how many requests are supplied.
+    func saveAll(_ requests: [TaskSaveRequest]) async throws {
         let timestamp = nowProvider()
 
-        enqueueTaskMutation(task, operation: operation, timestamp: timestamp)
-        enqueueTaskAssignmentMutations(
-            taskId: task.id,
-            previousAssignments: change.previousAssignments,
-            currentAssignments: task.assignments,
-            timestamp: timestamp
-        )
-        enqueueTaskTagMutations(
-            taskId: task.id,
-            previousTagIds: change.previousTagIDs,
-            currentTagIds: task.tags.map(\.id),
-            timestamp: timestamp
-        )
-        modelContext.insert(task)
+        for request in requests {
+            let operation: SyncOperation = request.change.isNew ? .create : .update
+
+            enqueueTaskMutation(request.task, operation: operation, timestamp: timestamp)
+            enqueueTaskAssignmentMutations(
+                taskId: request.task.id,
+                previousAssignments: request.change.previousAssignments,
+                currentAssignments: request.task.assignments,
+                timestamp: timestamp
+            )
+            enqueueTaskTagMutations(
+                taskId: request.task.id,
+                previousTagIds: request.change.previousTagIDs,
+                currentTagIds: request.task.tags.map(\.id),
+                timestamp: timestamp
+            )
+            modelContext.insert(request.task)
+        }
+
         try modelContext.save()
     }
 

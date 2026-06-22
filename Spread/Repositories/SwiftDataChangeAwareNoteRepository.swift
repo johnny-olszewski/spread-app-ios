@@ -56,23 +56,33 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
     /// Persists `note` and enqueues sync-outbox mutations for the note, its assignments, and
     /// its tags, diffing against `change` rather than re-fetching pre-mutation state from disk.
     func save(_ note: DataModel.Note, change: EntityChange<NoteAssignment>) async throws {
-        let operation: SyncOperation = change.isNew ? .create : .update
+        try await saveAll([NoteSaveRequest(note: note, change: change)])
+    }
+
+    /// Persists every note in `requests` and enqueues their sync-outbox mutations in a single
+    /// persistence commit, regardless of how many requests are supplied.
+    func saveAll(_ requests: [NoteSaveRequest]) async throws {
         let timestamp = nowProvider()
 
-        enqueueNoteMutation(note, operation: operation, timestamp: timestamp)
-        enqueueNoteAssignmentMutations(
-            noteId: note.id,
-            previousAssignments: change.previousAssignments,
-            currentAssignments: note.assignments,
-            timestamp: timestamp
-        )
-        enqueueNoteTagMutations(
-            noteId: note.id,
-            previousTagIds: change.previousTagIDs,
-            currentTagIds: note.tags.map(\.id),
-            timestamp: timestamp
-        )
-        modelContext.insert(note)
+        for request in requests {
+            let operation: SyncOperation = request.change.isNew ? .create : .update
+
+            enqueueNoteMutation(request.note, operation: operation, timestamp: timestamp)
+            enqueueNoteAssignmentMutations(
+                noteId: request.note.id,
+                previousAssignments: request.change.previousAssignments,
+                currentAssignments: request.note.assignments,
+                timestamp: timestamp
+            )
+            enqueueNoteTagMutations(
+                noteId: request.note.id,
+                previousTagIds: request.change.previousTagIDs,
+                currentTagIds: request.note.tags.map(\.id),
+                timestamp: timestamp
+            )
+            modelContext.insert(request.note)
+        }
+
         try modelContext.save()
     }
 

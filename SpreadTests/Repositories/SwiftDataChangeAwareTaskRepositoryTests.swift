@@ -208,6 +208,58 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
         #expect(assignmentDelete?.entityId == assignment.id)
     }
 
+    // MARK: - Batched Saves
+
+    /// Conditions: Save three new tasks in a single `saveAll` call.
+    /// Expected: All three tasks are persisted, and the outbox contains exactly one create
+    /// mutation per task, in request order — the entire batch is committed as one unit, not
+    /// as three independent `save` calls.
+    @Test func testSaveAllPersistsAllTasksInOneCommit() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let repository = SwiftDataChangeAwareTaskRepository(
+            modelContainer: container,
+            nowProvider: { Date(timeIntervalSince1970: 300) }
+        )
+
+        let tasks = [
+            DataModel.Task(title: "Batch Task 1"),
+            DataModel.Task(title: "Batch Task 2"),
+            DataModel.Task(title: "Batch Task 3")
+        ]
+        try await repository.saveAll(tasks.map { TaskSaveRequest(task: $0) })
+
+        let savedTasks = await repository.getTasks()
+        #expect(savedTasks.count == 3)
+
+        let mutations = try fetchMutations(from: container)
+        #expect(mutations.count == 3)
+        #expect(mutations.allSatisfy { $0.operation == SyncOperation.create.rawValue })
+        #expect(mutations.map(\.entityId) == tasks.map(\.id))
+    }
+
+    /// Conditions: Save one new task and one existing task (via `isNew: false`) in the same
+    /// `saveAll` call.
+    /// Expected: The outbox contains a create mutation for the new task and an update mutation
+    /// for the existing task, proving each request is diffed independently within the batch.
+    @Test func testSaveAllDiffsEachRequestIndependently() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let repository = SwiftDataChangeAwareTaskRepository(
+            modelContainer: container,
+            nowProvider: { Date(timeIntervalSince1970: 310) }
+        )
+
+        let newTask = DataModel.Task(title: "New Task")
+        let existingTask = DataModel.Task(title: "Existing Task")
+        try await repository.saveAll([
+            TaskSaveRequest(task: newTask),
+            TaskSaveRequest(task: existingTask, change: EntityChange(isNew: false))
+        ])
+
+        let mutations = try fetchMutations(from: container)
+        #expect(mutations.first { $0.entityId == newTask.id }?.operation == SyncOperation.create.rawValue)
+        #expect(mutations.first { $0.entityId == existingTask.id }?.operation == SyncOperation.update.rawValue)
+    }
+
     // MARK: - Parity with SwiftDataTaskRepository
 
     /// Conditions: Run the same create-then-update-then-delete sequence through both
