@@ -6482,3 +6482,20 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**:
   - [ ] Full existing unit test suite green against the new facade.
   - [ ] Manual: exercise spread/task/note CRUD, migration, Inbox, and overdue flows in the running app and confirm no behavior regression versus pre-cutover.
+
+---
+
+### [SPRD-250] Refactor: SerializableData protocol for sync entity serialization and entity typing - [ ] Open
+
+- **Context**: `SyncSerializer` (`Spread/Services/Sync/SyncSerializer.swift`) is a single centralized namespace of 11 static `serialize*` functions (settings, spread, task, list, tag, taskTag, noteTag, note, collection, taskAssignment, noteAssignment), each hand-mapping one entity's fields to a snake_case JSON record plus paired `_updated_at` LWW timestamps. Repositories call the matching free function by name (e.g. `SyncSerializer.serializeTask(task, ...)`) and separately hardcode the matching `SyncEntityType` case at each `DataModel.SyncMutation` call site (e.g. `SyncEntityType.task.rawValue`) — the entity's sync type is never derived from the entity itself, so every new syncable entity requires updating both `SyncSerializer` and every call site by hand, with no compiler-enforced link between an entity and its type. Raised during SPRD-245 review as a candidate for moving serialization (and entity-type lookup) onto the entities themselves via a new `SerializableData` protocol, deferred to its own task since it touches existing, non-additive files (`SyncSerializer.swift`, `SyncEntityType.swift`, `DataModelSchemaV1.swift`) outside SESH-24's additive-only scope.
+- **Description**: Add a new `SerializableData` protocol (exact shape TBD at implementation time, expected to cover a `serialize(deviceId:timestamp:deletedAt:) -> Data?` method and a `static var entityType: SyncEntityType`, unifying the two previously-separate concerns at each call site) and have `DataModel.Task` conform first, via a new `DataModel.Task+SerializableData.swift` extension file, with its body migrated from `SyncSerializer.serializeTask` and its `entityType` returning `.task`. Update `SwiftDataChangeAwareTaskRepository`'s `enqueueTaskMutation` to read both the serialized record and the entity type from this conformance instead of calling `SyncSerializer.serializeTask` and hardcoding `SyncEntityType.task` separately. Leave the remaining 10 `serialize*` functions and their call sites' hardcoded `SyncEntityType` cases untouched for now — each is a candidate for a follow-up conformance once the `Task` conformance proves the shape out. Note: this conflicts with the project's "protocols are a DI/test-substitution boundary only" rule (`CLAUDE.md`, and the SESH-24 spec decision); revisit whether a protocol is the right shape — versus, e.g., a plain extension method plus a separate non-protocol entity-type lookup — before implementing.
+- **Spec**: None yet — needs a spec section added to an appropriate `Documentation/Specs/` file before implementation.
+- **Acceptance Criteria**:
+  - [ ] `SerializableData` protocol added in a new file, covering both record serialization and `SyncEntityType` lookup.
+  - [ ] `DataModel.Task` conforms via a new extension file; its conformance body matches `SyncSerializer.serializeTask`'s existing output exactly (same JSON keys/values for equivalent inputs), and its `entityType` returns `.task`.
+  - [ ] `SwiftDataChangeAwareTaskRepository`'s call to `SyncSerializer.serializeTask` and its hardcoded `SyncEntityType.task.rawValue` are both updated to use the new conformance instead.
+  - [ ] `SyncSerializer.serializeTask`, the other 10 `serialize*` functions, and all other repositories' hardcoded `SyncEntityType` call sites are otherwise untouched; no behavior change to any repository other than `SwiftDataChangeAwareTaskRepository`'s call site.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - [ ] Unit test(s) proving the new `Task` conformance produces byte-identical (or JSON-equivalent) output to `SyncSerializer.serializeTask` for equivalent inputs.
+  - [ ] Unit test proving `DataModel.Task.entityType == .task`.
