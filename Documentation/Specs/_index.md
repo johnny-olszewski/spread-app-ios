@@ -16,6 +16,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 |--------|-------------|----------------|
 | `feature/SESH-20` (formerly `WKFLW-20`) | UI polish and design system foundation for TestFlight | [DesignSystem.md](DesignSystem.md), [Accessibility.md](Accessibility.md) |
 | `feature/SESH-21` | Task Browser tab, List/Tag organizational fields | [TaskBrowser.md](TaskBrowser.md), [DataModel.md](DataModel.md), [TaskMetadata.md](TaskMetadata.md) |
+| `feature/SESH-24` | JournalManager/repository performance rebuild: drop logic-layer protocols, incremental dictionary-keyed index, caller-supplied sync diffing — built additively, cut over last | [JournalManager.md](JournalManager.md) |
 
 ---
 

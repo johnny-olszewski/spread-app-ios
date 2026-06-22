@@ -6396,3 +6396,89 @@ Supabase: SPRD-85A -> SPRD-85C
   - Manual: tap the "+ Add Task" button on a day spread — quick-add popover appears. Submit or dismiss — popover closes.
   - Manual: tap the "+ Add Task" button on a multiday spread day card — quick-add popover appears. Submit or dismiss — popover closes.
   - Manual: on iPad, confirm the popover (true popover, not sheet) appears on both spread types.
+
+---
+
+### [SPRD-245] Refactor: Additive repository layer with caller-supplied change descriptors and batched saves - [ ] Open
+
+- **Context**: A performance audit (SESH-24) of `feature/SESH-23` found `SwiftDataTaskRepository.save()`/`SwiftDataNoteRepository.save()` each open two throwaway `ModelContext`s per save (`storedTaskAssignments(id:)`, `storedTaskTagIds(id:)`) purely to recover pre-mutation state for sync-outbox diffing, plus a `fetchCount` query (`hasStoredTask(id:)`) to decide create-vs-update — three redundant SwiftData round-trips per single-entity save. Batch operations (e.g. `migrateTasksBatch`) call `save()` once per entity with no batched commit. Per the user's directive, this work is additive only: new files alongside the existing `SwiftDataTaskRepository`/`SwiftDataNoteRepository`, zero edits to existing production files, validated by unit tests only (no wiring into `DependencyContainer` or views).
+- **Description**: Add a new `EntityChange<Assignment, TagType>` struct (`isNew`, `previousAssignments`, `previousTagIDs`) that callers construct from values they already hold one statement before mutating an entity in place. Add new repository implementations (e.g. `SwiftDataTaskRepositoryV2`/`SwiftDataNoteRepositoryV2`, exact naming TBD at implementation time) whose `save(_:change:)` accepts this descriptor instead of re-fetching prior state, and answers create-vs-update from the descriptor's `isNew` flag instead of a `fetchCount` query. Add a batched `saveAll(_:changes:)` API that performs exactly one `modelContext.save()` commit for N entities. These new types conform to the existing `TaskRepository`/`NoteRepository` protocols (or a superset thereof) — protocols remain the correct boundary here per the spec decision, since SwiftData and in-memory/mock implementations both already exist and must continue to differ for tests.
+- **Spec**: `Documentation/Specs/JournalManager.md` — "Decision: Sync-outbox diffing moves from repository-side disk re-fetch to caller-supplied change descriptors" and "Decision: Drop protocol-per-logic-seam; protocols are a repository-only boundary"
+- **Acceptance Criteria**:
+  - [ ] New `EntityChange` type added in a new file; no edits to existing `TaskAssignment`/`NoteAssignment`/`TaskRepository`/`NoteRepository` files.
+  - [ ] New task/note repository implementation(s) added as new files performing zero throwaway `ModelContext` allocations and zero `fetchCount` queries during `save`.
+  - [ ] New batched `saveAll` API added that issues exactly one `modelContext.save()` call regardless of N.
+  - [ ] Existing `SwiftDataTaskRepository.swift`/`SwiftDataNoteRepository.swift` and all other existing production files are untouched (verified via `git diff` showing only new files added).
+  - [ ] `DependencyContainer` and all views are untouched — the new repositories are constructed only from unit tests.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - [ ] Unit tests proving `save(_:change:)` produces identical `SyncMutation` outbox rows (create/update/delete for entity, assignments, tags) as the legacy repository for equivalent before/after states, without performing any disk re-fetch.
+  - [ ] Unit tests proving `saveAll` commits once for N changed entities and produces the correct per-entity outbox rows.
+  - [ ] Unit tests proving create-vs-update is correctly determined from `EntityChange.isNew` without a `fetchCount` query.
+
+---
+
+### [SPRD-246] Refactor: Additive concrete logic layer (builder, reconcilers, planners, evaluators, coordinators) - [ ] Open
+
+- **Context**: Per the SESH-24 audit and the user's explicit directive, every extracted journal logic seam (`JournalDataModelBuilder`, `InboxResolver`, `MigrationPlanner`, `OverdueEvaluator`, task/note assignment reconcilers, mutation/migration coordinators) is currently a protocol (`any X`) with exactly one "Standard*" production implementation and no test double that diverges in behavior — pure indirection with no substitution benefit, plus duplicated wiring in `JournalManager.init()` and `rebuildTemporalCollaborators()`.
+- **Description**: Add new concrete struct equivalents of each logic seam (data-model building, inbox resolution, migration planning, overdue evaluation, task/note assignment reconciliation, mutation/migration coordination) taking dependencies (calendar, repositories) by direct initialization — no `any`, no protocol declaration, no "Standard" naming prefix. These structs depend on the SPRD-245 repository layer (by protocol, since repositories remain the substitution boundary) and operate on the dictionary-keyed canonical store shape introduced in SPRD-247, returning updated entities plus a domain-scoped mutation result per the existing `JournalMutationResult` pattern. Entirely new files; zero edits to the existing `ConventionalJournalDataModelBuilder`, `StandardInboxResolver`, `StandardMigrationPlanner`, `StandardOverdueEvaluator`, `StandardTaskAssignmentReconciler`, `StandardNoteAssignmentReconciler`, `StandardTaskMutationCoordinator`, `StandardNoteMutationCoordinator`, `StandardSpreadDeletionCoordinator`, `StandardTaskMigrationCoordinator`, `StandardNoteMigrationCoordinator`, or their protocol declarations.
+- **Spec**: `Documentation/Specs/JournalManager.md` — "Decision: Drop protocol-per-logic-seam; protocols are a repository-only boundary"
+- **Acceptance Criteria**:
+  - [ ] New concrete (non-protocol, non-`any`) logic types added for each of: data-model building, inbox resolution, migration planning, overdue evaluation, task assignment reconciliation, note assignment reconciliation, task mutation coordination, note mutation coordination, spread deletion coordination, task migration coordination, note migration coordination.
+  - [ ] None of the new types declare or conform to a new protocol; none use "Standard" naming.
+  - [ ] None of the new types perform repository writes directly beyond what's needed to fulfill SPRD-245's batched-save contract — business-rule branching stays pure/mostly pure, consistent with the existing rule engine guidance in this spec.
+  - [ ] No edits to any existing legacy logic file or protocol declaration.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - [ ] Exhaustive unit tests for each new concrete type covering the same scenarios as the legacy protocol-backed equivalents (conventional, multiday, Inbox, migration, overdue), constructing the type directly with controlled inputs (calendar, fixed dates, in-memory repositories) and asserting on output.
+
+---
+
+### [SPRD-247] Refactor: Additive incremental dictionary-keyed index and JournalManager-equivalent facade - [ ] Open
+
+- **Context**: `JournalManager.tasks`/`.notes` are flat arrays mutated by linear scan and reassigned wholesale after nearly every mutation, invalidating every `@Observable` consumer regardless of what changed; `JournalDataModel` is a cache recomputed from zero (O(spreads × entries)) on every `.structural`-scoped mutation rather than maintained incrementally.
+- **Description**: Add a new canonical in-memory store keyed by `[UUID: Entity]` dictionaries (O(1) lookup/update/delete) and a new incremental reverse index (`SpreadDataModelKey ⇄ entity IDs`) that is updated as a direct consequence of each mutation rather than rebuilt from scratch — eliminating the `.structural` vs `.spreadKeys` distinction entirely; a full index build happens exactly once, on cold load. Add a new facade type (the eventual `JournalManager` replacement) that wires the SPRD-245 repositories and SPRD-246 logic structs, owns the dictionary-keyed store and incremental index, and exposes the same observed-state shape (`spreads`/`tasks`/`notes`/`events`/`dataModel`/`dataVersion`) that views currently read from `JournalManager`. Entirely new files; zero edits to `JournalManager.swift` or any view.
+- **Spec**: `Documentation/Specs/JournalManager.md` — "Decision: Replace full-array reload and full-rebuild with an incremental, dictionary-keyed canonical store"
+- **Acceptance Criteria**:
+  - [ ] New dictionary-keyed canonical store type(s) added for tasks/notes/events (and spreads if applicable), with O(1) upsert/remove.
+  - [ ] New incremental index type added (e.g. `TaskIndex`/`NoteIndex` or a combined index) maintaining `SpreadDataModelKey ⇄ entity ID` mappings, updated incrementally per mutation rather than recomputed wholesale, with a single full-build path used only on cold load.
+  - [ ] New facade type added that exposes the same `@Observable` surface shape as `JournalManager` (spreads/tasks/notes/events/dataModel/dataVersion) backed by the new store and index.
+  - [ ] No edits to `JournalManager.swift`, `DependencyContainer`, or any view file.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - [ ] Unit tests proving incremental index updates produce identical `JournalDataModel` content to a full rebuild across conventional, multiday, Inbox, migration, and overdue scenarios.
+  - [ ] Unit tests proving a simple single-entity mutation updates only the affected index entries (no full rebuild triggered) — assert via a rebuild-counter or equivalent instrumentation.
+  - [ ] Unit tests proving cold load performs exactly one full index build.
+
+---
+
+### [SPRD-248] Test: Parity test suite for new facade vs. legacy JournalManager - [ ] Open
+
+- **Context**: SPRD-245–247 build an entirely new, parallel implementation that must produce identical observable behavior to the legacy `JournalManager` before it can safely replace it. Per the user's directive, validation during the additive phase is unit tests only — no temporary debug-build trial UI.
+- **Description**: Add a new test suite that exercises both the legacy `JournalManager` (wired with the legacy `SwiftData*Repository`/`Standard*` stack) and the new facade (wired with the SPRD-245/246/247 stack) against the same scripted sequences of CRUD/migration/inbox/overdue operations on equivalent in-memory-backed repositories, asserting both produce the same resulting `dataModel` contents, `tasks`/`notes`/`events` contents, and outbox `SyncMutation` rows for each scenario. Covers: task/note create, update (content, date/period, preferred assignment clear), delete; spread create (including new-explicit-spread reconciliation), spread delete; migration (single and batch); Inbox membership; overdue evaluation; multiday assignment.
+- **Spec**: `Documentation/Specs/JournalManager.md` — "Decision: Build additively, validate with unit tests, cut over as a final separate step"
+- **Acceptance Criteria**:
+  - [ ] Parity test suite added as new test files; no edits to existing test files.
+  - [ ] Suite covers, at minimum, the scenario list above for both task and note entities.
+  - [ ] All parity tests pass, demonstrating the new facade is behaviorally identical to the legacy `JournalManager` for the covered scenarios.
+  - [ ] Project builds with no errors or warnings; full existing test suite remains green.
+- **Tests**:
+  - [ ] The parity suite itself is the deliverable test coverage for this task.
+
+---
+
+### [SPRD-249] Refactor: Cut over to the new facade and delete the legacy JournalManager stack - [ ] Open
+
+- **Context**: SPRD-245–248 built and validated a complete replacement for `JournalManager` and its supporting repositories/logic layer entirely additively, with zero production wiring changes, per the user's explicit requirement to keep the working tree shippable throughout the rebuild. This task performs the actual cutover, the only task in this sequence permitted to edit existing production files.
+- **Description**: Wire the new facade (SPRD-247) into `DependencyContainer` in place of `JournalManager`, update all views' `@Environment(JournalManager.self)` (or equivalent) references to the new facade type, and switch repository wiring to the SPRD-245 implementations. Delete the legacy `JournalManager.swift`, all legacy `Standard*` logic types and their protocol declarations, the legacy `SwiftDataTaskRepository`/`SwiftDataNoteRepository` throwaway-`ModelContext` diffing path, and any now-unused legacy test doubles/mocks for the deleted protocols, in the same task — no parallel legacy code remains after this task lands.
+- **Spec**: `Documentation/Specs/JournalManager.md` — "Decision: Build additively, validate with unit tests, cut over as a final separate step"
+- **Acceptance Criteria**:
+  - [ ] `DependencyContainer` constructs and injects the new facade in place of `JournalManager`.
+  - [ ] All views/coordinators reference the new facade type; no remaining references to the legacy `JournalManager` type.
+  - [ ] Legacy `JournalManager.swift`, legacy `Standard*` logic types, their protocol declarations, and legacy repository diffing code are deleted.
+  - [ ] No unused logic protocols, mocks, or "Standard*" types remain in the codebase after deletion.
+  - [ ] Project builds with no errors or warnings.
+  - [ ] Full unit test suite passes (legacy `JournalManager`-targeted tests either deleted or ported to target the new facade, with no loss of scenario coverage versus the parity suite).
+- **Tests**:
+  - [ ] Full existing unit test suite green against the new facade.
+  - [ ] Manual: exercise spread/task/note CRUD, migration, Inbox, and overdue flows in the running app and confirm no behavior regression versus pre-cutover.
