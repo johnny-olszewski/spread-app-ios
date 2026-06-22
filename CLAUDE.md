@@ -213,6 +213,7 @@ When the user has no ready task and wants to spec one out:
 
 - **Doc comments**: Liberal use of `///` documentation comments on members
 - **Inline comments**: Avoid - code should be self-documenting; use only when truly necessary to explain "why"
+- **TODO comments for known planned changes**: If you know that code you're writing will change because of a task that already exists as a `SPRD-##` block in `Documentation/plan.md`, add a `- TODO: [SPRD-##] <one-line description>` line in the doc comment at the relevant type/method, naming the task and what's expected to change. This lets a reviewer see the change is coming and isn't an oversight. Only add these for changes with a real, already-scoped task — not speculative ideas with no tracked task.
 
 ### Testing (Swift Testing)
 
