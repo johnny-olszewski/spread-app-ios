@@ -71,7 +71,7 @@ struct InboxTests {
             date: taskDate,
             period: .day,
             assignments: [
-                TaskAssignment(
+                Assignment(
                     period: .day,
                     date: taskDate,
                     status: .open
@@ -105,7 +105,7 @@ struct InboxTests {
             date: taskDate,
             period: .day,
             assignments: [
-                TaskAssignment(
+                Assignment(
                     period: .day,
                     date: taskDate,
                     status: .open
@@ -226,7 +226,7 @@ struct InboxTests {
             period: .day,
             status: .cancelled,
             assignments: [
-                TaskAssignment(
+                Assignment(
                     period: .day,
                     date: Self.testDate,
                     status: .cancelled
@@ -443,7 +443,7 @@ struct InboxTests {
             title: "Year Assigned Task",
             date: taskDate,
             period: .day,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
         let manager = try await JournalManager.make(
             calendar: calendar,
@@ -476,7 +476,7 @@ struct InboxTests {
             title: "Month Assigned Note",
             date: noteDate,
             period: .day,
-            assignments: [NoteAssignment(period: .month, date: noteDate, status: .active)]
+            assignments: [Assignment(period: .month, date: noteDate, status: .active)]
         )
         let manager = try await JournalManager.make(
             calendar: calendar,
@@ -554,7 +554,7 @@ struct InboxTests {
             title: "Month Preferred Task",
             date: taskDate,
             period: .month,
-            assignments: [TaskAssignment(period: .month, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
         let manager = try await JournalManager.make(
             calendar: calendar,

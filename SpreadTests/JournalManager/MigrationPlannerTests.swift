@@ -24,7 +24,7 @@ struct MigrationPlannerTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
 
         let planner = StandardMigrationPlanner(calendar: Self.calendar)
@@ -56,14 +56,14 @@ struct MigrationPlannerTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
         let monthTask = DataModel.Task(
             title: "Alpha",
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .month, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
         let inboxTask = DataModel.Task(
             title: "Inbox",
@@ -93,8 +93,8 @@ struct MigrationPlannerTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open),
-                TaskAssignment(period: .day, date: taskDate, status: .complete)
+                Assignment(period: .month, date: taskDate, status: .open),
+                Assignment(period: .day, date: taskDate, status: .complete)
             ]
         )
 
@@ -124,7 +124,7 @@ struct MigrationPlannerTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
 
         let planner = StandardMigrationPlanner(calendar: Self.calendar)

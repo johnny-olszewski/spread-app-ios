@@ -250,7 +250,7 @@ struct NoteRepositoryTests {
             nowProvider: { Date(timeIntervalSince1970: 110) }
         )
 
-        let assignment = NoteAssignment(
+        let assignment = Assignment(
             period: .day,
             date: Date(timeIntervalSince1970: 1_000),
             status: .active
@@ -307,7 +307,7 @@ struct NoteRepositoryTests {
             nowProvider: { Date(timeIntervalSince1970: 210) }
         )
 
-        let assignment = NoteAssignment(
+        let assignment = Assignment(
             period: .month,
             date: Date(timeIntervalSince1970: 2_000),
             status: .active
@@ -376,7 +376,7 @@ struct NoteRepositoryTests {
             nowProvider: { timestamps.removeFirst() }
         )
 
-        let assignment = NoteAssignment(
+        let assignment = Assignment(
             period: .day,
             date: Date(timeIntervalSince1970: 3_000),
             status: .active
@@ -414,7 +414,7 @@ struct NoteRepositoryTests {
             nowProvider: { timestamps.removeFirst() }
         )
 
-        let assignment = NoteAssignment(
+        let assignment = Assignment(
             period: .month,
             date: Date(timeIntervalSince1970: 4_000),
             status: .active

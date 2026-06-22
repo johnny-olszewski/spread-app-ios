@@ -1088,7 +1088,7 @@ enum SyncSerializer {
 
     /// Serializes a task assignment into JSON record data for the outbox.
     static func serializeTaskAssignment(
-        _ assignment: TaskAssignment,
+        _ assignment: Assignment,
         taskId: UUID,
         deviceId: UUID,
         timestamp: Date,
@@ -1114,7 +1114,7 @@ enum SyncSerializer {
 
     /// Serializes a note assignment into JSON record data for the outbox.
     static func serializeNoteAssignment(
-        _ assignment: NoteAssignment,
+        _ assignment: Assignment,
         noteId: UUID,
         deviceId: UUID,
         timestamp: Date,
@@ -1567,15 +1567,15 @@ enum SyncSerializer {
         )
     }
 
-    /// Converts a server task assignment row to a local TaskAssignment value.
-    static func createTaskAssignment(from row: ServerTaskAssignmentRow) -> TaskAssignment? {
+    /// Converts a server task assignment row to a local Assignment value.
+    static func createTaskAssignment(from row: ServerTaskAssignmentRow) -> Assignment? {
         guard row.deletedAt == nil,
               let period = Period(rawValue: row.period),
               let date = SyncDateFormatting.parseDate(row.date),
               let status = EntryStatus(rawValue: row.status) else {
             return nil
         }
-        return TaskAssignment(
+        return Assignment(
             id: row.id,
             period: period,
             date: date,
@@ -1584,15 +1584,15 @@ enum SyncSerializer {
         )
     }
 
-    /// Converts a server note assignment row to a local NoteAssignment value.
-    static func createNoteAssignment(from row: ServerNoteAssignmentRow) -> NoteAssignment? {
+    /// Converts a server note assignment row to a local Assignment value.
+    static func createNoteAssignment(from row: ServerNoteAssignmentRow) -> Assignment? {
         guard row.deletedAt == nil,
               let period = Period(rawValue: row.period),
               let date = SyncDateFormatting.parseDate(row.date),
               let status = EntryStatus(rawValue: row.status) else {
             return nil
         }
-        return NoteAssignment(
+        return Assignment(
             id: row.id,
             period: period,
             date: date,

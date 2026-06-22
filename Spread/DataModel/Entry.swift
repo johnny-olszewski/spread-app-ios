@@ -48,12 +48,8 @@ extension Entry {
 /// An entry that can be assigned to spreads.
 ///
 /// Assignable entries (tasks and notes) track their preferred date and period,
-/// and maintain assignment history across spreads. Assignment types are defined
-/// separately (TaskAssignment, NoteAssignment).
+/// and maintain assignment history across spreads via the shared `Assignment` type.
 protocol AssignableEntry: Entry {
-    /// The assignment type for this entry.
-    associatedtype AssignmentType
-
     /// The preferred date for this entry.
     var date: Date { get set }
 
@@ -61,7 +57,7 @@ protocol AssignableEntry: Entry {
     var period: Period { get set }
 
     /// Assignment history for this entry across spreads.
-    var assignments: [AssignmentType] { get set }
+    var assignments: [Assignment] { get set }
 }
 
 extension AssignableEntry {

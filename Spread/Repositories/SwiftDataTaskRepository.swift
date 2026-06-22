@@ -127,8 +127,8 @@ final class SwiftDataTaskRepository: TaskRepository {
 
     private func enqueueTaskAssignmentMutations(
         taskId: UUID,
-        previousAssignments: [TaskAssignment],
-        currentAssignments: [TaskAssignment],
+        previousAssignments: [Assignment],
+        currentAssignments: [Assignment],
         timestamp: Date
     ) {
         var previousByID = Dictionary(uniqueKeysWithValues: previousAssignments.map { ($0.id, $0) })
@@ -159,7 +159,7 @@ final class SwiftDataTaskRepository: TaskRepository {
     }
 
     private func enqueueTaskAssignmentTombstones(
-        _ assignments: [TaskAssignment],
+        _ assignments: [Assignment],
         taskId: UUID,
         timestamp: Date
     ) {
@@ -174,7 +174,7 @@ final class SwiftDataTaskRepository: TaskRepository {
     }
 
     private func enqueueTaskAssignmentMutation(
-        _ assignment: TaskAssignment,
+        _ assignment: Assignment,
         taskId: UUID,
         operation: SyncOperation,
         timestamp: Date
@@ -252,7 +252,7 @@ final class SwiftDataTaskRepository: TaskRepository {
         return (try? modelContext.fetchCount(descriptor)) ?? 0 > 0
     }
 
-    private func storedTaskAssignments(id: UUID) -> [TaskAssignment]? {
+    private func storedTaskAssignments(id: UUID) -> [Assignment]? {
         let context = ModelContext(modelContainer)
         var descriptor = FetchDescriptor<DataModel.Task>(
             predicate: #Predicate { $0.id == id }

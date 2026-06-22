@@ -589,7 +589,7 @@ struct TaskDetailSheet: View {
         .opacity(isEnabled ? 1 : 0.7)
     }
 
-    private func formatAssignmentDate(_ assignment: TaskAssignment) -> String {
+    private func formatAssignmentDate(_ assignment: Assignment) -> String {
         let formatter = DateFormatter()
         formatter.calendar = journalManager.calendar
         formatter.timeZone = journalManager.calendar.timeZone
@@ -705,7 +705,7 @@ struct TaskDetailSheet: View {
         title: "Review project timeline",
         status: .open,
         assignments: [
-            TaskAssignment(period: .month, date: Date(), status: .open)
+            Assignment(period: .month, date: Date(), status: .open)
         ]
     )
 

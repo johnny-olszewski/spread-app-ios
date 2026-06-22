@@ -20,7 +20,7 @@ protocol ChangeAwareNoteRepository: Sendable {
     ///   - note: The note to save, already mutated to its new state.
     ///   - change: The note's identity/assignments/tags as they existed before mutation.
     /// - Throws: An error if the save operation fails.
-    func save(_ note: DataModel.Note, change: EntityChange<NoteAssignment>) async throws
+    func save(_ note: DataModel.Note, change: EntityChange) async throws
 
     /// Saves multiple notes in a single persistence commit, each diffed against its own
     /// caller-supplied pre-mutation state.

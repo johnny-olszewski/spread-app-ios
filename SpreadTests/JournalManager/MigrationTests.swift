@@ -36,7 +36,7 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open)
+                Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
 
@@ -73,7 +73,7 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open)
+                Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
 
@@ -111,7 +111,7 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open)
+                Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
 
@@ -147,7 +147,7 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open)
+                Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
 
@@ -184,7 +184,7 @@ struct MigrationTests {
             period: .day,
             status: .migrated,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open)
+                Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
 
@@ -220,7 +220,7 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open)
+                Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
 
@@ -258,8 +258,8 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open),
-                TaskAssignment(id: destinationID, period: .day, date: taskDate, status: .migrated)
+                Assignment(period: .month, date: taskDate, status: .open),
+                Assignment(id: destinationID, period: .day, date: taskDate, status: .migrated)
             ]
         )
 
@@ -301,7 +301,7 @@ struct MigrationTests {
             period: .day,
             status: .cancelled,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .cancelled)
+                Assignment(period: .month, date: taskDate, status: .cancelled)
             ]
         )
 
@@ -370,7 +370,7 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open)
+                Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
 
@@ -414,9 +414,9 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .year, date: taskDate, status: .open),
-                TaskAssignment(period: .month, date: taskDate, status: .open),
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+                Assignment(period: .year, date: taskDate, status: .open),
+                Assignment(period: .month, date: taskDate, status: .open),
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
 
@@ -445,8 +445,8 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open),
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+                Assignment(period: .month, date: taskDate, status: .open),
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
 
@@ -477,7 +477,7 @@ struct MigrationTests {
             period: .day,
             status: .active,
             assignments: [
-                NoteAssignment(period: .month, date: noteDate, status: .active)
+                Assignment(period: .month, date: noteDate, status: .active)
             ]
         )
 
@@ -514,7 +514,7 @@ struct MigrationTests {
             period: .day,
             status: .active,
             assignments: [
-                NoteAssignment(period: .month, date: noteDate, status: .active)
+                Assignment(period: .month, date: noteDate, status: .active)
             ]
         )
 
@@ -552,7 +552,7 @@ struct MigrationTests {
             period: .day,
             status: .active,
             assignments: [
-                NoteAssignment(period: .month, date: noteDate, status: .active)
+                Assignment(period: .month, date: noteDate, status: .active)
             ]
         )
 
@@ -588,7 +588,7 @@ struct MigrationTests {
             period: .day,
             status: .active,
             assignments: [
-                NoteAssignment(period: .month, date: noteDate, status: .active)
+                Assignment(period: .month, date: noteDate, status: .active)
             ]
         )
 
@@ -626,14 +626,14 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .month, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
         let task2 = DataModel.Task(
             title: "Task 2",
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .month, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
 
         let taskRepo = InMemoryTaskRepository(tasks: [task1, task2])
@@ -670,7 +670,7 @@ struct MigrationTests {
             period: .day,
             status: .migrated,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open)
+                Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
 
@@ -730,14 +730,14 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .month, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
         let cancelledTask = DataModel.Task(
             title: "Cancelled Task",
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: [TaskAssignment(period: .month, date: taskDate, status: .cancelled)]
+            assignments: [Assignment(period: .month, date: taskDate, status: .cancelled)]
         )
 
         let taskRepo = InMemoryTaskRepository(tasks: [openTask, cancelledTask])
@@ -810,14 +810,14 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
         let cancelledTask = DataModel.Task(
             title: "Cancelled Task",
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .cancelled)]
+            assignments: [Assignment(period: .year, date: taskDate, status: .cancelled)]
         )
 
         let taskRepo = InMemoryTaskRepository(tasks: [openTask, cancelledTask])
@@ -851,8 +851,8 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .year, date: taskDate, status: .open),
-                TaskAssignment(period: .month, date: taskDate, status: .migrated)
+                Assignment(period: .year, date: taskDate, status: .open),
+                Assignment(period: .month, date: taskDate, status: .migrated)
             ]
         )
 
@@ -885,7 +885,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .complete,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .complete)]
+            assignments: [Assignment(period: .year, date: taskDate, status: .complete)]
         )
 
         let taskRepo = InMemoryTaskRepository(tasks: [completedTask])
@@ -917,7 +917,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .migrated)]
+            assignments: [Assignment(period: .year, date: taskDate, status: .migrated)]
         )
 
         let taskRepo = InMemoryTaskRepository(tasks: [migratedTask])
@@ -953,7 +953,7 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .year, date: yearDate, status: .open)
+                Assignment(period: .year, date: yearDate, status: .open)
             ]
         )
 
@@ -989,7 +989,7 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .year, date: yearDate, status: .open)
+                Assignment(period: .year, date: yearDate, status: .open)
             ]
         )
         let inboxTask = DataModel.Task(
@@ -1031,7 +1031,7 @@ struct MigrationTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .month, date: monthDate, status: .open)
+                Assignment(period: .month, date: monthDate, status: .open)
             ]
         )
 
@@ -1063,7 +1063,7 @@ struct MigrationTests {
             period: .month,
             status: .open,
             assignments: [
-                TaskAssignment(period: .year, date: yearDate, status: .open)
+                Assignment(period: .year, date: yearDate, status: .open)
             ]
         )
 

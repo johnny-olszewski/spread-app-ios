@@ -342,11 +342,11 @@ struct SyncMetadataTests {
 
     // MARK: - Assignment statusUpdatedAt
 
-    /// Conditions: Encode and decode a TaskAssignment with statusUpdatedAt set.
+    /// Conditions: Encode and decode a Assignment with statusUpdatedAt set.
     /// Expected: statusUpdatedAt should round-trip through Codable.
     @Test func testTaskAssignmentStatusUpdatedAtRoundTrips() throws {
         let now = Date.now
-        let assignment = TaskAssignment(
+        let assignment = Assignment(
             period: .day,
             date: referenceDate,
             status: .open,
@@ -354,33 +354,33 @@ struct SyncMetadataTests {
         )
 
         let data = try JSONEncoder().encode(assignment)
-        let decoded = try JSONDecoder().decode(TaskAssignment.self, from: data)
+        let decoded = try JSONDecoder().decode(Assignment.self, from: data)
 
         #expect(decoded.statusUpdatedAt != nil)
         #expect(decoded.period == .day)
         #expect(decoded.status == .open)
     }
 
-    /// Conditions: Encode and decode a TaskAssignment without statusUpdatedAt.
+    /// Conditions: Encode and decode a Assignment without statusUpdatedAt.
     /// Expected: statusUpdatedAt should default to nil after decoding.
     @Test func testTaskAssignmentStatusUpdatedAtDefaultsToNil() throws {
-        let assignment = TaskAssignment(
+        let assignment = Assignment(
             period: .month,
             date: referenceDate,
             status: .complete
         )
 
         let data = try JSONEncoder().encode(assignment)
-        let decoded = try JSONDecoder().decode(TaskAssignment.self, from: data)
+        let decoded = try JSONDecoder().decode(Assignment.self, from: data)
 
         #expect(decoded.statusUpdatedAt == nil)
     }
 
-    /// Conditions: Encode and decode a NoteAssignment with statusUpdatedAt set.
+    /// Conditions: Encode and decode a Assignment with statusUpdatedAt set.
     /// Expected: statusUpdatedAt should round-trip through Codable.
     @Test func testNoteAssignmentStatusUpdatedAtRoundTrips() throws {
         let now = Date.now
-        let assignment = NoteAssignment(
+        let assignment = Assignment(
             period: .day,
             date: referenceDate,
             status: .active,
@@ -388,24 +388,24 @@ struct SyncMetadataTests {
         )
 
         let data = try JSONEncoder().encode(assignment)
-        let decoded = try JSONDecoder().decode(NoteAssignment.self, from: data)
+        let decoded = try JSONDecoder().decode(Assignment.self, from: data)
 
         #expect(decoded.statusUpdatedAt != nil)
         #expect(decoded.period == .day)
         #expect(decoded.status == .active)
     }
 
-    /// Conditions: Encode and decode a NoteAssignment without statusUpdatedAt.
+    /// Conditions: Encode and decode a Assignment without statusUpdatedAt.
     /// Expected: statusUpdatedAt should default to nil after decoding.
     @Test func testNoteAssignmentStatusUpdatedAtDefaultsToNil() throws {
-        let assignment = NoteAssignment(
+        let assignment = Assignment(
             period: .year,
             date: referenceDate,
             status: .migrated
         )
 
         let data = try JSONEncoder().encode(assignment)
-        let decoded = try JSONDecoder().decode(NoteAssignment.self, from: data)
+        let decoded = try JSONDecoder().decode(Assignment.self, from: data)
 
         #expect(decoded.statusUpdatedAt == nil)
     }
@@ -587,7 +587,7 @@ struct SyncMetadataTests {
         let assignmentID = UUID()
         let spreadID = UUID()
 
-        let assignment = TaskAssignment(
+        let assignment = Assignment(
             id: assignmentID,
             period: .day,
             date: referenceDate,
@@ -615,7 +615,7 @@ struct SyncMetadataTests {
         let assignmentID = UUID()
         let spreadID = UUID()
 
-        let assignment = NoteAssignment(
+        let assignment = Assignment(
             id: assignmentID,
             period: .day,
             date: referenceDate,

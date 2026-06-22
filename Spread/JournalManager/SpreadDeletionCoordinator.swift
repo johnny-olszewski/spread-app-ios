@@ -24,7 +24,7 @@ struct TaskSpreadDeletionPlan: Sendable {
     ///
     /// `nil` when `replacementAssignmentIndex` is set (the parent already has an assignment)
     /// or when there is no parent spread (the task goes to Inbox).
-    let replacementAssignment: TaskAssignment?
+    let replacementAssignment: Assignment?
 
     /// The status to carry over to the replacement assignment (e.g., `.open` or `.complete`).
     ///
@@ -47,7 +47,7 @@ struct NoteSpreadDeletionPlan: Sendable {
 
     /// A new assignment to append for the parent spread, or `nil` when going to Inbox or
     /// when the parent already has an assignment.
-    let replacementAssignment: NoteAssignment?
+    let replacementAssignment: Assignment?
 
     /// The status to carry over to the replacement assignment.
     let preservedStatus: EntryStatus
@@ -231,9 +231,9 @@ struct StandardSpreadDeletionPlanner: SpreadDeletionPlanner {
             })
         }
 
-        let replacementAssignment = replacementSpread.flatMap { parent -> TaskAssignment? in
+        let replacementAssignment = replacementSpread.flatMap { parent -> Assignment? in
             guard replacementAssignmentIndex == nil else { return nil }
-            return TaskAssignment(
+            return Assignment(
                 period: parent.period,
                 date: parent.date,
                 spreadID: parent.period == .multiday ? parent.id : nil,
@@ -275,9 +275,9 @@ struct StandardSpreadDeletionPlanner: SpreadDeletionPlanner {
             })
         }
 
-        let replacementAssignment = replacementSpread.flatMap { parent -> NoteAssignment? in
+        let replacementAssignment = replacementSpread.flatMap { parent -> Assignment? in
             guard replacementAssignmentIndex == nil else { return nil }
-            return NoteAssignment(
+            return Assignment(
                 period: parent.period,
                 date: parent.date,
                 spreadID: parent.period == .multiday ? parent.id : nil,

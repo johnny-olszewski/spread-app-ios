@@ -31,7 +31,7 @@ struct TargetedJournalMutationTests {
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: dayDate, status: .open)]
+            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
         let taskRepository = CountingTaskRepository(tasks: [task])
         let builderTracker = DataModelBuilderTracker()
@@ -67,7 +67,7 @@ struct TargetedJournalMutationTests {
             content: "Body",
             date: dayDate,
             period: .day,
-            assignments: [NoteAssignment(period: .day, date: dayDate, status: .active)]
+            assignments: [Assignment(period: .day, date: dayDate, status: .active)]
         )
         let noteRepository = CountingNoteRepository(notes: [note])
         let builderTracker = DataModelBuilderTracker()
@@ -105,7 +105,7 @@ struct TargetedJournalMutationTests {
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: dayDate, status: .open)]
+            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
         let builderTracker = DataModelBuilderTracker()
         let builder = TrackingConventionalBuilder(calendar: Self.calendar, tracker: builderTracker)
@@ -141,7 +141,7 @@ struct TargetedJournalMutationTests {
             date: Self.today,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: Self.today, status: .open)]
+            assignments: [Assignment(period: .day, date: Self.today, status: .open)]
         )
         let builderTracker = DataModelBuilderTracker()
         let builder = TrackingConventionalBuilder(calendar: Self.calendar, tracker: builderTracker)

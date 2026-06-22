@@ -127,8 +127,8 @@ final class SwiftDataNoteRepository: NoteRepository {
 
     private func enqueueNoteAssignmentMutations(
         noteId: UUID,
-        previousAssignments: [NoteAssignment],
-        currentAssignments: [NoteAssignment],
+        previousAssignments: [Assignment],
+        currentAssignments: [Assignment],
         timestamp: Date
     ) {
         var previousByID = Dictionary(uniqueKeysWithValues: previousAssignments.map { ($0.id, $0) })
@@ -159,7 +159,7 @@ final class SwiftDataNoteRepository: NoteRepository {
     }
 
     private func enqueueNoteAssignmentTombstones(
-        _ assignments: [NoteAssignment],
+        _ assignments: [Assignment],
         noteId: UUID,
         timestamp: Date
     ) {
@@ -174,7 +174,7 @@ final class SwiftDataNoteRepository: NoteRepository {
     }
 
     private func enqueueNoteAssignmentMutation(
-        _ assignment: NoteAssignment,
+        _ assignment: Assignment,
         noteId: UUID,
         operation: SyncOperation,
         timestamp: Date
@@ -252,7 +252,7 @@ final class SwiftDataNoteRepository: NoteRepository {
         return (try? modelContext.fetchCount(descriptor)) ?? 0 > 0
     }
 
-    private func storedNoteAssignments(id: UUID) -> [NoteAssignment]? {
+    private func storedNoteAssignments(id: UUID) -> [Assignment]? {
         let context = ModelContext(modelContainer)
         var descriptor = FetchDescriptor<DataModel.Note>(
             predicate: #Predicate { $0.id == id }

@@ -47,7 +47,7 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
             task.assignments[destinationIndex].status = .open
         } else {
             task.assignments.append(
-                TaskAssignment(
+                Assignment(
                     period: destination.period,
                     date: destination.date,
                     spreadID: destination.period == .multiday ? destination.id : nil,
@@ -109,7 +109,7 @@ struct StandardTaskMigrationCoordinator: TaskMigrationCoordinator {
                 task.assignments[destinationIndex].status = .open
             } else {
                 task.assignments.append(
-                    TaskAssignment(
+                    Assignment(
                         period: destination.period,
                         date: destination.date,
                         spreadID: destination.period == .multiday ? destination.id : nil,

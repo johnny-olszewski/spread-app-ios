@@ -21,7 +21,7 @@ struct AssignmentReconcilerTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
 
         StandardTaskAssignmentReconciler(calendar: Self.calendar)
@@ -40,8 +40,8 @@ struct AssignmentReconcilerTests {
             period: .month,
             status: .complete,
             assignments: [
-                TaskAssignment(period: .year, date: taskDate, status: .open),
-                TaskAssignment(period: .month, date: taskDate, status: .migrated)
+                Assignment(period: .year, date: taskDate, status: .open),
+                Assignment(period: .month, date: taskDate, status: .migrated)
             ]
         )
 
@@ -59,7 +59,7 @@ struct AssignmentReconcilerTests {
             title: "Note",
             date: taskDate,
             period: .day,
-            assignments: [NoteAssignment(period: .year, date: taskDate, status: .active)]
+            assignments: [Assignment(period: .year, date: taskDate, status: .active)]
         )
 
         StandardNoteAssignmentReconciler(calendar: Self.calendar)
@@ -79,8 +79,8 @@ struct AssignmentReconcilerTests {
             date: taskDate,
             period: .day,
             assignments: [
-                NoteAssignment(period: .month, date: taskDate, status: .active),
-                NoteAssignment(period: .day, date: taskDate, status: .migrated)
+                Assignment(period: .month, date: taskDate, status: .active),
+                Assignment(period: .day, date: taskDate, status: .migrated)
             ]
         )
 

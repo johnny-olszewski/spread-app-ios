@@ -131,7 +131,7 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
             nowProvider: { Date(timeIntervalSince1970: 110) }
         )
 
-        let assignment = TaskAssignment(period: .day, date: Date(timeIntervalSince1970: 1_000), status: .open)
+        let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 1_000), status: .open)
         let task = DataModel.Task(title: "Assigned task", assignments: [assignment])
 
         try await repository.save(task, change: EntityChange())
@@ -160,7 +160,7 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
             nowProvider: { Date(timeIntervalSince1970: 210) }
         )
 
-        let assignment = TaskAssignment(period: .day, date: Date(timeIntervalSince1970: 2_000), status: .open)
+        let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 2_000), status: .open)
         let task = DataModel.Task(title: "Assigned task", assignments: [assignment])
         try await repository.save(task, change: EntityChange())
 
@@ -193,7 +193,7 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
             nowProvider: { timestamps.removeFirst() }
         )
 
-        let assignment = TaskAssignment(period: .month, date: Date(timeIntervalSince1970: 3_000), status: .open)
+        let assignment = Assignment(period: .month, date: Date(timeIntervalSince1970: 3_000), status: .open)
         let task = DataModel.Task(title: "Delete assigned task", assignments: [assignment])
         try await repository.save(task, change: EntityChange())
         try await repository.delete(task)
@@ -280,7 +280,7 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
             modelContainer: changeAwareContainer, deviceId: deviceId, nowProvider: nowProvider
         )
 
-        let assignment = TaskAssignment(period: .day, date: Date(timeIntervalSince1970: 5_000), status: .open)
+        let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 5_000), status: .open)
         let legacyTask = DataModel.Task(title: "Parity Task", assignments: [assignment])
         let changeAwareTask = DataModel.Task(
             id: legacyTask.id, title: "Parity Task", assignments: [assignment]

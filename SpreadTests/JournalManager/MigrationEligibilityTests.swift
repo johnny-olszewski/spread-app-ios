@@ -29,7 +29,7 @@ struct MigrationEligibilityTests {
             period: .month,
             status: .open,
             assignments: [
-                TaskAssignment(period: .year, date: taskDate, status: .open)
+                Assignment(period: .year, date: taskDate, status: .open)
             ]
         )
 
@@ -61,7 +61,7 @@ struct MigrationEligibilityTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .year, date: taskDate, status: .open)
+                Assignment(period: .year, date: taskDate, status: .open)
             ]
         )
 
@@ -121,21 +121,21 @@ struct MigrationEligibilityTests {
             date: taskDate,
             period: .month,
             status: .complete,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
         let cancelledTask = DataModel.Task(
             title: "Cancelled",
             date: taskDate,
             period: .month,
             status: .cancelled,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
         let resolvedTask = DataModel.Task(
             title: "Resolved",
             date: taskDate,
             period: .month,
             status: .open,
-            assignments: [TaskAssignment(period: .month, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
 
         let manager = try await JournalManager.make(
@@ -189,7 +189,7 @@ struct MigrationEligibilityTests {
             date: aprilSixth,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .year, date: yearDate, status: .open)]
+            assignments: [Assignment(period: .year, date: yearDate, status: .open)]
         )
 
         let manager = try await JournalManager.make(

@@ -37,7 +37,7 @@ final class TestChangeAwareTaskRepository: ChangeAwareTaskRepository {
         Array(tasks.values).sorted { $0.createdDate < $1.createdDate }
     }
 
-    func save(_ task: DataModel.Task, change: EntityChange<TaskAssignment>) async throws {
+    func save(_ task: DataModel.Task, change: EntityChange) async throws {
         tasks[task.id] = task
     }
 

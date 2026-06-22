@@ -649,10 +649,10 @@ extension MockDataSet {
         status: EntryStatus = .open,
         calendar: Calendar
     ) -> DataModel.Task {
-        let assignments: [TaskAssignment]
+        let assignments: [Assignment]
         if let assignmentPeriod, let assignmentDate {
             assignments = [
-                TaskAssignment(
+                Assignment(
                     period: assignmentPeriod,
                     date: assignmentPeriod.normalizeDate(assignmentDate, calendar: calendar),
                     status: status == .complete ? .complete : .open
@@ -679,10 +679,10 @@ extension MockDataSet {
         assignmentDate: Date? = nil,
         calendar: Calendar
     ) -> DataModel.Note {
-        let assignments: [NoteAssignment]
+        let assignments: [Assignment]
         if let assignmentPeriod, let assignmentDate {
             assignments = [
-                NoteAssignment(
+                Assignment(
                     period: assignmentPeriod,
                     date: assignmentPeriod.normalizeDate(assignmentDate, calendar: calendar),
                     status: .active

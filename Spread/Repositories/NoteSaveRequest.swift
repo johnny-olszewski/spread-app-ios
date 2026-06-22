@@ -5,10 +5,10 @@ struct NoteSaveRequest {
     /// The note to save, already mutated to its new state.
     let note: DataModel.Note
     /// The note's identity/assignments/tags as they existed before mutation.
-    let change: EntityChange<NoteAssignment>
+    let change: EntityChange
 
     /// Creates a save request. Defaults to a brand-new note with no prior assignments or tags.
-    init(note: DataModel.Note, change: EntityChange<NoteAssignment> = EntityChange()) {
+    init(note: DataModel.Note, change: EntityChange = EntityChange()) {
         self.note = note
         self.change = change
     }

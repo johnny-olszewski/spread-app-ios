@@ -20,7 +20,7 @@ protocol ChangeAwareTaskRepository: Sendable {
     ///   - task: The task to save, already mutated to its new state.
     ///   - change: The task's identity/assignments/tags as they existed before mutation.
     /// - Throws: An error if the save operation fails.
-    func save(_ task: DataModel.Task, change: EntityChange<TaskAssignment>) async throws
+    func save(_ task: DataModel.Task, change: EntityChange) async throws
 
     /// Saves multiple tasks in a single persistence commit, each diffed against its own
     /// caller-supplied pre-mutation state.

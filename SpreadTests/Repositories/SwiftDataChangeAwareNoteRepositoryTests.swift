@@ -131,7 +131,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
             nowProvider: { Date(timeIntervalSince1970: 110) }
         )
 
-        let assignment = NoteAssignment(period: .day, date: Date(timeIntervalSince1970: 1_000), status: .active)
+        let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 1_000), status: .active)
         let note = DataModel.Note(title: "Assigned note", assignments: [assignment])
 
         try await repository.save(note, change: EntityChange())
@@ -160,7 +160,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
             nowProvider: { Date(timeIntervalSince1970: 210) }
         )
 
-        let assignment = NoteAssignment(period: .day, date: Date(timeIntervalSince1970: 2_000), status: .active)
+        let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 2_000), status: .active)
         let note = DataModel.Note(title: "Assigned note", assignments: [assignment])
         try await repository.save(note, change: EntityChange())
 
@@ -193,7 +193,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
             nowProvider: { timestamps.removeFirst() }
         )
 
-        let assignment = NoteAssignment(period: .month, date: Date(timeIntervalSince1970: 3_000), status: .active)
+        let assignment = Assignment(period: .month, date: Date(timeIntervalSince1970: 3_000), status: .active)
         let note = DataModel.Note(title: "Delete assigned note", assignments: [assignment])
         try await repository.save(note, change: EntityChange())
         try await repository.delete(note)
@@ -280,7 +280,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
             modelContainer: changeAwareContainer, deviceId: deviceId, nowProvider: nowProvider
         )
 
-        let assignment = NoteAssignment(period: .day, date: Date(timeIntervalSince1970: 5_000), status: .active)
+        let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 5_000), status: .active)
         let legacyNote = DataModel.Note(title: "Parity Note", assignments: [assignment])
         let changeAwareNote = DataModel.Note(
             id: legacyNote.id, title: "Parity Note", assignments: [assignment]

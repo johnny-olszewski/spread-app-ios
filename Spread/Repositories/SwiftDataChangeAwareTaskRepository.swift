@@ -59,7 +59,7 @@ final class SwiftDataChangeAwareTaskRepository: ChangeAwareTaskRepository {
 
     /// Persists `task` and enqueues sync-outbox mutations for the task, its assignments, and
     /// its tags, diffing against `change` rather than re-fetching pre-mutation state from disk.
-    func save(_ task: DataModel.Task, change: EntityChange<TaskAssignment>) async throws {
+    func save(_ task: DataModel.Task, change: EntityChange) async throws {
         try await saveAll([TaskSaveRequest(task: task, change: change)])
     }
 
@@ -146,8 +146,8 @@ final class SwiftDataChangeAwareTaskRepository: ChangeAwareTaskRepository {
     /// any previous assignment no longer present in `currentAssignments`.
     private func enqueueTaskAssignmentMutations(
         taskId: UUID,
-        previousAssignments: [TaskAssignment],
-        currentAssignments: [TaskAssignment],
+        previousAssignments: [Assignment],
+        currentAssignments: [Assignment],
         timestamp: Date
     ) {
         var previousByID = Dictionary(uniqueKeysWithValues: previousAssignments.map { ($0.id, $0) })
@@ -179,7 +179,7 @@ final class SwiftDataChangeAwareTaskRepository: ChangeAwareTaskRepository {
 
     /// Enqueues a delete mutation for each of `assignments`.
     private func enqueueTaskAssignmentTombstones(
-        _ assignments: [TaskAssignment],
+        _ assignments: [Assignment],
         taskId: UUID,
         timestamp: Date
     ) {
@@ -195,7 +195,7 @@ final class SwiftDataChangeAwareTaskRepository: ChangeAwareTaskRepository {
 
     /// Serializes `assignment` and enqueues a single sync-outbox mutation for it.
     private func enqueueTaskAssignmentMutation(
-        _ assignment: TaskAssignment,
+        _ assignment: Assignment,
         taskId: UUID,
         operation: SyncOperation,
         timestamp: Date

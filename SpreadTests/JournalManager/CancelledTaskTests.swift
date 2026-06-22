@@ -35,7 +35,7 @@ struct CancelledTaskTests {
             period: .day,
             status: .cancelled,
             assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .cancelled)
+                Assignment(period: .day, date: taskDate, status: .cancelled)
             ]
         )
 
@@ -74,7 +74,7 @@ struct CancelledTaskTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
 
@@ -85,7 +85,7 @@ struct CancelledTaskTests {
             period: .day,
             status: .cancelled,
             assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .cancelled)
+                Assignment(period: .day, date: taskDate, status: .cancelled)
             ]
         )
 
@@ -124,7 +124,7 @@ struct CancelledTaskTests {
             period: .month,
             status: .cancelled,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .cancelled)
+                Assignment(period: .month, date: taskDate, status: .cancelled)
             ]
         )
 
@@ -167,7 +167,7 @@ struct CancelledTaskTests {
             period: .multiday,
             status: .cancelled,
             assignments: [
-                TaskAssignment(
+                Assignment(
                     period: .multiday,
                     date: multidaySpread.date,
                     spreadID: multidaySpread.id,
@@ -281,7 +281,7 @@ struct CancelledTaskTests {
             period: .day,
             status: .complete,
             assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .complete)
+                Assignment(period: .day, date: taskDate, status: .complete)
             ]
         )
 
@@ -318,7 +318,7 @@ struct CancelledTaskTests {
             period: .day,
             status: .migrated,
             assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .migrated)
+                Assignment(period: .day, date: taskDate, status: .migrated)
             ]
         )
 

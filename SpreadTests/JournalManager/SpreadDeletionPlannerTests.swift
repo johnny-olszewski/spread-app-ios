@@ -25,7 +25,7 @@ struct SpreadDeletionPlannerTests {
             date: Self.testDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: Self.testDate, status: .open)]
+            assignments: [Assignment(period: .day, date: Self.testDate, status: .open)]
         )
 
         let plan = planner.makePlan(for: day, spreads: [year, month, day], tasks: [task], notes: [])
@@ -42,7 +42,7 @@ struct SpreadDeletionPlannerTests {
             date: Self.testDate,
             period: .day,
             status: .complete,
-            assignments: [TaskAssignment(period: .day, date: Self.testDate, status: .complete)]
+            assignments: [Assignment(period: .day, date: Self.testDate, status: .complete)]
         )
 
         let plan = planner.makePlan(for: day, spreads: [day], tasks: [task], notes: [])
@@ -62,8 +62,8 @@ struct SpreadDeletionPlannerTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .day, date: Self.testDate, status: .open),
-                TaskAssignment(period: .month, date: Self.testDate, status: .migrated)
+                Assignment(period: .day, date: Self.testDate, status: .open),
+                Assignment(period: .month, date: Self.testDate, status: .migrated)
             ]
         )
         let note = DataModel.Note(
@@ -72,8 +72,8 @@ struct SpreadDeletionPlannerTests {
             period: .day,
             status: .active,
             assignments: [
-                NoteAssignment(period: .day, date: Self.testDate, status: .active),
-                NoteAssignment(period: .month, date: Self.testDate, status: .migrated)
+                Assignment(period: .day, date: Self.testDate, status: .active),
+                Assignment(period: .month, date: Self.testDate, status: .migrated)
             ]
         )
 
@@ -96,7 +96,7 @@ struct SpreadDeletionPlannerTests {
             date: Self.testDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: Self.testDate, status: .open)]
+            assignments: [Assignment(period: .day, date: Self.testDate, status: .open)]
         )
 
         let plan = planner.makePlan(for: multiday, spreads: [multiday], tasks: [task], notes: [])

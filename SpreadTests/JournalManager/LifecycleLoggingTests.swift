@@ -95,7 +95,7 @@ struct LifecycleLoggingTests {
             date: today,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .month, date: monthDate, status: .open)]
+            assignments: [Assignment(period: .month, date: monthDate, status: .open)]
         )
         let manager = try await makeManager(tasks: [task], spreads: [monthSpread, daySpread])
 
@@ -119,7 +119,7 @@ struct LifecycleLoggingTests {
             date: today,
             period: .day,
             status: .active,
-            assignments: [NoteAssignment(period: .month, date: monthDate, status: .active)]
+            assignments: [Assignment(period: .month, date: monthDate, status: .active)]
         )
         let manager = try await makeManager(
             spreads: [monthSpread, daySpread],
@@ -147,7 +147,7 @@ struct LifecycleLoggingTests {
                 date: today,
                 period: .day,
                 status: .open,
-                assignments: [TaskAssignment(period: .month, date: monthDate, status: .open)]
+                assignments: [Assignment(period: .month, date: monthDate, status: .open)]
             )
         }
         let manager = try await makeManager(tasks: tasks, spreads: [monthSpread, daySpread])
@@ -175,7 +175,7 @@ struct LifecycleLoggingTests {
             date: today,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: dayDate, status: .open)]
+            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
         let manager = try await makeManager(tasks: [task], spreads: [monthSpread, daySpread])
 

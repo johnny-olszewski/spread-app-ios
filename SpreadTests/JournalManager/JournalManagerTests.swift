@@ -171,7 +171,7 @@ struct JournalManagerTests {
             date: Self.testDate,
             period: .multiday,
             assignments: [
-                TaskAssignment(
+                Assignment(
                     period: .multiday,
                     date: multidaySpread.date,
                     spreadID: multidaySpread.id,
@@ -216,7 +216,7 @@ struct JournalManagerTests {
             date: Self.testDate,
             period: .multiday,
             assignments: [
-                NoteAssignment(
+                Assignment(
                     period: .multiday,
                     date: multidaySpread.date,
                     spreadID: multidaySpread.id,

@@ -22,14 +22,14 @@ struct SpreadDeletionCoordinatorTests {
             date: Self.testDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: Self.testDate, status: .open)]
+            assignments: [Assignment(period: .day, date: Self.testDate, status: .open)]
         )
         let note = DataModel.Note(
             title: "note",
             date: Self.testDate,
             period: .day,
             status: .active,
-            assignments: [NoteAssignment(period: .day, date: Self.testDate, status: .active)]
+            assignments: [Assignment(period: .day, date: Self.testDate, status: .active)]
         )
 
         let taskRepository = InMemoryTaskRepository(tasks: [task])
@@ -70,7 +70,7 @@ struct SpreadDeletionCoordinatorTests {
             date: Self.testDate,
             period: .day,
             status: .complete,
-            assignments: [TaskAssignment(period: .day, date: Self.testDate, status: .complete)]
+            assignments: [Assignment(period: .day, date: Self.testDate, status: .complete)]
         )
 
         let taskRepository = InMemoryTaskRepository(tasks: [task])

@@ -41,9 +41,9 @@ extension TestDataBuilders {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .year, date: yearDate, status: .migrated),
-                TaskAssignment(period: .month, date: monthDate, status: .migrated),
-                TaskAssignment(period: .day, date: dayDate, status: .open)
+                Assignment(period: .year, date: yearDate, status: .migrated),
+                Assignment(period: .month, date: monthDate, status: .migrated),
+                Assignment(period: .day, date: dayDate, status: .open)
             ]
         )
 
@@ -54,8 +54,8 @@ extension TestDataBuilders {
             period: .day,
             status: .active,
             assignments: [
-                NoteAssignment(period: .month, date: monthDate, status: .migrated),
-                NoteAssignment(period: .day, date: dayDate, status: .active)
+                Assignment(period: .month, date: monthDate, status: .migrated),
+                Assignment(period: .day, date: dayDate, status: .active)
             ]
         )
 
@@ -104,7 +104,7 @@ extension TestDataBuilders {
                 period: .month,
                 status: .open,
                 assignments: [
-                    TaskAssignment(period: .month, date: monthDate, status: .open)
+                    Assignment(period: .month, date: monthDate, status: .open)
                 ]
             )
         }
@@ -117,7 +117,7 @@ extension TestDataBuilders {
                 period: .month,
                 status: .active,
                 assignments: [
-                    NoteAssignment(period: .month, date: monthDate, status: .active)
+                    Assignment(period: .month, date: monthDate, status: .active)
                 ]
             )
         }
@@ -171,7 +171,7 @@ extension TestDataBuilders {
                 period: .day,
                 status: .open,
                 assignments: [
-                    TaskAssignment(period: .day, date: dayDate, status: .open)
+                    Assignment(period: .day, date: dayDate, status: .open)
                 ]
             )
         }
@@ -183,7 +183,7 @@ extension TestDataBuilders {
             period: .month,
             status: .open,
             assignments: [
-                TaskAssignment(period: .month, date: monthDate, status: .open)
+                Assignment(period: .month, date: monthDate, status: .open)
             ]
         )
 
@@ -195,7 +195,7 @@ extension TestDataBuilders {
                 period: .day,
                 status: .active,
                 assignments: [
-                    NoteAssignment(period: .day, date: dayDate, status: .active)
+                    Assignment(period: .day, date: dayDate, status: .active)
                 ]
             )
         ]
@@ -262,7 +262,7 @@ extension TestDataBuilders {
                 period: .day,
                 status: .open,
                 assignments: [
-                    TaskAssignment(period: .day, date: dec31Date, status: .open)
+                    Assignment(period: .day, date: dec31Date, status: .open)
                 ]
             ),
             crossYearMultiday: DataModel.Spread(
@@ -332,7 +332,7 @@ extension TestDataBuilders {
                 period: .day,
                 status: .open,
                 assignments: [
-                    TaskAssignment(period: .day, date: normalizedFeb29, status: .open)
+                    Assignment(period: .day, date: normalizedFeb29, status: .open)
                 ]
             ),
             noteOnLeapDay: DataModel.Note(
@@ -342,7 +342,7 @@ extension TestDataBuilders {
                 period: .day,
                 status: .active,
                 assignments: [
-                    NoteAssignment(period: .day, date: normalizedFeb29, status: .active)
+                    Assignment(period: .day, date: normalizedFeb29, status: .active)
                 ]
             )
         )

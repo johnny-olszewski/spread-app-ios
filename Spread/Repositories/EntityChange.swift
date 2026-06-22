@@ -6,7 +6,7 @@ import Foundation
 /// Callers hold this state one statement before mutating a task or note, then pass it
 /// into a change-aware repository's `save` so the repository can diff for the sync
 /// outbox using values already in memory instead of re-fetching prior state from disk.
-struct EntityChange<Assignment> {
+struct EntityChange {
     /// `true` when the entity has never been persisted before; `false` for an update.
     let isNew: Bool
     /// The entity's assignments as they existed before the caller's mutation.

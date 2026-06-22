@@ -144,7 +144,7 @@ struct SwiftDataRepositoryTests {
             nowProvider: { Date(timeIntervalSince1970: 110) }
         )
 
-        let assignment = TaskAssignment(
+        let assignment = Assignment(
             period: .day,
             date: Date(timeIntervalSince1970: 1_000),
             status: .open
@@ -202,7 +202,7 @@ struct SwiftDataRepositoryTests {
             nowProvider: { Date(timeIntervalSince1970: 210) }
         )
 
-        let assignment = TaskAssignment(period: .day, date: assignmentDate, status: .open)
+        let assignment = Assignment(period: .day, date: assignmentDate, status: .open)
         let task = DataModel.Task(title: "Assigned task", assignments: [assignment])
         try await repository.save(task)
 
@@ -266,7 +266,7 @@ struct SwiftDataRepositoryTests {
             nowProvider: { timestamps.removeFirst() }
         )
 
-        let assignment = TaskAssignment(
+        let assignment = Assignment(
             period: .month,
             date: Date(timeIntervalSince1970: 3_000),
             status: .open
@@ -303,7 +303,7 @@ struct SwiftDataRepositoryTests {
             nowProvider: { timestamps.removeFirst() }
         )
 
-        let assignment = TaskAssignment(
+        let assignment = Assignment(
             period: .day,
             date: Date(timeIntervalSince1970: 4_000),
             status: .open

@@ -44,7 +44,7 @@ extension TestDataBuilders {
                 period: .day,
                 status: .open,
                 assignments: [
-                    TaskAssignment(period: .day, date: dayDate, status: .open)
+                    Assignment(period: .day, date: dayDate, status: .open)
                 ]
             ),
             completedOnMonth: DataModel.Task(
@@ -54,7 +54,7 @@ extension TestDataBuilders {
                 period: .month,
                 status: .complete,
                 assignments: [
-                    TaskAssignment(period: .month, date: monthDate, status: .complete)
+                    Assignment(period: .month, date: monthDate, status: .complete)
                 ]
             ),
             migratedFromMonthToDay: DataModel.Task(
@@ -64,8 +64,8 @@ extension TestDataBuilders {
                 period: .day,
                 status: .open,
                 assignments: [
-                    TaskAssignment(period: .month, date: monthDate, status: .migrated),
-                    TaskAssignment(period: .day, date: dayDate, status: .open)
+                    Assignment(period: .month, date: monthDate, status: .migrated),
+                    Assignment(period: .day, date: dayDate, status: .open)
                 ]
             ),
             cancelled: DataModel.Task(
@@ -75,7 +75,7 @@ extension TestDataBuilders {
                 period: .day,
                 status: .cancelled,
                 assignments: [
-                    TaskAssignment(period: .day, date: dayDate, status: .cancelled)
+                    Assignment(period: .day, date: dayDate, status: .cancelled)
                 ]
             ),
             openOnYear: DataModel.Task(
@@ -85,7 +85,7 @@ extension TestDataBuilders {
                 period: .year,
                 status: .open,
                 assignments: [
-                    TaskAssignment(period: .year, date: yearDate, status: .open)
+                    Assignment(period: .year, date: yearDate, status: .open)
                 ]
             ),
             unassigned: DataModel.Task(

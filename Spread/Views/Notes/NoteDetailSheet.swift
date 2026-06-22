@@ -400,7 +400,7 @@ struct NoteDetailSheet: View {
 
     // MARK: - Helpers
 
-    private func formatAssignmentDate(_ assignment: NoteAssignment) -> String {
+    private func formatAssignmentDate(_ assignment: Assignment) -> String {
         let formatter = DateFormatter()
         formatter.calendar = journalManager.calendar
         formatter.timeZone = journalManager.calendar.timeZone
@@ -506,7 +506,7 @@ struct NoteDetailSheet: View {
         title: "Meeting notes",
         content: "Discussed project timeline and deliverables.\nAction items assigned.",
         assignments: [
-            NoteAssignment(period: .month, date: Date(), status: .active)
+            Assignment(period: .month, date: Date(), status: .active)
         ]
     )
 

@@ -231,7 +231,7 @@ struct StandardMigrationPlanner: MigrationPlanner {
         for task: DataModel.Task,
         spreads: [DataModel.Spread],
         excluding excludedSpread: DataModel.Spread?,
-        matching statusPredicate: (TaskAssignment) -> Bool
+        matching statusPredicate: (Assignment) -> Bool
     ) -> DataModel.Spread? {
         task.assignments
             .filter(statusPredicate)

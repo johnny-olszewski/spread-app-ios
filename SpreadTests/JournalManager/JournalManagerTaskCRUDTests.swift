@@ -286,7 +286,7 @@ struct JournalManagerTaskCRUDTests {
             date: sourceDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: sourceDate, status: .open)]
+            assignments: [Assignment(period: .day, date: sourceDate, status: .open)]
         )
         let manager = try await JournalManager.make(
             calendar: calendar,
@@ -324,7 +324,7 @@ struct JournalManagerTaskCRUDTests {
             date: sourceDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: sourceDate, status: .open)]
+            assignments: [Assignment(period: .day, date: sourceDate, status: .open)]
         )
         let manager = try await JournalManager.make(
             calendar: calendar,
@@ -358,7 +358,7 @@ struct JournalManagerTaskCRUDTests {
             date: yearDate,
             period: .year,
             status: .open,
-            assignments: [TaskAssignment(period: .year, date: yearDate, status: .open)]
+            assignments: [Assignment(period: .year, date: yearDate, status: .open)]
         )
 
         let manager = try await JournalManager.make(
@@ -458,7 +458,7 @@ struct JournalManagerTaskCRUDTests {
             date: sourceDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: sourceDate, status: .open)]
+            assignments: [Assignment(period: .day, date: sourceDate, status: .open)]
         )
         let manager = try await JournalManager.make(
             calendar: calendar,
@@ -594,7 +594,7 @@ struct JournalManagerTaskCRUDTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .day, date: dayDate, status: .open)
+                Assignment(period: .day, date: dayDate, status: .open)
             ]
         )
         let manager = try await makeManager(tasks: [existingTask])
@@ -620,7 +620,7 @@ struct JournalManagerTaskCRUDTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .day, date: dayDate, status: .open)
+                Assignment(period: .day, date: dayDate, status: .open)
             ]
         )
         let manager = try await makeManager(tasks: [existingTask])

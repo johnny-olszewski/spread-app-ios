@@ -868,7 +868,7 @@ final class SyncEngine {
     }
 
     private func taskAssignmentMatches(
-        _ assignment: TaskAssignment,
+        _ assignment: Assignment,
         rowID: UUID,
         rowPeriod: Period,
         rowDate: Date,
@@ -886,7 +886,7 @@ final class SyncEngine {
     }
 
     private func noteAssignmentMatches(
-        _ assignment: NoteAssignment,
+        _ assignment: Assignment,
         rowID: UUID,
         rowPeriod: Period,
         rowDate: Date,

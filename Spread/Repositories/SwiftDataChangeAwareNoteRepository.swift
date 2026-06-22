@@ -59,7 +59,7 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
 
     /// Persists `note` and enqueues sync-outbox mutations for the note, its assignments, and
     /// its tags, diffing against `change` rather than re-fetching pre-mutation state from disk.
-    func save(_ note: DataModel.Note, change: EntityChange<NoteAssignment>) async throws {
+    func save(_ note: DataModel.Note, change: EntityChange) async throws {
         try await saveAll([NoteSaveRequest(note: note, change: change)])
     }
 
@@ -143,8 +143,8 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
     /// any previous assignment no longer present in `currentAssignments`.
     private func enqueueNoteAssignmentMutations(
         noteId: UUID,
-        previousAssignments: [NoteAssignment],
-        currentAssignments: [NoteAssignment],
+        previousAssignments: [Assignment],
+        currentAssignments: [Assignment],
         timestamp: Date
     ) {
         var previousByID = Dictionary(uniqueKeysWithValues: previousAssignments.map { ($0.id, $0) })
@@ -176,7 +176,7 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
 
     /// Enqueues a delete mutation for each of `assignments`.
     private func enqueueNoteAssignmentTombstones(
-        _ assignments: [NoteAssignment],
+        _ assignments: [Assignment],
         noteId: UUID,
         timestamp: Date
     ) {
@@ -192,7 +192,7 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
 
     /// Serializes `assignment` and enqueues a single sync-outbox mutation for it.
     private func enqueueNoteAssignmentMutation(
-        _ assignment: NoteAssignment,
+        _ assignment: Assignment,
         noteId: UUID,
         operation: SyncOperation,
         timestamp: Date

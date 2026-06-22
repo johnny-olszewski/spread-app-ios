@@ -273,7 +273,7 @@ enum DataModelSchemaV1: VersionedSchema {
     /// An assignable entry with status and migration history.
     ///
     /// Tasks track their preferred date and period for assignment purposes.
-    /// Assignment history is tracked via TaskAssignment (SPRD-10).
+    /// Assignment history is tracked via Assignment (SPRD-10).
     @Model
     final class Task: AssignableEntry {
         /// Display-only task priority.
@@ -329,7 +329,7 @@ enum DataModelSchemaV1: VersionedSchema {
         var status: EntryStatus
 
         /// Assignment history for this task across spreads.
-        var assignments: [TaskAssignment]
+        var assignments: [Assignment]
 
         /// The optional list this task belongs to (at most one).
         var list: DataModelSchemaV1.List?
@@ -398,7 +398,7 @@ enum DataModelSchemaV1: VersionedSchema {
             period: Period = .day,
             hasPreferredAssignment: Bool = true,
             status: EntryStatus = .open,
-            assignments: [TaskAssignment] = [],
+            assignments: [Assignment] = [],
             list: DataModelSchemaV1.List? = nil,
             tags: [DataModelSchemaV1.Tag] = [],
             deletedAt: Date? = nil,
@@ -606,7 +606,7 @@ enum DataModelSchemaV1: VersionedSchema {
     /// An assignable entry with explicit-only migration.
     ///
     /// Notes can have extended content and track their preferred date and period.
-    /// Assignment history is tracked via NoteAssignment (SPRD-10).
+    /// Assignment history is tracked via Assignment (SPRD-10).
     /// Notes only migrate when explicitly triggered by the user.
     @Model
     final class Note: AssignableEntry {
@@ -632,7 +632,7 @@ enum DataModelSchemaV1: VersionedSchema {
         var status: EntryStatus
 
         /// Assignment history for this note across spreads.
-        var assignments: [NoteAssignment]
+        var assignments: [Assignment]
 
         /// The optional list this note belongs to (at most one).
         var list: DataModelSchemaV1.List?
@@ -693,7 +693,7 @@ enum DataModelSchemaV1: VersionedSchema {
             date: Date = .now,
             period: Period = .day,
             status: EntryStatus = .active,
-            assignments: [NoteAssignment] = [],
+            assignments: [Assignment] = [],
             list: DataModelSchemaV1.List? = nil,
             tags: [DataModelSchemaV1.Tag] = [],
             deletedAt: Date? = nil,

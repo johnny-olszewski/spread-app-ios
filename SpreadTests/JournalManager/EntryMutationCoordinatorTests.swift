@@ -69,7 +69,7 @@ struct EntryMutationCoordinatorTests {
             title: "Move note",
             date: originalDate,
             period: .day,
-            assignments: [NoteAssignment(period: .month, date: originalDate, status: .active)]
+            assignments: [Assignment(period: .month, date: originalDate, status: .active)]
         )
         let repository = InMemoryNoteRepository(notes: [note])
         let coordinator = StandardNoteMutationCoordinator(

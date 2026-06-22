@@ -349,7 +349,7 @@ struct SyncSerializerTests {
     // MARK: - Pull: createTaskAssignment
 
     /// Conditions: Valid server task assignment row.
-    /// Expected: Should create a TaskAssignment with correct period, date, status.
+    /// Expected: Should create a Assignment with correct period, date, status.
     @Test func testCreateTaskAssignmentFromValidRow() {
         let rowID = UUID()
         let row = ServerTaskAssignmentRow(
@@ -401,7 +401,7 @@ struct SyncSerializerTests {
     // MARK: - Pull: createNoteAssignment
 
     /// Conditions: Valid server note assignment row.
-    /// Expected: Should create a NoteAssignment with correct properties.
+    /// Expected: Should create a Assignment with correct properties.
     @Test func testCreateNoteAssignmentFromValidRow() {
         let rowID = UUID()
         let row = ServerNoteAssignmentRow(

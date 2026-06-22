@@ -44,7 +44,7 @@ struct StandardTaskAssignmentReconciler: TaskAssignmentReconciler {
             } else {
                 migrateActiveAssignmentsToHistory(task)
                 task.assignments.append(
-                    TaskAssignment(
+                    Assignment(
                         period: destination.period,
                         date: destination.date,
                         spreadID: destination.period == .multiday ? destination.id : nil,

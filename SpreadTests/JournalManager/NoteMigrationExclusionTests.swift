@@ -63,12 +63,12 @@ struct NoteMigrationExclusionTests {
 
         let task = DataModel.Task(title: "Task on year", date: yearDate, period: .year, status: .open)
         task.assignments = [
-            TaskAssignment(period: .year, date: yearDate, status: .open)
+            Assignment(period: .year, date: yearDate, status: .open)
         ]
 
         let note = DataModel.Note(title: "Note on year", date: yearDate, period: .year, status: .active)
         note.assignments = [
-            NoteAssignment(period: .year, date: yearDate, status: .active)
+            Assignment(period: .year, date: yearDate, status: .active)
         ]
 
         let manager = try await makeManager(
@@ -97,7 +97,7 @@ struct NoteMigrationExclusionTests {
 
         let note = DataModel.Note(title: "Note on year", date: yearDate, period: .year, status: .active)
         note.assignments = [
-            NoteAssignment(period: .year, date: yearDate, status: .active)
+            Assignment(period: .year, date: yearDate, status: .active)
         ]
 
         let manager = try await makeManager(
@@ -141,12 +141,12 @@ struct NoteMigrationExclusionTests {
 
         let task = DataModel.Task(title: "Overdue task", date: pastDay, period: .day, status: .open)
         task.assignments = [
-            TaskAssignment(period: .day, date: pastDay, status: .open)
+            Assignment(period: .day, date: pastDay, status: .open)
         ]
 
         let note = DataModel.Note(title: "Overdue note", date: pastDay, period: .day, status: .active)
         note.assignments = [
-            NoteAssignment(period: .day, date: pastDay, status: .active)
+            Assignment(period: .day, date: pastDay, status: .active)
         ]
 
         let manager = try await JournalManager.make(

@@ -23,13 +23,13 @@ struct ConventionalJournalDataModelBuilderTests {
             title: "Open",
             date: dayDate,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: dayDate, status: .open)]
+            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
         let migratedTask = DataModel.Task(
             title: "Migrated",
             date: dayDate,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: dayDate, status: .migrated)]
+            assignments: [Assignment(period: .day, date: dayDate, status: .migrated)]
         )
 
         let builder = ConventionalJournalDataModelBuilder(calendar: Self.calendar)
@@ -56,7 +56,7 @@ struct ConventionalJournalDataModelBuilderTests {
             date: Self.makeDate(year: 2026, month: 1, day: 11),
             period: .multiday,
             assignments: [
-                TaskAssignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .open)
+                Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .open)
             ]
         )
         let assignedNote = DataModel.Note(
@@ -64,7 +64,7 @@ struct ConventionalJournalDataModelBuilderTests {
             date: endDate,
             period: .multiday,
             assignments: [
-                NoteAssignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .active)
+                Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .active)
             ]
         )
         let inRangeUnassignedTask = DataModel.Task(
@@ -125,7 +125,7 @@ struct ConventionalJournalDataModelBuilderTests {
             title: "Open",
             date: dayDate,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: dayDate, status: .open)]
+            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
 
         let builder = ConventionalJournalDataModelBuilder(calendar: Self.calendar)
@@ -163,9 +163,9 @@ struct ConventionalJournalDataModelBuilderTests {
             date: taskDate,
             period: .multiday,
             assignments: [
-                TaskAssignment(period: .year, date: taskDate, status: .migrated),
-                TaskAssignment(period: .day, date: taskDate, status: .open),
-                TaskAssignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .open)
+                Assignment(period: .year, date: taskDate, status: .migrated),
+                Assignment(period: .day, date: taskDate, status: .open),
+                Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .open)
             ]
         )
 
@@ -193,9 +193,9 @@ struct ConventionalJournalDataModelBuilderTests {
             date: noteDate,
             period: .multiday,
             assignments: [
-                NoteAssignment(period: .year, date: noteDate, status: .migrated),
-                NoteAssignment(period: .month, date: noteDate, status: .active),
-                NoteAssignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .active)
+                Assignment(period: .year, date: noteDate, status: .migrated),
+                Assignment(period: .month, date: noteDate, status: .active),
+                Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .active)
             ]
         )
 

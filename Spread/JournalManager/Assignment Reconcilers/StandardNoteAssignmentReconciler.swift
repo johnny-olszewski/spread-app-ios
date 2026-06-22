@@ -42,7 +42,7 @@ struct StandardNoteAssignmentReconciler: NoteAssignmentReconciler {
             } else {
                 migrateActiveAssignmentsToHistory(note)
                 note.assignments.append(
-                    NoteAssignment(
+                    Assignment(
                         period: destination.period,
                         date: destination.date,
                         spreadID: destination.period == .multiday ? destination.id : nil,

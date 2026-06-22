@@ -34,7 +34,7 @@ struct StandardNoteMigrationCoordinator: NoteMigrationCoordinator {
             note.assignments[destinationIndex].status = .active
         } else {
             note.assignments.append(
-                NoteAssignment(
+                Assignment(
                     period: destination.period,
                     date: destination.date,
                     spreadID: destination.period == .multiday ? destination.id : nil,

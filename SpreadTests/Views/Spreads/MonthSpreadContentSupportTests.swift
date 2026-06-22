@@ -131,15 +131,15 @@ struct MonthSpreadContentSupportTests {
             title: "Current Month Task",
             date: monthDate,
             period: .month,
-            assignments: [TaskAssignment(period: .month, date: monthDate, status: .open)]
+            assignments: [Assignment(period: .month, date: monthDate, status: .open)]
         )
         let migratedAwayTask = DataModel.Task(
             title: "Migrated Away",
             date: dayDate,
             period: .day,
             assignments: [
-                TaskAssignment(period: .month, date: monthDate, status: .migrated),
-                TaskAssignment(period: .day, date: dayDate, status: .open)
+                Assignment(period: .month, date: monthDate, status: .migrated),
+                Assignment(period: .day, date: dayDate, status: .open)
             ]
         )
 

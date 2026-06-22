@@ -44,7 +44,7 @@ struct OverdueEvaluatorTests {
             date: Self.makeDate(year: 2026, month: 5, day: 20),
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .month, date: monthDate, status: .open)]
+            assignments: [Assignment(period: .month, date: monthDate, status: .open)]
         )
 
         let evaluator = StandardOverdueEvaluator(
@@ -135,7 +135,7 @@ struct OverdueEvaluatorTests {
             period: .multiday,
             status: .open,
             assignments: [
-                TaskAssignment(
+                Assignment(
                     period: .multiday,
                     date: multidaySpread.date,
                     spreadID: multidaySpread.id,
@@ -169,7 +169,7 @@ struct OverdueEvaluatorTests {
             period: .multiday,
             status: .open,
             assignments: [
-                TaskAssignment(
+                Assignment(
                     period: .multiday,
                     date: multidaySpread.date,
                     spreadID: multidaySpread.id,

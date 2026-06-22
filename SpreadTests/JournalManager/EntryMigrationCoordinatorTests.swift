@@ -43,14 +43,14 @@ struct EntryMigrationCoordinatorTests {
             date: Self.testDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .month, date: Self.testDate, status: .open)]
+            assignments: [Assignment(period: .month, date: Self.testDate, status: .open)]
         )
         let cancelledTask = DataModel.Task(
             title: "cancelled",
             date: Self.testDate,
             period: .day,
             status: .cancelled,
-            assignments: [TaskAssignment(period: .month, date: Self.testDate, status: .open)]
+            assignments: [Assignment(period: .month, date: Self.testDate, status: .open)]
         )
         let repository = InMemoryTaskRepository(tasks: [openTask, cancelledTask])
         let coordinator = StandardTaskMigrationCoordinator(
@@ -82,8 +82,8 @@ struct EntryMigrationCoordinatorTests {
             period: .day,
             status: .active,
             assignments: [
-                NoteAssignment(period: .month, date: Self.testDate, status: .active),
-                NoteAssignment(period: .day, date: Self.testDate, status: .migrated)
+                Assignment(period: .month, date: Self.testDate, status: .active),
+                Assignment(period: .day, date: Self.testDate, status: .migrated)
             ]
         )
         let repository = InMemoryNoteRepository(notes: [note])

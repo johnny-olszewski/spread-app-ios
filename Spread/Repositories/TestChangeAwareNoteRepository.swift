@@ -37,7 +37,7 @@ final class TestChangeAwareNoteRepository: ChangeAwareNoteRepository {
         Array(notes.values).sorted { $0.createdDate < $1.createdDate }
     }
 
-    func save(_ note: DataModel.Note, change: EntityChange<NoteAssignment>) async throws {
+    func save(_ note: DataModel.Note, change: EntityChange) async throws {
         notes[note.id] = note
     }
 

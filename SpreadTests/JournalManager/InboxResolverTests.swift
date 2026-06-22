@@ -36,7 +36,7 @@ struct InboxResolverTests {
             title: "Migrated only",
             date: dayDate,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: dayDate, status: .migrated)]
+            assignments: [Assignment(period: .day, date: dayDate, status: .migrated)]
         )
 
         let resolver = StandardInboxResolver(calendar: Self.calendar)
@@ -54,13 +54,13 @@ struct InboxResolverTests {
             title: "Assigned task",
             date: dayDate,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: dayDate, status: .open)]
+            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
         let note = DataModel.Note(
             title: "Assigned note",
             date: dayDate,
             period: .day,
-            assignments: [NoteAssignment(period: .day, date: dayDate, status: .active)]
+            assignments: [Assignment(period: .day, date: dayDate, status: .active)]
         )
 
         let resolver = StandardInboxResolver(calendar: Self.calendar)

@@ -111,7 +111,7 @@ struct EntryTests {
     @Test func testTaskHasRequiredEntryProperties() {
         let now = makeDate(year: 2026, month: 6, day: 15)
         let assignments = [
-            TaskAssignment(period: .day, date: now, status: .complete)
+            Assignment(period: .day, date: now, status: .complete)
         ]
         let task = DataModel.Task(
             title: "My Task",
@@ -250,7 +250,7 @@ struct EntryTests {
     @Test func testNoteHasRequiredProperties() {
         let now = makeDate(year: 2026, month: 6, day: 15)
         let assignments = [
-            NoteAssignment(period: .month, date: now, status: .migrated)
+            Assignment(period: .month, date: now, status: .migrated)
         ]
         let note = DataModel.Note(
             title: "My Note",

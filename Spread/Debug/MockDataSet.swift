@@ -315,7 +315,7 @@ enum MockDataSet: String, CaseIterable {
             priority: .high,
             date: today,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)],
+            assignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
             list: workList,
             tags: [planningTag, focusTag]
         ))
@@ -325,7 +325,7 @@ enum MockDataSet: String, CaseIterable {
             priority: .medium,
             date: today,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)],
+            assignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
             list: workList,
             tags: [waitingTag]
         ))
@@ -334,7 +334,7 @@ enum MockDataSet: String, CaseIterable {
             date: today,
             period: .day,
             status: .complete,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .complete)],
+            assignments: [Assignment(period: .day, date: normalizedDay, status: .complete)],
             list: workList,
             tags: [planningTag]
         ))
@@ -343,7 +343,7 @@ enum MockDataSet: String, CaseIterable {
             priority: .medium,
             date: today,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)],
+            assignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
             list: errandsList,
             tags: [homeTag]
         ))
@@ -351,7 +351,7 @@ enum MockDataSet: String, CaseIterable {
             title: "Book dentist appointment",
             date: today,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)],
+            assignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
             list: personalList,
             tags: [waitingTag]
         ))
@@ -359,7 +359,7 @@ enum MockDataSet: String, CaseIterable {
             title: "Plan weekend meals",
             date: tomorrow,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedTomorrow, status: .open)],
+            assignments: [Assignment(period: .day, date: normalizedTomorrow, status: .open)],
             list: personalList,
             tags: [homeTag, planningTag]
         ))
@@ -368,7 +368,7 @@ enum MockDataSet: String, CaseIterable {
             priority: .low,
             date: today,
             period: .month,
-            assignments: [TaskAssignment(period: .month, date: normalizedMonth, status: .open)],
+            assignments: [Assignment(period: .month, date: normalizedMonth, status: .open)],
             list: personalList,
             tags: [planningTag]
         ))
@@ -376,7 +376,7 @@ enum MockDataSet: String, CaseIterable {
             title: "Define yearly learning theme",
             date: today,
             period: .year,
-            assignments: [TaskAssignment(period: .year, date: normalizedYear, status: .open)],
+            assignments: [Assignment(period: .year, date: normalizedYear, status: .open)],
             tags: [focusTag]
         ))
         if let thisWeekSpread = DataModel.Spread(preset: .thisWeek, today: today, calendar: calendar, firstWeekday: .sunday) {
@@ -385,7 +385,7 @@ enum MockDataSet: String, CaseIterable {
                 title: "Plan the week",
                 date: today,
                 period: .multiday,
-                assignments: [TaskAssignment(period: .multiday, date: normalizedMultiday, status: .open)],
+                assignments: [Assignment(period: .multiday, date: normalizedMultiday, status: .open)],
                 list: workList,
                 tags: [planningTag]
             ))
@@ -441,7 +441,7 @@ enum MockDataSet: String, CaseIterable {
             content: "Discussed project timeline and milestones.",
             date: today,
             period: .day,
-            assignments: [NoteAssignment(period: .day, date: normalizedDay, status: .active)],
+            assignments: [Assignment(period: .day, date: normalizedDay, status: .active)],
             list: workList,
             tags: [planningTag]
         ))
@@ -450,7 +450,7 @@ enum MockDataSet: String, CaseIterable {
             content: "Explore a tighter day spread toolbar, faster list switching, and clearer tag chips.",
             date: today,
             period: .day,
-            assignments: [NoteAssignment(period: .day, date: normalizedDay, status: .active)],
+            assignments: [Assignment(period: .day, date: normalizedDay, status: .active)],
             list: workList,
             tags: [focusTag]
         ))
@@ -459,7 +459,7 @@ enum MockDataSet: String, CaseIterable {
             content: "Measure the hallway shelf before buying brackets.",
             date: today,
             period: .day,
-            assignments: [NoteAssignment(period: .day, date: normalizedDay, status: .active)],
+            assignments: [Assignment(period: .day, date: normalizedDay, status: .active)],
             list: personalList,
             tags: [homeTag]
         ))
@@ -468,7 +468,7 @@ enum MockDataSet: String, CaseIterable {
             content: "Keep planning lightweight. Use lists for context, tags for intent.",
             date: today,
             period: .month,
-            assignments: [NoteAssignment(period: .month, date: normalizedMonth, status: .active)],
+            assignments: [Assignment(period: .month, date: normalizedMonth, status: .active)],
             tags: [planningTag]
         ))
 
@@ -522,7 +522,7 @@ enum MockDataSet: String, CaseIterable {
             title: "Weekly planning",
             date: today,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)]
+            assignments: [Assignment(period: .day, date: normalizedDay, status: .open)]
         ))
 
         if let dayInFuture = calendar.date(byAdding: .day, value: 3, to: today) {
@@ -531,7 +531,7 @@ enum MockDataSet: String, CaseIterable {
                 title: "Mid-week review",
                 date: dayInFuture,
                 period: .day,
-                assignments: [TaskAssignment(period: .day, date: normalizedFuture, status: .open)]
+                assignments: [Assignment(period: .day, date: normalizedFuture, status: .open)]
             ))
         }
 
@@ -580,7 +580,7 @@ enum MockDataSet: String, CaseIterable {
                 title: "End of month review",
                 date: lastDayOfMonth,
                 period: .day,
-                assignments: [TaskAssignment(period: .day, date: normalizedLast, status: .open)]
+                assignments: [Assignment(period: .day, date: normalizedLast, status: .open)]
             ))
         }
 
@@ -595,7 +595,7 @@ enum MockDataSet: String, CaseIterable {
                 title: "Start of month planning",
                 date: firstDayNextMonth,
                 period: .day,
-                assignments: [TaskAssignment(period: .day, date: normalizedFirst, status: .open)]
+                assignments: [Assignment(period: .day, date: normalizedFirst, status: .open)]
             ))
         }
 
@@ -644,7 +644,7 @@ enum MockDataSet: String, CaseIterable {
                 title: "Leap day task",
                 date: feb29,
                 period: .day,
-                assignments: [TaskAssignment(period: .day, date: normalizedFeb29, status: .open)]
+                assignments: [Assignment(period: .day, date: normalizedFeb29, status: .open)]
             ))
 
             // Note assigned to Feb 29
@@ -652,7 +652,7 @@ enum MockDataSet: String, CaseIterable {
                 title: "Leap day note",
                 date: feb29,
                 period: .day,
-                assignments: [NoteAssignment(period: .day, date: normalizedFeb29, status: .active)]
+                assignments: [Assignment(period: .day, date: normalizedFeb29, status: .active)]
             ))
         }
 

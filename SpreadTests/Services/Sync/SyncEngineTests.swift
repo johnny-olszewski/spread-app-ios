@@ -516,8 +516,8 @@ struct SyncEngineTests {
         let task = DataModel.Task(
             title: "Repair me",
             assignments: [
-                TaskAssignment(period: .year, date: .now, status: .migrated),
-                TaskAssignment(period: .month, date: .now, status: .open)
+                Assignment(period: .year, date: .now, status: .migrated),
+                Assignment(period: .month, date: .now, status: .open)
             ]
         )
         container.mainContext.insert(task)
@@ -553,7 +553,7 @@ struct SyncEngineTests {
 
         let note = DataModel.Note(
             title: "Already synced",
-            assignments: [NoteAssignment(period: .day, date: .now, status: .active)]
+            assignments: [Assignment(period: .day, date: .now, status: .active)]
         )
         container.mainContext.insert(note)
         try container.mainContext.save()
@@ -581,7 +581,7 @@ struct SyncEngineTests {
         let container = try ModelContainerFactory.makeInMemory()
         let task = DataModel.Task(
             title: "Already repaired",
-            assignments: [TaskAssignment(period: .day, date: .now, status: .open)]
+            assignments: [Assignment(period: .day, date: .now, status: .open)]
         )
         container.mainContext.insert(task)
         container.mainContext.insert(
@@ -632,7 +632,7 @@ struct SyncEngineTests {
         let container = try ModelContainerFactory.makeInMemory()
         let task = DataModel.Task(
             title: "Repair me later",
-            assignments: [TaskAssignment(period: .month, date: .now, status: .open)]
+            assignments: [Assignment(period: .month, date: .now, status: .open)]
         )
         container.mainContext.insert(task)
         container.mainContext.insert(
@@ -696,14 +696,14 @@ struct SyncEngineTests {
             id: taskID,
             title: "Multiday identity task",
             assignments: [
-                TaskAssignment(
+                Assignment(
                     id: UUID(uuidString: "00000000-0000-0000-0000-000000193305")!,
                     period: .multiday,
                     date: sharedDate,
                     spreadID: leftSpreadID,
                     status: .open
                 ),
-                TaskAssignment(
+                Assignment(
                     id: UUID(uuidString: "00000000-0000-0000-0000-000000193306")!,
                     period: .multiday,
                     date: sharedDate,

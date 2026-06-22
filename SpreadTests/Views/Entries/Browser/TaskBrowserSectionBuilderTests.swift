@@ -52,7 +52,7 @@ struct TaskBrowserSectionBuilderTests {
         createdDate: Date = .distantPast,
         list: DataModel.List? = nil,
         tags: [DataModel.Tag] = [],
-        assignments: [TaskAssignment] = []
+        assignments: [Assignment] = []
     ) -> DataModel.Task {
         DataModel.Task(
             title: title,
@@ -189,7 +189,7 @@ struct TaskBrowserSectionBuilderTests {
             title: "OlderCompletion",
             status: .complete,
             assignments: [
-                TaskAssignment(
+                Assignment(
                     id: UUID(),
                     period: .day,
                     date: makeDate(year: 2026, month: 1, day: 1),
@@ -202,7 +202,7 @@ struct TaskBrowserSectionBuilderTests {
             title: "NewerCompletion",
             status: .complete,
             assignments: [
-                TaskAssignment(
+                Assignment(
                     id: UUID(),
                     period: .day,
                     date: makeDate(year: 2026, month: 1, day: 1),
@@ -234,7 +234,7 @@ struct TaskBrowserSectionBuilderTests {
             status: .complete,
             createdDate: makeDate(year: 2026, month: 1, day: 1),
             assignments: [
-                TaskAssignment(
+                Assignment(
                     id: UUID(),
                     period: .day,
                     date: makeDate(year: 2026, month: 1, day: 1),

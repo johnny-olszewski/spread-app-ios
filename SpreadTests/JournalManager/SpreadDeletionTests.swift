@@ -58,7 +58,7 @@ struct SpreadDeletionTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
 
@@ -97,7 +97,7 @@ struct SpreadDeletionTests {
             period: .day,
             status: .active,
             assignments: [
-                NoteAssignment(period: .day, date: noteDate, status: .active)
+                Assignment(period: .day, date: noteDate, status: .active)
             ]
         )
 
@@ -135,7 +135,7 @@ struct SpreadDeletionTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
 
@@ -176,7 +176,7 @@ struct SpreadDeletionTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
 
@@ -219,7 +219,7 @@ struct SpreadDeletionTests {
             period: .day,
             status: .complete,
             assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .complete)
+                Assignment(period: .day, date: taskDate, status: .complete)
             ]
         )
 
@@ -260,7 +260,7 @@ struct SpreadDeletionTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
         let note = DataModel.Note(
@@ -269,7 +269,7 @@ struct SpreadDeletionTests {
             period: .day,
             status: .active,
             assignments: [
-                NoteAssignment(period: .day, date: taskDate, status: .active)
+                Assignment(period: .day, date: taskDate, status: .active)
             ]
         )
 
@@ -401,7 +401,7 @@ struct SpreadDeletionTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
 
@@ -442,7 +442,7 @@ struct SpreadDeletionTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open)
+                Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
 
@@ -482,14 +482,14 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: taskDate, status: .open)]
+            assignments: [Assignment(period: .day, date: taskDate, status: .open)]
         )
         let task2 = DataModel.Task(
             title: "Task 2",
             date: taskDate,
             period: .day,
             status: .complete,
-            assignments: [TaskAssignment(period: .day, date: taskDate, status: .complete)]
+            assignments: [Assignment(period: .day, date: taskDate, status: .complete)]
         )
 
         let taskRepo = InMemoryTaskRepository(tasks: [task1, task2])
@@ -527,7 +527,7 @@ struct SpreadDeletionTests {
             period: .day,
             status: .open,
             assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .migrated)
+                Assignment(period: .day, date: taskDate, status: .migrated)
             ]
         )
 
