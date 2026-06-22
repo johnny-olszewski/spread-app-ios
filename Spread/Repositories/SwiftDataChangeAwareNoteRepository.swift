@@ -7,6 +7,10 @@ import SwiftData
 /// re-fetching pre-mutation state through a throwaway `ModelContext`, as
 /// `SwiftDataNoteRepository` does. Create-vs-update is read from `change.isNew`
 /// rather than a `fetchCount` query.
+///
+/// - Note: `ChangeAware` is a temporary qualifier needed only while this type coexists
+///   with the legacy `SwiftDataNoteRepository`. Once SPRD-249's cutover deletes that legacy
+///   type, rename this to `SwiftDataNoteRepository` (see SPRD-245's renaming plan).
 @MainActor
 final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
 

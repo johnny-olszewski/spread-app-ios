@@ -5,6 +5,10 @@ import Foundation
 /// Unlike `TaskRepository`, `save` takes an explicit `EntityChange` describing the task's
 /// pre-mutation assignments/tags so the repository can diff for the sync outbox without
 /// re-fetching prior state from disk.
+///
+/// - Note: `ChangeAware` is a temporary qualifier needed only while this protocol coexists
+///   with the legacy `TaskRepository`. Once SPRD-249's cutover deletes `TaskRepository` and
+///   `SwiftDataTaskRepository`, rename this to `TaskRepository` (see SPRD-245's renaming plan).
 @MainActor
 protocol ChangeAwareTaskRepository: Sendable {
     /// Retrieves all tasks from storage.

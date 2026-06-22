@@ -5,6 +5,10 @@ import Foundation
 /// Unlike `NoteRepository`, `save` takes an explicit `EntityChange` describing the note's
 /// pre-mutation assignments/tags so the repository can diff for the sync outbox without
 /// re-fetching prior state from disk.
+///
+/// - Note: `ChangeAware` is a temporary qualifier needed only while this protocol coexists
+///   with the legacy `NoteRepository`. Once SPRD-249's cutover deletes `NoteRepository` and
+///   `SwiftDataNoteRepository`, rename this to `NoteRepository` (see SPRD-245's renaming plan).
 @MainActor
 protocol ChangeAwareNoteRepository: Sendable {
     /// Retrieves all notes from storage.
