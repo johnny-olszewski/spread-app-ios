@@ -16,7 +16,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 |--------|-------------|----------------|
 | `feature/SESH-20` (formerly `WKFLW-20`) | UI polish and design system foundation for TestFlight | [DesignSystem.md](DesignSystem.md), [Accessibility.md](Accessibility.md) |
 | `feature/SESH-21` | Task Browser tab, List/Tag organizational fields | [TaskBrowser.md](TaskBrowser.md), [DataModel.md](DataModel.md), [TaskMetadata.md](TaskMetadata.md) |
-| `feature/SESH-24` | JournalManager/repository performance rebuild: drop logic-layer protocols, incremental dictionary-keyed index, caller-supplied sync diffing — built additively, cut over last | [JournalManager.md](JournalManager.md) |
+| `feature/SESH-24` | JournalManager/repository performance rebuild: drop logic-layer protocols, incremental dictionary-keyed index, caller-supplied sync diffing — built additively, cut over last | [JournalManager.md](JournalManager.md), [EntryModel.md](EntryModel.md) |
 
 ---
 
@@ -26,6 +26,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 |------|---------|----------------|
 | [ProjectSummary.md](ProjectSummary.md) | Project goals, non-goals, platform targets, BuJo features, future versions | SPRD-1, SPRD-5, SPRD-19, SPRD-25 |
 | [DataModel.md](DataModel.md) | Core entities: Entry, Spread, Task, Note, Assignment, Persistence | SPRD-8, SPRD-9, SPRD-10, SPRD-13 |
+| [EntryModel.md](EntryModel.md) | Entry/AssignableEntry model unification: Supabase `entries`/`assignments`/`entry_tags` tables, optional `Entry.date`, `isInboxEligible`/`isMigratable`/`isOverdueEligible` | SPRD-246, SPRD-247 |
 | [Migration.md](Migration.md) | Migration rules, eligibility, source/destination affordances, entry reassignment | SPRD-15, SPRD-110, SPRD-113, SPRD-140 |
 | [AppClock.md](AppClock.md) | Temporal context service, time-sensitive behaviors | SPRD-179, SPRD-180, SPRD-181 |
 | [JournalManager.md](JournalManager.md) | JournalManager facade, business rule architecture, BuJo mode | SPRD-11, SPRD-13, SPRD-154–SPRD-158 |
