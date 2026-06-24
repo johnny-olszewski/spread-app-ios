@@ -486,7 +486,7 @@ struct SyncMetadataTests {
             dueDateUpdatedAt: modelTimestamp
         )
 
-        let data = SyncSerializer.serializeTask(task, deviceId: deviceId, timestamp: fallbackTimestamp)
+        let data = SyncSerializer.serializeTaskEntry(task, deviceId: deviceId, timestamp: fallbackTimestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(modelTimestamp)
@@ -506,7 +506,7 @@ struct SyncMetadataTests {
 
         let task = DataModel.Task(title: "Test")
 
-        let data = SyncSerializer.serializeTask(task, deviceId: deviceId, timestamp: fallbackTimestamp)
+        let data = SyncSerializer.serializeTaskEntry(task, deviceId: deviceId, timestamp: fallbackTimestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(fallbackTimestamp)
@@ -525,7 +525,7 @@ struct SyncMetadataTests {
         let timestamp = SyncDateFormatting.parseTimestamp("2025-12-31T23:59:59.000Z")!
         let task = DataModel.Task(title: "Unassigned", date: nil, period: nil)
 
-        let data = SyncSerializer.serializeTask(task, deviceId: deviceId, timestamp: timestamp)
+        let data = SyncSerializer.serializeTaskEntry(task, deviceId: deviceId, timestamp: timestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         #expect(json["date"] is NSNull)
@@ -549,7 +549,7 @@ struct SyncMetadataTests {
             statusUpdatedAt: modelTimestamp
         )
 
-        let data = SyncSerializer.serializeNote(note, deviceId: deviceId, timestamp: fallbackTimestamp)
+        let data = SyncSerializer.serializeNoteEntry(note, deviceId: deviceId, timestamp: fallbackTimestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(modelTimestamp)
@@ -597,8 +597,8 @@ struct SyncMetadataTests {
             statusUpdatedAt: modelTimestamp
         )
 
-        let data = SyncSerializer.serializeTaskAssignment(
-            assignment, taskId: UUID(), deviceId: deviceId, timestamp: fallbackTimestamp
+        let data = SyncSerializer.serializeAssignment(
+            assignment, entryId: UUID(), entryType: .task, deviceId: deviceId, timestamp: fallbackTimestamp
         )
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
@@ -625,8 +625,8 @@ struct SyncMetadataTests {
             statusUpdatedAt: modelTimestamp
         )
 
-        let data = SyncSerializer.serializeNoteAssignment(
-            assignment, noteId: UUID(), deviceId: deviceId, timestamp: fallbackTimestamp
+        let data = SyncSerializer.serializeAssignment(
+            assignment, entryId: UUID(), entryType: .note, deviceId: deviceId, timestamp: fallbackTimestamp
         )
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
@@ -647,7 +647,7 @@ struct SyncMetadataTests {
             deletedAt: deletedDate
         )
 
-        let data = SyncSerializer.serializeTask(task, deviceId: deviceId, timestamp: timestamp)
+        let data = SyncSerializer.serializeTaskEntry(task, deviceId: deviceId, timestamp: timestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(deletedDate)
@@ -666,7 +666,7 @@ struct SyncMetadataTests {
             deletedAt: modelDeletedAt
         )
 
-        let data = SyncSerializer.serializeTask(
+        let data = SyncSerializer.serializeTaskEntry(
             task, deviceId: deviceId, timestamp: timestamp, deletedAt: paramDeletedAt
         )
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]

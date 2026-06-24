@@ -106,7 +106,7 @@ final class SwiftDataTaskRepository: TaskRepository {
         timestamp: Date
     ) {
         let deletedAt = operation == .delete ? timestamp : nil
-        guard let recordData = SyncSerializer.serializeTask(
+        guard let recordData = SyncSerializer.serializeTaskEntry(
             task,
             deviceId: deviceId,
             timestamp: timestamp,
@@ -116,7 +116,7 @@ final class SwiftDataTaskRepository: TaskRepository {
         }
 
         let mutation = DataModel.SyncMutation(
-            entityType: SyncEntityType.task.rawValue,
+            entityType: SyncEntityType.entry.rawValue,
             entityId: task.id,
             operation: operation.rawValue,
             recordData: recordData,
@@ -180,9 +180,10 @@ final class SwiftDataTaskRepository: TaskRepository {
         timestamp: Date
     ) {
         let deletedAt = operation == .delete ? timestamp : nil
-        guard let recordData = SyncSerializer.serializeTaskAssignment(
+        guard let recordData = SyncSerializer.serializeAssignment(
             assignment,
-            taskId: taskId,
+            entryId: taskId,
+            entryType: .task,
             deviceId: deviceId,
             timestamp: timestamp,
             deletedAt: deletedAt
@@ -191,7 +192,7 @@ final class SwiftDataTaskRepository: TaskRepository {
         }
 
         let mutation = DataModel.SyncMutation(
-            entityType: SyncEntityType.taskAssignment.rawValue,
+            entityType: SyncEntityType.assignment.rawValue,
             entityId: assignment.id,
             operation: operation.rawValue,
             recordData: recordData,
@@ -210,11 +211,11 @@ final class SwiftDataTaskRepository: TaskRepository {
         let currentSet = Set(currentTagIds)
 
         for tagId in currentSet.subtracting(previousSet) {
-            guard let recordData = SyncSerializer.serializeTaskTag(
-                taskId: taskId, tagId: tagId, timestamp: timestamp
+            guard let recordData = SyncSerializer.serializeEntryTag(
+                entryId: taskId, tagId: tagId, timestamp: timestamp
             ) else { continue }
             let mutation = DataModel.SyncMutation(
-                entityType: SyncEntityType.taskTag.rawValue,
+                entityType: SyncEntityType.entryTag.rawValue,
                 entityId: UUID(),
                 operation: SyncOperation.create.rawValue,
                 recordData: recordData
@@ -231,11 +232,11 @@ final class SwiftDataTaskRepository: TaskRepository {
 
     private func enqueueTaskTagTombstones(tagIds: [UUID], taskId: UUID, timestamp: Date) {
         for tagId in tagIds {
-            guard let recordData = SyncSerializer.serializeTaskTag(
-                taskId: taskId, tagId: tagId, timestamp: timestamp, deletedAt: timestamp
+            guard let recordData = SyncSerializer.serializeEntryTag(
+                entryId: taskId, tagId: tagId, timestamp: timestamp, deletedAt: timestamp
             ) else { continue }
             let mutation = DataModel.SyncMutation(
-                entityType: SyncEntityType.taskTag.rawValue,
+                entityType: SyncEntityType.entryTag.rawValue,
                 entityId: UUID(),
                 operation: SyncOperation.delete.rawValue,
                 recordData: recordData

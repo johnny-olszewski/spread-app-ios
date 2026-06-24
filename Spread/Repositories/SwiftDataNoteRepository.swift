@@ -106,7 +106,7 @@ final class SwiftDataNoteRepository: NoteRepository {
         timestamp: Date
     ) {
         let deletedAt = operation == .delete ? timestamp : nil
-        guard let recordData = SyncSerializer.serializeNote(
+        guard let recordData = SyncSerializer.serializeNoteEntry(
             note,
             deviceId: deviceId,
             timestamp: timestamp,
@@ -116,7 +116,7 @@ final class SwiftDataNoteRepository: NoteRepository {
         }
 
         let mutation = DataModel.SyncMutation(
-            entityType: SyncEntityType.note.rawValue,
+            entityType: SyncEntityType.entry.rawValue,
             entityId: note.id,
             operation: operation.rawValue,
             recordData: recordData,
@@ -180,9 +180,10 @@ final class SwiftDataNoteRepository: NoteRepository {
         timestamp: Date
     ) {
         let deletedAt = operation == .delete ? timestamp : nil
-        guard let recordData = SyncSerializer.serializeNoteAssignment(
+        guard let recordData = SyncSerializer.serializeAssignment(
             assignment,
-            noteId: noteId,
+            entryId: noteId,
+            entryType: .note,
             deviceId: deviceId,
             timestamp: timestamp,
             deletedAt: deletedAt
@@ -191,7 +192,7 @@ final class SwiftDataNoteRepository: NoteRepository {
         }
 
         let mutation = DataModel.SyncMutation(
-            entityType: SyncEntityType.noteAssignment.rawValue,
+            entityType: SyncEntityType.assignment.rawValue,
             entityId: assignment.id,
             operation: operation.rawValue,
             recordData: recordData,
@@ -210,11 +211,11 @@ final class SwiftDataNoteRepository: NoteRepository {
         let currentSet = Set(currentTagIds)
 
         for tagId in currentSet.subtracting(previousSet) {
-            guard let recordData = SyncSerializer.serializeNoteTag(
-                noteId: noteId, tagId: tagId, timestamp: timestamp
+            guard let recordData = SyncSerializer.serializeEntryTag(
+                entryId: noteId, tagId: tagId, timestamp: timestamp
             ) else { continue }
             let mutation = DataModel.SyncMutation(
-                entityType: SyncEntityType.noteTag.rawValue,
+                entityType: SyncEntityType.entryTag.rawValue,
                 entityId: UUID(),
                 operation: SyncOperation.create.rawValue,
                 recordData: recordData
@@ -231,11 +232,11 @@ final class SwiftDataNoteRepository: NoteRepository {
 
     private func enqueueNoteTagTombstones(tagIds: [UUID], noteId: UUID, timestamp: Date) {
         for tagId in tagIds {
-            guard let recordData = SyncSerializer.serializeNoteTag(
-                noteId: noteId, tagId: tagId, timestamp: timestamp, deletedAt: timestamp
+            guard let recordData = SyncSerializer.serializeEntryTag(
+                entryId: noteId, tagId: tagId, timestamp: timestamp, deletedAt: timestamp
             ) else { continue }
             let mutation = DataModel.SyncMutation(
-                entityType: SyncEntityType.noteTag.rawValue,
+                entityType: SyncEntityType.entryTag.rawValue,
                 entityId: UUID(),
                 operation: SyncOperation.delete.rawValue,
                 recordData: recordData

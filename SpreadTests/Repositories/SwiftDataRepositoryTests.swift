@@ -126,7 +126,7 @@ struct SwiftDataRepositoryTests {
         let mutation = try fetchMutations(from: container).first
 
         #expect(mutation != nil)
-        #expect(mutation?.entityType == SyncEntityType.task.rawValue)
+        #expect(mutation?.entityType == SyncEntityType.entry.rawValue)
         #expect(mutation?.operation == SyncOperation.create.rawValue)
 
         let record = try decodeRecord(mutation?.recordData)
@@ -155,8 +155,8 @@ struct SwiftDataRepositoryTests {
 
         let mutations = try fetchMutations(from: container)
         #expect(mutations.map(\.entityType) == [
-            SyncEntityType.task.rawValue,
-            SyncEntityType.taskAssignment.rawValue
+            SyncEntityType.entry.rawValue,
+            SyncEntityType.assignment.rawValue
         ])
 
         let assignmentMutation = mutations.last
@@ -164,7 +164,7 @@ struct SwiftDataRepositoryTests {
         #expect(assignmentMutation?.operation == SyncOperation.create.rawValue)
 
         let record = try decodeRecord(assignmentMutation?.recordData)
-        #expect(record?["task_id"] as? String == task.id.uuidString)
+        #expect(record?["entry_id"] as? String == task.id.uuidString)
         #expect(record?["device_id"] as? String == deviceId.uuidString)
         #expect(record?["deleted_at"] is NSNull)
     }
@@ -211,7 +211,7 @@ struct SwiftDataRepositoryTests {
 
         let mutations = try fetchMutations(from: container)
         let assignmentUpdate = mutations.last {
-            $0.entityType == SyncEntityType.taskAssignment.rawValue &&
+            $0.entityType == SyncEntityType.assignment.rawValue &&
             $0.operation == SyncOperation.update.rawValue
         }
 
@@ -277,7 +277,7 @@ struct SwiftDataRepositoryTests {
 
         let mutations = try fetchMutations(from: container)
         let assignmentDelete = mutations.last {
-            $0.entityType == SyncEntityType.taskAssignment.rawValue &&
+            $0.entityType == SyncEntityType.assignment.rawValue &&
             $0.operation == SyncOperation.delete.rawValue
         }
 
@@ -316,7 +316,7 @@ struct SwiftDataRepositoryTests {
 
         let mutations = try fetchMutations(from: container)
         let assignmentDelete = mutations.last {
-            $0.entityType == SyncEntityType.taskAssignment.rawValue &&
+            $0.entityType == SyncEntityType.assignment.rawValue &&
             $0.operation == SyncOperation.delete.rawValue
         }
 

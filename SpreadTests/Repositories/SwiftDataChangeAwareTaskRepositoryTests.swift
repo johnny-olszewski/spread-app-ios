@@ -93,7 +93,7 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
         let mutation = try fetchMutations(from: container).first
 
         #expect(mutation != nil)
-        #expect(mutation?.entityType == SyncEntityType.task.rawValue)
+        #expect(mutation?.entityType == SyncEntityType.entry.rawValue)
         #expect(mutation?.operation == SyncOperation.create.rawValue)
 
         let record = try decodeRecord(mutation?.recordData)
@@ -138,8 +138,8 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
 
         let mutations = try fetchMutations(from: container)
         #expect(mutations.map(\.entityType) == [
-            SyncEntityType.task.rawValue,
-            SyncEntityType.taskAssignment.rawValue
+            SyncEntityType.entry.rawValue,
+            SyncEntityType.assignment.rawValue
         ])
 
         let assignmentMutation = mutations.last
@@ -170,7 +170,7 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
 
         let mutations = try fetchMutations(from: container)
         let assignmentUpdate = mutations.last {
-            $0.entityType == SyncEntityType.taskAssignment.rawValue &&
+            $0.entityType == SyncEntityType.assignment.rawValue &&
             $0.operation == SyncOperation.update.rawValue
         }
 
@@ -200,7 +200,7 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
 
         let mutations = try fetchMutations(from: container)
         let assignmentDelete = mutations.last {
-            $0.entityType == SyncEntityType.taskAssignment.rawValue &&
+            $0.entityType == SyncEntityType.assignment.rawValue &&
             $0.operation == SyncOperation.delete.rawValue
         }
 

@@ -55,10 +55,11 @@ struct SyncEngineTests {
                     "revision": 10
                 ]
             ], 10)
-        case .task:
+        case .entry:
             return ([
                 [
                     "id": wkflw17AssignedTaskID.uuidString,
+                    "type": "task",
                     "title": "Assigned metadata task",
                     "body": "Ship checklist",
                     "priority": "high",
@@ -72,6 +73,7 @@ struct SyncEngineTests {
                 ],
                 [
                     "id": wkflw17InboxTaskID.uuidString,
+                    "type": "task",
                     "title": "Unassigned metadata task",
                     "body": "Inbox body",
                     "priority": "medium",
@@ -84,11 +86,12 @@ struct SyncEngineTests {
                     "revision": 12
                 ]
             ], 12)
-        case .taskAssignment:
+        case .assignment:
             return ([
                 [
                     "id": wkflw17AssignmentID.uuidString,
-                    "task_id": wkflw17AssignedTaskID.uuidString,
+                    "entry_id": wkflw17AssignedTaskID.uuidString,
+                    "entry_type": "task",
                     "period": "month",
                     "date": "2026-04-01",
                     "status": "open",
@@ -97,7 +100,7 @@ struct SyncEngineTests {
                     "revision": 13
                 ]
             ], 13)
-        case .settings, .note, .collection, .noteAssignment, .list, .tag, .taskTag, .noteTag:
+        case .settings, .collection, .list, .tag, .entryTag:
             return ([], 0)
         }
     }
@@ -108,11 +111,12 @@ struct SyncEngineTests {
         _: Int
     ) async throws -> (rows: [[String: Any]], maxRevision: Int64) {
         switch entityType {
-        case .taskAssignment:
+        case .assignment:
             return ([
                 [
                     "id": multidayIdentityReplacementAssignmentID.uuidString,
-                    "task_id": multidayIdentityTaskID.uuidString,
+                    "entry_id": multidayIdentityTaskID.uuidString,
+                    "entry_type": "task",
                     "period": "multiday",
                     "date": "2026-05-03",
                     "spread_id": multidayIdentityRightSpreadID.uuidString,
@@ -213,7 +217,7 @@ struct SyncEngineTests {
         let recordData = "{}".data(using: .utf8)!
 
         engine.enqueueMutation(
-            entityType: .task,
+            entityType: .entry,
             entityId: entityId,
             operation: .create,
             recordData: recordData
@@ -225,7 +229,7 @@ struct SyncEngineTests {
         let mutations = try container.mainContext.fetch(descriptor)
         #expect(mutations.count == 1)
         #expect(mutations.first?.entityId == entityId)
-        #expect(mutations.first?.entityType == SyncEntityType.task.rawValue)
+        #expect(mutations.first?.entityType == SyncEntityType.entry.rawValue)
         #expect(mutations.first?.operation == SyncOperation.create.rawValue)
     }
 
@@ -236,8 +240,8 @@ struct SyncEngineTests {
         let recordData = "{}".data(using: .utf8)!
 
         engine.enqueueMutation(entityType: .spread, entityId: UUID(), operation: .create, recordData: recordData)
-        engine.enqueueMutation(entityType: .task, entityId: UUID(), operation: .create, recordData: recordData)
-        engine.enqueueMutation(entityType: .taskAssignment, entityId: UUID(), operation: .create, recordData: recordData)
+        engine.enqueueMutation(entityType: .entry, entityId: UUID(), operation: .create, recordData: recordData)
+        engine.enqueueMutation(entityType: .assignment, entityId: UUID(), operation: .create, recordData: recordData)
 
         #expect(engine.outboxCount == 3)
     }
@@ -337,7 +341,7 @@ struct SyncEngineTests {
         let recordData = "{}".data(using: .utf8)!
 
         // Enqueue a mutation
-        engine.enqueueMutation(entityType: .task, entityId: UUID(), operation: .create, recordData: recordData)
+        engine.enqueueMutation(entityType: .entry, entityId: UUID(), operation: .create, recordData: recordData)
         #expect(engine.outboxCount == 1)
 
         // Insert a cursor
@@ -455,7 +459,7 @@ struct SyncEngineTests {
         await engine.syncNow()
 
         let spreadJSON = try jsonPayload(for: SyncEntityType.spread.mergeRPCName, in: mergeCalls)
-        let taskJSON = try jsonPayload(for: SyncEntityType.task.mergeRPCName, in: mergeCalls)
+        let taskJSON = try jsonPayload(for: SyncEntityType.entry.mergeRPCName, in: mergeCalls)
 
         #expect(spreadJSON["p_is_favorite"] as? Bool == true)
         #expect(spreadJSON["p_custom_name"] as? String == "Launch")
@@ -507,7 +511,7 @@ struct SyncEngineTests {
                 mergeCalls.append((name, data))
             },
             assignmentPresenceChecker: { entityType, _ in
-                #expect(entityType == .taskAssignment)
+                #expect(entityType == .assignment)
                 return false
             }
         )
@@ -524,12 +528,12 @@ struct SyncEngineTests {
 
         await engine.syncNow()
 
-        let taskAssignmentCalls = mergeCalls.filter { $0.0 == SyncEntityType.taskAssignment.mergeRPCName }
+        let taskAssignmentCalls = mergeCalls.filter { $0.0 == SyncEntityType.assignment.mergeRPCName }
         #expect(taskAssignmentCalls.count == 2)
 
         let markers = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncRepairMarker>())
         #expect(markers.count == 1)
-        #expect(markers.first?.entryType == SyncEntityType.task.rawValue)
+        #expect(markers.first?.entryType == EntryType.task.rawValue)
         #expect(markers.first?.entryId == task.id)
         #expect(markers.first?.didBackfill == true)
     }
@@ -545,7 +549,7 @@ struct SyncEngineTests {
                 mergeCalls.append((name, data))
             },
             assignmentPresenceChecker: { entityType, _ in
-                #expect(entityType == .noteAssignment)
+                #expect(entityType == .assignment)
                 return true
             }
         )
@@ -559,11 +563,11 @@ struct SyncEngineTests {
 
         await engine.syncNow()
 
-        #expect(!mergeCalls.contains(where: { $0.0 == SyncEntityType.noteAssignment.mergeRPCName }))
+        #expect(!mergeCalls.contains(where: { $0.0 == SyncEntityType.assignment.mergeRPCName }))
 
         let markers = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncRepairMarker>())
         #expect(markers.count == 1)
-        #expect(markers.first?.entryType == SyncEntityType.note.rawValue)
+        #expect(markers.first?.entryType == EntryType.note.rawValue)
         #expect(markers.first?.entryId == note.id)
         #expect(markers.first?.didBackfill == false)
     }
@@ -586,7 +590,7 @@ struct SyncEngineTests {
         container.mainContext.insert(
             DataModel.SyncRepairMarker(
                 accountId: user.id,
-                entryType: SyncEntityType.task.rawValue,
+                entryType: EntryType.task.rawValue,
                 entryId: task.id,
                 didBackfill: true
             )
@@ -616,7 +620,7 @@ struct SyncEngineTests {
         await engine.syncNow()
 
         #expect(presenceChecks == 0)
-        #expect(!mergeCalls.contains(where: { $0.0 == SyncEntityType.taskAssignment.mergeRPCName }))
+        #expect(!mergeCalls.contains(where: { $0.0 == SyncEntityType.assignment.mergeRPCName }))
     }
 
     /// Conditions: Entry was previously evaluated while the server still had assignment rows.
@@ -637,7 +641,7 @@ struct SyncEngineTests {
         container.mainContext.insert(
             DataModel.SyncRepairMarker(
                 accountId: user.id,
-                entryType: SyncEntityType.task.rawValue,
+                entryType: EntryType.task.rawValue,
                 entryId: task.id,
                 didBackfill: false
             )
@@ -659,7 +663,7 @@ struct SyncEngineTests {
                 mergeCalls.append((name, data))
             },
             assignmentPresenceChecker: { entityType, _ in
-                #expect(entityType == .taskAssignment)
+                #expect(entityType == .assignment)
                 presenceChecks += 1
                 return false
             }
@@ -668,7 +672,7 @@ struct SyncEngineTests {
         await engine.syncNow()
 
         #expect(presenceChecks == 1)
-        #expect(mergeCalls.contains(where: { $0.0 == SyncEntityType.taskAssignment.mergeRPCName }))
+        #expect(mergeCalls.contains(where: { $0.0 == SyncEntityType.assignment.mergeRPCName }))
 
         let markers = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncRepairMarker>())
         #expect(markers.count == 1)

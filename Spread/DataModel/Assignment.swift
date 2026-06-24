@@ -6,9 +6,10 @@ import Foundation
 /// with no behavioral divergence — collapsed into this single type since the protocol
 /// (`AssignmentMatchable`) and associated type (`AssignableEntry.AssignmentType`) that
 /// existed solely to abstract over them were pure indirection with no second shape ever
-/// needing to differ. `SyncEntityType.taskAssignment`/`.noteAssignment` remain separate —
-/// that distinction is real server-side structure (separate Postgres tables), unrelated to
-/// this Swift value type's shape.
+/// needing to differ. The server-side `task_assignments`/`note_assignments` tables this
+/// type was originally pulled from went through the same consolidation in SPRD-246/247 —
+/// both now live in a single `assignments` table (`SyncEntityType.assignment`), with
+/// `entry_type` distinguishing which kind of entry a row belongs to.
 struct Assignment: Codable, Hashable {
     /// Stable logical identity for this assignment across sync and rebuilds.
     var id: UUID

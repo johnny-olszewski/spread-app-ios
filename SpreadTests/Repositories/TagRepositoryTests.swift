@@ -163,7 +163,7 @@ struct TagRepositoryTests {
 
         let context = container.mainContext
         let mutations = try context.fetch(FetchDescriptor<DataModel.SyncMutation>())
-        let taskTagDelete = mutations.first { $0.entityType == "task_tags" && $0.operation == "delete" }
+        let taskTagDelete = mutations.first { $0.entityType == "entry_tags" && $0.operation == "delete" }
         #expect(taskTagDelete != nil)
     }
 
@@ -186,7 +186,7 @@ struct TagRepositoryTests {
 
         let context = container.mainContext
         let mutations = try context.fetch(FetchDescriptor<DataModel.SyncMutation>())
-        let taskTagCreate = mutations.first { $0.entityType == "task_tags" && $0.operation == "create" }
+        let taskTagCreate = mutations.first { $0.entityType == "entry_tags" && $0.operation == "create" }
         #expect(taskTagCreate != nil)
     }
 }

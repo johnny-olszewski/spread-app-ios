@@ -232,7 +232,7 @@ struct NoteRepositoryTests {
         let mutation = try fetchMutations(from: container).first
 
         #expect(mutation != nil)
-        #expect(mutation?.entityType == SyncEntityType.note.rawValue)
+        #expect(mutation?.entityType == SyncEntityType.entry.rawValue)
         #expect(mutation?.operation == SyncOperation.create.rawValue)
 
         let record = try decodeRecord(mutation?.recordData)
@@ -261,8 +261,8 @@ struct NoteRepositoryTests {
 
         let mutations = try fetchMutations(from: container)
         #expect(mutations.map(\.entityType) == [
-            SyncEntityType.note.rawValue,
-            SyncEntityType.noteAssignment.rawValue
+            SyncEntityType.entry.rawValue,
+            SyncEntityType.assignment.rawValue
         ])
 
         let assignmentMutation = mutations.last
@@ -270,7 +270,7 @@ struct NoteRepositoryTests {
         #expect(assignmentMutation?.operation == SyncOperation.create.rawValue)
 
         let record = try decodeRecord(assignmentMutation?.recordData)
-        #expect(record?["note_id"] as? String == note.id.uuidString)
+        #expect(record?["entry_id"] as? String == note.id.uuidString)
         #expect(record?["device_id"] as? String == deviceId.uuidString)
         #expect(record?["deleted_at"] is NSNull)
     }
@@ -321,7 +321,7 @@ struct NoteRepositoryTests {
 
         let mutations = try fetchMutations(from: container)
         let assignmentUpdate = mutations.last {
-            $0.entityType == SyncEntityType.noteAssignment.rawValue &&
+            $0.entityType == SyncEntityType.assignment.rawValue &&
             $0.operation == SyncOperation.update.rawValue
         }
 
@@ -388,7 +388,7 @@ struct NoteRepositoryTests {
 
         let mutations = try fetchMutations(from: container)
         let assignmentDelete = mutations.last {
-            $0.entityType == SyncEntityType.noteAssignment.rawValue &&
+            $0.entityType == SyncEntityType.assignment.rawValue &&
             $0.operation == SyncOperation.delete.rawValue
         }
 
@@ -427,7 +427,7 @@ struct NoteRepositoryTests {
 
         let mutations = try fetchMutations(from: container)
         let assignmentDelete = mutations.last {
-            $0.entityType == SyncEntityType.noteAssignment.rawValue &&
+            $0.entityType == SyncEntityType.assignment.rawValue &&
             $0.operation == SyncOperation.delete.rawValue
         }
 
