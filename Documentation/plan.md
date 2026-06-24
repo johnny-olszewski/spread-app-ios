@@ -6434,20 +6434,23 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-246] Refactor: Unify entries/assignments/tags into single Supabase tables - [ ] Open
+### [SPRD-246] Refactor: Unify entries/assignments/tags into single Supabase tables - [ ] Done
 
 - **Context**: While building `JournalRuleEngine` (SESH-24), review surfaced that `tasks`/`notes`, `task_assignments`/`note_assignments`, and `task_tags`/`note_tags` are six tables with near-identical shape, duplicating schema, RLS policies, and sync logic across two parallel paths. The client-side `Assignment` type was already unified from `TaskAssignment`/`NoteAssignment` in a recent commit, pointing the same direction for the remote schema.
 - **Description**: One direct-cutover SQL migration: create `entries` (type discriminator column, wide nullable columns covering every `tasks`/`notes` field, type-conditional `CHECK` on `status`), `assignments` (`entry_id`/`entry_type` replacing the FK to `tasks.id`/`notes.id`), and `entry_tags` (`entry_id`/`tag_id`). Migrate existing rows, drop `tasks`/`notes`/`task_assignments`/`note_assignments`/`task_tags`/`note_tags`, update RLS policies and indices accordingly. `entries.date`/`.period` are nullable from the start (covers Task's existing nullability and Note's new requirement from SPRD-247). Local SwiftData models (`DataModel.Task`/`DataModel.Note`) are untouched — this is a Supabase-schema-only change.
 - **Spec**: `Documentation/Specs/EntryModel.md` — Requirements, "Unify Supabase tables" / "Wide nullable columns" / "Direct-cutover migration" decisions.
 - **Acceptance Criteria**:
-  - [ ] `entries`, `assignments`, `entry_tags` tables exist with the shape described above.
-  - [ ] `tasks`, `notes`, `task_assignments`, `note_assignments`, `task_tags`, `note_tags` no longer exist.
-  - [ ] Any existing local/dev data in the old tables is migrated into the new ones with no data loss.
-  - [ ] RLS policies on the new tables enforce the same per-user access guarantees as the old tables.
-  - [ ] Migration applies cleanly to a fresh database and to the current dev database.
+  - [x] `entries`, `assignments`, `entry_tags` tables exist with the shape described above.
+  - [x] `tasks`, `notes`, `task_assignments`, `note_assignments`, `task_tags`, `note_tags` no longer exist.
+  - [x] Any existing local/dev data in the old tables is migrated into the new ones with no data loss.
+  - [x] RLS policies on the new tables enforce the same per-user access guarantees as the old tables.
+  - [x] Migration applies cleanly to a fresh database and to the current dev database.
 - **Tests**:
-  - [ ] Manual verification: apply migration to local Supabase, confirm row counts match pre-migration counts for all six source tables against their new homes.
-  - [ ] RLS policy tests (existing or new) pass against the new tables.
+  - [x] Manual verification: apply migration to local Supabase, confirm row counts match pre-migration counts for all six source tables against their new homes.
+  - [x] RLS policy tests (existing or new) pass against the new tables.
+- **Progress (commits landed on feature/SESH-24)**:
+  1. `[SPRD-246][1/n]` — Added `supabase/migrations/20260623000000_unify_entries_assignments_tags.sql`: creates `entries`/`assignments`/`entry_tags` with type-conditional `CHECK` constraints, FKs, indices, triggers, and RLS policies mirroring the six tables they replace; migrates existing rows via `INSERT ... SELECT`; drops the six old tables plus the now-orphaned `merge_task`/`merge_note`/`merge_task_assignment`/`merge_note_assignment`/`merge_task_tag`/`merge_note_tag` RPCs and their trigger functions (SPRD-247 will add `merge_entry`/`merge_assignment`/`merge_entry_tag` replacements when it rewires `SyncSerializer`); repoints `cleanup_tombstones()` at `entries`/`assignments`. Verified via `supabase db reset` (clean apply to fresh DB twice) and a manual transform test that recreated the old table shapes in a rolled-back transaction, seeded sample task/note/assignment/tag rows (including a dateless task), replayed the migration's `INSERT...SELECT` logic, and confirmed the resulting `entries`/`assignments`/`entry_tags` rows matched expectations; also confirmed `entries_status_check` rejects a type/status mismatch (e.g. `type='task', status='active'`).
+  - Remaining for this task: none — task complete.
 
 ---
 
