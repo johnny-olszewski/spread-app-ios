@@ -18,6 +18,23 @@ protocol Entry: Identifiable, Hashable, EntryStatusIconRepresentable {
     /// The type of entry (task, event, or note).
     var entryType: EntryType { get }
 
+    /// Whether this entry type can ever appear in the Inbox.
+    ///
+    /// A static per-type constant — independent of this instance's `date`/`status`/assignments.
+    /// Per-instance Inbox membership still requires checking status and assignment state
+    /// separately wherever a feature needs it.
+    var isInboxEligible: Bool { get }
+
+    /// Whether this entry type can ever be migrated between spreads.
+    ///
+    /// A static per-type constant — independent of this instance's `date`/`status`/assignments.
+    var isMigratable: Bool { get }
+
+    /// Whether this entry type can ever be flagged overdue.
+    ///
+    /// A static per-type constant — independent of this instance's `date`/`status`/assignments.
+    var isOverdueEligible: Bool { get }
+
     // MARK: - Display requirements (default implementations in extension below)
 
     /// Optional one-line body preview shown below the title.
@@ -36,6 +53,9 @@ extension Entry {
     var iconColor: Color? { nil }
     var displayBodyPreview: String? { nil }
     var displayPriority: DataModel.Task.Priority { .none }
+    var isInboxEligible: Bool { false }
+    var isMigratable: Bool { false }
+    var isOverdueEligible: Bool { false }
 
     /// A stable key identifying this concrete type for use in `EntryRowView.Configuration.Map`.
     ///

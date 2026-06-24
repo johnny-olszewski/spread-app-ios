@@ -158,6 +158,15 @@ struct EntryTests {
         #expect(task.assignments.isEmpty)
     }
 
+    /// Conditions: Access Task's static per-type eligibility flags.
+    /// Expected: Task is eligible for Inbox, migration, and overdue — all true.
+    @Test func testTaskIsEligibleForInboxMigrationAndOverdue() {
+        let task = DataModel.Task()
+        #expect(task.isInboxEligible)
+        #expect(task.isMigratable)
+        #expect(task.isOverdueEligible)
+    }
+
     // MARK: - Event Entry Protocol Tests
 
     /// Conditions: Create Event with title.
@@ -225,6 +234,15 @@ struct EntryTests {
         #expect(event.timing == .singleDay)
         #expect(event.startTime == nil)
         #expect(event.endTime == nil)
+    }
+
+    /// Conditions: Access Event's static per-type eligibility flags.
+    /// Expected: Event is not eligible for Inbox, migration, or overdue — all false (default Entry implementation).
+    @Test func testEventIsNotEligibleForInboxMigrationOrOverdue() {
+        let event = DataModel.Event()
+        #expect(!event.isInboxEligible)
+        #expect(!event.isMigratable)
+        #expect(!event.isOverdueEligible)
     }
 
     // MARK: - Note Entry Protocol Tests
@@ -302,6 +320,15 @@ struct EntryTests {
         let longContent = String(repeating: "Lorem ipsum dolor sit amet. ", count: 100)
         let note = DataModel.Note(content: longContent)
         #expect(note.content == longContent)
+    }
+
+    /// Conditions: Access Note's static per-type eligibility flags.
+    /// Expected: Note is not eligible for Inbox, migration, or overdue — all false (default Entry implementation).
+    @Test func testNoteIsNotEligibleForInboxMigrationOrOverdue() {
+        let note = DataModel.Note()
+        #expect(!note.isInboxEligible)
+        #expect(!note.isMigratable)
+        #expect(!note.isOverdueEligible)
     }
 
     // MARK: - Event appearsOn() Tests

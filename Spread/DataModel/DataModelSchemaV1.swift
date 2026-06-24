@@ -340,6 +340,10 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The type of entry.
         var entryType: EntryType { .task }
 
+        var isInboxEligible: Bool { true }
+        var isMigratable: Bool { true }
+        var isOverdueEligible: Bool { true }
+
         // MARK: Sync Metadata
 
         /// Soft delete timestamp. Nil means the record is active.
