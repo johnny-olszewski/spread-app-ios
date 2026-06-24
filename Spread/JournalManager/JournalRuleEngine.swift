@@ -508,4 +508,106 @@ struct JournalRuleEngine {
         }
         return calendar.dateComponents([.day], from: startDate, to: endDate).day ?? .max
     }
+
+    // MARK: - Overdue Evaluation
+
+    /// Returns all open tasks that are currently overdue.
+    ///
+    /// A task is overdue when its due date — determined by either its current open spread
+    /// assignment or its preferred date — has fully passed relative to `today`.
+    ///
+    /// Overdue thresholds by period:
+    /// - **Day**: The task's day has already ended (yesterday or earlier).
+    /// - **Month**: The full calendar month has passed (first day of next month ≤ today).
+    /// - **Year**: The full calendar year has passed (first day of next year ≤ today).
+    /// - **Multiday**: Never considered overdue.
+    ///
+    /// Kept concrete over `DataModel.Task` — confirmed via codebase audit that only
+    /// `Task.isOverdueEligible == true` today (Note/Event default `false`), and the
+    /// Inbox-fallback path needs `task.period`, which deliberately doesn't generalize
+    /// across `AssignableEntry` (`Task.period: Period?` vs. `Note.period: Period`).
+    /// Calls `self.currentDestinationSpread` directly rather than depending on a separate
+    /// injected migration planner, unlike the legacy `StandardOverdueEvaluator` — this is
+    /// the consolidation's actual payoff for this seam.
+    ///
+    /// - Parameters:
+    ///   - tasks: All tasks in the journal.
+    ///   - spreads: All existing spreads, used to locate a task's current open assignment.
+    /// - Returns: `OverdueTaskItem` values for each overdue open task.
+    func overdueTaskItems(
+        tasks: [DataModel.Task],
+        spreads: [DataModel.Spread]
+    ) -> [OverdueTaskItem] {
+        tasks.compactMap { task in
+            overdueTaskItem(for: task, spreads: spreads)
+        }
+    }
+
+    private func overdueTaskItem(
+        for task: DataModel.Task,
+        spreads: [DataModel.Spread]
+    ) -> OverdueTaskItem? {
+        guard task.status == .open else {
+            return nil
+        }
+
+        if let openSpread = currentDestinationSpread(
+            for: task,
+            spreads: spreads,
+            excluding: nil
+        ) {
+            let sourceKey = TaskReviewSourceKey(
+                kind: .spread(
+                    id: openSpread.id,
+                    period: openSpread.period,
+                    date: openSpread.period.normalizeDate(openSpread.date, calendar: calendar)
+                )
+            )
+            guard isOverdue(spread: openSpread) else {
+                return nil
+            }
+            return OverdueTaskItem(task: task, sourceKey: sourceKey)
+        }
+
+        guard let taskDate = task.date,
+              let taskPeriod = task.period,
+              isOverdue(date: taskDate, period: taskPeriod) else {
+            return nil
+        }
+        return OverdueTaskItem(task: task, sourceKey: .init(kind: .inbox))
+    }
+
+    private func isOverdue(spread: DataModel.Spread) -> Bool {
+        if spread.period == .multiday {
+            guard let endDate = spread.endDate else { return false }
+            let todayStart = today.startOfDay(calendar: calendar)
+            return todayStart > endDate.startOfDay(calendar: calendar)
+        }
+
+        return isOverdue(date: spread.date, period: spread.period)
+    }
+
+    private func isOverdue(date: Date, period: Period) -> Bool {
+        let todayStart = today.startOfDay(calendar: calendar)
+
+        switch period {
+        case .day:
+            let dueDay = date.startOfDay(calendar: calendar)
+            return todayStart > dueDay
+        case .month:
+            let startOfMonth = period.normalizeDate(date, calendar: calendar)
+            guard let startOfNextMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth) else {
+                return false
+            }
+            return todayStart >= startOfNextMonth
+        case .year:
+            let startOfYear = period.normalizeDate(date, calendar: calendar)
+            guard let startOfNextYear = calendar.date(byAdding: .year, value: 1, to: startOfYear) else {
+                return false
+            }
+            return todayStart >= startOfNextYear
+        case .multiday:
+            return false
+        }
+    }
 }

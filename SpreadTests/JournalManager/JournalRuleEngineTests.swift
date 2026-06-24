@@ -596,4 +596,213 @@ struct JournalRuleEngineTests {
 
         #expect(legacyCandidates.map(\.task.id) == engineCandidates.map(\.entry.id))
     }
+
+    // MARK: - Overdue Evaluation
+
+    /// Setup: an unassigned open task whose preferred date is yesterday.
+    /// Expected: the task reports as overdue, sourced from the Inbox.
+    @Test func testOverdueTaskItemsReturnsInboxSourceForOverdueUnassignedDayTask() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 12)
+        let task = DataModel.Task(
+            title: "Inbox overdue",
+            date: Self.makeDate(year: 2026, month: 4, day: 11),
+            period: .day,
+            status: .open
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar, today: today)
+        let items = engine.overdueTaskItems(tasks: [task], spreads: [])
+
+        #expect(items.map(\.task.id) == [task.id])
+        #expect(items.first?.sourceKey.id == "inbox")
+    }
+
+    /// Setup: a task currently assigned to an overdue month spread, but with a future preferred date.
+    /// Expected: the spread's date drives the overdue source, not the task's own preferred date.
+    @Test func testOverdueTaskItemsUsesCurrentDestinationSpreadAsOverdueSource() {
+        let today = Self.makeDate(year: 2026, month: 5, day: 3)
+        let monthDate = Self.makeDate(year: 2026, month: 4, day: 1)
+        let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: Self.calendar)
+        let task = DataModel.Task(
+            title: "Spread overdue",
+            date: Self.makeDate(year: 2026, month: 5, day: 20),
+            period: .day,
+            status: .open,
+            assignments: [Assignment(period: .month, date: monthDate, status: .open)]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar, today: today)
+        let items = engine.overdueTaskItems(tasks: [task], spreads: [monthSpread])
+
+        #expect(items.first?.sourceKey.id == "spread-\(monthSpread.id.uuidString)")
+    }
+
+    /// Setup: one task overdue by month boundary, one task not yet overdue by year boundary.
+    /// Expected: only the month-boundary task is reported overdue.
+    @Test func testOverdueTaskItemsUsesMonthAndYearBoundaryRules() {
+        let today = Self.makeDate(year: 2026, month: 5, day: 1)
+        let overdueMonthTask = DataModel.Task(
+            title: "Month overdue",
+            date: Self.makeDate(year: 2026, month: 4, day: 10),
+            period: .month,
+            status: .open
+        )
+        let notYetOverdueYearTask = DataModel.Task(
+            title: "Year active",
+            date: Self.makeDate(year: 2026, month: 1, day: 1),
+            period: .year,
+            status: .open
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar, today: today)
+        let items = engine.overdueTaskItems(
+            tasks: [overdueMonthTask, notYetOverdueYearTask],
+            spreads: []
+        )
+
+        #expect(items.map(\.task.id) == [overdueMonthTask.id])
+    }
+
+    /// Setup: a completed task, a cancelled task, and an open multiday task, all with past dates.
+    /// Expected: none are reported overdue — completed/cancelled tasks are excluded by status,
+    /// and multiday tasks are never considered overdue.
+    @Test func testOverdueTaskItemsExcludesCompletedCancelledAndMultidayTasks() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 12)
+        let completeTask = DataModel.Task(
+            title: "Complete",
+            date: Self.makeDate(year: 2026, month: 4, day: 10),
+            period: .day,
+            status: .complete
+        )
+        let cancelledTask = DataModel.Task(
+            title: "Cancelled",
+            date: Self.makeDate(year: 2026, month: 4, day: 10),
+            period: .day,
+            status: .cancelled
+        )
+        let multidayTask = DataModel.Task(
+            title: "Multiday",
+            date: Self.makeDate(year: 2026, month: 4, day: 1),
+            period: .multiday,
+            status: .open
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar, today: today)
+        let items = engine.overdueTaskItems(
+            tasks: [completeTask, cancelledTask, multidayTask],
+            spreads: []
+        )
+
+        #expect(items.isEmpty)
+    }
+
+    /// Setup: a task with an open multiday assignment whose range has already ended.
+    /// Expected: the task is overdue, sourced from the multiday spread.
+    @Test func testOverdueTaskItemsUsesAssignedMultidayEndDateForOverdueChecks() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 12)
+        let multidaySpread = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 8),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 11),
+            calendar: Self.calendar
+        )
+        let task = DataModel.Task(
+            title: "Range overdue",
+            date: Self.makeDate(year: 2026, month: 4, day: 9),
+            period: .multiday,
+            status: .open,
+            assignments: [
+                Assignment(
+                    period: .multiday,
+                    date: multidaySpread.date,
+                    spreadID: multidaySpread.id,
+                    status: .open
+                )
+            ]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar, today: today)
+        let items = engine.overdueTaskItems(tasks: [task], spreads: [multidaySpread])
+
+        #expect(items.count == 1)
+        #expect(items.first?.sourceKey.id == "spread-\(multidaySpread.id.uuidString)")
+    }
+
+    /// Setup: a task with an open multiday assignment whose range has not yet ended.
+    /// Expected: the task is not overdue.
+    @Test func testOverdueTaskItemsDoesNotMarkAssignedMultidayTaskOverdueBeforeRangeEnds() {
+        let today = Self.makeDate(year: 2026, month: 4, day: 11)
+        let multidaySpread = DataModel.Spread(
+            startDate: Self.makeDate(year: 2026, month: 4, day: 8),
+            endDate: Self.makeDate(year: 2026, month: 4, day: 11),
+            calendar: Self.calendar
+        )
+        let task = DataModel.Task(
+            title: "Range active",
+            date: Self.makeDate(year: 2026, month: 4, day: 9),
+            period: .multiday,
+            status: .open,
+            assignments: [
+                Assignment(
+                    period: .multiday,
+                    date: multidaySpread.date,
+                    spreadID: multidaySpread.id,
+                    status: .open
+                )
+            ]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar, today: today)
+        let items = engine.overdueTaskItems(tasks: [task], spreads: [multidaySpread])
+
+        #expect(items.isEmpty)
+    }
+
+    /// Setup: a mixed set of overdue/not-overdue/Inbox/spread-sourced tasks run through both
+    /// the legacy `StandardOverdueEvaluator` (with its separately injected `StandardMigrationPlanner`)
+    /// and `JournalRuleEngine` (which reuses its own `currentDestinationSpread` directly).
+    /// Expected: identical output, proving the consolidation didn't change behavior despite
+    /// removing the separate injected planner dependency.
+    @Test func testOverdueTaskItemsMatchesLegacyEvaluator() {
+        let today = Self.makeDate(year: 2026, month: 5, day: 3)
+        let monthDate = Self.makeDate(year: 2026, month: 4, day: 1)
+        let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: Self.calendar)
+        let spreadSourcedTask = DataModel.Task(
+            title: "Spread overdue",
+            date: Self.makeDate(year: 2026, month: 5, day: 20),
+            period: .day,
+            status: .open,
+            assignments: [Assignment(period: .month, date: monthDate, status: .open)]
+        )
+        let inboxTask = DataModel.Task(
+            title: "Inbox overdue",
+            date: Self.makeDate(year: 2026, month: 4, day: 11),
+            period: .day,
+            status: .open
+        )
+        let notOverdueTask = DataModel.Task(
+            title: "Not overdue",
+            date: Self.makeDate(year: 2026, month: 5, day: 20),
+            period: .day,
+            status: .open
+        )
+
+        let legacyEvaluator = StandardOverdueEvaluator(
+            calendar: Self.calendar,
+            today: today,
+            migrationPlanner: StandardMigrationPlanner(calendar: Self.calendar)
+        )
+        let legacyItems = legacyEvaluator.overdueTaskItems(
+            tasks: [spreadSourcedTask, inboxTask, notOverdueTask],
+            spreads: [monthSpread]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar, today: today)
+        let engineItems = engine.overdueTaskItems(
+            tasks: [spreadSourcedTask, inboxTask, notOverdueTask],
+            spreads: [monthSpread]
+        )
+
+        #expect(legacyItems.map(\.task.id) == engineItems.map(\.task.id))
+        #expect(legacyItems.map(\.sourceKey.id) == engineItems.map(\.sourceKey.id))
+    }
 }
