@@ -77,6 +77,162 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION public.merge_entry(p_id uuid, p_user_id uuid, p_device_id uuid, p_type text, p_title text, p_content text, p_date date, p_period text, p_status text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_existing RECORD;
+    v_result RECORD;
+BEGIN
+    IF p_user_id != auth.uid() THEN
+        RAISE EXCEPTION 'Access denied';
+    END IF;
+
+    SELECT * INTO v_existing FROM entries WHERE id = p_id AND user_id = p_user_id;
+
+    IF NOT FOUND THEN
+        INSERT INTO entries (
+            id, user_id, device_id, type, title, content, date, period, status, body, priority, due_date, list_id,
+            created_at, deleted_at,
+            title_updated_at, content_updated_at, date_updated_at, period_updated_at, status_updated_at,
+            body_updated_at, priority_updated_at, due_date_updated_at, list_updated_at
+        ) VALUES (
+            p_id, p_user_id, p_device_id, p_type, p_title, p_content, p_date, p_period, p_status, p_body, p_priority, p_due_date, p_list_id,
+            p_created_at, p_deleted_at,
+            p_title_updated_at, p_content_updated_at, p_date_updated_at, p_period_updated_at, p_status_updated_at,
+            p_body_updated_at, p_priority_updated_at, p_due_date_updated_at, p_list_updated_at
+        )
+        RETURNING * INTO v_result;
+    ELSE
+        IF p_deleted_at IS NOT NULL AND (v_existing.deleted_at IS NULL OR p_deleted_at > v_existing.deleted_at) THEN
+            UPDATE entries SET deleted_at = p_deleted_at, device_id = p_device_id
+            WHERE id = p_id RETURNING * INTO v_result;
+        ELSE
+            UPDATE entries SET
+                device_id           = p_device_id,
+                title                = CASE WHEN p_title_updated_at      > v_existing.title_updated_at      THEN p_title      ELSE v_existing.title      END,
+                title_updated_at     = GREATEST(p_title_updated_at,      v_existing.title_updated_at),
+                content              = CASE WHEN p_content_updated_at    > v_existing.content_updated_at    THEN p_content    ELSE v_existing.content    END,
+                content_updated_at   = GREATEST(p_content_updated_at,    v_existing.content_updated_at),
+                date                 = CASE WHEN p_date_updated_at       > v_existing.date_updated_at       THEN p_date       ELSE v_existing.date       END,
+                date_updated_at      = GREATEST(p_date_updated_at,       v_existing.date_updated_at),
+                period               = CASE WHEN p_period_updated_at     > v_existing.period_updated_at     THEN p_period     ELSE v_existing.period     END,
+                period_updated_at    = GREATEST(p_period_updated_at,     v_existing.period_updated_at),
+                status               = CASE WHEN p_status_updated_at     > v_existing.status_updated_at     THEN p_status     ELSE v_existing.status     END,
+                status_updated_at    = GREATEST(p_status_updated_at,     v_existing.status_updated_at),
+                body                 = CASE WHEN p_body_updated_at       > v_existing.body_updated_at       THEN p_body       ELSE v_existing.body       END,
+                body_updated_at      = GREATEST(p_body_updated_at,       v_existing.body_updated_at),
+                priority             = CASE WHEN p_priority_updated_at   > v_existing.priority_updated_at   THEN p_priority   ELSE v_existing.priority   END,
+                priority_updated_at  = GREATEST(p_priority_updated_at,   v_existing.priority_updated_at),
+                due_date             = CASE WHEN p_due_date_updated_at   > v_existing.due_date_updated_at   THEN p_due_date   ELSE v_existing.due_date   END,
+                due_date_updated_at  = GREATEST(p_due_date_updated_at,   v_existing.due_date_updated_at),
+                list_id              = CASE WHEN p_list_updated_at       > v_existing.list_updated_at       THEN p_list_id    ELSE v_existing.list_id    END,
+                list_updated_at      = GREATEST(p_list_updated_at,       v_existing.list_updated_at)
+            WHERE id = p_id RETURNING * INTO v_result;
+        END IF;
+    END IF;
+
+    RETURN to_jsonb(v_result);
+END;
+$$;
+
+CREATE FUNCTION public.merge_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_entry_id uuid, p_entry_type text, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_existing RECORD;
+    v_result RECORD;
+BEGIN
+    IF p_user_id != auth.uid() THEN
+        RAISE EXCEPTION 'Access denied';
+    END IF;
+
+    SELECT * INTO v_existing FROM assignments WHERE id = p_id AND user_id = p_user_id;
+
+    IF NOT FOUND THEN
+        SELECT * INTO v_existing
+        FROM assignments
+        WHERE user_id = p_user_id
+          AND entry_id = p_entry_id
+          AND (
+              (p_spread_id IS NOT NULL AND spread_id = p_spread_id)
+              OR (
+                  p_spread_id IS NULL
+                  AND spread_id IS NULL
+                  AND period = p_period
+                  AND date = p_date
+              )
+          )
+        ORDER BY CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END, created_at
+        LIMIT 1;
+    END IF;
+
+    IF NOT FOUND THEN
+        BEGIN
+            INSERT INTO assignments (
+                id, user_id, device_id, entry_id, entry_type, period, date, spread_id, status,
+                created_at, deleted_at, status_updated_at
+            ) VALUES (
+                p_id, p_user_id, p_device_id, p_entry_id, p_entry_type, p_period, p_date, p_spread_id, p_status,
+                p_created_at, p_deleted_at, p_status_updated_at
+            )
+            RETURNING * INTO v_result;
+        EXCEPTION
+            WHEN unique_violation THEN
+                SELECT * INTO v_existing
+                FROM assignments
+                WHERE user_id = p_user_id
+                  AND entry_id = p_entry_id
+                  AND (
+                      (p_spread_id IS NOT NULL AND spread_id = p_spread_id)
+                      OR (
+                          p_spread_id IS NULL
+                          AND spread_id IS NULL
+                          AND period = p_period
+                          AND date = p_date
+                      )
+                  )
+                ORDER BY CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END, created_at
+                LIMIT 1;
+
+                IF NOT FOUND THEN
+                    RAISE;
+                END IF;
+        END;
+
+        IF v_result IS NOT NULL THEN
+            RETURN to_jsonb(v_result);
+        END IF;
+    ELSE
+        IF p_deleted_at IS NOT NULL AND (v_existing.deleted_at IS NULL OR p_deleted_at > v_existing.deleted_at) THEN
+            UPDATE assignments SET deleted_at = p_deleted_at, device_id = p_device_id
+            WHERE id = v_existing.id RETURNING * INTO v_result;
+        ELSE
+            UPDATE assignments SET
+                device_id = p_device_id,
+                spread_id = COALESCE(v_existing.spread_id, p_spread_id),
+                status = CASE WHEN p_status_updated_at > v_existing.status_updated_at THEN p_status ELSE v_existing.status END,
+                status_updated_at = GREATEST(p_status_updated_at, v_existing.status_updated_at)
+            WHERE id = v_existing.id RETURNING * INTO v_result;
+        END IF;
+    END IF;
+
+    RETURN to_jsonb(v_result);
+END;
+$$;
+
+CREATE FUNCTION public.merge_entry_tag(p_entry_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    INSERT INTO public.entry_tags (entry_id, tag_id, user_id, created_at, deleted_at)
+    VALUES (p_entry_id, p_tag_id, p_user_id, p_created_at, p_deleted_at)
+    ON CONFLICT (entry_id, tag_id) DO UPDATE SET
+        deleted_at = EXCLUDED.deleted_at,
+        revision   = entry_tags.revision + 1;
+END;
+$$;
+
 CREATE FUNCTION public.entries_trigger_fn() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
@@ -711,6 +867,18 @@ GRANT ALL ON FUNCTION public.collections_trigger_fn() TO service_role;
 GRANT ALL ON FUNCTION public.entries_trigger_fn() TO anon;
 GRANT ALL ON FUNCTION public.entries_trigger_fn() TO authenticated;
 GRANT ALL ON FUNCTION public.entries_trigger_fn() TO service_role;
+
+GRANT ALL ON FUNCTION public.merge_entry(p_id uuid, p_user_id uuid, p_device_id uuid, p_type text, p_title text, p_content text, p_date date, p_period text, p_status text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_entry(p_id uuid, p_user_id uuid, p_device_id uuid, p_type text, p_title text, p_content text, p_date date, p_period text, p_status text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_entry(p_id uuid, p_user_id uuid, p_device_id uuid, p_type text, p_title text, p_content text, p_date date, p_period text, p_status text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) TO service_role;
+
+GRANT ALL ON FUNCTION public.merge_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_entry_id uuid, p_entry_type text, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_entry_id uuid, p_entry_type text, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_entry_id uuid, p_entry_type text, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO service_role;
+
+GRANT ALL ON FUNCTION public.merge_entry_tag(p_entry_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_entry_tag(p_entry_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_entry_tag(p_entry_id uuid, p_tag_id uuid, p_user_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone) TO service_role;
 
 GRANT ALL ON FUNCTION public.merge_collection(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone) TO anon;
 GRANT ALL ON FUNCTION public.merge_collection(p_id uuid, p_user_id uuid, p_device_id uuid, p_title text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone) TO authenticated;

@@ -6456,7 +6456,7 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-247] Refactor: Repository/sync rewire + optional Entry.date and eligibility flags - [ ] Open
+### [SPRD-247] Refactor: Repository/sync rewire + optional Entry.date and eligibility flags - [ ] In Progress
 
 - **Context**: Builds on SPRD-246's schema unification. The Swift sync/repository layer still targets the old six tables and must be rewired before any local model change depending on the new schema (notably `Note.date` becoming optional, which requires `entries.date` to already be nullable) can persist correctly. Also addresses the `Task.hasPreferredAssignment` redundancy found during `JournalRuleEngine` review: the Supabase `tasks` table already derives this flag from null `date`/`period` on decode (`SyncSerializer.swift`), so the local flag is a redundant second source of truth that can drift from the real one.
 - **Description**: Rewire `SwiftDataChangeAwareTaskRepository`/`SwiftDataChangeAwareNoteRepository` (or their successors) and `SyncSerializer`'s encode/decode paths to read/write `entries`/`assignments`/`entry_tags` instead of the six old tables, preserving the existing `TaskRepository`/`NoteRepository` protocol surface (per `JournalManager.md`'s repository-only-protocol-boundary decision — no local model unification). Then: hoist `Entry.date: Date?` to the base protocol (`DataModel.Event` returns `startDate`); remove `DataModel.Task.hasPreferredAssignment` and its SwiftData backing field, with `date == nil` as the sole "no preferred assignment" signal; make `DataModel.Note.date` optional; add `isInboxEligible`/`isMigratable`/`isOverdueEligible` as required `Entry` properties, each a static per-type constant (Task: `true`; Note/Event: `false`). Update the Task creation/edit UI's "set a date" toggle to bind to `date == nil` instead of the removed flag.
@@ -6467,14 +6467,19 @@ Supabase: SPRD-85A -> SPRD-85C
   - [ ] `DataModel.Task.hasPreferredAssignment` no longer exists; all call sites use `date == nil` instead.
   - [ ] `DataModel.Note.date` is optional; a note can be created/persisted/synced with `date == nil`.
   - [ ] `isInboxEligible`/`isMigratable`/`isOverdueEligible` exist on `Entry`, correctly conformed by Task/Note/Event.
-  - [ ] One-time local migration: existing tasks with `hasPreferredAssignment == false` have `date`/`period` set to `nil`.
+  - [x] ~~One-time local migration: existing tasks with `hasPreferredAssignment == false` have `date`/`period` set to `nil`.~~ **Scoped out** — confirmed with user 2026-06-24: `spread-prod` has zero rows with null `date`/`period` across all 255 tasks/1 note, so no real data is affected; `hasPreferredAssignment` is locally-derived only (never a remote column). User confirmed no unsynced local-only "no preferred assignment" edits exist that a migration would need to preserve. `Task.date`/`Task.period`/`Note.date` go straight to optional in one commit with no runtime migration function; a local app wipe + resync from `spread-prod` is the "migration" if ever needed.
   - [ ] Task creation/edit UI's date toggle works identically from the user's perspective, now backed by `date == nil`.
   - [ ] Project builds with no errors or warnings.
 - **Tests**:
   - [ ] Repository/serializer round-trip tests against the new schema (create/update/delete for Task and Note, including a dateless Note).
   - [ ] Unit tests for `isInboxEligible`/`isMigratable`/`isOverdueEligible` conformances per type.
-  - [ ] Local-migration test proving a pre-migration task with `hasPreferredAssignment == false` ends up with `date == nil` post-migration.
-- **Dependencies**: SPRD-246.
+  - [x] ~~Local-migration test proving a pre-migration task with `hasPreferredAssignment == false` ends up with `date == nil` post-migration.~~ **Scoped out** — no migration code exists to test; see AC note above.
+- **Dependencies**: SPRD-246 (done).
+- **Scope clarifications agreed before implementation** (not in original spec text, confirmed with user 2026-06-24):
+  - `Task.period` becomes `Period?` alongside `Task.date` (not just `date` as the spec text states) — `entries.period` is already nullable remotely, and every existing call site already gates `period` reads behind `hasPreferredAssignment`/date-presence, so this is a safe, consistent pairing rather than a scope expansion.
+- **Progress (commits landed on feature/SESH-24)**:
+  1. `[SPRD-247][1/n]` — Added `merge_entry`/`merge_assignment`/`merge_entry_tag` RPC functions to `supabase/migrations/20260624000000_baseline_schema.sql` (squashed into the baseline per the established pre-release convention), mirroring `merge_task`/`merge_note`/`merge_task_assignment`/`merge_note_assignment`/`merge_task_tag`/`merge_note_tag`'s LWW/fallback-lookup semantics but against `entries`/`assignments`/`entry_tags` with a `type`/`entry_type` discriminator. Verified locally via `supabase db reset` plus manual RPC tests: insert of a dateless task entry and a full note entry, an LWW update transitioning a task from null `date`/`period` to real values (confirming the trigger-driven `*_updated_at` bump), and the assignment fallback-lookup correctly resolving a second `merge_assignment` call (different `id`, same `entry_id`/`period`/`date`) to the existing row rather than duplicating it. Not yet applied to `spread-prod` — pending the Swift-side `SyncSerializer` rewire that will actually call these RPCs.
+  - Remaining for this task: Entry protocol + eligibility-flag additions; widen `Task.date`/`Task.period`/`Note.date` to optional; remove `hasPreferredAssignment`; rework the Task creation/edit UI toggle; collapse `SyncEntityType`; rewrite `SyncSerializer` and `SyncEngine`'s pull/apply dispatch for the new unified tables; apply this migration to `spread-prod`; full test suite + build verification.
 
 ---
 
