@@ -642,7 +642,7 @@ struct TaskDetailSheet: View {
                 if viewModel.selectedStatus.allowsAssignmentEditingInTaskSheet {
                     if viewModel.formModel.hasPreferredAssignment {
                         let effectiveDate = viewModel.formModel.effectiveSelectedDate
-                        if !task.hasPreferredAssignment ||
+                        if task.date == nil ||
                            effectiveDate != task.date ||
                            viewModel.formModel.selectedPeriod != task.period ||
                            viewModel.formModel.selectedSpreadID != currentMultidaySpreadID {
@@ -653,12 +653,8 @@ struct TaskDetailSheet: View {
                                 preferredSpreadID: viewModel.formModel.selectedSpreadID
                             )
                         }
-                    } else if task.hasPreferredAssignment {
-                        try await journalManager.clearTaskPreferredAssignment(
-                            task,
-                            fallbackDate: viewModel.formModel.effectiveSelectedDate,
-                            fallbackPeriod: viewModel.formModel.selectedPeriod
-                        )
+                    } else if task.date != nil {
+                        try await journalManager.clearTaskPreferredAssignment(task)
                     }
                 }
 

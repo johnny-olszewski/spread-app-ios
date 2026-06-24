@@ -95,9 +95,8 @@ struct TaskSearchSupportTests {
             body: "Prepare rollout checklist",
             priority: .high,
             dueDate: dueDate,
-            date: dayDate,
-            period: .day,
-            hasPreferredAssignment: false,
+            date: nil,
+            period: nil,
             status: .open
         )
         let manager = try await JournalManager.make(
@@ -126,9 +125,8 @@ struct TaskSearchSupportTests {
         let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: calendar)
         let unassignedTask = DataModel.Task(
             title: "Unassigned",
-            date: dayDate,
-            period: .day,
-            hasPreferredAssignment: false,
+            date: nil,
+            period: nil,
             status: .open
         )
         let assignedTask = DataModel.Task(

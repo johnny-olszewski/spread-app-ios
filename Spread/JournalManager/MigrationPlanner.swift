@@ -193,7 +193,7 @@ struct StandardMigrationPlanner: MigrationPlanner {
         spreads: [DataModel.Spread],
         to destination: DataModel.Spread
     ) -> MigrationCandidate? {
-        guard task.status == .open, task.hasPreferredAssignment else {
+        guard task.status == .open, task.date != nil else {
             return nil
         }
 
@@ -252,7 +252,7 @@ struct StandardMigrationPlanner: MigrationPlanner {
         for task: DataModel.Task,
         spreads: [DataModel.Spread]
     ) -> DataModel.Spread? {
-        guard task.hasPreferredAssignment else { return nil }
+        guard task.date != nil else { return nil }
         return spreadService.findBestSpread(for: task, in: spreads)
     }
 

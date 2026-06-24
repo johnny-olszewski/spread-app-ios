@@ -121,7 +121,7 @@ struct SyncMetadataTests {
         #expect(fetched.body == nil)
         #expect(fetched.priority == .none)
         #expect(fetched.dueDate == nil)
-        #expect(fetched.hasPreferredAssignment)
+        #expect(fetched.date != nil)
         #expect(fetched.bodyUpdatedAt == nil)
         #expect(fetched.priorityUpdatedAt == nil)
         #expect(fetched.dueDateUpdatedAt == nil)
@@ -140,7 +140,8 @@ struct SyncMetadataTests {
             body: "Details",
             priority: .high,
             dueDate: now,
-            hasPreferredAssignment: false,
+            date: nil,
+            period: nil,
             deletedAt: now,
             deviceId: deviceId,
             revision: 7,
@@ -166,7 +167,7 @@ struct SyncMetadataTests {
         #expect(fetched.body == "Details")
         #expect(fetched.priority == .high)
         #expect(fetched.dueDate != nil)
-        #expect(!fetched.hasPreferredAssignment)
+        #expect(fetched.date == nil)
         #expect(fetched.bodyUpdatedAt != nil)
         #expect(fetched.priorityUpdatedAt != nil)
         #expect(fetched.dueDateUpdatedAt != nil)
@@ -522,7 +523,7 @@ struct SyncMetadataTests {
     /// Expected: Date and period should be encoded as null while their timestamps remain present.
     @Test func testSerializerEncodesClearedTaskPreferredAssignmentAsNull() throws {
         let timestamp = SyncDateFormatting.parseTimestamp("2025-12-31T23:59:59.000Z")!
-        let task = DataModel.Task(title: "Unassigned", hasPreferredAssignment: false)
+        let task = DataModel.Task(title: "Unassigned", date: nil, period: nil)
 
         let data = SyncSerializer.serializeTask(task, deviceId: deviceId, timestamp: timestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]

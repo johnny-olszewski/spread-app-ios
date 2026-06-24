@@ -31,8 +31,7 @@ struct SpreadService {
         in spreads: [DataModel.Spread],
         preferredSpreadID: UUID? = nil
     ) -> DataModel.Spread? {
-        guard task.hasPreferredAssignment,
-              let taskDate = task.date,
+        guard let taskDate = task.date,
               let taskPeriod = task.period else {
             return nil
         }

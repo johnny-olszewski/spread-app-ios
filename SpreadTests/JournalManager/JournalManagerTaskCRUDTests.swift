@@ -467,13 +467,9 @@ struct JournalManagerTaskCRUDTests {
             spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread])
         )
 
-        try await manager.clearTaskPreferredAssignment(
-            existingTask,
-            fallbackDate: sourceDate,
-            fallbackPeriod: .day
-        )
+        try await manager.clearTaskPreferredAssignment(existingTask)
 
-        #expect(existingTask.hasPreferredAssignment == false)
+        #expect(existingTask.date == nil)
         #expect(existingTask.assignments.count == 1)
         #expect(existingTask.assignments.first?.status == .migrated)
         #expect(manager.inboxEntries.contains { ($0 as? DataModel.Task)?.id == existingTask.id })
@@ -489,7 +485,6 @@ struct JournalManagerTaskCRUDTests {
             createdDate: today,
             date: today,
             period: .day,
-            hasPreferredAssignment: true,
             status: .open,
             assignments: []
         )
@@ -500,13 +495,9 @@ struct JournalManagerTaskCRUDTests {
             spreadRepository: InMemorySpreadRepository(spreads: [])
         )
 
-        try await manager.clearTaskPreferredAssignment(
-            existingTask,
-            fallbackDate: today,
-            fallbackPeriod: .day
-        )
+        try await manager.clearTaskPreferredAssignment(existingTask)
 
-        #expect(existingTask.hasPreferredAssignment == false)
+        #expect(existingTask.date == nil)
         #expect(existingTask.assignments.isEmpty)
         #expect(manager.inboxEntries.contains { ($0 as? DataModel.Task)?.id == existingTask.id })
     }

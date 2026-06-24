@@ -403,12 +403,12 @@ struct SyncEngineTests {
         #expect(assignedTask.body == "Ship checklist")
         #expect(assignedTask.priority == .high)
         #expect(assignedTask.dueDate.map(SyncDateFormatting.formatDate) == "2026-04-03")
-        #expect(assignedTask.hasPreferredAssignment)
+        #expect(assignedTask.date != nil)
         #expect(assignedTask.assignments.first?.id == Self.wkflw17AssignmentID)
         #expect(monthModel.tasks.contains { $0.id == assignedTask.id })
         #expect(inboxTask.body == "Inbox body")
         #expect(inboxTask.priority == .medium)
-        #expect(inboxTask.hasPreferredAssignment == false)
+        #expect(inboxTask.date == nil)
         #expect(inboxTask.assignments.isEmpty)
         #expect(manager.inboxEntries.contains { $0.id == inboxTask.id })
     }
@@ -445,9 +445,8 @@ struct SyncEngineTests {
             body: "Body survives push",
             priority: .low,
             dueDate: dueDate,
-            date: date,
-            period: .month,
-            hasPreferredAssignment: false,
+            date: nil,
+            period: nil,
             status: .open
         )
 

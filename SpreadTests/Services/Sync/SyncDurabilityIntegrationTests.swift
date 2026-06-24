@@ -91,16 +91,14 @@ final class SyncDurabilityIntegrationTests: XCTestCase {
             title: "Assigned WKFLW task",
             date: april,
             period: .month,
-            hasPreferredAssignment: true,
             body: "Assigned body",
             priority: .high,
             dueDate: dueDate
         )
         let inboxTask = try await harness.journalManager.addTask(
             title: "Inbox WKFLW task",
-            date: april,
-            period: .month,
-            hasPreferredAssignment: false,
+            date: nil,
+            period: nil,
             body: "Inbox body",
             priority: .medium,
             dueDate: dueDate
@@ -120,13 +118,13 @@ final class SyncDurabilityIntegrationTests: XCTestCase {
         XCTAssertEqual(rebuiltAssignedTask.body, "Assigned body")
         XCTAssertEqual(rebuiltAssignedTask.priority, .high)
         XCTAssertEqual(rebuiltAssignedTask.dueDate, dueDate)
-        XCTAssertTrue(rebuiltAssignedTask.hasPreferredAssignment)
+        XCTAssertNotNil(rebuiltAssignedTask.date)
         XCTAssertEqual(rebuiltAssignedTask.assignments.first?.status, .open)
         XCTAssertTrue(rebuiltMonth.tasks.contains { $0.id == assignedTask.id })
         XCTAssertEqual(rebuiltInboxTask.body, "Inbox body")
         XCTAssertEqual(rebuiltInboxTask.priority, .medium)
         XCTAssertEqual(rebuiltInboxTask.dueDate, dueDate)
-        XCTAssertFalse(rebuiltInboxTask.hasPreferredAssignment)
+        XCTAssertNil(rebuiltInboxTask.date)
         XCTAssertTrue(rebuiltInboxTask.assignments.isEmpty)
         XCTAssertTrue(harness.journalManager.inboxEntries.contains { $0.id == inboxTask.id })
     }

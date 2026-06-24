@@ -225,15 +225,14 @@ struct JournalManagerAddTaskTests {
 
         let task = try await journalManager.addTask(
             title: "Draft launch notes",
-            date: today,
-            period: .day,
-            hasPreferredAssignment: false,
+            date: nil,
+            period: nil,
             body: "  Write rollout checklist  ",
             priority: .high,
             dueDate: dueDate
         )
 
-        #expect(task.hasPreferredAssignment == false)
+        #expect(task.date == nil)
         #expect(task.assignments.isEmpty)
         #expect(task.body == "Write rollout checklist")
         #expect(task.priority == .high)

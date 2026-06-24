@@ -33,10 +33,9 @@ protocol TaskMutationCoordinator {
         body: String?,
         priority: DataModel.Task.Priority,
         dueDate: Date?,
-        date: Date,
-        period: Period,
+        date: Date?,
+        period: Period?,
         preferredSpreadID: UUID?,
-        hasPreferredAssignment: Bool,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> TaskListMutationResult
@@ -66,8 +65,6 @@ protocol TaskMutationCoordinator {
     /// Clears a task's preferred assignment and migrates any live assignment history.
     func clearTaskPreferredAssignment(
         _ task: DataModel.Task,
-        fallbackDate: Date,
-        fallbackPeriod: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> TaskListMutationResult

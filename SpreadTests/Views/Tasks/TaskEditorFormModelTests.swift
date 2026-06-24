@@ -107,9 +107,8 @@ struct TaskEditorFormModelTests {
         let today = makeDate(year: 2026, month: 4, day: 6)
         let task = DataModel.Task(
             title: "Inbox",
-            date: makeDate(year: 2026, month: 1, day: 1),
-            period: .year,
-            hasPreferredAssignment: false,
+            date: nil,
+            period: nil,
             status: .open
         )
         var model = TaskEditorFormModel(

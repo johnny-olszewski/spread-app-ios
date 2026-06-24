@@ -47,11 +47,11 @@ struct TaskBrowserSectionBuilder {
 
     private func openSections(from tasks: [DataModel.Task]) -> [TaskBrowserSection] {
         let inboxTasks = tasks
-            .filter { !$0.hasPreferredAssignment }
+            .filter { $0.date == nil }
             .sorted { $0.createdDate < $1.createdDate }
 
         let assignedTasks = tasks
-            .filter { $0.hasPreferredAssignment }
+            .filter { $0.date != nil }
             .sorted { a, b in
                 let aDate = a.date ?? a.createdDate
                 let bDate = b.date ?? b.createdDate

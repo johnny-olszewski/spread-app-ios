@@ -848,7 +848,7 @@ final class JournalManager {
         var migratedTaskCount = 0
         var migratedNoteCount = 0
 
-        for task in tasks where task.hasPreferredAssignment && task.status != .cancelled && task.status != .migrated {
+        for task in tasks where task.date != nil && task.status != .cancelled && task.status != .migrated {
             let previousAssignments = task.assignments
             taskAssignmentReconciler.reconcilePreferredAssignment(
                 for: task,
@@ -1186,7 +1186,6 @@ final class JournalManager {
             title: title,
             date: date,
             period: period,
-            hasPreferredAssignment: true,
             body: nil,
             priority: .none,
             dueDate: nil
@@ -1203,9 +1202,8 @@ final class JournalManager {
     ///
     /// - Parameters:
     ///   - title: The task title.
-    ///   - date: The preferred date for the task.
-    ///   - period: The preferred period for the task.
-    ///   - hasPreferredAssignment: Whether the task should resolve onto matching spreads.
+    ///   - date: The preferred date for the task, or `nil` for no preferred assignment.
+    ///   - period: The preferred period for the task, or `nil` for no preferred assignment.
     ///   - body: Optional plain text body.
     ///   - priority: Display-only priority.
     ///   - dueDate: Optional informational day-level due date.
@@ -1213,10 +1211,9 @@ final class JournalManager {
     /// - Throws: Repository errors if persistence fails.
     func addTask(
         title: String,
-        date: Date,
-        period: Period,
+        date: Date?,
+        period: Period?,
         preferredSpreadID: UUID? = nil,
-        hasPreferredAssignment: Bool,
         body: String?,
         priority: DataModel.Task.Priority,
         dueDate: Date?
@@ -1229,7 +1226,6 @@ final class JournalManager {
             date: date,
             period: period,
             preferredSpreadID: preferredSpreadID,
-            hasPreferredAssignment: hasPreferredAssignment,
             calendar: calendar,
             spreads: spreads
         )
@@ -1377,15 +1373,11 @@ final class JournalManager {
     /// Existing live assignments are migrated by the assignment reconciler. If the task was
     /// only waiting for a future spread, no migrated-history row is created.
     func clearTaskPreferredAssignment(
-        _ task: DataModel.Task,
-        fallbackDate: Date,
-        fallbackPeriod: Period
+        _ task: DataModel.Task
     ) async throws {
         let previousKeys = dataModelBuilder.spreadKeys(for: task, spreads: spreads)
         let result = try await taskMutationCoordinator.clearTaskPreferredAssignment(
             task,
-            fallbackDate: fallbackDate,
-            fallbackPeriod: fallbackPeriod,
             calendar: calendar,
             spreads: spreads
         )

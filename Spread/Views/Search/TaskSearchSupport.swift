@@ -74,7 +74,7 @@ struct TaskSearchSectionBuilder {
     }
 
     private func selection(for task: DataModel.Task) -> DataModel.Spread? {
-        guard task.hasPreferredAssignment else { return nil }
+        guard task.date != nil else { return nil }
         return journalManager.currentDisplayedSpread(for: task)
     }
 
@@ -88,7 +88,7 @@ struct TaskSearchSectionBuilder {
             status: task.status,
             period: task.period ?? .day,
             date: task.date ?? task.createdDate,
-            hasPreferredAssignment: task.hasPreferredAssignment,
+            hasPreferredAssignment: task.date != nil,
             selection: nil
         )
     }
@@ -106,7 +106,7 @@ struct TaskSearchSectionBuilder {
             status: task.status,
             period: task.period ?? .day,
             date: task.date ?? task.createdDate,
-            hasPreferredAssignment: task.hasPreferredAssignment,
+            hasPreferredAssignment: task.date != nil,
             selection: selection
         )
     }

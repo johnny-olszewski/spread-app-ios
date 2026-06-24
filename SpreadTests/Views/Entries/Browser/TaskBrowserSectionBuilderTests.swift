@@ -46,7 +46,6 @@ struct TaskBrowserSectionBuilderTests {
     private func makeTask(
         title: String = "Task",
         status: EntryStatus = .open,
-        hasPreferredAssignment: Bool = false,
         date: Date? = nil,
         period: Period = .day,
         createdDate: Date = .distantPast,
@@ -57,9 +56,8 @@ struct TaskBrowserSectionBuilderTests {
         DataModel.Task(
             title: title,
             createdDate: createdDate,
-            date: date ?? makeDate(year: 2026, month: 1, day: 1),
-            period: period,
-            hasPreferredAssignment: hasPreferredAssignment,
+            date: date,
+            period: date != nil ? period : nil,
             status: status,
             assignments: assignments,
             list: list,
@@ -75,13 +73,11 @@ struct TaskBrowserSectionBuilderTests {
     func inboxTasksBeforeAssignedInOpenSection() {
         let assignedTask = makeTask(
             title: "Assigned",
-            hasPreferredAssignment: true,
             date: makeDate(year: 2026, month: 1, day: 5),
             createdDate: makeDate(year: 2026, month: 1, day: 1)
         )
         let inboxTask = makeTask(
             title: "Inbox",
-            hasPreferredAssignment: false,
             createdDate: makeDate(year: 2026, month: 1, day: 10)
         )
 
@@ -124,14 +120,12 @@ struct TaskBrowserSectionBuilderTests {
         let jan = makeDate(year: 2026, month: 1, day: 1)
         let dayTask = makeTask(
             title: "Day",
-            hasPreferredAssignment: true,
             date: jan,
             period: .day,
             createdDate: makeDate(year: 2026, month: 1, day: 10)
         )
         let monthTask = makeTask(
             title: "Month",
-            hasPreferredAssignment: true,
             date: jan,
             period: .month,
             createdDate: makeDate(year: 2026, month: 1, day: 1)
@@ -155,12 +149,10 @@ struct TaskBrowserSectionBuilderTests {
     func assignedOpenTasksOrderedByDateAscending() {
         let earlyTask = makeTask(
             title: "Early",
-            hasPreferredAssignment: true,
             date: makeDate(year: 2026, month: 1, day: 5)
         )
         let lateTask = makeTask(
             title: "Late",
-            hasPreferredAssignment: true,
             date: makeDate(year: 2026, month: 3, day: 1)
         )
 

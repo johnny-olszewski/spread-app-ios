@@ -214,13 +214,13 @@ struct SyncSerializerTests {
         #expect(task?.body == "Details")
         #expect(task?.priority == .medium)
         #expect(task?.dueDate != nil)
-        #expect(task?.hasPreferredAssignment == true)
+        #expect(task?.date != nil)
         #expect(task?.period == .day)
         #expect(task?.status == .open)
     }
 
     /// Conditions: Server task row has nil preferred date and period.
-    /// Expected: Created task should preserve nil-assignment state while keeping local fallback values.
+    /// Expected: Created task should preserve nil date/period directly (no local fallback values).
     @Test func testCreateTaskFromNilPreferredAssignmentRow() {
         let row = ServerTaskRow(
             id: UUID(), title: "Inbox task", date: nil, period: nil, status: "open",
@@ -230,8 +230,8 @@ struct SyncSerializerTests {
         let task = SyncSerializer.createTask(from: row)
 
         #expect(task != nil)
-        #expect(task?.hasPreferredAssignment == false)
-        #expect(task?.period == .day)
+        #expect(task?.date == nil)
+        #expect(task?.period == nil)
     }
 
     /// Conditions: Server task row with deletedAt set.
@@ -459,7 +459,7 @@ struct SyncSerializerTests {
         #expect(task.body == "New body")
         #expect(task.priority == .high)
         #expect(task.dueDate != nil)
-        #expect(task.hasPreferredAssignment)
+        #expect(task.date != nil)
         #expect(task.period == .month)
         #expect(task.status == .complete)
     }

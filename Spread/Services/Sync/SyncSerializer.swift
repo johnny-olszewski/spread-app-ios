@@ -936,8 +936,8 @@ enum SyncSerializer {
             "priority": task.priority.rawValue,
             "due_date": task.dueDate.map { SyncDateFormatting.formatDate($0) },
             "list_id": task.list?.id.uuidString,
-            "date": task.hasPreferredAssignment ? task.date.map { SyncDateFormatting.formatDate($0) } : nil,
-            "period": task.hasPreferredAssignment ? task.period?.rawValue : nil,
+            "date": task.date.map { SyncDateFormatting.formatDate($0) },
+            "period": task.period?.rawValue,
             "status": task.status.rawValue,
             "created_at": SyncDateFormatting.formatTimestamp(task.createdDate),
             "deleted_at": (deletedAt ?? task.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
@@ -1471,13 +1471,8 @@ enum SyncSerializer {
         task.body = row.body
         if let priority = DataModel.Task.Priority(rawValue: row.priority) { task.priority = priority }
         task.dueDate = row.dueDate.flatMap { SyncDateFormatting.parseDate($0) }
-        if let rowDate = row.date, let date = SyncDateFormatting.parseDate(rowDate) {
-            task.date = date
-        }
-        if let rowPeriod = row.period, let period = Period(rawValue: rowPeriod) {
-            task.period = period
-        }
-        task.hasPreferredAssignment = row.date != nil && row.period != nil
+        task.date = row.date.flatMap { SyncDateFormatting.parseDate($0) }
+        task.period = row.period.flatMap { Period(rawValue: $0) }
         if let status = EntryStatus(rawValue: row.status) { task.status = status }
         return true
     }
@@ -1494,8 +1489,8 @@ enum SyncSerializer {
               row.period == nil || row.period.flatMap({ Period(rawValue: $0) }) != nil else {
             return nil
         }
-        let parsedDate = row.date.flatMap { SyncDateFormatting.parseDate($0) } ?? createdAt
-        let parsedPeriod = row.period.flatMap { Period(rawValue: $0) } ?? .day
+        let parsedDate = row.date.flatMap { SyncDateFormatting.parseDate($0) }
+        let parsedPeriod = row.period.flatMap { Period(rawValue: $0) }
         return DataModel.Task(
             id: row.id,
             title: row.title,
@@ -1505,7 +1500,6 @@ enum SyncSerializer {
             createdDate: createdAt,
             date: parsedDate,
             period: parsedPeriod,
-            hasPreferredAssignment: row.date != nil && row.period != nil,
             status: status
         )
     }

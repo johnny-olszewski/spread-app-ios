@@ -27,14 +27,13 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         body: String? = nil,
         priority: DataModel.Task.Priority = .none,
         dueDate: Date? = nil,
-        date: Date,
-        period: Period,
+        date: Date?,
+        period: Period?,
         preferredSpreadID: UUID? = nil,
-        hasPreferredAssignment: Bool = true,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> TaskListMutationResult {
-        let normalizedDate = period.normalizeDate(date, calendar: calendar)
+        let normalizedDate = date.map { period?.normalizeDate($0, calendar: calendar) ?? $0 }
         let task = DataModel.Task(
             title: title,
             body: body,
@@ -43,12 +42,11 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
             createdDate: .now,
             date: normalizedDate,
             period: period,
-            hasPreferredAssignment: hasPreferredAssignment,
             status: .open,
             assignments: []
         )
 
-        if hasPreferredAssignment {
+        if normalizedDate != nil {
             taskAssignmentReconciler.reconcilePreferredAssignment(
                 for: task,
                 in: spreads,
@@ -77,7 +75,6 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
         let normalizedDate = newPeriod.normalizeDate(newDate, calendar: calendar)
         task.date = normalizedDate
         task.period = newPeriod
-        task.hasPreferredAssignment = true
         taskAssignmentReconciler.reconcilePreferredAssignment(
             for: task,
             in: spreads,
@@ -96,14 +93,11 @@ struct StandardTaskMutationCoordinator: TaskMutationCoordinator {
 
     func clearTaskPreferredAssignment(
         _ task: DataModel.Task,
-        fallbackDate: Date,
-        fallbackPeriod: Period,
         calendar: Calendar,
         spreads: [DataModel.Spread]
     ) async throws -> TaskListMutationResult {
-        task.date = fallbackPeriod.normalizeDate(fallbackDate, calendar: calendar)
-        task.period = fallbackPeriod
-        task.hasPreferredAssignment = false
+        task.date = nil
+        task.period = nil
         taskAssignmentReconciler.reconcilePreferredAssignment(
             for: task,
             in: spreads,

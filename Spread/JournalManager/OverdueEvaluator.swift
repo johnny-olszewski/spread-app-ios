@@ -71,8 +71,7 @@ struct StandardOverdueEvaluator: OverdueEvaluator {
             return OverdueTaskItem(task: task, sourceKey: sourceKey)
         }
 
-        guard task.hasPreferredAssignment,
-              let taskDate = task.date,
+        guard let taskDate = task.date,
               let taskPeriod = task.period,
               isOverdue(date: taskDate, period: taskPeriod) else {
             return nil

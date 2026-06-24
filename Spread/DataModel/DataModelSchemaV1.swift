@@ -316,15 +316,6 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The preferred period for this task. `nil` means no preferred assignment.
         var period: Period?
 
-        /// Optional persisted backing for `hasPreferredAssignment`.
-        @Attribute(originalName: "hasPreferredAssignment") private var storedHasPreferredAssignment: Bool?
-
-        /// Whether `date` and `period` represent an active preferred assignment.
-        var hasPreferredAssignment: Bool {
-            get { storedHasPreferredAssignment ?? true }
-            set { storedHasPreferredAssignment = newValue }
-        }
-
         /// The current status of the task.
         var status: EntryStatus
 
@@ -403,7 +394,6 @@ enum DataModelSchemaV1: VersionedSchema {
             createdDate: Date = .now,
             date: Date? = .now,
             period: Period? = .day,
-            hasPreferredAssignment: Bool = true,
             status: EntryStatus = .open,
             assignments: [Assignment] = [],
             list: DataModelSchemaV1.List? = nil,
@@ -428,7 +418,6 @@ enum DataModelSchemaV1: VersionedSchema {
             self.createdDate = createdDate
             self.date = date
             self.period = period
-            self.storedHasPreferredAssignment = hasPreferredAssignment
             self.status = status
             self.assignments = assignments
             self.list = list
