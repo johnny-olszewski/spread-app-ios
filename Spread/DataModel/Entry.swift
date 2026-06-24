@@ -74,15 +74,20 @@ extension Entry {
 /// A structural conformance layer between `Entry` and the SwiftData `@Model` classes
 /// (`Task`, `Note`) that track a preferred date and assignment history.
 ///
-/// Carries no requirements of its own — `date` is satisfied directly via `Entry`, and
-/// `period`/`assignments` are plain properties on `Task`/`Note` individually (their types
-/// don't need to match each other; nothing dispatches over them polymorphically). This
-/// protocol exists only because the `@Model` macro's `PersistentModel`/`Hashable`
+/// `date` is satisfied directly via `Entry`. `period` stays off this protocol since
+/// `Task.period: Period?` and `Note.period: Period` genuinely diverge in optionality —
+/// nothing should dispatch over it polymorphically. `assignments` is declared here since
+/// it's identical (`[Assignment]`) on both conformers and `JournalRuleEngine` (SPRD-248)
+/// dispatches over it polymorphically for spread-matching logic shared by Task and Note.
+/// This protocol also exists because the `@Model` macro's `PersistentModel`/`Hashable`
 /// synthesis fails under this project's strict-concurrency build settings when `Task`/
 /// `Note` conform directly to `Entry` — confirmed empirically; conforming through any
 /// intermediate protocol (even an empty one) resolves it. `Event` doesn't need this
 /// layer since it already conforms to `Entry` via `DateRangeEntry`.
-protocol AssignableEntry: Entry {}
+protocol AssignableEntry: Entry {
+    /// Assignment history for this entry across spreads.
+    var assignments: [Assignment] { get set }
+}
 
 /// An entry whose visibility is computed from date range overlap.
 ///
