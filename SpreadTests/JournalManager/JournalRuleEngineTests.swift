@@ -262,4 +262,116 @@ struct JournalRuleEngineTests {
         #expect(legacyModel[key: dayKey]?.events.map(\.id) == engineModel[key: dayKey]?.events.map(\.id))
         #expect(legacyModel[key: multidayKey]?.notes.map(\.id) == engineModel[key: multidayKey]?.notes.map(\.id))
     }
+
+    // MARK: - Inbox Resolution
+
+    /// Setup: an unassigned open task, an unassigned cancelled task, and an unassigned note.
+    /// Expected: the engine excludes the cancelled task (per-instance check) and the note
+    /// (`Note.isInboxEligible == false`) — only the open task is returned. This is the
+    /// confirmed, intentional divergence from the legacy `StandardInboxResolver`, which
+    /// would also include the note.
+    @Test func testInboxEntriesExcludesCancelledTasksAndAllNotes() {
+        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
+        let openTask = DataModel.Task(title: "Open", date: dayDate, period: .day, assignments: [])
+        let cancelledTask = DataModel.Task(title: "Cancelled", date: dayDate, period: .day, status: .cancelled, assignments: [])
+        let note = DataModel.Note(title: "Note", date: dayDate, period: .day, assignments: [])
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        let entries = engine.inboxEntries(
+            entries: [openTask, cancelledTask, note],
+            spreads: []
+        )
+
+        #expect(entries.map(\.id) == [openTask.id])
+    }
+
+    /// Setup: a task has only a migrated assignment that matches an existing spread.
+    /// Expected: the engine keeps it in Inbox because migrated-only history is not an
+    /// active matching assignment. Parity with the legacy `StandardInboxResolver`.
+    @Test func testInboxEntriesTreatsMigratedOnlyAssignmentsAsInboxEligible() {
+        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
+        let spread = DataModel.Spread(period: .day, date: dayDate, calendar: Self.calendar)
+        let task = DataModel.Task(
+            title: "Migrated only",
+            date: dayDate,
+            period: .day,
+            assignments: [Assignment(period: .day, date: dayDate, status: .migrated)]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        let entries = engine.inboxEntries(entries: [task], spreads: [spread])
+
+        #expect(entries.map(\.id) == [task.id])
+    }
+
+    /// Setup: a task has an active assignment matching an existing spread.
+    /// Expected: the task is excluded from Inbox. Parity with the legacy
+    /// `StandardInboxResolver` for tasks specifically.
+    @Test func testInboxEntriesExcludesTaskWithMatchingActiveAssignment() {
+        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
+        let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: Self.calendar)
+        let task = DataModel.Task(
+            title: "Assigned task",
+            date: dayDate,
+            period: .day,
+            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        let entries = engine.inboxEntries(entries: [task], spreads: [daySpread])
+
+        #expect(entries.isEmpty)
+    }
+
+    /// Setup: the same task fixtures from `InboxResolverTests` run through both the legacy
+    /// `StandardInboxResolver` and `JournalRuleEngine.inboxEntries`.
+    /// Expected: identical output for tasks — full parity for the entry type both
+    /// implementations agree is Inbox-eligible.
+    @Test func testInboxEntriesMatchesLegacyResolverForTasks() {
+        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
+        let spread = DataModel.Spread(period: .day, date: dayDate, calendar: Self.calendar)
+        let openTask = DataModel.Task(title: "Open", date: dayDate, period: .day, assignments: [])
+        let cancelledTask = DataModel.Task(title: "Cancelled", date: dayDate, period: .day, status: .cancelled, assignments: [])
+        let assignedTask = DataModel.Task(
+            title: "Assigned",
+            date: dayDate,
+            period: .day,
+            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
+        )
+
+        let legacyResolver = StandardInboxResolver(calendar: Self.calendar)
+        let legacyEntries = legacyResolver.inboxEntries(
+            tasks: [openTask, cancelledTask, assignedTask],
+            notes: [],
+            spreads: [spread]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        let engineEntries = engine.inboxEntries(
+            entries: [openTask, cancelledTask, assignedTask],
+            spreads: [spread]
+        )
+
+        #expect(legacyEntries.map(\.id) == engineEntries.map(\.id))
+    }
+
+    /// Setup: an unassigned note run through both the legacy `StandardInboxResolver` and
+    /// `JournalRuleEngine.inboxEntries`.
+    /// Expected: divergence, not parity — the legacy resolver includes the note (it has no
+    /// per-type Inbox eligibility concept), while the engine excludes it via
+    /// `Note.isInboxEligible == false` (SPRD-247's already-shipped flag value). This is the
+    /// confirmed, intentional behavior change flagged in SPRD-248's plan.md notes; this test
+    /// locks in that divergence is real and deliberate, not a missed case.
+    @Test func testInboxEntriesDivergesFromLegacyResolverForUnassignedNotes() {
+        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
+        let note = DataModel.Note(title: "Note", date: dayDate, period: .day, assignments: [])
+
+        let legacyResolver = StandardInboxResolver(calendar: Self.calendar)
+        let legacyEntries = legacyResolver.inboxEntries(tasks: [], notes: [note], spreads: [])
+        #expect(legacyEntries.map(\.id) == [note.id])
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        let engineEntries = engine.inboxEntries(entries: [note], spreads: [])
+        #expect(engineEntries.isEmpty)
+    }
 }

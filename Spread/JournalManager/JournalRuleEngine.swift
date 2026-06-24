@@ -172,4 +172,51 @@ struct JournalRuleEngine {
     ) -> [DataModel.Event] {
         events.filter { spreadService.eventAppearsOnSpread($0, spread: spread) }
     }
+
+    // MARK: - Inbox Resolution
+
+    /// Returns all entries that have no matching spread assignment.
+    ///
+    /// - Inbox membership is gated by `Entry.isInboxEligible` (SPRD-247's static per-type
+    ///   constant — currently `true` for `Task` only). Entries whose type is never
+    ///   Inbox-eligible are excluded outright, without consulting assignment matching.
+    /// - Cancelled entries are excluded regardless of type eligibility — they are no longer
+    ///   actionable. This is a per-instance check using `Entry.status`, independent of the
+    ///   type-level `isInboxEligible` flag.
+    /// - Entries that aren't `AssignableEntry` (currently only `DataModel.Event`) are
+    ///   excluded — they use computed visibility, not assignments, and never belong in
+    ///   Inbox. In practice this is already covered by `isInboxEligible` (`Event` defaults
+    ///   to `false`), but the cast is kept as a defensive second check since `inboxEntries`
+    ///   needs `.assignments` to evaluate matching either way.
+    ///
+    /// `Note.isInboxEligible == false` today (SPRD-247's already-shipped flag value), so
+    /// unassigned notes are excluded here — a confirmed divergence from the legacy
+    /// `StandardInboxResolver`, which includes them. See SPRD-248's plan.md notes.
+    ///
+    /// - Parameters:
+    ///   - entries: All tasks, notes, and events in the journal.
+    ///   - spreads: All existing spreads used to evaluate assignment matches.
+    /// - Returns: The entries with no matching spread assignment, in their input order.
+    func inboxEntries(
+        entries: [any Entry],
+        spreads: [DataModel.Spread]
+    ) -> [any Entry] {
+        entries.filter { entry in
+            guard entry.isInboxEligible, entry.status != .cancelled else {
+                return false
+            }
+            guard let assignableEntry = entry as? any AssignableEntry else {
+                return false
+            }
+            return !isShownOnAnySpread(assignableEntry, spreads: spreads)
+        }
+    }
+
+    /// Returns `true` if the entry has a current non-migrated assignment matching any spread.
+    private func isShownOnAnySpread<E: AssignableEntry>(
+        _ entry: E,
+        spreads: [DataModel.Spread]
+    ) -> Bool {
+        spreads.contains { shouldShowOnSpread(entry, for: $0) }
+    }
 }
