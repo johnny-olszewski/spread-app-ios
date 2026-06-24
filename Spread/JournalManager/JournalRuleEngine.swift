@@ -610,4 +610,123 @@ struct JournalRuleEngine {
             return false
         }
     }
+
+    // MARK: - Assignment Reconciliation
+
+    /// Updates the task's assignments so that the best matching spread is the active destination.
+    ///
+    /// Mutates `task.assignments` in-place. Does not persist; callers must save the task afterward.
+    /// Performs no repository writes, consistent with `JournalRuleEngine` being a pure rule engine.
+    ///
+    /// Kept as a separate overload from the `Note` version rather than a single generic
+    /// method — the destination assignment's `status` is `task.status` here (preserving
+    /// complete/open), but always `.active` for notes, a real domain divergence, not
+    /// incidental duplication.
+    ///
+    /// - Parameters:
+    ///   - task: The task whose assignment should be reconciled.
+    ///   - spreads: The full list of existing spreads to search.
+    ///   - preferredSpreadID: Explicit multiday spread identity when the user
+    ///     directly selected one.
+    func reconcilePreferredAssignment(
+        for task: DataModel.Task,
+        in spreads: [DataModel.Spread],
+        preferredSpreadID: UUID? = nil
+    ) {
+        let destination = spreadService.findBestSpread(
+            for: task,
+            in: spreads,
+            preferredSpreadID: preferredSpreadID
+        )
+        let destinationStatus = task.status
+
+        if let destination {
+            if let destinationIndex = task.assignments.firstIndex(where: { assignment in
+                assignment.matches(spread: destination, calendar: calendar)
+            }) {
+                for index in task.assignments.indices
+                where index != destinationIndex && task.assignments[index].status != .migrated {
+                    task.assignments[index].status = .migrated
+                }
+                task.assignments[destinationIndex].status = destinationStatus
+            } else {
+                migrateActiveAssignmentsToHistory(task)
+                task.assignments.append(
+                    Assignment(
+                        period: destination.period,
+                        date: destination.date,
+                        spreadID: destination.period == .multiday ? destination.id : nil,
+                        status: destinationStatus
+                    )
+                )
+            }
+        } else {
+            migrateActiveAssignmentsToHistory(task)
+        }
+    }
+
+    /// Updates the note's assignments so that the best matching spread is the active destination.
+    ///
+    /// Mutates `note.assignments` in-place. Does not persist; callers must save the note afterward.
+    /// Performs no repository writes, consistent with `JournalRuleEngine` being a pure rule engine.
+    ///
+    /// - Parameters:
+    ///   - note: The note whose assignment should be reconciled.
+    ///   - spreads: The full list of existing spreads to search.
+    ///   - preferredSpreadID: Explicit multiday spread identity when the user
+    ///     directly selected one.
+    func reconcilePreferredAssignment(
+        for note: DataModel.Note,
+        in spreads: [DataModel.Spread],
+        preferredSpreadID: UUID? = nil
+    ) {
+        let destination = spreadService.findBestSpread(
+            for: note,
+            in: spreads,
+            preferredSpreadID: preferredSpreadID
+        )
+
+        if let destination {
+            if let destinationIndex = note.assignments.firstIndex(where: { assignment in
+                assignment.matches(spread: destination, calendar: calendar)
+            }) {
+                for index in note.assignments.indices
+                where index != destinationIndex && note.assignments[index].status != .migrated {
+                    note.assignments[index].status = .migrated
+                }
+                note.assignments[destinationIndex].status = .active
+            } else {
+                migrateActiveAssignmentsToHistory(note)
+                note.assignments.append(
+                    Assignment(
+                        period: destination.period,
+                        date: destination.date,
+                        spreadID: destination.period == .multiday ? destination.id : nil,
+                        status: .active
+                    )
+                )
+            }
+        } else {
+            migrateActiveAssignmentsToHistory(note)
+        }
+    }
+
+    /// Marks every non-migrated assignment on the task as migrated history.
+    ///
+    /// Not generalized over `AssignableEntry` — mutating `entry.assignments[index].status`
+    /// through a generic `let` parameter requires the compiler to know `E` is a class (Swift
+    /// can't assume this from the `AssignableEntry` constraint alone), whereas `Task`/`Note`
+    /// being concrete classes makes in-place mutation through a `let` parameter work directly.
+    private func migrateActiveAssignmentsToHistory(_ task: DataModel.Task) {
+        for index in task.assignments.indices where task.assignments[index].status != .migrated {
+            task.assignments[index].status = .migrated
+        }
+    }
+
+    /// Marks every non-migrated assignment on the note as migrated history.
+    private func migrateActiveAssignmentsToHistory(_ note: DataModel.Note) {
+        for index in note.assignments.indices where note.assignments[index].status != .migrated {
+            note.assignments[index].status = .migrated
+        }
+    }
 }

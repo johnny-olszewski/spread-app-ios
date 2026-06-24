@@ -805,4 +805,156 @@ struct JournalRuleEngineTests {
         #expect(legacyItems.map(\.task.id) == engineItems.map(\.task.id))
         #expect(legacyItems.map(\.sourceKey.id) == engineItems.map(\.sourceKey.id))
     }
+
+    // MARK: - Assignment Reconciliation
+
+    /// Setup: a task with an open year assignment, reconciled against no existing spreads.
+    /// Expected: falls back to Inbox by migrating the active assignment to history.
+    @Test func testReconcilePreferredAssignmentForTaskFallsBackToInboxByMigratingActiveAssignments() {
+        let taskDate = Self.makeDate(year: 2026, month: 1, day: 10)
+        let task = DataModel.Task(
+            title: "Inbox fallback",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        engine.reconcilePreferredAssignment(for: task, in: [])
+
+        #expect(task.assignments.count == 1)
+        #expect(task.assignments.first?.status == .migrated)
+    }
+
+    /// Setup: a complete task with a migrated-history month assignment matching an existing month spread.
+    /// Expected: the existing destination assignment is reused and its status preserved as complete.
+    @Test func testReconcilePreferredAssignmentForTaskReusesExistingDestinationAndPreservesCompleteStatus() {
+        let taskDate = Self.makeDate(year: 2026, month: 1, day: 10)
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: Self.calendar)
+        let task = DataModel.Task(
+            title: "Complete",
+            date: taskDate,
+            period: .month,
+            status: .complete,
+            assignments: [
+                Assignment(period: .year, date: taskDate, status: .open),
+                Assignment(period: .month, date: taskDate, status: .migrated)
+            ]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        engine.reconcilePreferredAssignment(for: task, in: [monthSpread])
+
+        #expect(task.assignments[0].status == .migrated)
+        #expect(task.assignments[1].status == .complete)
+    }
+
+    /// Setup: a note with an active year assignment, reconciled against a matching day spread.
+    /// Expected: the year assignment is migrated to history and a new active day assignment is created.
+    @Test func testReconcilePreferredAssignmentForNoteCreatesDestinationAssignmentAfterMigratingHistory() {
+        let noteDate = Self.makeDate(year: 2026, month: 4, day: 6)
+        let daySpread = DataModel.Spread(period: .day, date: noteDate, calendar: Self.calendar)
+        let note = DataModel.Note(
+            title: "Note",
+            date: noteDate,
+            period: .day,
+            assignments: [Assignment(period: .year, date: noteDate, status: .active)]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        engine.reconcilePreferredAssignment(for: note, in: [daySpread])
+
+        #expect(note.assignments.count == 2)
+        #expect(note.assignments[0].status == .migrated)
+        #expect(note.assignments[1].status == .active)
+        #expect(note.assignments[1].period == .day)
+    }
+
+    /// Setup: a note with a migrated-history day assignment matching an existing day spread.
+    /// Expected: the existing destination assignment is reused and reactivated.
+    @Test func testReconcilePreferredAssignmentForNoteReusesExistingDestinationAssignment() {
+        let noteDate = Self.makeDate(year: 2026, month: 4, day: 6)
+        let daySpread = DataModel.Spread(period: .day, date: noteDate, calendar: Self.calendar)
+        let note = DataModel.Note(
+            title: "Note",
+            date: noteDate,
+            period: .day,
+            assignments: [
+                Assignment(period: .month, date: noteDate, status: .active),
+                Assignment(period: .day, date: noteDate, status: .migrated)
+            ]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        engine.reconcilePreferredAssignment(for: note, in: [daySpread])
+
+        #expect(note.assignments[0].status == .migrated)
+        #expect(note.assignments[1].status == .active)
+    }
+
+    /// Setup: the same task fixture run through both the legacy `StandardTaskAssignmentReconciler`
+    /// and `JournalRuleEngine`, starting from separate copies so mutation doesn't interfere.
+    /// Expected: identical resulting assignment arrays.
+    @Test @MainActor func testReconcilePreferredAssignmentForTaskMatchesLegacyReconciler() {
+        let taskDate = Self.makeDate(year: 2026, month: 1, day: 10)
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: Self.calendar)
+        let legacyTask = DataModel.Task(
+            title: "Complete",
+            date: taskDate,
+            period: .month,
+            status: .complete,
+            assignments: [
+                Assignment(period: .year, date: taskDate, status: .open),
+                Assignment(period: .month, date: taskDate, status: .migrated)
+            ]
+        )
+        let engineTask = DataModel.Task(
+            title: "Complete",
+            date: taskDate,
+            period: .month,
+            status: .complete,
+            assignments: [
+                Assignment(period: .year, date: taskDate, status: .open),
+                Assignment(period: .month, date: taskDate, status: .migrated)
+            ]
+        )
+
+        StandardTaskAssignmentReconciler(calendar: Self.calendar)
+            .reconcilePreferredAssignment(for: legacyTask, in: [monthSpread])
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        engine.reconcilePreferredAssignment(for: engineTask, in: [monthSpread])
+
+        #expect(legacyTask.assignments.map(\.status) == engineTask.assignments.map(\.status))
+    }
+
+    /// Setup: the same note fixture run through both the legacy `StandardNoteAssignmentReconciler`
+    /// and `JournalRuleEngine`, starting from separate copies so mutation doesn't interfere.
+    /// Expected: identical resulting assignment arrays.
+    @Test @MainActor func testReconcilePreferredAssignmentForNoteMatchesLegacyReconciler() {
+        let noteDate = Self.makeDate(year: 2026, month: 4, day: 6)
+        let daySpread = DataModel.Spread(period: .day, date: noteDate, calendar: Self.calendar)
+        let legacyNote = DataModel.Note(
+            title: "Note",
+            date: noteDate,
+            period: .day,
+            assignments: [Assignment(period: .year, date: noteDate, status: .active)]
+        )
+        let engineNote = DataModel.Note(
+            title: "Note",
+            date: noteDate,
+            period: .day,
+            assignments: [Assignment(period: .year, date: noteDate, status: .active)]
+        )
+
+        StandardNoteAssignmentReconciler(calendar: Self.calendar)
+            .reconcilePreferredAssignment(for: legacyNote, in: [daySpread])
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        engine.reconcilePreferredAssignment(for: engineNote, in: [daySpread])
+
+        #expect(legacyNote.assignments.map(\.status) == engineNote.assignments.map(\.status))
+        #expect(legacyNote.assignments.map(\.period) == engineNote.assignments.map(\.period))
+    }
 }
