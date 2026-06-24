@@ -31,10 +31,14 @@ struct SpreadService {
         in spreads: [DataModel.Spread],
         preferredSpreadID: UUID? = nil
     ) -> DataModel.Spread? {
-        guard task.hasPreferredAssignment else { return nil }
+        guard task.hasPreferredAssignment,
+              let taskDate = task.date,
+              let taskPeriod = task.period else {
+            return nil
+        }
         return findBestSpread(
-            preferredDate: task.date,
-            preferredPeriod: task.period,
+            preferredDate: taskDate,
+            preferredPeriod: taskPeriod,
             preferredSpreadID: preferredSpreadID ?? currentDirectMultidaySpreadID(for: task),
             in: spreads
         )
@@ -54,8 +58,9 @@ struct SpreadService {
         in spreads: [DataModel.Spread],
         preferredSpreadID: UUID? = nil
     ) -> DataModel.Spread? {
-        findBestSpread(
-            preferredDate: note.date,
+        guard let noteDate = note.date else { return nil }
+        return findBestSpread(
+            preferredDate: noteDate,
             preferredPeriod: note.period,
             preferredSpreadID: preferredSpreadID ?? currentDirectMultidaySpreadID(for: note),
             in: spreads

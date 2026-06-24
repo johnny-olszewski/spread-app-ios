@@ -111,8 +111,8 @@ struct SpreadMonthCalendarView: View {
     }
 
     private func entryDate(for entry: any Entry) -> Date {
-        if let task = entry as? DataModel.Task { return task.date }
-        if let note = entry as? DataModel.Note { return note.date }
+        if let task = entry as? DataModel.Task { return task.date ?? task.createdDate }
+        if let note = entry as? DataModel.Note { return note.date ?? note.createdDate }
         return entry.createdDate
     }
 }

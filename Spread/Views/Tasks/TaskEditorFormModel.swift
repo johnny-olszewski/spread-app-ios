@@ -58,8 +58,9 @@ struct TaskEditorFormModel {
         self.selectedList = task.list
         self.selectedTagIDs = Set(task.tags.map(\.id))
         self.hasPreferredAssignment = task.hasPreferredAssignment
-        self.selectedPeriod = task.hasPreferredAssignment ? task.period : .day
-        self.selectedDate = task.hasPreferredAssignment ? task.date : configuration.today.startOfDay(calendar: configuration.calendar)
+        self.selectedPeriod = task.hasPreferredAssignment ? (task.period ?? .day) : .day
+        let today = configuration.today.startOfDay(calendar: configuration.calendar)
+        self.selectedDate = task.hasPreferredAssignment ? (task.date ?? today) : today
         self.selectedSpreadID = task.assignments.first(where: {
             $0.status != .migrated && $0.period == .multiday
         })?.spreadID

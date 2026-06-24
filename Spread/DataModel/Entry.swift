@@ -18,6 +18,12 @@ protocol Entry: Identifiable, Hashable, EntryStatusIconRepresentable {
     /// The type of entry (task, event, or note).
     var entryType: EntryType { get }
 
+    /// The preferred or range-start date for this entry, if any.
+    ///
+    /// `Task`/`Note` expose their own preferred `date` directly (`nil` means no
+    /// preferred assignment); `DateRangeEntry` conformers (`Event`) default to `startDate`.
+    var date: Date? { get }
+
     /// Whether this entry type can ever appear in the Inbox.
     ///
     /// A static per-type constant — independent of this instance's `date`/`status`/assignments.
@@ -65,24 +71,18 @@ extension Entry {
     static var configurationKey: ObjectIdentifier { ObjectIdentifier(Self.self) }
 }
 
-/// An entry that can be assigned to spreads.
+/// A structural conformance layer between `Entry` and the SwiftData `@Model` classes
+/// (`Task`, `Note`) that track a preferred date and assignment history.
 ///
-/// Assignable entries (tasks and notes) track their preferred date and period,
-/// and maintain assignment history across spreads via the shared `Assignment` type.
-protocol AssignableEntry: Entry {
-    /// The preferred date for this entry.
-    var date: Date { get set }
-
-    /// The preferred period for this entry.
-    var period: Period { get set }
-
-    /// Assignment history for this entry across spreads.
-    var assignments: [Assignment] { get set }
-}
-
-extension AssignableEntry {
-    var sortDate: Date { date }
-}
+/// Carries no requirements of its own — `date` is satisfied directly via `Entry`, and
+/// `period`/`assignments` are plain properties on `Task`/`Note` individually (their types
+/// don't need to match each other; nothing dispatches over them polymorphically). This
+/// protocol exists only because the `@Model` macro's `PersistentModel`/`Hashable`
+/// synthesis fails under this project's strict-concurrency build settings when `Task`/
+/// `Note` conform directly to `Entry` — confirmed empirically; conforming through any
+/// intermediate protocol (even an empty one) resolves it. `Event` doesn't need this
+/// layer since it already conforms to `Entry` via `DateRangeEntry`.
+protocol AssignableEntry: Entry {}
 
 /// An entry whose visibility is computed from date range overlap.
 ///
@@ -108,6 +108,7 @@ protocol DateRangeEntry: Entry {
 
 extension DateRangeEntry {
     var sortDate: Date { startDate }
+    var date: Date? { startDate }
 }
 
 protocol EntryStatusIconRepresentable {

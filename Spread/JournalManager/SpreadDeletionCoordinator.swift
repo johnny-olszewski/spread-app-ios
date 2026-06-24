@@ -304,9 +304,10 @@ struct StandardSpreadDeletionPlanner: SpreadDeletionPlanner {
             return parentSpread
         }
 
-        let fallbackPeriod: Period = task.period == .multiday ? .month : task.period
+        guard let taskDate = task.date else { return nil }
+        let fallbackPeriod: Period = task.period == .multiday ? .month : (task.period ?? .day)
         return spreadService.findBestSpread(
-            preferredDate: task.date,
+            preferredDate: taskDate,
             preferredPeriod: fallbackPeriod,
             in: spreads.filter { $0.id != spread.id && $0.period != .multiday }
         )
@@ -322,9 +323,10 @@ struct StandardSpreadDeletionPlanner: SpreadDeletionPlanner {
             return parentSpread
         }
 
+        guard let noteDate = note.date else { return nil }
         let fallbackPeriod: Period = note.period == .multiday ? .month : note.period
         return spreadService.findBestSpread(
-            preferredDate: note.date,
+            preferredDate: noteDate,
             preferredPeriod: fallbackPeriod,
             in: spreads.filter { $0.id != spread.id && $0.period != .multiday }
         )

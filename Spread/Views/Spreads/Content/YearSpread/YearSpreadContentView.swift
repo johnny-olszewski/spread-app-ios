@@ -172,20 +172,24 @@ struct YearSpreadContentView: View {
 
     private static func monthCardMonthDate(for entry: any Entry, calendar: Calendar) -> Date? {
         if let task = entry as? DataModel.Task,
-           task.period == .month || task.period == .day {
-            return Period.month.normalizeDate(task.date, calendar: calendar)
+           task.period == .month || task.period == .day,
+           let taskDate = task.date {
+            return Period.month.normalizeDate(taskDate, calendar: calendar)
         }
         if let note = entry as? DataModel.Note,
-           note.period == .month || note.period == .day {
-            return Period.month.normalizeDate(note.date, calendar: calendar)
+           note.period == .month || note.period == .day,
+           let noteDate = note.date {
+            return Period.month.normalizeDate(noteDate, calendar: calendar)
         }
         return nil
     }
 
     private static func sortKey(for entry: any Entry, calendar: Calendar) -> (Date, Int, Date, UUID) {
         if let task = entry as? DataModel.Task {
+            let period = task.period ?? .day
+            let date = task.date ?? task.createdDate
             return (
-                task.period.normalizeDate(task.date, calendar: calendar),
+                period.normalizeDate(date, calendar: calendar),
                 entryTypeSortOrder(task.entryType),
                 task.createdDate,
                 task.id
@@ -193,7 +197,7 @@ struct YearSpreadContentView: View {
         }
         if let note = entry as? DataModel.Note {
             return (
-                note.period.normalizeDate(note.date, calendar: calendar),
+                note.period.normalizeDate(note.date ?? note.createdDate, calendar: calendar),
                 entryTypeSortOrder(note.entryType),
                 note.createdDate,
                 note.id

@@ -154,7 +154,7 @@ extension MultidaySpreadContentView {
             calendar: Calendar
         ) -> [EntryList.Section] {
             func entryPeriod(_ entry: any Entry) -> Period {
-                if let task = entry as? DataModel.Task { return task.period }
+                if let task = entry as? DataModel.Task { return task.period ?? .day }
                 if let note = entry as? DataModel.Note { return note.period }
                 return .day
             }

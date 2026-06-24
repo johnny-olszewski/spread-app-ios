@@ -1239,7 +1239,7 @@ final class JournalManager {
         if task.assignments.isEmpty {
             Self.logger.debug("Task created: \(task.id) '\(task.title)' → Inbox (no matching spread)")
         } else {
-            Self.logger.debug("Task created: \(task.id) '\(task.title)' → \(task.period.rawValue) spread")
+            Self.logger.debug("Task created: \(task.id) '\(task.title)' → \(task.period?.rawValue ?? "none") spread")
         }
 
         refreshDataModel(for: .spreadKeys(dataModelBuilder.spreadKeys(for: task, spreads: spreads)))

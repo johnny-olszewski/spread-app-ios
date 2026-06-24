@@ -48,7 +48,7 @@ struct JournalManagerAddTaskTests {
         #expect(task.title == "Buy groceries")
         #expect(task.period == .day)
         #expect(task.status == .open)
-        #expect(calendar.isDate(task.date, inSameDayAs: today))
+        #expect(calendar.isDate(task.date!, inSameDayAs: today))
     }
 
     /// Tests that adding a task normalizes the date for the selected period.
@@ -74,7 +74,7 @@ struct JournalManagerAddTaskTests {
 
         // Date should be normalized to first of February
         let expectedDate = Self.makeDate(year: 2026, month: 2, day: 1)
-        #expect(calendar.isDate(task.date, inSameDayAs: expectedDate))
+        #expect(calendar.isDate(task.date!, inSameDayAs: expectedDate))
     }
 
     /// Tests that adding a task to a matching spread creates an assignment.
@@ -263,7 +263,7 @@ struct JournalManagerAddTaskTests {
 
         // Date should be normalized to first of 2026
         let expectedDate = Self.makeDate(year: 2026, month: 1, day: 1)
-        #expect(calendar.isDate(task.date, inSameDayAs: expectedDate))
+        #expect(calendar.isDate(task.date!, inSameDayAs: expectedDate))
     }
 
     /// Tests that task appears in spread data model after creation.

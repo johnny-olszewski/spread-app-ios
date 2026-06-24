@@ -310,11 +310,11 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The date this task was created.
         var createdDate: Date
 
-        /// The preferred date for this task.
-        var date: Date
+        /// The preferred date for this task. `nil` means no preferred assignment.
+        var date: Date?
 
-        /// The preferred period for this task.
-        var period: Period
+        /// The preferred period for this task. `nil` means no preferred assignment.
+        var period: Period?
 
         /// Optional persisted backing for `hasPreferredAssignment`.
         @Attribute(originalName: "hasPreferredAssignment") private var storedHasPreferredAssignment: Bool?
@@ -339,6 +339,9 @@ enum DataModelSchemaV1: VersionedSchema {
 
         /// The type of entry.
         var entryType: EntryType { .task }
+
+        /// Chronological sort key. Falls back to `createdDate` when there's no preferred `date`.
+        var sortDate: Date { date ?? createdDate }
 
         var isInboxEligible: Bool { true }
         var isMigratable: Bool { true }
@@ -398,8 +401,8 @@ enum DataModelSchemaV1: VersionedSchema {
             priority: Priority = .none,
             dueDate: Date? = nil,
             createdDate: Date = .now,
-            date: Date = .now,
-            period: Period = .day,
+            date: Date? = .now,
+            period: Period? = .day,
             hasPreferredAssignment: Bool = true,
             status: EntryStatus = .open,
             assignments: [Assignment] = [],
@@ -626,8 +629,8 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The date this note was created.
         var createdDate: Date
 
-        /// The preferred date for this note.
-        var date: Date
+        /// The preferred date for this note. `nil` means no preferred assignment.
+        var date: Date?
 
         /// The preferred period for this note.
         var period: Period
@@ -646,6 +649,9 @@ enum DataModelSchemaV1: VersionedSchema {
 
         /// The type of entry.
         var entryType: EntryType { .note }
+
+        /// Chronological sort key. Falls back to `createdDate` when there's no preferred `date`.
+        var sortDate: Date { date ?? createdDate }
 
         // MARK: Sync Metadata
 
@@ -694,7 +700,7 @@ enum DataModelSchemaV1: VersionedSchema {
             title: String = "",
             content: String = "",
             createdDate: Date = .now,
-            date: Date = .now,
+            date: Date? = .now,
             period: Period = .day,
             status: EntryStatus = .active,
             assignments: [Assignment] = [],

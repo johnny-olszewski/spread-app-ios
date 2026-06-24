@@ -195,9 +195,9 @@ struct TestDataBuildersTests {
         let monthDate = Period.month.normalizeDate(today, calendar: calendar)
         let dayDate = Period.day.normalizeDate(today, calendar: calendar)
 
-        #expect(calendar.isDate(taskSet.openOnYear.date, inSameDayAs: yearDate))
-        #expect(calendar.isDate(taskSet.completedOnMonth.date, inSameDayAs: monthDate))
-        #expect(calendar.isDate(taskSet.openOnDay.date, inSameDayAs: dayDate))
+        #expect(calendar.isDate(taskSet.openOnYear.date!, inSameDayAs: yearDate))
+        #expect(calendar.isDate(taskSet.completedOnMonth.date!, inSameDayAs: monthDate))
+        #expect(calendar.isDate(taskSet.openOnDay.date!, inSameDayAs: dayDate))
     }
 
     // MARK: - Note Builders
@@ -402,7 +402,7 @@ struct TestDataBuildersTests {
     @Test func boundarySetupTaskIsOnDec31() {
         let calendar = TestDataBuilders.testCalendar
         let boundary = TestDataBuilders.boundarySetup()
-        let components = calendar.dateComponents([.month, .day], from: boundary.taskOnLastDay.date)
+        let components = calendar.dateComponents([.month, .day], from: boundary.taskOnLastDay.date!)
 
         #expect(components.month == 12)
         #expect(components.day == 31)
@@ -480,7 +480,7 @@ struct TestDataBuildersTests {
     @Test func leapDaySetupTaskIsOnFeb29() {
         let calendar = TestDataBuilders.testCalendar
         let leapDay = TestDataBuilders.leapDaySetup()
-        let components = calendar.dateComponents([.month, .day], from: leapDay.taskOnLeapDay.date)
+        let components = calendar.dateComponents([.month, .day], from: leapDay.taskOnLeapDay.date!)
 
         #expect(components.month == 2)
         #expect(components.day == 29)
@@ -494,7 +494,7 @@ struct TestDataBuildersTests {
     @Test func leapDaySetupNoteIsOnFeb29() {
         let calendar = TestDataBuilders.testCalendar
         let leapDay = TestDataBuilders.leapDaySetup()
-        let components = calendar.dateComponents([.month, .day], from: leapDay.noteOnLeapDay.date)
+        let components = calendar.dateComponents([.month, .day], from: leapDay.noteOnLeapDay.date!)
 
         #expect(components.month == 2)
         #expect(components.day == 29)

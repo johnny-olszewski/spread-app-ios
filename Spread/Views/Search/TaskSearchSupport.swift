@@ -86,8 +86,8 @@ struct TaskSearchSectionBuilder {
             priority: task.priority,
             dueDate: task.dueDate,
             status: task.status,
-            period: task.period,
-            date: task.date,
+            period: task.period ?? .day,
+            date: task.date ?? task.createdDate,
             hasPreferredAssignment: task.hasPreferredAssignment,
             selection: nil
         )
@@ -104,8 +104,8 @@ struct TaskSearchSectionBuilder {
             priority: task.priority,
             dueDate: task.dueDate,
             status: task.status,
-            period: task.period,
-            date: task.date,
+            period: task.period ?? .day,
+            date: task.date ?? task.createdDate,
             hasPreferredAssignment: task.hasPreferredAssignment,
             selection: selection
         )

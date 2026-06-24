@@ -35,7 +35,7 @@ struct NoteDetailSheet: View {
             title = note.title
             content = note.content
             selectedPeriod = note.period
-            selectedDate = note.date
+            selectedDate = note.date ?? note.createdDate
             selectedSpreadID = note.assignments.first(where: {
                 $0.status != .migrated && $0.period == .multiday
             })?.spreadID

@@ -293,7 +293,8 @@ struct MockDataSetTests {
         let data = MockDataSet.boundary.generateData(calendar: calendar, today: today)
 
         let leapDayTasks = data.tasks.filter { task in
-            let components = calendar.dateComponents([.month, .day], from: task.date)
+            guard let taskDate = task.date else { return false }
+            let components = calendar.dateComponents([.month, .day], from: taskDate)
             return components.month == 2 && components.day == 29
         }
         #expect(!leapDayTasks.isEmpty, "Boundary should include a task on Feb 29")
@@ -328,7 +329,8 @@ struct MockDataSetTests {
         let data = MockDataSet.boundary.generateData(calendar: calendar, today: today)
 
         let leapDayNotes = data.notes.filter { note in
-            let components = calendar.dateComponents([.month, .day], from: note.date)
+            guard let noteDate = note.date else { return false }
+            let components = calendar.dateComponents([.month, .day], from: noteDate)
             return components.month == 2 && components.day == 29
         }
         #expect(!leapDayNotes.isEmpty, "Boundary should include a note on Feb 29")

@@ -227,6 +227,10 @@ fileprivate func taskMigrationOptions(
 ) -> [EntryRowView.Configuration.Action.MigrationOption] {
     guard task.status == .open else { return [] }
 
+    // No preferred date means the task has no current position, so no candidate should be
+    // excluded as "already there" — .distantPast never matches a real comparison below.
+    let taskCurrentDate = task.date ?? .distantPast
+
     let normalizedToday = Period.day.normalizeDate(today, calendar: calendar)
     let tomorrow = calendar.date(byAdding: .day, value: 1, to: normalizedToday)
     let nextMonthStart = calendar.date(byAdding: .month, value: 1, to: normalizedToday)?
@@ -238,16 +242,16 @@ fileprivate func taskMigrationOptions(
 
     var options: [EntryRowView.Configuration.Action.MigrationOption] = []
 
-    if task.period != .day || !calendar.isDate(task.date, inSameDayAs: normalizedToday) {
+    if task.period != .day || !calendar.isDate(taskCurrentDate, inSameDayAs: normalizedToday) {
         options.append(.init(kind: .today, label: "Today", date: normalizedToday, period: .day))
     }
 
-    if let tomorrow, (task.period != .day || !calendar.isDate(task.date, inSameDayAs: tomorrow)) {
+    if let tomorrow, (task.period != .day || !calendar.isDate(taskCurrentDate, inSameDayAs: tomorrow)) {
         options.append(.init(kind: .tomorrow, label: "Tomorrow", date: tomorrow, period: .day))
     }
 
     if let nextMonthStart,
-       task.period != .month || !calendar.isDate(task.date, equalTo: nextMonthStart, toGranularity: .month) {
+       task.period != .month || !calendar.isDate(taskCurrentDate, equalTo: nextMonthStart, toGranularity: .month) {
         options.append(.init(
             kind: .nextMonth,
             label: migrationMonthLabel(for: nextMonthStart, calendar: calendar),
@@ -258,7 +262,7 @@ fileprivate func taskMigrationOptions(
 
     if let sameDayNextMonth,
        todayComponents.day == sameDayComponents?.day,
-       task.period != .day || !calendar.isDate(task.date, inSameDayAs: sameDayNextMonth) {
+       task.period != .day || !calendar.isDate(taskCurrentDate, inSameDayAs: sameDayNextMonth) {
         options.append(.init(
             kind: .nextMonthSameDay,
             label: migrationDayLabel(for: sameDayNextMonth, calendar: calendar),

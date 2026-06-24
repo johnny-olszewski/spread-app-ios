@@ -116,11 +116,11 @@ enum MonthSpreadContentSupport {
 
     private static func entryDate(for entry: any Entry) -> Date {
         if let task = entry as? DataModel.Task {
-            return task.date
+            return task.date ?? task.createdDate
         }
 
         if let note = entry as? DataModel.Note {
-            return note.date
+            return note.date ?? note.createdDate
         }
 
         return entry.createdDate
@@ -131,8 +131,10 @@ enum MonthSpreadContentSupport {
         calendar: Calendar
     ) -> (Date, Int, Date, UUID) {
         if let task = entry as? DataModel.Task {
+            let period = task.period ?? .day
+            let date = task.date ?? task.createdDate
             return (
-                task.period.normalizeDate(task.date, calendar: calendar),
+                period.normalizeDate(date, calendar: calendar),
                 entryTypeSortOrder(task.entryType),
                 task.createdDate,
                 task.id
@@ -141,7 +143,7 @@ enum MonthSpreadContentSupport {
 
         if let note = entry as? DataModel.Note {
             return (
-                note.period.normalizeDate(note.date, calendar: calendar),
+                note.period.normalizeDate(note.date ?? note.createdDate, calendar: calendar),
                 entryTypeSortOrder(note.entryType),
                 note.createdDate,
                 note.id
