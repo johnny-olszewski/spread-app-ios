@@ -219,4 +219,293 @@ struct JournalRuleEngine {
     ) -> Bool {
         spreads.contains { shouldShowOnSpread(entry, for: $0) }
     }
+
+    // MARK: - Migration Planning
+
+    /// Returns all tasks eligible to be migrated to the given destination spread.
+    ///
+    /// Kept concrete over `DataModel.Task` rather than generic over `AssignableEntry` —
+    /// confirmed via codebase audit that `Note` is never passed through migration planning
+    /// today, and `SpreadService.findBestSpread`'s task overload (`mostGranularValidDestination`)
+    /// is the actual eligibility computation this relies on.
+    ///
+    /// - Parameters:
+    ///   - tasks: All tasks in the journal.
+    ///   - spreads: All existing spreads.
+    ///   - destination: The target spread.
+    /// - Returns: `EntryMigrationCandidate` values for each eligible task.
+    func migrationCandidates(
+        tasks: [DataModel.Task],
+        spreads: [DataModel.Spread],
+        to destination: DataModel.Spread
+    ) -> [EntryMigrationCandidate<DataModel.Task>] {
+        tasks.compactMap { task in
+            migrationCandidate(for: task, spreads: spreads, to: destination)
+        }
+    }
+
+    /// Returns the best destination spread for an inline source-side migration affordance.
+    ///
+    /// This is used to decide whether to show a migration arrow on a task row when it is
+    /// displayed on `source`. Returns `nil` if the task is not open, not on `source`, or
+    /// if no valid forward destination exists.
+    ///
+    /// - Parameters:
+    ///   - task: The task to evaluate.
+    ///   - source: The spread the task is currently displayed on.
+    ///   - spreads: All existing spreads.
+    /// - Returns: The most granular valid destination spread, or `nil`.
+    func migrationDestination(
+        for task: DataModel.Task,
+        on source: DataModel.Spread,
+        spreads: [DataModel.Spread]
+    ) -> DataModel.Spread? {
+        guard task.status == .open else {
+            return nil
+        }
+
+        guard task.assignments.contains(where: { assignment in
+            assignment.status == .open &&
+            assignment.matches(spread: source, calendar: calendar)
+        }) else {
+            return nil
+        }
+
+        guard let destination = mostGranularValidDestination(for: task, spreads: spreads),
+              destination.period.granularityRank > source.period.granularityRank else {
+            return nil
+        }
+
+        return destination
+    }
+
+    /// Returns migration candidates that originate exclusively from the destination's parent hierarchy.
+    ///
+    /// Filters `migrationCandidates` to those whose current source spread is a direct ancestor of the
+    /// destination (e.g., for a day spread, parents are month and year). Inbox-origin tasks are excluded.
+    /// Results are sorted alphabetically by task title.
+    ///
+    /// - Parameters:
+    ///   - tasks: All tasks in the journal.
+    ///   - spreads: All existing spreads.
+    ///   - destination: The target spread.
+    /// - Returns: Sorted `EntryMigrationCandidate` values from parent spreads only.
+    func parentHierarchyMigrationCandidates(
+        tasks: [DataModel.Task],
+        spreads: [DataModel.Spread],
+        to destination: DataModel.Spread
+    ) -> [EntryMigrationCandidate<DataModel.Task>] {
+        let parentSpreadIDs = Set(parentHierarchySpreads(for: destination, spreads: spreads).map(\.id))
+
+        return migrationCandidates(
+            tasks: tasks,
+            spreads: spreads,
+            to: destination
+        )
+        .filter { candidate in
+            guard let sourceSpread = candidate.sourceSpread else { return false }
+            return parentSpreadIDs.contains(sourceSpread.id)
+        }
+        .sorted { lhs, rhs in
+            lhs.entry.title.localizedCaseInsensitiveCompare(rhs.entry.title) == .orderedAscending
+        }
+    }
+
+    /// Returns the spread where the entry has an open (`.open`) assignment.
+    ///
+    /// When multiple open assignments exist (which can occur transiently), the most granular spread
+    /// with the most recent date is returned. An optional `excludedSpread` allows callers to filter
+    /// out the spread being deleted. Generic over `AssignableEntry` since this is pure
+    /// assignment-matching with no migration-specific eligibility — usable by either Task or Note.
+    ///
+    /// - Parameters:
+    ///   - entry: The entry to inspect.
+    ///   - spreads: All existing spreads.
+    ///   - excludedSpread: A spread to exclude from the search, or `nil`.
+    /// - Returns: The most granular spread with an open assignment, or `nil`.
+    func currentDestinationSpread<E: AssignableEntry>(
+        for entry: E,
+        spreads: [DataModel.Spread],
+        excluding excludedSpread: DataModel.Spread? = nil
+    ) -> DataModel.Spread? {
+        candidateSpreads(
+            for: entry,
+            spreads: spreads,
+            excluding: excludedSpread
+        ) { $0.status == .open }
+    }
+
+    /// Returns the spread where the entry is currently visible (non-migrated assignment).
+    ///
+    /// Similar to `currentDestinationSpread` but includes completed assignments as well
+    /// as open ones. Used to show the entry's current location in migration review UIs
+    /// without restricting to strictly open tasks.
+    ///
+    /// - Parameters:
+    ///   - entry: The entry to inspect.
+    ///   - spreads: All existing spreads.
+    ///   - excludedSpread: A spread to exclude from the search, or `nil`.
+    /// - Returns: The most granular spread with a non-migrated assignment, or `nil`.
+    func currentDisplayedSpread<E: AssignableEntry>(
+        for entry: E,
+        spreads: [DataModel.Spread],
+        excluding excludedSpread: DataModel.Spread? = nil
+    ) -> DataModel.Spread? {
+        candidateSpreads(
+            for: entry,
+            spreads: spreads,
+            excluding: excludedSpread
+        ) { $0.status != .migrated }
+    }
+
+    private func migrationCandidate(
+        for task: DataModel.Task,
+        spreads: [DataModel.Spread],
+        to destination: DataModel.Spread
+    ) -> EntryMigrationCandidate<DataModel.Task>? {
+        guard task.status == .open, task.date != nil else {
+            return nil
+        }
+
+        let sourceSpread = currentDestinationSpread(for: task, spreads: spreads, excluding: nil)
+        let sourceRank = sourceSpread?.period.granularityRank ?? 0
+
+        guard destination.period.granularityRank > sourceRank else {
+            return nil
+        }
+
+        guard let bestDestination = mostGranularValidDestination(for: task, spreads: spreads) else {
+            return nil
+        }
+
+        guard bestDestination.id == destination.id else {
+            return nil
+        }
+
+        return EntryMigrationCandidate(
+            entry: task,
+            sourceSpread: sourceSpread,
+            destination: destination
+        )
+    }
+
+    private func candidateSpreads<E: AssignableEntry>(
+        for entry: E,
+        spreads: [DataModel.Spread],
+        excluding excludedSpread: DataModel.Spread?,
+        matching statusPredicate: (Assignment) -> Bool
+    ) -> DataModel.Spread? {
+        entry.assignments
+            .filter(statusPredicate)
+            .compactMap { assignment in
+                spreads.first(where: { spread in
+                    assignment.matches(spread: spread, calendar: calendar)
+                })
+            }
+            .filter { spread in
+                guard let excludedSpread else { return true }
+                return spread.id != excludedSpread.id
+            }
+            .sorted(by: preferredSpreadOrder)
+            .last
+    }
+
+    private func mostGranularValidDestination(
+        for task: DataModel.Task,
+        spreads: [DataModel.Spread]
+    ) -> DataModel.Spread? {
+        guard task.date != nil else { return nil }
+        return spreadService.findBestSpread(for: task, in: spreads)
+    }
+
+    private func parentHierarchySpreads(
+        for destination: DataModel.Spread,
+        spreads: [DataModel.Spread]
+    ) -> [DataModel.Spread] {
+        if destination.period == .multiday {
+            return parentHierarchySpreadsForMultiday(destination, spreads: spreads)
+        }
+
+        var parentSpreads: [DataModel.Spread] = []
+        var currentPeriod = destination.period.parentPeriod
+
+        while let period = currentPeriod {
+            let normalizedDate = period.normalizeDate(destination.date, calendar: calendar)
+            if let spread = spreads.first(where: { existingSpread in
+                existingSpread.period == period &&
+                existingSpread.period.normalizeDate(existingSpread.date, calendar: calendar) == normalizedDate
+            }) {
+                parentSpreads.append(spread)
+            }
+            currentPeriod = period.parentPeriod
+        }
+
+        return parentSpreads
+    }
+
+    private func parentHierarchySpreadsForMultiday(
+        _ destination: DataModel.Spread,
+        spreads: [DataModel.Spread]
+    ) -> [DataModel.Spread] {
+        guard let startDate = destination.startDate, let endDate = destination.endDate else { return [] }
+
+        var parents: [DataModel.Spread] = []
+        var monthKeys = Set<Date>()
+        var cursor = Period.month.normalizeDate(startDate, calendar: calendar)
+        let finalMonth = Period.month.normalizeDate(endDate, calendar: calendar)
+
+        while cursor <= finalMonth {
+            monthKeys.insert(cursor)
+            guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: cursor) else {
+                break
+            }
+            cursor = Period.month.normalizeDate(nextMonth, calendar: calendar)
+        }
+
+        parents.append(contentsOf: spreads.filter { spread in
+            spread.period == .month && monthKeys.contains(Period.month.normalizeDate(spread.date, calendar: calendar))
+        })
+
+        let yearKeys = Set(monthKeys.map { Period.year.normalizeDate($0, calendar: calendar) })
+        parents.append(contentsOf: spreads.filter { spread in
+            spread.period == .year && yearKeys.contains(Period.year.normalizeDate(spread.date, calendar: calendar))
+        })
+
+        return parents.sorted(by: preferredSpreadOrder)
+    }
+
+    private func preferredSpreadOrder(_ lhs: DataModel.Spread, _ rhs: DataModel.Spread) -> Bool {
+        if lhs.period.granularityRank != rhs.period.granularityRank {
+            return lhs.period.granularityRank < rhs.period.granularityRank
+        }
+
+        if lhs.period == .multiday, rhs.period == .multiday {
+            let lhsLength = rangeLength(for: lhs)
+            let rhsLength = rangeLength(for: rhs)
+            if lhsLength != rhsLength {
+                return lhsLength > rhsLength
+            }
+        }
+
+        let lhsStart = lhs.startDate ?? lhs.date
+        let rhsStart = rhs.startDate ?? rhs.date
+        if lhsStart != rhsStart {
+            return lhsStart < rhsStart
+        }
+
+        let lhsEnd = lhs.endDate ?? lhs.date
+        let rhsEnd = rhs.endDate ?? rhs.date
+        if lhsEnd != rhsEnd {
+            return lhsEnd < rhsEnd
+        }
+
+        return lhs.createdDate < rhs.createdDate
+    }
+
+    private func rangeLength(for spread: DataModel.Spread) -> Int {
+        guard let startDate = spread.startDate, let endDate = spread.endDate else {
+            return .max
+        }
+        return calendar.dateComponents([.day], from: startDate, to: endDate).day ?? .max
+    }
 }

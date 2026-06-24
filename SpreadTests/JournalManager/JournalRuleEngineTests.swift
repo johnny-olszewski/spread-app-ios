@@ -374,4 +374,226 @@ struct JournalRuleEngineTests {
         let engineEntries = engine.inboxEntries(entries: [note], spreads: [])
         #expect(engineEntries.isEmpty)
     }
+
+    // MARK: - Migration Planning
+
+    /// Setup: a task currently assigned to a year spread, evaluated against both a month and
+    /// a day destination.
+    /// Expected: only the day destination (most granular valid) yields a candidate, sourced
+    /// from the year spread.
+    @Test func testMigrationCandidatesUsesMostGranularValidDestination() {
+        let taskDate = Self.makeDate(year: 2026, month: 1, day: 10)
+        let yearSpread = DataModel.Spread(period: .year, date: taskDate, calendar: Self.calendar)
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: Self.calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
+        let task = DataModel.Task(
+            title: "Day task",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+
+        let monthCandidates = engine.migrationCandidates(
+            tasks: [task],
+            spreads: [yearSpread, monthSpread, daySpread],
+            to: monthSpread
+        )
+        let dayCandidates = engine.migrationCandidates(
+            tasks: [task],
+            spreads: [yearSpread, monthSpread, daySpread],
+            to: daySpread
+        )
+
+        #expect(monthCandidates.isEmpty)
+        #expect(dayCandidates.map(\.entry.id) == [task.id])
+        #expect(dayCandidates.first?.sourceSpread?.id == yearSpread.id)
+    }
+
+    /// Setup: three tasks with year, month, and Inbox sources, evaluated against a day destination.
+    /// Expected: parent-hierarchy candidates exclude the Inbox-origin task and sort alphabetically.
+    @Test func testParentHierarchyMigrationCandidatesExcludeInboxAndSortAlphabetically() {
+        let taskDate = Self.makeDate(year: 2026, month: 4, day: 6)
+        let yearSpread = DataModel.Spread(period: .year, date: taskDate, calendar: Self.calendar)
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: Self.calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
+
+        let yearTask = DataModel.Task(
+            title: "Zulu",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
+        )
+        let monthTask = DataModel.Task(
+            title: "Alpha",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            assignments: [Assignment(period: .month, date: taskDate, status: .open)]
+        )
+        let inboxTask = DataModel.Task(
+            title: "Inbox",
+            date: taskDate,
+            period: .day,
+            status: .open
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        let candidates = engine.parentHierarchyMigrationCandidates(
+            tasks: [yearTask, monthTask, inboxTask],
+            spreads: [yearSpread, monthSpread, daySpread],
+            to: daySpread
+        )
+
+        #expect(candidates.map(\.entry.title) == ["Alpha", "Zulu"])
+        #expect(candidates.allSatisfy { $0.sourceSpread != nil })
+    }
+
+    /// Setup: a task has an open month assignment and a completed day assignment.
+    /// Expected: `currentDestinationSpread` (open-only) and `currentDisplayedSpread`
+    /// (non-migrated) diverge — destination is the month spread, displayed is the day spread.
+    @Test func testCurrentDisplayedSpreadCanDifferFromCurrentDestinationSpread() {
+        let taskDate = Self.makeDate(year: 2026, month: 1, day: 10)
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: Self.calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
+        let task = DataModel.Task(
+            title: "Mixed status",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            assignments: [
+                Assignment(period: .month, date: taskDate, status: .open),
+                Assignment(period: .day, date: taskDate, status: .complete)
+            ]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+
+        let destination = engine.currentDestinationSpread(
+            for: task,
+            spreads: [monthSpread, daySpread],
+            excluding: nil
+        )
+        let displayed = engine.currentDisplayedSpread(
+            for: task,
+            spreads: [monthSpread, daySpread],
+            excluding: nil
+        )
+
+        #expect(destination?.id == monthSpread.id)
+        #expect(displayed?.id == daySpread.id)
+    }
+
+    /// Setup: a task on a year spread, evaluated for an inline migration affordance.
+    /// Expected: the most granular valid destination (a day spread) is returned.
+    @Test func testMigrationDestinationPrefersMoreGranularSpread() {
+        let taskDate = Self.makeDate(year: 2026, month: 1, day: 10)
+        let yearSpread = DataModel.Spread(period: .year, date: taskDate, calendar: Self.calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
+        let task = DataModel.Task(
+            title: "Move me",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+
+        let destination = engine.migrationDestination(
+            for: task,
+            on: yearSpread,
+            spreads: [yearSpread, daySpread]
+        )
+
+        #expect(destination?.id == daySpread.id)
+    }
+
+    /// Setup: a multiday spread crossing a month/year boundary.
+    /// Expected: `currentDestinationSpread`/`currentDisplayedSpread` parity-check the simpler
+    /// `sourceSpread?.period.granularityRank ?? 0` rank computation against the legacy
+    /// `TaskReviewSourceKey`-based computation, by running the same scenario from
+    /// `testMigrationCandidatesUsesMostGranularValidDestination` through both implementations.
+    @Test func testMigrationCandidatesMatchesLegacyPlanner() {
+        let taskDate = Self.makeDate(year: 2026, month: 1, day: 10)
+        let yearSpread = DataModel.Spread(period: .year, date: taskDate, calendar: Self.calendar)
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: Self.calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
+        let task = DataModel.Task(
+            title: "Day task",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
+        )
+
+        let legacyPlanner = StandardMigrationPlanner(calendar: Self.calendar)
+        let legacyCandidates = legacyPlanner.migrationCandidates(
+            tasks: [task],
+            spreads: [yearSpread, monthSpread, daySpread],
+            to: daySpread
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        let engineCandidates = engine.migrationCandidates(
+            tasks: [task],
+            spreads: [yearSpread, monthSpread, daySpread],
+            to: daySpread
+        )
+
+        #expect(legacyCandidates.map(\.task.id) == engineCandidates.map(\.entry.id))
+        #expect(legacyCandidates.map(\.sourceSpread?.id) == engineCandidates.map(\.sourceSpread?.id))
+        #expect(legacyCandidates.map(\.destination.id) == engineCandidates.map(\.destination.id))
+    }
+
+    /// Setup: a multiday destination spread spanning December 29 - January 4, with one task
+    /// sourced from December and one from January, run through both the legacy
+    /// `StandardMigrationPlanner` and `JournalRuleEngine`.
+    /// Expected: identical output — this seam was ported verbatim (no behavior change was
+    /// authorized for this task), so both implementations count every month/year the range
+    /// touches as a parent, including both December and January.
+    @Test func testParentHierarchyMigrationCandidatesForMultidayMatchesLegacyPlanner() {
+        let decemberMonthDate = Self.makeDate(year: 2025, month: 12, day: 1)
+        let januaryMonthDate = Self.makeDate(year: 2026, month: 1, day: 1)
+        let decemberMonthSpread = DataModel.Spread(period: .month, date: decemberMonthDate, calendar: Self.calendar)
+        let januaryMonthSpread = DataModel.Spread(period: .month, date: januaryMonthDate, calendar: Self.calendar)
+        let multidaySpread = DataModel.Spread(
+            startDate: Self.makeDate(year: 2025, month: 12, day: 29),
+            endDate: Self.makeDate(year: 2026, month: 1, day: 4),
+            calendar: Self.calendar
+        )
+        let decemberTask = DataModel.Task(
+            title: "December-origin",
+            date: decemberMonthDate,
+            period: .day,
+            status: .open,
+            assignments: [Assignment(period: .month, date: decemberMonthDate, status: .open)]
+        )
+        let januaryTask = DataModel.Task(
+            title: "January-origin",
+            date: januaryMonthDate,
+            period: .day,
+            status: .open,
+            assignments: [Assignment(period: .month, date: januaryMonthDate, status: .open)]
+        )
+
+        let legacyPlanner = StandardMigrationPlanner(calendar: Self.calendar)
+        let legacyCandidates = legacyPlanner.parentHierarchyMigrationCandidates(
+            tasks: [decemberTask, januaryTask],
+            spreads: [decemberMonthSpread, januaryMonthSpread, multidaySpread],
+            to: multidaySpread
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        let engineCandidates = engine.parentHierarchyMigrationCandidates(
+            tasks: [decemberTask, januaryTask],
+            spreads: [decemberMonthSpread, januaryMonthSpread, multidaySpread],
+            to: multidaySpread
+        )
+
+        #expect(legacyCandidates.map(\.task.id) == engineCandidates.map(\.entry.id))
+    }
 }
