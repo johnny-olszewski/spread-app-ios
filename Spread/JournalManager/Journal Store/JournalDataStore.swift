@@ -37,6 +37,7 @@ final class JournalDataStore {
     private var noteIndex = SpreadKeyIndex()
     private var eventIndex: EventSpreadIndex
     private var spreadIDByKey: [SpreadDataModelKey: UUID] = [:]
+    private var keyBySpreadID: [UUID: SpreadDataModelKey] = [:]
 
     /// Incremented once per call to `load()`. Exists to let tests prove cold load performs
     /// exactly one full index build, and that single-entity mutations never trigger another.
@@ -87,6 +88,9 @@ final class JournalDataStore {
 
         spreadIDByKey = Dictionary(
             uniqueKeysWithValues: loadedSpreads.map { (SpreadDataModelKey(spread: $0, calendar: calendar), $0.id) }
+        )
+        keyBySpreadID = Dictionary(
+            uniqueKeysWithValues: loadedSpreads.map { ($0.id, SpreadDataModelKey(spread: $0, calendar: calendar)) }
         )
 
         taskIndex = SpreadKeyIndex()
@@ -145,5 +149,140 @@ final class JournalDataStore {
             return
         }
         dataModel[key: key] = resolveSpreadDataModel(for: spread, key: key)
+    }
+
+    // MARK: - Mutation Primitives
+
+    /// These exist only to prove the incremental indexing design (each one updates only the
+    /// store/index entries its own change touches, never triggering `load()`'s full rebuild)
+    /// — not to replicate `JournalManager`'s higher-level create/update/migrate command
+    /// surface, which stays with the future `TaskCoordinator`/`NoteCoordinator`/
+    /// `SpreadDeletionCoordinator`. Callers are responsible for persisting via the
+    /// repositories themselves; these methods only update in-memory state.
+
+    /// Inserts a new task or updates an existing one, patching only the spread-data-model
+    /// keys its assignments touch (the union of its keys before and after the change).
+    func upsertTask(_ task: DataModel.Task) {
+        let oldKeys = taskIndex.keys(for: task.id)
+        taskStore.upsert(task)
+        let newKeys = ruleEngine.spreadKeys(for: task, spreads: spreads)
+        taskIndex.update(entityID: task.id, keys: newKeys)
+        tasks = taskStore.values
+        for key in oldKeys.union(newKeys) {
+            repatchDataModel(for: key)
+        }
+        dataVersion += 1
+    }
+
+    /// Removes a task, patching only the spread-data-model keys it was indexed under.
+    func removeTask(id: UUID) {
+        let oldKeys = taskIndex.keys(for: id)
+        taskStore.remove(id: id)
+        taskIndex.remove(entityID: id)
+        tasks = taskStore.values
+        for key in oldKeys {
+            repatchDataModel(for: key)
+        }
+        dataVersion += 1
+    }
+
+    /// Inserts a new note or updates an existing one, patching only the spread-data-model
+    /// keys its assignments touch (the union of its keys before and after the change).
+    func upsertNote(_ note: DataModel.Note) {
+        let oldKeys = noteIndex.keys(for: note.id)
+        noteStore.upsert(note)
+        let newKeys = ruleEngine.spreadKeys(for: note, spreads: spreads)
+        noteIndex.update(entityID: note.id, keys: newKeys)
+        notes = noteStore.values
+        for key in oldKeys.union(newKeys) {
+            repatchDataModel(for: key)
+        }
+        dataVersion += 1
+    }
+
+    /// Removes a note, patching only the spread-data-model keys it was indexed under.
+    func removeNote(id: UUID) {
+        let oldKeys = noteIndex.keys(for: id)
+        noteStore.remove(id: id)
+        noteIndex.remove(entityID: id)
+        notes = noteStore.values
+        for key in oldKeys {
+            repatchDataModel(for: key)
+        }
+        dataVersion += 1
+    }
+
+    /// Inserts a new event or updates an existing one. Unlike tasks/notes, an event's keys
+    /// are recomputed against every current spread (`EventSpreadIndex.updateEvent`) since
+    /// event visibility is computed, not assignment-based.
+    func upsertEvent(_ event: DataModel.Event) {
+        let oldKeys = eventIndex.keys(for: event.id)
+        eventStore.upsert(event)
+        eventIndex.updateEvent(event, spreads: spreads)
+        let newKeys = eventIndex.keys(for: event.id)
+        events = eventStore.values
+        for key in oldKeys.union(newKeys) {
+            repatchDataModel(for: key)
+        }
+        dataVersion += 1
+    }
+
+    /// Removes an event, patching only the spread-data-model keys it was visible on.
+    func removeEvent(id: UUID) {
+        let oldKeys = eventIndex.keys(for: id)
+        eventStore.remove(id: id)
+        eventIndex.removeEvent(id: id)
+        events = eventStore.values
+        for key in oldKeys {
+            repatchDataModel(for: key)
+        }
+        dataVersion += 1
+    }
+
+    /// Inserts a new spread or updates an existing one (e.g. a multiday date-range edit).
+    ///
+    /// Only the event index needs a spread-side recompute: a task/note's index key is
+    /// derived purely from its own assignment's `period`/`date` (already equal to the
+    /// destination spread's own `period`/`date` at the time the assignment was created),
+    /// so it's invariant to whether the spread object itself currently exists — creating or
+    /// deleting a spread never changes which key an existing task/note assignment maps to.
+    /// Events have no assignment to read a key from, so their membership is recomputed
+    /// against the one spread that changed.
+    ///
+    /// The previous key is read from `keyBySpreadID` rather than re-derived from the
+    /// currently-stored spread object: `DataModel.Spread` is a class, and callers mutate it
+    /// in place before calling this (the established pattern elsewhere in this codebase),
+    /// so by the time this runs, `spreadStore[spread.id]` would already reflect the *new*
+    /// state — re-deriving the "previous" key from it would silently no-op the diff.
+    func upsertSpread(_ spread: DataModel.Spread) {
+        let newKey = SpreadDataModelKey(spread: spread, calendar: calendar)
+        let previousKey = keyBySpreadID[spread.id]
+
+        if let previousKey, previousKey != newKey {
+            spreadIDByKey[previousKey] = nil
+            eventIndex.removeSpread(key: previousKey)
+            dataModel[key: previousKey] = nil
+        }
+
+        spreadStore.upsert(spread)
+        spreadIDByKey[newKey] = spread.id
+        keyBySpreadID[spread.id] = newKey
+        spreads = spreadStore.values
+        eventIndex.addSpread(spread, events: events)
+        repatchDataModel(for: newKey)
+        dataVersion += 1
+    }
+
+    /// Removes a spread, dropping its `dataModel` entry and its event-index bucket.
+    func removeSpread(id: UUID) {
+        guard let spread = spreadStore[id] else { return }
+        let key = SpreadDataModelKey(spread: spread, calendar: calendar)
+        spreadStore.remove(id: id)
+        spreadIDByKey[key] = nil
+        keyBySpreadID[id] = nil
+        spreads = spreadStore.values
+        eventIndex.removeSpread(spread)
+        dataModel[key: key] = nil
+        dataVersion += 1
     }
 }

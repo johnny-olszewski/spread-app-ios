@@ -65,7 +65,19 @@ struct EventSpreadIndex {
 
     /// Removes a deleted spread's key from every event currently indexed under it.
     mutating func removeSpread(_ spread: DataModel.Spread) {
-        let key = SpreadDataModelKey(spread: spread, calendar: calendar)
+        removeSpread(key: SpreadDataModelKey(spread: spread, calendar: calendar))
+    }
+
+    /// Removes a spread's key from every event currently indexed under it, given the key
+    /// directly rather than a spread instance.
+    ///
+    /// Needed when the caller can no longer reconstruct the *previous* key from the spread
+    /// object itself — `DataModel.Spread` is a class, so once a caller mutates a spread's
+    /// date range in place (the established in-place-mutation pattern this codebase uses
+    /// elsewhere), the canonical store already holds the post-mutation instance by the time
+    /// `JournalDataStore.upsertSpread` runs, making the pre-mutation key unrecoverable from
+    /// the object alone.
+    mutating func removeSpread(key: SpreadDataModelKey) {
         index.removeAllEntities(forKey: key)
     }
 }
