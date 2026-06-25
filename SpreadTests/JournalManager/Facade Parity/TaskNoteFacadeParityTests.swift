@@ -82,11 +82,12 @@ struct TaskNoteFacadeParityTests {
 
         let newTaskRepository = TestChangeAwareTaskRepository(tasks: taskPairs.map(\.new))
         let newNoteRepository = TestChangeAwareNoteRepository(notes: notePairs.map(\.new))
+        let newSpreadRepository = InMemorySpreadRepository(spreads: spreadPairs.map(\.new))
         let newStore = JournalDataStore(
             calendar: calendar,
             taskRepository: newTaskRepository,
             noteRepository: newNoteRepository,
-            spreadRepository: InMemorySpreadRepository(spreads: spreadPairs.map(\.new)),
+            spreadRepository: newSpreadRepository,
             eventRepository: InMemoryEventRepository()
         )
         await newStore.load()
@@ -96,7 +97,8 @@ struct TaskNoteFacadeParityTests {
             calendar: calendar,
             ruleEngine: JournalRuleEngine(calendar: calendar),
             taskRepository: newTaskRepository,
-            noteRepository: newNoteRepository
+            noteRepository: newNoteRepository,
+            spreadRepository: newSpreadRepository
         )
 
         return (legacy, newStore, actions)
