@@ -56,4 +56,37 @@ struct SpreadKeyIndex {
     mutating func remove(entityID: UUID) {
         update(entityID: entityID, keys: [])
     }
+
+    /// Adds a single key to one entity's bucket memberships, leaving its other keys
+    /// untouched.
+    ///
+    /// For entities whose full key set isn't already known by the caller (e.g. events,
+    /// whose membership is computed per-spread rather than read off an assignment) — adding
+    /// one key at a time avoids needing to recompute every other key the entity already
+    /// belongs to just to add one more.
+    mutating func addKey(_ key: SpreadDataModelKey, toEntityID entityID: UUID) {
+        entityIDsByKey[key, default: []].insert(entityID)
+        keysByEntityID[entityID, default: []].insert(key)
+    }
+
+    /// Removes a single key from one entity's bucket memberships, leaving its other keys
+    /// untouched. The inverse of `addKey(_:toEntityID:)`.
+    mutating func removeKey(_ key: SpreadDataModelKey, fromEntityID entityID: UUID) {
+        entityIDsByKey[key]?.remove(entityID)
+        if entityIDsByKey[key]?.isEmpty == true {
+            entityIDsByKey[key] = nil
+        }
+        keysByEntityID[entityID]?.remove(key)
+        if keysByEntityID[entityID]?.isEmpty == true {
+            keysByEntityID[entityID] = nil
+        }
+    }
+
+    /// Removes every entity currently indexed under `key`, e.g. when the spread backing
+    /// that key is deleted. Touches only the entities in that one bucket, not the full index.
+    mutating func removeAllEntities(forKey key: SpreadDataModelKey) {
+        for entityID in entityIDs(for: key) {
+            removeKey(key, fromEntityID: entityID)
+        }
+    }
 }

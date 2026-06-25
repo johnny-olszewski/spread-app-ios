@@ -144,4 +144,64 @@ struct SpreadKeyIndexTests {
         #expect(index.entityIDs(for: dayKey) == Set(legacyDayModel?.tasks.map(\.id) ?? []))
         #expect(index.entityIDs(for: multidayKey) == Set(legacyMultidayModel?.tasks.map(\.id) ?? []))
     }
+
+    /// Setup: `addKey` is called twice for the same entity with different keys.
+    /// Expected: the entity ends up in both buckets — `addKey` only adds, it never
+    /// replaces the entity's existing key set the way `update` does.
+    @Test func testAddKeyAddsWithoutReplacingExistingKeys() {
+        var index = SpreadKeyIndex()
+        let entityID = UUID()
+        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
+        let dayKey = SpreadDataModelKey(period: .day, date: dayDate, calendar: Self.calendar)
+        let monthKey = SpreadDataModelKey(period: .month, date: dayDate, calendar: Self.calendar)
+
+        index.addKey(dayKey, toEntityID: entityID)
+        index.addKey(monthKey, toEntityID: entityID)
+
+        #expect(index.keys(for: entityID) == [dayKey, monthKey])
+        #expect(index.entityIDs(for: dayKey) == [entityID])
+        #expect(index.entityIDs(for: monthKey) == [entityID])
+    }
+
+    /// Setup: an entity belongs to two keys; one is removed via `removeKey`.
+    /// Expected: only that one bucket membership is dropped — the entity's other key is untouched.
+    @Test func testRemoveKeyDropsOnlyThatBucketMembership() {
+        var index = SpreadKeyIndex()
+        let entityID = UUID()
+        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
+        let dayKey = SpreadDataModelKey(period: .day, date: dayDate, calendar: Self.calendar)
+        let monthKey = SpreadDataModelKey(period: .month, date: dayDate, calendar: Self.calendar)
+        index.addKey(dayKey, toEntityID: entityID)
+        index.addKey(monthKey, toEntityID: entityID)
+
+        index.removeKey(dayKey, fromEntityID: entityID)
+
+        #expect(index.entityIDs(for: dayKey).isEmpty)
+        #expect(index.entityIDs(for: monthKey) == [entityID])
+        #expect(index.keys(for: entityID) == [monthKey])
+    }
+
+    /// Setup: a key has two entities in its bucket, plus an unrelated key/entity pair.
+    /// Expected: `removeAllEntities(forKey:)` clears only the targeted bucket (and both
+    /// entities' reverse lookups for that key), leaving the unrelated bucket untouched.
+    @Test func testRemoveAllEntitiesForKeyClearsOnlyThatBucket() {
+        var index = SpreadKeyIndex()
+        let firstID = UUID()
+        let secondID = UUID()
+        let unrelatedID = UUID()
+        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
+        let monthDate = Self.makeDate(year: 2026, month: 2, day: 1)
+        let dayKey = SpreadDataModelKey(period: .day, date: dayDate, calendar: Self.calendar)
+        let monthKey = SpreadDataModelKey(period: .month, date: monthDate, calendar: Self.calendar)
+        index.addKey(dayKey, toEntityID: firstID)
+        index.addKey(dayKey, toEntityID: secondID)
+        index.addKey(monthKey, toEntityID: unrelatedID)
+
+        index.removeAllEntities(forKey: dayKey)
+
+        #expect(index.entityIDs(for: dayKey).isEmpty)
+        #expect(index.keys(for: firstID).isEmpty)
+        #expect(index.keys(for: secondID).isEmpty)
+        #expect(index.entityIDs(for: monthKey) == [unrelatedID])
+    }
 }
