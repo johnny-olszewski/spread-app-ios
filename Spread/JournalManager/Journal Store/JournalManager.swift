@@ -2,19 +2,20 @@ import Foundation
 import Observation
 import OSLog
 
-/// The `JournalManager` replacement: owns the dictionary-keyed canonical store and
-/// incremental indices (`EntityStore`/`SpreadKeyIndex`/`EventSpreadIndex`), wired against the
-/// `ChangeAware*` repositories (SPRD-245) and `JournalRuleEngine` (SPRD-248).
+/// Central coordinator for journal data and operations.
 ///
-/// Exposes the same observed-state shape and command surface views read from the legacy
-/// `JournalManager`, backed by O(1) store lookups and incremental index updates instead of
-/// flat-array linear scans and from-zero `JournalDataModel` rebuilds. Per SPRD-251, this type
-/// is renamed to `JournalManager` once the legacy implementation is deleted — the name stays
-/// the same for views; only the internals change.
+/// Owns the dictionary-keyed canonical store and incremental indices
+/// (`EntityStore`/`SpreadKeyIndex`/`EventSpreadIndex`), wired against the `ChangeAware*`
+/// repositories (SPRD-245) and `JournalRuleEngine` (SPRD-248). Exposes the observed-state
+/// shape and command surface views read directly — O(1) store lookups and incremental index
+/// updates instead of flat-array linear scans and from-zero `JournalDataModel` rebuilds.
+///
+/// Replaces the original `JournalManager` implementation as of SPRD-251's cutover — the type
+/// name is unchanged for views; only the internals (and this doc comment) changed.
 @Observable
 @MainActor
-final class JournalDataStore {
-    private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "JournalDataStore")
+final class JournalManager {
+    private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "JournalManager")
 
     private let ruleEngine: JournalRuleEngine
     private(set) var calendar: Calendar
@@ -23,16 +24,21 @@ final class JournalDataStore {
     private let appClock: AppClock
     private var appClockObserverID: UUID?
 
-    private let taskRepository: any ChangeAwareTaskRepository
-    private let noteRepository: any ChangeAwareNoteRepository
-    private let spreadRepository: any SpreadRepository
-    private let eventRepository: any EventRepository
-    private let collectionRepository: (any CollectionRepository)?
-    private let listRepository: any ListRepository
-    private let tagRepository: any TagRepository
+    let taskRepository: any ChangeAwareTaskRepository
+    let noteRepository: any ChangeAwareNoteRepository
+    let spreadRepository: any SpreadRepository
+    let eventRepository: any EventRepository
+    let collectionRepository: (any CollectionRepository)?
+    let listRepository: any ListRepository
+    let tagRepository: any TagRepository
 
-    private let firstWeekday: FirstWeekday
+    var firstWeekday: FirstWeekday
     var creationPolicy: SpreadCreationPolicy
+
+    /// The calendar adjusted for the user's first-day-of-week preference.
+    var configuredCalendar: Calendar {
+        firstWeekday.configuredCalendar(from: calendar)
+    }
 
     private var taskStore = EntityStore<DataModel.Task>(idKeyPath: \.id)
     private var noteStore = EntityStore<DataModel.Note>(idKeyPath: \.id)
@@ -87,7 +93,7 @@ final class JournalDataStore {
         wireAppClock()
     }
 
-    /// Creates a `JournalDataStore` for testing with in-memory repositories, paralleling the
+    /// Creates a `JournalManager` for testing with in-memory repositories, paralleling the
     /// legacy `JournalManager.make`.
     static func make(
         appClock: AppClock? = nil,
@@ -102,7 +108,7 @@ final class JournalDataStore {
         tagRepository: (any TagRepository)? = nil,
         firstWeekday: FirstWeekday = .systemDefault,
         creationPolicy: SpreadCreationPolicy? = nil
-    ) async -> JournalDataStore {
+    ) async -> JournalManager {
         var testCalendar: Calendar {
             var cal = Calendar(identifier: .gregorian)
             cal.timeZone = .init(identifier: "UTC")!
@@ -119,7 +125,7 @@ final class JournalDataStore {
             locale: resolvedCalendar.locale ?? Locale(identifier: "en_US_POSIX")
         )
 
-        let store = JournalDataStore(
+        let store = JournalManager(
             appClock: resolvedClock,
             taskRepository: taskRepository ?? TestChangeAwareTaskRepository(),
             noteRepository: noteRepository ?? TestChangeAwareNoteRepository(),

@@ -160,6 +160,14 @@ struct AppDependencies: @unchecked Sendable {
 
     /// Creates a JournalManager configured with these dependencies' repositories.
     ///
+    /// Constructs its own `ChangeAware*` task/note repository instances against the same
+    /// `modelContainer` rather than using `self.taskRepository`/`self.noteRepository`
+    /// (legacy-protocol-typed, still used by `DebugRepositoryListView` and unaffected by
+    /// this). SPRD-245's documented rename (`ChangeAwareTaskRepository` → `TaskRepository`,
+    /// deleting the legacy protocol) is deferred to its own follow-up task — applying it now
+    /// would touch ~50 files via `InMemoryTaskRepository`/`InMemoryNoteRepository`/`Mock*`
+    /// doubles used well beyond `JournalManager`'s own tests.
+    ///
     /// - Parameters:
     ///   - appClock: The shared app clock for temporal context and refreshes.
     ///   - firstWeekday: The user's first day of week preference (defaults to system default).
@@ -169,17 +177,21 @@ struct AppDependencies: @unchecked Sendable {
         appClock: AppClock? = nil,
         firstWeekday: FirstWeekday = .systemDefault
     ) async throws -> JournalManager {
-        try await JournalManager.make(
-            appClock: appClock ?? AppClock.live(),
-            taskRepository: taskRepository,
+        let resolvedAppClock = appClock ?? AppClock.live()
+        let manager = JournalManager(
+            appClock: resolvedAppClock,
+            taskRepository: SwiftDataChangeAwareTaskRepository(modelContainer: modelContainer),
+            noteRepository: SwiftDataChangeAwareNoteRepository(modelContainer: modelContainer),
             spreadRepository: spreadRepository,
             eventRepository: eventRepository,
-            noteRepository: noteRepository,
             collectionRepository: collectionRepository,
             listRepository: listRepository,
             tagRepository: tagRepository,
-            firstWeekday: firstWeekday
+            firstWeekday: firstWeekday,
+            creationPolicy: StandardCreationPolicy(today: resolvedAppClock.now, firstWeekday: firstWeekday)
         )
+        await manager.load()
+        return manager
     }
 }
 

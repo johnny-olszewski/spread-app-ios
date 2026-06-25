@@ -3,7 +3,7 @@ import Testing
 @testable import Spread
 
 @MainActor
-struct JournalDataStoreTests {
+struct JournalManagerTests {
     private static var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!
@@ -19,8 +19,8 @@ struct JournalDataStoreTests {
         tasks: [DataModel.Task] = [],
         notes: [DataModel.Note] = [],
         events: [DataModel.Event] = []
-    ) -> JournalDataStore {
-        JournalDataStore(
+    ) -> JournalManager {
+        JournalManager(
             appClock: .fixed(now: .now, calendar: Self.calendar, timeZone: Self.calendar.timeZone, locale: Locale(identifier: "en_US_POSIX")),
             taskRepository: TestChangeAwareTaskRepository(tasks: tasks),
             noteRepository: TestChangeAwareNoteRepository(notes: notes),

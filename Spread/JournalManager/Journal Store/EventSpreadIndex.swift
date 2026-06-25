@@ -75,7 +75,7 @@ struct EventSpreadIndex {
     /// object itself — `DataModel.Spread` is a class, so once a caller mutates a spread's
     /// date range in place (the established in-place-mutation pattern this codebase uses
     /// elsewhere), the canonical store already holds the post-mutation instance by the time
-    /// `JournalDataStore.upsertSpread` runs, making the pre-mutation key unrecoverable from
+    /// `JournalManager.upsertSpread` runs, making the pre-mutation key unrecoverable from
     /// the object alone.
     mutating func removeSpread(key: SpreadDataModelKey) {
         index.removeAllEntities(forKey: key)

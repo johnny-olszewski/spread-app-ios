@@ -47,7 +47,7 @@ extension JournalManager {
 
         // Persist entries verbatim so scenario fixtures can encode exact assignments.
         for task in generatedData.tasks {
-            try await taskRepository.save(task)
+            try await taskRepository.save(task, change: EntityChange(isNew: true))
         }
 
         for event in generatedData.events {
@@ -55,7 +55,7 @@ extension JournalManager {
         }
 
         for note in generatedData.notes {
-            try await noteRepository.save(note)
+            try await noteRepository.save(note, change: EntityChange(isNew: true))
         }
 
         // Reload in-memory state from repositories to ensure UI sync
@@ -106,7 +106,7 @@ extension JournalManager {
         }
 
         // Persist and reload state
-        try await taskRepository.save(task)
+        try await taskRepository.save(task, change: EntityChange(isNew: true))
         if reloadAfter {
             await reload()
         }
@@ -198,7 +198,7 @@ extension JournalManager {
         }
 
         // Persist and reload state
-        try await noteRepository.save(note)
+        try await noteRepository.save(note, change: EntityChange(isNew: true))
         if reloadAfter {
             await reload()
         }

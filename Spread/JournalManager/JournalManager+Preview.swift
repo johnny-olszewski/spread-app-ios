@@ -32,14 +32,23 @@ extension JournalManager {
             DataModel.Note(title: "Meeting notes", date: today)
         ]
 
-        return JournalManager(
+        let manager = JournalManager(
             appClock: appClock,
-            taskRepository: InMemoryTaskRepository(tasks: sampleTasks),
+            taskRepository: TestChangeAwareTaskRepository(),
+            noteRepository: TestChangeAwareNoteRepository(),
             spreadRepository: InMemorySpreadRepository(),
             eventRepository: InMemoryEventRepository(),
-            noteRepository: InMemoryNoteRepository(notes: sampleNotes),
             creationPolicy: policy
         )
+        // Populated synchronously via the in-memory upsert primitives rather than `load()`,
+        // which is async — previews need a fully synchronous, already-populated instance.
+        for task in sampleTasks {
+            manager.upsertTask(task)
+        }
+        for note in sampleNotes {
+            manager.upsertNote(note)
+        }
+        return manager
     }
 
     /// A preview-compatible instance with no inbox entries.
@@ -65,10 +74,10 @@ extension JournalManager {
 
         return JournalManager(
             appClock: appClock,
-            taskRepository: InMemoryTaskRepository(),
+            taskRepository: TestChangeAwareTaskRepository(),
+            noteRepository: TestChangeAwareNoteRepository(),
             spreadRepository: InMemorySpreadRepository(),
             eventRepository: InMemoryEventRepository(),
-            noteRepository: InMemoryNoteRepository(),
             creationPolicy: policy
         )
     }
