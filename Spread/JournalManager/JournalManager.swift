@@ -2,28 +2,6 @@ import Foundation
 import OSLog
 import Observation
 
-struct SpreadAutoMigrationSummary: Equatable {
-    let taskCount: Int
-    let noteCount: Int
-
-    var totalCount: Int {
-        taskCount + noteCount
-    }
-
-    var message: String {
-        let taskPart = taskCount > 0 ? "\(taskCount) task\(taskCount == 1 ? "" : "s")" : nil
-        let notePart = noteCount > 0 ? "\(noteCount) note\(noteCount == 1 ? "" : "s")" : nil
-        let parts = [taskPart, notePart].compactMap { $0 }
-        let subject = parts.isEmpty ? "Entries" : parts.joined(separator: " and ")
-        return "\(subject) moved automatically"
-    }
-}
-
-struct SpreadCreationOperationResult {
-    let spread: DataModel.Spread
-    let autoMigrationSummary: SpreadAutoMigrationSummary?
-}
-
 /// Central coordinator for journal data and operations.
 ///
 /// JournalManager owns the in-memory data model, handles data loading from

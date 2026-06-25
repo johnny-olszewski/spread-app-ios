@@ -1,32 +1,38 @@
 import Foundation
 import Observation
+import OSLog
 
-/// The eventual `JournalManager` replacement: owns the dictionary-keyed canonical store and
+/// The `JournalManager` replacement: owns the dictionary-keyed canonical store and
 /// incremental indices (`EntityStore`/`SpreadKeyIndex`/`EventSpreadIndex`), wired against the
 /// `ChangeAware*` repositories (SPRD-245) and `JournalRuleEngine` (SPRD-248).
 ///
-/// Exposes the same observed-state shape views currently read from `JournalManager`
-/// (`spreads`/`tasks`/`notes`/`events`/`dataModel`/`dataVersion`), backed by O(1) store
-/// lookups and incremental index updates instead of flat-array linear scans and from-zero
-/// `JournalDataModel` rebuilds.
-///
-/// This is purely additive (SPRD-249): `DependencyContainer` and all views continue to use
-/// the legacy `JournalManager` until SPRD-251's cutover. Only the read/observed-state surface
-/// and store/index machinery live here — `JournalManager`'s full CRUD/migration orchestration
-/// API stays with the future `TaskCoordinator`/`NoteCoordinator` (SPRD-255) and
-/// `SpreadDeletionCoordinator` (SPRD-256); this type's mutation primitives
-/// (`upsertTask`/`removeTask`/etc.) exist only to prove the incremental indexing design,
-/// not to replicate `JournalManager`'s higher-level command surface.
+/// Exposes the same observed-state shape and command surface views read from the legacy
+/// `JournalManager`, backed by O(1) store lookups and incremental index updates instead of
+/// flat-array linear scans and from-zero `JournalDataModel` rebuilds. Per SPRD-251, this type
+/// is renamed to `JournalManager` once the legacy implementation is deleted — the name stays
+/// the same for views; only the internals change.
 @Observable
 @MainActor
 final class JournalDataStore {
-    private let calendar: Calendar
+    private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "JournalDataStore")
+
     private let ruleEngine: JournalRuleEngine
+    private(set) var calendar: Calendar
+    private(set) var today: Date
+
+    private let appClock: AppClock
+    private var appClockObserverID: UUID?
 
     private let taskRepository: any ChangeAwareTaskRepository
     private let noteRepository: any ChangeAwareNoteRepository
     private let spreadRepository: any SpreadRepository
     private let eventRepository: any EventRepository
+    private let collectionRepository: (any CollectionRepository)?
+    private let listRepository: any ListRepository
+    private let tagRepository: any TagRepository
+
+    private let firstWeekday: FirstWeekday
+    var creationPolicy: SpreadCreationPolicy
 
     private var taskStore = EntityStore<DataModel.Task>(idKeyPath: \.id)
     private var noteStore = EntityStore<DataModel.Note>(idKeyPath: \.id)
@@ -47,24 +53,86 @@ final class JournalDataStore {
     private(set) var tasks: [DataModel.Task] = []
     private(set) var notes: [DataModel.Note] = []
     private(set) var events: [DataModel.Event] = []
+    private(set) var lists: [DataModel.List] = []
+    private(set) var tags: [DataModel.Tag] = []
     private(set) var dataModel: JournalDataModel = [:]
     private(set) var dataVersion = 0
 
     init(
-        calendar: Calendar,
-        today: Date = .now,
+        appClock: AppClock,
         taskRepository: any ChangeAwareTaskRepository,
         noteRepository: any ChangeAwareNoteRepository,
         spreadRepository: any SpreadRepository,
-        eventRepository: any EventRepository
+        eventRepository: any EventRepository,
+        collectionRepository: (any CollectionRepository)? = nil,
+        listRepository: (any ListRepository)? = nil,
+        tagRepository: (any TagRepository)? = nil,
+        firstWeekday: FirstWeekday = .systemDefault,
+        creationPolicy: SpreadCreationPolicy
     ) {
-        self.calendar = calendar
-        self.ruleEngine = JournalRuleEngine(calendar: calendar, today: today)
+        self.appClock = appClock
+        self.calendar = appClock.calendar
+        self.today = appClock.now
+        self.ruleEngine = JournalRuleEngine(calendar: appClock.calendar, today: appClock.now)
         self.taskRepository = taskRepository
         self.noteRepository = noteRepository
         self.spreadRepository = spreadRepository
         self.eventRepository = eventRepository
-        self.eventIndex = EventSpreadIndex(calendar: calendar)
+        self.collectionRepository = collectionRepository
+        self.listRepository = listRepository ?? EmptyListRepository()
+        self.tagRepository = tagRepository ?? EmptyTagRepository()
+        self.firstWeekday = firstWeekday
+        self.creationPolicy = creationPolicy
+        self.eventIndex = EventSpreadIndex(calendar: appClock.calendar)
+        wireAppClock()
+    }
+
+    /// Creates a `JournalDataStore` for testing with in-memory repositories, paralleling the
+    /// legacy `JournalManager.make`.
+    static func make(
+        appClock: AppClock? = nil,
+        calendar: Calendar? = nil,
+        today: Date? = nil,
+        taskRepository: (any ChangeAwareTaskRepository)? = nil,
+        spreadRepository: (any SpreadRepository)? = nil,
+        eventRepository: (any EventRepository)? = nil,
+        noteRepository: (any ChangeAwareNoteRepository)? = nil,
+        collectionRepository: (any CollectionRepository)? = nil,
+        listRepository: (any ListRepository)? = nil,
+        tagRepository: (any TagRepository)? = nil,
+        firstWeekday: FirstWeekday = .systemDefault,
+        creationPolicy: SpreadCreationPolicy? = nil
+    ) async -> JournalDataStore {
+        var testCalendar: Calendar {
+            var cal = Calendar(identifier: .gregorian)
+            cal.timeZone = .init(identifier: "UTC")!
+            return cal
+        }
+
+        let resolvedCalendar = calendar ?? testCalendar
+        let resolvedToday = today ?? .now
+        let defaultPolicy = StandardCreationPolicy(today: resolvedToday, firstWeekday: firstWeekday)
+        let resolvedClock = appClock ?? AppClock.fixed(
+            now: resolvedToday,
+            calendar: resolvedCalendar,
+            timeZone: resolvedCalendar.timeZone,
+            locale: resolvedCalendar.locale ?? Locale(identifier: "en_US_POSIX")
+        )
+
+        let store = JournalDataStore(
+            appClock: resolvedClock,
+            taskRepository: taskRepository ?? TestChangeAwareTaskRepository(),
+            noteRepository: noteRepository ?? TestChangeAwareNoteRepository(),
+            spreadRepository: spreadRepository ?? InMemorySpreadRepository(),
+            eventRepository: eventRepository ?? InMemoryEventRepository(),
+            collectionRepository: collectionRepository,
+            listRepository: listRepository,
+            tagRepository: tagRepository,
+            firstWeekday: firstWeekday,
+            creationPolicy: creationPolicy ?? defaultPolicy
+        )
+        await store.load()
+        return store
     }
 
     // MARK: - Cold Load
@@ -80,6 +148,8 @@ final class JournalDataStore {
         let loadedTasks = await taskRepository.getTasks()
         let loadedNotes = await noteRepository.getNotes()
         let loadedEvents = await eventRepository.getEvents()
+        let loadedLists = await listRepository.getLists()
+        let loadedTags = await tagRepository.getTags()
 
         spreadStore.replaceAll(loadedSpreads)
         taskStore.replaceAll(loadedTasks)
@@ -112,6 +182,8 @@ final class JournalDataStore {
         tasks = loadedTasks
         notes = loadedNotes
         events = loadedEvents
+        lists = loadedLists
+        tags = loadedTags
 
         var newDataModel: JournalDataModel = [:]
         for spread in loadedSpreads {
@@ -122,6 +194,81 @@ final class JournalDataStore {
 
         fullLoadCount += 1
         dataVersion += 1
+    }
+
+    /// Reloads data from repositories. Increments `dataVersion` to trigger UI updates.
+    func reload() async {
+        await load()
+    }
+
+    /// Returns true if any local data exists in repositories.
+    func hasLocalData() async -> Bool {
+        if !(await spreadRepository.getSpreads()).isEmpty { return true }
+        if !(await taskRepository.getTasks()).isEmpty { return true }
+        if !(await eventRepository.getEvents()).isEmpty { return true }
+        if !(await noteRepository.getNotes()).isEmpty { return true }
+        return false
+    }
+
+    /// Clears all local data from repositories and refreshes in-memory state. Used on sign-out.
+    func clearLocalData() async {
+        do {
+            try await clearAllDataFromRepositories()
+        } catch {
+            // Best-effort wipe; keep going to refresh UI state.
+        }
+        await reload()
+    }
+
+    /// Clears all data from repositories (without updating in-memory state). Helper for
+    /// sign-out and debug data resets.
+    func clearAllDataFromRepositories() async throws {
+        for task in await taskRepository.getTasks() {
+            try await taskRepository.delete(task)
+        }
+        for spread in await spreadRepository.getSpreads() {
+            try await spreadRepository.delete(spread)
+        }
+        for event in await eventRepository.getEvents() {
+            try await eventRepository.delete(event)
+        }
+        for note in await noteRepository.getNotes() {
+            try await noteRepository.delete(note)
+        }
+        if let collectionRepository {
+            for collection in await collectionRepository.getCollections() {
+                try await collectionRepository.delete(collection)
+            }
+        }
+        for list in await listRepository.getLists() {
+            try await listRepository.delete(list)
+        }
+        for tag in await tagRepository.getTags() {
+            try await tagRepository.delete(tag)
+        }
+    }
+
+    // MARK: - AppClock Wiring
+
+    private func wireAppClock() {
+        appClockObserverID = appClock.addObserver { [weak self] snapshot in
+            self?.apply(snapshot: snapshot)
+        }
+    }
+
+    private func apply(snapshot: AppClockSnapshot) {
+        calendar = snapshot.calendar
+        today = snapshot.now
+
+        guard snapshot.refreshMetadata.crossedDayBoundary ||
+                snapshot.refreshMetadata.calendarChanged ||
+                snapshot.refreshMetadata.timeZoneChanged ||
+                snapshot.refreshMetadata.localeChanged else {
+            return
+        }
+
+        creationPolicy = StandardCreationPolicy(today: today, firstWeekday: firstWeekday)
+        Task { await load() }
     }
 
     // MARK: - Spread Data Model Resolution
@@ -151,14 +298,602 @@ final class JournalDataStore {
         dataModel[key: key] = resolveSpreadDataModel(for: spread, key: key)
     }
 
-    // MARK: - Mutation Primitives
+    func spreadDataModel(for date: Date, period: Period) -> SpreadDataModel? {
+        dataModel[key: SpreadDataModelKey(period: period, date: date, calendar: calendar)]
+    }
 
-    /// These exist only to prove the incremental indexing design (each one updates only the
-    /// store/index entries its own change touches, never triggering `load()`'s full rebuild)
-    /// — not to replicate `JournalManager`'s higher-level create/update/migrate command
-    /// surface, which stays with the future `TaskCoordinator`/`NoteCoordinator`/
-    /// `SpreadDeletionCoordinator`. Callers are responsible for persisting via the
-    /// repositories themselves; these methods only update in-memory state.
+    // MARK: - Inbox
+
+    /// Entries that have no matching spread assignment. See `JournalRuleEngine.inboxEntries`
+    /// for the eligibility rule (gated by `Entry.isInboxEligible`).
+    var inboxEntries: [any Entry] {
+        ruleEngine.inboxEntries(entries: tasks + notes, spreads: spreads)
+    }
+
+    /// The number of entries in the Inbox. Used for badge display.
+    var inboxCount: Int {
+        inboxEntries.count
+    }
+
+    // MARK: - Migration Queries
+
+    /// Tasks eligible to move into created spreads in conventional mode.
+    func migrationCandidates(to destination: DataModel.Spread) -> [EntryMigrationCandidate<DataModel.Task>] {
+        ruleEngine.migrationCandidates(tasks: tasks, spreads: spreads, to: destination)
+    }
+
+    /// Returns the smallest valid existing destination spread for a task on a specific source spread.
+    func migrationDestination(for task: DataModel.Task, on source: DataModel.Spread) -> DataModel.Spread? {
+        ruleEngine.migrationDestination(for: task, on: source, spreads: spreads)
+    }
+
+    /// Returns migration candidates that come only from the destination's parent hierarchy.
+    func parentHierarchyMigrationCandidates(to destination: DataModel.Spread) -> [EntryMigrationCandidate<DataModel.Task>] {
+        ruleEngine.parentHierarchyMigrationCandidates(tasks: tasks, spreads: spreads, to: destination)
+    }
+
+    /// Returns all tasks eligible for migration from `source` to `destination` (open status, matching source assignment).
+    func eligibleTasksForMigration(from source: DataModel.Spread, to destination: DataModel.Spread) -> [DataModel.Task] {
+        guard destination.period.canHaveTasksAssigned else { return [] }
+        return tasks.filter { task in
+            guard task.status != .cancelled else { return false }
+            guard let sourceAssignment = task.assignments.first(where: { $0.matches(spread: source, calendar: calendar) }) else {
+                return false
+            }
+            return sourceAssignment.status == .open
+        }
+    }
+
+    /// Returns all tasks eligible for migration from any parent spread to the given destination.
+    func allEligibleTasksForMigration(to destination: DataModel.Spread) -> [(task: DataModel.Task, source: DataModel.Spread)] {
+        migrationCandidates(to: destination).compactMap { candidate in
+            guard let sourceSpread = candidate.sourceSpread else { return nil }
+            return (task: candidate.entry, source: sourceSpread)
+        }
+    }
+
+    /// Returns the spread where the task has an open assignment, if any.
+    func currentDestinationSpread(for task: DataModel.Task, excluding excludedSpread: DataModel.Spread? = nil) -> DataModel.Spread? {
+        ruleEngine.currentDestinationSpread(for: task, spreads: spreads, excluding: excludedSpread)
+    }
+
+    /// Returns the spread where the task is currently visible to the user (any non-migrated assignment).
+    func currentDisplayedSpread(for task: DataModel.Task, excluding excludedSpread: DataModel.Spread? = nil) -> DataModel.Spread? {
+        ruleEngine.currentDisplayedSpread(for: task, spreads: spreads, excluding: excludedSpread)
+    }
+
+    // MARK: - Overdue
+
+    /// Open tasks that are overdue anywhere in the journal.
+    var overdueTaskItems: [OverdueTaskItem] {
+        ruleEngine.overdueTaskItems(tasks: tasks, spreads: spreads)
+    }
+
+    /// The global overdue count used by the toolbar review button.
+    var overdueTaskCount: Int {
+        overdueTaskItems.count
+    }
+
+    // MARK: - Spread Management
+
+    /// Creates a new explicit spread and returns any auto-migration summary produced by the
+    /// conventional year/month/day reconciliation pass.
+    func createSpread(
+        period: Period,
+        date: Date,
+        customName: String? = nil,
+        usesDynamicName: Bool = true
+    ) async throws -> SpreadCreationOperationResult {
+        let spread = DataModel.Spread(
+            period: period,
+            date: date,
+            calendar: calendar,
+            customName: SpreadDisplayNameFormatter.sanitizedCustomName(customName),
+            usesDynamicName: usesDynamicName
+        )
+        try await spreadRepository.save(spread)
+        upsertSpread(spread)
+
+        let autoMigrationSummary = try await reconcileEntriesForNewExplicitSpreadIfNeeded(spread)
+        return SpreadCreationOperationResult(spread: spread, autoMigrationSummary: autoMigrationSummary)
+    }
+
+    /// Creates a new spread (convenience wrapper discarding the auto-migration summary).
+    @discardableResult
+    func addSpread(period: Period, date: Date, customName: String? = nil, usesDynamicName: Bool = true) async throws -> DataModel.Spread {
+        try await createSpread(period: period, date: date, customName: customName, usesDynamicName: usesDynamicName).spread
+    }
+
+    /// Creates a new multiday spread, also reconciling eligible day-preferred and
+    /// multiday-preferred entries into it when it becomes their best available destination.
+    func addMultidaySpread(startDate: Date, endDate: Date, customName: String? = nil, usesDynamicName: Bool = true) async throws -> DataModel.Spread {
+        let spread = DataModel.Spread(
+            startDate: startDate,
+            endDate: endDate,
+            calendar: calendar,
+            customName: SpreadDisplayNameFormatter.sanitizedCustomName(customName),
+            usesDynamicName: usesDynamicName
+        )
+        try await spreadRepository.save(spread)
+        upsertSpread(spread)
+        _ = try await reconcileEntriesForNewExplicitSpreadIfNeeded(spread)
+        return spread
+    }
+
+    /// Updates the explicit-spread favorite flag and field-level sync timestamp.
+    func updateSpreadFavorite(_ spread: DataModel.Spread, isFavorite: Bool) async throws {
+        guard spread.isFavorite != isFavorite else { return }
+        spread.isFavorite = isFavorite
+        spread.isFavoriteUpdatedAt = .now
+        try await spreadRepository.save(spread)
+        upsertSpread(spread)
+    }
+
+    /// Updates the explicit-spread custom and dynamic naming fields.
+    func updateSpreadName(_ spread: DataModel.Spread, customName: String?, usesDynamicName: Bool) async throws {
+        let sanitizedCustomName = SpreadDisplayNameFormatter.sanitizedCustomName(customName)
+        let timestamp = Date.now
+        var didChange = false
+
+        if spread.customName != sanitizedCustomName {
+            spread.customName = sanitizedCustomName
+            spread.customNameUpdatedAt = timestamp
+            didChange = true
+        }
+        if spread.usesDynamicName != usesDynamicName {
+            spread.usesDynamicName = usesDynamicName
+            spread.usesDynamicNameUpdatedAt = timestamp
+            didChange = true
+        }
+        guard didChange else { return }
+
+        try await spreadRepository.save(spread)
+        upsertSpread(spread)
+    }
+
+    /// Updates an explicit multiday spread's date range while preserving its identity and personalization.
+    @discardableResult
+    func updateMultidaySpreadDates(_ spread: DataModel.Spread, startDate: Date, endDate: Date) async throws -> DataModel.Spread {
+        guard spread.period == .multiday else { return spread }
+
+        let normalizedStart = startDate.startOfDay(calendar: calendar)
+        let normalizedEnd = endDate.startOfDay(calendar: calendar)
+        guard spread.date != normalizedStart || spread.startDate != normalizedStart || spread.endDate != normalizedEnd else {
+            return spread
+        }
+
+        let timestamp = Date.now
+        spread.date = normalizedStart
+        spread.startDate = normalizedStart
+        spread.endDate = normalizedEnd
+        spread.dateUpdatedAt = timestamp
+        spread.startDateUpdatedAt = timestamp
+        spread.endDateUpdatedAt = timestamp
+
+        try await spreadRepository.save(spread)
+        upsertSpread(spread)
+        return spread
+    }
+
+    /// Deletes a spread, reassigning all of its entries to a parent spread (day→month→year) or
+    /// Inbox if none exists. Entries are never deleted, only their assignments are mutated.
+    ///
+    /// Scoped to non-multiday deletion's parent-hierarchy walk — multiday-spread deletion falls
+    /// straight to Inbox for its entries (no parent-hierarchy concept applies to a custom range).
+    func deleteSpread(_ spread: DataModel.Spread) async throws {
+        let parentSpread = spread.period == .multiday ? nil : findParentSpread(for: spread, in: spreads)
+
+        for task in tasks {
+            guard let sourceIndex = task.assignments.firstIndex(where: { $0.matches(spread: spread, calendar: calendar) }) else {
+                continue
+            }
+            let previousTaskAssignments = task.assignments
+            let preservedStatus = task.assignments[sourceIndex].status
+            task.assignments[sourceIndex].status = .migrated
+            if let parentSpread {
+                if let destinationIndex = task.assignments.firstIndex(where: { $0.matches(spread: parentSpread, calendar: calendar) }) {
+                    task.assignments[destinationIndex].status = preservedStatus
+                } else {
+                    task.assignments.append(Assignment(period: parentSpread.period, date: parentSpread.date, status: preservedStatus))
+                }
+            }
+            try await taskRepository.save(
+                task,
+                change: EntityChange(isNew: false, previousAssignments: previousTaskAssignments, previousTagIDs: task.tags.map(\.id))
+            )
+            upsertTask(task)
+        }
+
+        for note in notes {
+            guard let sourceIndex = note.assignments.firstIndex(where: { $0.matches(spread: spread, calendar: calendar) }) else {
+                continue
+            }
+            let previousNoteAssignments = note.assignments
+            let preservedStatus = note.assignments[sourceIndex].status
+            note.assignments[sourceIndex].status = .migrated
+            if let parentSpread {
+                if let destinationIndex = note.assignments.firstIndex(where: { $0.matches(spread: parentSpread, calendar: calendar) }) {
+                    note.assignments[destinationIndex].status = preservedStatus
+                } else {
+                    note.assignments.append(Assignment(period: parentSpread.period, date: parentSpread.date, status: preservedStatus))
+                }
+            }
+            try await noteRepository.save(
+                note,
+                change: EntityChange(isNew: false, previousAssignments: previousNoteAssignments, previousTagIDs: note.tags.map(\.id))
+            )
+            upsertNote(note)
+        }
+
+        try await spreadRepository.delete(spread)
+        removeSpread(id: spread.id)
+
+        Self.logger.debug("Spread deleted: \(spread.period.rawValue, privacy: .public) spread \(spread.id, privacy: .public)")
+    }
+
+    private func findParentSpread(for spread: DataModel.Spread, in spreads: [DataModel.Spread]) -> DataModel.Spread? {
+        var currentPeriod = spread.period.parentPeriod
+        while let period = currentPeriod {
+            let normalizedDate = period.normalizeDate(spread.date, calendar: calendar)
+            if let parent = spreads.first(where: {
+                $0.period == period && $0.period.normalizeDate($0.date, calendar: calendar) == normalizedDate
+            }) {
+                return parent
+            }
+            currentPeriod = period.parentPeriod
+        }
+        return nil
+    }
+
+    /// Re-reconciles every existing task/note against a newly created explicit spread, in case
+    /// it's now their best destination (e.g. an Inbox-origin task whose preferred date matches).
+    private func reconcileEntriesForNewExplicitSpreadIfNeeded(_ spread: DataModel.Spread) async throws -> SpreadAutoMigrationSummary? {
+        guard spread.period.canHaveTasksAssigned else { return nil }
+
+        var migratedTaskCount = 0
+        var migratedNoteCount = 0
+
+        for task in tasks where task.date != nil && task.status != .cancelled && task.status != .migrated {
+            let previousAssignments = task.assignments
+            ruleEngine.reconcilePreferredAssignment(for: task, in: spreads, preferredSpreadID: nil)
+            guard task.assignments != previousAssignments else { continue }
+            try await taskRepository.save(task, change: EntityChange(isNew: false, previousAssignments: previousAssignments, previousTagIDs: task.tags.map(\.id)))
+            upsertTask(task)
+            migratedTaskCount += 1
+        }
+
+        for note in notes where note.status != .migrated {
+            let previousAssignments = note.assignments
+            ruleEngine.reconcilePreferredAssignment(for: note, in: spreads, preferredSpreadID: nil)
+            guard note.assignments != previousAssignments else { continue }
+            try await noteRepository.save(note, change: EntityChange(isNew: false, previousAssignments: previousAssignments, previousTagIDs: note.tags.map(\.id)))
+            upsertNote(note)
+            migratedNoteCount += 1
+        }
+
+        guard migratedTaskCount > 0 || migratedNoteCount > 0 else { return nil }
+        return SpreadAutoMigrationSummary(taskCount: migratedTaskCount, noteCount: migratedNoteCount)
+    }
+
+    // MARK: - Task Migration
+
+    /// Migrates a task from a source spread to a destination spread.
+    func migrateTask(_ task: DataModel.Task, from source: DataModel.Spread, to destination: DataModel.Spread) async throws {
+        try await moveTask(task, from: .init(kind: .spread(id: source.id, period: source.period, date: source.period.normalizeDate(source.date, calendar: calendar))), to: destination)
+    }
+
+    /// Moves a task from either Inbox or a source spread into a destination spread.
+    func moveTask(_ task: DataModel.Task, from sourceKey: TaskReviewSourceKey, to destination: DataModel.Spread) async throws {
+        guard task.status != .cancelled else { throw MigrationError.taskCancelled }
+        guard destination.period.canHaveTasksAssigned else { throw MigrationError.destinationNotAssignable }
+        let previousAssignments = task.assignments
+
+        switch sourceKey.kind {
+        case .inbox:
+            break
+        case .spread(let sourceSpreadID, let sourcePeriod, let sourceDate):
+            guard let sourceIndex = task.assignments.firstIndex(where: {
+                $0.matches(period: sourcePeriod, date: sourceDate, spreadID: sourceSpreadID, calendar: calendar)
+            }) else {
+                throw MigrationError.noSourceAssignment
+            }
+            task.assignments[sourceIndex].status = .migrated
+        }
+
+        if let destinationIndex = task.assignments.firstIndex(where: { $0.matches(spread: destination, calendar: calendar) }) {
+            task.assignments[destinationIndex].status = .open
+        } else {
+            task.assignments.append(
+                Assignment(period: destination.period, date: destination.date, spreadID: destination.period == .multiday ? destination.id : nil, status: .open)
+            )
+        }
+        task.status = .open
+
+        try await taskRepository.save(
+            task,
+            change: EntityChange(isNew: false, previousAssignments: previousAssignments, previousTagIDs: task.tags.map(\.id))
+        )
+        upsertTask(task)
+    }
+
+    /// Migrates multiple tasks from one spread to another. Skips cancelled tasks silently.
+    func migrateTasksBatch(_ tasks: [DataModel.Task], from source: DataModel.Spread, to destination: DataModel.Spread) async throws {
+        guard !tasks.isEmpty else { return }
+        guard destination.period.canHaveTasksAssigned else { throw MigrationError.destinationNotAssignable }
+
+        for task in tasks {
+            guard task.status != .cancelled else { continue }
+            guard let sourceIndex = task.assignments.firstIndex(where: { $0.matches(spread: source, calendar: calendar) }) else {
+                continue
+            }
+            let previousAssignments = task.assignments
+            task.assignments[sourceIndex].status = .migrated
+
+            if let destinationIndex = task.assignments.firstIndex(where: { $0.matches(spread: destination, calendar: calendar) }) {
+                task.assignments[destinationIndex].status = .open
+            } else {
+                task.assignments.append(
+                    Assignment(period: destination.period, date: destination.date, spreadID: destination.period == .multiday ? destination.id : nil, status: .open)
+                )
+            }
+            task.status = .open
+            try await taskRepository.save(
+                task,
+                change: EntityChange(isNew: false, previousAssignments: previousAssignments, previousTagIDs: task.tags.map(\.id))
+            )
+            upsertTask(task)
+        }
+    }
+
+    /// Migrates a note from one spread to another. Notes can only be migrated via explicit
+    /// user action, not batch migration.
+    func migrateNote(_ note: DataModel.Note, from source: DataModel.Spread, to destination: DataModel.Spread) async throws {
+        guard destination.period.canHaveTasksAssigned else { throw MigrationError.destinationNotAssignable }
+        guard let sourceIndex = note.assignments.firstIndex(where: { $0.matches(spread: source, calendar: calendar) }) else {
+            throw MigrationError.noSourceAssignment
+        }
+        let previousAssignments = note.assignments
+        note.assignments[sourceIndex].status = .migrated
+
+        if let destinationIndex = note.assignments.firstIndex(where: { $0.matches(spread: destination, calendar: calendar) }) {
+            note.assignments[destinationIndex].status = .active
+        } else {
+            note.assignments.append(
+                Assignment(period: destination.period, date: destination.date, spreadID: destination.period == .multiday ? destination.id : nil, status: .active)
+            )
+        }
+
+        try await noteRepository.save(
+            note,
+            change: EntityChange(isNew: false, previousAssignments: previousAssignments, previousTagIDs: note.tags.map(\.id))
+        )
+        upsertNote(note)
+    }
+
+    /// Events cannot be migrated — they use computed visibility based on date range overlap.
+    func migrateEvent(_ event: DataModel.Event, from source: DataModel.Spread, to destination: DataModel.Spread) throws {
+        throw MigrationError.eventMigrationNotSupported
+    }
+
+    // MARK: - Task CRUD
+
+    /// Creates a new task with the specified parameters.
+    @discardableResult
+    func addTask(title: String, date: Date, period: Period, list: DataModel.List? = nil, tag: DataModel.Tag? = nil) async throws -> DataModel.Task {
+        let task = try await addTask(title: title, date: date, period: period, body: nil, priority: .none, dueDate: nil)
+        guard list != nil || tag != nil else { return task }
+        if let list { task.list = list }
+        if let tag { task.tags = [tag] }
+        try await taskRepository.save(task, change: EntityChange(isNew: false, previousAssignments: task.assignments, previousTagIDs: []))
+        upsertTask(task)
+        return task
+    }
+
+    /// Creates a new task with metadata and explicit preferred-assignment state.
+    @discardableResult
+    func addTask(
+        title: String,
+        date: Date?,
+        period: Period?,
+        preferredSpreadID: UUID? = nil,
+        body: String?,
+        priority: DataModel.Task.Priority,
+        dueDate: Date?
+    ) async throws -> DataModel.Task {
+        let task = DataModel.Task(
+            title: title,
+            body: sanitizedTaskBody(body),
+            priority: priority,
+            dueDate: dueDate?.startOfDay(calendar: calendar),
+            date: date,
+            period: period,
+            status: .open,
+            assignments: []
+        )
+
+        if date != nil {
+            ruleEngine.reconcilePreferredAssignment(for: task, in: spreads, preferredSpreadID: preferredSpreadID)
+        }
+
+        try await taskRepository.save(task, change: EntityChange(isNew: true))
+        upsertTask(task)
+
+        if task.assignments.isEmpty {
+            Self.logger.debug("Task created: \(task.id, privacy: .public) '\(task.title, privacy: .public)' → Inbox (no matching spread)")
+        } else {
+            Self.logger.debug("Task created: \(task.id, privacy: .public) '\(task.title, privacy: .public)' → \(task.period?.rawValue ?? "none", privacy: .public) spread")
+        }
+
+        return task
+    }
+
+    /// Updates a task's title.
+    func updateTaskTitle(_ task: DataModel.Task, newTitle: String) async throws {
+        let change = EntityChange(isNew: false, previousAssignments: task.assignments, previousTagIDs: task.tags.map(\.id))
+        task.title = newTitle
+        try await taskRepository.save(task, change: change)
+        upsertTask(task)
+    }
+
+    /// Updates a task's status (excluding `.migrated`, which is only set by migration flows).
+    func updateTaskStatus(_ task: DataModel.Task, newStatus: EntryStatus) async throws {
+        guard newStatus != .migrated else { throw TaskMutationError.manualMigratedStatusNotAllowed }
+        let change = EntityChange(isNew: false, previousAssignments: task.assignments, previousTagIDs: task.tags.map(\.id))
+        task.status = newStatus
+        try await taskRepository.save(task, change: change)
+        upsertTask(task)
+    }
+
+    /// Updates a task's preferred date and period, reconciling its spread assignment.
+    func updateTaskDateAndPeriod(_ task: DataModel.Task, newDate: Date, newPeriod: Period, preferredSpreadID: UUID? = nil) async throws {
+        let change = EntityChange(isNew: false, previousAssignments: task.assignments, previousTagIDs: task.tags.map(\.id))
+        task.date = newPeriod.normalizeDate(newDate, calendar: calendar)
+        task.period = newPeriod
+        ruleEngine.reconcilePreferredAssignment(for: task, in: spreads, preferredSpreadID: preferredSpreadID)
+        try await taskRepository.save(task, change: change)
+        upsertTask(task)
+    }
+
+    /// Updates independently mergeable task metadata.
+    func updateTaskMetadata(_ task: DataModel.Task, body: String?, priority: DataModel.Task.Priority, dueDate: Date?, list: DataModel.List? = nil, tags: [DataModel.Tag] = []) async throws {
+        let previousTagIDs = task.tags.map(\.id)
+        let timestamp = Date.now
+        let normalizedBody = sanitizedTaskBody(body)
+        let normalizedDueDate = dueDate?.startOfDay(calendar: calendar)
+
+        if task.body != normalizedBody {
+            task.body = normalizedBody
+            task.bodyUpdatedAt = timestamp
+        }
+        if task.priority != priority {
+            task.priority = priority
+            task.priorityUpdatedAt = timestamp
+        }
+        if task.dueDate != normalizedDueDate {
+            task.dueDate = normalizedDueDate
+            task.dueDateUpdatedAt = timestamp
+        }
+        if task.list?.id != list?.id {
+            task.list = list
+            task.listUpdatedAt = timestamp
+        }
+        if Set(previousTagIDs) != Set(tags.map(\.id)) {
+            task.tags = tags
+        }
+
+        try await taskRepository.save(task, change: EntityChange(isNew: false, previousAssignments: task.assignments, previousTagIDs: previousTagIDs))
+        upsertTask(task)
+    }
+
+    /// Clears a task's preferred assignment, leaving it in Inbox until explicitly reassigned.
+    func clearTaskPreferredAssignment(_ task: DataModel.Task) async throws {
+        let change = EntityChange(isNew: false, previousAssignments: task.assignments, previousTagIDs: task.tags.map(\.id))
+        task.date = nil
+        task.period = nil
+        ruleEngine.reconcilePreferredAssignment(for: task, in: spreads, preferredSpreadID: nil)
+        try await taskRepository.save(task, change: change)
+        upsertTask(task)
+    }
+
+    /// Deletes a task from the repository and local state.
+    func deleteTask(_ task: DataModel.Task) async throws {
+        try await taskRepository.delete(task)
+        removeTask(id: task.id)
+    }
+
+    private func sanitizedTaskBody(_ body: String?) -> String? {
+        guard let trimmed = body?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
+    }
+
+    // MARK: - Note CRUD
+
+    /// Creates a new note.
+    @discardableResult
+    func addNote(title: String, content: String = "", date: Date, period: Period, preferredSpreadID: UUID? = nil) async throws -> DataModel.Note {
+        let note = DataModel.Note(
+            title: title,
+            content: content,
+            date: period.normalizeDate(date, calendar: calendar),
+            period: period,
+            assignments: []
+        )
+        ruleEngine.reconcilePreferredAssignment(for: note, in: spreads, preferredSpreadID: preferredSpreadID)
+        try await noteRepository.save(note, change: EntityChange(isNew: true))
+        upsertNote(note)
+
+        if note.assignments.isEmpty {
+            Self.logger.debug("Note created: \(note.id, privacy: .public) '\(note.title, privacy: .public)' → Inbox (no matching spread)")
+        } else {
+            Self.logger.debug("Note created: \(note.id, privacy: .public) '\(note.title, privacy: .public)' → \(note.period.rawValue, privacy: .public) spread")
+        }
+
+        return note
+    }
+
+    /// Deletes a note from the repository and local state.
+    func deleteNote(_ note: DataModel.Note) async throws {
+        try await noteRepository.delete(note)
+        removeNote(id: note.id)
+    }
+
+    /// Updates a note's title and content.
+    func updateNoteTitle(_ note: DataModel.Note, newTitle: String, newContent: String) async throws {
+        let change = EntityChange(isNew: false, previousAssignments: note.assignments, previousTagIDs: note.tags.map(\.id))
+        note.title = newTitle
+        note.content = newContent
+        try await noteRepository.save(note, change: change)
+        upsertNote(note)
+    }
+
+    /// Updates independently mergeable note metadata (list/tags).
+    func updateNoteMetadata(_ note: DataModel.Note, list: DataModel.List?, tags: [DataModel.Tag]) async throws {
+        let previousTagIDs = note.tags.map(\.id)
+        let timestamp = Date.now
+
+        if note.list?.id != list?.id {
+            note.list = list
+            note.listUpdatedAt = timestamp
+        }
+        if Set(previousTagIDs) != Set(tags.map(\.id)) {
+            note.tags = tags
+        }
+
+        try await noteRepository.save(note, change: EntityChange(isNew: false, previousAssignments: note.assignments, previousTagIDs: previousTagIDs))
+        upsertNote(note)
+    }
+
+    /// Updates a note's preferred date and period, reconciling its spread assignment.
+    func updateNoteDateAndPeriod(_ note: DataModel.Note, newDate: Date, newPeriod: Period, preferredSpreadID: UUID? = nil) async throws {
+        let change = EntityChange(isNew: false, previousAssignments: note.assignments, previousTagIDs: note.tags.map(\.id))
+        note.date = newPeriod.normalizeDate(newDate, calendar: calendar)
+        note.period = newPeriod
+        ruleEngine.reconcilePreferredAssignment(for: note, in: spreads, preferredSpreadID: preferredSpreadID)
+        try await noteRepository.save(note, change: change)
+        upsertNote(note)
+    }
+
+    // MARK: - List/Tag
+
+    /// Creates a new List with the given name.
+    func createList(name: String) async throws -> DataModel.List {
+        let list = DataModel.List(name: name.trimmingCharacters(in: .whitespacesAndNewlines))
+        try await listRepository.save(list)
+        lists = await listRepository.getLists()
+        return list
+    }
+
+    /// Creates a new Tag with the given name.
+    func createTag(name: String) async throws -> DataModel.Tag {
+        let tag = DataModel.Tag(name: name.trimmingCharacters(in: .whitespacesAndNewlines))
+        try await tagRepository.save(tag)
+        tags = await tagRepository.getTags()
+        return tag
+    }
+
+    // MARK: - Mutation Primitives
 
     /// Inserts a new task or updates an existing one, patching only the spread-data-model
     /// keys its assignments touch (the union of its keys before and after the change).
@@ -244,16 +979,12 @@ final class JournalDataStore {
     /// Only the event index needs a spread-side recompute: a task/note's index key is
     /// derived purely from its own assignment's `period`/`date` (already equal to the
     /// destination spread's own `period`/`date` at the time the assignment was created),
-    /// so it's invariant to whether the spread object itself currently exists — creating or
-    /// deleting a spread never changes which key an existing task/note assignment maps to.
-    /// Events have no assignment to read a key from, so their membership is recomputed
-    /// against the one spread that changed.
+    /// so it's invariant to whether the spread object itself currently exists.
     ///
     /// The previous key is read from `keyBySpreadID` rather than re-derived from the
     /// currently-stored spread object: `DataModel.Spread` is a class, and callers mutate it
-    /// in place before calling this (the established pattern elsewhere in this codebase),
-    /// so by the time this runs, `spreadStore[spread.id]` would already reflect the *new*
-    /// state — re-deriving the "previous" key from it would silently no-op the diff.
+    /// in place before calling this, so by the time this runs, `spreadStore[spread.id]`
+    /// would already reflect the *new* state.
     func upsertSpread(_ spread: DataModel.Spread) {
         let newKey = SpreadDataModelKey(spread: spread, calendar: calendar)
         let previousKey = keyBySpreadID[spread.id]

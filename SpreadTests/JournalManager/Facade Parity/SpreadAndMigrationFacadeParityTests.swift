@@ -78,11 +78,12 @@ struct SpreadAndMigrationFacadeParityTests {
         let newNoteRepository = TestChangeAwareNoteRepository(notes: notePairs.map(\.new))
         let newSpreadRepository = InMemorySpreadRepository(spreads: spreadPairs.map(\.new))
         let newStore = JournalDataStore(
-            calendar: calendar,
+            appClock: .fixed(now: .now, calendar: calendar, timeZone: calendar.timeZone, locale: Locale(identifier: "en_US_POSIX")),
             taskRepository: newTaskRepository,
             noteRepository: newNoteRepository,
             spreadRepository: newSpreadRepository,
-            eventRepository: InMemoryEventRepository()
+            eventRepository: InMemoryEventRepository(),
+            creationPolicy: StandardCreationPolicy(today: .now, firstWeekday: .systemDefault)
         )
         await newStore.load()
 

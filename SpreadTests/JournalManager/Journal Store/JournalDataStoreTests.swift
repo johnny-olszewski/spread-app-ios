@@ -21,11 +21,12 @@ struct JournalDataStoreTests {
         events: [DataModel.Event] = []
     ) -> JournalDataStore {
         JournalDataStore(
-            calendar: Self.calendar,
+            appClock: .fixed(now: .now, calendar: Self.calendar, timeZone: Self.calendar.timeZone, locale: Locale(identifier: "en_US_POSIX")),
             taskRepository: TestChangeAwareTaskRepository(tasks: tasks),
             noteRepository: TestChangeAwareNoteRepository(notes: notes),
             spreadRepository: InMemorySpreadRepository(spreads: spreads),
-            eventRepository: InMemoryEventRepository(events: events)
+            eventRepository: InMemoryEventRepository(events: events),
+            creationPolicy: StandardCreationPolicy(today: .now, firstWeekday: .systemDefault)
         )
     }
 
