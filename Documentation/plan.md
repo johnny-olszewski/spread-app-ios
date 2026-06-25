@@ -6556,7 +6556,7 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-250] Test: Parity test suite for new facade vs. legacy JournalManager - [ ] Open
+### [SPRD-250] Test: Parity test suite for new facade vs. legacy JournalManager - [ ] In Progress
 
 - **Context**: SPRD-245–247 build an entirely new, parallel implementation that must produce identical observable behavior to the legacy `JournalManager` before it can safely replace it. Per the user's directive, validation during the additive phase is unit tests only — no temporary debug-build trial UI.
 - **Description**: Add a new test suite that exercises both the legacy `JournalManager` (wired with the legacy `SwiftData*Repository`/`Standard*` stack) and the new facade (wired with the SPRD-245/246/247 stack) against the same scripted sequences of CRUD/migration/inbox/overdue operations on equivalent in-memory-backed repositories, asserting both produce the same resulting `dataModel` contents, `tasks`/`notes`/`events` contents, and outbox `SyncMutation` rows for each scenario. Covers: task/note create, update (content, date/period, preferred assignment clear), delete; spread create (including new-explicit-spread reconciliation), spread delete; migration (single and batch); Inbox membership; overdue evaluation; multiday assignment.
@@ -6568,6 +6568,10 @@ Supabase: SPRD-85A -> SPRD-85C
   - [ ] Project builds with no errors or warnings; full existing test suite remains green.
 - **Tests**:
   - [ ] The parity suite itself is the deliverable test coverage for this task.
+- **Implementation notes** (confirmed with user 2026-06-24 before starting): `JournalDataStore` (SPRD-249) has no CRUD orchestration of its own — only the low-level `upsertTask`/`removeTask`-style primitives — since that layer (`TaskCoordinator`/`NoteCoordinator`) doesn't exist yet (SPRD-255). Added a test-only harness, `NewFacadeTestActions` (`SpreadTests/JournalManager/Facade Parity/NewFacadeTestActions.swift`), exposing one method per scenario (`createTask`, `updateTaskDateAndPeriod`, etc.) that internally does reconcile (via `JournalRuleEngine`, already proven identical to the legacy reconcilers by SPRD-248's own parity tests) → persist (via `ChangeAware*Repository`) → `store.upsertTask`/`removeTask`. This is not a preview of `TaskCoordinator`'s eventual shape — purely test glue so each parity test reads as "call legacy, call new, compare."
+- **Progress (commits landed on feature/SESH-24)**:
+  1. `[SPRD-250][1/n]` — Added `NewFacadeTestActions` and `SpreadTests/JournalManager/Facade Parity/TaskNoteFacadeParityTests.swift`, covering the AC's first scenario group: task/note create (with and without a matching spread), update (title, date/period reconciliation, preferred-assignment clear), and delete. Each test builds two independent systems from equivalent same-ID-but-separate-instance fixtures (`makeTaskPair`/`makeNotePair`/`makeSpreadPair` — `DataModel.Task`/`Note`/`Spread` are classes, so sharing one instance across both systems would make any divergence invisible), performs the same operation on each, and compares `tasks`/`notes`/`dataModel` contents. All 9 tests passed on the first real run. Verified via `-only-testing:SpreadTests/TaskNoteFacadeParityTests` (9/9 pass) and a full `xcodebuild build`.
+- Remaining for this task: spread create (including new-explicit-spread auto-migration reconciliation) + spread delete, migration (single + batch), Inbox membership, overdue evaluation, multiday assignment — plus outbox `SyncMutation` row comparison (not yet asserted on; current tests only compare `tasks`/`notes`/`dataModel`).
 
 ---
 
