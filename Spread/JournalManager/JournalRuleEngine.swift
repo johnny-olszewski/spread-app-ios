@@ -18,12 +18,11 @@ import Foundation
 /// dependency shape and are frequently used together (e.g. overdue evaluation already
 /// depends on migration planning's `currentDestinationSpread`).
 ///
-/// This is purely additive: zero edits to any existing legacy logic file
-/// (`ConventionalJournalDataModelBuilder`, `StandardInboxResolver`,
-/// `StandardMigrationPlanner`, `StandardOverdueEvaluator`,
-/// `StandardTaskAssignmentReconciler`, `StandardNoteAssignmentReconciler`, or their
-/// protocol declarations). `JournalManager` continues to use those types until SPRD-251's
-/// cutover.
+/// Originally built additively (SPRD-248) alongside the legacy `ConventionalJournalDataModelBuilder`/
+/// `StandardInboxResolver`/`StandardMigrationPlanner`/`StandardOverdueEvaluator`/
+/// `StandardTaskAssignmentReconciler`/`StandardNoteAssignmentReconciler` and their protocol
+/// declarations, with zero edits to any of them. SPRD-251's cutover deleted all of those —
+/// `JournalManager` now uses this type exclusively.
 struct JournalRuleEngine {
     /// The calendar used for date normalization and period boundary computation.
     let calendar: Calendar
