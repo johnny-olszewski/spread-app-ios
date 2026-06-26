@@ -59,10 +59,9 @@ struct JournalManagerCoreTests {
 
     /// Setup: a day spread with a current task/note assignment and an overlapping event,
     /// loaded into the store.
-    /// Expected: `dataModel`'s resolved `SpreadDataModel` for that spread's key matches
-    /// `JournalRuleEngine.buildDataModel`'s output for the same fixtures exactly — proving
-    /// the index-backed resolution produces identical content to a full rebuild.
-    @Test func testLoadProducesDataModelMatchingFullRebuild() async {
+    /// Expected: `dataModel`'s resolved `SpreadDataModel` for that spread's key contains
+    /// exactly the task, note, and event that actually match the spread.
+    @Test func testLoadProducesDataModelMatchingExpectedContent() async {
         let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
         let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: Self.calendar)
         let task = DataModel.Task(
@@ -82,18 +81,10 @@ struct JournalManagerCoreTests {
         let store = Self.makeStore(spreads: [daySpread], tasks: [task], notes: [note], events: [event])
         await store.load()
 
-        let engine = JournalRuleEngine(calendar: Self.calendar)
-        let legacyModel = engine.buildDataModel(
-            spreads: [daySpread],
-            tasks: [task],
-            notes: [note],
-            events: [event]
-        )
-
         let key = SpreadDataModelKey(spread: daySpread, calendar: Self.calendar)
-        #expect(store.dataModel[key: key]?.tasks.map(\.id) == legacyModel[key: key]?.tasks.map(\.id))
-        #expect(store.dataModel[key: key]?.notes.map(\.id) == legacyModel[key: key]?.notes.map(\.id))
-        #expect(store.dataModel[key: key]?.events.map(\.id) == legacyModel[key: key]?.events.map(\.id))
+        #expect(store.dataModel[key: key]?.tasks.map(\.id) == [task.id])
+        #expect(store.dataModel[key: key]?.notes.map(\.id) == [note.id])
+        #expect(store.dataModel[key: key]?.events.map(\.id) == [event.id])
     }
 
     /// Setup: a task with only a migrated-history assignment (no current spread match),

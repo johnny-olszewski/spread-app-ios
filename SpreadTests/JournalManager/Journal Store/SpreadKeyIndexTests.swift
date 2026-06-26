@@ -89,11 +89,12 @@ struct SpreadKeyIndexTests {
     }
 
     /// Setup: multiple tasks with current and migrated-history assignments are indexed via
-    /// `JournalRuleEngine.spreadKeys` (the same key computation the legacy builder uses).
-    /// Expected: the index's forward lookup for each spread matches exactly the set of
-    /// tasks `JournalRuleEngine.buildDataModel` would place there directly — proving the
-    /// incremental index produces identical membership to a full rebuild.
-    @Test func testIndexMembershipMatchesFullRebuildForTasks() {
+    /// `JournalRuleEngine.spreadKeys`.
+    /// Expected: the index's forward lookup for each spread contains exactly the task whose
+    /// current (non-migrated) assignment matches that spread — the day spread gets only the
+    /// day task, the multiday spread gets only the multiday task, and the migrated-history
+    /// task appears in neither bucket.
+    @Test func testIndexMembershipMatchesExpectedAssignments() {
         let taskDate = Self.makeDate(year: 2026, month: 1, day: 12)
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
         let multidaySpread = DataModel.Spread(
@@ -133,16 +134,8 @@ struct SpreadKeyIndexTests {
         let dayKey = SpreadDataModelKey(spread: daySpread, calendar: Self.calendar)
         let multidayKey = SpreadDataModelKey(spread: multidaySpread, calendar: Self.calendar)
 
-        let legacyDayModel = engine.buildDataModel(spreads: spreads, tasks: tasks, notes: [], events: [])[key: dayKey]
-        let legacyMultidayModel = engine.buildDataModel(
-            spreads: spreads,
-            tasks: tasks,
-            notes: [],
-            events: []
-        )[key: multidayKey]
-
-        #expect(index.entityIDs(for: dayKey) == Set(legacyDayModel?.tasks.map(\.id) ?? []))
-        #expect(index.entityIDs(for: multidayKey) == Set(legacyMultidayModel?.tasks.map(\.id) ?? []))
+        #expect(index.entityIDs(for: dayKey) == Set([dayTask.id]))
+        #expect(index.entityIDs(for: multidayKey) == Set([multidayTask.id]))
     }
 
     /// Setup: `addKey` is called twice for the same entity with different keys.

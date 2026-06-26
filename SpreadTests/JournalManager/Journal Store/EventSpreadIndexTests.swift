@@ -119,11 +119,12 @@ struct EventSpreadIndexTests {
         #expect(index.keys(for: removedSpreadEvent.id).isEmpty)
     }
 
-    /// Setup: an event indexed via `updateEvent` against a full spread list, compared
-    /// against `JournalRuleEngine.buildDataModel`'s own event placement for the same fixtures.
-    /// Expected: identical membership — proving the index produces the same result as a
-    /// full rebuild via `SpreadService.eventAppearsOnSpread`.
-    @Test func testEventIndexMembershipMatchesFullRebuild() {
+    /// Setup: an overlapping event (its date falls within both the day spread's date and
+    /// the multiday spread's range) and an out-of-range event, indexed via `updateEvent`
+    /// against a full spread list.
+    /// Expected: the overlapping event appears in both spreads' buckets; the out-of-range
+    /// event appears in neither.
+    @Test func testEventIndexMembershipMatchesExpectedOverlap() {
         let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
         let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: Self.calendar)
         let multidaySpread = DataModel.Spread(
@@ -145,12 +146,10 @@ struct EventSpreadIndexTests {
             index.updateEvent(event, spreads: spreads)
         }
 
-        let engine = JournalRuleEngine(calendar: Self.calendar)
-        let legacyModel = engine.buildDataModel(spreads: spreads, tasks: [], notes: [], events: events)
         let dayKey = SpreadDataModelKey(spread: daySpread, calendar: Self.calendar)
         let multidayKey = SpreadDataModelKey(spread: multidaySpread, calendar: Self.calendar)
 
-        #expect(index.entityIDs(for: dayKey) == Set(legacyModel[key: dayKey]?.events.map(\.id) ?? []))
-        #expect(index.entityIDs(for: multidayKey) == Set(legacyModel[key: multidayKey]?.events.map(\.id) ?? []))
+        #expect(index.entityIDs(for: dayKey) == Set([overlappingEvent.id]))
+        #expect(index.entityIDs(for: multidayKey) == Set([overlappingEvent.id]))
     }
 }

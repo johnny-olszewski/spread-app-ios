@@ -112,8 +112,9 @@ final class SwiftDataNoteRepository: NoteRepository {
         timestamp: Date
     ) {
         let deletedAt = operation == .delete ? timestamp : nil
-        // TODO: SPRD-250 - replace serializeNoteEntry and the hardcoded entityType below with a
-        // `SerializableData` conformance on `DataModel.Note`.
+        // TODO: replace serializeNoteEntry and the hardcoded entityType below with a
+        // `SerializableData` conformance on `DataModel.Note`, mirroring SPRD-252's
+        // `DataModel.Task` conformance.
         guard let recordData = SyncSerializer.serializeNoteEntry(
             note,
             deviceId: deviceId,
