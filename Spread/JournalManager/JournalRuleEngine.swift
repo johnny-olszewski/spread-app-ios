@@ -671,4 +671,75 @@ struct JournalRuleEngine {
         note.currentAssignments = remaining
         note.migrationHistory.append(contentsOf: migratedAway)
     }
+
+    // MARK: - Explicit Migration
+
+    /// Reassigns `entry`'s assignment matching `sourceMatch` (if any) to `destination`,
+    /// migrating the matched source assignment to history and reusing, reviving, or
+    /// creating the destination assignment as appropriate.
+    ///
+    /// Generic over `AssignableEntry` since this mechanic — unlike `reconcilePreferredAssignment`,
+    /// which has genuinely divergent per-type defaulting logic — is identical for `Task`/`Note`:
+    /// only the terminal `status` value differs (`.open` for tasks, `.active` for notes), supplied
+    /// by the caller. Requires `E: AnyObject` — mutating `entry.currentAssignments`/`.migrationHistory`
+    /// through a generic `let` parameter needs the compiler to know `E` is a reference type, which
+    /// `AssignableEntry` alone doesn't guarantee (`Task`/`Note` both happen to be classes, but the
+    /// protocol doesn't declare it). Used by `TaskCoordinator`/`NoteCoordinator`'s explicit migration methods
+    /// (`migrateTask`/`moveTask`/`migrateTasksBatch`/`migrateNote`) so the mechanic exists once
+    /// rather than once per call site.
+    ///
+    /// - TODO: [SPRD-255] Not yet called anywhere. `TaskCoordinator`/`NoteCoordinator` (this
+    ///   task's next increment) will call this instead of the near-duplicate inline logic
+    ///   that still lives in `JournalManager.moveTask`/`.migrateTasksBatch`/`.migrateNote` today
+    ///   — those three call sites get rewritten to delegate through the new coordinators in a
+    ///   later increment of this same task, not removed here, per this branch's established
+    ///   "build additively, cut over last" pattern.
+    ///
+    /// - Parameters:
+    ///   - entry: The entry to reassign.
+    ///   - sourceMatch: Predicate identifying the current assignment to migrate away from, or
+    ///     `nil` if there is no source to remove (e.g. moving from Inbox).
+    ///   - destination: The spread to assign `entry` to.
+    ///   - status: The status to apply to the destination assignment.
+    func migrateAssignment<E: AssignableEntry & AnyObject>(
+        for entry: E,
+        matchingSource sourceMatch: ((Assignment) -> Bool)?,
+        to destination: DataModel.Spread,
+        status: EntryStatus
+    ) {
+        // Shadowed as a mutable local: `entry` is a class instance, so this rebinds the
+        // local reference (cheap), not the underlying object — property mutation below still
+        // lands on the same instance the caller holds.
+        var entry = entry
+        if let sourceMatch, let sourceIndex = entry.currentAssignments.firstIndex(where: sourceMatch) {
+            var current = entry.currentAssignments
+            var sourceAssignment = current.remove(at: sourceIndex)
+            sourceAssignment.status = .migrated
+            entry.currentAssignments = current
+            entry.migrationHistory.append(sourceAssignment)
+        }
+
+        let matchesDestination: (Assignment) -> Bool = { $0.matches(spread: destination, calendar: self.calendar) }
+
+        if let destinationIndex = entry.currentAssignments.firstIndex(where: matchesDestination) {
+            var current = entry.currentAssignments
+            current[destinationIndex].status = status
+            entry.currentAssignments = current
+        } else if let historyIndex = entry.migrationHistory.firstIndex(where: matchesDestination) {
+            var history = entry.migrationHistory
+            var revived = history.remove(at: historyIndex)
+            revived.status = status
+            entry.migrationHistory = history
+            entry.currentAssignments.append(revived)
+        } else {
+            entry.currentAssignments.append(
+                Assignment(
+                    period: destination.period,
+                    date: destination.date,
+                    spreadID: destination.period == .multiday ? destination.id : nil,
+                    status: status
+                )
+            )
+        }
+    }
 }

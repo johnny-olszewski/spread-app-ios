@@ -568,4 +568,88 @@ struct JournalRuleEngineTests {
         #expect(note.allAssignmentsForTesting[0].status == .migrated)
         #expect(note.allAssignmentsForTesting[1].status == .active)
     }
+
+    // MARK: - Explicit Migration
+
+    /// Setup: a task currently assigned to a month spread, migrated to a fresh day spread
+    /// with no prior history there.
+    /// Expected: the month assignment moves to history (status `.migrated`); a brand-new
+    /// `.open` assignment is created for the day spread.
+    @Test func testMigrateAssignmentForTaskCreatesNewDestinationWhenNoneExists() {
+        let taskDate = Self.makeDate(year: 2026, month: 5, day: 1)
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: Self.calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
+        let task = DataModel.Task(
+            title: "Task",
+            date: taskDate,
+            period: .month,
+            currentAssignments: [Assignment(period: .month, date: taskDate, status: .open)]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        engine.migrateAssignment(
+            for: task,
+            matchingSource: { $0.matches(spread: monthSpread, calendar: Self.calendar) },
+            to: daySpread,
+            status: .open
+        )
+
+        #expect(task.migrationHistory.count == 1)
+        #expect(task.migrationHistory[0].period == .month)
+        #expect(task.migrationHistory[0].status == .migrated)
+        #expect(task.currentAssignments.count == 1)
+        #expect(task.currentAssignments[0].period == .day)
+        #expect(task.currentAssignments[0].status == .open)
+    }
+
+    /// Setup: a note currently assigned to a month spread; the day spread it's migrating to
+    /// already has a migrated-history assignment from a previous visit.
+    /// Expected: the month assignment moves to history; the day spread's historical
+    /// assignment is revived (same `id`, reactivated to `.active`) rather than a new one
+    /// being minted — preserving sync-row identity for that assignment.
+    @Test func testMigrateAssignmentForNoteRevivesHistoricalDestination() {
+        let noteDate = Self.makeDate(year: 2026, month: 5, day: 1)
+        let monthSpread = DataModel.Spread(period: .month, date: noteDate, calendar: Self.calendar)
+        let daySpread = DataModel.Spread(period: .day, date: noteDate, calendar: Self.calendar)
+        let historicalDestinationID = UUID()
+        let note = DataModel.Note(
+            title: "Note",
+            date: noteDate,
+            period: .month,
+            currentAssignments: [Assignment(period: .month, date: noteDate, status: .active)],
+            migrationHistory: [
+                Assignment(id: historicalDestinationID, period: .day, date: noteDate, status: .migrated)
+            ]
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        engine.migrateAssignment(
+            for: note,
+            matchingSource: { $0.matches(spread: monthSpread, calendar: Self.calendar) },
+            to: daySpread,
+            status: .active
+        )
+
+        #expect(note.migrationHistory.count == 1)
+        #expect(note.migrationHistory[0].period == .month)
+        #expect(note.currentAssignments.count == 1)
+        #expect(note.currentAssignments[0].id == historicalDestinationID)
+        #expect(note.currentAssignments[0].status == .active)
+    }
+
+    /// Setup: a task with no current assignment (Inbox-origin), migrated directly to a spread.
+    /// Expected: no source removal happens (nothing to migrate away from); the destination
+    /// assignment is created fresh.
+    @Test func testMigrateAssignmentWithNilSourceMatchSkipsSourceRemoval() {
+        let taskDate = Self.makeDate(year: 2026, month: 5, day: 1)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
+        let task = DataModel.Task(title: "Inbox task", date: taskDate, period: .day, currentAssignments: [])
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        engine.migrateAssignment(for: task, matchingSource: nil, to: daySpread, status: .open)
+
+        #expect(task.migrationHistory.isEmpty)
+        #expect(task.currentAssignments.count == 1)
+        #expect(task.currentAssignments[0].status == .open)
+    }
 }
