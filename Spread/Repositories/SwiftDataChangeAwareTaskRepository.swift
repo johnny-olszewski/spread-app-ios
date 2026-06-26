@@ -120,10 +120,7 @@ final class SwiftDataChangeAwareTaskRepository: ChangeAwareTaskRepository {
         timestamp: Date
     ) {
         let deletedAt = operation == .delete ? timestamp : nil
-        // TODO: SPRD-250 - replace serializeTaskEntry and the hardcoded entityType below with a
-        // `SerializableData` conformance on `DataModel.Task`.
-        guard let recordData = SyncSerializer.serializeTaskEntry(
-            task,
+        guard let recordData = task.serialize(
             deviceId: deviceId,
             timestamp: timestamp,
             deletedAt: deletedAt
@@ -132,7 +129,7 @@ final class SwiftDataChangeAwareTaskRepository: ChangeAwareTaskRepository {
         }
 
         let mutation = DataModel.SyncMutation(
-            entityType: SyncEntityType.entry.rawValue,
+            entityType: DataModel.Task.entityType.rawValue,
             entityId: task.id,
             operation: operation.rawValue,
             recordData: recordData,
