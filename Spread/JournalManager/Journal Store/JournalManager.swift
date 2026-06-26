@@ -39,6 +39,16 @@ final class JournalManager {
     private var noteCoordinator: NoteCoordinator {
         NoteCoordinator(noteRepository: noteRepository, ruleEngine: ruleEngine)
     }
+
+    /// Constructed fresh on each access for the same reason as `taskCoordinator`/
+    /// `noteCoordinator` — `calendar` is mutated directly in `apply(snapshot:)`, so a stored
+    /// coordinator would risk holding a stale copy.
+    private var spreadDeletionCoordinator: SpreadDeletionCoordinator {
+        SpreadDeletionCoordinator(
+            spreadRepository: spreadRepository, taskRepository: taskRepository, noteRepository: noteRepository, calendar: calendar
+        )
+    }
+
     let spreadRepository: any SpreadRepository
     let eventRepository: any EventRepository
     let collectionRepository: (any CollectionRepository)?
@@ -572,159 +582,14 @@ final class JournalManager {
     /// Scoped to non-multiday deletion's parent-hierarchy walk — multiday-spread deletion falls
     /// straight to Inbox for its entries (no parent-hierarchy concept applies to a custom range).
     func deleteSpread(_ spread: DataModel.Spread) async throws {
-        let parentSpread = spread.period == .multiday ? nil : findParentSpread(for: spread, in: spreads)
-
-        for task in tasks {
-            let previousTaskAssignments = task.currentAssignments + task.migrationHistory
-
-            let sourceAssignment: Assignment
-            if let currentIndex = task.currentAssignments.firstIndex(where: { $0.matches(spread: spread, calendar: calendar) }) {
-                sourceAssignment = task.currentAssignments.remove(at: currentIndex)
-            } else if let historyIndex = task.migrationHistory.firstIndex(where: { $0.matches(spread: spread, calendar: calendar) }) {
-                sourceAssignment = task.migrationHistory.remove(at: historyIndex)
-            } else {
-                continue
-            }
-            let preservedStatus = sourceAssignment.status
-
-            // The source assignment always ends up migrated history, whether or not a
-            // replacement is found — deleting its spread invalidates it as a current
-            // pointer either way.
-            var sourceAsHistory = sourceAssignment
-            sourceAsHistory.status = .migrated
-            task.migrationHistory.append(sourceAsHistory)
-
-            if let replacement = replacementSpread(for: task, deleting: spread, parentSpread: parentSpread) {
-                if let destinationIndex = task.currentAssignments.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
-                    task.currentAssignments[destinationIndex].status = preservedStatus
-                } else if let historyIndex = task.migrationHistory.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
-                    if preservedStatus == .migrated {
-                        task.migrationHistory[historyIndex].status = preservedStatus
-                    } else {
-                        var revived = task.migrationHistory.remove(at: historyIndex)
-                        revived.status = preservedStatus
-                        task.currentAssignments.append(revived)
-                    }
-                } else {
-                    let newAssignment = Assignment(period: replacement.period, date: replacement.date, status: preservedStatus)
-                    if preservedStatus == .migrated {
-                        task.migrationHistory.append(newAssignment)
-                    } else {
-                        task.currentAssignments.append(newAssignment)
-                    }
-                }
-            }
-
-            try await taskRepository.save(
-                task,
-                change: EntityChange(isNew: false, previousAssignments: previousTaskAssignments, previousTagIDs: task.tags.map(\.id))
-            )
+        let result = try await spreadDeletionCoordinator.deleteSpread(spread, spreads: spreads, tasks: tasks, notes: notes)
+        for task in result.mutatedTasks {
             upsertTask(task)
         }
-
-        for note in notes {
-            let previousNoteAssignments = note.currentAssignments + note.migrationHistory
-
-            let sourceAssignment: Assignment
-            if let currentIndex = note.currentAssignments.firstIndex(where: { $0.matches(spread: spread, calendar: calendar) }) {
-                sourceAssignment = note.currentAssignments.remove(at: currentIndex)
-            } else if let historyIndex = note.migrationHistory.firstIndex(where: { $0.matches(spread: spread, calendar: calendar) }) {
-                sourceAssignment = note.migrationHistory.remove(at: historyIndex)
-            } else {
-                continue
-            }
-            let preservedStatus = sourceAssignment.status
-
-            // The source assignment always ends up migrated history, whether or not a
-            // replacement is found — deleting its spread invalidates it as a current
-            // pointer either way.
-            var sourceAsHistory = sourceAssignment
-            sourceAsHistory.status = .migrated
-            note.migrationHistory.append(sourceAsHistory)
-
-            if let replacement = replacementSpread(for: note, deleting: spread, parentSpread: parentSpread) {
-                if let destinationIndex = note.currentAssignments.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
-                    note.currentAssignments[destinationIndex].status = preservedStatus
-                } else if let historyIndex = note.migrationHistory.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
-                    if preservedStatus == .migrated {
-                        note.migrationHistory[historyIndex].status = preservedStatus
-                    } else {
-                        var revived = note.migrationHistory.remove(at: historyIndex)
-                        revived.status = preservedStatus
-                        note.currentAssignments.append(revived)
-                    }
-                } else {
-                    let newAssignment = Assignment(period: replacement.period, date: replacement.date, status: preservedStatus)
-                    if preservedStatus == .migrated {
-                        note.migrationHistory.append(newAssignment)
-                    } else {
-                        note.currentAssignments.append(newAssignment)
-                    }
-                }
-            }
-
-            try await noteRepository.save(
-                note,
-                change: EntityChange(isNew: false, previousAssignments: previousNoteAssignments, previousTagIDs: note.tags.map(\.id))
-            )
+        for note in result.mutatedNotes {
             upsertNote(note)
         }
-
-        try await spreadRepository.delete(spread)
         removeSpread(id: spread.id)
-
-        Self.logger.debug("Spread deleted: \(spread.period.rawValue, privacy: .public) spread \(spread.id, privacy: .public)")
-    }
-
-    /// Mirrors the legacy `StandardSpreadDeletionPlanner.replacementSpread`: for a
-    /// non-multiday deletion, the replacement is simply the parent spread already found by
-    /// `findParentSpread`. For a multiday deletion, there's no parent-hierarchy concept for
-    /// a custom range — instead, fall back to whatever non-multiday spread best matches the
-    /// task's own preferred date/period (excluding the spread being deleted), the same way
-    /// the legacy planner did.
-    private func replacementSpread(
-        for task: DataModel.Task,
-        deleting spread: DataModel.Spread,
-        parentSpread: DataModel.Spread?
-    ) -> DataModel.Spread? {
-        guard spread.period == .multiday else { return parentSpread }
-        guard let taskDate = task.date else { return nil }
-        let fallbackPeriod: Period = task.period == .multiday ? .month : (task.period ?? .day)
-        return SpreadService(calendar: calendar).findBestSpread(
-            preferredDate: taskDate,
-            preferredPeriod: fallbackPeriod,
-            in: spreads.filter { $0.id != spread.id && $0.period != .multiday }
-        )
-    }
-
-    /// Mirrors the legacy `StandardSpreadDeletionPlanner.replacementSpread` for notes.
-    private func replacementSpread(
-        for note: DataModel.Note,
-        deleting spread: DataModel.Spread,
-        parentSpread: DataModel.Spread?
-    ) -> DataModel.Spread? {
-        guard spread.period == .multiday else { return parentSpread }
-        guard let noteDate = note.date else { return nil }
-        let fallbackPeriod: Period = note.period == .multiday ? .month : note.period
-        return SpreadService(calendar: calendar).findBestSpread(
-            preferredDate: noteDate,
-            preferredPeriod: fallbackPeriod,
-            in: spreads.filter { $0.id != spread.id && $0.period != .multiday }
-        )
-    }
-
-    private func findParentSpread(for spread: DataModel.Spread, in spreads: [DataModel.Spread]) -> DataModel.Spread? {
-        var currentPeriod = spread.period.parentPeriod
-        while let period = currentPeriod {
-            let normalizedDate = period.normalizeDate(spread.date, calendar: calendar)
-            if let parent = spreads.first(where: {
-                $0.period == period && $0.period.normalizeDate($0.date, calendar: calendar) == normalizedDate
-            }) {
-                return parent
-            }
-            currentPeriod = period.parentPeriod
-        }
-        return nil
     }
 
     /// Re-reconciles every existing task/note against a newly created explicit spread, in case
