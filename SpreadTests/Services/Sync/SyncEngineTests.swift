@@ -384,14 +384,14 @@ struct SyncEngineTests {
         await engine.syncNow()
 
         let spreadRepository = SwiftDataSpreadRepository(modelContainer: container)
-        let taskRepository = SwiftDataTaskRepository(modelContainer: container)
+        let taskRepository = SwiftDataChangeAwareTaskRepository(modelContainer: container)
         let manager = try await JournalManager.make(
             calendar: TestDataBuilders.testCalendar,
             today: TestDataBuilders.makeDate(year: 2026, month: 4, day: 2),
             taskRepository: taskRepository,
             spreadRepository: spreadRepository,
             eventRepository: InMemoryEventRepository(),
-            noteRepository: InMemoryNoteRepository(),
+            noteRepository: TestChangeAwareNoteRepository(),
             collectionRepository: InMemoryCollectionRepository()
         )
 

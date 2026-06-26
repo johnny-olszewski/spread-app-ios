@@ -62,7 +62,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
+        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager.make(
@@ -101,7 +101,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let noteRepo = InMemoryNoteRepository(notes: [note])
+        let noteRepo = TestChangeAwareNoteRepository(notes: [note])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager.make(
@@ -139,7 +139,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
+        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
 
         let manager = try await JournalManager.make(
@@ -180,7 +180,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
+        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager.make(
@@ -223,7 +223,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [completedTask])
+        let taskRepo = TestChangeAwareTaskRepository(tasks: [completedTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager.make(
@@ -273,8 +273,8 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
-        let noteRepo = InMemoryNoteRepository(notes: [note])
+        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let noteRepo = TestChangeAwareNoteRepository(notes: [note])
         let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
 
         let manager = try await JournalManager.make(
@@ -405,7 +405,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
+        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
 
         let manager = try await JournalManager.make(
@@ -446,7 +446,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
+        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
 
         let manager = try await JournalManager.make(
@@ -492,7 +492,7 @@ struct SpreadDeletionTests {
             assignments: [Assignment(period: .day, date: taskDate, status: .complete)]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task1, task2])
+        let taskRepo = TestChangeAwareTaskRepository(tasks: [task1, task2])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager.make(
@@ -531,7 +531,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [migratedTask])
+        let taskRepo = TestChangeAwareTaskRepository(tasks: [migratedTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager.make(
@@ -608,5 +608,82 @@ struct SpreadDeletionTests {
 
         // Data model should no longer contain the day spread
         #expect(manager.dataModel[.day] == nil || manager.dataModel[.day]?.isEmpty == true)
+    }
+
+    // MARK: - Multiday Deletion Fallback Tests
+
+    /// Conditions: A multiday spread is deleted; a task assigned to it has a preferred day
+    /// date matching an existing day spread (not a parent-hierarchy relationship — multiday
+    /// ranges have no parent-hierarchy concept).
+    /// Expected: the task falls back to its own best-matching non-multiday spread, not Inbox.
+    @Test @MainActor func testDeleteMultidaySpreadFallsBackToTasksOwnBestSpread() async throws {
+        let calendar = Self.testCalendar
+        let startDate = Self.testDate
+        let endDate = calendar.date(byAdding: .day, value: 2, to: startDate)!
+        let taskDate = calendar.date(byAdding: .day, value: 1, to: startDate)!
+
+        let multidaySpread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
+        let task = DataModel.Task(
+            title: "Task",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            assignments: [
+                Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .open)
+            ]
+        )
+
+        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread, daySpread])
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: startDate,
+            taskRepository: taskRepo,
+            spreadRepository: spreadRepo
+        )
+
+        try await manager.deleteSpread(multidaySpread)
+
+        let updatedTask = manager.tasks.first { $0.id == task.id }
+        let dayAssignment = updatedTask?.assignments.first { $0.matches(spread: daySpread, calendar: calendar) }
+        #expect(dayAssignment != nil)
+        #expect(dayAssignment?.status == .open)
+    }
+
+    /// Conditions: A multiday spread is deleted; an assigned task's preferred date has no
+    /// matching spread of any granularity.
+    /// Expected: the task falls back to Inbox (migrated-only, no replacement assignment).
+    @Test @MainActor func testDeleteMultidaySpreadFallsBackToInboxWhenNoMatchExists() async throws {
+        let calendar = Self.testCalendar
+        let startDate = Self.testDate
+        let endDate = calendar.date(byAdding: .day, value: 2, to: startDate)!
+
+        let multidaySpread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
+        let task = DataModel.Task(
+            title: "Task",
+            date: startDate,
+            period: .day,
+            status: .open,
+            assignments: [
+                Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .open)
+            ]
+        )
+
+        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
+
+        let manager = try await JournalManager.make(
+            calendar: calendar,
+            today: startDate,
+            taskRepository: taskRepo,
+            spreadRepository: spreadRepo
+        )
+
+        try await manager.deleteSpread(multidaySpread)
+
+        let updatedTask = manager.tasks.first { $0.id == task.id }
+        #expect(updatedTask?.assignments.allSatisfy { $0.status == .migrated } == true)
     }
 }

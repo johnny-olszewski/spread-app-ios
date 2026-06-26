@@ -89,7 +89,7 @@ struct YearSpreadContentSupportTests {
         let manager = try await JournalManager.make(
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 1, day: 15),
-            taskRepository: InMemoryTaskRepository(tasks: [currentYearTask, migratedHistoryTask]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [currentYearTask, migratedHistoryTask]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
         )
 

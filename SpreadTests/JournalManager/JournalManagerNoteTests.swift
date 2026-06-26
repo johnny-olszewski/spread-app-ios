@@ -39,7 +39,7 @@ struct JournalManagerNoteTests {
             calendar: calendar,
             today: today,
             spreadRepository: InMemorySpreadRepository(spreads: allSpreads),
-            noteRepository: InMemoryNoteRepository(notes: notes)
+            noteRepository: TestChangeAwareNoteRepository(notes: notes)
         )
     }
 

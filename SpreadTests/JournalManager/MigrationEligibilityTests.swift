@@ -36,14 +36,14 @@ struct MigrationEligibilityTests {
         let manager = try await JournalManager.make(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
         let monthCandidates = manager.migrationCandidates(to: monthSpread)
         let dayCandidates = manager.migrationCandidates(to: daySpread)
 
-        #expect(monthCandidates.map(\.task.id) == [task.id])
+        #expect(monthCandidates.map(\.entry.id) == [task.id])
         #expect(dayCandidates.isEmpty)
     }
 
@@ -68,7 +68,7 @@ struct MigrationEligibilityTests {
         let manager = try await JournalManager.make(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
@@ -76,7 +76,7 @@ struct MigrationEligibilityTests {
         let dayCandidates = manager.migrationCandidates(to: daySpread)
 
         #expect(monthCandidates.isEmpty)
-        #expect(dayCandidates.map(\.task.id) == [task.id])
+        #expect(dayCandidates.map(\.entry.id) == [task.id])
     }
 
     /// Conditions: A day-desired task is in Inbox with matching year, month, and day spreads available.
@@ -97,7 +97,7 @@ struct MigrationEligibilityTests {
         let manager = try await JournalManager.make(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
@@ -141,7 +141,7 @@ struct MigrationEligibilityTests {
         let manager = try await JournalManager.make(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: InMemoryTaskRepository(tasks: [completeTask, cancelledTask, resolvedTask]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [completeTask, cancelledTask, resolvedTask]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
         )
 
@@ -163,7 +163,7 @@ struct MigrationEligibilityTests {
         let manager = try await JournalManager.make(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [daySpread])
         )
 
@@ -195,14 +195,14 @@ struct MigrationEligibilityTests {
         let manager = try await JournalManager.make(
             calendar: Self.calendar,
             today: makeDate(year: 2026, month: 3, day: 29),
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, aprilMonthSpread])
         )
 
         let monthCandidates = manager.migrationCandidates(to: aprilMonthSpread)
         let sourceDestination = manager.migrationDestination(for: task, on: yearSpread)
 
-        #expect(monthCandidates.map(\.task.id) == [task.id])
+        #expect(monthCandidates.map(\.entry.id) == [task.id])
         #expect(sourceDestination?.id == aprilMonthSpread.id)
     }
 }

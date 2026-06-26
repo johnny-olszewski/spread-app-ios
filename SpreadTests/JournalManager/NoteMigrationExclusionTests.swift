@@ -42,9 +42,9 @@ struct NoteMigrationExclusionTests {
         return try await JournalManager.make(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: tasks),
+            taskRepository: TestChangeAwareTaskRepository(tasks: tasks),
             spreadRepository: InMemorySpreadRepository(spreads: allSpreads),
-            noteRepository: InMemoryNoteRepository(notes: notes)
+            noteRepository: TestChangeAwareNoteRepository(notes: notes)
         )
     }
 
@@ -152,9 +152,9 @@ struct NoteMigrationExclusionTests {
         let manager = try await JournalManager.make(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [daySpread]),
-            noteRepository: InMemoryNoteRepository(notes: [note])
+            noteRepository: TestChangeAwareNoteRepository(notes: [note])
         )
 
         #expect(manager.overdueTaskItems.count == 1)

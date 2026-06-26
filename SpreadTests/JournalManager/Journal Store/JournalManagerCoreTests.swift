@@ -3,7 +3,7 @@ import Testing
 @testable import Spread
 
 @MainActor
-struct JournalManagerTests {
+struct JournalManagerCoreTests {
     private static var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!

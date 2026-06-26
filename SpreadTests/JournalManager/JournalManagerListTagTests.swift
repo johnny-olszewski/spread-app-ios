@@ -23,8 +23,8 @@ struct JournalManagerListTagTests {
         return try await JournalManager.make(
             calendar: cal,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: tasks),
-            noteRepository: InMemoryNoteRepository(notes: notes),
+            taskRepository: TestChangeAwareTaskRepository(tasks: tasks),
+            noteRepository: TestChangeAwareNoteRepository(notes: notes),
             listRepository: listRepo,
             tagRepository: tagRepo
         )

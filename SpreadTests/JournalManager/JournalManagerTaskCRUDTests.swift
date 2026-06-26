@@ -38,7 +38,7 @@ struct JournalManagerTaskCRUDTests {
         return try await JournalManager.make(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: tasks),
+            taskRepository: TestChangeAwareTaskRepository(tasks: tasks),
             spreadRepository: InMemorySpreadRepository(spreads: allSpreads)
         )
     }
@@ -291,7 +291,7 @@ struct JournalManagerTaskCRUDTests {
         let manager = try await JournalManager.make(
             calendar: calendar,
             today: sourceDate,
-            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [existingTask]),
             spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread, destinationSpread])
         )
 
@@ -329,7 +329,7 @@ struct JournalManagerTaskCRUDTests {
         let manager = try await JournalManager.make(
             calendar: calendar,
             today: sourceDate,
-            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [existingTask]),
             spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread])
         )
 
@@ -364,7 +364,7 @@ struct JournalManagerTaskCRUDTests {
         let manager = try await JournalManager.make(
             calendar: calendar,
             today: calendar.date(from: DateComponents(year: 2026, month: 3, day: 29))!,
-            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [existingTask]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, januaryFirstDaySpread])
         )
 
@@ -463,7 +463,7 @@ struct JournalManagerTaskCRUDTests {
         let manager = try await JournalManager.make(
             calendar: calendar,
             today: sourceDate,
-            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [existingTask]),
             spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread])
         )
 
@@ -491,7 +491,7 @@ struct JournalManagerTaskCRUDTests {
         let manager = try await JournalManager.make(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
+            taskRepository: TestChangeAwareTaskRepository(tasks: [existingTask]),
             spreadRepository: InMemorySpreadRepository(spreads: [])
         )
 

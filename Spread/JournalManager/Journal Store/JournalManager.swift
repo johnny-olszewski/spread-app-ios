@@ -17,11 +17,11 @@ import OSLog
 final class JournalManager {
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "JournalManager")
 
-    private let ruleEngine: JournalRuleEngine
+    private var ruleEngine: JournalRuleEngine
     private(set) var calendar: Calendar
     private(set) var today: Date
 
-    private let appClock: AppClock
+    let appClock: AppClock
     private var appClockObserverID: UUID?
 
     let taskRepository: any ChangeAwareTaskRepository
@@ -157,6 +157,32 @@ final class JournalManager {
         let loadedLists = await listRepository.getLists()
         let loadedTags = await tagRepository.getTags()
 
+        rebuildIndicesAndDataModel(
+            spreads: loadedSpreads,
+            tasks: loadedTasks,
+            notes: loadedNotes,
+            events: loadedEvents,
+            lists: loadedLists,
+            tags: loadedTags
+        )
+
+        fullLoadCount += 1
+    }
+
+    /// Rebuilds every store/index/`dataModel` entry from the given entity arrays.
+    ///
+    /// Shared by `load()` (using freshly-fetched repository data) and `apply(snapshot:)`
+    /// (using the entities already in memory, just re-keyed against a new calendar/today
+    /// after a day-boundary/calendar/time-zone/locale change) — neither path does a
+    /// redundant repository round trip the other doesn't need.
+    private func rebuildIndicesAndDataModel(
+        spreads loadedSpreads: [DataModel.Spread],
+        tasks loadedTasks: [DataModel.Task],
+        notes loadedNotes: [DataModel.Note],
+        events loadedEvents: [DataModel.Event],
+        lists loadedLists: [DataModel.List],
+        tags loadedTags: [DataModel.Tag]
+    ) {
         spreadStore.replaceAll(loadedSpreads)
         taskStore.replaceAll(loadedTasks)
         noteStore.replaceAll(loadedNotes)
@@ -197,14 +223,16 @@ final class JournalManager {
             newDataModel[key: key] = resolveSpreadDataModel(for: spread, key: key)
         }
         dataModel = newDataModel
-
-        fullLoadCount += 1
-        dataVersion += 1
     }
 
     /// Reloads data from repositories. Increments `dataVersion` to trigger UI updates.
+    ///
+    /// `load()` itself does not bump `dataVersion` — it's used for the initial cold load,
+    /// before any view has observed state yet. `reload()` is the explicit "refresh and notify"
+    /// path used after initial load (e.g. sign-out wipe, debug data reset).
     func reload() async {
         await load()
+        dataVersion += 1
     }
 
     /// Returns true if any local data exists in repositories.
@@ -274,7 +302,14 @@ final class JournalManager {
         }
 
         creationPolicy = StandardCreationPolicy(today: today, firstWeekday: firstWeekday)
-        Task { await load() }
+        ruleEngine = JournalRuleEngine(calendar: calendar, today: today)
+
+        // Rebuilds synchronously from data already in memory — no repository round trip
+        // needed, since nothing about the underlying entities changed, only the
+        // calendar/today they're being re-keyed against. Matches the legacy
+        // rebuildTemporalCollaborators()/buildDataModel() behavior, which was also
+        // synchronous for the same reason.
+        rebuildIndicesAndDataModel(spreads: spreads, tasks: tasks, notes: notes, events: events, lists: lists, tags: tags)
     }
 
     // MARK: - Spread Data Model Resolution
@@ -288,10 +323,41 @@ final class JournalManager {
     private func resolveSpreadDataModel(for spread: DataModel.Spread, key: SpreadDataModelKey) -> SpreadDataModel {
         SpreadDataModel(
             spread: spread,
-            tasks: taskIndex.entityIDs(for: key).compactMap { taskStore[$0] },
-            notes: noteIndex.entityIDs(for: key).compactMap { noteStore[$0] },
-            events: eventIndex.entityIDs(for: key).compactMap { eventStore[$0] }
+            tasks: Self.sortedByCreatedDate(taskIndex.entityIDs(for: key).compactMap { taskStore[$0] }),
+            notes: Self.sortedByCreatedDate(noteIndex.entityIDs(for: key).compactMap { noteStore[$0] }),
+            events: Self.sortedByCreatedDate(eventIndex.entityIDs(for: key).compactMap { eventStore[$0] })
         )
+    }
+
+    /// `EntityStore.values`/index bucket lookups are dictionary/set-backed and have no
+    /// inherent order, unlike the legacy array-based `tasks.filter { ... }` this replaces
+    /// (which preserved the originating repository's order — `createdDate` ascending for
+    /// tasks/notes/events, confirmed against `TestChangeAwareTaskRepository`/
+    /// `InMemoryNoteRepository`/`InMemoryEventRepository`). Re-sorting here keeps that same
+    /// observable order after any mutation, not just at cold load.
+    private static func sortedByCreatedDate<E: Entry>(_ entries: [E]) -> [E] {
+        entries.sorted { $0.createdDate < $1.createdDate }
+    }
+
+    /// Mirrors `InMemorySpreadRepository`/`SwiftDataSpreadRepository`'s spread ordering
+    /// (period rank ascending, then date descending) so `spreads` stays in the same order
+    /// after a mutation as it was at cold load.
+    private static func sortedSpreads(_ spreads: [DataModel.Spread]) -> [DataModel.Spread] {
+        spreads.sorted { lhs, rhs in
+            if lhs.period != rhs.period {
+                return spreadPeriodSortOrder(lhs.period) < spreadPeriodSortOrder(rhs.period)
+            }
+            return lhs.date > rhs.date
+        }
+    }
+
+    private static func spreadPeriodSortOrder(_ period: Period) -> Int {
+        switch period {
+        case .year: 0
+        case .month: 1
+        case .day: 2
+        case .multiday: 3
+        }
     }
 
     /// Re-resolves `dataModel[key]` from the current index/store state, or clears the entry
@@ -496,11 +562,11 @@ final class JournalManager {
             let previousTaskAssignments = task.assignments
             let preservedStatus = task.assignments[sourceIndex].status
             task.assignments[sourceIndex].status = .migrated
-            if let parentSpread {
-                if let destinationIndex = task.assignments.firstIndex(where: { $0.matches(spread: parentSpread, calendar: calendar) }) {
+            if let replacement = replacementSpread(for: task, deleting: spread, parentSpread: parentSpread) {
+                if let destinationIndex = task.assignments.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
                     task.assignments[destinationIndex].status = preservedStatus
                 } else {
-                    task.assignments.append(Assignment(period: parentSpread.period, date: parentSpread.date, status: preservedStatus))
+                    task.assignments.append(Assignment(period: replacement.period, date: replacement.date, status: preservedStatus))
                 }
             }
             try await taskRepository.save(
@@ -517,11 +583,11 @@ final class JournalManager {
             let previousNoteAssignments = note.assignments
             let preservedStatus = note.assignments[sourceIndex].status
             note.assignments[sourceIndex].status = .migrated
-            if let parentSpread {
-                if let destinationIndex = note.assignments.firstIndex(where: { $0.matches(spread: parentSpread, calendar: calendar) }) {
+            if let replacement = replacementSpread(for: note, deleting: spread, parentSpread: parentSpread) {
+                if let destinationIndex = note.assignments.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
                     note.assignments[destinationIndex].status = preservedStatus
                 } else {
-                    note.assignments.append(Assignment(period: parentSpread.period, date: parentSpread.date, status: preservedStatus))
+                    note.assignments.append(Assignment(period: replacement.period, date: replacement.date, status: preservedStatus))
                 }
             }
             try await noteRepository.save(
@@ -535,6 +601,43 @@ final class JournalManager {
         removeSpread(id: spread.id)
 
         Self.logger.debug("Spread deleted: \(spread.period.rawValue, privacy: .public) spread \(spread.id, privacy: .public)")
+    }
+
+    /// Mirrors the legacy `StandardSpreadDeletionPlanner.replacementSpread`: for a
+    /// non-multiday deletion, the replacement is simply the parent spread already found by
+    /// `findParentSpread`. For a multiday deletion, there's no parent-hierarchy concept for
+    /// a custom range — instead, fall back to whatever non-multiday spread best matches the
+    /// task's own preferred date/period (excluding the spread being deleted), the same way
+    /// the legacy planner did.
+    private func replacementSpread(
+        for task: DataModel.Task,
+        deleting spread: DataModel.Spread,
+        parentSpread: DataModel.Spread?
+    ) -> DataModel.Spread? {
+        guard spread.period == .multiday else { return parentSpread }
+        guard let taskDate = task.date else { return nil }
+        let fallbackPeriod: Period = task.period == .multiday ? .month : (task.period ?? .day)
+        return SpreadService(calendar: calendar).findBestSpread(
+            preferredDate: taskDate,
+            preferredPeriod: fallbackPeriod,
+            in: spreads.filter { $0.id != spread.id && $0.period != .multiday }
+        )
+    }
+
+    /// Mirrors the legacy `StandardSpreadDeletionPlanner.replacementSpread` for notes.
+    private func replacementSpread(
+        for note: DataModel.Note,
+        deleting spread: DataModel.Spread,
+        parentSpread: DataModel.Spread?
+    ) -> DataModel.Spread? {
+        guard spread.period == .multiday else { return parentSpread }
+        guard let noteDate = note.date else { return nil }
+        let fallbackPeriod: Period = note.period == .multiday ? .month : note.period
+        return SpreadService(calendar: calendar).findBestSpread(
+            preferredDate: noteDate,
+            preferredPeriod: fallbackPeriod,
+            in: spreads.filter { $0.id != spread.id && $0.period != .multiday }
+        )
     }
 
     private func findParentSpread(for spread: DataModel.Spread, in spreads: [DataModel.Spread]) -> DataModel.Spread? {
@@ -706,18 +809,19 @@ final class JournalManager {
         priority: DataModel.Task.Priority,
         dueDate: Date?
     ) async throws -> DataModel.Task {
+        let normalizedDate = date.map { period?.normalizeDate($0, calendar: calendar) ?? $0 }
         let task = DataModel.Task(
             title: title,
             body: sanitizedTaskBody(body),
             priority: priority,
             dueDate: dueDate?.startOfDay(calendar: calendar),
-            date: date,
+            date: normalizedDate,
             period: period,
             status: .open,
             assignments: []
         )
 
-        if date != nil {
+        if normalizedDate != nil {
             ruleEngine.reconcilePreferredAssignment(for: task, in: spreads, preferredSpreadID: preferredSpreadID)
         }
 
@@ -908,7 +1012,7 @@ final class JournalManager {
         taskStore.upsert(task)
         let newKeys = ruleEngine.spreadKeys(for: task, spreads: spreads)
         taskIndex.update(entityID: task.id, keys: newKeys)
-        tasks = taskStore.values
+        tasks = Self.sortedByCreatedDate(taskStore.values)
         for key in oldKeys.union(newKeys) {
             repatchDataModel(for: key)
         }
@@ -920,7 +1024,7 @@ final class JournalManager {
         let oldKeys = taskIndex.keys(for: id)
         taskStore.remove(id: id)
         taskIndex.remove(entityID: id)
-        tasks = taskStore.values
+        tasks = Self.sortedByCreatedDate(taskStore.values)
         for key in oldKeys {
             repatchDataModel(for: key)
         }
@@ -934,7 +1038,7 @@ final class JournalManager {
         noteStore.upsert(note)
         let newKeys = ruleEngine.spreadKeys(for: note, spreads: spreads)
         noteIndex.update(entityID: note.id, keys: newKeys)
-        notes = noteStore.values
+        notes = Self.sortedByCreatedDate(noteStore.values)
         for key in oldKeys.union(newKeys) {
             repatchDataModel(for: key)
         }
@@ -946,7 +1050,7 @@ final class JournalManager {
         let oldKeys = noteIndex.keys(for: id)
         noteStore.remove(id: id)
         noteIndex.remove(entityID: id)
-        notes = noteStore.values
+        notes = Self.sortedByCreatedDate(noteStore.values)
         for key in oldKeys {
             repatchDataModel(for: key)
         }
@@ -961,7 +1065,7 @@ final class JournalManager {
         eventStore.upsert(event)
         eventIndex.updateEvent(event, spreads: spreads)
         let newKeys = eventIndex.keys(for: event.id)
-        events = eventStore.values
+        events = Self.sortedByCreatedDate(eventStore.values)
         for key in oldKeys.union(newKeys) {
             repatchDataModel(for: key)
         }
@@ -973,7 +1077,7 @@ final class JournalManager {
         let oldKeys = eventIndex.keys(for: id)
         eventStore.remove(id: id)
         eventIndex.removeEvent(id: id)
-        events = eventStore.values
+        events = Self.sortedByCreatedDate(eventStore.values)
         for key in oldKeys {
             repatchDataModel(for: key)
         }
@@ -1004,7 +1108,7 @@ final class JournalManager {
         spreadStore.upsert(spread)
         spreadIDByKey[newKey] = spread.id
         keyBySpreadID[spread.id] = newKey
-        spreads = spreadStore.values
+        spreads = Self.sortedSpreads(spreadStore.values)
         eventIndex.addSpread(spread, events: events)
         repatchDataModel(for: newKey)
         dataVersion += 1
@@ -1017,7 +1121,7 @@ final class JournalManager {
         spreadStore.remove(id: id)
         spreadIDByKey[key] = nil
         keyBySpreadID[id] = nil
-        spreads = spreadStore.values
+        spreads = Self.sortedSpreads(spreadStore.values)
         eventIndex.removeSpread(spread)
         dataModel[key: key] = nil
         dataVersion += 1

@@ -37,7 +37,7 @@ struct OverdueTaskTests {
         let manager = try await JournalManager.make(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: [overdueDayTask, currentMonthTask])
+            taskRepository: TestChangeAwareTaskRepository(tasks: [overdueDayTask, currentMonthTask])
         )
 
         #expect(manager.overdueTaskCount == 1)
@@ -70,7 +70,7 @@ struct OverdueTaskTests {
         let manager = try await JournalManager.make(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: [monthTask, yearTask])
+            taskRepository: TestChangeAwareTaskRepository(tasks: [monthTask, yearTask])
         )
 
         #expect(manager.overdueTaskCount == 2)
@@ -102,7 +102,7 @@ struct OverdueTaskTests {
         let manager = try await JournalManager.make(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: [inboxTask, completedTask])
+            taskRepository: TestChangeAwareTaskRepository(tasks: [inboxTask, completedTask])
         )
 
         #expect(manager.overdueTaskCount == 1)
