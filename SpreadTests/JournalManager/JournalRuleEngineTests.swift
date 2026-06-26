@@ -212,57 +212,6 @@ struct JournalRuleEngineTests {
         #expect(!keys.contains(SpreadDataModelKey(period: .year, date: noteDate, calendar: Self.calendar)))
     }
 
-    /// Setup: a mixed set of spreads/tasks/notes/events exercised against both the legacy
-    /// `ConventionalJournalDataModelBuilder` and the new `JournalRuleEngine`.
-    /// Expected: both produce an identical `JournalDataModel`, proving data-model-building
-    /// parity between the legacy and consolidated implementations.
-    @Test func testBuildDataModelMatchesLegacyBuilder() {
-        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
-        let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: Self.calendar)
-        let multidaySpread = DataModel.Spread(
-            startDate: Self.makeDate(year: 2026, month: 1, day: 10),
-            endDate: Self.makeDate(year: 2026, month: 1, day: 12),
-            calendar: Self.calendar
-        )
-        let task = DataModel.Task(
-            title: "Open",
-            date: dayDate,
-            period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
-        )
-        let note = DataModel.Note(
-            title: "Note",
-            date: multidaySpread.date,
-            period: .multiday,
-            assignments: [
-                Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .active)
-            ]
-        )
-        let event = DataModel.Event(title: "Event", startDate: dayDate, endDate: dayDate)
-
-        let legacyBuilder = ConventionalJournalDataModelBuilder(calendar: Self.calendar)
-        let legacyModel = legacyBuilder.buildDataModel(
-            spreads: [daySpread, multidaySpread],
-            tasks: [task],
-            notes: [note],
-            events: [event]
-        )
-
-        let engine = JournalRuleEngine(calendar: Self.calendar)
-        let engineModel = engine.buildDataModel(
-            spreads: [daySpread, multidaySpread],
-            tasks: [task],
-            notes: [note],
-            events: [event]
-        )
-
-        let dayKey = SpreadDataModelKey(spread: daySpread, calendar: Self.calendar)
-        let multidayKey = SpreadDataModelKey(spread: multidaySpread, calendar: Self.calendar)
-        #expect(legacyModel[key: dayKey]?.tasks.map(\.id) == engineModel[key: dayKey]?.tasks.map(\.id))
-        #expect(legacyModel[key: dayKey]?.events.map(\.id) == engineModel[key: dayKey]?.events.map(\.id))
-        #expect(legacyModel[key: multidayKey]?.notes.map(\.id) == engineModel[key: multidayKey]?.notes.map(\.id))
-    }
-
     // MARK: - Inbox Resolution
 
     /// Setup: an unassigned open task, an unassigned cancelled task, and an unassigned note.
@@ -321,58 +270,6 @@ struct JournalRuleEngineTests {
         let entries = engine.inboxEntries(entries: [task], spreads: [daySpread])
 
         #expect(entries.isEmpty)
-    }
-
-    /// Setup: the same task fixtures from `InboxResolverTests` run through both the legacy
-    /// `StandardInboxResolver` and `JournalRuleEngine.inboxEntries`.
-    /// Expected: identical output for tasks — full parity for the entry type both
-    /// implementations agree is Inbox-eligible.
-    @Test func testInboxEntriesMatchesLegacyResolverForTasks() {
-        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
-        let spread = DataModel.Spread(period: .day, date: dayDate, calendar: Self.calendar)
-        let openTask = DataModel.Task(title: "Open", date: dayDate, period: .day, assignments: [])
-        let cancelledTask = DataModel.Task(title: "Cancelled", date: dayDate, period: .day, status: .cancelled, assignments: [])
-        let assignedTask = DataModel.Task(
-            title: "Assigned",
-            date: dayDate,
-            period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
-        )
-
-        let legacyResolver = StandardInboxResolver(calendar: Self.calendar)
-        let legacyEntries = legacyResolver.inboxEntries(
-            tasks: [openTask, cancelledTask, assignedTask],
-            notes: [],
-            spreads: [spread]
-        )
-
-        let engine = JournalRuleEngine(calendar: Self.calendar)
-        let engineEntries = engine.inboxEntries(
-            entries: [openTask, cancelledTask, assignedTask],
-            spreads: [spread]
-        )
-
-        #expect(legacyEntries.map(\.id) == engineEntries.map(\.id))
-    }
-
-    /// Setup: an unassigned note run through both the legacy `StandardInboxResolver` and
-    /// `JournalRuleEngine.inboxEntries`.
-    /// Expected: divergence, not parity — the legacy resolver includes the note (it has no
-    /// per-type Inbox eligibility concept), while the engine excludes it via
-    /// `Note.isInboxEligible == false` (SPRD-247's already-shipped flag value). This is the
-    /// confirmed, intentional behavior change flagged in SPRD-248's plan.md notes; this test
-    /// locks in that divergence is real and deliberate, not a missed case.
-    @Test func testInboxEntriesDivergesFromLegacyResolverForUnassignedNotes() {
-        let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
-        let note = DataModel.Note(title: "Note", date: dayDate, period: .day, assignments: [])
-
-        let legacyResolver = StandardInboxResolver(calendar: Self.calendar)
-        let legacyEntries = legacyResolver.inboxEntries(tasks: [], notes: [note], spreads: [])
-        #expect(legacyEntries.map(\.id) == [note.id])
-
-        let engine = JournalRuleEngine(calendar: Self.calendar)
-        let engineEntries = engine.inboxEntries(entries: [note], spreads: [])
-        #expect(engineEntries.isEmpty)
     }
 
     // MARK: - Migration Planning
@@ -510,91 +407,6 @@ struct JournalRuleEngineTests {
         )
 
         #expect(destination?.id == daySpread.id)
-    }
-
-    /// Setup: a multiday spread crossing a month/year boundary.
-    /// Expected: `currentDestinationSpread`/`currentDisplayedSpread` parity-check the simpler
-    /// `sourceSpread?.period.granularityRank ?? 0` rank computation against the legacy
-    /// `TaskReviewSourceKey`-based computation, by running the same scenario from
-    /// `testMigrationCandidatesUsesMostGranularValidDestination` through both implementations.
-    @Test func testMigrationCandidatesMatchesLegacyPlanner() {
-        let taskDate = Self.makeDate(year: 2026, month: 1, day: 10)
-        let yearSpread = DataModel.Spread(period: .year, date: taskDate, calendar: Self.calendar)
-        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: Self.calendar)
-        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
-        let task = DataModel.Task(
-            title: "Day task",
-            date: taskDate,
-            period: .day,
-            status: .open,
-            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
-        )
-
-        let legacyPlanner = StandardMigrationPlanner(calendar: Self.calendar)
-        let legacyCandidates = legacyPlanner.migrationCandidates(
-            tasks: [task],
-            spreads: [yearSpread, monthSpread, daySpread],
-            to: daySpread
-        )
-
-        let engine = JournalRuleEngine(calendar: Self.calendar)
-        let engineCandidates = engine.migrationCandidates(
-            tasks: [task],
-            spreads: [yearSpread, monthSpread, daySpread],
-            to: daySpread
-        )
-
-        #expect(legacyCandidates.map(\.task.id) == engineCandidates.map(\.entry.id))
-        #expect(legacyCandidates.map(\.sourceSpread?.id) == engineCandidates.map(\.sourceSpread?.id))
-        #expect(legacyCandidates.map(\.destination.id) == engineCandidates.map(\.destination.id))
-    }
-
-    /// Setup: a multiday destination spread spanning December 29 - January 4, with one task
-    /// sourced from December and one from January, run through both the legacy
-    /// `StandardMigrationPlanner` and `JournalRuleEngine`.
-    /// Expected: identical output — this seam was ported verbatim (no behavior change was
-    /// authorized for this task), so both implementations count every month/year the range
-    /// touches as a parent, including both December and January.
-    @Test func testParentHierarchyMigrationCandidatesForMultidayMatchesLegacyPlanner() {
-        let decemberMonthDate = Self.makeDate(year: 2025, month: 12, day: 1)
-        let januaryMonthDate = Self.makeDate(year: 2026, month: 1, day: 1)
-        let decemberMonthSpread = DataModel.Spread(period: .month, date: decemberMonthDate, calendar: Self.calendar)
-        let januaryMonthSpread = DataModel.Spread(period: .month, date: januaryMonthDate, calendar: Self.calendar)
-        let multidaySpread = DataModel.Spread(
-            startDate: Self.makeDate(year: 2025, month: 12, day: 29),
-            endDate: Self.makeDate(year: 2026, month: 1, day: 4),
-            calendar: Self.calendar
-        )
-        let decemberTask = DataModel.Task(
-            title: "December-origin",
-            date: decemberMonthDate,
-            period: .day,
-            status: .open,
-            assignments: [Assignment(period: .month, date: decemberMonthDate, status: .open)]
-        )
-        let januaryTask = DataModel.Task(
-            title: "January-origin",
-            date: januaryMonthDate,
-            period: .day,
-            status: .open,
-            assignments: [Assignment(period: .month, date: januaryMonthDate, status: .open)]
-        )
-
-        let legacyPlanner = StandardMigrationPlanner(calendar: Self.calendar)
-        let legacyCandidates = legacyPlanner.parentHierarchyMigrationCandidates(
-            tasks: [decemberTask, januaryTask],
-            spreads: [decemberMonthSpread, januaryMonthSpread, multidaySpread],
-            to: multidaySpread
-        )
-
-        let engine = JournalRuleEngine(calendar: Self.calendar)
-        let engineCandidates = engine.parentHierarchyMigrationCandidates(
-            tasks: [decemberTask, januaryTask],
-            spreads: [decemberMonthSpread, januaryMonthSpread, multidaySpread],
-            to: multidaySpread
-        )
-
-        #expect(legacyCandidates.map(\.task.id) == engineCandidates.map(\.entry.id))
     }
 
     // MARK: - Overdue Evaluation
@@ -757,55 +569,6 @@ struct JournalRuleEngineTests {
         #expect(items.isEmpty)
     }
 
-    /// Setup: a mixed set of overdue/not-overdue/Inbox/spread-sourced tasks run through both
-    /// the legacy `StandardOverdueEvaluator` (with its separately injected `StandardMigrationPlanner`)
-    /// and `JournalRuleEngine` (which reuses its own `currentDestinationSpread` directly).
-    /// Expected: identical output, proving the consolidation didn't change behavior despite
-    /// removing the separate injected planner dependency.
-    @Test func testOverdueTaskItemsMatchesLegacyEvaluator() {
-        let today = Self.makeDate(year: 2026, month: 5, day: 3)
-        let monthDate = Self.makeDate(year: 2026, month: 4, day: 1)
-        let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: Self.calendar)
-        let spreadSourcedTask = DataModel.Task(
-            title: "Spread overdue",
-            date: Self.makeDate(year: 2026, month: 5, day: 20),
-            period: .day,
-            status: .open,
-            assignments: [Assignment(period: .month, date: monthDate, status: .open)]
-        )
-        let inboxTask = DataModel.Task(
-            title: "Inbox overdue",
-            date: Self.makeDate(year: 2026, month: 4, day: 11),
-            period: .day,
-            status: .open
-        )
-        let notOverdueTask = DataModel.Task(
-            title: "Not overdue",
-            date: Self.makeDate(year: 2026, month: 5, day: 20),
-            period: .day,
-            status: .open
-        )
-
-        let legacyEvaluator = StandardOverdueEvaluator(
-            calendar: Self.calendar,
-            today: today,
-            migrationPlanner: StandardMigrationPlanner(calendar: Self.calendar)
-        )
-        let legacyItems = legacyEvaluator.overdueTaskItems(
-            tasks: [spreadSourcedTask, inboxTask, notOverdueTask],
-            spreads: [monthSpread]
-        )
-
-        let engine = JournalRuleEngine(calendar: Self.calendar, today: today)
-        let engineItems = engine.overdueTaskItems(
-            tasks: [spreadSourcedTask, inboxTask, notOverdueTask],
-            spreads: [monthSpread]
-        )
-
-        #expect(legacyItems.map(\.task.id) == engineItems.map(\.task.id))
-        #expect(legacyItems.map(\.sourceKey.id) == engineItems.map(\.sourceKey.id))
-    }
-
     // MARK: - Assignment Reconciliation
 
     /// Setup: a task with an open year assignment, reconciled against no existing spreads.
@@ -891,70 +654,5 @@ struct JournalRuleEngineTests {
 
         #expect(note.assignments[0].status == .migrated)
         #expect(note.assignments[1].status == .active)
-    }
-
-    /// Setup: the same task fixture run through both the legacy `StandardTaskAssignmentReconciler`
-    /// and `JournalRuleEngine`, starting from separate copies so mutation doesn't interfere.
-    /// Expected: identical resulting assignment arrays.
-    @Test @MainActor func testReconcilePreferredAssignmentForTaskMatchesLegacyReconciler() {
-        let taskDate = Self.makeDate(year: 2026, month: 1, day: 10)
-        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: Self.calendar)
-        let legacyTask = DataModel.Task(
-            title: "Complete",
-            date: taskDate,
-            period: .month,
-            status: .complete,
-            assignments: [
-                Assignment(period: .year, date: taskDate, status: .open),
-                Assignment(period: .month, date: taskDate, status: .migrated)
-            ]
-        )
-        let engineTask = DataModel.Task(
-            title: "Complete",
-            date: taskDate,
-            period: .month,
-            status: .complete,
-            assignments: [
-                Assignment(period: .year, date: taskDate, status: .open),
-                Assignment(period: .month, date: taskDate, status: .migrated)
-            ]
-        )
-
-        StandardTaskAssignmentReconciler(calendar: Self.calendar)
-            .reconcilePreferredAssignment(for: legacyTask, in: [monthSpread])
-
-        let engine = JournalRuleEngine(calendar: Self.calendar)
-        engine.reconcilePreferredAssignment(for: engineTask, in: [monthSpread])
-
-        #expect(legacyTask.assignments.map(\.status) == engineTask.assignments.map(\.status))
-    }
-
-    /// Setup: the same note fixture run through both the legacy `StandardNoteAssignmentReconciler`
-    /// and `JournalRuleEngine`, starting from separate copies so mutation doesn't interfere.
-    /// Expected: identical resulting assignment arrays.
-    @Test @MainActor func testReconcilePreferredAssignmentForNoteMatchesLegacyReconciler() {
-        let noteDate = Self.makeDate(year: 2026, month: 4, day: 6)
-        let daySpread = DataModel.Spread(period: .day, date: noteDate, calendar: Self.calendar)
-        let legacyNote = DataModel.Note(
-            title: "Note",
-            date: noteDate,
-            period: .day,
-            assignments: [Assignment(period: .year, date: noteDate, status: .active)]
-        )
-        let engineNote = DataModel.Note(
-            title: "Note",
-            date: noteDate,
-            period: .day,
-            assignments: [Assignment(period: .year, date: noteDate, status: .active)]
-        )
-
-        StandardNoteAssignmentReconciler(calendar: Self.calendar)
-            .reconcilePreferredAssignment(for: legacyNote, in: [daySpread])
-
-        let engine = JournalRuleEngine(calendar: Self.calendar)
-        engine.reconcilePreferredAssignment(for: engineNote, in: [daySpread])
-
-        #expect(legacyNote.assignments.map(\.status) == engineNote.assignments.map(\.status))
-        #expect(legacyNote.assignments.map(\.period) == engineNote.assignments.map(\.period))
     }
 }
