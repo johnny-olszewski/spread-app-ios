@@ -507,7 +507,7 @@ The `Spec:` field is required — it tells Claude which spec file to load for th
 - Overlapping events are indented so both remain partially visible.
 - The timeline component in `johnnyo-foundation` is generic and protocol-driven; the Spread app provides the `CalendarEvent` rendering via a conforming provider.
 
-### [SPRD-196] Package: DayTimelineView — coordinate space, provider protocol, and generic view
+### [SPRD-196] Package: DayTimelineView — coordinate space, provider protocol, and generic view - [x] Complete
 - **Context**: The app needs a day timeline visualization component. To keep it reusable and testable, the layout math and view skeleton live in the `johnnyo-foundation` package while the Spread app supplies rendering via a protocol conformance.
 - **Description**: Add `DayTimeCoordinateSpace` (core), `DayTimelineItemContext` (core), `DayTimelineContentProvider` protocol (UI), and `DayTimelineView` generic SwiftUI view (UI) to `johnnyo-foundation`.
 - **Spec**: Day Timeline Visualization
@@ -542,7 +542,7 @@ The `Spec:` field is required — it tells Claude which spec file to load for th
   - Unit tests for `DayTimeCoordinateSpace`: correct Y for in-range, start, end, before-start, after-end dates; correct height computation for full, partial, and zero-length ranges.
   - Unit tests for overlap detection logic: non-overlapping items all get zero offset; two overlapping items give the second a non-zero offset; three-way overlap gives escalating offsets.
 
-### [SPRD-197] App: Integrate DayTimelineView on day spreads
+### [SPRD-197] App: Integrate DayTimelineView on day spreads - [x] Complete
 - **Context**: With the generic `DayTimelineView` in place, the Spread app wires in a `SpreadDayTimelineProvider` that renders `CalendarEvent` items and displays the timeline card above the entry list on day spread content views.
 - **Description**: Implement `SpreadDayTimelineProvider`, integrate `DayTimelineView` into `DaySpreadContentView`, and ensure the card only appears when authorized with events.
 - **Spec**: Day Timeline Visualization
@@ -2458,7 +2458,7 @@ The `Spec:` field is required — it tells Claude which spec file to load for th
 - Event cache persists locally for offline display and is refreshed on app lifecycle events.
 - Events render on applicable spreads without migrate actions.
 
-### [SPRD-57] Feature: Event source + cache repository
+### [SPRD-57] Feature: Event source + cache repository - [x] Complete
 - **Context**: Events are sourced from external calendars and cached locally.
 - **Description**: Implement EventRepository backed by SwiftData to store cached external events and source metadata.
 - **Implementation Details**:
@@ -2483,7 +2483,7 @@ The `Spec:` field is required — it tells Claude which spec file to load for th
   - Date range query tests
 - **Dependencies**: SPRD-9, SPRD-3
 
-### [SPRD-59] Feature: Event sync + visibility logic
+### [SPRD-59] Feature: Event sync + visibility logic - [x] Complete
 - **Context**: Events appear on spreads based on date overlap, not assignments.
 - **Description**: Add event sync hooks and visibility queries to JournalManager.
 - **Implementation Details**:
@@ -2501,7 +2501,7 @@ The `Spec:` field is required — it tells Claude which spec file to load for th
   - Unit tests for multiday event spanning multiple spreads
 - **Dependencies**: SPRD-57, SPRD-11
 
-### [SPRD-60] Feature: Event source setup + settings
+### [SPRD-60] Feature: Event source setup + settings - [x] Complete
 - **Context**: Users need to connect calendars and control what is shown.
 - **Description**: Build event source setup flows and settings for calendar selection.
 - **Implementation Details**:
@@ -2516,7 +2516,7 @@ The `Spec:` field is required — it tells Claude which spec file to load for th
   - UI tests: source connection, permission denied states, and visibility toggles.
 - **Dependencies**: SPRD-57, SPRD-11
 
-### [SPRD-33] Feature: Event visibility in spread UI (v2)
+### [SPRD-33] Feature: Event visibility in spread UI (v2) - [x] Complete
 - **Context**: Events must appear on all applicable spreads based on date overlap.
 - **Description**: Render events in spread views for year/month/day/multiday.
 - **Implementation Details**:
@@ -4662,7 +4662,7 @@ Supabase: SPRD-85A -> SPRD-85C
     - behavior across compact and regular widths without hardcoded visible-count assumptions
 - **Dependencies**: SPRD-125
 
-### [SPRD-127] UI: browse-only horizontal spread-title navigator refinement
+### [SPRD-127] UI: browse-only horizontal spread-title navigator refinement - [x] Complete
 - **Context**: `SPRD-126` established the horizontal spread-title navigator and integrated it with the rooted spread navigator surface, but real-world validation showed that strip scrolling should support browsing without mutating the current spread. The selected state, centered capsule, and eventual horizontally scrollable spread surfaces need a clearer separation between browse position and committed selection.
 - **Description**: Refine the horizontal spread-title navigator so horizontal dragging browses titles without changing the selected spread or main spread content. Selection should happen only on direct tap of a visible non-selected spread or from other non-strip navigation actions. The strip should be scoped to the selected year rather than the selected period, showing all spreads available in that year for the current mode. The selected spread should always retain its capsule styling while browsing, and when the selected spread is fully offscreen a directional liquid-glass overlay button should appear to return the strip to the selected spread.
 - **Implementation Details**:
@@ -4822,7 +4822,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Manual verification that the deprecation warning is suppressed.
 - **Dependencies**: None
 
-### [SPRD-130] UI: spread navigation bar Today button
+### [SPRD-130] UI: spread navigation bar Today button - [x] Complete
 - **Context**: The horizontal spread-title navigator and content pager now keep spread selection synchronized, but there is still no direct "jump to today" control in the navigation bar. Users need a fast way to navigate back to the spread that best represents the current date without manually browsing the strip or rooted navigator.
 - **Description**: Add a standalone plain-text `Today` button to the spread-view navigation bar on both iPhone and iPad. The button should appear on the top trailing side ahead of the overdue and inbox buttons and navigate to the smallest-granularity spread that contains today, then synchronize the selected spread, title strip, and content pager.
 - **Implementation Details**:
@@ -4871,7 +4871,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying the inline editor activates on title tap, commits on Return, and discards on "×".
 - **Dependencies**: SPRD-124
 
-### [SPRD-133] UI: inline task creation on spread page
+### [SPRD-133] UI: inline task creation on spread page - [x] Complete
 - **Context**: Adding a task currently requires opening a full creation sheet from the toolbar. This task introduces an inline "+ Add Task" button at the bottom of each spread's task list so users can create tasks without leaving the spread surface. Multiday spreads get a per-day button so tasks land on the correct day. The feature uses a glass-effect keyboard toolbar for Save/Cancel and supports rapid multi-task entry via Return.
 - **Spec**: Spread Content Presentation and Interaction
 - **Acceptance Criteria**:
@@ -4952,7 +4952,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying cancelled and migrated rows remain visible, cancelled strike styling is discoverable, migrated rows follow destination navigation, and `Custom...` opens the edit sheet.
 - **Dependencies**: SPRD-140, SPRD-142, SPRD-146
 
-### [SPRD-151] Refactor: unify conventional and traditional spread surfaces
+### [SPRD-151] Refactor: unify conventional and traditional spread surfaces - [x] Complete
 - **Context**: `ConventionalSpreadsView`, `TraditionalSpreadsView`, and the traditional year/month/day surfaces duplicate navigation shell, paging, header, and entry rendering responsibilities even though the foundational distinction between the two modes is not the UI mechanics. The real difference is mode semantics: conventional mode exposes only explicit created spreads and conventional migration/inclusion rules, while traditional mode exposes the full year/month/day hierarchy with traditional inclusion and assignment rules. The architecture should express those differences through injected builders/configuration rather than separate view trees.
 - **Spec**: Project Summary; BuJo Mode; Navigation and UI; Shared Spread Surface Architecture
 - **Acceptance Criteria**:
@@ -4993,7 +4993,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying conventional and traditional month inclusion differences remain correct after consolidation.
 - **Dependencies**: SPRD-143, SPRD-148, SPRD-149, SPRD-150
 
-### [SPRD-152] Infrastructure: create johnnyo-foundation local package
+### [SPRD-152] Infrastructure: create johnnyo-foundation local package - [x] Complete
 - **Context**: Shared UI primitives and utilities are starting to outgrow the app target. The repository needs a real local Swift Package boundary that can evolve into a publishable GitHub package later, beginning with calendar-related components while keeping app-specific content generation in the app target.
 - **Spec**: Project Summary; Shared Foundations Package
 - **Acceptance Criteria**:
@@ -5017,7 +5017,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - A build verification that the app target resolves the local package successfully.
 - **Dependencies**: SPRD-151
 
-### [SPRD-153] Feature: shared month calendar shell in johnnyo-foundation and month-spread embedding
+### [SPRD-153] Feature: shared month calendar shell in johnnyo-foundation and month-spread embedding - [x] Complete
 - **Context**: Month spreads need a reusable calendar component that can be shared across conventional and traditional month surfaces without replacing the month spread itself. The month spread should embed a generic package-owned month calendar shell above the existing entry list, with `Spread` supplying content generation and keeping this first integration view-only.
 - **Spec**: Shared Foundations Package; Shared Month Calendar Component; Shared Spread Surface Architecture
 - **Acceptance Criteria**:
@@ -5055,7 +5055,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - App-level tests verifying the first `Spread` integration is view-only and does not alter existing month entry-list filtering semantics.
 - **Dependencies**: SPRD-152
 
-### [SPRD-134] UI: toolbar and spread view button layout changes
+### [SPRD-134] UI: toolbar and spread view button layout changes - [x] Complete
 - **Context**: Several button/indicator changes are grouped here: remove the sync status toolbar icon and content-area banner entirely (sync feedback deferred to pull-to-refresh in SPRD-135); move the `Today` button from the navigation bar to a `.glassEffect` overlay in the bottom-leading corner of the spread content view; and split the trailing toolbar buttons into two distinct groups — overdue + inbox in one group, auth (profile) button in a separate group with a gap between them.
 - **Spec**: Inbox (Today button), Auth UI (toolbar grouping), Sync & Data (sync status)
 - **Acceptance Criteria**:
@@ -5074,7 +5074,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying `SyncStatusView` (sync icon) accessibility identifier is absent from the toolbar.
 - **Dependencies**: SPRD-85, SPRD-130
 
-### [SPRD-135] UI: pull-to-refresh sync on spread entry list
+### [SPRD-135] UI: pull-to-refresh sync on spread entry list - [x] Complete
 - **Context**: The sync status toolbar icon has been removed (SPRD-134). This task replaces it with pull-to-refresh as the manual sync trigger on the entry list, adds last-sync-time display in the pull indicator, and introduces a persistent non-tappable error banner below the navigator strip for failed sync states.
 - **Spec**: Sync & Data (Pull-to-refresh sync behavior, Sync error banner)
 - **Acceptance Criteria**:
@@ -5099,7 +5099,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying the error banner is absent for `.offline` and `.localOnly` states.
 - **Dependencies**: SPRD-134
 
-### [SPRD-136] Bug: SpreadTitleNavigatorView strip height and scroll isolation
+### [SPRD-136] Bug: SpreadTitleNavigatorView strip height and scroll isolation - [x] Complete
 - **Context**: `SpreadTitleNavigatorView` accumulated multiple layers of selection, centering, and overlay behavior over time. Two concrete bugs remain: (1) the strip height is hardcoded and can clip multi-line day/multiday capsules against the divider and content below, and (2) strip-driven programmatic scrolling can leak into the content pager because the two surfaces share scroll-target mechanics too closely. The task should fix those bugs and refactor the strip to a simpler model while preserving the current visual system.
 - **Spec**: Strip height is content-driven with a minimum floor. Strip and pager scrolling are isolated. Strip browsing is preserved independently from pager browsing, except for intentional strip-originated and non-pager jump actions.
 - **Acceptance Criteria**:
@@ -5117,7 +5117,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - Focused iPhone UI tests covering strip tap selection, pager swipe selection, rooted navigator opening, and `Today` synchronization in both conventional and traditional modes.
 - **Dependencies**: SPRD-134
 
-### [SPRD-137] UI: Recommended spread creation inset
+### [SPRD-137] UI: Recommended spread creation inset - [x] Complete
 - **Context**: The horizontal spread title navigator should help users discover missing explicit spreads for the current day context without forcing them into the create-spread flow manually. Recommendations should be testable independently of the view and visually distinct from existing spreads.
 - **Acceptance Criteria**:
   - [x] Add a recommendation-provider protocol that derives recommended spreads for the navigator and can be unit tested independently of SwiftUI rendering.
@@ -5161,7 +5161,7 @@ Supabase: SPRD-85A -> SPRD-85C
   - UI tests verifying untitled current-spread tasks, titled month sections on year spreads, and day-number rendering on year/month spreads.
 - **Dependencies**: SPRD-28
 
-### [SPRD-139] UI: Paged rooted spread header navigator
+### [SPRD-139] UI: Paged rooted spread header navigator - [x] Complete
 - **Context**: The rooted spread navigator opened from the spread header should scale across years and support browsing/selecting month and day destinations more directly than the current flat list presentation. The navigator should become a horizontally paging year browser with expandable month rows and calendar-based day picking.
 - **Spec**: Navigation and UI
 - **Acceptance Criteria**:
