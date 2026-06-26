@@ -128,14 +128,13 @@ final class SwiftDataChangeAwareTaskRepository: ChangeAwareTaskRepository {
             return
         }
 
-        let mutation = DataModel.SyncMutation(
+        modelContext.enqueueCoalescedSyncMutation(
             entityType: DataModel.Task.entityType.rawValue,
             entityId: task.id,
-            operation: operation.rawValue,
+            operation: operation,
             recordData: recordData,
             changedFields: operation == .delete ? [] : Constants.changedFields
         )
-        modelContext.insert(mutation)
     }
 
     /// Diffs `previousAssignments` against `currentAssignments` by ID, enqueueing a create
@@ -209,14 +208,13 @@ final class SwiftDataChangeAwareTaskRepository: ChangeAwareTaskRepository {
             return
         }
 
-        let mutation = DataModel.SyncMutation(
+        modelContext.enqueueCoalescedSyncMutation(
             entityType: SyncEntityType.assignment.rawValue,
             entityId: assignment.id,
-            operation: operation.rawValue,
+            operation: operation,
             recordData: recordData,
             changedFields: operation == .delete ? [] : Constants.assignmentChangedFields
         )
-        modelContext.insert(mutation)
     }
 
     /// Diffs `previousTagIds` against `currentTagIds`, enqueueing a create mutation for each
@@ -234,13 +232,12 @@ final class SwiftDataChangeAwareTaskRepository: ChangeAwareTaskRepository {
             guard let recordData = SyncSerializer.serializeEntryTag(
                 entryId: taskId, tagId: tagId, timestamp: timestamp
             ) else { continue }
-            let mutation = DataModel.SyncMutation(
+            modelContext.enqueueCoalescedSyncMutation(
                 entityType: SyncEntityType.entryTag.rawValue,
                 entityId: UUID(),
-                operation: SyncOperation.create.rawValue,
+                operation: .create,
                 recordData: recordData
             )
-            modelContext.insert(mutation)
         }
 
         enqueueTaskTagTombstones(
@@ -256,13 +253,12 @@ final class SwiftDataChangeAwareTaskRepository: ChangeAwareTaskRepository {
             guard let recordData = SyncSerializer.serializeEntryTag(
                 entryId: taskId, tagId: tagId, timestamp: timestamp, deletedAt: timestamp
             ) else { continue }
-            let mutation = DataModel.SyncMutation(
+            modelContext.enqueueCoalescedSyncMutation(
                 entityType: SyncEntityType.entryTag.rawValue,
                 entityId: UUID(),
-                operation: SyncOperation.delete.rawValue,
+                operation: .delete,
                 recordData: recordData
             )
-            modelContext.insert(mutation)
         }
     }
 }

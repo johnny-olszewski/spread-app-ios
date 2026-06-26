@@ -150,8 +150,10 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
     /// Conditions: Save a task with an assignment, mutate the assignment's status in place,
     /// then save again passing the pre-mutation assignment via `change.previousAssignments`
     /// (as a real caller would, captured one statement before mutating).
-    /// Expected: An assignment update mutation is enqueued for the same logical assignment,
-    /// proving the diff is computed from the supplied descriptor rather than a disk re-fetch.
+    /// Expected: Per SPRD-253's outbox coalescing policy, the second save's update coalesces
+    /// into the still-unsent create row for the same assignment rather than appending a second
+    /// row — the row's operation stays `create` (an unsent create is never downgraded), but its
+    /// record data reflects the latest status.
     @Test func testSaveEnqueuesAssignmentUpdateMutationFromSuppliedPreviousState() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let repository = SwiftDataChangeAwareTaskRepository(
@@ -169,15 +171,14 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
         try await repository.save(task, change: EntityChange(isNew: false, previousAssignments: previousAssignments))
 
         let mutations = try fetchMutations(from: container)
-        let assignmentUpdate = mutations.last {
-            $0.entityType == SyncEntityType.assignment.rawValue &&
-            $0.operation == SyncOperation.update.rawValue
-        }
+        let assignmentMutations = mutations.filter { $0.entityType == SyncEntityType.assignment.rawValue }
+        #expect(assignmentMutations.count == 1)
 
-        #expect(assignmentUpdate != nil)
-        #expect(assignmentUpdate?.entityId == assignment.id)
+        let assignmentMutation = assignmentMutations.first
+        #expect(assignmentMutation?.entityId == assignment.id)
+        #expect(assignmentMutation?.operation == SyncOperation.create.rawValue)
 
-        let record = try decodeRecord(assignmentUpdate?.recordData)
+        let record = try decodeRecord(assignmentMutation?.recordData)
         #expect(record?["status"] as? String == EntryStatus.complete.rawValue)
     }
 
@@ -263,10 +264,14 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
     // MARK: - Parity with SwiftDataTaskRepository
 
     /// Conditions: Run the same create-then-update-then-delete sequence through both
-    /// `SwiftDataTaskRepository` (legacy disk re-fetch diffing) and
-    /// `SwiftDataChangeAwareTaskRepository` (caller-supplied descriptor diffing), using
-    /// separate in-memory containers.
-    /// Expected: Both produce the same sequence of outbox entity types and operations.
+    /// `SwiftDataTaskRepository` (legacy disk re-fetch diffing, no outbox coalescing) and
+    /// `SwiftDataChangeAwareTaskRepository` (caller-supplied descriptor diffing, with SPRD-253's
+    /// outbox coalescing), using separate in-memory containers.
+    /// Expected: **Intentional divergence** — the legacy repository still produces one row per
+    /// mutation (5 rows: task create/update/delete + assignment create/delete), while the
+    /// change-aware repository coalesces the task's update into its still-unsent create row and
+    /// the assignment's delete into its still-unsent create row, producing exactly 2 rows (task
+    /// create, assignment create) before the final deletes coalesce those into 2 delete rows.
     @Test func testProducesSameOutboxSequenceAsLegacyRepository() async throws {
         let legacyContainer = try ModelContainerFactory.makeInMemory()
         let changeAwareContainer = try ModelContainerFactory.makeInMemory()
@@ -304,8 +309,24 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
         let legacySequence = try fetchMutations(from: legacyContainer).map { ($0.entityType, $0.operation) }
         let changeAwareSequence = try fetchMutations(from: changeAwareContainer).map { ($0.entityType, $0.operation) }
 
-        #expect(legacySequence.map(\.0) == changeAwareSequence.map(\.0))
-        #expect(legacySequence.map(\.1) == changeAwareSequence.map(\.1))
+        // Legacy: one row per mutation — create/create, then update (no assignment change), then
+        // delete/delete. No coalescing.
+        #expect(legacySequence.map(\.0) == [
+            SyncEntityType.entry.rawValue, SyncEntityType.assignment.rawValue,
+            SyncEntityType.entry.rawValue,
+            SyncEntityType.entry.rawValue, SyncEntityType.assignment.rawValue
+        ])
+        #expect(legacySequence.map(\.1) == [
+            SyncOperation.create.rawValue, SyncOperation.create.rawValue,
+            SyncOperation.update.rawValue,
+            SyncOperation.delete.rawValue, SyncOperation.delete.rawValue
+        ])
+
+        // Change-aware: the update coalesces into the still-unsent task create row (stays
+        // create), then the final delete coalesces both rows down to delete — 2 rows total
+        // instead of 5.
+        #expect(changeAwareSequence.map(\.0) == [SyncEntityType.entry.rawValue, SyncEntityType.assignment.rawValue])
+        #expect(changeAwareSequence.map(\.1) == [SyncOperation.delete.rawValue, SyncOperation.delete.rawValue])
     }
 
     // MARK: - Sync Outbox Helpers
