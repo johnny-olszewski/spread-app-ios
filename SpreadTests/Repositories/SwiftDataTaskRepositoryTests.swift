@@ -151,7 +151,7 @@ struct SwiftDataTaskRepositoryTests {
         )
 
         let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 1_000), status: .open)
-        let task = DataModel.Task(title: "Assigned task", assignments: [assignment])
+        let task = DataModel.Task(title: "Assigned task", currentAssignments: [assignment])
 
         try await repository.save(task, change: EntityChange())
 
@@ -182,11 +182,11 @@ struct SwiftDataTaskRepositoryTests {
         )
 
         let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 2_000), status: .open)
-        let task = DataModel.Task(title: "Assigned task", assignments: [assignment])
+        let task = DataModel.Task(title: "Assigned task", currentAssignments: [assignment])
         try await repository.save(task, change: EntityChange())
 
-        let previousAssignments = task.assignments
-        task.assignments[0].status = .complete
+        let previousAssignments = task.allAssignmentsForTesting
+        task.currentAssignments[0].status = .complete
         try await repository.save(task, change: EntityChange(isNew: false, previousAssignments: previousAssignments))
 
         let mutations = try fetchMutations(from: container)
@@ -214,11 +214,11 @@ struct SwiftDataTaskRepositoryTests {
         )
 
         let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 4_000), status: .open)
-        let task = DataModel.Task(title: "Inbox fallback", assignments: [assignment])
+        let task = DataModel.Task(title: "Inbox fallback", currentAssignments: [assignment])
         try await repository.save(task, change: EntityChange())
 
-        let previousAssignments = task.assignments
-        task.assignments.removeAll()
+        let previousAssignments = task.allAssignmentsForTesting
+        task.currentAssignments.removeAll()
         try await repository.save(task, change: EntityChange(isNew: false, previousAssignments: previousAssignments))
 
         let mutations = try fetchMutations(from: container)
@@ -237,7 +237,7 @@ struct SwiftDataTaskRepositoryTests {
 
     /// Conditions: Save a task with an assignment, then delete the task.
     /// Expected: A task-assignment delete mutation is enqueued as a tombstone, derived from
-    /// `task.assignments` directly (delete needs no caller-supplied change descriptor).
+    /// `task.currentAssignments` directly (delete needs no caller-supplied change descriptor).
     @Test func testDeleteEnqueuesAssignmentDeleteMutation() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         var timestamps = [Date(timeIntervalSince1970: 500), Date(timeIntervalSince1970: 600)]
@@ -248,7 +248,7 @@ struct SwiftDataTaskRepositoryTests {
         )
 
         let assignment = Assignment(period: .month, date: Date(timeIntervalSince1970: 3_000), status: .open)
-        let task = DataModel.Task(title: "Delete assigned task", assignments: [assignment])
+        let task = DataModel.Task(title: "Delete assigned task", currentAssignments: [assignment])
         try await repository.save(task, change: EntityChange())
         try await repository.delete(task)
 
@@ -332,11 +332,11 @@ struct SwiftDataTaskRepositoryTests {
         )
 
         let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 5_000), status: .open)
-        let task = DataModel.Task(title: "Sequence Task", assignments: [assignment])
+        let task = DataModel.Task(title: "Sequence Task", currentAssignments: [assignment])
 
         try await repository.save(task, change: EntityChange())
 
-        let previousAssignments = task.assignments
+        let previousAssignments = task.allAssignmentsForTesting
         task.title = "Updated Sequence Task"
         try await repository.save(
             task,

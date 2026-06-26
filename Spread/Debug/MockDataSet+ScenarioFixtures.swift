@@ -667,7 +667,7 @@ extension MockDataSet {
             date: date,
             period: period,
             status: status,
-            assignments: assignments
+            currentAssignments: assignments
         )
     }
 
@@ -697,7 +697,7 @@ extension MockDataSet {
             content: "\(title) content",
             date: date,
             period: period,
-            assignments: assignments
+            currentAssignments: assignments
         )
     }
 

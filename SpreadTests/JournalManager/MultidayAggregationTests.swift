@@ -37,7 +37,7 @@ struct MultidayAggregationTests {
             title: "Assigned",
             date: calendar.date(from: DateComponents(year: 2026, month: 1, day: 30))!,
             period: .multiday,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .multiday, date: spread.date, spreadID: spread.id, status: .open)
             ]
         )
@@ -66,7 +66,7 @@ struct MultidayAggregationTests {
             title: "Assigned note",
             date: calendar.date(from: DateComponents(year: 2026, month: 1, day: 2))!,
             period: .multiday,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .multiday, date: spread.date, spreadID: spread.id, status: .active)
             ]
         )
@@ -117,7 +117,7 @@ struct MultidayAggregationTests {
             date: calendar.date(from: DateComponents(year: 2026, month: 6, day: 3))!,
             period: .multiday,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .multiday, date: spread.date, spreadID: spread.id, status: .open)
             ]
         )
@@ -126,7 +126,7 @@ struct MultidayAggregationTests {
             date: calendar.date(from: DateComponents(year: 2026, month: 6, day: 4))!,
             period: .multiday,
             status: .cancelled,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .multiday, date: spread.date, spreadID: spread.id, status: .cancelled)
             ]
         )

@@ -106,13 +106,13 @@ struct SpreadKeyIndexTests {
             title: "Day",
             date: taskDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: taskDate, status: .open)]
         )
         let multidayTask = DataModel.Task(
             title: "Multiday",
             date: taskDate,
             period: .multiday,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .open)
             ]
         )
@@ -120,7 +120,7 @@ struct SpreadKeyIndexTests {
             title: "Migrated",
             date: taskDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: taskDate, status: .migrated)]
+            migrationHistory: [Assignment(period: .day, date: taskDate, status: .migrated)]
         )
         let tasks = [dayTask, multidayTask, migratedTask]
         let spreads = [daySpread, multidaySpread]

@@ -49,15 +49,16 @@ struct JournalRuleEngine {
 
     /// Returns all conventional surfaces that can display the entry.
     ///
-    /// This includes explicit spreads backed by the entry's current non-migrated
-    /// assignments. Generic over any `AssignableEntry` (currently `DataModel.Task`/
+    /// This includes explicit spreads backed by the entry's current assignments —
+    /// `currentAssignments` never holds a `.migrated` entry by construction (see
+    /// `Documentation/Specs/JournalManager.md`'s SPRD-254 decision), so no filtering is
+    /// needed here. Generic over any `AssignableEntry` (currently `DataModel.Task`/
     /// `DataModel.Note`) so this logic exists once rather than once per entry type.
     func spreadKeys<E: AssignableEntry>(
         for entry: E,
         spreads: [DataModel.Spread]
     ) -> Set<SpreadDataModelKey> {
-        let explicitKeys: [SpreadDataModelKey] = entry.assignments.compactMap { assignment in
-            guard !assignment.isMigrated else { return nil }
+        let explicitKeys: [SpreadDataModelKey] = entry.currentAssignments.map { assignment in
             if assignment.period == .multiday,
                let spreadID = assignment.spreadID,
                let spread = spreads.first(where: { $0.id == spreadID }) {
@@ -68,13 +69,12 @@ struct JournalRuleEngine {
         return Set(explicitKeys)
     }
 
-    /// Returns `true` if the entry has a current non-migrated assignment matching the spread.
+    /// Returns `true` if the entry has a current assignment matching the spread.
     private func shouldShowOnSpread<E: AssignableEntry>(
         _ entry: E,
         for spread: DataModel.Spread
     ) -> Bool {
-        entry.assignments.contains { assignment in
-            !assignment.isMigrated &&
+        entry.currentAssignments.contains { assignment in
             assignment.matches(spread: spread, calendar: calendar)
         }
     }
@@ -93,7 +93,7 @@ struct JournalRuleEngine {
     ///   excluded — they use computed visibility, not assignments, and never belong in
     ///   Inbox. In practice this is already covered by `isInboxEligible` (`Event` defaults
     ///   to `false`), but the cast is kept as a defensive second check since `inboxEntries`
-    ///   needs `.assignments` to evaluate matching either way.
+    ///   needs `.currentAssignments` to evaluate matching either way.
     ///
     /// `Note.isInboxEligible == false` today (SPRD-247's already-shipped flag value), so
     /// unassigned notes are excluded here — a confirmed divergence from the legacy
@@ -170,7 +170,7 @@ struct JournalRuleEngine {
             return nil
         }
 
-        guard task.assignments.contains(where: { assignment in
+        guard task.currentAssignments.contains(where: { assignment in
             assignment.status == .open &&
             assignment.matches(spread: source, calendar: calendar)
         }) else {
@@ -301,7 +301,7 @@ struct JournalRuleEngine {
         excluding excludedSpread: DataModel.Spread?,
         matching statusPredicate: (Assignment) -> Bool
     ) -> DataModel.Spread? {
-        entry.assignments
+        entry.currentAssignments
             .filter(statusPredicate)
             .compactMap { assignment in
                 spreads.first(where: { spread in
@@ -521,7 +521,7 @@ struct JournalRuleEngine {
 
     /// Updates the task's assignments so that the best matching spread is the active destination.
     ///
-    /// Mutates `task.assignments` in-place. Does not persist; callers must save the task afterward.
+    /// Mutates `task.currentAssignments`/`migrationHistory` in-place. Does not persist; callers must save the task afterward.
     /// Performs no repository writes, consistent with `JournalRuleEngine` being a pure rule engine.
     ///
     /// Kept as a separate overload from the `Note` version rather than a single generic
@@ -546,34 +546,41 @@ struct JournalRuleEngine {
         )
         let destinationStatus = task.status
 
-        if let destination {
-            if let destinationIndex = task.assignments.firstIndex(where: { assignment in
-                assignment.matches(spread: destination, calendar: calendar)
-            }) {
-                for index in task.assignments.indices
-                where index != destinationIndex && task.assignments[index].status != .migrated {
-                    task.assignments[index].status = .migrated
-                }
-                task.assignments[destinationIndex].status = destinationStatus
-            } else {
-                migrateActiveAssignmentsToHistory(task)
-                task.assignments.append(
-                    Assignment(
-                        period: destination.period,
-                        date: destination.date,
-                        spreadID: destination.period == .multiday ? destination.id : nil,
-                        status: destinationStatus
-                    )
-                )
-            }
+        guard let destination else {
+            migrateCurrentAssignments(task, keeping: nil)
+            return
+        }
+
+        let matchesDestination: (Assignment) -> Bool = { $0.matches(spread: destination, calendar: self.calendar) }
+
+        if let currentIndex = task.currentAssignments.firstIndex(where: matchesDestination) {
+            migrateCurrentAssignments(task, keeping: currentIndex)
+            task.currentAssignments[0].status = destinationStatus
+        } else if let historyIndex = task.migrationHistory.firstIndex(where: matchesDestination) {
+            // The destination already has a historical assignment for this exact spread
+            // (the task was migrated away from it and is now migrating back) — revive that
+            // assignment's identity rather than minting a new one, so sync sees an update to
+            // the existing row instead of a tombstone-and-recreate.
+            var revived = task.migrationHistory.remove(at: historyIndex)
+            revived.status = destinationStatus
+            migrateCurrentAssignments(task, keeping: nil)
+            task.currentAssignments.append(revived)
         } else {
-            migrateActiveAssignmentsToHistory(task)
+            migrateCurrentAssignments(task, keeping: nil)
+            task.currentAssignments.append(
+                Assignment(
+                    period: destination.period,
+                    date: destination.date,
+                    spreadID: destination.period == .multiday ? destination.id : nil,
+                    status: destinationStatus
+                )
+            )
         }
     }
 
     /// Updates the note's assignments so that the best matching spread is the active destination.
     ///
-    /// Mutates `note.assignments` in-place. Does not persist; callers must save the note afterward.
+    /// Mutates `note.currentAssignments`/`migrationHistory` in-place. Does not persist; callers must save the note afterward.
     /// Performs no repository writes, consistent with `JournalRuleEngine` being a pure rule engine.
     ///
     /// - Parameters:
@@ -592,47 +599,76 @@ struct JournalRuleEngine {
             preferredSpreadID: preferredSpreadID
         )
 
-        if let destination {
-            if let destinationIndex = note.assignments.firstIndex(where: { assignment in
-                assignment.matches(spread: destination, calendar: calendar)
-            }) {
-                for index in note.assignments.indices
-                where index != destinationIndex && note.assignments[index].status != .migrated {
-                    note.assignments[index].status = .migrated
-                }
-                note.assignments[destinationIndex].status = .active
-            } else {
-                migrateActiveAssignmentsToHistory(note)
-                note.assignments.append(
-                    Assignment(
-                        period: destination.period,
-                        date: destination.date,
-                        spreadID: destination.period == .multiday ? destination.id : nil,
-                        status: .active
-                    )
-                )
-            }
+        guard let destination else {
+            migrateCurrentAssignments(note, keeping: nil)
+            return
+        }
+
+        let matchesDestination: (Assignment) -> Bool = { $0.matches(spread: destination, calendar: self.calendar) }
+
+        if let currentIndex = note.currentAssignments.firstIndex(where: matchesDestination) {
+            migrateCurrentAssignments(note, keeping: currentIndex)
+            note.currentAssignments[0].status = .active
+        } else if let historyIndex = note.migrationHistory.firstIndex(where: matchesDestination) {
+            // See the Task overload's comment: revive the historical assignment's identity
+            // rather than minting a new one when migrating back to a previously-visited spread.
+            var revived = note.migrationHistory.remove(at: historyIndex)
+            revived.status = .active
+            migrateCurrentAssignments(note, keeping: nil)
+            note.currentAssignments.append(revived)
         } else {
-            migrateActiveAssignmentsToHistory(note)
+            migrateCurrentAssignments(note, keeping: nil)
+            note.currentAssignments.append(
+                Assignment(
+                    period: destination.period,
+                    date: destination.date,
+                    spreadID: destination.period == .multiday ? destination.id : nil,
+                    status: .active
+                )
+            )
         }
     }
 
-    /// Marks every non-migrated assignment on the task as migrated history.
+    /// Removes every current assignment except the one at `keptIndex` (if any), appending
+    /// each removed one to `migrationHistory` with its status flipped to `.migrated`.
     ///
-    /// Not generalized over `AssignableEntry` — mutating `entry.assignments[index].status`
-    /// through a generic `let` parameter requires the compiler to know `E` is a class (Swift
-    /// can't assume this from the `AssignableEntry` constraint alone), whereas `Task`/`Note`
-    /// being concrete classes makes in-place mutation through a `let` parameter work directly.
-    private func migrateActiveAssignmentsToHistory(_ task: DataModel.Task) {
-        for index in task.assignments.indices where task.assignments[index].status != .migrated {
-            task.assignments[index].status = .migrated
+    /// Not generalized over `AssignableEntry` — mutating `entry.currentAssignments` through
+    /// a generic `let` parameter requires the compiler to know `E` is a class (Swift can't
+    /// assume this from the `AssignableEntry` constraint alone), whereas `Task`/`Note` being
+    /// concrete classes makes in-place mutation through a `let` parameter work directly.
+    private func migrateCurrentAssignments(_ task: DataModel.Task, keeping keptIndex: Int?) {
+        let snapshot = task.currentAssignments
+        var remaining: [Assignment] = []
+        var migratedAway: [Assignment] = []
+        for (index, assignment) in snapshot.enumerated() {
+            if index == keptIndex {
+                remaining.append(assignment)
+            } else {
+                var migratedAssignment = assignment
+                migratedAssignment.status = .migrated
+                migratedAway.append(migratedAssignment)
+            }
         }
+        task.currentAssignments = remaining
+        task.migrationHistory.append(contentsOf: migratedAway)
     }
 
-    /// Marks every non-migrated assignment on the note as migrated history.
-    private func migrateActiveAssignmentsToHistory(_ note: DataModel.Note) {
-        for index in note.assignments.indices where note.assignments[index].status != .migrated {
-            note.assignments[index].status = .migrated
+    /// Removes every current assignment except the one at `keptIndex` (if any), appending
+    /// each removed one to `migrationHistory` with its status flipped to `.migrated`.
+    private func migrateCurrentAssignments(_ note: DataModel.Note, keeping keptIndex: Int?) {
+        let snapshot = note.currentAssignments
+        var remaining: [Assignment] = []
+        var migratedAway: [Assignment] = []
+        for (index, assignment) in snapshot.enumerated() {
+            if index == keptIndex {
+                remaining.append(assignment)
+            } else {
+                var migratedAssignment = assignment
+                migratedAssignment.status = .migrated
+                migratedAway.append(migratedAssignment)
+            }
         }
+        note.currentAssignments = remaining
+        note.migrationHistory.append(contentsOf: migratedAway)
     }
 }

@@ -37,7 +37,7 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .active,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .day, date: dayDate, status: .active)
                 ]
             ),
@@ -47,7 +47,7 @@ extension TestDataBuilders {
                 date: monthDate,
                 period: .month,
                 status: .active,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .month, date: monthDate, status: .active)
                 ]
             ),
@@ -57,9 +57,11 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .active,
-                assignments: [
-                    Assignment(period: .month, date: monthDate, status: .migrated),
+                currentAssignments: [
                     Assignment(period: .day, date: dayDate, status: .active)
+                ],
+                migrationHistory: [
+                    Assignment(period: .month, date: monthDate, status: .migrated)
                 ]
             ),
             withContent: DataModel.Note(
@@ -69,7 +71,7 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .active,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .day, date: dayDate, status: .active)
                 ]
             ),
@@ -79,7 +81,7 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .active,
-                assignments: []
+                currentAssignments: []
             )
         )
     }

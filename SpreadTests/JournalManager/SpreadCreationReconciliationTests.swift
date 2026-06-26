@@ -57,7 +57,7 @@ struct SpreadCreationReconciliationTests {
         let task = try await manager.addTask(title: "Dentist", date: Self.targetDay, period: .day)
 
         // Confirm auto-assignment landed on the multiday spread.
-        let multidayAssignment = task.assignments.first(where: { $0.status != .migrated })
+        let multidayAssignment = task.allAssignmentsForTesting.first(where: { $0.status != .migrated })
         #expect(multidayAssignment?.period == .multiday)
         #expect(multidayAssignment?.spreadID == multidaySpread.id)
 
@@ -65,7 +65,7 @@ struct SpreadCreationReconciliationTests {
         _ = try await manager.createSpread(period: .day, date: Self.targetDay)
 
         // The task's live assignment should now point to the day spread.
-        let liveAssignment = task.assignments.first(where: { $0.status != .migrated })
+        let liveAssignment = task.allAssignmentsForTesting.first(where: { $0.status != .migrated })
         #expect(liveAssignment?.period == .day, "Expected live assignment to be .day after day spread creation, got \(String(describing: liveAssignment?.period))")
 
         // The day spread's data model should contain the task.
@@ -144,14 +144,14 @@ struct SpreadCreationReconciliationTests {
         // Note created for Jan 15 — no day spread exists, so it auto-assigns to the multiday.
         let note = try await manager.addNote(title: "Meeting notes", date: Self.targetDay, period: .day)
 
-        let multidayAssignment = note.assignments.first(where: { $0.status != .migrated })
+        let multidayAssignment = note.allAssignmentsForTesting.first(where: { $0.status != .migrated })
         #expect(multidayAssignment?.period == .multiday)
 
         // --- Now the user creates a day spread for Jan 15 ---
         _ = try await manager.createSpread(period: .day, date: Self.targetDay)
 
         // The note's live assignment should now point to the day spread.
-        let liveAssignment = note.assignments.first(where: { $0.status != .migrated })
+        let liveAssignment = note.allAssignmentsForTesting.first(where: { $0.status != .migrated })
         #expect(liveAssignment?.period == .day, "Expected live assignment to be .day after day spread creation")
 
         // The day spread's data model should contain the note.

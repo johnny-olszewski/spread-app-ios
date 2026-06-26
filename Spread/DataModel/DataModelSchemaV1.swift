@@ -319,8 +319,11 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The current status of the task.
         var status: EntryStatus
 
-        /// Assignment history for this task across spreads.
-        var assignments: [Assignment]
+        /// The live, non-migrated assignment(s) for this task across spreads.
+        var currentAssignments: [Assignment]
+
+        /// Append-only record of assignments that have transitioned to `.migrated`.
+        var migrationHistory: [Assignment]
 
         /// The optional list this task belongs to (at most one).
         var list: DataModelSchemaV1.List?
@@ -384,7 +387,8 @@ enum DataModelSchemaV1: VersionedSchema {
         ///   - date: The preferred date (defaults to now).
         ///   - period: The preferred period (defaults to `.day`).
         ///   - status: The task status (defaults to `.open`).
-        ///   - assignments: Assignment history (defaults to empty).
+        ///   - currentAssignments: Live, non-migrated assignments (defaults to empty).
+        ///   - migrationHistory: Already-migrated assignment history (defaults to empty).
         init(
             id: UUID = UUID(),
             title: String = "",
@@ -395,7 +399,8 @@ enum DataModelSchemaV1: VersionedSchema {
             date: Date? = .now,
             period: Period? = .day,
             status: EntryStatus = .open,
-            assignments: [Assignment] = [],
+            currentAssignments: [Assignment] = [],
+            migrationHistory: [Assignment] = [],
             list: DataModelSchemaV1.List? = nil,
             tags: [DataModelSchemaV1.Tag] = [],
             deletedAt: Date? = nil,
@@ -419,7 +424,8 @@ enum DataModelSchemaV1: VersionedSchema {
             self.date = date
             self.period = period
             self.status = status
-            self.assignments = assignments
+            self.currentAssignments = currentAssignments
+            self.migrationHistory = migrationHistory
             self.list = list
             self.tags = tags
             self.deletedAt = deletedAt
@@ -627,8 +633,11 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The current status of the note.
         var status: EntryStatus
 
-        /// Assignment history for this note across spreads.
-        var assignments: [Assignment]
+        /// The live, non-migrated assignment(s) for this note across spreads.
+        var currentAssignments: [Assignment]
+
+        /// Append-only record of assignments that have transitioned to `.migrated`.
+        var migrationHistory: [Assignment]
 
         /// The optional list this note belongs to (at most one).
         var list: DataModelSchemaV1.List?
@@ -683,7 +692,8 @@ enum DataModelSchemaV1: VersionedSchema {
         ///   - date: The preferred date (defaults to now).
         ///   - period: The preferred period (defaults to `.day`).
         ///   - status: The note status (defaults to `.active`).
-        ///   - assignments: Assignment history (defaults to empty).
+        ///   - currentAssignments: Live, non-migrated assignments (defaults to empty).
+        ///   - migrationHistory: Already-migrated assignment history (defaults to empty).
         init(
             id: UUID = UUID(),
             title: String = "",
@@ -692,7 +702,8 @@ enum DataModelSchemaV1: VersionedSchema {
             date: Date? = .now,
             period: Period = .day,
             status: EntryStatus = .active,
-            assignments: [Assignment] = [],
+            currentAssignments: [Assignment] = [],
+            migrationHistory: [Assignment] = [],
             list: DataModelSchemaV1.List? = nil,
             tags: [DataModelSchemaV1.Tag] = [],
             deletedAt: Date? = nil,
@@ -712,7 +723,8 @@ enum DataModelSchemaV1: VersionedSchema {
             self.date = date
             self.period = period
             self.status = status
-            self.assignments = assignments
+            self.currentAssignments = currentAssignments
+            self.migrationHistory = migrationHistory
             self.list = list
             self.tags = tags
             self.deletedAt = deletedAt

@@ -47,13 +47,13 @@ struct EntryListDisplaySupportTests {
             title: "Active Note",
             date: dayDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .active)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .active)]
         )
         let migratedNote = DataModel.Note(
             title: "Migrated Note",
             date: dayDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .migrated)]
+            migrationHistory: [Assignment(period: .day, date: dayDate, status: .migrated)]
         )
         let spreadDataModel = SpreadDataModel(
             spread: spread,

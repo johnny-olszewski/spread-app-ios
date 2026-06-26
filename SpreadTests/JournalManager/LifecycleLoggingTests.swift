@@ -52,7 +52,7 @@ struct LifecycleLoggingTests {
 
         let task = try await manager.addTask(title: "Test", date: today, period: .day)
 
-        #expect(task.assignments.count == 1)
+        #expect(task.allAssignmentsForTesting.count == 1)
     }
 
     /// Conditions: A new spread is created that matches an inbox task.
@@ -65,7 +65,7 @@ struct LifecycleLoggingTests {
             date: today,
             period: .day,
             status: .open,
-            assignments: []
+            currentAssignments: []
         )
         let manager = try await makeManager(tasks: [task])
 
@@ -75,8 +75,8 @@ struct LifecycleLoggingTests {
         let spread = try await manager.addSpread(period: .day, date: today)
 
         #expect(manager.inboxEntries.isEmpty)
-        #expect(task.assignments.count == 1)
-        #expect(task.assignments.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
+        #expect(task.allAssignmentsForTesting.count == 1)
+        #expect(task.allAssignmentsForTesting.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
     }
 
     // MARK: - Migration Performed
@@ -95,14 +95,14 @@ struct LifecycleLoggingTests {
             date: today,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .month, date: monthDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: monthDate, status: .open)]
         )
         let manager = try await makeManager(tasks: [task], spreads: [monthSpread, daySpread])
 
         try await manager.migrateTask(task, from: monthSpread, to: daySpread)
 
         let updatedTask = manager.tasks.first { $0.id == task.id }
-        #expect(updatedTask?.assignments.count == 2)
+        #expect(updatedTask?.allAssignmentsForTesting.count == 2)
     }
 
     /// Conditions: A note is migrated from a month spread to a day spread.
@@ -119,7 +119,7 @@ struct LifecycleLoggingTests {
             date: today,
             period: .day,
             status: .active,
-            assignments: [Assignment(period: .month, date: monthDate, status: .active)]
+            currentAssignments: [Assignment(period: .month, date: monthDate, status: .active)]
         )
         let manager = try await makeManager(
             spreads: [monthSpread, daySpread],
@@ -129,7 +129,7 @@ struct LifecycleLoggingTests {
         try await manager.migrateNote(note, from: monthSpread, to: daySpread)
 
         let updatedNote = manager.notes.first { $0.id == note.id }
-        #expect(updatedNote?.assignments.count == 2)
+        #expect(updatedNote?.allAssignmentsForTesting.count == 2)
     }
 
     /// Conditions: Multiple tasks are batch-migrated.
@@ -147,7 +147,7 @@ struct LifecycleLoggingTests {
                 date: today,
                 period: .day,
                 status: .open,
-                assignments: [Assignment(period: .month, date: monthDate, status: .open)]
+                currentAssignments: [Assignment(period: .month, date: monthDate, status: .open)]
             )
         }
         let manager = try await makeManager(tasks: tasks, spreads: [monthSpread, daySpread])
@@ -155,7 +155,7 @@ struct LifecycleLoggingTests {
         try await manager.migrateTasksBatch(tasks, from: monthSpread, to: daySpread)
 
         for task in manager.tasks {
-            #expect(task.assignments.count == 2)
+            #expect(task.allAssignmentsForTesting.count == 2)
         }
     }
 
@@ -175,7 +175,7 @@ struct LifecycleLoggingTests {
             date: today,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
         let manager = try await makeManager(tasks: [task], spreads: [monthSpread, daySpread])
 
@@ -195,7 +195,7 @@ struct LifecycleLoggingTests {
 
         let task = try await manager.addTask(title: "No spread", date: today, period: .day)
 
-        #expect(task.assignments.isEmpty)
+        #expect(task.allAssignmentsForTesting.isEmpty)
     }
 
     /// Conditions: A task is created with a matching spread.
@@ -208,6 +208,6 @@ struct LifecycleLoggingTests {
 
         let task = try await manager.addTask(title: "Has spread", date: today, period: .day)
 
-        #expect(!task.assignments.isEmpty)
+        #expect(!task.allAssignmentsForTesting.isEmpty)
     }
 }

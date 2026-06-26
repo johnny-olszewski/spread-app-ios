@@ -148,9 +148,9 @@ struct TestDataBuildersTests {
         let task = taskSet.openOnDay
 
         #expect(task.status == .open)
-        #expect(task.assignments.count == 1)
-        #expect(task.assignments[0].period == .day)
-        #expect(task.assignments[0].status == .open)
+        #expect(task.allAssignmentsForTesting.count == 1)
+        #expect(task.allAssignmentsForTesting[0].period == .day)
+        #expect(task.allAssignmentsForTesting[0].status == .open)
     }
 
     /// Conditions: Generate tasks with default parameters.
@@ -160,10 +160,10 @@ struct TestDataBuildersTests {
         let task = taskSet.migratedFromMonthToDay
 
         #expect(task.status == .open)
-        #expect(task.assignments.count == 2)
+        #expect(task.allAssignmentsForTesting.count == 2)
 
-        let monthAssignment = task.assignments.first { $0.period == .month }
-        let dayAssignment = task.assignments.first { $0.period == .day }
+        let monthAssignment = task.allAssignmentsForTesting.first { $0.period == .month }
+        let dayAssignment = task.allAssignmentsForTesting.first { $0.period == .day }
         #expect(monthAssignment?.status == .migrated)
         #expect(dayAssignment?.status == .open)
     }
@@ -181,7 +181,7 @@ struct TestDataBuildersTests {
     @Test func tasksUnassignedHasNoAssignments() {
         let taskSet = TestDataBuilders.tasks()
 
-        #expect(taskSet.unassigned.assignments.isEmpty)
+        #expect(taskSet.unassigned.allAssignmentsForTesting.isEmpty)
     }
 
     /// Conditions: Generate tasks with default parameters.
@@ -217,9 +217,9 @@ struct TestDataBuildersTests {
         let note = noteSet.activeOnDay
 
         #expect(note.status == .active)
-        #expect(note.assignments.count == 1)
-        #expect(note.assignments[0].period == .day)
-        #expect(note.assignments[0].status == .active)
+        #expect(note.allAssignmentsForTesting.count == 1)
+        #expect(note.allAssignmentsForTesting[0].period == .day)
+        #expect(note.allAssignmentsForTesting[0].status == .active)
     }
 
     /// Conditions: Generate notes with default parameters.
@@ -228,10 +228,10 @@ struct TestDataBuildersTests {
         let noteSet = TestDataBuilders.notes()
         let note = noteSet.migratedFromMonthToDay
 
-        #expect(note.assignments.count == 2)
+        #expect(note.allAssignmentsForTesting.count == 2)
 
-        let monthAssignment = note.assignments.first { $0.period == .month }
-        let dayAssignment = note.assignments.first { $0.period == .day }
+        let monthAssignment = note.allAssignmentsForTesting.first { $0.period == .month }
+        let dayAssignment = note.allAssignmentsForTesting.first { $0.period == .day }
         #expect(monthAssignment?.status == .migrated)
         #expect(dayAssignment?.status == .active)
     }
@@ -249,7 +249,7 @@ struct TestDataBuildersTests {
     @Test func notesUnassignedHasNoAssignments() {
         let noteSet = TestDataBuilders.notes()
 
-        #expect(noteSet.unassigned.assignments.isEmpty)
+        #expect(noteSet.unassigned.allAssignmentsForTesting.isEmpty)
     }
 
     // MARK: - Migration Chain Scenario
@@ -259,11 +259,11 @@ struct TestDataBuildersTests {
     @Test func migrationChainTaskHasThreeAssignments() {
         let chain = TestDataBuilders.migrationChainSetup()
 
-        #expect(chain.task.assignments.count == 3)
+        #expect(chain.task.allAssignmentsForTesting.count == 3)
 
-        let yearAssignment = chain.task.assignments.first { $0.period == .year }
-        let monthAssignment = chain.task.assignments.first { $0.period == .month }
-        let dayAssignment = chain.task.assignments.first { $0.period == .day }
+        let yearAssignment = chain.task.allAssignmentsForTesting.first { $0.period == .year }
+        let monthAssignment = chain.task.allAssignmentsForTesting.first { $0.period == .month }
+        let dayAssignment = chain.task.allAssignmentsForTesting.first { $0.period == .day }
 
         #expect(yearAssignment?.status == .migrated)
         #expect(monthAssignment?.status == .migrated)
@@ -275,10 +275,10 @@ struct TestDataBuildersTests {
     @Test func migrationChainNoteHasTwoAssignments() {
         let chain = TestDataBuilders.migrationChainSetup()
 
-        #expect(chain.note.assignments.count == 2)
+        #expect(chain.note.allAssignmentsForTesting.count == 2)
 
-        let monthAssignment = chain.note.assignments.first { $0.period == .month }
-        let dayAssignment = chain.note.assignments.first { $0.period == .day }
+        let monthAssignment = chain.note.allAssignmentsForTesting.first { $0.period == .month }
+        let dayAssignment = chain.note.allAssignmentsForTesting.first { $0.period == .day }
 
         #expect(monthAssignment?.status == .migrated)
         #expect(dayAssignment?.status == .active)
@@ -313,8 +313,8 @@ struct TestDataBuildersTests {
 
         for task in batch.tasks {
             #expect(task.status == .open)
-            #expect(task.assignments.count == 1)
-            #expect(task.assignments[0].period == batch.sourceSpread.period)
+            #expect(task.allAssignmentsForTesting.count == 1)
+            #expect(task.allAssignmentsForTesting[0].period == batch.sourceSpread.period)
         }
     }
 
@@ -343,8 +343,8 @@ struct TestDataBuildersTests {
     @Test func spreadDeletionSiblingTaskIsOnSibling() {
         let deletion = TestDataBuilders.spreadDeletionSetup()
 
-        #expect(deletion.taskOnSibling.assignments[0].period == deletion.siblingSpread.period)
-        #expect(deletion.taskOnSibling.assignments[0].period != deletion.targetSpread.period)
+        #expect(deletion.taskOnSibling.allAssignmentsForTesting[0].period == deletion.siblingSpread.period)
+        #expect(deletion.taskOnSibling.allAssignmentsForTesting[0].period != deletion.targetSpread.period)
     }
 
     // MARK: - Boundary Scenario
@@ -485,8 +485,8 @@ struct TestDataBuildersTests {
         #expect(components.month == 2)
         #expect(components.day == 29)
         #expect(leapDay.taskOnLeapDay.status == .open)
-        #expect(leapDay.taskOnLeapDay.assignments.count == 1)
-        #expect(leapDay.taskOnLeapDay.assignments[0].period == .day)
+        #expect(leapDay.taskOnLeapDay.allAssignmentsForTesting.count == 1)
+        #expect(leapDay.taskOnLeapDay.allAssignmentsForTesting[0].period == .day)
     }
 
     /// Conditions: Generate leap day setup.
@@ -499,7 +499,7 @@ struct TestDataBuildersTests {
         #expect(components.month == 2)
         #expect(components.day == 29)
         #expect(leapDay.noteOnLeapDay.status == .active)
-        #expect(leapDay.noteOnLeapDay.assignments.count == 1)
+        #expect(leapDay.noteOnLeapDay.allAssignmentsForTesting.count == 1)
     }
 
     /// Conditions: Generate leap day setup with all spreads.

@@ -416,7 +416,7 @@ final class JournalManager {
         guard destination.period.canHaveTasksAssigned else { return [] }
         return tasks.filter { task in
             guard task.status != .cancelled else { return false }
-            guard let sourceAssignment = task.assignments.first(where: { $0.matches(spread: source, calendar: calendar) }) else {
+            guard let sourceAssignment = task.currentAssignments.first(where: { $0.matches(spread: source, calendar: calendar) }) else {
                 return false
             }
             return sourceAssignment.status == .open
@@ -563,19 +563,46 @@ final class JournalManager {
         let parentSpread = spread.period == .multiday ? nil : findParentSpread(for: spread, in: spreads)
 
         for task in tasks {
-            guard let sourceIndex = task.assignments.firstIndex(where: { $0.matches(spread: spread, calendar: calendar) }) else {
+            let previousTaskAssignments = task.currentAssignments + task.migrationHistory
+
+            let sourceAssignment: Assignment
+            if let currentIndex = task.currentAssignments.firstIndex(where: { $0.matches(spread: spread, calendar: calendar) }) {
+                sourceAssignment = task.currentAssignments.remove(at: currentIndex)
+            } else if let historyIndex = task.migrationHistory.firstIndex(where: { $0.matches(spread: spread, calendar: calendar) }) {
+                sourceAssignment = task.migrationHistory.remove(at: historyIndex)
+            } else {
                 continue
             }
-            let previousTaskAssignments = task.assignments
-            let preservedStatus = task.assignments[sourceIndex].status
-            task.assignments[sourceIndex].status = .migrated
+            let preservedStatus = sourceAssignment.status
+
+            // The source assignment always ends up migrated history, whether or not a
+            // replacement is found — deleting its spread invalidates it as a current
+            // pointer either way.
+            var sourceAsHistory = sourceAssignment
+            sourceAsHistory.status = .migrated
+            task.migrationHistory.append(sourceAsHistory)
+
             if let replacement = replacementSpread(for: task, deleting: spread, parentSpread: parentSpread) {
-                if let destinationIndex = task.assignments.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
-                    task.assignments[destinationIndex].status = preservedStatus
+                if let destinationIndex = task.currentAssignments.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
+                    task.currentAssignments[destinationIndex].status = preservedStatus
+                } else if let historyIndex = task.migrationHistory.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
+                    if preservedStatus == .migrated {
+                        task.migrationHistory[historyIndex].status = preservedStatus
+                    } else {
+                        var revived = task.migrationHistory.remove(at: historyIndex)
+                        revived.status = preservedStatus
+                        task.currentAssignments.append(revived)
+                    }
                 } else {
-                    task.assignments.append(Assignment(period: replacement.period, date: replacement.date, status: preservedStatus))
+                    let newAssignment = Assignment(period: replacement.period, date: replacement.date, status: preservedStatus)
+                    if preservedStatus == .migrated {
+                        task.migrationHistory.append(newAssignment)
+                    } else {
+                        task.currentAssignments.append(newAssignment)
+                    }
                 }
             }
+
             try await taskRepository.save(
                 task,
                 change: EntityChange(isNew: false, previousAssignments: previousTaskAssignments, previousTagIDs: task.tags.map(\.id))
@@ -584,19 +611,46 @@ final class JournalManager {
         }
 
         for note in notes {
-            guard let sourceIndex = note.assignments.firstIndex(where: { $0.matches(spread: spread, calendar: calendar) }) else {
+            let previousNoteAssignments = note.currentAssignments + note.migrationHistory
+
+            let sourceAssignment: Assignment
+            if let currentIndex = note.currentAssignments.firstIndex(where: { $0.matches(spread: spread, calendar: calendar) }) {
+                sourceAssignment = note.currentAssignments.remove(at: currentIndex)
+            } else if let historyIndex = note.migrationHistory.firstIndex(where: { $0.matches(spread: spread, calendar: calendar) }) {
+                sourceAssignment = note.migrationHistory.remove(at: historyIndex)
+            } else {
                 continue
             }
-            let previousNoteAssignments = note.assignments
-            let preservedStatus = note.assignments[sourceIndex].status
-            note.assignments[sourceIndex].status = .migrated
+            let preservedStatus = sourceAssignment.status
+
+            // The source assignment always ends up migrated history, whether or not a
+            // replacement is found — deleting its spread invalidates it as a current
+            // pointer either way.
+            var sourceAsHistory = sourceAssignment
+            sourceAsHistory.status = .migrated
+            note.migrationHistory.append(sourceAsHistory)
+
             if let replacement = replacementSpread(for: note, deleting: spread, parentSpread: parentSpread) {
-                if let destinationIndex = note.assignments.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
-                    note.assignments[destinationIndex].status = preservedStatus
+                if let destinationIndex = note.currentAssignments.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
+                    note.currentAssignments[destinationIndex].status = preservedStatus
+                } else if let historyIndex = note.migrationHistory.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
+                    if preservedStatus == .migrated {
+                        note.migrationHistory[historyIndex].status = preservedStatus
+                    } else {
+                        var revived = note.migrationHistory.remove(at: historyIndex)
+                        revived.status = preservedStatus
+                        note.currentAssignments.append(revived)
+                    }
                 } else {
-                    note.assignments.append(Assignment(period: replacement.period, date: replacement.date, status: preservedStatus))
+                    let newAssignment = Assignment(period: replacement.period, date: replacement.date, status: preservedStatus)
+                    if preservedStatus == .migrated {
+                        note.migrationHistory.append(newAssignment)
+                    } else {
+                        note.currentAssignments.append(newAssignment)
+                    }
                 }
             }
+
             try await noteRepository.save(
                 note,
                 change: EntityChange(isNew: false, previousAssignments: previousNoteAssignments, previousTagIDs: note.tags.map(\.id))
@@ -670,18 +724,18 @@ final class JournalManager {
         var migratedNoteCount = 0
 
         for task in tasks where task.date != nil && task.status != .cancelled && task.status != .migrated {
-            let previousAssignments = task.assignments
+            let previousAssignments = task.currentAssignments + task.migrationHistory
             ruleEngine.reconcilePreferredAssignment(for: task, in: spreads, preferredSpreadID: nil)
-            guard task.assignments != previousAssignments else { continue }
+            guard task.currentAssignments + task.migrationHistory != previousAssignments else { continue }
             try await taskRepository.save(task, change: EntityChange(isNew: false, previousAssignments: previousAssignments, previousTagIDs: task.tags.map(\.id)))
             upsertTask(task)
             migratedTaskCount += 1
         }
 
         for note in notes where note.status != .migrated {
-            let previousAssignments = note.assignments
+            let previousAssignments = note.currentAssignments + note.migrationHistory
             ruleEngine.reconcilePreferredAssignment(for: note, in: spreads, preferredSpreadID: nil)
-            guard note.assignments != previousAssignments else { continue }
+            guard note.currentAssignments + note.migrationHistory != previousAssignments else { continue }
             try await noteRepository.save(note, change: EntityChange(isNew: false, previousAssignments: previousAssignments, previousTagIDs: note.tags.map(\.id)))
             upsertNote(note)
             migratedNoteCount += 1
@@ -702,24 +756,30 @@ final class JournalManager {
     func moveTask(_ task: DataModel.Task, from sourceKey: TaskReviewSourceKey, to destination: DataModel.Spread) async throws {
         guard task.status != .cancelled else { throw MigrationError.taskCancelled }
         guard destination.period.canHaveTasksAssigned else { throw MigrationError.destinationNotAssignable }
-        let previousAssignments = task.assignments
+        let previousAssignments = task.currentAssignments + task.migrationHistory
 
         switch sourceKey.kind {
         case .inbox:
             break
         case .spread(let sourceSpreadID, let sourcePeriod, let sourceDate):
-            guard let sourceIndex = task.assignments.firstIndex(where: {
+            guard let sourceIndex = task.currentAssignments.firstIndex(where: {
                 $0.matches(period: sourcePeriod, date: sourceDate, spreadID: sourceSpreadID, calendar: calendar)
             }) else {
                 throw MigrationError.noSourceAssignment
             }
-            task.assignments[sourceIndex].status = .migrated
+            var sourceAssignment = task.currentAssignments.remove(at: sourceIndex)
+            sourceAssignment.status = .migrated
+            task.migrationHistory.append(sourceAssignment)
         }
 
-        if let destinationIndex = task.assignments.firstIndex(where: { $0.matches(spread: destination, calendar: calendar) }) {
-            task.assignments[destinationIndex].status = .open
+        if let destinationIndex = task.currentAssignments.firstIndex(where: { $0.matches(spread: destination, calendar: calendar) }) {
+            task.currentAssignments[destinationIndex].status = .open
+        } else if let historyIndex = task.migrationHistory.firstIndex(where: { $0.matches(spread: destination, calendar: calendar) }) {
+            var revived = task.migrationHistory.remove(at: historyIndex)
+            revived.status = .open
+            task.currentAssignments.append(revived)
         } else {
-            task.assignments.append(
+            task.currentAssignments.append(
                 Assignment(period: destination.period, date: destination.date, spreadID: destination.period == .multiday ? destination.id : nil, status: .open)
             )
         }
@@ -739,16 +799,22 @@ final class JournalManager {
 
         for task in tasks {
             guard task.status != .cancelled else { continue }
-            guard let sourceIndex = task.assignments.firstIndex(where: { $0.matches(spread: source, calendar: calendar) }) else {
+            guard let sourceIndex = task.currentAssignments.firstIndex(where: { $0.matches(spread: source, calendar: calendar) }) else {
                 continue
             }
-            let previousAssignments = task.assignments
-            task.assignments[sourceIndex].status = .migrated
+            let previousAssignments = task.currentAssignments + task.migrationHistory
+            var sourceAssignment = task.currentAssignments.remove(at: sourceIndex)
+            sourceAssignment.status = .migrated
+            task.migrationHistory.append(sourceAssignment)
 
-            if let destinationIndex = task.assignments.firstIndex(where: { $0.matches(spread: destination, calendar: calendar) }) {
-                task.assignments[destinationIndex].status = .open
+            if let destinationIndex = task.currentAssignments.firstIndex(where: { $0.matches(spread: destination, calendar: calendar) }) {
+                task.currentAssignments[destinationIndex].status = .open
+            } else if let historyIndex = task.migrationHistory.firstIndex(where: { $0.matches(spread: destination, calendar: calendar) }) {
+                var revived = task.migrationHistory.remove(at: historyIndex)
+                revived.status = .open
+                task.currentAssignments.append(revived)
             } else {
-                task.assignments.append(
+                task.currentAssignments.append(
                     Assignment(period: destination.period, date: destination.date, spreadID: destination.period == .multiday ? destination.id : nil, status: .open)
                 )
             }
@@ -765,16 +831,22 @@ final class JournalManager {
     /// user action, not batch migration.
     func migrateNote(_ note: DataModel.Note, from source: DataModel.Spread, to destination: DataModel.Spread) async throws {
         guard destination.period.canHaveTasksAssigned else { throw MigrationError.destinationNotAssignable }
-        guard let sourceIndex = note.assignments.firstIndex(where: { $0.matches(spread: source, calendar: calendar) }) else {
+        guard let sourceIndex = note.currentAssignments.firstIndex(where: { $0.matches(spread: source, calendar: calendar) }) else {
             throw MigrationError.noSourceAssignment
         }
-        let previousAssignments = note.assignments
-        note.assignments[sourceIndex].status = .migrated
+        let previousAssignments = note.currentAssignments + note.migrationHistory
+        var sourceAssignment = note.currentAssignments.remove(at: sourceIndex)
+        sourceAssignment.status = .migrated
+        note.migrationHistory.append(sourceAssignment)
 
-        if let destinationIndex = note.assignments.firstIndex(where: { $0.matches(spread: destination, calendar: calendar) }) {
-            note.assignments[destinationIndex].status = .active
+        if let destinationIndex = note.currentAssignments.firstIndex(where: { $0.matches(spread: destination, calendar: calendar) }) {
+            note.currentAssignments[destinationIndex].status = .active
+        } else if let historyIndex = note.migrationHistory.firstIndex(where: { $0.matches(spread: destination, calendar: calendar) }) {
+            var revived = note.migrationHistory.remove(at: historyIndex)
+            revived.status = .active
+            note.currentAssignments.append(revived)
         } else {
-            note.assignments.append(
+            note.currentAssignments.append(
                 Assignment(period: destination.period, date: destination.date, spreadID: destination.period == .multiday ? destination.id : nil, status: .active)
             )
         }
@@ -800,7 +872,7 @@ final class JournalManager {
         guard list != nil || tag != nil else { return task }
         if let list { task.list = list }
         if let tag { task.tags = [tag] }
-        try await taskRepository.save(task, change: EntityChange(isNew: false, previousAssignments: task.assignments, previousTagIDs: []))
+        try await taskRepository.save(task, change: EntityChange(isNew: false, previousAssignments: task.currentAssignments + task.migrationHistory, previousTagIDs: []))
         upsertTask(task)
         return task
     }
@@ -825,7 +897,7 @@ final class JournalManager {
             date: normalizedDate,
             period: period,
             status: .open,
-            assignments: []
+            currentAssignments: []
         )
 
         if normalizedDate != nil {
@@ -835,7 +907,7 @@ final class JournalManager {
         try await taskRepository.save(task, change: EntityChange(isNew: true))
         upsertTask(task)
 
-        if task.assignments.isEmpty {
+        if task.currentAssignments.isEmpty {
             Self.logger.debug("Task created: \(task.id, privacy: .public) '\(task.title, privacy: .public)' → Inbox (no matching spread)")
         } else {
             Self.logger.debug("Task created: \(task.id, privacy: .public) '\(task.title, privacy: .public)' → \(task.period?.rawValue ?? "none", privacy: .public) spread")
@@ -846,7 +918,7 @@ final class JournalManager {
 
     /// Updates a task's title.
     func updateTaskTitle(_ task: DataModel.Task, newTitle: String) async throws {
-        let change = EntityChange(isNew: false, previousAssignments: task.assignments, previousTagIDs: task.tags.map(\.id))
+        let change = EntityChange(isNew: false, previousAssignments: task.currentAssignments + task.migrationHistory, previousTagIDs: task.tags.map(\.id))
         task.title = newTitle
         try await taskRepository.save(task, change: change)
         upsertTask(task)
@@ -855,7 +927,7 @@ final class JournalManager {
     /// Updates a task's status (excluding `.migrated`, which is only set by migration flows).
     func updateTaskStatus(_ task: DataModel.Task, newStatus: EntryStatus) async throws {
         guard newStatus != .migrated else { throw TaskMutationError.manualMigratedStatusNotAllowed }
-        let change = EntityChange(isNew: false, previousAssignments: task.assignments, previousTagIDs: task.tags.map(\.id))
+        let change = EntityChange(isNew: false, previousAssignments: task.currentAssignments + task.migrationHistory, previousTagIDs: task.tags.map(\.id))
         task.status = newStatus
         try await taskRepository.save(task, change: change)
         upsertTask(task)
@@ -863,7 +935,7 @@ final class JournalManager {
 
     /// Updates a task's preferred date and period, reconciling its spread assignment.
     func updateTaskDateAndPeriod(_ task: DataModel.Task, newDate: Date, newPeriod: Period, preferredSpreadID: UUID? = nil) async throws {
-        let change = EntityChange(isNew: false, previousAssignments: task.assignments, previousTagIDs: task.tags.map(\.id))
+        let change = EntityChange(isNew: false, previousAssignments: task.currentAssignments + task.migrationHistory, previousTagIDs: task.tags.map(\.id))
         task.date = newPeriod.normalizeDate(newDate, calendar: calendar)
         task.period = newPeriod
         ruleEngine.reconcilePreferredAssignment(for: task, in: spreads, preferredSpreadID: preferredSpreadID)
@@ -898,13 +970,13 @@ final class JournalManager {
             task.tags = tags
         }
 
-        try await taskRepository.save(task, change: EntityChange(isNew: false, previousAssignments: task.assignments, previousTagIDs: previousTagIDs))
+        try await taskRepository.save(task, change: EntityChange(isNew: false, previousAssignments: task.currentAssignments + task.migrationHistory, previousTagIDs: previousTagIDs))
         upsertTask(task)
     }
 
     /// Clears a task's preferred assignment, leaving it in Inbox until explicitly reassigned.
     func clearTaskPreferredAssignment(_ task: DataModel.Task) async throws {
-        let change = EntityChange(isNew: false, previousAssignments: task.assignments, previousTagIDs: task.tags.map(\.id))
+        let change = EntityChange(isNew: false, previousAssignments: task.currentAssignments + task.migrationHistory, previousTagIDs: task.tags.map(\.id))
         task.date = nil
         task.period = nil
         ruleEngine.reconcilePreferredAssignment(for: task, in: spreads, preferredSpreadID: nil)
@@ -935,13 +1007,13 @@ final class JournalManager {
             content: content,
             date: period.normalizeDate(date, calendar: calendar),
             period: period,
-            assignments: []
+            currentAssignments: []
         )
         ruleEngine.reconcilePreferredAssignment(for: note, in: spreads, preferredSpreadID: preferredSpreadID)
         try await noteRepository.save(note, change: EntityChange(isNew: true))
         upsertNote(note)
 
-        if note.assignments.isEmpty {
+        if note.currentAssignments.isEmpty {
             Self.logger.debug("Note created: \(note.id, privacy: .public) '\(note.title, privacy: .public)' → Inbox (no matching spread)")
         } else {
             Self.logger.debug("Note created: \(note.id, privacy: .public) '\(note.title, privacy: .public)' → \(note.period.rawValue, privacy: .public) spread")
@@ -958,7 +1030,7 @@ final class JournalManager {
 
     /// Updates a note's title and content.
     func updateNoteTitle(_ note: DataModel.Note, newTitle: String, newContent: String) async throws {
-        let change = EntityChange(isNew: false, previousAssignments: note.assignments, previousTagIDs: note.tags.map(\.id))
+        let change = EntityChange(isNew: false, previousAssignments: note.currentAssignments + note.migrationHistory, previousTagIDs: note.tags.map(\.id))
         note.title = newTitle
         note.content = newContent
         try await noteRepository.save(note, change: change)
@@ -978,13 +1050,13 @@ final class JournalManager {
             note.tags = tags
         }
 
-        try await noteRepository.save(note, change: EntityChange(isNew: false, previousAssignments: note.assignments, previousTagIDs: previousTagIDs))
+        try await noteRepository.save(note, change: EntityChange(isNew: false, previousAssignments: note.currentAssignments + note.migrationHistory, previousTagIDs: previousTagIDs))
         upsertNote(note)
     }
 
     /// Updates a note's preferred date and period, reconciling its spread assignment.
     func updateNoteDateAndPeriod(_ note: DataModel.Note, newDate: Date, newPeriod: Period, preferredSpreadID: UUID? = nil) async throws {
-        let change = EntityChange(isNew: false, previousAssignments: note.assignments, previousTagIDs: note.tags.map(\.id))
+        let change = EntityChange(isNew: false, previousAssignments: note.currentAssignments + note.migrationHistory, previousTagIDs: note.tags.map(\.id))
         note.date = newPeriod.normalizeDate(newDate, calendar: calendar)
         note.period = newPeriod
         ruleEngine.reconcilePreferredAssignment(for: note, in: spreads, preferredSpreadID: preferredSpreadID)

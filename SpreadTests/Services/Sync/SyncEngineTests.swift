@@ -408,12 +408,12 @@ struct SyncEngineTests {
         #expect(assignedTask.priority == .high)
         #expect(assignedTask.dueDate.map(SyncDateFormatting.formatDate) == "2026-04-03")
         #expect(assignedTask.date != nil)
-        #expect(assignedTask.assignments.first?.id == Self.wkflw17AssignmentID)
+        #expect(assignedTask.allAssignmentsForTesting.first?.id == Self.wkflw17AssignmentID)
         #expect(monthModel.tasks.contains { $0.id == assignedTask.id })
         #expect(inboxTask.body == "Inbox body")
         #expect(inboxTask.priority == .medium)
         #expect(inboxTask.date == nil)
-        #expect(inboxTask.assignments.isEmpty)
+        #expect(inboxTask.allAssignmentsForTesting.isEmpty)
         #expect(manager.inboxEntries.contains { $0.id == inboxTask.id })
     }
 
@@ -518,9 +518,11 @@ struct SyncEngineTests {
 
         let task = DataModel.Task(
             title: "Repair me",
-            assignments: [
-                Assignment(period: .year, date: .now, status: .migrated),
+            currentAssignments: [
                 Assignment(period: .month, date: .now, status: .open)
+            ],
+            migrationHistory: [
+                Assignment(period: .year, date: .now, status: .migrated)
             ]
         )
         container.mainContext.insert(task)
@@ -556,7 +558,7 @@ struct SyncEngineTests {
 
         let note = DataModel.Note(
             title: "Already synced",
-            assignments: [Assignment(period: .day, date: .now, status: .active)]
+            currentAssignments: [Assignment(period: .day, date: .now, status: .active)]
         )
         container.mainContext.insert(note)
         try container.mainContext.save()
@@ -584,7 +586,7 @@ struct SyncEngineTests {
         let container = try ModelContainerFactory.makeInMemory()
         let task = DataModel.Task(
             title: "Already repaired",
-            assignments: [Assignment(period: .day, date: .now, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: .now, status: .open)]
         )
         container.mainContext.insert(task)
         container.mainContext.insert(
@@ -635,7 +637,7 @@ struct SyncEngineTests {
         let container = try ModelContainerFactory.makeInMemory()
         let task = DataModel.Task(
             title: "Repair me later",
-            assignments: [Assignment(period: .month, date: .now, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: .now, status: .open)]
         )
         container.mainContext.insert(task)
         container.mainContext.insert(
@@ -698,14 +700,16 @@ struct SyncEngineTests {
         let task = DataModel.Task(
             id: taskID,
             title: "Multiday identity task",
-            assignments: [
+            currentAssignments: [
                 Assignment(
                     id: UUID(uuidString: "00000000-0000-0000-0000-000000193305")!,
                     period: .multiday,
                     date: sharedDate,
                     spreadID: leftSpreadID,
                     status: .open
-                ),
+                )
+            ],
+            migrationHistory: [
                 Assignment(
                     id: UUID(uuidString: "00000000-0000-0000-0000-000000193306")!,
                     period: .multiday,
@@ -725,13 +729,13 @@ struct SyncEngineTests {
         )
         let updatedTask = try #require(container.mainContext.fetch(descriptor).first)
 
-        #expect(updatedTask.assignments.count == 2)
-        #expect(updatedTask.assignments.contains {
+        #expect(updatedTask.allAssignmentsForTesting.count == 2)
+        #expect(updatedTask.allAssignmentsForTesting.contains {
             $0.spreadID == leftSpreadID &&
             $0.id.uuidString == "00000000-0000-0000-0000-000000193305" &&
             $0.status == .open
         })
-        #expect(updatedTask.assignments.contains {
+        #expect(updatedTask.allAssignmentsForTesting.contains {
             $0.spreadID == rightSpreadID &&
             $0.id == replacementAssignmentID &&
             $0.status == .open

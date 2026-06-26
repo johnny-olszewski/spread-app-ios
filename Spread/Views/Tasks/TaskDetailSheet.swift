@@ -95,7 +95,7 @@ struct TaskDetailSheet: View {
                     compactDivider
                     assignmentSection
 
-                    if !task.assignments.isEmpty {
+                    if !task.migrationHistory.isEmpty || !task.currentAssignments.isEmpty {
                         compactDivider
                         assignmentHistorySection
                     }
@@ -443,7 +443,7 @@ struct TaskDetailSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Assignment History")
 
-            ForEach(Array(task.assignments.enumerated()), id: \.element) {
+            ForEach(Array((task.migrationHistory + task.currentAssignments).enumerated()), id: \.element) {
                 index,
                 assignment in
                 HStack {
@@ -547,7 +547,7 @@ struct TaskDetailSheet: View {
     }
 
     private var currentMultidaySpreadID: UUID? {
-        task.assignments.first(where: { $0.status != .migrated && $0.period == .multiday })?.spreadID
+        task.currentAssignments.first(where: { $0.period == .multiday })?.spreadID
     }
 
     private var compactDivider: some View {
@@ -700,7 +700,7 @@ struct TaskDetailSheet: View {
     let task = DataModel.Task(
         title: "Review project timeline",
         status: .open,
-        assignments: [
+        currentAssignments: [
             Assignment(period: .month, date: Date(), status: .open)
         ]
     )

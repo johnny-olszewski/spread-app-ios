@@ -70,7 +70,7 @@ final class SwiftDataTaskRepository: TaskRepository {
             enqueueTaskAssignmentMutations(
                 taskId: request.task.id,
                 previousAssignments: request.change.previousAssignments,
-                currentAssignments: request.task.assignments,
+                currentAssignments: request.task.currentAssignments + request.task.migrationHistory,
                 timestamp: timestamp
             )
             enqueueTaskTagMutations(
@@ -90,7 +90,11 @@ final class SwiftDataTaskRepository: TaskRepository {
         let timestamp = nowProvider()
 
         enqueueTaskMutation(task, operation: .delete, timestamp: timestamp)
-        enqueueTaskAssignmentTombstones(task.assignments, taskId: task.id, timestamp: timestamp)
+        enqueueTaskAssignmentTombstones(
+            task.currentAssignments + task.migrationHistory,
+            taskId: task.id,
+            timestamp: timestamp
+        )
         enqueueTaskTagTombstones(tagIds: task.tags.map(\.id), taskId: task.id, timestamp: timestamp)
         modelContext.delete(task)
         try modelContext.save()

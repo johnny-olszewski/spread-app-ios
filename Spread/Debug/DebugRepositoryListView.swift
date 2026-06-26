@@ -103,7 +103,7 @@ struct DebugRepositoryListView: View {
 
             HStack(spacing: 12) {
                 Label(task.status.rawValue, systemImage: statusIcon(for: task.status))
-                Label("\(task.assignments.count) assignments", systemImage: "link")
+                Label("\(task.currentAssignments.count + task.migrationHistory.count) assignments", systemImage: "link")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -287,7 +287,7 @@ struct DebugRepositoryListView: View {
 
             HStack(spacing: 12) {
                 Label(note.status.rawValue, systemImage: statusIcon(for: note.status))
-                Label("\(note.assignments.count) assignments", systemImage: "link")
+                Label("\(note.currentAssignments.count + note.migrationHistory.count) assignments", systemImage: "link")
             }
             .font(.caption)
             .foregroundStyle(.secondary)

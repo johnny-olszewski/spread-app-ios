@@ -29,10 +29,12 @@ struct JournalRuleEngineTests {
             title: "Scoped",
             date: taskDate,
             period: .multiday,
-            assignments: [
-                Assignment(period: .year, date: taskDate, status: .migrated),
+            currentAssignments: [
                 Assignment(period: .day, date: taskDate, status: .open),
                 Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .open)
+            ],
+            migrationHistory: [
+                Assignment(period: .year, date: taskDate, status: .migrated)
             ]
         )
 
@@ -59,10 +61,12 @@ struct JournalRuleEngineTests {
             title: "Scoped Note",
             date: noteDate,
             period: .multiday,
-            assignments: [
-                Assignment(period: .year, date: noteDate, status: .migrated),
+            currentAssignments: [
                 Assignment(period: .month, date: noteDate, status: .active),
                 Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .active)
+            ],
+            migrationHistory: [
+                Assignment(period: .year, date: noteDate, status: .migrated)
             ]
         )
 
@@ -84,9 +88,9 @@ struct JournalRuleEngineTests {
     /// would also include the note.
     @Test func testInboxEntriesExcludesCancelledTasksAndAllNotes() {
         let dayDate = Self.makeDate(year: 2026, month: 1, day: 12)
-        let openTask = DataModel.Task(title: "Open", date: dayDate, period: .day, assignments: [])
-        let cancelledTask = DataModel.Task(title: "Cancelled", date: dayDate, period: .day, status: .cancelled, assignments: [])
-        let note = DataModel.Note(title: "Note", date: dayDate, period: .day, assignments: [])
+        let openTask = DataModel.Task(title: "Open", date: dayDate, period: .day, currentAssignments: [])
+        let cancelledTask = DataModel.Task(title: "Cancelled", date: dayDate, period: .day, status: .cancelled, currentAssignments: [])
+        let note = DataModel.Note(title: "Note", date: dayDate, period: .day, currentAssignments: [])
 
         let engine = JournalRuleEngine(calendar: Self.calendar)
         let entries = engine.inboxEntries(
@@ -107,7 +111,7 @@ struct JournalRuleEngineTests {
             title: "Migrated only",
             date: dayDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .migrated)]
+            migrationHistory: [Assignment(period: .day, date: dayDate, status: .migrated)]
         )
 
         let engine = JournalRuleEngine(calendar: Self.calendar)
@@ -126,7 +130,7 @@ struct JournalRuleEngineTests {
             title: "Assigned task",
             date: dayDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
 
         let engine = JournalRuleEngine(calendar: Self.calendar)
@@ -151,7 +155,7 @@ struct JournalRuleEngineTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
 
         let engine = JournalRuleEngine(calendar: Self.calendar)
@@ -185,14 +189,14 @@ struct JournalRuleEngineTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
         let monthTask = DataModel.Task(
             title: "Alpha",
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .month, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
         let inboxTask = DataModel.Task(
             title: "Inbox",
@@ -224,7 +228,7 @@ struct JournalRuleEngineTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .open),
                 Assignment(period: .day, date: taskDate, status: .complete)
             ]
@@ -258,7 +262,7 @@ struct JournalRuleEngineTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
 
         let engine = JournalRuleEngine(calendar: Self.calendar)
@@ -303,7 +307,7 @@ struct JournalRuleEngineTests {
             date: Self.makeDate(year: 2026, month: 5, day: 20),
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .month, date: monthDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: monthDate, status: .open)]
         )
 
         let engine = JournalRuleEngine(calendar: Self.calendar, today: today)
@@ -385,7 +389,7 @@ struct JournalRuleEngineTests {
             date: Self.makeDate(year: 2026, month: 4, day: 9),
             period: .multiday,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(
                     period: .multiday,
                     date: multidaySpread.date,
@@ -416,7 +420,7 @@ struct JournalRuleEngineTests {
             date: Self.makeDate(year: 2026, month: 4, day: 9),
             period: .multiday,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(
                     period: .multiday,
                     date: multidaySpread.date,
@@ -443,14 +447,14 @@ struct JournalRuleEngineTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
 
         let engine = JournalRuleEngine(calendar: Self.calendar)
         engine.reconcilePreferredAssignment(for: task, in: [])
 
-        #expect(task.assignments.count == 1)
-        #expect(task.assignments.first?.status == .migrated)
+        #expect(task.allAssignmentsForTesting.count == 1)
+        #expect(task.allAssignmentsForTesting.first?.status == .migrated)
     }
 
     /// Setup: a complete task with a migrated-history month assignment matching an existing month spread.
@@ -463,8 +467,10 @@ struct JournalRuleEngineTests {
             date: taskDate,
             period: .month,
             status: .complete,
-            assignments: [
-                Assignment(period: .year, date: taskDate, status: .open),
+            currentAssignments: [
+                Assignment(period: .year, date: taskDate, status: .open)
+            ],
+            migrationHistory: [
                 Assignment(period: .month, date: taskDate, status: .migrated)
             ]
         )
@@ -472,8 +478,8 @@ struct JournalRuleEngineTests {
         let engine = JournalRuleEngine(calendar: Self.calendar)
         engine.reconcilePreferredAssignment(for: task, in: [monthSpread])
 
-        #expect(task.assignments[0].status == .migrated)
-        #expect(task.assignments[1].status == .complete)
+        #expect(task.allAssignmentsForTesting[0].status == .migrated)
+        #expect(task.allAssignmentsForTesting[1].status == .complete)
     }
 
     /// Setup: a note with an active year assignment, reconciled against a matching day spread.
@@ -485,16 +491,16 @@ struct JournalRuleEngineTests {
             title: "Note",
             date: noteDate,
             period: .day,
-            assignments: [Assignment(period: .year, date: noteDate, status: .active)]
+            currentAssignments: [Assignment(period: .year, date: noteDate, status: .active)]
         )
 
         let engine = JournalRuleEngine(calendar: Self.calendar)
         engine.reconcilePreferredAssignment(for: note, in: [daySpread])
 
-        #expect(note.assignments.count == 2)
-        #expect(note.assignments[0].status == .migrated)
-        #expect(note.assignments[1].status == .active)
-        #expect(note.assignments[1].period == .day)
+        #expect(note.allAssignmentsForTesting.count == 2)
+        #expect(note.allAssignmentsForTesting[0].status == .migrated)
+        #expect(note.allAssignmentsForTesting[1].status == .active)
+        #expect(note.allAssignmentsForTesting[1].period == .day)
     }
 
     /// Setup: a note with a migrated-history day assignment matching an existing day spread.
@@ -506,8 +512,10 @@ struct JournalRuleEngineTests {
             title: "Note",
             date: noteDate,
             period: .day,
-            assignments: [
-                Assignment(period: .month, date: noteDate, status: .active),
+            currentAssignments: [
+                Assignment(period: .month, date: noteDate, status: .active)
+            ],
+            migrationHistory: [
                 Assignment(period: .day, date: noteDate, status: .migrated)
             ]
         )
@@ -515,7 +523,7 @@ struct JournalRuleEngineTests {
         let engine = JournalRuleEngine(calendar: Self.calendar)
         engine.reconcilePreferredAssignment(for: note, in: [daySpread])
 
-        #expect(note.assignments[0].status == .migrated)
-        #expect(note.assignments[1].status == .active)
+        #expect(note.allAssignmentsForTesting[0].status == .migrated)
+        #expect(note.allAssignmentsForTesting[1].status == .active)
     }
 }

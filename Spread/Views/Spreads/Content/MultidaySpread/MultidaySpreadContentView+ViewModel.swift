@@ -131,7 +131,7 @@ extension MultidaySpreadContentView {
 
             return section.entries.reduce(into: 0) { count, entry in
                 guard let task = entry as? DataModel.Task, task.status == .open else { return }
-                let isAssigned = task.assignments.contains { assignment in
+                let isAssigned = task.currentAssignments.contains { assignment in
                     assignment.status == .open &&
                     assignment.matches(spread: spread, calendar: calendar)
                 }

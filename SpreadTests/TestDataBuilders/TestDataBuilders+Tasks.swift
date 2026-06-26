@@ -43,7 +43,7 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .open,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .day, date: dayDate, status: .open)
                 ]
             ),
@@ -53,7 +53,7 @@ extension TestDataBuilders {
                 date: monthDate,
                 period: .month,
                 status: .complete,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .month, date: monthDate, status: .complete)
                 ]
             ),
@@ -63,9 +63,11 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .open,
-                assignments: [
-                    Assignment(period: .month, date: monthDate, status: .migrated),
+                currentAssignments: [
                     Assignment(period: .day, date: dayDate, status: .open)
+                ],
+                migrationHistory: [
+                    Assignment(period: .month, date: monthDate, status: .migrated)
                 ]
             ),
             cancelled: DataModel.Task(
@@ -74,7 +76,7 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .cancelled,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .day, date: dayDate, status: .cancelled)
                 ]
             ),
@@ -84,7 +86,7 @@ extension TestDataBuilders {
                 date: yearDate,
                 period: .year,
                 status: .open,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .year, date: yearDate, status: .open)
                 ]
             ),
@@ -94,7 +96,7 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .open,
-                assignments: []
+                currentAssignments: []
             )
         )
     }

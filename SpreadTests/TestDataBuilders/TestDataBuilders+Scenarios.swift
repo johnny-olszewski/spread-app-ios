@@ -40,10 +40,12 @@ extension TestDataBuilders {
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [
-                Assignment(period: .year, date: yearDate, status: .migrated),
-                Assignment(period: .month, date: monthDate, status: .migrated),
+            currentAssignments: [
                 Assignment(period: .day, date: dayDate, status: .open)
+            ],
+            migrationHistory: [
+                Assignment(period: .year, date: yearDate, status: .migrated),
+                Assignment(period: .month, date: monthDate, status: .migrated)
             ]
         )
 
@@ -53,9 +55,11 @@ extension TestDataBuilders {
             date: dayDate,
             period: .day,
             status: .active,
-            assignments: [
-                Assignment(period: .month, date: monthDate, status: .migrated),
+            currentAssignments: [
                 Assignment(period: .day, date: dayDate, status: .active)
+            ],
+            migrationHistory: [
+                Assignment(period: .month, date: monthDate, status: .migrated)
             ]
         )
 
@@ -103,7 +107,7 @@ extension TestDataBuilders {
                 date: monthDate,
                 period: .month,
                 status: .open,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .month, date: monthDate, status: .open)
                 ]
             )
@@ -116,7 +120,7 @@ extension TestDataBuilders {
                 date: monthDate,
                 period: .month,
                 status: .active,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .month, date: monthDate, status: .active)
                 ]
             )
@@ -170,7 +174,7 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .open,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .day, date: dayDate, status: .open)
                 ]
             )
@@ -182,7 +186,7 @@ extension TestDataBuilders {
             date: monthDate,
             period: .month,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: monthDate, status: .open)
             ]
         )
@@ -194,7 +198,7 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .active,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .day, date: dayDate, status: .active)
                 ]
             )
@@ -261,7 +265,7 @@ extension TestDataBuilders {
                 date: dec31Date,
                 period: .day,
                 status: .open,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .day, date: dec31Date, status: .open)
                 ]
             ),
@@ -331,7 +335,7 @@ extension TestDataBuilders {
                 date: normalizedFeb29,
                 period: .day,
                 status: .open,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .day, date: normalizedFeb29, status: .open)
                 ]
             ),
@@ -341,7 +345,7 @@ extension TestDataBuilders {
                 date: normalizedFeb29,
                 period: .day,
                 status: .active,
-                assignments: [
+                currentAssignments: [
                     Assignment(period: .day, date: normalizedFeb29, status: .active)
                 ]
             )

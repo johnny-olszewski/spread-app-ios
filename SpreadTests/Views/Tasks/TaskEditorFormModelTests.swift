@@ -40,7 +40,7 @@ struct TaskEditorFormModelTests {
             date: makeDate(year: 2026, month: 1, day: 1),
             period: .year,
             status: .open,
-            assignments: [Assignment(period: .year, date: today, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: today, status: .open)]
         )
         var model = TaskEditorFormModel(
             configuration: TaskCreationConfiguration(calendar: calendar, today: today),
@@ -62,7 +62,7 @@ struct TaskEditorFormModelTests {
             date: makeDate(year: 2026, month: 1, day: 1),
             period: .year,
             status: .open,
-            assignments: [Assignment(period: .year, date: makeDate(year: 2026, month: 1, day: 1), status: .open)]
+            currentAssignments: [Assignment(period: .year, date: makeDate(year: 2026, month: 1, day: 1), status: .open)]
         )
         var model = TaskEditorFormModel(
             configuration: TaskCreationConfiguration(calendar: calendar, today: today),

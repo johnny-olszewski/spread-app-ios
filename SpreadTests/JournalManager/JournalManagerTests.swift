@@ -170,7 +170,7 @@ struct JournalManagerTests {
             title: "In Range",
             date: Self.testDate,
             period: .multiday,
-            assignments: [
+            currentAssignments: [
                 Assignment(
                     period: .multiday,
                     date: multidaySpread.date,
@@ -215,7 +215,7 @@ struct JournalManagerTests {
             title: "In Range",
             date: Self.testDate,
             period: .multiday,
-            assignments: [
+            currentAssignments: [
                 Assignment(
                     period: .multiday,
                     date: multidaySpread.date,

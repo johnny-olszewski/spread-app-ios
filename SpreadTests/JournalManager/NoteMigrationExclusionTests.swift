@@ -62,12 +62,12 @@ struct NoteMigrationExclusionTests {
         let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: calendar)
 
         let task = DataModel.Task(title: "Task on year", date: yearDate, period: .year, status: .open)
-        task.assignments = [
+        task.currentAssignments = [
             Assignment(period: .year, date: yearDate, status: .open)
         ]
 
         let note = DataModel.Note(title: "Note on year", date: yearDate, period: .year, status: .active)
-        note.assignments = [
+        note.currentAssignments = [
             Assignment(period: .year, date: yearDate, status: .active)
         ]
 
@@ -96,7 +96,7 @@ struct NoteMigrationExclusionTests {
         let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: calendar)
 
         let note = DataModel.Note(title: "Note on year", date: yearDate, period: .year, status: .active)
-        note.assignments = [
+        note.currentAssignments = [
             Assignment(period: .year, date: yearDate, status: .active)
         ]
 
@@ -140,12 +140,12 @@ struct NoteMigrationExclusionTests {
         let daySpread = DataModel.Spread(period: .day, date: pastDay, calendar: calendar)
 
         let task = DataModel.Task(title: "Overdue task", date: pastDay, period: .day, status: .open)
-        task.assignments = [
+        task.currentAssignments = [
             Assignment(period: .day, date: pastDay, status: .open)
         ]
 
         let note = DataModel.Note(title: "Overdue note", date: pastDay, period: .day, status: .active)
-        note.assignments = [
+        note.currentAssignments = [
             Assignment(period: .day, date: pastDay, status: .active)
         ]
 

@@ -184,7 +184,7 @@ struct TaskBrowserSectionBuilder {
     }
 
     private func latestStatusDate(_ task: DataModel.Task) -> Date? {
-        task.assignments
+        task.currentAssignments
             .filter { $0.status == .complete || $0.status == .cancelled }
             .compactMap { $0.statusUpdatedAt }
             .max()

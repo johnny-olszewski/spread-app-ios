@@ -76,17 +76,25 @@ extension Entry {
 ///
 /// `date` is satisfied directly via `Entry`. `period` stays off this protocol since
 /// `Task.period: Period?` and `Note.period: Period` genuinely diverge in optionality —
-/// nothing should dispatch over it polymorphically. `assignments` is declared here since
-/// it's identical (`[Assignment]`) on both conformers and `JournalRuleEngine` (SPRD-248)
-/// dispatches over it polymorphically for spread-matching logic shared by Task and Note.
-/// This protocol also exists because the `@Model` macro's `PersistentModel`/`Hashable`
-/// synthesis fails under this project's strict-concurrency build settings when `Task`/
-/// `Note` conform directly to `Entry` — confirmed empirically; conforming through any
-/// intermediate protocol (even an empty one) resolves it. `Event` doesn't need this
-/// layer since it already conforms to `Entry` via `DateRangeEntry`.
+/// nothing should dispatch over it polymorphically. `currentAssignments`/`migrationHistory`
+/// are declared here since they're identical (`[Assignment]`) on both conformers and
+/// `JournalRuleEngine` (SPRD-248) dispatches over them polymorphically for spread-matching
+/// logic shared by Task and Note. This protocol also exists because the `@Model` macro's
+/// `PersistentModel`/`Hashable` synthesis fails under this project's strict-concurrency
+/// build settings when `Task`/`Note` conform directly to `Entry` — confirmed empirically;
+/// conforming through any intermediate protocol (even an empty one) resolves it. `Event`
+/// doesn't need this layer since it already conforms to `Entry` via `DateRangeEntry`.
 protocol AssignableEntry: Entry {
-    /// Assignment history for this entry across spreads.
-    var assignments: [Assignment] { get set }
+    /// The live, non-migrated assignment(s) for this entry across spreads — at most a
+    /// handful at once. The only collection spread-association/index/overdue/migration
+    /// logic reads. See `Documentation/Specs/JournalManager.md`'s "Split current assignment
+    /// from migration history" decision (SPRD-254).
+    var currentAssignments: [Assignment] { get set }
+
+    /// Append-only record of every assignment that has transitioned to `.migrated`,
+    /// removed from `currentAssignments` the moment that happened. Read only by the
+    /// migration-history UI — never scanned by spread-association logic.
+    var migrationHistory: [Assignment] { get set }
 }
 
 /// An entry whose visibility is computed from date range overlap.

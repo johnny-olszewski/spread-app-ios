@@ -74,15 +74,17 @@ struct YearSpreadContentSupportTests {
             title: "Current Year Task",
             date: Self.makeDate(year: 2026, month: 1, day: 12),
             period: .day,
-            assignments: [Assignment(period: .year, date: yearDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: yearDate, status: .open)]
         )
         let migratedHistoryTask = DataModel.Task(
             title: "Migrated Away",
             date: Self.makeDate(year: 2026, month: 1, day: 13),
             period: .day,
-            assignments: [
-                Assignment(period: .year, date: yearDate, status: .migrated),
+            currentAssignments: [
                 Assignment(period: .month, date: yearDate, status: .open)
+            ],
+            migrationHistory: [
+                Assignment(period: .year, date: yearDate, status: .migrated)
             ]
         )
 

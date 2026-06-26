@@ -36,8 +36,8 @@ struct NoteDetailSheet: View {
             content = note.content
             selectedPeriod = note.period
             selectedDate = note.date ?? note.createdDate
-            selectedSpreadID = note.assignments.first(where: {
-                $0.status != .migrated && $0.period == .multiday
+            selectedSpreadID = note.currentAssignments.first(where: {
+                $0.period == .multiday
             })?.spreadID
             selectedList = note.list
             selectedTagIDs = Set(note.tags.map(\.id))
@@ -91,7 +91,7 @@ struct NoteDetailSheet: View {
                     compactDivider
                     dateSection
 
-                    if !note.assignments.isEmpty {
+                    if !note.migrationHistory.isEmpty || !note.currentAssignments.isEmpty {
                         compactDivider
                         assignmentHistorySection
                     }
@@ -354,7 +354,7 @@ struct NoteDetailSheet: View {
     private var assignmentHistorySection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Assignment History")
-            ForEach(note.assignments, id: \.self) { assignment in
+            ForEach(note.migrationHistory + note.currentAssignments, id: \.self) { assignment in
                 HStack {
                     Image(systemName: assignment.status == .active ? "checkmark.circle" : "arrow.right.circle")
                         .foregroundStyle(assignment.status == .active ? .green : .orange)
@@ -505,7 +505,7 @@ struct NoteDetailSheet: View {
     let note = DataModel.Note(
         title: "Meeting notes",
         content: "Discussed project timeline and deliverables.\nAction items assigned.",
-        assignments: [
+        currentAssignments: [
             Assignment(period: .month, date: Date(), status: .active)
         ]
     )

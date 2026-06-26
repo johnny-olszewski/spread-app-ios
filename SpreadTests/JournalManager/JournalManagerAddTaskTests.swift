@@ -102,9 +102,9 @@ struct JournalManagerAddTaskTests {
         )
 
         // Task should have an assignment
-        #expect(task.assignments.count == 1)
-        #expect(task.assignments.first?.period == .day)
-        #expect(task.assignments.first?.status == .open)
+        #expect(task.allAssignmentsForTesting.count == 1)
+        #expect(task.allAssignmentsForTesting.first?.period == .day)
+        #expect(task.allAssignmentsForTesting.first?.status == .open)
     }
 
     /// Tests that adding a task without matching spread goes to Inbox.
@@ -129,7 +129,7 @@ struct JournalManagerAddTaskTests {
         )
 
         // Task should have no assignments (goes to Inbox)
-        #expect(task.assignments.isEmpty)
+        #expect(task.allAssignmentsForTesting.isEmpty)
         #expect(journalManager.inboxCount == 1)
         #expect(journalManager.inboxEntries.contains { ($0 as? DataModel.Task)?.id == task.id })
     }
@@ -159,8 +159,8 @@ struct JournalManagerAddTaskTests {
         )
 
         // Task should be assigned to the month spread (next best match)
-        #expect(task.assignments.count == 1)
-        #expect(task.assignments.first?.period == .month)
+        #expect(task.allAssignmentsForTesting.count == 1)
+        #expect(task.allAssignmentsForTesting.first?.period == .month)
     }
 
     /// Tests that adding a task increments dataVersion.
@@ -233,7 +233,7 @@ struct JournalManagerAddTaskTests {
         )
 
         #expect(task.date == nil)
-        #expect(task.assignments.isEmpty)
+        #expect(task.allAssignmentsForTesting.isEmpty)
         #expect(task.body == "Write rollout checklist")
         #expect(task.priority == .high)
         #expect(task.dueDate == dueDate)

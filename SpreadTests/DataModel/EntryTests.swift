@@ -119,7 +119,7 @@ struct EntryTests {
             date: now,
             period: .day,
             status: .complete,
-            assignments: assignments
+            currentAssignments: assignments
         )
 
         #expect(task.title == "My Task")
@@ -127,7 +127,7 @@ struct EntryTests {
         #expect(task.date == now)
         #expect(task.period == .day)
         #expect(task.status == .complete)
-        #expect(task.assignments == assignments)
+        #expect(task.allAssignmentsForTesting == assignments)
     }
 
     /// Conditions: Access EntryStatus.allCases for task-relevant statuses.
@@ -155,7 +155,7 @@ struct EntryTests {
         #expect(task.title == "")
         #expect(task.period == .day)
         #expect(task.status == .open)
-        #expect(task.assignments.isEmpty)
+        #expect(task.allAssignmentsForTesting.isEmpty)
     }
 
     /// Conditions: Access Task's static per-type eligibility flags.
@@ -277,7 +277,7 @@ struct EntryTests {
             date: now,
             period: .month,
             status: .migrated,
-            assignments: assignments
+            currentAssignments: assignments
         )
 
         #expect(note.title == "My Note")
@@ -286,7 +286,7 @@ struct EntryTests {
         #expect(note.date == now)
         #expect(note.period == .month)
         #expect(note.status == .migrated)
-        #expect(note.assignments == assignments)
+        #expect(note.allAssignmentsForTesting == assignments)
     }
 
     /// Conditions: Access EntryStatus.allCases for note-relevant statuses.
@@ -311,7 +311,7 @@ struct EntryTests {
         #expect(note.content == "")
         #expect(note.period == .day)
         #expect(note.status == .active)
-        #expect(note.assignments.isEmpty)
+        #expect(note.allAssignmentsForTesting.isEmpty)
     }
 
     /// Conditions: Create Note with very long content.

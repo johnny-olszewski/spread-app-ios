@@ -70,7 +70,7 @@ final class SwiftDataNoteRepository: NoteRepository {
             enqueueNoteAssignmentMutations(
                 noteId: request.note.id,
                 previousAssignments: request.change.previousAssignments,
-                currentAssignments: request.note.assignments,
+                currentAssignments: request.note.currentAssignments + request.note.migrationHistory,
                 timestamp: timestamp
             )
             enqueueNoteTagMutations(
@@ -90,7 +90,11 @@ final class SwiftDataNoteRepository: NoteRepository {
         let timestamp = nowProvider()
 
         enqueueNoteMutation(note, operation: .delete, timestamp: timestamp)
-        enqueueNoteAssignmentTombstones(note.assignments, noteId: note.id, timestamp: timestamp)
+        enqueueNoteAssignmentTombstones(
+            note.currentAssignments + note.migrationHistory,
+            noteId: note.id,
+            timestamp: timestamp
+        )
         enqueueNoteTagTombstones(tagIds: note.tags.map(\.id), noteId: note.id, timestamp: timestamp)
         modelContext.delete(note)
         try modelContext.save()

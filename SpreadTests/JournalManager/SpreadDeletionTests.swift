@@ -57,7 +57,7 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
@@ -77,7 +77,7 @@ struct SpreadDeletionTests {
         let updatedTask = manager.tasks.first { $0.id == task.id }
 
         // Task should have a new assignment on month spread
-        let monthAssignment = updatedTask?.assignments.first { $0.period == .month }
+        let monthAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .month }
         #expect(monthAssignment != nil)
         #expect(monthAssignment?.status == .open)
     }
@@ -96,7 +96,7 @@ struct SpreadDeletionTests {
             date: noteDate,
             period: .day,
             status: .active,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .day, date: noteDate, status: .active)
             ]
         )
@@ -116,7 +116,7 @@ struct SpreadDeletionTests {
         let updatedNote = manager.notes.first { $0.id == note.id }
 
         // Note should have a new assignment on month spread
-        let monthAssignment = updatedNote?.assignments.first { $0.period == Period.month }
+        let monthAssignment = updatedNote?.allAssignmentsForTesting.first { $0.period == Period.month }
         #expect(monthAssignment != nil)
         #expect(monthAssignment?.status == .active)
     }
@@ -134,7 +134,7 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
@@ -175,7 +175,7 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
@@ -195,10 +195,10 @@ struct SpreadDeletionTests {
         let updatedTask = manager.tasks.first { $0.id == task.id }
 
         // Both assignments should exist (original day + new month)
-        #expect(updatedTask?.assignments.count == 2)
+        #expect(updatedTask?.allAssignmentsForTesting.count == 2)
 
         // Original day assignment should be marked as migrated
-        let dayAssignment = updatedTask?.assignments.first { $0.period == .day }
+        let dayAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .day }
         #expect(dayAssignment?.status == .migrated)
     }
 
@@ -218,7 +218,7 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .complete,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .day, date: taskDate, status: .complete)
             ]
         )
@@ -241,7 +241,7 @@ struct SpreadDeletionTests {
         let updatedTask = manager.tasks.first { $0.id == completedTask.id }
 
         // Should have assignment on month spread with complete status
-        let monthAssignment = updatedTask?.assignments.first { $0.period == .month }
+        let monthAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .month }
         #expect(monthAssignment != nil)
         #expect(monthAssignment?.status == .complete)
     }
@@ -259,7 +259,7 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
@@ -268,7 +268,7 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .active,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .day, date: taskDate, status: .active)
             ]
         )
@@ -400,7 +400,7 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
@@ -420,8 +420,8 @@ struct SpreadDeletionTests {
         let updatedTask = manager.tasks.first { $0.id == task.id }
 
         // Should be assigned to month (immediate parent), not year
-        let monthAssignment = updatedTask?.assignments.first { $0.period == .month }
-        let yearAssignment = updatedTask?.assignments.first { $0.period == .year }
+        let monthAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .month }
+        let yearAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .year }
 
         #expect(monthAssignment != nil)
         #expect(yearAssignment == nil)
@@ -441,7 +441,7 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
@@ -461,7 +461,7 @@ struct SpreadDeletionTests {
         let updatedTask = manager.tasks.first { $0.id == task.id }
 
         // Should be assigned to year spread
-        let yearAssignment = updatedTask?.assignments.first { $0.period == .year }
+        let yearAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .year }
         #expect(yearAssignment != nil)
         #expect(yearAssignment?.status == .open)
     }
@@ -482,14 +482,14 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .day, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: taskDate, status: .open)]
         )
         let task2 = DataModel.Task(
             title: "Task 2",
             date: taskDate,
             period: .day,
             status: .complete,
-            assignments: [Assignment(period: .day, date: taskDate, status: .complete)]
+            currentAssignments: [Assignment(period: .day, date: taskDate, status: .complete)]
         )
 
         let taskRepo = TestTaskRepository(tasks: [task1, task2])
@@ -505,7 +505,7 @@ struct SpreadDeletionTests {
         try await manager.deleteSpread(daySpread)
 
         for task in manager.tasks {
-            let monthAssignment = task.assignments.first { $0.period == .month }
+            let monthAssignment = task.allAssignmentsForTesting.first { $0.period == .month }
             #expect(monthAssignment != nil)
         }
     }
@@ -526,7 +526,7 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            migrationHistory: [
                 Assignment(period: .day, date: taskDate, status: .migrated)
             ]
         )
@@ -546,7 +546,7 @@ struct SpreadDeletionTests {
         let updatedTask = manager.tasks.first { $0.id == migratedTask.id }
 
         // Should have assignment on month spread
-        let monthAssignment = updatedTask?.assignments.first { $0.period == .month }
+        let monthAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .month }
         #expect(monthAssignment != nil)
     }
 
@@ -629,7 +629,7 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .open)
             ]
         )
@@ -647,7 +647,7 @@ struct SpreadDeletionTests {
         try await manager.deleteSpread(multidaySpread)
 
         let updatedTask = manager.tasks.first { $0.id == task.id }
-        let dayAssignment = updatedTask?.assignments.first { $0.matches(spread: daySpread, calendar: calendar) }
+        let dayAssignment = updatedTask?.allAssignmentsForTesting.first { $0.matches(spread: daySpread, calendar: calendar) }
         #expect(dayAssignment != nil)
         #expect(dayAssignment?.status == .open)
     }
@@ -666,7 +666,7 @@ struct SpreadDeletionTests {
             date: startDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .open)
             ]
         )
@@ -684,6 +684,6 @@ struct SpreadDeletionTests {
         try await manager.deleteSpread(multidaySpread)
 
         let updatedTask = manager.tasks.first { $0.id == task.id }
-        #expect(updatedTask?.assignments.allSatisfy { $0.status == .migrated } == true)
+        #expect(updatedTask?.allAssignmentsForTesting.allSatisfy { $0.status == .migrated } == true)
     }
 }

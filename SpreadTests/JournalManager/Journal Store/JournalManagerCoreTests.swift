@@ -68,13 +68,13 @@ struct JournalManagerCoreTests {
             title: "Task",
             date: dayDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
         let note = DataModel.Note(
             title: "Note",
             date: dayDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .active)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .active)]
         )
         let event = DataModel.Event(title: "Event", startDate: dayDate, endDate: dayDate)
 
@@ -98,7 +98,7 @@ struct JournalManagerCoreTests {
             title: "Migrated",
             date: dayDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .migrated)]
+            migrationHistory: [Assignment(period: .day, date: dayDate, status: .migrated)]
         )
 
         let store = Self.makeStore(spreads: [daySpread], tasks: [migratedTask])
@@ -122,7 +122,7 @@ struct JournalManagerCoreTests {
             title: "New",
             date: dayDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
         store.upsertTask(task)
 
@@ -141,7 +141,7 @@ struct JournalManagerCoreTests {
             title: "Removable",
             date: dayDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
         let store = Self.makeStore(spreads: [daySpread], tasks: [task])
         await store.load()
@@ -165,12 +165,12 @@ struct JournalManagerCoreTests {
             title: "Movable",
             date: taskDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: taskDate, status: .open)]
         )
         let store = Self.makeStore(spreads: [daySpread, monthSpread], tasks: [task])
         await store.load()
 
-        task.assignments = [Assignment(period: .month, date: taskDate, status: .open)]
+        task.currentAssignments = [Assignment(period: .month, date: taskDate, status: .open)]
         store.upsertTask(task)
 
         let dayKey = SpreadDataModelKey(spread: daySpread, calendar: Self.calendar)
@@ -190,7 +190,7 @@ struct JournalManagerCoreTests {
             title: "New",
             date: dayDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .active)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .active)]
         )
         store.upsertNote(note)
 
@@ -338,7 +338,7 @@ struct JournalManagerCoreTests {
             title: "Match",
             date: dayDate,
             period: .day,
-            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
 
         var unrelatedTasks: [DataModel.Task] = []
@@ -349,7 +349,7 @@ struct JournalManagerCoreTests {
                     title: "Unrelated\(index)",
                     date: unrelatedDate,
                     period: .day,
-                    assignments: [Assignment(period: .day, date: unrelatedDate, status: .open)]
+                    currentAssignments: [Assignment(period: .day, date: unrelatedDate, status: .open)]
                 )
             )
         }

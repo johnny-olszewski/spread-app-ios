@@ -28,7 +28,7 @@ struct MigrationEligibilityTests {
             date: taskDate,
             period: .month,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .year, date: taskDate, status: .open)
             ]
         )
@@ -60,7 +60,7 @@ struct MigrationEligibilityTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .year, date: taskDate, status: .open)
             ]
         )
@@ -121,21 +121,21 @@ struct MigrationEligibilityTests {
             date: taskDate,
             period: .month,
             status: .complete,
-            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
         let cancelledTask = DataModel.Task(
             title: "Cancelled",
             date: taskDate,
             period: .month,
             status: .cancelled,
-            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
         let resolvedTask = DataModel.Task(
             title: "Resolved",
             date: taskDate,
             period: .month,
             status: .open,
-            assignments: [Assignment(period: .month, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
 
         let manager = try await JournalManager(
@@ -170,9 +170,9 @@ struct MigrationEligibilityTests {
         try await manager.moveTask(task, from: .init(kind: .inbox), to: daySpread)
 
         let updatedTask = manager.tasks.first { $0.id == task.id }
-        #expect(updatedTask?.assignments.count == 1)
-        #expect(updatedTask?.assignments.first?.status == .open)
-        #expect(updatedTask?.assignments.first?.period == .day)
+        #expect(updatedTask?.allAssignmentsForTesting.count == 1)
+        #expect(updatedTask?.allAssignmentsForTesting.first?.status == .open)
+        #expect(updatedTask?.allAssignmentsForTesting.first?.period == .day)
     }
 
     /// Conditions: A task prefers April 6, 2026 day, is currently open on the 2026 year spread, and the April 2026 month spread is later created.
@@ -189,7 +189,7 @@ struct MigrationEligibilityTests {
             date: aprilSixth,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .year, date: yearDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: yearDate, status: .open)]
         )
 
         let manager = try await JournalManager(

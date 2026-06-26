@@ -61,8 +61,8 @@ struct TaskEditorFormModel {
         self.selectedPeriod = task.date != nil ? (task.period ?? .day) : .day
         let today = configuration.today.startOfDay(calendar: configuration.calendar)
         self.selectedDate = task.date ?? today
-        self.selectedSpreadID = task.assignments.first(where: {
-            $0.status != .migrated && $0.period == .multiday
+        self.selectedSpreadID = task.currentAssignments.first(where: {
+            $0.period == .multiday
         })?.spreadID
         self.hasEditedTitle = true
     }

@@ -22,21 +22,21 @@ struct TaskSearchSupportTests {
             date: yearDate,
             period: .year,
             status: .open,
-            assignments: [Assignment(period: .year, date: yearDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: yearDate, status: .open)]
         )
         let monthTask = DataModel.Task(
             title: "Month task",
             date: monthDate,
             period: .month,
             status: .open,
-            assignments: [Assignment(period: .month, date: monthDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: monthDate, status: .open)]
         )
         let dayTask = DataModel.Task(
             title: "Day task",
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
 
         let manager = try await JournalManager(
@@ -65,9 +65,11 @@ struct TaskSearchSupportTests {
             date: monthDate,
             period: .month,
             status: .open,
-            assignments: [
-                Assignment(period: .year, date: yearDate, status: .migrated),
+            currentAssignments: [
                 Assignment(period: .month, date: monthDate, status: .open)
+            ],
+            migrationHistory: [
+                Assignment(period: .year, date: yearDate, status: .migrated)
             ]
         )
 
@@ -134,7 +136,7 @@ struct TaskSearchSupportTests {
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
         let manager = try await JournalManager(
             calendar: calendar,

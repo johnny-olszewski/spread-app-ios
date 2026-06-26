@@ -35,7 +35,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
@@ -53,7 +53,7 @@ struct MigrationTests {
         try await manager.migrateTask(task, from: monthSpread, to: daySpread)
 
         let updatedTask = manager.tasks.first { $0.id == task.id }
-        let sourceAssignment = updatedTask?.assignments.first { $0.period == .month }
+        let sourceAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .month }
 
         #expect(sourceAssignment?.status == .migrated)
     }
@@ -72,7 +72,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
@@ -90,7 +90,7 @@ struct MigrationTests {
         try await manager.migrateTask(task, from: monthSpread, to: daySpread)
 
         let updatedTask = manager.tasks.first { $0.id == task.id }
-        let destinationAssignment = updatedTask?.assignments.first { $0.period == .day }
+        let destinationAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .day }
 
         #expect(destinationAssignment != nil)
         #expect(destinationAssignment?.status == .open)
@@ -110,7 +110,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
@@ -129,7 +129,7 @@ struct MigrationTests {
 
         let updatedTask = manager.tasks.first { $0.id == task.id }
 
-        #expect(updatedTask?.assignments.count == 2)
+        #expect(updatedTask?.allAssignmentsForTesting.count == 2)
     }
 
     /// Conditions: A task is migrated.
@@ -146,7 +146,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
@@ -166,7 +166,7 @@ struct MigrationTests {
         let savedTasks = await taskRepo.getTasks()
         let savedTask = savedTasks.first { $0.id == task.id }
 
-        #expect(savedTask?.assignments.count == 2)
+        #expect(savedTask?.allAssignmentsForTesting.count == 2)
     }
 
     /// Conditions: A task with migrated status is migrated to a new spread.
@@ -183,7 +183,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .migrated,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
@@ -219,7 +219,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
@@ -257,8 +257,10 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
-                Assignment(period: .month, date: taskDate, status: .open),
+            currentAssignments: [
+                Assignment(period: .month, date: taskDate, status: .open)
+            ],
+            migrationHistory: [
                 Assignment(id: destinationID, period: .day, date: taskDate, status: .migrated)
             ]
         )
@@ -278,10 +280,10 @@ struct MigrationTests {
         let updatedTask = manager.tasks.first { $0.id == task.id }
 
         // Should still be 2 assignments (no duplicate)
-        #expect(updatedTask?.assignments.count == 2)
+        #expect(updatedTask?.allAssignmentsForTesting.count == 2)
 
         // Destination assignment should be open now
-        let destinationAssignment = updatedTask?.assignments.first { $0.period == .day }
+        let destinationAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .day }
         #expect(destinationAssignment?.id == destinationID)
         #expect(destinationAssignment?.status == .open)
     }
@@ -300,7 +302,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .cancelled)
             ]
         )
@@ -335,7 +337,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: []
+            currentAssignments: []
         )
 
         let taskRepo = TestTaskRepository(tasks: [task])
@@ -369,7 +371,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
@@ -387,10 +389,10 @@ struct MigrationTests {
         try await manager.migrateTask(task, from: monthSpread, to: multidaySpread)
 
         let updatedTask = try #require(manager.tasks.first { $0.id == task.id })
-        #expect(updatedTask.assignments.contains {
+        #expect(updatedTask.allAssignmentsForTesting.contains {
             $0.matches(period: .month, date: monthSpread.date, calendar: calendar) && $0.status == .migrated
         })
-        #expect(updatedTask.assignments.contains {
+        #expect(updatedTask.allAssignmentsForTesting.contains {
             $0.matches(spread: multidaySpread, calendar: calendar) &&
             $0.spreadID == multidaySpread.id &&
             $0.status == .open
@@ -413,7 +415,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .year, date: taskDate, status: .open),
                 Assignment(period: .month, date: taskDate, status: .open),
                 Assignment(period: .day, date: taskDate, status: .open)
@@ -444,7 +446,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .open),
                 Assignment(period: .day, date: taskDate, status: .open)
             ]
@@ -476,7 +478,7 @@ struct MigrationTests {
             date: noteDate,
             period: .day,
             status: .active,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: noteDate, status: .active)
             ]
         )
@@ -494,7 +496,7 @@ struct MigrationTests {
         try await manager.migrateNote(note, from: monthSpread, to: daySpread)
 
         let updatedNote = manager.notes.first { $0.id == note.id }
-        let sourceAssignment = updatedNote?.assignments.first { $0.period == Period.month }
+        let sourceAssignment = updatedNote?.allAssignmentsForTesting.first { $0.period == Period.month }
 
         #expect(sourceAssignment?.status == .migrated)
     }
@@ -513,7 +515,7 @@ struct MigrationTests {
             date: noteDate,
             period: .day,
             status: .active,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: noteDate, status: .active)
             ]
         )
@@ -531,7 +533,7 @@ struct MigrationTests {
         try await manager.migrateNote(note, from: monthSpread, to: daySpread)
 
         let updatedNote = manager.notes.first { $0.id == note.id }
-        let destinationAssignment = updatedNote?.assignments.first { $0.period == Period.day }
+        let destinationAssignment = updatedNote?.allAssignmentsForTesting.first { $0.period == Period.day }
 
         #expect(destinationAssignment != nil)
         #expect(destinationAssignment?.status == .active)
@@ -551,7 +553,7 @@ struct MigrationTests {
             date: noteDate,
             period: .day,
             status: .active,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: noteDate, status: .active)
             ]
         )
@@ -570,7 +572,7 @@ struct MigrationTests {
 
         let updatedNote = manager.notes.first { $0.id == note.id }
 
-        #expect(updatedNote?.assignments.count == 2)
+        #expect(updatedNote?.allAssignmentsForTesting.count == 2)
     }
 
     /// Conditions: A note is migrated.
@@ -587,7 +589,7 @@ struct MigrationTests {
             date: noteDate,
             period: .day,
             status: .active,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: noteDate, status: .active)
             ]
         )
@@ -607,7 +609,7 @@ struct MigrationTests {
         let savedNotes = await noteRepo.getNotes()
         let savedNote = savedNotes.first { $0.id == note.id }
 
-        #expect(savedNote?.assignments.count == 2)
+        #expect(savedNote?.allAssignmentsForTesting.count == 2)
     }
 
     // MARK: - Batch Task Migration Tests
@@ -626,14 +628,14 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .month, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
         let task2 = DataModel.Task(
             title: "Task 2",
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .month, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
 
         let taskRepo = TestTaskRepository(tasks: [task1, task2])
@@ -649,8 +651,8 @@ struct MigrationTests {
         try await manager.migrateTasksBatch([task1, task2], from: monthSpread, to: daySpread)
 
         for task in manager.tasks {
-            #expect(task.assignments.count == 2)
-            let destinationAssignment = task.assignments.first { $0.period == .day }
+            #expect(task.allAssignmentsForTesting.count == 2)
+            let destinationAssignment = task.allAssignmentsForTesting.first { $0.period == .day }
             #expect(destinationAssignment?.status == .open)
         }
     }
@@ -669,7 +671,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .migrated,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
@@ -730,14 +732,14 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .month, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
         let cancelledTask = DataModel.Task(
             title: "Cancelled Task",
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: [Assignment(period: .month, date: taskDate, status: .cancelled)]
+            currentAssignments: [Assignment(period: .month, date: taskDate, status: .cancelled)]
         )
 
         let taskRepo = TestTaskRepository(tasks: [openTask, cancelledTask])
@@ -756,10 +758,10 @@ struct MigrationTests {
         let updatedCancelledTask = manager.tasks.first { $0.id == cancelledTask.id }
 
         // Open task should be migrated
-        #expect(updatedOpenTask?.assignments.count == 2)
+        #expect(updatedOpenTask?.allAssignmentsForTesting.count == 2)
 
         // Cancelled task should NOT be migrated
-        #expect(updatedCancelledTask?.assignments.count == 1)
+        #expect(updatedCancelledTask?.allAssignmentsForTesting.count == 1)
     }
 
     // MARK: - Event Migration Blocked Tests
@@ -810,14 +812,14 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .year, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
         let cancelledTask = DataModel.Task(
             title: "Cancelled Task",
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: [Assignment(period: .year, date: taskDate, status: .cancelled)]
+            currentAssignments: [Assignment(period: .year, date: taskDate, status: .cancelled)]
         )
 
         let taskRepo = TestTaskRepository(tasks: [openTask, cancelledTask])
@@ -850,8 +852,10 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
-                Assignment(period: .year, date: taskDate, status: .open),
+            currentAssignments: [
+                Assignment(period: .year, date: taskDate, status: .open)
+            ],
+            migrationHistory: [
                 Assignment(period: .month, date: taskDate, status: .migrated)
             ]
         )
@@ -885,7 +889,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .complete,
-            assignments: [Assignment(period: .year, date: taskDate, status: .complete)]
+            currentAssignments: [Assignment(period: .year, date: taskDate, status: .complete)]
         )
 
         let taskRepo = TestTaskRepository(tasks: [completedTask])
@@ -917,7 +921,7 @@ struct MigrationTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .year, date: taskDate, status: .migrated)]
+            migrationHistory: [Assignment(period: .year, date: taskDate, status: .migrated)]
         )
 
         let taskRepo = TestTaskRepository(tasks: [migratedTask])
@@ -952,7 +956,7 @@ struct MigrationTests {
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .year, date: yearDate, status: .open)
             ]
         )
@@ -988,7 +992,7 @@ struct MigrationTests {
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .year, date: yearDate, status: .open)
             ]
         )
@@ -1030,7 +1034,7 @@ struct MigrationTests {
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: monthDate, status: .open)
             ]
         )
@@ -1062,7 +1066,7 @@ struct MigrationTests {
             date: dayDate,
             period: .month,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .year, date: yearDate, status: .open)
             ]
         )

@@ -78,8 +78,8 @@ struct JournalManagerNoteTests {
             period: .day
         )
 
-        #expect(!note.assignments.isEmpty)
-        #expect(note.assignments.first?.status == .active)
+        #expect(!note.allAssignmentsForTesting.isEmpty)
+        #expect(note.allAssignmentsForTesting.first?.status == .active)
     }
 
     /// Condition: Add a note when no matching spread exists.
@@ -99,7 +99,7 @@ struct JournalManagerNoteTests {
             period: .day
         )
 
-        #expect(note.assignments.isEmpty)
+        #expect(note.allAssignmentsForTesting.isEmpty)
     }
 
     /// Condition: Add a note with empty content.

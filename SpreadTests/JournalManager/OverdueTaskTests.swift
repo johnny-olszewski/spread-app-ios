@@ -24,14 +24,14 @@ struct OverdueTaskTests {
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [Assignment(period: .day, date: dayDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
         let currentMonthTask = DataModel.Task(
             title: "Month task",
             date: monthDate,
             period: .month,
             status: .open,
-            assignments: [Assignment(period: .month, date: monthDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: monthDate, status: .open)]
         )
 
         let manager = try await JournalManager(
@@ -57,14 +57,14 @@ struct OverdueTaskTests {
             date: january,
             period: .month,
             status: .open,
-            assignments: [Assignment(period: .month, date: january, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: january, status: .open)]
         )
         let yearTask = DataModel.Task(
             title: "Year task",
             date: lastYear,
             period: .year,
             status: .open,
-            assignments: [Assignment(period: .year, date: lastYear, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: lastYear, status: .open)]
         )
 
         let manager = try await JournalManager(
@@ -96,7 +96,7 @@ struct OverdueTaskTests {
             date: resolvedDay,
             period: .day,
             status: .complete,
-            assignments: [Assignment(period: .day, date: resolvedDay, status: .complete)]
+            currentAssignments: [Assignment(period: .day, date: resolvedDay, status: .complete)]
         )
 
         let manager = try await JournalManager(

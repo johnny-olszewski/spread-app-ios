@@ -90,7 +90,7 @@ extension JournalManager {
             date: date,
             period: period,
             status: status,
-            assignments: []
+            currentAssignments: []
         )
 
         // Find best spread for assignment
@@ -102,7 +102,7 @@ extension JournalManager {
                 date: normalizedDate,
                 status: status == .complete ? .complete : .open
             )
-            task.assignments.append(assignment)
+            task.currentAssignments.append(assignment)
         }
 
         // Persist and reload state
@@ -182,7 +182,7 @@ extension JournalManager {
             content: content,
             date: date,
             period: period,
-            assignments: []
+            currentAssignments: []
         )
 
         // Find best spread for assignment
@@ -194,7 +194,7 @@ extension JournalManager {
                 date: normalizedDate,
                 status: .active
             )
-            note.assignments.append(assignment)
+            note.currentAssignments.append(assignment)
         }
 
         // Persist and reload state

@@ -204,15 +204,15 @@ struct SpreadService {
 
     private func currentDirectMultidaySpreadID(for task: DataModel.Task) -> UUID? {
         guard task.period == .multiday else { return nil }
-        return task.assignments
-            .first(where: { $0.status != .migrated && $0.period == .multiday })?
+        return task.currentAssignments
+            .first(where: { $0.period == .multiday })?
             .spreadID
     }
 
     private func currentDirectMultidaySpreadID(for note: DataModel.Note) -> UUID? {
         guard note.period == .multiday else { return nil }
-        return note.assignments
-            .first(where: { $0.status != .migrated && $0.period == .multiday })?
+        return note.currentAssignments
+            .first(where: { $0.period == .multiday })?
             .spreadID
     }
 }

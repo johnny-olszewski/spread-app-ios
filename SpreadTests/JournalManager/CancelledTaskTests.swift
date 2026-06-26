@@ -34,7 +34,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .day, date: taskDate, status: .cancelled)
             ]
         )
@@ -73,7 +73,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
@@ -84,7 +84,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .day, date: taskDate, status: .cancelled)
             ]
         )
@@ -123,7 +123,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .month,
             status: .cancelled,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .month, date: taskDate, status: .cancelled)
             ]
         )
@@ -166,7 +166,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .multiday,
             status: .cancelled,
-            assignments: [
+            currentAssignments: [
                 Assignment(
                     period: .multiday,
                     date: multidaySpread.date,
@@ -205,7 +205,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: []
+            currentAssignments: []
         )
 
         let taskRepo = TestTaskRepository(tasks: [cancelledTask])
@@ -233,7 +233,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: []
+            currentAssignments: []
         )
 
         let completedTask = DataModel.Task(
@@ -241,7 +241,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .complete,
-            assignments: []
+            currentAssignments: []
         )
 
         let cancelledTask = DataModel.Task(
@@ -249,7 +249,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: []
+            currentAssignments: []
         )
 
         let taskRepo = TestTaskRepository(tasks: [openTask, completedTask, cancelledTask])
@@ -280,7 +280,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .complete,
-            assignments: [
+            currentAssignments: [
                 Assignment(period: .day, date: taskDate, status: .complete)
             ]
         )
@@ -317,7 +317,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .migrated,
-            assignments: [
+            migrationHistory: [
                 Assignment(period: .day, date: taskDate, status: .migrated)
             ]
         )

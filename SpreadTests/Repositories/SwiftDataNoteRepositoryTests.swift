@@ -151,7 +151,7 @@ struct SwiftDataNoteRepositoryTests {
         )
 
         let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 1_000), status: .active)
-        let note = DataModel.Note(title: "Assigned note", assignments: [assignment])
+        let note = DataModel.Note(title: "Assigned note", currentAssignments: [assignment])
 
         try await repository.save(note, change: EntityChange())
 
@@ -182,11 +182,11 @@ struct SwiftDataNoteRepositoryTests {
         )
 
         let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 2_000), status: .active)
-        let note = DataModel.Note(title: "Assigned note", assignments: [assignment])
+        let note = DataModel.Note(title: "Assigned note", currentAssignments: [assignment])
         try await repository.save(note, change: EntityChange())
 
-        let previousAssignments = note.assignments
-        note.assignments[0].status = .complete
+        let previousAssignments = note.allAssignmentsForTesting
+        note.currentAssignments[0].status = .complete
         try await repository.save(note, change: EntityChange(isNew: false, previousAssignments: previousAssignments))
 
         let mutations = try fetchMutations(from: container)
@@ -214,11 +214,11 @@ struct SwiftDataNoteRepositoryTests {
         )
 
         let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 4_000), status: .active)
-        let note = DataModel.Note(title: "Inbox fallback", assignments: [assignment])
+        let note = DataModel.Note(title: "Inbox fallback", currentAssignments: [assignment])
         try await repository.save(note, change: EntityChange())
 
-        let previousAssignments = note.assignments
-        note.assignments.removeAll()
+        let previousAssignments = note.allAssignmentsForTesting
+        note.currentAssignments.removeAll()
         try await repository.save(note, change: EntityChange(isNew: false, previousAssignments: previousAssignments))
 
         let mutations = try fetchMutations(from: container)
@@ -237,7 +237,7 @@ struct SwiftDataNoteRepositoryTests {
 
     /// Conditions: Save a note with an assignment, then delete the note.
     /// Expected: A note-assignment delete mutation is enqueued as a tombstone, derived from
-    /// `note.assignments` directly (delete needs no caller-supplied change descriptor).
+    /// `note.currentAssignments` directly (delete needs no caller-supplied change descriptor).
     @Test func testDeleteEnqueuesAssignmentDeleteMutation() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         var timestamps = [Date(timeIntervalSince1970: 500), Date(timeIntervalSince1970: 600)]
@@ -248,7 +248,7 @@ struct SwiftDataNoteRepositoryTests {
         )
 
         let assignment = Assignment(period: .month, date: Date(timeIntervalSince1970: 3_000), status: .active)
-        let note = DataModel.Note(title: "Delete assigned note", assignments: [assignment])
+        let note = DataModel.Note(title: "Delete assigned note", currentAssignments: [assignment])
         try await repository.save(note, change: EntityChange())
         try await repository.delete(note)
 
@@ -332,11 +332,11 @@ struct SwiftDataNoteRepositoryTests {
         )
 
         let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 5_000), status: .active)
-        let note = DataModel.Note(title: "Sequence Note", assignments: [assignment])
+        let note = DataModel.Note(title: "Sequence Note", currentAssignments: [assignment])
 
         try await repository.save(note, change: EntityChange())
 
-        let previousAssignments = note.assignments
+        let previousAssignments = note.allAssignmentsForTesting
         note.title = "Updated Sequence Note"
         try await repository.save(
             note,

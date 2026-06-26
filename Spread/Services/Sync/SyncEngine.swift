@@ -742,7 +742,13 @@ final class SyncEngine {
                 logger.warning("Task \(entryId) not found for assignment \(row.id)")
                 return
             }
-            applyAssignmentRow(row, rowPeriod: rowPeriod, rowDate: rowDate, to: &task.assignments)
+            applyAssignmentRow(
+                row,
+                rowPeriod: rowPeriod,
+                rowDate: rowDate,
+                current: &task.currentAssignments,
+                history: &task.migrationHistory
+            )
 
         case EntryType.note.rawValue:
             let entryId = row.entryId
@@ -754,43 +760,53 @@ final class SyncEngine {
                 logger.warning("Note \(entryId) not found for assignment \(row.id)")
                 return
             }
-            applyAssignmentRow(row, rowPeriod: rowPeriod, rowDate: rowDate, to: &note.assignments)
+            applyAssignmentRow(
+                row,
+                rowPeriod: rowPeriod,
+                rowDate: rowDate,
+                current: &note.currentAssignments,
+                history: &note.migrationHistory
+            )
 
         default:
             logger.warning("Unknown entry type '\(row.entryType)' for assignment \(row.id)")
         }
     }
 
+    /// Applies a pulled assignment row to whichever of `current`/`history` it belongs in.
+    ///
+    /// Removes any existing match from both collections first, then — for a non-tombstone
+    /// row — re-inserts into `history` if the incoming assignment's status is `.migrated`,
+    /// or `current` otherwise. This naturally handles a status transition arriving from the
+    /// server (e.g. an assignment that was current now arriving as migrated) without needing
+    /// to track which collection it previously lived in.
     private func applyAssignmentRow(
         _ row: ServerAssignmentRow,
         rowPeriod: Period,
         rowDate: Date,
-        to assignments: inout [Assignment]
+        current: inout [Assignment],
+        history: inout [Assignment]
     ) {
-        if row.deletedAt != nil {
-            assignments.removeAll {
-                assignmentMatches(
-                    $0,
-                    rowID: row.id,
-                    rowPeriod: rowPeriod,
-                    rowDate: rowDate,
-                    rowSpreadID: row.spreadId
-                )
-            }
-        } else if let assignment = SyncSerializer.createAssignment(from: row) {
-            if let index = assignments.firstIndex(where: {
-                assignmentMatches(
-                    $0,
-                    rowID: row.id,
-                    rowPeriod: rowPeriod,
-                    rowDate: rowDate,
-                    rowSpreadID: row.spreadId
-                )
-            }) {
-                assignments[index] = assignment
-            } else {
-                assignments.append(assignment)
-            }
+        let matches: (Assignment) -> Bool = { assignment in
+            self.assignmentMatches(
+                assignment,
+                rowID: row.id,
+                rowPeriod: rowPeriod,
+                rowDate: rowDate,
+                rowSpreadID: row.spreadId
+            )
+        }
+        current.removeAll(where: matches)
+        history.removeAll(where: matches)
+
+        guard row.deletedAt == nil, let assignment = SyncSerializer.createAssignment(from: row) else {
+            return
+        }
+
+        if assignment.status == .migrated {
+            history.append(assignment)
+        } else {
+            current.append(assignment)
         }
     }
 
@@ -876,7 +892,7 @@ final class SyncEngine {
         var plan = AssignmentRepairPlan()
 
         let tasks = try context.fetch(FetchDescriptor<DataModel.Task>())
-        for task in tasks where !task.assignments.isEmpty {
+        for task in tasks where !(task.currentAssignments + task.migrationHistory).isEmpty {
             guard !hasCompletedRepairMarker(
                 accountId: accountId,
                 entryType: EntryType.task.rawValue,
@@ -894,7 +910,7 @@ final class SyncEngine {
                 continue
             }
 
-            enqueueAssignmentBackfill(task.assignments, entryId: task.id, entryType: .task)
+            enqueueAssignmentBackfill(task.currentAssignments + task.migrationHistory, entryId: task.id, entryType: .task)
             plan.enqueuedBackfill = true
             plan.markers.append(.init(
                 accountId: accountId,
@@ -905,7 +921,7 @@ final class SyncEngine {
         }
 
         let notes = try context.fetch(FetchDescriptor<DataModel.Note>())
-        for note in notes where !note.assignments.isEmpty {
+        for note in notes where !(note.currentAssignments + note.migrationHistory).isEmpty {
             guard !hasCompletedRepairMarker(
                 accountId: accountId,
                 entryType: EntryType.note.rawValue,
@@ -923,7 +939,7 @@ final class SyncEngine {
                 continue
             }
 
-            enqueueAssignmentBackfill(note.assignments, entryId: note.id, entryType: .note)
+            enqueueAssignmentBackfill(note.currentAssignments + note.migrationHistory, entryId: note.id, entryType: .note)
             plan.enqueuedBackfill = true
             plan.markers.append(.init(
                 accountId: accountId,
