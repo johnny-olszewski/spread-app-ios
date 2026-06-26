@@ -3,12 +3,9 @@ import SwiftData
 import Testing
 @testable import Spread
 
-/// Tests for `SwiftDataChangeAwareTaskRepository`.
-///
-/// Mirrors the `SwiftDataTaskRepository` cases in `SwiftDataRepositoryTests` to prove the
-/// change-aware save path produces identical CRUD and sync-outbox behavior while reading
-/// pre-mutation assignments/tags from a caller-supplied `EntityChange` instead of re-fetching
-/// from disk.
+/// Tests for `SwiftDataChangeAwareTaskRepository`, the canonical task repository
+/// implementation. Covers CRUD and sync-outbox behavior, including reading pre-mutation
+/// assignments/tags from a caller-supplied `EntityChange` instead of re-fetching from disk.
 @MainActor
 struct SwiftDataChangeAwareTaskRepositoryTests {
 
@@ -55,6 +52,28 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
 
         let tasks = await repository.getTasks()
         #expect(tasks.isEmpty)
+    }
+
+    /// Conditions: Save tasks with different created dates in non-chronological order.
+    /// Expected: Fetching tasks returns them sorted by date ascending.
+    @Test func testSaveReturnsTasksSortedByDateAscending() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let repository = SwiftDataChangeAwareTaskRepository(modelContainer: container)
+
+        let now = Date.now
+        let task1 = DataModel.Task(title: "Oldest", createdDate: now.addingTimeInterval(-200))
+        let task2 = DataModel.Task(title: "Middle", createdDate: now.addingTimeInterval(-100))
+        let task3 = DataModel.Task(title: "Newest", createdDate: now)
+
+        try await repository.save(task3, change: EntityChange())
+        try await repository.save(task1, change: EntityChange())
+        try await repository.save(task2, change: EntityChange())
+
+        let tasks = await repository.getTasks()
+        #expect(tasks.count == 3)
+        #expect(tasks[0].title == "Oldest")
+        #expect(tasks[1].title == "Middle")
+        #expect(tasks[2].title == "Newest")
     }
 
     /// Conditions: Save a task, mutate its title, then save again with `isNew: false`.
@@ -182,6 +201,40 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
         #expect(record?["status"] as? String == EntryStatus.complete.rawValue)
     }
 
+    /// Conditions: Save a task with an assignment, clear its assignments, then save again
+    /// passing the pre-mutation assignment via `change.previousAssignments`.
+    /// Expected: A task-assignment tombstone is enqueued even though the parent task remains.
+    @Test func testSaveEnqueuesAssignmentDeleteWhenAssignmentRemoved() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        var timestamps = [Date(timeIntervalSince1970: 700), Date(timeIntervalSince1970: 800)]
+        let repository = SwiftDataChangeAwareTaskRepository(
+            modelContainer: container,
+            deviceId: UUID(),
+            nowProvider: { timestamps.removeFirst() }
+        )
+
+        let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 4_000), status: .open)
+        let task = DataModel.Task(title: "Inbox fallback", assignments: [assignment])
+        try await repository.save(task, change: EntityChange())
+
+        let previousAssignments = task.assignments
+        task.assignments.removeAll()
+        try await repository.save(task, change: EntityChange(isNew: false, previousAssignments: previousAssignments))
+
+        let mutations = try fetchMutations(from: container)
+        let assignmentDelete = mutations.last {
+            $0.entityType == SyncEntityType.assignment.rawValue &&
+            $0.operation == SyncOperation.delete.rawValue
+        }
+
+        #expect(assignmentDelete != nil)
+        #expect(assignmentDelete?.entityId == assignment.id)
+
+        let record = try decodeRecord(assignmentDelete?.recordData)
+        let deletedAt = record?["deleted_at"] as? String
+        #expect(deletedAt == SyncDateFormatting.formatTimestamp(Date(timeIntervalSince1970: 800)))
+    }
+
     /// Conditions: Save a task with an assignment, then delete the task.
     /// Expected: A task-assignment delete mutation is enqueued as a tombstone, derived from
     /// `task.assignments` directly (delete needs no caller-supplied change descriptor).
@@ -261,72 +314,41 @@ struct SwiftDataChangeAwareTaskRepositoryTests {
         #expect(mutations.first { $0.entityId == existingTask.id }?.operation == SyncOperation.update.rawValue)
     }
 
-    // MARK: - Parity with SwiftDataTaskRepository
+    // MARK: - Outbox Coalescing Across a Full Mutation Sequence
 
-    /// Conditions: Run the same create-then-update-then-delete sequence through both
-    /// `SwiftDataTaskRepository` (legacy disk re-fetch diffing, no outbox coalescing) and
-    /// `SwiftDataChangeAwareTaskRepository` (caller-supplied descriptor diffing, with SPRD-253's
-    /// outbox coalescing), using separate in-memory containers.
-    /// Expected: **Intentional divergence** — the legacy repository still produces one row per
-    /// mutation (5 rows: task create/update/delete + assignment create/delete), while the
-    /// change-aware repository coalesces the task's update into its still-unsent create row and
-    /// the assignment's delete into its still-unsent create row, producing exactly 2 rows (task
-    /// create, assignment create) before the final deletes coalesce those into 2 delete rows.
-    @Test func testProducesSameOutboxSequenceAsLegacyRepository() async throws {
-        let legacyContainer = try ModelContainerFactory.makeInMemory()
-        let changeAwareContainer = try ModelContainerFactory.makeInMemory()
+    /// Conditions: Create a task with an assignment, update the task's title (assignment
+    /// unchanged), then delete the task — three saves/deletes in sequence, each while the
+    /// prior mutation's row is still unsent.
+    /// Expected: Per SPRD-253's outbox coalescing, this produces exactly 2 final rows (task,
+    /// assignment) instead of one row per mutation — the update coalesces into the still-unsent
+    /// create row (stays `create`), then the final delete coalesces both down to `delete`.
+    @Test func testFullMutationSequenceCoalescesToFinalRowsOnly() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
         let deviceId = UUID()
         let nowProvider = { Date(timeIntervalSince1970: 1_000) }
 
-        let legacyRepository = SwiftDataTaskRepository(
-            modelContainer: legacyContainer, deviceId: deviceId, nowProvider: nowProvider
-        )
-        let changeAwareRepository = SwiftDataChangeAwareTaskRepository(
-            modelContainer: changeAwareContainer, deviceId: deviceId, nowProvider: nowProvider
+        let repository = SwiftDataChangeAwareTaskRepository(
+            modelContainer: container, deviceId: deviceId, nowProvider: nowProvider
         )
 
         let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 5_000), status: .open)
-        let legacyTask = DataModel.Task(title: "Parity Task", assignments: [assignment])
-        let changeAwareTask = DataModel.Task(
-            id: legacyTask.id, title: "Parity Task", assignments: [assignment]
-        )
+        let task = DataModel.Task(title: "Sequence Task", assignments: [assignment])
 
-        try await legacyRepository.save(legacyTask)
-        try await changeAwareRepository.save(changeAwareTask, change: EntityChange())
+        try await repository.save(task, change: EntityChange())
 
-        legacyTask.title = "Updated Parity Task"
-        let previousAssignments = changeAwareTask.assignments
-        changeAwareTask.title = "Updated Parity Task"
-        try await legacyRepository.save(legacyTask)
-        try await changeAwareRepository.save(
-            changeAwareTask,
+        let previousAssignments = task.assignments
+        task.title = "Updated Sequence Task"
+        try await repository.save(
+            task,
             change: EntityChange(isNew: false, previousAssignments: previousAssignments)
         )
 
-        try await legacyRepository.delete(legacyTask)
-        try await changeAwareRepository.delete(changeAwareTask)
+        try await repository.delete(task)
 
-        let legacySequence = try fetchMutations(from: legacyContainer).map { ($0.entityType, $0.operation) }
-        let changeAwareSequence = try fetchMutations(from: changeAwareContainer).map { ($0.entityType, $0.operation) }
+        let sequence = try fetchMutations(from: container).map { ($0.entityType, $0.operation) }
 
-        // Legacy: one row per mutation — create/create, then update (no assignment change), then
-        // delete/delete. No coalescing.
-        #expect(legacySequence.map(\.0) == [
-            SyncEntityType.entry.rawValue, SyncEntityType.assignment.rawValue,
-            SyncEntityType.entry.rawValue,
-            SyncEntityType.entry.rawValue, SyncEntityType.assignment.rawValue
-        ])
-        #expect(legacySequence.map(\.1) == [
-            SyncOperation.create.rawValue, SyncOperation.create.rawValue,
-            SyncOperation.update.rawValue,
-            SyncOperation.delete.rawValue, SyncOperation.delete.rawValue
-        ])
-
-        // Change-aware: the update coalesces into the still-unsent task create row (stays
-        // create), then the final delete coalesces both rows down to delete — 2 rows total
-        // instead of 5.
-        #expect(changeAwareSequence.map(\.0) == [SyncEntityType.entry.rawValue, SyncEntityType.assignment.rawValue])
-        #expect(changeAwareSequence.map(\.1) == [SyncOperation.delete.rawValue, SyncOperation.delete.rawValue])
+        #expect(sequence.map(\.0) == [SyncEntityType.entry.rawValue, SyncEntityType.assignment.rawValue])
+        #expect(sequence.map(\.1) == [SyncOperation.delete.rawValue, SyncOperation.delete.rawValue])
     }
 
     // MARK: - Sync Outbox Helpers

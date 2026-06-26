@@ -10,10 +10,10 @@ final class DebugDataService {
 
     // MARK: - Properties
 
-    private let taskRepository: any TaskRepository
+    private let taskRepository: any ChangeAwareTaskRepository
     private let spreadRepository: any SpreadRepository
     private let eventRepository: any EventRepository
-    private let noteRepository: any NoteRepository
+    private let noteRepository: any ChangeAwareNoteRepository
     private let listRepository: any ListRepository
     private let tagRepository: any TagRepository
     private let onReload: (() -> Void)?
@@ -31,10 +31,10 @@ final class DebugDataService {
     ///   - tagRepository: Repository for tag operations.
     ///   - onReload: Optional callback invoked after data is loaded.
     init(
-        taskRepository: any TaskRepository,
+        taskRepository: any ChangeAwareTaskRepository,
         spreadRepository: any SpreadRepository,
         eventRepository: any EventRepository,
-        noteRepository: any NoteRepository,
+        noteRepository: any ChangeAwareNoteRepository,
         listRepository: any ListRepository,
         tagRepository: any TagRepository,
         onReload: (() -> Void)? = nil
@@ -88,7 +88,7 @@ final class DebugDataService {
 
         // Save tasks
         for task in generatedData.tasks {
-            try await taskRepository.save(task)
+            try await taskRepository.save(task, change: EntityChange())
         }
 
         // Save events (gated behind feature flag — events deferred to v2)
@@ -100,7 +100,7 @@ final class DebugDataService {
 
         // Save notes
         for note in generatedData.notes {
-            try await noteRepository.save(note)
+            try await noteRepository.save(note, change: EntityChange())
         }
 
         // Trigger reload

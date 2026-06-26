@@ -331,9 +331,9 @@ final class JournalManager {
     /// `EntityStore.values`/index bucket lookups are dictionary/set-backed and have no
     /// inherent order, unlike the legacy array-based `tasks.filter { ... }` this replaces
     /// (which preserved the originating repository's order — `createdDate` ascending for
-    /// tasks/notes/events, confirmed against `TestChangeAwareTaskRepository`/
-    /// `InMemoryNoteRepository`/`InMemoryEventRepository`). Re-sorting here keeps that same
-    /// observable order after any mutation, not just at cold load.
+    /// tasks/notes/events, confirmed against each repository's own `getTasks`/`getNotes`/
+    /// `getEvents` sort). Re-sorting here keeps that same observable order after any
+    /// mutation, not just at cold load.
     private static func sortedByCreatedDate<E: Entry>(_ entries: [E]) -> [E] {
         entries.sorted { $0.createdDate < $1.createdDate }
     }

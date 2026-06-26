@@ -3,12 +3,9 @@ import SwiftData
 import Testing
 @testable import Spread
 
-/// Tests for `SwiftDataChangeAwareNoteRepository`.
-///
-/// Mirrors the `SwiftDataNoteRepository` cases in `NoteRepositoryTests` to prove the
-/// change-aware save path produces identical CRUD and sync-outbox behavior while reading
-/// pre-mutation assignments/tags from a caller-supplied `EntityChange` instead of re-fetching
-/// from disk.
+/// Tests for `SwiftDataChangeAwareNoteRepository`, the canonical note repository
+/// implementation. Covers CRUD and sync-outbox behavior, including reading pre-mutation
+/// assignments/tags from a caller-supplied `EntityChange` instead of re-fetching from disk.
 @MainActor
 struct SwiftDataChangeAwareNoteRepositoryTests {
 
@@ -55,6 +52,28 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
 
         let notes = await repository.getNotes()
         #expect(notes.isEmpty)
+    }
+
+    /// Conditions: Save notes with different created dates in non-chronological order.
+    /// Expected: Fetching notes returns them sorted by date ascending.
+    @Test func testSaveReturnsNotesSortedByDateAscending() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        let repository = SwiftDataChangeAwareNoteRepository(modelContainer: container)
+
+        let now = Date.now
+        let note1 = DataModel.Note(title: "Oldest", createdDate: now.addingTimeInterval(-200))
+        let note2 = DataModel.Note(title: "Middle", createdDate: now.addingTimeInterval(-100))
+        let note3 = DataModel.Note(title: "Newest", createdDate: now)
+
+        try await repository.save(note3, change: EntityChange())
+        try await repository.save(note1, change: EntityChange())
+        try await repository.save(note2, change: EntityChange())
+
+        let notes = await repository.getNotes()
+        #expect(notes.count == 3)
+        #expect(notes[0].title == "Oldest")
+        #expect(notes[1].title == "Middle")
+        #expect(notes[2].title == "Newest")
     }
 
     /// Conditions: Save a note, mutate its title, then save again with `isNew: false`.
@@ -182,6 +201,40 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
         #expect(record?["status"] as? String == EntryStatus.complete.rawValue)
     }
 
+    /// Conditions: Save a note with an assignment, clear its assignments, then save again
+    /// passing the pre-mutation assignment via `change.previousAssignments`.
+    /// Expected: A note-assignment tombstone is enqueued even though the parent note remains.
+    @Test func testSaveEnqueuesAssignmentDeleteWhenAssignmentRemoved() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
+        var timestamps = [Date(timeIntervalSince1970: 700), Date(timeIntervalSince1970: 800)]
+        let repository = SwiftDataChangeAwareNoteRepository(
+            modelContainer: container,
+            deviceId: UUID(),
+            nowProvider: { timestamps.removeFirst() }
+        )
+
+        let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 4_000), status: .active)
+        let note = DataModel.Note(title: "Inbox fallback", assignments: [assignment])
+        try await repository.save(note, change: EntityChange())
+
+        let previousAssignments = note.assignments
+        note.assignments.removeAll()
+        try await repository.save(note, change: EntityChange(isNew: false, previousAssignments: previousAssignments))
+
+        let mutations = try fetchMutations(from: container)
+        let assignmentDelete = mutations.last {
+            $0.entityType == SyncEntityType.assignment.rawValue &&
+            $0.operation == SyncOperation.delete.rawValue
+        }
+
+        #expect(assignmentDelete != nil)
+        #expect(assignmentDelete?.entityId == assignment.id)
+
+        let record = try decodeRecord(assignmentDelete?.recordData)
+        let deletedAt = record?["deleted_at"] as? String
+        #expect(deletedAt == SyncDateFormatting.formatTimestamp(Date(timeIntervalSince1970: 800)))
+    }
+
     /// Conditions: Save a note with an assignment, then delete the note.
     /// Expected: A note-assignment delete mutation is enqueued as a tombstone, derived from
     /// `note.assignments` directly (delete needs no caller-supplied change descriptor).
@@ -261,72 +314,41 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
         #expect(mutations.first { $0.entityId == existingNote.id }?.operation == SyncOperation.update.rawValue)
     }
 
-    // MARK: - Parity with SwiftDataNoteRepository
+    // MARK: - Outbox Coalescing Across a Full Mutation Sequence
 
-    /// Conditions: Run the same create-then-update-then-delete sequence through both
-    /// `SwiftDataNoteRepository` (legacy disk re-fetch diffing, no outbox coalescing) and
-    /// `SwiftDataChangeAwareNoteRepository` (caller-supplied descriptor diffing, with SPRD-253's
-    /// outbox coalescing), using separate in-memory containers.
-    /// Expected: **Intentional divergence** — the legacy repository still produces one row per
-    /// mutation (5 rows: note create/update/delete + assignment create/delete), while the
-    /// change-aware repository coalesces the note's update into its still-unsent create row and
-    /// the assignment's delete into its still-unsent create row, producing exactly 2 rows (note
-    /// create, assignment create) before the final deletes coalesce those into 2 delete rows.
-    @Test func testProducesSameOutboxSequenceAsLegacyRepository() async throws {
-        let legacyContainer = try ModelContainerFactory.makeInMemory()
-        let changeAwareContainer = try ModelContainerFactory.makeInMemory()
+    /// Conditions: Create a note with an assignment, update the note's title (assignment
+    /// unchanged), then delete the note — three saves/deletes in sequence, each while the
+    /// prior mutation's row is still unsent.
+    /// Expected: Per SPRD-253's outbox coalescing, this produces exactly 2 final rows (note,
+    /// assignment) instead of one row per mutation — the update coalesces into the still-unsent
+    /// create row (stays `create`), then the final delete coalesces both down to `delete`.
+    @Test func testFullMutationSequenceCoalescesToFinalRowsOnly() async throws {
+        let container = try ModelContainerFactory.makeInMemory()
         let deviceId = UUID()
         let nowProvider = { Date(timeIntervalSince1970: 1_000) }
 
-        let legacyRepository = SwiftDataNoteRepository(
-            modelContainer: legacyContainer, deviceId: deviceId, nowProvider: nowProvider
-        )
-        let changeAwareRepository = SwiftDataChangeAwareNoteRepository(
-            modelContainer: changeAwareContainer, deviceId: deviceId, nowProvider: nowProvider
+        let repository = SwiftDataChangeAwareNoteRepository(
+            modelContainer: container, deviceId: deviceId, nowProvider: nowProvider
         )
 
         let assignment = Assignment(period: .day, date: Date(timeIntervalSince1970: 5_000), status: .active)
-        let legacyNote = DataModel.Note(title: "Parity Note", assignments: [assignment])
-        let changeAwareNote = DataModel.Note(
-            id: legacyNote.id, title: "Parity Note", assignments: [assignment]
-        )
+        let note = DataModel.Note(title: "Sequence Note", assignments: [assignment])
 
-        try await legacyRepository.save(legacyNote)
-        try await changeAwareRepository.save(changeAwareNote, change: EntityChange())
+        try await repository.save(note, change: EntityChange())
 
-        legacyNote.title = "Updated Parity Note"
-        let previousAssignments = changeAwareNote.assignments
-        changeAwareNote.title = "Updated Parity Note"
-        try await legacyRepository.save(legacyNote)
-        try await changeAwareRepository.save(
-            changeAwareNote,
+        let previousAssignments = note.assignments
+        note.title = "Updated Sequence Note"
+        try await repository.save(
+            note,
             change: EntityChange(isNew: false, previousAssignments: previousAssignments)
         )
 
-        try await legacyRepository.delete(legacyNote)
-        try await changeAwareRepository.delete(changeAwareNote)
+        try await repository.delete(note)
 
-        let legacySequence = try fetchMutations(from: legacyContainer).map { ($0.entityType, $0.operation) }
-        let changeAwareSequence = try fetchMutations(from: changeAwareContainer).map { ($0.entityType, $0.operation) }
+        let sequence = try fetchMutations(from: container).map { ($0.entityType, $0.operation) }
 
-        // Legacy: one row per mutation — create/create, then update (no assignment change), then
-        // delete/delete. No coalescing.
-        #expect(legacySequence.map(\.0) == [
-            SyncEntityType.entry.rawValue, SyncEntityType.assignment.rawValue,
-            SyncEntityType.entry.rawValue,
-            SyncEntityType.entry.rawValue, SyncEntityType.assignment.rawValue
-        ])
-        #expect(legacySequence.map(\.1) == [
-            SyncOperation.create.rawValue, SyncOperation.create.rawValue,
-            SyncOperation.update.rawValue,
-            SyncOperation.delete.rawValue, SyncOperation.delete.rawValue
-        ])
-
-        // Change-aware: the update coalesces into the still-unsent note create row (stays
-        // create), then the final delete coalesces both rows down to delete — 2 rows total
-        // instead of 5.
-        #expect(changeAwareSequence.map(\.0) == [SyncEntityType.entry.rawValue, SyncEntityType.assignment.rawValue])
-        #expect(changeAwareSequence.map(\.1) == [SyncOperation.delete.rawValue, SyncOperation.delete.rawValue])
+        #expect(sequence.map(\.0) == [SyncEntityType.entry.rawValue, SyncEntityType.assignment.rawValue])
+        #expect(sequence.map(\.1) == [SyncOperation.delete.rawValue, SyncOperation.delete.rawValue])
     }
 
     // MARK: - Sync Outbox Helpers

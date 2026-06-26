@@ -76,13 +76,13 @@ struct TagRepositoryTests {
     @Test func testAddingTagToTaskSetsInverseRelationship() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let tagRepo = SwiftDataTagRepository(modelContainer: container)
-        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
 
         let tag = DataModel.Tag(name: "Baby Preparation")
         try await tagRepo.save(tag)
 
         let task = DataModel.Task(title: "Buy crib", tags: [tag])
-        try await taskRepo.save(task)
+        try await taskRepo.save(task, change: EntityChange())
 
         let tasks = await taskRepo.getTasks()
         #expect(tasks.first?.tags.map(\.name) == ["Baby Preparation"])
@@ -93,7 +93,7 @@ struct TagRepositoryTests {
     @Test func testMultipleTagsOnTask() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let tagRepo = SwiftDataTagRepository(modelContainer: container)
-        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
 
         let tag1 = DataModel.Tag(name: "Work")
         let tag2 = DataModel.Tag(name: "Urgent")
@@ -101,7 +101,7 @@ struct TagRepositoryTests {
         try await tagRepo.save(tag2)
 
         let task = DataModel.Task(title: "Critical deadline", tags: [tag1, tag2])
-        try await taskRepo.save(task)
+        try await taskRepo.save(task, change: EntityChange())
 
         let tasks = await taskRepo.getTasks()
         #expect(tasks.first?.tags.count == 2)
@@ -112,13 +112,13 @@ struct TagRepositoryTests {
     @Test func testDeletingTagRemovesItFromTaskTags() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let tagRepo = SwiftDataTagRepository(modelContainer: container)
-        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
 
         let tag = DataModel.Tag(name: "Garage Reorganization")
         try await tagRepo.save(tag)
 
         let task = DataModel.Task(title: "Buy shelving", tags: [tag])
-        try await taskRepo.save(task)
+        try await taskRepo.save(task, change: EntityChange())
 
         try await tagRepo.delete(tag)
 
@@ -149,17 +149,18 @@ struct TagRepositoryTests {
     @Test func testRemovingTagFromTaskEnqueuesTaskTagTombstone() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let tagRepo = SwiftDataTagRepository(modelContainer: container)
-        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
 
         let tag = DataModel.Tag(name: "Removable")
         try await tagRepo.save(tag)
 
         let task = DataModel.Task(title: "Task with tag", tags: [tag])
-        try await taskRepo.save(task)
+        try await taskRepo.save(task, change: EntityChange())
 
         // Remove the tag and save again
+        let previousTagIDs = task.tags.map(\.id)
         task.tags.removeAll()
-        try await taskRepo.save(task)
+        try await taskRepo.save(task, change: EntityChange(isNew: false, previousTagIDs: previousTagIDs))
 
         let context = container.mainContext
         let mutations = try context.fetch(FetchDescriptor<DataModel.SyncMutation>())
@@ -172,17 +173,17 @@ struct TagRepositoryTests {
     @Test func testAddingTagToExistingTaskEnqueuesTaskTagCreate() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let tagRepo = SwiftDataTagRepository(modelContainer: container)
-        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
 
         let tag = DataModel.Tag(name: "New Tag")
         try await tagRepo.save(tag)
 
         let task = DataModel.Task(title: "Task without tags")
-        try await taskRepo.save(task)
+        try await taskRepo.save(task, change: EntityChange())
 
         // Add a tag and save
         task.tags.append(tag)
-        try await taskRepo.save(task)
+        try await taskRepo.save(task, change: EntityChange(isNew: false))
 
         let context = container.mainContext
         let mutations = try context.fetch(FetchDescriptor<DataModel.SyncMutation>())

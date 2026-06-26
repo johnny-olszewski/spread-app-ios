@@ -435,7 +435,7 @@ struct SyncEngineTests {
         let date = TestDataBuilders.makeDate(year: 2026, month: 4, day: 1, calendar: calendar)
         let dueDate = TestDataBuilders.makeDate(year: 2026, month: 4, day: 5, calendar: calendar)
         let spreadRepository = SwiftDataSpreadRepository(modelContainer: container, deviceId: deviceId)
-        let taskRepository = SwiftDataTaskRepository(modelContainer: container, deviceId: deviceId)
+        let taskRepository = SwiftDataChangeAwareTaskRepository(modelContainer: container, deviceId: deviceId)
         let spread = DataModel.Spread(
             period: .month,
             date: date,
@@ -455,7 +455,7 @@ struct SyncEngineTests {
         )
 
         try await spreadRepository.save(spread)
-        try await taskRepository.save(task)
+        try await taskRepository.save(task, change: EntityChange())
         await engine.syncNow()
 
         let spreadJSON = try jsonPayload(for: SyncEntityType.spread.mergeRPCName, in: mergeCalls)

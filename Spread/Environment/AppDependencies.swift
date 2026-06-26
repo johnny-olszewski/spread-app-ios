@@ -21,7 +21,7 @@ struct AppDependencies: @unchecked Sendable {
     let modelContainer: ModelContainer
 
     /// Repository for task persistence operations.
-    let taskRepository: any TaskRepository
+    let taskRepository: any ChangeAwareTaskRepository
 
     /// Repository for spread persistence operations.
     let spreadRepository: any SpreadRepository
@@ -30,7 +30,7 @@ struct AppDependencies: @unchecked Sendable {
     let eventRepository: any EventRepository
 
     /// Repository for note persistence operations.
-    let noteRepository: any NoteRepository
+    let noteRepository: any ChangeAwareNoteRepository
 
     /// Repository for collection persistence operations.
     let collectionRepository: any CollectionRepository
@@ -70,11 +70,11 @@ struct AppDependencies: @unchecked Sendable {
             configurationLabel: "live",
             isStoredInMemoryOnly: false,
             modelContainer: modelContainer,
-            taskRepository: SwiftDataTaskRepository(modelContainer: modelContainer),
+            taskRepository: SwiftDataChangeAwareTaskRepository(modelContainer: modelContainer),
             spreadRepository: SwiftDataSpreadRepository(modelContainer: modelContainer),
             // TODO: SPRD-57 - Create SwiftDataEventRepository
             eventRepository: EmptyEventRepository(),
-            noteRepository: SwiftDataNoteRepository(modelContainer: modelContainer),
+            noteRepository: SwiftDataChangeAwareNoteRepository(modelContainer: modelContainer),
             collectionRepository: SwiftDataCollectionRepository(modelContainer: modelContainer),
             settingsRepository: SwiftDataSettingsRepository(modelContainer: modelContainer),
             listRepository: SwiftDataListRepository(modelContainer: modelContainer),
@@ -99,10 +99,10 @@ struct AppDependencies: @unchecked Sendable {
     @MainActor
     static func make(
         modelContainer: ModelContainer? = nil,
-        taskRepository: (any TaskRepository)? = nil,
+        taskRepository: (any ChangeAwareTaskRepository)? = nil,
         spreadRepository: (any SpreadRepository)? = nil,
         eventRepository: (any EventRepository)? = nil,
-        noteRepository: (any NoteRepository)? = nil,
+        noteRepository: (any ChangeAwareNoteRepository)? = nil,
         collectionRepository: (any CollectionRepository)? = nil,
         settingsRepository: (any SettingsRepository)? = nil,
         eventKitService: (any EventKitService)? = nil,
@@ -113,10 +113,10 @@ struct AppDependencies: @unchecked Sendable {
             configurationLabel: "testing",
             isStoredInMemoryOnly: true,
             modelContainer: resolvedModelContainer,
-            taskRepository: taskRepository ?? EmptyTaskRepository(),
+            taskRepository: taskRepository ?? TestChangeAwareTaskRepository(),
             spreadRepository: spreadRepository ?? EmptySpreadRepository(),
             eventRepository: eventRepository ?? EmptyEventRepository(),
-            noteRepository: noteRepository ?? EmptyNoteRepository(),
+            noteRepository: noteRepository ?? TestChangeAwareNoteRepository(),
             collectionRepository: collectionRepository ?? EmptyCollectionRepository(),
             settingsRepository: settingsRepository ?? EmptySettingsRepository(),
             listRepository: EmptyListRepository(),
@@ -141,11 +141,11 @@ struct AppDependencies: @unchecked Sendable {
             configurationLabel: "preview",
             isStoredInMemoryOnly: true,
             modelContainer: modelContainer,
-            taskRepository: MockTaskRepository(),
+            taskRepository: TestChangeAwareTaskRepository(tasks: TestData.sampleTasks()),
             spreadRepository: MockSpreadRepository(),
             // TODO: SPRD-57 - Create MockEventRepository with seeded data
             eventRepository: EmptyEventRepository(),
-            noteRepository: MockNoteRepository(),
+            noteRepository: TestChangeAwareNoteRepository(notes: TestData.sampleNotes()),
             collectionRepository: MockCollectionRepository(),
             settingsRepository: EmptySettingsRepository(),
             listRepository: MockListRepository(),
@@ -160,14 +160,6 @@ struct AppDependencies: @unchecked Sendable {
 
     /// Creates a JournalManager configured with these dependencies' repositories.
     ///
-    /// Constructs its own `ChangeAware*` task/note repository instances against the same
-    /// `modelContainer` rather than using `self.taskRepository`/`self.noteRepository`
-    /// (legacy-protocol-typed, still used by `DebugRepositoryListView` and unaffected by
-    /// this). SPRD-245's documented rename (`ChangeAwareTaskRepository` → `TaskRepository`,
-    /// deleting the legacy protocol) is deferred to its own follow-up task — applying it now
-    /// would touch ~50 files via `InMemoryTaskRepository`/`InMemoryNoteRepository`/`Mock*`
-    /// doubles used well beyond `JournalManager`'s own tests.
-    ///
     /// - Parameters:
     ///   - appClock: The shared app clock for temporal context and refreshes.
     ///   - firstWeekday: The user's first day of week preference (defaults to system default).
@@ -180,8 +172,8 @@ struct AppDependencies: @unchecked Sendable {
         let resolvedAppClock = appClock ?? AppClock.live()
         let manager = JournalManager(
             appClock: resolvedAppClock,
-            taskRepository: SwiftDataChangeAwareTaskRepository(modelContainer: modelContainer),
-            noteRepository: SwiftDataChangeAwareNoteRepository(modelContainer: modelContainer),
+            taskRepository: taskRepository,
+            noteRepository: noteRepository,
             spreadRepository: spreadRepository,
             eventRepository: eventRepository,
             collectionRepository: collectionRepository,
