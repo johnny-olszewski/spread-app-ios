@@ -228,7 +228,7 @@ struct LocalSupabaseSyncHarness {
             today: TestDataBuilders.testDate,
             taskRepository: taskRepository,
             spreadRepository: spreadRepository,
-            eventRepository: InMemoryEventRepository(),
+            eventRepository: TestEventRepository(),
             noteRepository: noteRepository,
             collectionRepository: collectionRepository,
         )

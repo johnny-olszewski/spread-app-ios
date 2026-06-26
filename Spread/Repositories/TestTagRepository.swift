@@ -5,7 +5,7 @@ import Foundation
 /// Provides a working repository implementation that stores tags in memory.
 /// Supports initialization with existing tags for test setup.
 @MainActor
-final class InMemoryTagRepository: TagRepository {
+final class TestTagRepository: TagRepository {
 
     // MARK: - Properties
 

@@ -43,7 +43,7 @@ struct TaskSearchSupportTests {
             calendar: calendar,
             today: dayDate,
             taskRepository: TestTaskRepository(tasks: [inboxTask, yearTask, monthTask, dayTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
         let sections = TaskSearchSectionBuilder(journalManager: manager).build(searchText: "")
@@ -75,7 +75,7 @@ struct TaskSearchSupportTests {
             calendar: calendar,
             today: monthDate,
             taskRepository: TestTaskRepository(tasks: [migratedTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread])
         )
 
         let sections = TaskSearchSectionBuilder(journalManager: manager).build(searchText: "")
@@ -103,7 +103,7 @@ struct TaskSearchSupportTests {
             calendar: calendar,
             today: dayDate,
             taskRepository: TestTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository()
+            spreadRepository: TestSpreadRepository()
         )
 
         let sections = TaskSearchSectionBuilder(journalManager: manager).build(searchText: "rollout")
@@ -140,7 +140,7 @@ struct TaskSearchSupportTests {
             calendar: calendar,
             today: dayDate,
             taskRepository: TestTaskRepository(tasks: [assignedTask, unassignedTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [daySpread])
+            spreadRepository: TestSpreadRepository(spreads: [daySpread])
         )
 
         let sections = TaskSearchSectionBuilder(journalManager: manager).build(searchText: "")

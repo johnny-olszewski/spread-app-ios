@@ -5,7 +5,7 @@ import Foundation
 /// Provides a working repository implementation that stores lists in memory.
 /// Supports initialization with existing lists for test setup.
 @MainActor
-final class InMemoryListRepository: ListRepository {
+final class TestListRepository: ListRepository {
 
     // MARK: - Properties
 

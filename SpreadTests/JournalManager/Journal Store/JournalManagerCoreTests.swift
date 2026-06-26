@@ -24,8 +24,8 @@ struct JournalManagerCoreTests {
             appClock: .fixed(now: .now, calendar: Self.calendar, timeZone: Self.calendar.timeZone, locale: Locale(identifier: "en_US_POSIX")),
             taskRepository: TestTaskRepository(tasks: tasks),
             noteRepository: TestNoteRepository(notes: notes),
-            spreadRepository: InMemorySpreadRepository(spreads: spreads),
-            eventRepository: InMemoryEventRepository(events: events),
+            spreadRepository: TestSpreadRepository(spreads: spreads),
+            eventRepository: TestEventRepository(events: events),
             creationPolicy: StandardCreationPolicy(today: .now, firstWeekday: .systemDefault)
         )
     }

@@ -81,7 +81,6 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
   - **`Mock*`**: tracks calls, records invocations, or injects errors/failures for assertion (e.g. `MockAuthService`, `MockNetworkMonitor`).
   - **`Test*`**: a plain stand-in with no call-tracking — just enough behavior to be a working substitute (e.g. an in-memory dictionary-backed repository).
   - Both live in the main target alongside the real implementation (not under `Debug/`).
-  - **Migration note**: the legacy repository doubles (`InMemoryTaskRepository`, `InMemorySpreadRepository`, `InMemoryEventRepository`, `InMemoryNoteRepository`, `InMemoryCollectionRepository`, `InMemoryListRepository`, `InMemoryTagRepository`) predate this convention and still use the `InMemory*` prefix; see backlog item TF-44 to rename them to `Test*`. Don't introduce new `InMemory*`-prefixed types — use `Test*` going forward.
 - **Structs by default**: Prefer structs for services, coordinators, and data types. Use classes only when identity semantics are required (`@Observable`, SwiftData `@Model`, or shared mutable state).
 - **No singletons**: Avoid `static let shared` singletons. Prefer init-injected dependencies so that tests can substitute implementations without global state coupling.
 

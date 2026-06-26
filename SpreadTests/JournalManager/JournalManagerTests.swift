@@ -58,7 +58,7 @@ struct JournalManagerTests {
             date: Self.testDate,
             calendar: calendar
         )
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -85,7 +85,7 @@ struct JournalManagerTests {
     /// Expected: Manager loads that event into its events list.
     @Test @MainActor func testLoadsEventsFromRepository() async throws {
         let event = DataModel.Event(title: "Test Event")
-        let eventRepo = InMemoryEventRepository(events: [event])
+        let eventRepo = TestEventRepository(events: [event])
 
         let manager = try await JournalManager(eventRepository: eventRepo)
 
@@ -121,7 +121,7 @@ struct JournalManagerTests {
             date: Self.testDate,
             calendar: calendar
         )
-        let spreadRepo = InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
+        let spreadRepo = TestSpreadRepository(spreads: [yearSpread, monthSpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -141,7 +141,7 @@ struct JournalManagerTests {
             date: Self.testDate,
             calendar: calendar
         )
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -186,7 +186,7 @@ struct JournalManagerTests {
             period: .day
         )
         let taskRepo = TestTaskRepository(tasks: [inRangeTask, outOfRangeTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [multidaySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -231,7 +231,7 @@ struct JournalManagerTests {
             period: .day
         )
         let noteRepo = TestNoteRepository(notes: [inRangeNote, outOfRangeNote])
-        let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [multidaySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,

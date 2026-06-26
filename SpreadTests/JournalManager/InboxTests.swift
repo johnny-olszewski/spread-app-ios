@@ -84,7 +84,7 @@ struct InboxTests {
         let differentDate = calendar.date(from: .init(year: 2026, month: 1, day: 20))!
         let spread = DataModel.Spread(period: .day, date: differentDate, calendar: calendar)
         let taskRepo = TestTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -116,7 +116,7 @@ struct InboxTests {
         )
         let spread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
         let taskRepo = TestTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -142,7 +142,7 @@ struct InboxTests {
         // Create month spread (parent of day)
         let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: calendar)
         let taskRepo = TestTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -165,7 +165,7 @@ struct InboxTests {
             startDate: Self.testDate,
             endDate: Self.testDate
         )
-        let eventRepo = InMemoryEventRepository(events: [event])
+        let eventRepo = TestEventRepository(events: [event])
 
         let manager = try await JournalManager(
             calendar: Self.testCalendar,
@@ -184,7 +184,7 @@ struct InboxTests {
             startDate: Self.testDate,
             endDate: Self.testDate
         )
-        let eventRepo = InMemoryEventRepository(events: [event])
+        let eventRepo = TestEventRepository(events: [event])
         // No spreads
 
         let manager = try await JournalManager(
@@ -456,7 +456,7 @@ struct InboxTests {
             calendar: calendar,
             today: Self.testDate,
             taskRepository: TestTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread])
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread])
         )
 
         let monthSpread = try await manager.addSpread(period: .month, date: taskDate)
@@ -488,7 +488,7 @@ struct InboxTests {
         let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
-            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread]),
+            spreadRepository: TestSpreadRepository(spreads: [monthSpread]),
             noteRepository: TestNoteRepository(notes: [note])
         )
 
@@ -567,7 +567,7 @@ struct InboxTests {
             calendar: calendar,
             today: Self.testDate,
             taskRepository: TestTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread])
+            spreadRepository: TestSpreadRepository(spreads: [monthSpread])
         )
 
         let daySpread = try await manager.addSpread(period: .day, date: taskDate)
@@ -645,7 +645,7 @@ struct InboxTests {
     /// Expected: Repository contains the saved day spread.
     @Test @MainActor func testAddSpreadPersistsSpreadToRepository() async throws {
         let calendar = Self.testCalendar
-        let spreadRepo = InMemorySpreadRepository()
+        let spreadRepo = TestSpreadRepository()
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -702,7 +702,7 @@ struct InboxTests {
         let event = DataModel.Event(title: "Event", startDate: Self.testDate, endDate: Self.testDate)
         let taskRepo = TestTaskRepository(tasks: [task])
         let noteRepo = TestNoteRepository(notes: [note])
-        let eventRepo = InMemoryEventRepository(events: [event])
+        let eventRepo = TestEventRepository(events: [event])
 
         let manager = try await JournalManager(
             calendar: Self.testCalendar,

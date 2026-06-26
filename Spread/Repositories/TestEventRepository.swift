@@ -5,7 +5,7 @@ import Foundation
 /// Provides a working repository implementation that stores events in memory.
 /// Supports initialization with existing events for test setup.
 @MainActor
-final class InMemoryEventRepository: EventRepository {
+final class TestEventRepository: EventRepository {
 
     // MARK: - Properties
 

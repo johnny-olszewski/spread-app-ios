@@ -174,7 +174,7 @@ private struct CollectionRow: View {
 #Preview("Empty") {
     NavigationStack {
         CollectionsListView(
-            collectionRepository: InMemoryCollectionRepository(),
+            collectionRepository: TestCollectionRepository(),
             syncEngine: nil
         )
         .navigationTitle("Collections")

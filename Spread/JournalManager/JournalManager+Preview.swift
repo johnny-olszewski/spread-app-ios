@@ -36,8 +36,8 @@ extension JournalManager {
             appClock: appClock,
             taskRepository: TestTaskRepository(),
             noteRepository: TestNoteRepository(),
-            spreadRepository: InMemorySpreadRepository(),
-            eventRepository: InMemoryEventRepository(),
+            spreadRepository: TestSpreadRepository(),
+            eventRepository: TestEventRepository(),
             creationPolicy: policy
         )
         // Populated synchronously via the in-memory upsert primitives rather than `load()`,
@@ -76,8 +76,8 @@ extension JournalManager {
             appClock: appClock,
             taskRepository: TestTaskRepository(),
             noteRepository: TestNoteRepository(),
-            spreadRepository: InMemorySpreadRepository(),
-            eventRepository: InMemoryEventRepository(),
+            spreadRepository: TestSpreadRepository(),
+            eventRepository: TestEventRepository(),
             creationPolicy: policy
         )
     }

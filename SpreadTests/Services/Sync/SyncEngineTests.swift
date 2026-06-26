@@ -390,9 +390,9 @@ struct SyncEngineTests {
             today: TestDataBuilders.makeDate(year: 2026, month: 4, day: 2),
             taskRepository: taskRepository,
             spreadRepository: spreadRepository,
-            eventRepository: InMemoryEventRepository(),
+            eventRepository: TestEventRepository(),
             noteRepository: TestNoteRepository(),
-            collectionRepository: InMemoryCollectionRepository()
+            collectionRepository: TestCollectionRepository()
         )
 
         let spread = try #require(manager.spreads.first { $0.id == Self.wkflw17SpreadID })

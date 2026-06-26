@@ -18,8 +18,8 @@ struct JournalManagerListTagTests {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "UTC")!
         let today = TestDataBuilders.testDate
-        let listRepo = InMemoryListRepository(lists: lists)
-        let tagRepo = InMemoryTagRepository(tags: tags)
+        let listRepo = TestListRepository(lists: lists)
+        let tagRepo = TestTagRepository(tags: tags)
         return try await JournalManager(
             calendar: cal,
             today: today,

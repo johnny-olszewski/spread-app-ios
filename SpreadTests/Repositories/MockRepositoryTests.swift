@@ -14,12 +14,12 @@ struct MockRepositoryTests {
         return calendar
     }
 
-    // MARK: - InMemorySpreadRepository Tests
+    // MARK: - TestSpreadRepository Tests
 
     /// Conditions: Save a new spread to empty repository.
     /// Expected: Repository should contain exactly one spread.
-    @Test func testInMemorySpreadRepositorySaveAddsSpread() async throws {
-        let repository = InMemorySpreadRepository()
+    @Test func testTestSpreadRepositorySaveAddsSpread() async throws {
+        let repository = TestSpreadRepository()
         let spread = DataModel.Spread(period: .day, date: Date.now, calendar: testCalendar)
 
         try await repository.save(spread)
@@ -30,8 +30,8 @@ struct MockRepositoryTests {
 
     /// Conditions: Save the same spread twice.
     /// Expected: Repository should still contain only one spread (no duplicates).
-    @Test func testInMemorySpreadRepositorySaveIsIdempotent() async throws {
-        let repository = InMemorySpreadRepository()
+    @Test func testTestSpreadRepositorySaveIsIdempotent() async throws {
+        let repository = TestSpreadRepository()
         let spread = DataModel.Spread(period: .day, date: Date.now, calendar: testCalendar)
 
         try await repository.save(spread)
@@ -43,8 +43,8 @@ struct MockRepositoryTests {
 
     /// Conditions: Save a spread, then delete it.
     /// Expected: Repository should be empty after deletion.
-    @Test func testInMemorySpreadRepositoryDeleteRemovesSpread() async throws {
-        let repository = InMemorySpreadRepository()
+    @Test func testTestSpreadRepositoryDeleteRemovesSpread() async throws {
+        let repository = TestSpreadRepository()
         let spread = DataModel.Spread(period: .day, date: Date.now, calendar: testCalendar)
 
         try await repository.save(spread)
@@ -56,8 +56,8 @@ struct MockRepositoryTests {
 
     /// Conditions: Delete a spread that was never saved to the repository.
     /// Expected: Repository should remain empty (no error thrown).
-    @Test func testInMemorySpreadRepositoryDeleteNonExistentIsNoOp() async throws {
-        let repository = InMemorySpreadRepository()
+    @Test func testTestSpreadRepositoryDeleteNonExistentIsNoOp() async throws {
+        let repository = TestSpreadRepository()
         let spread = DataModel.Spread(period: .day, date: Date.now, calendar: testCalendar)
 
         try await repository.delete(spread)
@@ -68,13 +68,13 @@ struct MockRepositoryTests {
 
     /// Conditions: Initialize repository with an array of existing spreads.
     /// Expected: Repository should contain all provided spreads.
-    @Test func testInMemorySpreadRepositoryInitializesWithSpreads() async {
+    @Test func testTestSpreadRepositoryInitializesWithSpreads() async {
         let now = Date.now
         let existingSpreads = [
             DataModel.Spread(period: .year, date: now, calendar: testCalendar),
             DataModel.Spread(period: .month, date: now, calendar: testCalendar)
         ]
-        let repository = InMemorySpreadRepository(spreads: existingSpreads)
+        let repository = TestSpreadRepository(spreads: existingSpreads)
 
         let spreads = await repository.getSpreads()
 
@@ -83,8 +83,8 @@ struct MockRepositoryTests {
 
     /// Conditions: Save spreads with different periods and dates in random order.
     /// Expected: getSpreads should return spreads sorted by period (year > month > day), then by date descending.
-    @Test func testInMemorySpreadRepositorySortsByPeriodThenDateDescending() async throws {
-        let repository = InMemorySpreadRepository()
+    @Test func testTestSpreadRepositorySortsByPeriodThenDateDescending() async throws {
+        let repository = TestSpreadRepository()
         let now = Date.now
         let daySpread1 = DataModel.Spread(period: .day, date: now, calendar: testCalendar)
         let daySpread2 = DataModel.Spread(
@@ -149,12 +149,12 @@ struct MockRepositoryTests {
         #expect(!remainingSpreads.contains { $0.id == spreadToDelete.id })
     }
 
-    // MARK: - InMemoryEventRepository Tests
+    // MARK: - TestEventRepository Tests
 
     /// Conditions: Save a new event to empty repository.
     /// Expected: Repository should contain exactly one event with matching title.
-    @Test func testInMemoryEventRepositorySaveAddsEvent() async throws {
-        let repository = InMemoryEventRepository()
+    @Test func testTestEventRepositorySaveAddsEvent() async throws {
+        let repository = TestEventRepository()
         let event = DataModel.Event(title: "Test Event")
 
         try await repository.save(event)
@@ -166,12 +166,12 @@ struct MockRepositoryTests {
 
     /// Conditions: Initialize repository with an array of existing events.
     /// Expected: Repository should contain all provided events.
-    @Test func testInMemoryEventRepositoryInitializesWithEvents() async {
+    @Test func testTestEventRepositoryInitializesWithEvents() async {
         let existingEvents = [
             DataModel.Event(title: "Event 1"),
             DataModel.Event(title: "Event 2")
         ]
-        let repository = InMemoryEventRepository(events: existingEvents)
+        let repository = TestEventRepository(events: existingEvents)
 
         let events = await repository.getEvents()
 

@@ -38,7 +38,7 @@ struct JournalManagerNoteTests {
         return try await JournalManager(
             calendar: calendar,
             today: today,
-            spreadRepository: InMemorySpreadRepository(spreads: allSpreads),
+            spreadRepository: TestSpreadRepository(spreads: allSpreads),
             noteRepository: TestNoteRepository(notes: notes)
         )
     }

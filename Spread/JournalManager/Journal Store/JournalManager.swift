@@ -130,8 +130,8 @@ final class JournalManager {
             appClock: resolvedClock,
             taskRepository: taskRepository ?? TestTaskRepository(),
             noteRepository: noteRepository ?? TestNoteRepository(),
-            spreadRepository: spreadRepository ?? InMemorySpreadRepository(),
-            eventRepository: eventRepository ?? InMemoryEventRepository(),
+            spreadRepository: spreadRepository ?? TestSpreadRepository(),
+            eventRepository: eventRepository ?? TestEventRepository(),
             collectionRepository: collectionRepository,
             listRepository: listRepository,
             tagRepository: tagRepository,
@@ -339,7 +339,7 @@ final class JournalManager {
         entries.sorted { $0.createdDate < $1.createdDate }
     }
 
-    /// Mirrors `InMemorySpreadRepository`/`SwiftDataSpreadRepository`'s spread ordering
+    /// Mirrors `TestSpreadRepository`/`SwiftDataSpreadRepository`'s spread ordering
     /// (period rank ascending, then date descending) so `spreads` stays in the same order
     /// after a mutation as it was at cold load.
     private static func sortedSpreads(_ spreads: [DataModel.Spread]) -> [DataModel.Spread] {

@@ -40,7 +40,7 @@ struct CancelledTaskTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [cancelledTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -90,7 +90,7 @@ struct CancelledTaskTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [openTask, cancelledTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -129,7 +129,7 @@ struct CancelledTaskTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [cancelledTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -177,7 +177,7 @@ struct CancelledTaskTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [cancelledTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [multidaySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -286,7 +286,7 @@ struct CancelledTaskTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [completedTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -323,7 +323,7 @@ struct CancelledTaskTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [migratedTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
             calendar: calendar,

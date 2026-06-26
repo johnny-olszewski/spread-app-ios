@@ -63,7 +63,7 @@ struct SpreadDeletionTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -102,7 +102,7 @@ struct SpreadDeletionTests {
         )
 
         let noteRepo = TestNoteRepository(notes: [note])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -140,7 +140,7 @@ struct SpreadDeletionTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -181,7 +181,7 @@ struct SpreadDeletionTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -224,7 +224,7 @@ struct SpreadDeletionTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [completedTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -275,7 +275,7 @@ struct SpreadDeletionTests {
 
         let taskRepo = TestTaskRepository(tasks: [task])
         let noteRepo = TestNoteRepository(notes: [note])
-        let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -301,7 +301,7 @@ struct SpreadDeletionTests {
         let taskDate = Self.testDate
 
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
-        let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -323,7 +323,7 @@ struct SpreadDeletionTests {
         let taskDate = Self.testDate
 
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
-        let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -344,7 +344,7 @@ struct SpreadDeletionTests {
         let taskDate = Self.testDate
 
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
-        let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -406,7 +406,7 @@ struct SpreadDeletionTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -447,7 +447,7 @@ struct SpreadDeletionTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
+        let spreadRepo = TestSpreadRepository(spreads: [yearSpread, monthSpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -493,7 +493,7 @@ struct SpreadDeletionTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [task1, task2])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -532,7 +532,7 @@ struct SpreadDeletionTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [migratedTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -567,8 +567,8 @@ struct SpreadDeletionTests {
             endDate: eventDate
         )
 
-        let eventRepo = InMemoryEventRepository(events: [event])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let eventRepo = TestEventRepository(events: [event])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -593,7 +593,7 @@ struct SpreadDeletionTests {
         let taskDate = Self.testDate
 
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
-        let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -635,7 +635,7 @@ struct SpreadDeletionTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread, daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [multidaySpread, daySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -672,7 +672,7 @@ struct SpreadDeletionTests {
         )
 
         let taskRepo = TestTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [multidaySpread])
 
         let manager = try await JournalManager(
             calendar: calendar,

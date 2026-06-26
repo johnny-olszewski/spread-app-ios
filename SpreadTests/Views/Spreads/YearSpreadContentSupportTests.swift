@@ -90,7 +90,7 @@ struct YearSpreadContentSupportTests {
             calendar: Self.calendar,
             today: Self.makeDate(year: 2026, month: 1, day: 15),
             taskRepository: TestTaskRepository(tasks: [currentYearTask, migratedHistoryTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread])
         )
 
         let dataModel = try #require(manager.dataModel[.year]?[Period.year.normalizeDate(yearDate, calendar: Self.calendar)])

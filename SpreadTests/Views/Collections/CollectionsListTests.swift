@@ -16,7 +16,7 @@ struct CollectionsListTests {
     /// getCollections returns an empty array.
     @Test("Empty repository returns no collections")
     func emptyRepositoryReturnsNoCollections() async {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
 
         let collections = await repo.getCollections()
 
@@ -29,7 +29,7 @@ struct CollectionsListTests {
     /// it appears in the repository's collection list.
     @Test("Creating a collection adds it to the repository")
     func creatingCollectionAddsToRepository() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let collection = DataModel.Collection(title: "", content: "")
 
         try await repo.save(collection)
@@ -43,7 +43,7 @@ struct CollectionsListTests {
     /// it has empty title and content.
     @Test("New collection has empty title and content")
     func newCollectionHasEmptyTitleAndContent() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let collection = DataModel.Collection(title: "", content: "")
 
         try await repo.save(collection)
@@ -57,7 +57,7 @@ struct CollectionsListTests {
     /// they are returned sorted by modifiedDate descending (newest first).
     @Test("Collections sorted by modified date descending")
     func collectionsSortedByModifiedDateDescending() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let older = DataModel.Collection(
             title: "Older",
             content: "",
@@ -84,7 +84,7 @@ struct CollectionsListTests {
     /// it no longer appears in the repository's collection list.
     @Test("Deleting a collection removes it from the repository")
     func deletingCollectionRemovesFromRepository() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let collection = DataModel.Collection(title: "To Delete", content: "")
 
         try await repo.save(collection)
@@ -100,7 +100,7 @@ struct CollectionsListTests {
     /// only that collection is removed and others remain.
     @Test("Deleting one collection preserves others")
     func deletingOneCollectionPreservesOthers() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let keep = DataModel.Collection(title: "Keep", content: "")
         let remove = DataModel.Collection(title: "Remove", content: "")
 
@@ -121,7 +121,7 @@ struct CollectionsListTests {
     /// the content is preserved and accessible for preview display.
     @Test("Collection preserves content for preview")
     func collectionPreservesContentForPreview() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let collection = DataModel.Collection(
             title: "My Collection",
             content: "Line 1\nLine 2\nLine 3"

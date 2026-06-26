@@ -37,7 +37,7 @@ struct MigrationEligibilityTests {
             calendar: Self.calendar,
             today: taskDate,
             taskRepository: TestTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
         let monthCandidates = manager.migrationCandidates(to: monthSpread)
@@ -69,7 +69,7 @@ struct MigrationEligibilityTests {
             calendar: Self.calendar,
             today: taskDate,
             taskRepository: TestTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
         let monthCandidates = manager.migrationCandidates(to: monthSpread)
@@ -98,7 +98,7 @@ struct MigrationEligibilityTests {
             calendar: Self.calendar,
             today: taskDate,
             taskRepository: TestTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
         let dayCandidates = manager.migrationCandidates(to: daySpread)
@@ -142,7 +142,7 @@ struct MigrationEligibilityTests {
             calendar: Self.calendar,
             today: taskDate,
             taskRepository: TestTaskRepository(tasks: [completeTask, cancelledTask, resolvedTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread])
         )
 
         #expect(manager.migrationCandidates(to: monthSpread).isEmpty)
@@ -164,7 +164,7 @@ struct MigrationEligibilityTests {
             calendar: Self.calendar,
             today: taskDate,
             taskRepository: TestTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [daySpread])
+            spreadRepository: TestSpreadRepository(spreads: [daySpread])
         )
 
         try await manager.moveTask(task, from: .init(kind: .inbox), to: daySpread)
@@ -196,7 +196,7 @@ struct MigrationEligibilityTests {
             calendar: Self.calendar,
             today: makeDate(year: 2026, month: 3, day: 29),
             taskRepository: TestTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, aprilMonthSpread])
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, aprilMonthSpread])
         )
 
         let monthCandidates = manager.migrationCandidates(to: aprilMonthSpread)

@@ -363,8 +363,8 @@ struct DebugDataServiceTests {
     func loadingEmptyClears() async throws {
         // Setup repositories with initial data
         let taskRepo = TestTaskRepository(tasks: TestData.sampleTasks())
-        let spreadRepo = InMemorySpreadRepository(spreads: TestData.sampleSpreads())
-        let eventRepo = InMemoryEventRepository(events: TestData.sampleEvents())
+        let spreadRepo = TestSpreadRepository(spreads: TestData.sampleSpreads())
+        let eventRepo = TestEventRepository(events: TestData.sampleEvents())
         let noteRepo = TestNoteRepository(notes: TestData.sampleNotes())
 
         let service = DebugDataService(
@@ -372,8 +372,8 @@ struct DebugDataServiceTests {
             spreadRepository: spreadRepo,
             eventRepository: eventRepo,
             noteRepository: noteRepo,
-            listRepository: InMemoryListRepository(),
-            tagRepository: InMemoryTagRepository()
+            listRepository: TestListRepository(),
+            tagRepository: TestTagRepository()
         )
 
         // Verify initial data exists
@@ -407,8 +407,8 @@ struct DebugDataServiceTests {
         // Setup repositories with some initial tasks (different from baseline)
         let initialTask = DataModel.Task(title: "Initial task that should be replaced")
         let taskRepo = TestTaskRepository(tasks: [initialTask])
-        let spreadRepo = InMemorySpreadRepository()
-        let eventRepo = InMemoryEventRepository()
+        let spreadRepo = TestSpreadRepository()
+        let eventRepo = TestEventRepository()
         let noteRepo = TestNoteRepository()
 
         let service = DebugDataService(
@@ -416,8 +416,8 @@ struct DebugDataServiceTests {
             spreadRepository: spreadRepo,
             eventRepository: eventRepo,
             noteRepository: noteRepo,
-            listRepository: InMemoryListRepository(),
-            tagRepository: InMemoryTagRepository()
+            listRepository: TestListRepository(),
+            tagRepository: TestTagRepository()
         )
 
         // Load baseline data set
@@ -443,11 +443,11 @@ struct DebugDataServiceTests {
 
         let service = DebugDataService(
             taskRepository: TestTaskRepository(),
-            spreadRepository: InMemorySpreadRepository(),
-            eventRepository: InMemoryEventRepository(),
+            spreadRepository: TestSpreadRepository(),
+            eventRepository: TestEventRepository(),
             noteRepository: TestNoteRepository(),
-            listRepository: InMemoryListRepository(),
-            tagRepository: InMemoryTagRepository(),
+            listRepository: TestListRepository(),
+            tagRepository: TestTagRepository(),
             onReload: { reloadCalled = true }
         )
 
@@ -466,8 +466,8 @@ struct DebugDataServiceTests {
     @MainActor
     func clearRemovesAllData() async throws {
         let taskRepo = TestTaskRepository(tasks: TestData.sampleTasks())
-        let spreadRepo = InMemorySpreadRepository(spreads: TestData.sampleSpreads())
-        let eventRepo = InMemoryEventRepository(events: TestData.sampleEvents())
+        let spreadRepo = TestSpreadRepository(spreads: TestData.sampleSpreads())
+        let eventRepo = TestEventRepository(events: TestData.sampleEvents())
         let noteRepo = TestNoteRepository(notes: TestData.sampleNotes())
 
         let service = DebugDataService(
@@ -475,8 +475,8 @@ struct DebugDataServiceTests {
             spreadRepository: spreadRepo,
             eventRepository: eventRepo,
             noteRepository: noteRepo,
-            listRepository: InMemoryListRepository(),
-            tagRepository: InMemoryTagRepository()
+            listRepository: TestListRepository(),
+            tagRepository: TestTagRepository()
         )
 
         try await service.clearAllData()

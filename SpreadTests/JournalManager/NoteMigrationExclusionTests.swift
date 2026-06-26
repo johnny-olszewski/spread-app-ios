@@ -43,7 +43,7 @@ struct NoteMigrationExclusionTests {
             calendar: calendar,
             today: today,
             taskRepository: TestTaskRepository(tasks: tasks),
-            spreadRepository: InMemorySpreadRepository(spreads: allSpreads),
+            spreadRepository: TestSpreadRepository(spreads: allSpreads),
             noteRepository: TestNoteRepository(notes: notes)
         )
     }
@@ -153,7 +153,7 @@ struct NoteMigrationExclusionTests {
             calendar: calendar,
             today: today,
             taskRepository: TestTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [daySpread]),
+            spreadRepository: TestSpreadRepository(spreads: [daySpread]),
             noteRepository: TestNoteRepository(notes: [note])
         )
 

@@ -39,7 +39,7 @@ struct JournalManagerTaskCRUDTests {
             calendar: calendar,
             today: today,
             taskRepository: TestTaskRepository(tasks: tasks),
-            spreadRepository: InMemorySpreadRepository(spreads: allSpreads)
+            spreadRepository: TestSpreadRepository(spreads: allSpreads)
         )
     }
 
@@ -292,7 +292,7 @@ struct JournalManagerTaskCRUDTests {
             calendar: calendar,
             today: sourceDate,
             taskRepository: TestTaskRepository(tasks: [existingTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread, destinationSpread])
+            spreadRepository: TestSpreadRepository(spreads: [sourceSpread, destinationSpread])
         )
 
         try await manager.updateTaskDateAndPeriod(existingTask, newDate: destinationDate, newPeriod: .day)
@@ -330,7 +330,7 @@ struct JournalManagerTaskCRUDTests {
             calendar: calendar,
             today: sourceDate,
             taskRepository: TestTaskRepository(tasks: [existingTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread])
+            spreadRepository: TestSpreadRepository(spreads: [sourceSpread])
         )
 
         try await manager.updateTaskDateAndPeriod(existingTask, newDate: destinationDate, newPeriod: .day)
@@ -365,7 +365,7 @@ struct JournalManagerTaskCRUDTests {
             calendar: calendar,
             today: calendar.date(from: DateComponents(year: 2026, month: 3, day: 29))!,
             taskRepository: TestTaskRepository(tasks: [existingTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, januaryFirstDaySpread])
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, januaryFirstDaySpread])
         )
 
         try await manager.updateTaskDateAndPeriod(existingTask, newDate: aprilSixth, newPeriod: .day)
@@ -464,7 +464,7 @@ struct JournalManagerTaskCRUDTests {
             calendar: calendar,
             today: sourceDate,
             taskRepository: TestTaskRepository(tasks: [existingTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread])
+            spreadRepository: TestSpreadRepository(spreads: [sourceSpread])
         )
 
         try await manager.clearTaskPreferredAssignment(existingTask)
@@ -492,7 +492,7 @@ struct JournalManagerTaskCRUDTests {
             calendar: calendar,
             today: today,
             taskRepository: TestTaskRepository(tasks: [existingTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [])
+            spreadRepository: TestSpreadRepository(spreads: [])
         )
 
         try await manager.clearTaskPreferredAssignment(existingTask)

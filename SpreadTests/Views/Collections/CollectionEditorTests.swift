@@ -16,7 +16,7 @@ struct CollectionEditorTests {
     /// the updated title persists in the repository.
     @Test("Editing title persists to repository")
     func editingTitlePersistsToRepository() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let collection = DataModel.Collection(title: "Original", content: "")
         try await repo.save(collection)
 
@@ -34,7 +34,7 @@ struct CollectionEditorTests {
     /// the updated content persists in the repository.
     @Test("Editing content persists to repository")
     func editingContentPersistsToRepository() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let collection = DataModel.Collection(title: "My List", content: "")
         try await repo.save(collection)
 
@@ -51,7 +51,7 @@ struct CollectionEditorTests {
     /// the modifiedDate is updated to reflect the save time.
     @Test("Saving updates modifiedDate")
     func savingUpdatesModifiedDate() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let pastDate = Date(timeIntervalSince1970: 1000)
         let collection = DataModel.Collection(
             title: "Test",
@@ -77,7 +77,7 @@ struct CollectionEditorTests {
     /// both changes persist in a single save operation.
     @Test("Editing title and content together persists both")
     func editingTitleAndContentTogetherPersistsBoth() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let collection = DataModel.Collection(title: "Old Title", content: "Old Content")
         try await repo.save(collection)
 
@@ -98,7 +98,7 @@ struct CollectionEditorTests {
     /// the collection's id remains unchanged.
     @Test("Editing preserves collection id")
     func editingPreservesCollectionId() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let collection = DataModel.Collection(title: "Test", content: "")
         let originalId = collection.id
         try await repo.save(collection)
@@ -117,7 +117,7 @@ struct CollectionEditorTests {
     /// it moves to the top of the sorted list.
     @Test("Edited collection moves to top of list")
     func editedCollectionMovesToTopOfList() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let older = DataModel.Collection(
             title: "First",
             content: "",

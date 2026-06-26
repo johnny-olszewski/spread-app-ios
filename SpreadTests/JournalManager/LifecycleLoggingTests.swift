@@ -29,7 +29,7 @@ struct LifecycleLoggingTests {
         notes: [DataModel.Note] = []
     ) async throws -> JournalManager {
         let taskRepo = TestTaskRepository(tasks: tasks)
-        let spreadRepo = InMemorySpreadRepository(spreads: spreads)
+        let spreadRepo = TestSpreadRepository(spreads: spreads)
         let noteRepo = TestNoteRepository(notes: notes)
         return try await JournalManager(
             calendar: Self.testCalendar,

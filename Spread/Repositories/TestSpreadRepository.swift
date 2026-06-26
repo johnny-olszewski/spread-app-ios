@@ -5,7 +5,7 @@ import Foundation
 /// Provides a working repository implementation that stores spreads in memory.
 /// Supports initialization with existing spreads for test setup.
 @MainActor
-final class InMemorySpreadRepository: SpreadRepository {
+final class TestSpreadRepository: SpreadRepository {
 
     // MARK: - Properties
 

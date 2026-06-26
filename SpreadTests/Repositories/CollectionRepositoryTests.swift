@@ -5,7 +5,7 @@ import SwiftData
 
 /// Tests for collection repository CRUD operations.
 ///
-/// Validates both InMemoryCollectionRepository and SwiftDataCollectionRepository
+/// Validates both TestCollectionRepository and SwiftDataCollectionRepository
 /// implementations against the CollectionRepository protocol contract.
 @Suite("Collection Repository Tests")
 struct CollectionRepositoryTests {
@@ -15,7 +15,7 @@ struct CollectionRepositoryTests {
     /// Conditions: Save a collection to an empty InMemory repository.
     /// Expected: getCollections returns the saved collection with correct fields.
     @Test @MainActor func testInMemorySaveAndRetrieve() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let collection = DataModel.Collection(
             title: "Books to Read",
             content: "- The Pragmatic Programmer",
@@ -35,7 +35,7 @@ struct CollectionRepositoryTests {
     /// Conditions: Save multiple collections with different modifiedDates.
     /// Expected: getCollections returns them sorted by modifiedDate descending.
     @Test @MainActor func testInMemorySortsByModifiedDateDescending() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let now = Date.now
         let older = DataModel.Collection(
             title: "Older",
@@ -62,7 +62,7 @@ struct CollectionRepositoryTests {
     /// Conditions: Save a collection, then update its title and content.
     /// Expected: getCollections returns the updated version.
     @Test @MainActor func testInMemoryUpdate() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let collection = DataModel.Collection(
             title: "Original",
             content: "original content"
@@ -82,7 +82,7 @@ struct CollectionRepositoryTests {
     /// Conditions: Save a collection, then delete it.
     /// Expected: getCollections returns an empty array.
     @Test @MainActor func testInMemoryDelete() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let collection = DataModel.Collection(title: "To Delete", content: "gone")
 
         try await repo.save(collection)
@@ -99,7 +99,7 @@ struct CollectionRepositoryTests {
             DataModel.Collection(title: "A", content: "a", modifiedDate: .now),
             DataModel.Collection(title: "B", content: "b", modifiedDate: .now.addingTimeInterval(-50))
         ]
-        let repo = InMemoryCollectionRepository(collections: collections)
+        let repo = TestCollectionRepository(collections: collections)
 
         let result = await repo.getCollections()
         #expect(result.count == 2)
@@ -110,7 +110,7 @@ struct CollectionRepositoryTests {
     /// Conditions: Empty InMemory repository.
     /// Expected: getCollections returns an empty array.
     @Test @MainActor func testInMemoryEmptyRepository() async {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let result = await repo.getCollections()
         #expect(result.isEmpty)
     }
@@ -241,7 +241,7 @@ struct CollectionRepositoryTests {
     /// Conditions: Save a collection with empty content.
     /// Expected: Content is stored as empty string.
     @Test @MainActor func testCollectionEmptyContent() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let collection = DataModel.Collection(title: "Empty Page")
 
         try await repo.save(collection)
@@ -253,7 +253,7 @@ struct CollectionRepositoryTests {
     /// Conditions: Save a collection with large content.
     /// Expected: Content is stored without truncation.
     @Test @MainActor func testCollectionLargeContent() async throws {
-        let repo = InMemoryCollectionRepository()
+        let repo = TestCollectionRepository()
         let largeContent = String(repeating: "Line of text\n", count: 10_000)
         let collection = DataModel.Collection(
             title: "Large Collection",

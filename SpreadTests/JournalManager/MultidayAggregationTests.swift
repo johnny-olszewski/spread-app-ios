@@ -19,7 +19,7 @@ struct MultidayAggregationTests {
         try await JournalManager(
             calendar: Self.testCalendar,
             taskRepository: TestTaskRepository(tasks: tasks),
-            spreadRepository: InMemorySpreadRepository(spreads: spreads),
+            spreadRepository: TestSpreadRepository(spreads: spreads),
             noteRepository: TestNoteRepository(notes: notes)
         )
     }

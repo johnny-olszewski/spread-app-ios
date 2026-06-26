@@ -6,7 +6,7 @@ import Foundation
 /// Collections are sorted by modifiedDate descending (newest first) per spec.
 /// Supports initialization with existing collections for test setup.
 @MainActor
-final class InMemoryCollectionRepository: CollectionRepository {
+final class TestCollectionRepository: CollectionRepository {
 
     // MARK: - Properties
 

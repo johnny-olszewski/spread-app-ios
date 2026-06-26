@@ -147,7 +147,7 @@ struct MonthSpreadContentSupportTests {
             calendar: Self.calendar,
             today: dayDate,
             taskRepository: TestTaskRepository(tasks: [currentMonthTask, migratedAwayTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+            spreadRepository: TestSpreadRepository(spreads: [monthSpread, daySpread])
         )
 
         let monthDataModel = try #require(
