@@ -24,7 +24,7 @@ struct SpreadContentPagerAssemblyTests {
     @Test("Conventional year spread data model is reachable via dataModel dictionary")
     func testConventionalYearSpreadDataModelIsReachable() async throws {
         let today = Self.makeDate(year: 2026, month: 1)
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: today,
         )
@@ -41,7 +41,7 @@ struct SpreadContentPagerAssemblyTests {
     @Test("Conventional day spread data model carries tasks")
     func testConventionalDaySpreadDataModelCarriesTasks() async throws {
         let today = Self.makeDate(year: 2026, month: 4, day: 13)
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: today,
         )
@@ -101,7 +101,7 @@ struct SpreadContentPagerAssemblyTests {
     @Test("Multiday spread has no migration configuration")
     func testMultidaySpreadHasNoMigrationConfiguration() async throws {
         let today = Self.makeDate(year: 2026, month: 4, day: 13)
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: today,
         )

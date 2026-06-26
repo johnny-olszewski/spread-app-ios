@@ -223,7 +223,7 @@ struct LocalSupabaseSyncHarness {
         let noteRepository = SwiftDataChangeAwareNoteRepository(modelContainer: modelContainer, deviceId: deviceId)
         let collectionRepository = SwiftDataCollectionRepository(modelContainer: modelContainer, deviceId: deviceId)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: TestDataBuilders.testDate,
             taskRepository: taskRepository,

@@ -34,7 +34,7 @@ struct OverdueTaskTests {
             assignments: [Assignment(period: .month, date: monthDate, status: .open)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: today,
             taskRepository: TestChangeAwareTaskRepository(tasks: [overdueDayTask, currentMonthTask])
@@ -67,7 +67,7 @@ struct OverdueTaskTests {
             assignments: [Assignment(period: .year, date: lastYear, status: .open)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: today,
             taskRepository: TestChangeAwareTaskRepository(tasks: [monthTask, yearTask])
@@ -99,7 +99,7 @@ struct OverdueTaskTests {
             assignments: [Assignment(period: .day, date: resolvedDay, status: .complete)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: today,
             taskRepository: TestChangeAwareTaskRepository(tasks: [inboxTask, completedTask])

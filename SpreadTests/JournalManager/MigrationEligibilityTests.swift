@@ -33,7 +33,7 @@ struct MigrationEligibilityTests {
             ]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
@@ -65,7 +65,7 @@ struct MigrationEligibilityTests {
             ]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
@@ -94,7 +94,7 @@ struct MigrationEligibilityTests {
             status: .open
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
@@ -138,7 +138,7 @@ struct MigrationEligibilityTests {
             assignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [completeTask, cancelledTask, resolvedTask]),
@@ -160,7 +160,7 @@ struct MigrationEligibilityTests {
             status: .open
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
@@ -192,7 +192,7 @@ struct MigrationEligibilityTests {
             assignments: [Assignment(period: .year, date: yearDate, status: .open)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: makeDate(year: 2026, month: 3, day: 29),
             taskRepository: TestChangeAwareTaskRepository(tasks: [task]),

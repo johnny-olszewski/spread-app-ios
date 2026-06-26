@@ -95,7 +95,7 @@ final class JournalManager {
 
     /// Creates a `JournalManager` for testing with in-memory repositories, paralleling the
     /// legacy `JournalManager.make`.
-    static func make(
+    convenience init(
         appClock: AppClock? = nil,
         calendar: Calendar? = nil,
         today: Date? = nil,
@@ -108,7 +108,7 @@ final class JournalManager {
         tagRepository: (any TagRepository)? = nil,
         firstWeekday: FirstWeekday = .systemDefault,
         creationPolicy: SpreadCreationPolicy? = nil
-    ) async -> JournalManager {
+    ) async {
         var testCalendar: Calendar {
             var cal = Calendar(identifier: .gregorian)
             cal.timeZone = .init(identifier: "UTC")!
@@ -125,7 +125,7 @@ final class JournalManager {
             locale: resolvedCalendar.locale ?? Locale(identifier: "en_US_POSIX")
         )
 
-        let store = JournalManager(
+        self.init(
             appClock: resolvedClock,
             taskRepository: taskRepository ?? TestChangeAwareTaskRepository(),
             noteRepository: noteRepository ?? TestChangeAwareNoteRepository(),
@@ -137,8 +137,7 @@ final class JournalManager {
             firstWeekday: firstWeekday,
             creationPolicy: creationPolicy ?? defaultPolicy
         )
-        await store.load()
-        return store
+        await load()
     }
 
     // MARK: - Cold Load
@@ -376,10 +375,17 @@ final class JournalManager {
 
     // MARK: - Inbox
 
+    /// All entries across the three concrete `Entry` types, regardless of inbox eligibility.
+    var allEntries: [any Entry] {
+        tasks + events + notes
+    }
+
     /// Entries that have no matching spread assignment. See `JournalRuleEngine.inboxEntries`
-    /// for the eligibility rule (gated by `Entry.isInboxEligible`).
+    /// for the eligibility rule (gated by `Entry.isInboxEligible`, which currently excludes
+    /// events and notes). `allEntries` is passed here rather than `tasks` alone so the rule
+    /// engine remains the single source of truth for eligibility as more entry types arrive.
     var inboxEntries: [any Entry] {
-        ruleEngine.inboxEntries(entries: tasks + notes, spreads: spreads)
+        ruleEngine.inboxEntries(entries: allEntries, spreads: spreads)
     }
 
     /// The number of entries in the Inbox. Used for badge display.

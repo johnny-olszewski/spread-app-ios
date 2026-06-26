@@ -30,7 +30,7 @@ struct InboxTests {
         )
         let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -54,7 +54,7 @@ struct InboxTests {
         )
         let noteRepo = TestChangeAwareNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             noteRepository: noteRepo
@@ -86,7 +86,7 @@ struct InboxTests {
         let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -118,7 +118,7 @@ struct InboxTests {
         let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -144,7 +144,7 @@ struct InboxTests {
         let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -167,7 +167,7 @@ struct InboxTests {
         )
         let eventRepo = InMemoryEventRepository(events: [event])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             eventRepository: eventRepo
@@ -187,7 +187,7 @@ struct InboxTests {
         let eventRepo = InMemoryEventRepository(events: [event])
         // No spreads
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             eventRepository: eventRepo
@@ -210,7 +210,7 @@ struct InboxTests {
         )
         let taskRepo = TestChangeAwareTaskRepository(tasks: [cancelledTask])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -237,7 +237,7 @@ struct InboxTests {
         )
         let taskRepo = TestChangeAwareTaskRepository(tasks: [cancelledTask])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -251,7 +251,7 @@ struct InboxTests {
     /// Conditions: No inbox-eligible entries exist.
     /// Expected: Inbox count is zero.
     @Test @MainActor func testInboxCountReturnsZeroWhenEmpty() async throws {
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate
         )
@@ -269,7 +269,7 @@ struct InboxTests {
         let taskRepo = TestChangeAwareTaskRepository(tasks: [task1, task2])
         let noteRepo = TestChangeAwareNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -294,7 +294,7 @@ struct InboxTests {
         )
         let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -328,7 +328,7 @@ struct InboxTests {
         )
         let noteRepo = TestChangeAwareNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             noteRepository: noteRepo
@@ -358,7 +358,7 @@ struct InboxTests {
         let taskRepo = TestChangeAwareTaskRepository(tasks: [task1, task2])
         let noteRepo = TestChangeAwareNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -395,7 +395,7 @@ struct InboxTests {
         )
         let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -421,7 +421,7 @@ struct InboxTests {
         )
         let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -452,7 +452,7 @@ struct InboxTests {
             period: .day,
             assignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
@@ -485,7 +485,7 @@ struct InboxTests {
             period: .day,
             assignments: [Assignment(period: .month, date: noteDate, status: .active)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             spreadRepository: InMemorySpreadRepository(spreads: [monthSpread]),
@@ -523,7 +523,7 @@ struct InboxTests {
             period: .day,
             assignments: []
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
@@ -541,7 +541,7 @@ struct InboxTests {
     /// Expected: The creation result reports no auto-migration summary.
     @Test @MainActor func testCreateSpreadReturnsNilSummaryWhenNoEntriesMove() async throws {
         let calendar = Self.testCalendar
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate
         )
@@ -563,7 +563,7 @@ struct InboxTests {
             period: .month,
             assignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
@@ -600,7 +600,7 @@ struct InboxTests {
             period: .day,
             assignments: []
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
@@ -629,7 +629,7 @@ struct InboxTests {
     @Test @MainActor func testAddSpreadIncrementsDataVersion() async throws {
         let calendar = Self.testCalendar
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate
         )
@@ -647,7 +647,7 @@ struct InboxTests {
         let calendar = Self.testCalendar
         let spreadRepo = InMemorySpreadRepository()
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             spreadRepository: spreadRepo
@@ -674,7 +674,7 @@ struct InboxTests {
         )
         let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -704,7 +704,7 @@ struct InboxTests {
         let noteRepo = TestChangeAwareNoteRepository(notes: [note])
         let eventRepo = InMemoryEventRepository(events: [event])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo,

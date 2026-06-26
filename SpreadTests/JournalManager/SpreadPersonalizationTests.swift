@@ -15,7 +15,7 @@ struct SpreadPersonalizationTests {
     }
 
     @Test func creatingSpreadStoresSanitizedNameAndDynamicFlag() async throws {
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: date(2026, 4, 18)
         )
@@ -32,7 +32,7 @@ struct SpreadPersonalizationTests {
     }
 
     @Test func updatingFavoritePersistsFlagAndTimestamp() async throws {
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: date(2026, 4, 18)
         )
@@ -46,7 +46,7 @@ struct SpreadPersonalizationTests {
     }
 
     @Test func updatingNameTrimsClearsAndTimestampsIndependentFields() async throws {
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: date(2026, 4, 18)
         )
@@ -73,7 +73,7 @@ struct SpreadPersonalizationTests {
     /// Conditions: A personalized favorite multiday spread is moved to a new range.
     /// Expected: The same spread ID is updated with date timestamps while name/dynamic/favorite metadata is preserved.
     @Test func updatingMultidayDatesPreservesIdentityAndPersonalization() async throws {
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: date(2026, 4, 18)
         )

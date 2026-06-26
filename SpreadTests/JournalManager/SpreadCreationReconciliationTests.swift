@@ -47,7 +47,7 @@ struct SpreadCreationReconciliationTests {
             calendar: calendar
         )
         let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.targetDay,
             spreadRepository: spreadRepo
@@ -93,7 +93,7 @@ struct SpreadCreationReconciliationTests {
             calendar: calendar
         )
         let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.targetDay,
             spreadRepository: spreadRepo
@@ -135,7 +135,7 @@ struct SpreadCreationReconciliationTests {
             calendar: calendar
         )
         let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.targetDay,
             spreadRepository: spreadRepo

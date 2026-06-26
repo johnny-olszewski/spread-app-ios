@@ -23,7 +23,7 @@ struct AuthLifecycleCoordinatorTests {
         if let journalManager {
             manager = journalManager
         } else {
-            manager = try await JournalManager.make()
+            manager = try await JournalManager()
         }
         let container = try ModelContainerFactory.makeInMemory()
         let engine = syncEngine ?? SyncEngine(
@@ -91,7 +91,7 @@ struct AuthLifecycleCoordinatorTests {
     /// Conditions: User signs out with local data.
     /// Expected: Local data is wiped and sync state is reset.
     @Test func signOutClearsDataAndResetsSyncState() async throws {
-        let manager = try await JournalManager.make()
+        let manager = try await JournalManager()
         let spread = DataModel.Spread(period: .day, date: .now, calendar: .current)
         try await manager.spreadRepository.save(spread)
 

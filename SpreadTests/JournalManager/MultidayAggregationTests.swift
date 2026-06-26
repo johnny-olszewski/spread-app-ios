@@ -16,7 +16,7 @@ struct MultidayAggregationTests {
         notes: [DataModel.Note] = [],
         spreads: [DataModel.Spread] = []
     ) async throws -> JournalManager {
-        try await JournalManager.make(
+        try await JournalManager(
             calendar: Self.testCalendar,
             taskRepository: TestChangeAwareTaskRepository(tasks: tasks),
             spreadRepository: InMemorySpreadRepository(spreads: spreads),

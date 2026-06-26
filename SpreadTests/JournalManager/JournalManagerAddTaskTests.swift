@@ -34,7 +34,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -61,7 +61,7 @@ struct JournalManagerAddTaskTests {
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
         let midMonthDate = Self.makeDate(year: 2026, month: 2, day: 17)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -86,7 +86,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -116,7 +116,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -143,7 +143,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -172,7 +172,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -197,7 +197,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -217,7 +217,7 @@ struct JournalManagerAddTaskTests {
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
         let dueDate = calendar.date(from: DateComponents(year: 2025, month: 12, day: 31))!
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -249,7 +249,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 6, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -274,7 +274,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )

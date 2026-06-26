@@ -18,7 +18,7 @@ struct JournalManagerTemporalRefreshTests {
             fixedContext: Self.initialContext
         )
         let appClock = AppClock(source: clockSource, notificationBridge: nil)
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             appClock: appClock,
         )
         _ = try await manager.addTask(

@@ -20,7 +20,7 @@ struct JournalManagerListTagTests {
         let today = TestDataBuilders.testDate
         let listRepo = InMemoryListRepository(lists: lists)
         let tagRepo = InMemoryTagRepository(tags: tags)
-        return try await JournalManager.make(
+        return try await JournalManager(
             calendar: cal,
             today: today,
             taskRepository: TestChangeAwareTaskRepository(tasks: tasks),

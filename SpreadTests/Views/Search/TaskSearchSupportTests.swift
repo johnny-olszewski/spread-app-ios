@@ -39,7 +39,7 @@ struct TaskSearchSupportTests {
             assignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: dayDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [inboxTask, yearTask, monthTask, dayTask]),
@@ -71,7 +71,7 @@ struct TaskSearchSupportTests {
             ]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: monthDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [migratedTask]),
@@ -99,7 +99,7 @@ struct TaskSearchSupportTests {
             period: nil,
             status: .open
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: dayDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
@@ -136,7 +136,7 @@ struct TaskSearchSupportTests {
             status: .open,
             assignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: dayDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [assignedTask, unassignedTask]),

@@ -32,7 +32,7 @@ struct SettingsViewTests {
     /// Conditions: JournalManager created with default firstWeekday.
     /// Expected: firstWeekday should be .systemDefault.
     @Test func testDefaultFirstWeekdayIsSystemDefault() async throws {
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testToday
         )
@@ -43,7 +43,7 @@ struct SettingsViewTests {
     /// Conditions: JournalManager created with .monday firstWeekday.
     /// Expected: firstWeekday should be .monday.
     @Test func testFirstWeekdayMonday() async throws {
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testToday,
             firstWeekday: .monday
@@ -55,7 +55,7 @@ struct SettingsViewTests {
     /// Conditions: JournalManager starts with .sunday, then changed to .monday.
     /// Expected: firstWeekday should reflect the new value.
     @Test func testFirstWeekdayToggleReflectsChange() async throws {
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testToday,
             firstWeekday: .sunday

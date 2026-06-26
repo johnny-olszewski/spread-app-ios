@@ -35,7 +35,7 @@ struct JournalManagerTaskCRUDTests {
             ]
         }
 
-        return try await JournalManager.make(
+        return try await JournalManager(
             calendar: calendar,
             today: today,
             taskRepository: TestChangeAwareTaskRepository(tasks: tasks),
@@ -288,7 +288,7 @@ struct JournalManagerTaskCRUDTests {
             status: .open,
             assignments: [Assignment(period: .day, date: sourceDate, status: .open)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: sourceDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [existingTask]),
@@ -326,7 +326,7 @@ struct JournalManagerTaskCRUDTests {
             status: .open,
             assignments: [Assignment(period: .day, date: sourceDate, status: .open)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: sourceDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [existingTask]),
@@ -361,7 +361,7 @@ struct JournalManagerTaskCRUDTests {
             assignments: [Assignment(period: .year, date: yearDate, status: .open)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: calendar.date(from: DateComponents(year: 2026, month: 3, day: 29))!,
             taskRepository: TestChangeAwareTaskRepository(tasks: [existingTask]),
@@ -460,7 +460,7 @@ struct JournalManagerTaskCRUDTests {
             status: .open,
             assignments: [Assignment(period: .day, date: sourceDate, status: .open)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: sourceDate,
             taskRepository: TestChangeAwareTaskRepository(tasks: [existingTask]),
@@ -488,7 +488,7 @@ struct JournalManagerTaskCRUDTests {
             status: .open,
             assignments: []
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: today,
             taskRepository: TestChangeAwareTaskRepository(tasks: [existingTask]),

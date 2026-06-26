@@ -39,7 +39,7 @@ struct NoteMigrationExclusionTests {
             ]
         }
 
-        return try await JournalManager.make(
+        return try await JournalManager(
             calendar: calendar,
             today: today,
             taskRepository: TestChangeAwareTaskRepository(tasks: tasks),
@@ -149,7 +149,7 @@ struct NoteMigrationExclusionTests {
             Assignment(period: .day, date: pastDay, status: .active)
         ]
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: today,
             taskRepository: TestChangeAwareTaskRepository(tasks: [task]),

@@ -35,7 +35,7 @@ struct JournalManagerNoteTests {
             ]
         }
 
-        return try await JournalManager.make(
+        return try await JournalManager(
             calendar: calendar,
             today: today,
             spreadRepository: InMemorySpreadRepository(spreads: allSpreads),

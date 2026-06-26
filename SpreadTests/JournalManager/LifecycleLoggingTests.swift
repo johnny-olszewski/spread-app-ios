@@ -31,7 +31,7 @@ struct LifecycleLoggingTests {
         let taskRepo = TestChangeAwareTaskRepository(tasks: tasks)
         let spreadRepo = InMemorySpreadRepository(spreads: spreads)
         let noteRepo = TestChangeAwareNoteRepository(notes: notes)
-        return try await JournalManager.make(
+        return try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo,
