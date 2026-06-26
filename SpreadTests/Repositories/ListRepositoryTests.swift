@@ -76,7 +76,7 @@ struct ListRepositoryTests {
     @Test func testAddingTaskToListSetsInverseRelationship() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let listRepo = SwiftDataListRepository(modelContainer: container)
-        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
 
         let list = DataModel.List(name: "Work")
         try await listRepo.save(list)
@@ -93,7 +93,7 @@ struct ListRepositoryTests {
     @Test func testDeletingListNilsOutTaskList() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let listRepo = SwiftDataListRepository(modelContainer: container)
-        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
 
         let list = DataModel.List(name: "Work")
         try await listRepo.save(list)
@@ -112,7 +112,7 @@ struct ListRepositoryTests {
     @Test func testDeleteConfirmationCountMatchesAffectedTasks() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let listRepo = SwiftDataListRepository(modelContainer: container)
-        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
 
         let list = DataModel.List(name: "Work")
         try await listRepo.save(list)

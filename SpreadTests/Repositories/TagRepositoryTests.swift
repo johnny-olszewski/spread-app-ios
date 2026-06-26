@@ -76,7 +76,7 @@ struct TagRepositoryTests {
     @Test func testAddingTagToTaskSetsInverseRelationship() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let tagRepo = SwiftDataTagRepository(modelContainer: container)
-        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
 
         let tag = DataModel.Tag(name: "Baby Preparation")
         try await tagRepo.save(tag)
@@ -93,7 +93,7 @@ struct TagRepositoryTests {
     @Test func testMultipleTagsOnTask() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let tagRepo = SwiftDataTagRepository(modelContainer: container)
-        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
 
         let tag1 = DataModel.Tag(name: "Work")
         let tag2 = DataModel.Tag(name: "Urgent")
@@ -112,7 +112,7 @@ struct TagRepositoryTests {
     @Test func testDeletingTagRemovesItFromTaskTags() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let tagRepo = SwiftDataTagRepository(modelContainer: container)
-        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
 
         let tag = DataModel.Tag(name: "Garage Reorganization")
         try await tagRepo.save(tag)
@@ -149,7 +149,7 @@ struct TagRepositoryTests {
     @Test func testRemovingTagFromTaskEnqueuesTaskTagTombstone() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let tagRepo = SwiftDataTagRepository(modelContainer: container)
-        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
 
         let tag = DataModel.Tag(name: "Removable")
         try await tagRepo.save(tag)
@@ -173,7 +173,7 @@ struct TagRepositoryTests {
     @Test func testAddingTagToExistingTaskEnqueuesTaskTagCreate() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let tagRepo = SwiftDataTagRepository(modelContainer: container)
-        let taskRepo = SwiftDataChangeAwareTaskRepository(modelContainer: container)
+        let taskRepo = SwiftDataTaskRepository(modelContainer: container)
 
         let tag = DataModel.Tag(name: "New Tag")
         try await tagRepo.save(tag)

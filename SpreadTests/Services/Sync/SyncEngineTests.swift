@@ -384,14 +384,14 @@ struct SyncEngineTests {
         await engine.syncNow()
 
         let spreadRepository = SwiftDataSpreadRepository(modelContainer: container)
-        let taskRepository = SwiftDataChangeAwareTaskRepository(modelContainer: container)
+        let taskRepository = SwiftDataTaskRepository(modelContainer: container)
         let manager = try await JournalManager(
             calendar: TestDataBuilders.testCalendar,
             today: TestDataBuilders.makeDate(year: 2026, month: 4, day: 2),
             taskRepository: taskRepository,
             spreadRepository: spreadRepository,
             eventRepository: InMemoryEventRepository(),
-            noteRepository: TestChangeAwareNoteRepository(),
+            noteRepository: TestNoteRepository(),
             collectionRepository: InMemoryCollectionRepository()
         )
 
@@ -435,7 +435,7 @@ struct SyncEngineTests {
         let date = TestDataBuilders.makeDate(year: 2026, month: 4, day: 1, calendar: calendar)
         let dueDate = TestDataBuilders.makeDate(year: 2026, month: 4, day: 5, calendar: calendar)
         let spreadRepository = SwiftDataSpreadRepository(modelContainer: container, deviceId: deviceId)
-        let taskRepository = SwiftDataChangeAwareTaskRepository(modelContainer: container, deviceId: deviceId)
+        let taskRepository = SwiftDataTaskRepository(modelContainer: container, deviceId: deviceId)
         let spread = DataModel.Spread(
             period: .month,
             date: date,

@@ -10,10 +10,10 @@ final class DebugDataService {
 
     // MARK: - Properties
 
-    private let taskRepository: any ChangeAwareTaskRepository
+    private let taskRepository: any TaskRepository
     private let spreadRepository: any SpreadRepository
     private let eventRepository: any EventRepository
-    private let noteRepository: any ChangeAwareNoteRepository
+    private let noteRepository: any NoteRepository
     private let listRepository: any ListRepository
     private let tagRepository: any TagRepository
     private let onReload: (() -> Void)?
@@ -31,10 +31,10 @@ final class DebugDataService {
     ///   - tagRepository: Repository for tag operations.
     ///   - onReload: Optional callback invoked after data is loaded.
     init(
-        taskRepository: any ChangeAwareTaskRepository,
+        taskRepository: any TaskRepository,
         spreadRepository: any SpreadRepository,
         eventRepository: any EventRepository,
-        noteRepository: any ChangeAwareNoteRepository,
+        noteRepository: any NoteRepository,
         listRepository: any ListRepository,
         tagRepository: any TagRepository,
         onReload: (() -> Void)? = nil

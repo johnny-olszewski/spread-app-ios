@@ -62,7 +62,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
@@ -101,7 +101,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let noteRepo = TestChangeAwareNoteRepository(notes: [note])
+        let noteRepo = TestNoteRepository(notes: [note])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
@@ -139,7 +139,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
 
         let manager = try await JournalManager(
@@ -180,7 +180,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
@@ -223,7 +223,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [completedTask])
+        let taskRepo = TestTaskRepository(tasks: [completedTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
@@ -273,8 +273,8 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
-        let noteRepo = TestChangeAwareNoteRepository(notes: [note])
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let noteRepo = TestNoteRepository(notes: [note])
         let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
 
         let manager = try await JournalManager(
@@ -405,7 +405,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
 
         let manager = try await JournalManager(
@@ -446,7 +446,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
 
         let manager = try await JournalManager(
@@ -492,7 +492,7 @@ struct SpreadDeletionTests {
             assignments: [Assignment(period: .day, date: taskDate, status: .complete)]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task1, task2])
+        let taskRepo = TestTaskRepository(tasks: [task1, task2])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
@@ -531,7 +531,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [migratedTask])
+        let taskRepo = TestTaskRepository(tasks: [migratedTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
 
         let manager = try await JournalManager(
@@ -634,7 +634,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread, daySpread])
 
         let manager = try await JournalManager(
@@ -671,7 +671,7 @@ struct SpreadDeletionTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
 
         let manager = try await JournalManager(

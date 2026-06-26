@@ -362,10 +362,10 @@ struct DebugDataServiceTests {
     @MainActor
     func loadingEmptyClears() async throws {
         // Setup repositories with initial data
-        let taskRepo = TestChangeAwareTaskRepository(tasks: TestData.sampleTasks())
+        let taskRepo = TestTaskRepository(tasks: TestData.sampleTasks())
         let spreadRepo = InMemorySpreadRepository(spreads: TestData.sampleSpreads())
         let eventRepo = InMemoryEventRepository(events: TestData.sampleEvents())
-        let noteRepo = TestChangeAwareNoteRepository(notes: TestData.sampleNotes())
+        let noteRepo = TestNoteRepository(notes: TestData.sampleNotes())
 
         let service = DebugDataService(
             taskRepository: taskRepo,
@@ -406,10 +406,10 @@ struct DebugDataServiceTests {
     func loadingBaselineReplacesData() async throws {
         // Setup repositories with some initial tasks (different from baseline)
         let initialTask = DataModel.Task(title: "Initial task that should be replaced")
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [initialTask])
+        let taskRepo = TestTaskRepository(tasks: [initialTask])
         let spreadRepo = InMemorySpreadRepository()
         let eventRepo = InMemoryEventRepository()
-        let noteRepo = TestChangeAwareNoteRepository()
+        let noteRepo = TestNoteRepository()
 
         let service = DebugDataService(
             taskRepository: taskRepo,
@@ -442,10 +442,10 @@ struct DebugDataServiceTests {
         var reloadCalled = false
 
         let service = DebugDataService(
-            taskRepository: TestChangeAwareTaskRepository(),
+            taskRepository: TestTaskRepository(),
             spreadRepository: InMemorySpreadRepository(),
             eventRepository: InMemoryEventRepository(),
-            noteRepository: TestChangeAwareNoteRepository(),
+            noteRepository: TestNoteRepository(),
             listRepository: InMemoryListRepository(),
             tagRepository: InMemoryTagRepository(),
             onReload: { reloadCalled = true }
@@ -465,10 +465,10 @@ struct DebugDataServiceTests {
     @Test("Clear operation removes all data")
     @MainActor
     func clearRemovesAllData() async throws {
-        let taskRepo = TestChangeAwareTaskRepository(tasks: TestData.sampleTasks())
+        let taskRepo = TestTaskRepository(tasks: TestData.sampleTasks())
         let spreadRepo = InMemorySpreadRepository(spreads: TestData.sampleSpreads())
         let eventRepo = InMemoryEventRepository(events: TestData.sampleEvents())
-        let noteRepo = TestChangeAwareNoteRepository(notes: TestData.sampleNotes())
+        let noteRepo = TestNoteRepository(notes: TestData.sampleNotes())
 
         let service = DebugDataService(
             taskRepository: taskRepo,

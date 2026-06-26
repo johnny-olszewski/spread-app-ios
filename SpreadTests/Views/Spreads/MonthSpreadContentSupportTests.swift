@@ -146,7 +146,7 @@ struct MonthSpreadContentSupportTests {
         let manager = try await JournalManager(
             calendar: Self.calendar,
             today: dayDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [currentMonthTask, migratedAwayTask]),
+            taskRepository: TestTaskRepository(tasks: [currentMonthTask, migratedAwayTask]),
             spreadRepository: InMemorySpreadRepository(spreads: [monthSpread, daySpread])
         )
 

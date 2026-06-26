@@ -73,7 +73,7 @@ struct JournalManagerTests {
     /// Expected: Manager loads that task into its tasks list.
     @Test @MainActor func testLoadsTasksFromRepository() async throws {
         let task = DataModel.Task(title: "Test Task")
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
 
         let manager = try await JournalManager(taskRepository: taskRepo)
 
@@ -97,7 +97,7 @@ struct JournalManagerTests {
     /// Expected: Manager loads that note into its notes list.
     @Test @MainActor func testLoadsNotesFromRepository() async throws {
         let note = DataModel.Note(title: "Test Note")
-        let noteRepo = TestChangeAwareNoteRepository(notes: [note])
+        let noteRepo = TestNoteRepository(notes: [note])
 
         let manager = try await JournalManager(noteRepository: noteRepo)
 
@@ -185,7 +185,7 @@ struct JournalManagerTests {
             date: outOfRangeDate,
             period: .day
         )
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [inRangeTask, outOfRangeTask])
+        let taskRepo = TestTaskRepository(tasks: [inRangeTask, outOfRangeTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
 
         let manager = try await JournalManager(
@@ -230,7 +230,7 @@ struct JournalManagerTests {
             date: outOfRangeDate,
             period: .day
         )
-        let noteRepo = TestChangeAwareNoteRepository(notes: [inRangeNote, outOfRangeNote])
+        let noteRepo = TestNoteRepository(notes: [inRangeNote, outOfRangeNote])
         let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
 
         let manager = try await JournalManager(

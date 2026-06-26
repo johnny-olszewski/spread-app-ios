@@ -165,8 +165,8 @@ struct SwiftDataRepositoryTests {
         let container1 = try ModelContainerFactory.makeInMemory()
         let container2 = try ModelContainerFactory.makeInMemory()
 
-        let taskRepo1 = SwiftDataChangeAwareTaskRepository(modelContainer: container1)
-        let taskRepo2 = SwiftDataChangeAwareTaskRepository(modelContainer: container2)
+        let taskRepo1 = SwiftDataTaskRepository(modelContainer: container1)
+        let taskRepo2 = SwiftDataTaskRepository(modelContainer: container2)
 
         let task = DataModel.Task(title: "Container 1 Task")
         try await taskRepo1.save(task, change: EntityChange())

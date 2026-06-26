@@ -39,7 +39,7 @@ struct CancelledTaskTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [cancelledTask])
+        let taskRepo = TestTaskRepository(tasks: [cancelledTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
@@ -89,7 +89,7 @@ struct CancelledTaskTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [openTask, cancelledTask])
+        let taskRepo = TestTaskRepository(tasks: [openTask, cancelledTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
@@ -128,7 +128,7 @@ struct CancelledTaskTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [cancelledTask])
+        let taskRepo = TestTaskRepository(tasks: [cancelledTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread])
 
         let manager = try await JournalManager(
@@ -176,7 +176,7 @@ struct CancelledTaskTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [cancelledTask])
+        let taskRepo = TestTaskRepository(tasks: [cancelledTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
 
         let manager = try await JournalManager(
@@ -208,7 +208,7 @@ struct CancelledTaskTests {
             assignments: []
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [cancelledTask])
+        let taskRepo = TestTaskRepository(tasks: [cancelledTask])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -252,7 +252,7 @@ struct CancelledTaskTests {
             assignments: []
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [openTask, completedTask, cancelledTask])
+        let taskRepo = TestTaskRepository(tasks: [openTask, completedTask, cancelledTask])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -285,7 +285,7 @@ struct CancelledTaskTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [completedTask])
+        let taskRepo = TestTaskRepository(tasks: [completedTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
@@ -322,7 +322,7 @@ struct CancelledTaskTests {
             ]
         )
 
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [migratedTask])
+        let taskRepo = TestTaskRepository(tasks: [migratedTask])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(

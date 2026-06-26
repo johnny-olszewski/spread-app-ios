@@ -2,15 +2,11 @@ import Foundation
 
 /// Protocol defining change-aware persistence operations for tasks.
 ///
-/// Unlike `TaskRepository`, `save` takes an explicit `EntityChange` describing the task's
-/// pre-mutation assignments/tags so the repository can diff for the sync outbox without
-/// re-fetching prior state from disk.
-///
-/// - Note: `ChangeAware` is a temporary qualifier needed only while this protocol coexists
-///   with the legacy `TaskRepository`. Once SPRD-249's cutover deletes `TaskRepository` and
-///   `SwiftDataTaskRepository`, rename this to `TaskRepository` (see SPRD-245's renaming plan).
+/// `save` takes an explicit `EntityChange` describing the task's pre-mutation
+/// assignments/tags so the repository can diff for the sync outbox without re-fetching
+/// prior state from disk.
 @MainActor
-protocol ChangeAwareTaskRepository: Sendable {
+protocol TaskRepository: Sendable {
     /// Retrieves all tasks from storage.
     func getTasks() async -> [DataModel.Task]
 

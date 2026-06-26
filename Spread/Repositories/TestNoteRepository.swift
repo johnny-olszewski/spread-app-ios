@@ -1,17 +1,12 @@
 import Foundation
 
-/// Plain non-production stand-in for `ChangeAwareNoteRepository`, with no call-tracking
+/// Plain non-production stand-in for `NoteRepository`, with no call-tracking
 /// or error injection.
 ///
 /// Provides a working repository implementation that stores notes in memory.
 /// Supports initialization with existing notes for test setup.
-///
-/// - Note: `ChangeAware` is a temporary qualifier needed only while this type coexists
-///   with the legacy `NoteRepository`. Once SPRD-249's cutover deletes that legacy
-///   protocol, rename this to follow whatever test-double naming the legacy
-///   `NoteRepository` double adopts at that time (see SPRD-245's renaming plan).
 @MainActor
-final class TestChangeAwareNoteRepository: ChangeAwareNoteRepository {
+final class TestNoteRepository: NoteRepository {
 
     // MARK: - Properties
 
@@ -31,7 +26,7 @@ final class TestChangeAwareNoteRepository: ChangeAwareNoteRepository {
         self.notes = Dictionary(uniqueKeysWithValues: notes.map { ($0.id, $0) })
     }
 
-    // MARK: - ChangeAwareNoteRepository
+    // MARK: - NoteRepository
 
     func getNotes() async -> [DataModel.Note] {
         Array(notes.values).sorted { $0.createdDate < $1.createdDate }

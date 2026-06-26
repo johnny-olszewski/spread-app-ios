@@ -18,9 +18,9 @@ struct MultidayAggregationTests {
     ) async throws -> JournalManager {
         try await JournalManager(
             calendar: Self.testCalendar,
-            taskRepository: TestChangeAwareTaskRepository(tasks: tasks),
+            taskRepository: TestTaskRepository(tasks: tasks),
             spreadRepository: InMemorySpreadRepository(spreads: spreads),
-            noteRepository: TestChangeAwareNoteRepository(notes: notes)
+            noteRepository: TestNoteRepository(notes: notes)
         )
     }
 

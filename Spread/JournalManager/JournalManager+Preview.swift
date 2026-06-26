@@ -34,8 +34,8 @@ extension JournalManager {
 
         let manager = JournalManager(
             appClock: appClock,
-            taskRepository: TestChangeAwareTaskRepository(),
-            noteRepository: TestChangeAwareNoteRepository(),
+            taskRepository: TestTaskRepository(),
+            noteRepository: TestNoteRepository(),
             spreadRepository: InMemorySpreadRepository(),
             eventRepository: InMemoryEventRepository(),
             creationPolicy: policy
@@ -74,8 +74,8 @@ extension JournalManager {
 
         return JournalManager(
             appClock: appClock,
-            taskRepository: TestChangeAwareTaskRepository(),
-            noteRepository: TestChangeAwareNoteRepository(),
+            taskRepository: TestTaskRepository(),
+            noteRepository: TestNoteRepository(),
             spreadRepository: InMemorySpreadRepository(),
             eventRepository: InMemoryEventRepository(),
             creationPolicy: policy

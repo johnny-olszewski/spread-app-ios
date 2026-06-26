@@ -21,7 +21,7 @@ struct AppDependencies: @unchecked Sendable {
     let modelContainer: ModelContainer
 
     /// Repository for task persistence operations.
-    let taskRepository: any ChangeAwareTaskRepository
+    let taskRepository: any TaskRepository
 
     /// Repository for spread persistence operations.
     let spreadRepository: any SpreadRepository
@@ -30,7 +30,7 @@ struct AppDependencies: @unchecked Sendable {
     let eventRepository: any EventRepository
 
     /// Repository for note persistence operations.
-    let noteRepository: any ChangeAwareNoteRepository
+    let noteRepository: any NoteRepository
 
     /// Repository for collection persistence operations.
     let collectionRepository: any CollectionRepository
@@ -70,11 +70,11 @@ struct AppDependencies: @unchecked Sendable {
             configurationLabel: "live",
             isStoredInMemoryOnly: false,
             modelContainer: modelContainer,
-            taskRepository: SwiftDataChangeAwareTaskRepository(modelContainer: modelContainer),
+            taskRepository: SwiftDataTaskRepository(modelContainer: modelContainer),
             spreadRepository: SwiftDataSpreadRepository(modelContainer: modelContainer),
             // TODO: SPRD-57 - Create SwiftDataEventRepository
             eventRepository: EmptyEventRepository(),
-            noteRepository: SwiftDataChangeAwareNoteRepository(modelContainer: modelContainer),
+            noteRepository: SwiftDataNoteRepository(modelContainer: modelContainer),
             collectionRepository: SwiftDataCollectionRepository(modelContainer: modelContainer),
             settingsRepository: SwiftDataSettingsRepository(modelContainer: modelContainer),
             listRepository: SwiftDataListRepository(modelContainer: modelContainer),
@@ -99,10 +99,10 @@ struct AppDependencies: @unchecked Sendable {
     @MainActor
     static func make(
         modelContainer: ModelContainer? = nil,
-        taskRepository: (any ChangeAwareTaskRepository)? = nil,
+        taskRepository: (any TaskRepository)? = nil,
         spreadRepository: (any SpreadRepository)? = nil,
         eventRepository: (any EventRepository)? = nil,
-        noteRepository: (any ChangeAwareNoteRepository)? = nil,
+        noteRepository: (any NoteRepository)? = nil,
         collectionRepository: (any CollectionRepository)? = nil,
         settingsRepository: (any SettingsRepository)? = nil,
         eventKitService: (any EventKitService)? = nil,
@@ -113,10 +113,10 @@ struct AppDependencies: @unchecked Sendable {
             configurationLabel: "testing",
             isStoredInMemoryOnly: true,
             modelContainer: resolvedModelContainer,
-            taskRepository: taskRepository ?? TestChangeAwareTaskRepository(),
+            taskRepository: taskRepository ?? TestTaskRepository(),
             spreadRepository: spreadRepository ?? EmptySpreadRepository(),
             eventRepository: eventRepository ?? EmptyEventRepository(),
-            noteRepository: noteRepository ?? TestChangeAwareNoteRepository(),
+            noteRepository: noteRepository ?? TestNoteRepository(),
             collectionRepository: collectionRepository ?? EmptyCollectionRepository(),
             settingsRepository: settingsRepository ?? EmptySettingsRepository(),
             listRepository: EmptyListRepository(),
@@ -141,11 +141,11 @@ struct AppDependencies: @unchecked Sendable {
             configurationLabel: "preview",
             isStoredInMemoryOnly: true,
             modelContainer: modelContainer,
-            taskRepository: TestChangeAwareTaskRepository(tasks: TestData.sampleTasks()),
+            taskRepository: TestTaskRepository(tasks: TestData.sampleTasks()),
             spreadRepository: MockSpreadRepository(),
             // TODO: SPRD-57 - Create MockEventRepository with seeded data
             eventRepository: EmptyEventRepository(),
-            noteRepository: TestChangeAwareNoteRepository(notes: TestData.sampleNotes()),
+            noteRepository: TestNoteRepository(notes: TestData.sampleNotes()),
             collectionRepository: MockCollectionRepository(),
             settingsRepository: EmptySettingsRepository(),
             listRepository: MockListRepository(),

@@ -36,7 +36,7 @@ struct MigrationEligibilityTests {
         let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
+            taskRepository: TestTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
@@ -68,7 +68,7 @@ struct MigrationEligibilityTests {
         let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
+            taskRepository: TestTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
@@ -97,7 +97,7 @@ struct MigrationEligibilityTests {
         let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
+            taskRepository: TestTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
@@ -141,7 +141,7 @@ struct MigrationEligibilityTests {
         let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [completeTask, cancelledTask, resolvedTask]),
+            taskRepository: TestTaskRepository(tasks: [completeTask, cancelledTask, resolvedTask]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
         )
 
@@ -163,7 +163,7 @@ struct MigrationEligibilityTests {
         let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
+            taskRepository: TestTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [daySpread])
         )
 
@@ -195,7 +195,7 @@ struct MigrationEligibilityTests {
         let manager = try await JournalManager(
             calendar: Self.calendar,
             today: makeDate(year: 2026, month: 3, day: 29),
-            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
+            taskRepository: TestTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, aprilMonthSpread])
         )
 

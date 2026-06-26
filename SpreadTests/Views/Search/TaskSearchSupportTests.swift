@@ -42,7 +42,7 @@ struct TaskSearchSupportTests {
         let manager = try await JournalManager(
             calendar: calendar,
             today: dayDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [inboxTask, yearTask, monthTask, dayTask]),
+            taskRepository: TestTaskRepository(tasks: [inboxTask, yearTask, monthTask, dayTask]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
@@ -74,7 +74,7 @@ struct TaskSearchSupportTests {
         let manager = try await JournalManager(
             calendar: calendar,
             today: monthDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [migratedTask]),
+            taskRepository: TestTaskRepository(tasks: [migratedTask]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
         )
 
@@ -102,7 +102,7 @@ struct TaskSearchSupportTests {
         let manager = try await JournalManager(
             calendar: calendar,
             today: dayDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
+            taskRepository: TestTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository()
         )
 
@@ -139,7 +139,7 @@ struct TaskSearchSupportTests {
         let manager = try await JournalManager(
             calendar: calendar,
             today: dayDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [assignedTask, unassignedTask]),
+            taskRepository: TestTaskRepository(tasks: [assignedTask, unassignedTask]),
             spreadRepository: InMemorySpreadRepository(spreads: [daySpread])
         )
 

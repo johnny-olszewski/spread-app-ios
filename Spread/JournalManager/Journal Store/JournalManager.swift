@@ -5,10 +5,11 @@ import OSLog
 /// Central coordinator for journal data and operations.
 ///
 /// Owns the dictionary-keyed canonical store and incremental indices
-/// (`EntityStore`/`SpreadKeyIndex`/`EventSpreadIndex`), wired against the `ChangeAware*`
-/// repositories (SPRD-245) and `JournalRuleEngine` (SPRD-248). Exposes the observed-state
-/// shape and command surface views read directly — O(1) store lookups and incremental index
-/// updates instead of flat-array linear scans and from-zero `JournalDataModel` rebuilds.
+/// (`EntityStore`/`SpreadKeyIndex`/`EventSpreadIndex`), wired against the `TaskRepository`/
+/// `NoteRepository` repositories (SPRD-245) and `JournalRuleEngine` (SPRD-248). Exposes the
+/// observed-state shape and command surface views read directly — O(1) store lookups and
+/// incremental index updates instead of flat-array linear scans and from-zero
+/// `JournalDataModel` rebuilds.
 ///
 /// Replaces the original `JournalManager` implementation as of SPRD-251's cutover — the type
 /// name is unchanged for views; only the internals (and this doc comment) changed.
@@ -24,8 +25,8 @@ final class JournalManager {
     let appClock: AppClock
     private var appClockObserverID: UUID?
 
-    let taskRepository: any ChangeAwareTaskRepository
-    let noteRepository: any ChangeAwareNoteRepository
+    let taskRepository: any TaskRepository
+    let noteRepository: any NoteRepository
     let spreadRepository: any SpreadRepository
     let eventRepository: any EventRepository
     let collectionRepository: (any CollectionRepository)?
@@ -66,8 +67,8 @@ final class JournalManager {
 
     init(
         appClock: AppClock,
-        taskRepository: any ChangeAwareTaskRepository,
-        noteRepository: any ChangeAwareNoteRepository,
+        taskRepository: any TaskRepository,
+        noteRepository: any NoteRepository,
         spreadRepository: any SpreadRepository,
         eventRepository: any EventRepository,
         collectionRepository: (any CollectionRepository)? = nil,
@@ -99,10 +100,10 @@ final class JournalManager {
         appClock: AppClock? = nil,
         calendar: Calendar? = nil,
         today: Date? = nil,
-        taskRepository: (any ChangeAwareTaskRepository)? = nil,
+        taskRepository: (any TaskRepository)? = nil,
         spreadRepository: (any SpreadRepository)? = nil,
         eventRepository: (any EventRepository)? = nil,
-        noteRepository: (any ChangeAwareNoteRepository)? = nil,
+        noteRepository: (any NoteRepository)? = nil,
         collectionRepository: (any CollectionRepository)? = nil,
         listRepository: (any ListRepository)? = nil,
         tagRepository: (any TagRepository)? = nil,
@@ -127,8 +128,8 @@ final class JournalManager {
 
         self.init(
             appClock: resolvedClock,
-            taskRepository: taskRepository ?? TestChangeAwareTaskRepository(),
-            noteRepository: noteRepository ?? TestChangeAwareNoteRepository(),
+            taskRepository: taskRepository ?? TestTaskRepository(),
+            noteRepository: noteRepository ?? TestNoteRepository(),
             spreadRepository: spreadRepository ?? InMemorySpreadRepository(),
             eventRepository: eventRepository ?? InMemoryEventRepository(),
             collectionRepository: collectionRepository,

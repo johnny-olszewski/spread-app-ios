@@ -41,10 +41,10 @@ struct AppDependenciesTests {
     @Test func testMakeForTestingUsesDefaultEmptyRepositories() throws {
         let dependencies = try AppDependencies.make()
 
-        #expect(dependencies.taskRepository is TestChangeAwareTaskRepository)
+        #expect(dependencies.taskRepository is TestTaskRepository)
         #expect(dependencies.spreadRepository is EmptySpreadRepository)
         #expect(dependencies.eventRepository is EmptyEventRepository)
-        #expect(dependencies.noteRepository is TestChangeAwareNoteRepository)
+        #expect(dependencies.noteRepository is TestNoteRepository)
         #expect(dependencies.collectionRepository is EmptyCollectionRepository)
         #expect(dependencies.settingsRepository is EmptySettingsRepository)
     }
@@ -129,10 +129,10 @@ struct AppDependenciesTests {
         let dependencies = try AppDependencies.make()
         let summary = dependencies.debugSummary
 
-        #expect(summary.taskRepositoryType == "TestChangeAwareTaskRepository")
+        #expect(summary.taskRepositoryType == "TestTaskRepository")
         #expect(summary.spreadRepositoryType == "EmptySpreadRepository")
         #expect(summary.eventRepositoryType == "EmptyEventRepository")
-        #expect(summary.noteRepositoryType == "TestChangeAwareNoteRepository")
+        #expect(summary.noteRepositoryType == "TestNoteRepository")
         #expect(summary.collectionRepositoryType == "EmptyCollectionRepository")
         #expect(summary.settingsRepositoryType == "EmptySettingsRepository")
     }
@@ -160,7 +160,7 @@ struct AppDependenciesTests {
 
 // MARK: - Test Doubles
 
-private struct StubTaskRepository: ChangeAwareTaskRepository {
+private struct StubTaskRepository: TaskRepository {
     func getTasks() async -> [DataModel.Task] { [] }
     func save(_ task: DataModel.Task, change: EntityChange) async throws {}
     func saveAll(_ requests: [TaskSaveRequest]) async throws {}
@@ -180,7 +180,7 @@ private struct StubEventRepository: EventRepository {
     func delete(_ event: DataModel.Event) async throws {}
 }
 
-private struct StubNoteRepository: ChangeAwareNoteRepository {
+private struct StubNoteRepository: NoteRepository {
     func getNotes() async -> [DataModel.Note] { [] }
     func save(_ note: DataModel.Note, change: EntityChange) async throws {}
     func saveAll(_ requests: [NoteSaveRequest]) async throws {}

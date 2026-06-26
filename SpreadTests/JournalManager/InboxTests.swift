@@ -28,7 +28,7 @@ struct InboxTests {
             period: .day,
             assignments: []
         )
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
 
         let manager = try await JournalManager(
             calendar: Self.testCalendar,
@@ -52,7 +52,7 @@ struct InboxTests {
             period: .day,
             assignments: []
         )
-        let noteRepo = TestChangeAwareNoteRepository(notes: [note])
+        let noteRepo = TestNoteRepository(notes: [note])
 
         let manager = try await JournalManager(
             calendar: Self.testCalendar,
@@ -83,7 +83,7 @@ struct InboxTests {
         // Create a spread for a different date (January 20)
         let differentDate = calendar.date(from: .init(year: 2026, month: 1, day: 20))!
         let spread = DataModel.Spread(period: .day, date: differentDate, calendar: calendar)
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
@@ -115,7 +115,7 @@ struct InboxTests {
             ]
         )
         let spread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [spread])
 
         let manager = try await JournalManager(
@@ -141,7 +141,7 @@ struct InboxTests {
         )
         // Create month spread (parent of day)
         let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: calendar)
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
         let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread])
 
         let manager = try await JournalManager(
@@ -208,7 +208,7 @@ struct InboxTests {
             status: .cancelled,
             assignments: []
         )
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [cancelledTask])
+        let taskRepo = TestTaskRepository(tasks: [cancelledTask])
 
         let manager = try await JournalManager(
             calendar: Self.testCalendar,
@@ -235,7 +235,7 @@ struct InboxTests {
                 )
             ]
         )
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [cancelledTask])
+        let taskRepo = TestTaskRepository(tasks: [cancelledTask])
 
         let manager = try await JournalManager(
             calendar: Self.testCalendar,
@@ -266,8 +266,8 @@ struct InboxTests {
         let task1 = DataModel.Task(title: "Task 1", date: Self.testDate, assignments: [])
         let task2 = DataModel.Task(title: "Task 2", date: Self.testDate, assignments: [])
         let note = DataModel.Note(title: "Note 1", date: Self.testDate, assignments: [])
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task1, task2])
-        let noteRepo = TestChangeAwareNoteRepository(notes: [note])
+        let taskRepo = TestTaskRepository(tasks: [task1, task2])
+        let noteRepo = TestNoteRepository(notes: [note])
 
         let manager = try await JournalManager(
             calendar: Self.testCalendar,
@@ -292,7 +292,7 @@ struct InboxTests {
             period: .day,
             assignments: []
         )
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -326,7 +326,7 @@ struct InboxTests {
             period: .day,
             assignments: []
         )
-        let noteRepo = TestChangeAwareNoteRepository(notes: [note])
+        let noteRepo = TestNoteRepository(notes: [note])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -355,8 +355,8 @@ struct InboxTests {
         let task1 = DataModel.Task(title: "Task 1", date: date, period: .day, assignments: [])
         let task2 = DataModel.Task(title: "Task 2", date: date, period: .day, assignments: [])
         let note = DataModel.Note(title: "Note 1", date: date, period: .day, assignments: [])
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task1, task2])
-        let noteRepo = TestChangeAwareNoteRepository(notes: [note])
+        let taskRepo = TestTaskRepository(tasks: [task1, task2])
+        let noteRepo = TestNoteRepository(notes: [note])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -393,7 +393,7 @@ struct InboxTests {
             period: .day,
             assignments: []
         )
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -419,7 +419,7 @@ struct InboxTests {
             period: .day,
             assignments: []
         )
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -455,7 +455,7 @@ struct InboxTests {
         let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
+            taskRepository: TestTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [yearSpread])
         )
 
@@ -489,7 +489,7 @@ struct InboxTests {
             calendar: calendar,
             today: Self.testDate,
             spreadRepository: InMemorySpreadRepository(spreads: [monthSpread]),
-            noteRepository: TestChangeAwareNoteRepository(notes: [note])
+            noteRepository: TestNoteRepository(notes: [note])
         )
 
         let daySpread = try await manager.addSpread(period: .day, date: noteDate)
@@ -526,8 +526,8 @@ struct InboxTests {
         let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
-            noteRepository: TestChangeAwareNoteRepository(notes: [note])
+            taskRepository: TestTaskRepository(tasks: [task]),
+            noteRepository: TestNoteRepository(notes: [note])
         )
 
         let result = try await manager.createSpread(period: .day, date: entryDate)
@@ -566,7 +566,7 @@ struct InboxTests {
         let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
+            taskRepository: TestTaskRepository(tasks: [task]),
             spreadRepository: InMemorySpreadRepository(spreads: [monthSpread])
         )
 
@@ -603,8 +603,8 @@ struct InboxTests {
         let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
-            taskRepository: TestChangeAwareTaskRepository(tasks: [task]),
-            noteRepository: TestChangeAwareNoteRepository(notes: [note])
+            taskRepository: TestTaskRepository(tasks: [task]),
+            noteRepository: TestNoteRepository(notes: [note])
         )
 
         let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 13))!
@@ -672,7 +672,7 @@ struct InboxTests {
             period: .day,
             assignments: []
         )
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
 
         let manager = try await JournalManager(
             calendar: calendar,
@@ -700,8 +700,8 @@ struct InboxTests {
         let task = DataModel.Task(title: "Task", date: Self.testDate, assignments: [])
         let note = DataModel.Note(title: "Note", date: Self.testDate, assignments: [])
         let event = DataModel.Event(title: "Event", startDate: Self.testDate, endDate: Self.testDate)
-        let taskRepo = TestChangeAwareTaskRepository(tasks: [task])
-        let noteRepo = TestChangeAwareNoteRepository(notes: [note])
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let noteRepo = TestNoteRepository(notes: [note])
         let eventRepo = InMemoryEventRepository(events: [event])
 
         let manager = try await JournalManager(

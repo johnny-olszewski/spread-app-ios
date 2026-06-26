@@ -218,9 +218,9 @@ struct LocalSupabaseSyncHarness {
         let authManager = AuthManager(service: SupabaseAuthService(client: client))
         let networkMonitor = AlwaysConnectedNetworkMonitor()
 
-        let taskRepository = SwiftDataChangeAwareTaskRepository(modelContainer: modelContainer, deviceId: deviceId)
+        let taskRepository = SwiftDataTaskRepository(modelContainer: modelContainer, deviceId: deviceId)
         let spreadRepository = SwiftDataSpreadRepository(modelContainer: modelContainer, deviceId: deviceId)
-        let noteRepository = SwiftDataChangeAwareNoteRepository(modelContainer: modelContainer, deviceId: deviceId)
+        let noteRepository = SwiftDataNoteRepository(modelContainer: modelContainer, deviceId: deviceId)
         let collectionRepository = SwiftDataCollectionRepository(modelContainer: modelContainer, deviceId: deviceId)
 
         let journalManager = try await JournalManager(

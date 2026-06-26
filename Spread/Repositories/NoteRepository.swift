@@ -2,15 +2,11 @@ import Foundation
 
 /// Protocol defining change-aware persistence operations for notes.
 ///
-/// Unlike `NoteRepository`, `save` takes an explicit `EntityChange` describing the note's
-/// pre-mutation assignments/tags so the repository can diff for the sync outbox without
-/// re-fetching prior state from disk.
-///
-/// - Note: `ChangeAware` is a temporary qualifier needed only while this protocol coexists
-///   with the legacy `NoteRepository`. Once SPRD-249's cutover deletes `NoteRepository` and
-///   `SwiftDataNoteRepository`, rename this to `NoteRepository` (see SPRD-245's renaming plan).
+/// `save` takes an explicit `EntityChange` describing the note's pre-mutation
+/// assignments/tags so the repository can diff for the sync outbox without re-fetching
+/// prior state from disk.
 @MainActor
-protocol ChangeAwareNoteRepository: Sendable {
+protocol NoteRepository: Sendable {
     /// Retrieves all notes from storage.
     func getNotes() async -> [DataModel.Note]
 

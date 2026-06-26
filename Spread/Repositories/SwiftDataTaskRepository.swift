@@ -1,18 +1,13 @@
 import Foundation
 import SwiftData
 
-/// SwiftData implementation of `ChangeAwareNoteRepository`.
+/// SwiftData implementation of `TaskRepository`.
 ///
 /// Diffs sync-outbox mutations from the caller-supplied `EntityChange` instead of
-/// re-fetching pre-mutation state through a throwaway `ModelContext`, as
-/// `SwiftDataNoteRepository` does. Create-vs-update is read from `change.isNew`
-/// rather than a `fetchCount` query.
-///
-/// - Note: `ChangeAware` is a temporary qualifier needed only while this type coexists
-///   with the legacy `SwiftDataNoteRepository`. Once SPRD-249's cutover deletes that legacy
-///   type, rename this to `SwiftDataNoteRepository` (see SPRD-245's renaming plan).
+/// re-fetching pre-mutation state through a throwaway `ModelContext`. Create-vs-update is
+/// read from `change.isNew` rather than a `fetchCount` query.
 @MainActor
-final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
+final class SwiftDataTaskRepository: TaskRepository {
 
     // MARK: - Properties
 
@@ -42,11 +37,11 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
         self.nowProvider = nowProvider
     }
 
-    // MARK: - ChangeAwareNoteRepository
+    // MARK: - TaskRepository
 
-    /// Fetches all notes from the store, ordered by creation date.
-    func getNotes() async -> [DataModel.Note] {
-        let descriptor = FetchDescriptor<DataModel.Note>(
+    /// Fetches all tasks from the store, ordered by creation date.
+    func getTasks() async -> [DataModel.Task] {
+        let descriptor = FetchDescriptor<DataModel.Task>(
             sortBy: [SortDescriptor(\.createdDate, order: .forward)]
         )
 
@@ -57,70 +52,70 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
         }
     }
 
-    /// Persists `note` and enqueues sync-outbox mutations for the note, its assignments, and
+    /// Persists `task` and enqueues sync-outbox mutations for the task, its assignments, and
     /// its tags, diffing against `change` rather than re-fetching pre-mutation state from disk.
-    func save(_ note: DataModel.Note, change: EntityChange) async throws {
-        try await saveAll([NoteSaveRequest(note: note, change: change)])
+    func save(_ task: DataModel.Task, change: EntityChange) async throws {
+        try await saveAll([TaskSaveRequest(task: task, change: change)])
     }
 
-    /// Persists every note in `requests` and enqueues their sync-outbox mutations in a single
+    /// Persists every task in `requests` and enqueues their sync-outbox mutations in a single
     /// persistence commit, regardless of how many requests are supplied.
-    func saveAll(_ requests: [NoteSaveRequest]) async throws {
+    func saveAll(_ requests: [TaskSaveRequest]) async throws {
         let timestamp = nowProvider()
 
         for request in requests {
             let operation: SyncOperation = request.change.isNew ? .create : .update
 
-            enqueueNoteMutation(request.note, operation: operation, timestamp: timestamp)
-            enqueueNoteAssignmentMutations(
-                noteId: request.note.id,
+            enqueueTaskMutation(request.task, operation: operation, timestamp: timestamp)
+            enqueueTaskAssignmentMutations(
+                taskId: request.task.id,
                 previousAssignments: request.change.previousAssignments,
-                currentAssignments: request.note.assignments,
+                currentAssignments: request.task.assignments,
                 timestamp: timestamp
             )
-            enqueueNoteTagMutations(
-                noteId: request.note.id,
+            enqueueTaskTagMutations(
+                taskId: request.task.id,
                 previousTagIds: request.change.previousTagIDs,
-                currentTagIds: request.note.tags.map(\.id),
+                currentTagIds: request.task.tags.map(\.id),
                 timestamp: timestamp
             )
-            modelContext.insert(request.note)
+            modelContext.insert(request.task)
         }
 
         try modelContext.save()
     }
 
-    /// Deletes `note` and enqueues tombstone mutations for the note, its assignments, and tags.
-    func delete(_ note: DataModel.Note) async throws {
+    /// Deletes `task` and enqueues tombstone mutations for the task, its assignments, and tags.
+    func delete(_ task: DataModel.Task) async throws {
         let timestamp = nowProvider()
 
-        enqueueNoteMutation(note, operation: .delete, timestamp: timestamp)
-        enqueueNoteAssignmentTombstones(note.assignments, noteId: note.id, timestamp: timestamp)
-        enqueueNoteTagTombstones(tagIds: note.tags.map(\.id), noteId: note.id, timestamp: timestamp)
-        modelContext.delete(note)
+        enqueueTaskMutation(task, operation: .delete, timestamp: timestamp)
+        enqueueTaskAssignmentTombstones(task.assignments, taskId: task.id, timestamp: timestamp)
+        enqueueTaskTagTombstones(tagIds: task.tags.map(\.id), taskId: task.id, timestamp: timestamp)
+        modelContext.delete(task)
         try modelContext.save()
     }
 
     // MARK: - Outbox
 
     private enum Constants {
-        /// Fields reported as changed on every non-delete note mutation.
-        static let changedFields = ["title", "content", "date", "period", "status", "list_id"]
-        /// Fields reported as changed on every non-delete note-assignment mutation.
+        /// Fields reported as changed on every non-delete task mutation.
+        static let changedFields = [
+            "title", "body", "priority", "due_date", "list_id",
+            "date", "period", "status"
+        ]
+        /// Fields reported as changed on every non-delete task-assignment mutation.
         static let assignmentChangedFields = ["period", "date", "status"]
     }
 
-    /// Serializes `note` and enqueues a single sync-outbox mutation for it.
-    private func enqueueNoteMutation(
-        _ note: DataModel.Note,
+    /// Serializes `task` and enqueues a single sync-outbox mutation for it.
+    private func enqueueTaskMutation(
+        _ task: DataModel.Task,
         operation: SyncOperation,
         timestamp: Date
     ) {
         let deletedAt = operation == .delete ? timestamp : nil
-        // TODO: SPRD-250 - replace serializeNoteEntry and the hardcoded entityType below with a
-        // `SerializableData` conformance on `DataModel.Note`.
-        guard let recordData = SyncSerializer.serializeNoteEntry(
-            note,
+        guard let recordData = task.serialize(
             deviceId: deviceId,
             timestamp: timestamp,
             deletedAt: deletedAt
@@ -129,8 +124,8 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
         }
 
         modelContext.enqueueCoalescedSyncMutation(
-            entityType: SyncEntityType.entry.rawValue,
-            entityId: note.id,
+            entityType: DataModel.Task.entityType.rawValue,
+            entityId: task.id,
             operation: operation,
             recordData: recordData,
             changedFields: operation == .delete ? [] : Constants.changedFields
@@ -140,8 +135,8 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
     /// Diffs `previousAssignments` against `currentAssignments` by ID, enqueueing a create
     /// mutation for additions, an update mutation for changed assignments, and a tombstone for
     /// any previous assignment no longer present in `currentAssignments`.
-    private func enqueueNoteAssignmentMutations(
-        noteId: UUID,
+    private func enqueueTaskAssignmentMutations(
+        taskId: UUID,
         previousAssignments: [Assignment],
         currentAssignments: [Assignment],
         timestamp: Date
@@ -158,31 +153,31 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
                 operation = .create
             }
 
-            enqueueNoteAssignmentMutation(
+            enqueueTaskAssignmentMutation(
                 assignment,
-                noteId: noteId,
+                taskId: taskId,
                 operation: operation,
                 timestamp: timestamp
             )
         }
 
-        enqueueNoteAssignmentTombstones(
+        enqueueTaskAssignmentTombstones(
             Array(previousByID.values),
-            noteId: noteId,
+            taskId: taskId,
             timestamp: timestamp
         )
     }
 
     /// Enqueues a delete mutation for each of `assignments`.
-    private func enqueueNoteAssignmentTombstones(
+    private func enqueueTaskAssignmentTombstones(
         _ assignments: [Assignment],
-        noteId: UUID,
+        taskId: UUID,
         timestamp: Date
     ) {
         for assignment in assignments {
-            enqueueNoteAssignmentMutation(
+            enqueueTaskAssignmentMutation(
                 assignment,
-                noteId: noteId,
+                taskId: taskId,
                 operation: .delete,
                 timestamp: timestamp
             )
@@ -190,17 +185,17 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
     }
 
     /// Serializes `assignment` and enqueues a single sync-outbox mutation for it.
-    private func enqueueNoteAssignmentMutation(
+    private func enqueueTaskAssignmentMutation(
         _ assignment: Assignment,
-        noteId: UUID,
+        taskId: UUID,
         operation: SyncOperation,
         timestamp: Date
     ) {
         let deletedAt = operation == .delete ? timestamp : nil
         guard let recordData = SyncSerializer.serializeAssignment(
             assignment,
-            entryId: noteId,
-            entryType: .note,
+            entryId: taskId,
+            entryType: .task,
             deviceId: deviceId,
             timestamp: timestamp,
             deletedAt: deletedAt
@@ -219,8 +214,8 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
 
     /// Diffs `previousTagIds` against `currentTagIds`, enqueueing a create mutation for each
     /// newly-added tag and a tombstone for each removed tag.
-    private func enqueueNoteTagMutations(
-        noteId: UUID,
+    private func enqueueTaskTagMutations(
+        taskId: UUID,
         previousTagIds: [UUID],
         currentTagIds: [UUID],
         timestamp: Date
@@ -230,7 +225,7 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
 
         for tagId in currentSet.subtracting(previousSet) {
             guard let recordData = SyncSerializer.serializeEntryTag(
-                entryId: noteId, tagId: tagId, timestamp: timestamp
+                entryId: taskId, tagId: tagId, timestamp: timestamp
             ) else { continue }
             modelContext.enqueueCoalescedSyncMutation(
                 entityType: SyncEntityType.entryTag.rawValue,
@@ -240,18 +235,18 @@ final class SwiftDataChangeAwareNoteRepository: ChangeAwareNoteRepository {
             )
         }
 
-        enqueueNoteTagTombstones(
+        enqueueTaskTagTombstones(
             tagIds: Array(previousSet.subtracting(currentSet)),
-            noteId: noteId,
+            taskId: taskId,
             timestamp: timestamp
         )
     }
 
     /// Enqueues a delete mutation for each tag ID in `tagIds`.
-    private func enqueueNoteTagTombstones(tagIds: [UUID], noteId: UUID, timestamp: Date) {
+    private func enqueueTaskTagTombstones(tagIds: [UUID], taskId: UUID, timestamp: Date) {
         for tagId in tagIds {
             guard let recordData = SyncSerializer.serializeEntryTag(
-                entryId: noteId, tagId: tagId, timestamp: timestamp, deletedAt: timestamp
+                entryId: taskId, tagId: tagId, timestamp: timestamp, deletedAt: timestamp
             ) else { continue }
             modelContext.enqueueCoalescedSyncMutation(
                 entityType: SyncEntityType.entryTag.rawValue,

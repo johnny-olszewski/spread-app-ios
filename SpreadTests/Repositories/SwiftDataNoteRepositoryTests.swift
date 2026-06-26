@@ -3,11 +3,11 @@ import SwiftData
 import Testing
 @testable import Spread
 
-/// Tests for `SwiftDataChangeAwareNoteRepository`, the canonical note repository
+/// Tests for `SwiftDataNoteRepository`, the canonical note repository
 /// implementation. Covers CRUD and sync-outbox behavior, including reading pre-mutation
 /// assignments/tags from a caller-supplied `EntityChange` instead of re-fetching from disk.
 @MainActor
-struct SwiftDataChangeAwareNoteRepositoryTests {
+struct SwiftDataNoteRepositoryTests {
 
     // MARK: - CRUD
 
@@ -15,7 +15,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     /// Expected: Fetching notes returns one note with the saved title.
     @Test func testSaveAndRetrieve() async throws {
         let container = try ModelContainerFactory.makeInMemory()
-        let repository = SwiftDataChangeAwareNoteRepository(modelContainer: container)
+        let repository = SwiftDataNoteRepository(modelContainer: container)
 
         let note = DataModel.Note(title: "Test Note")
         try await repository.save(note, change: EntityChange())
@@ -29,7 +29,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     /// Expected: Fetching notes returns three notes.
     @Test func testSaveMultipleNotes() async throws {
         let container = try ModelContainerFactory.makeInMemory()
-        let repository = SwiftDataChangeAwareNoteRepository(modelContainer: container)
+        let repository = SwiftDataNoteRepository(modelContainer: container)
 
         try await repository.save(DataModel.Note(title: "Note 1"), change: EntityChange())
         try await repository.save(DataModel.Note(title: "Note 2"), change: EntityChange())
@@ -43,7 +43,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     /// Expected: Fetching notes returns an empty list.
     @Test func testDelete() async throws {
         let container = try ModelContainerFactory.makeInMemory()
-        let repository = SwiftDataChangeAwareNoteRepository(modelContainer: container)
+        let repository = SwiftDataNoteRepository(modelContainer: container)
 
         let note = DataModel.Note(title: "Note to Delete")
         try await repository.save(note, change: EntityChange())
@@ -58,7 +58,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     /// Expected: Fetching notes returns them sorted by date ascending.
     @Test func testSaveReturnsNotesSortedByDateAscending() async throws {
         let container = try ModelContainerFactory.makeInMemory()
-        let repository = SwiftDataChangeAwareNoteRepository(modelContainer: container)
+        let repository = SwiftDataNoteRepository(modelContainer: container)
 
         let now = Date.now
         let note1 = DataModel.Note(title: "Oldest", createdDate: now.addingTimeInterval(-200))
@@ -80,7 +80,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     /// Expected: Repository has one note with the updated title (no duplicate row created).
     @Test func testUpdateExistingNote() async throws {
         let container = try ModelContainerFactory.makeInMemory()
-        let repository = SwiftDataChangeAwareNoteRepository(modelContainer: container)
+        let repository = SwiftDataNoteRepository(modelContainer: container)
 
         let note = DataModel.Note(title: "Original Title")
         try await repository.save(note, change: EntityChange())
@@ -100,7 +100,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     @Test func testSaveEnqueuesCreateMutationFromIsNewFlag() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let deviceId = UUID()
-        let repository = SwiftDataChangeAwareNoteRepository(
+        let repository = SwiftDataNoteRepository(
             modelContainer: container,
             deviceId: deviceId,
             nowProvider: { Date(timeIntervalSince1970: 100) }
@@ -124,7 +124,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     /// Expected: An update mutation is enqueued, not a create mutation.
     @Test func testSaveEnqueuesUpdateMutationFromIsNewFlag() async throws {
         let container = try ModelContainerFactory.makeInMemory()
-        let repository = SwiftDataChangeAwareNoteRepository(
+        let repository = SwiftDataNoteRepository(
             modelContainer: container,
             deviceId: UUID(),
             nowProvider: { Date(timeIntervalSince1970: 200) }
@@ -144,7 +144,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     @Test func testSaveEnqueuesAssignmentCreateMutation() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         let deviceId = UUID()
-        let repository = SwiftDataChangeAwareNoteRepository(
+        let repository = SwiftDataNoteRepository(
             modelContainer: container,
             deviceId: deviceId,
             nowProvider: { Date(timeIntervalSince1970: 110) }
@@ -175,7 +175,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     /// record data reflects the latest status.
     @Test func testSaveEnqueuesAssignmentUpdateMutationFromSuppliedPreviousState() async throws {
         let container = try ModelContainerFactory.makeInMemory()
-        let repository = SwiftDataChangeAwareNoteRepository(
+        let repository = SwiftDataNoteRepository(
             modelContainer: container,
             deviceId: UUID(),
             nowProvider: { Date(timeIntervalSince1970: 210) }
@@ -207,7 +207,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     @Test func testSaveEnqueuesAssignmentDeleteWhenAssignmentRemoved() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         var timestamps = [Date(timeIntervalSince1970: 700), Date(timeIntervalSince1970: 800)]
-        let repository = SwiftDataChangeAwareNoteRepository(
+        let repository = SwiftDataNoteRepository(
             modelContainer: container,
             deviceId: UUID(),
             nowProvider: { timestamps.removeFirst() }
@@ -241,7 +241,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     @Test func testDeleteEnqueuesAssignmentDeleteMutation() async throws {
         let container = try ModelContainerFactory.makeInMemory()
         var timestamps = [Date(timeIntervalSince1970: 500), Date(timeIntervalSince1970: 600)]
-        let repository = SwiftDataChangeAwareNoteRepository(
+        let repository = SwiftDataNoteRepository(
             modelContainer: container,
             deviceId: UUID(),
             nowProvider: { timestamps.removeFirst() }
@@ -270,7 +270,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     /// as three independent `save` calls.
     @Test func testSaveAllPersistsAllNotesInOneCommit() async throws {
         let container = try ModelContainerFactory.makeInMemory()
-        let repository = SwiftDataChangeAwareNoteRepository(
+        let repository = SwiftDataNoteRepository(
             modelContainer: container,
             nowProvider: { Date(timeIntervalSince1970: 300) }
         )
@@ -297,7 +297,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
     /// for the existing note, proving each request is diffed independently within the batch.
     @Test func testSaveAllDiffsEachRequestIndependently() async throws {
         let container = try ModelContainerFactory.makeInMemory()
-        let repository = SwiftDataChangeAwareNoteRepository(
+        let repository = SwiftDataNoteRepository(
             modelContainer: container,
             nowProvider: { Date(timeIntervalSince1970: 310) }
         )
@@ -327,7 +327,7 @@ struct SwiftDataChangeAwareNoteRepositoryTests {
         let deviceId = UUID()
         let nowProvider = { Date(timeIntervalSince1970: 1_000) }
 
-        let repository = SwiftDataChangeAwareNoteRepository(
+        let repository = SwiftDataNoteRepository(
             modelContainer: container, deviceId: deviceId, nowProvider: nowProvider
         )
 
