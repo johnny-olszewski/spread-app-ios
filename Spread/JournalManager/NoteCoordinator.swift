@@ -13,10 +13,10 @@ import OSLog
 /// (no protocol, no back-reference to `JournalManager`, callers pass `spreads` in and
 /// upsert the mutated entity into their own observed state afterward).
 ///
-/// - TODO: [SPRD-255] Not yet called anywhere. `JournalManager`'s note CRUD/migration
-///   methods (`addNote`, `updateNoteTitle`/`updateNoteMetadata`/`updateNoteDateAndPeriod`,
-///   `deleteNote`, `migrateNote`) will delegate to this type in this task's next
-///   increment, replacing their current inline bodies.
+/// Used by `JournalManager`'s note CRUD/migration methods (`addNote`,
+/// `updateNoteTitle`/`updateNoteMetadata`/`updateNoteDateAndPeriod`, `deleteNote`,
+/// `migrateNote`), which delegate to this type and then patch their own incremental
+/// index via `upsertNote`/`removeNote`.
 @MainActor
 struct NoteCoordinator {
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "NoteCoordinator")

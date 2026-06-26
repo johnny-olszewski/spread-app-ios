@@ -17,10 +17,10 @@ import OSLog
 /// observed state afterward (`Task`/`Note` are reference types, so a caller already
 /// holding the entity sees in-place mutations without a return value).
 ///
-/// - TODO: [SPRD-255] Not yet called anywhere. `JournalManager`'s task CRUD/migration
-///   methods (`addTask`, `updateTask*`, `clearTaskPreferredAssignment`, `deleteTask`,
-///   `migrateTask`/`moveTask`/`migrateTasksBatch`) will delegate to this type in this
-///   task's next increment, replacing their current inline bodies.
+/// Used by `JournalManager`'s task CRUD/migration methods (`addTask`, `updateTask*`,
+/// `clearTaskPreferredAssignment`, `deleteTask`, `migrateTask`/`moveTask`/
+/// `migrateTasksBatch`), which delegate to this type and then patch their own
+/// incremental index via `upsertTask`/`removeTask`.
 @MainActor
 struct TaskCoordinator {
     private static let logger = Logger(subsystem: "dev.johnnyo.Spread", category: "TaskCoordinator")
