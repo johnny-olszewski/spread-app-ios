@@ -79,6 +79,48 @@ struct JournalRuleEngineTests {
         #expect(!keys.contains(SpreadDataModelKey(period: .year, date: noteDate, calendar: Self.calendar)))
     }
 
+    /// Setup: two tasks share identical `currentAssignments`, but one has an empty
+    /// `migrationHistory` and the other has 200 historical entries — each for a distinct
+    /// period/date that would change `spreadKeys`' result if it were (incorrectly) scanned.
+    /// Expected: `spreadKeys` produces an identical result for both tasks, proving the
+    /// computation's cost depends only on the size of `currentAssignments`, never on
+    /// `migrationHistory`'s length — the SPRD-254 perf goal, demonstrated by output
+    /// invariance rather than a wall-clock benchmark.
+    @Test func testSpreadKeysResultIsIndependentOfMigrationHistorySize() {
+        let taskDate = Self.makeDate(year: 2026, month: 1, day: 11)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
+        let currentAssignments = [Assignment(period: .day, date: taskDate, status: .open)]
+
+        // Each historical entry targets a distinct, otherwise-unused month so that if
+        // `spreadKeys` ever scanned `migrationHistory`, the result would gain extra keys.
+        let largeHistory: [Assignment] = (0..<200).map { offset in
+            let historyDate = Self.calendar.date(byAdding: .month, value: offset + 1, to: taskDate)!
+            return Assignment(period: .month, date: historyDate, status: .migrated)
+        }
+
+        let taskWithNoHistory = DataModel.Task(
+            title: "No History",
+            date: taskDate,
+            period: .day,
+            currentAssignments: currentAssignments
+        )
+        let taskWithLargeHistory = DataModel.Task(
+            title: "Large History",
+            date: taskDate,
+            period: .day,
+            currentAssignments: currentAssignments,
+            migrationHistory: largeHistory
+        )
+
+        let engine = JournalRuleEngine(calendar: Self.calendar)
+        let keysWithoutHistory = engine.spreadKeys(for: taskWithNoHistory, spreads: [daySpread])
+        let keysWithLargeHistory = engine.spreadKeys(for: taskWithLargeHistory, spreads: [daySpread])
+
+        #expect(keysWithoutHistory == keysWithLargeHistory)
+        #expect(keysWithLargeHistory.count == 1)
+        #expect(keysWithLargeHistory.contains(SpreadDataModelKey(spread: daySpread, calendar: Self.calendar)))
+    }
+
     // MARK: - Inbox Resolution
 
     /// Setup: an unassigned open task, an unassigned cancelled task, and an unassigned note.

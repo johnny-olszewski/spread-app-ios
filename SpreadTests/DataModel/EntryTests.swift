@@ -277,7 +277,7 @@ struct EntryTests {
             date: now,
             period: .month,
             status: .migrated,
-            currentAssignments: assignments
+            migrationHistory: assignments
         )
 
         #expect(note.title == "My Note")
@@ -287,6 +287,71 @@ struct EntryTests {
         #expect(note.period == .month)
         #expect(note.status == .migrated)
         #expect(note.allAssignmentsForTesting == assignments)
+    }
+
+    /// Conditions: A task has 3 already-migrated historical assignments (day, month, year,
+    /// in that order) plus one live current assignment.
+    /// Expected: the migration-history UI's combined timeline (`migrationHistory +
+    /// currentAssignments`, exactly what `TaskDetailSheet`'s assignment history section
+    /// renders) preserves migration order followed by the live entry last — the same
+    /// content and ordering the pre-SPRD-254 single flat array would have produced, since
+    /// older entries were never reordered and the live entry was always the most recently
+    /// appended.
+    @Test func testTaskMigrationHistoryDisplayOrderMatchesPreSplitFlatArrayShape() {
+        let now = makeDate(year: 2026, month: 6, day: 15)
+        let dayMigration = Assignment(period: .day, date: now, status: .migrated)
+        let monthMigration = Assignment(period: .month, date: now, status: .migrated)
+        let yearMigration = Assignment(period: .year, date: now, status: .migrated)
+        let liveAssignment = Assignment(period: .month, date: now, status: .open)
+
+        let task = DataModel.Task(
+            title: "Chain-migrated task",
+            createdDate: now,
+            date: now,
+            period: .month,
+            status: .open,
+            currentAssignments: [liveAssignment],
+            migrationHistory: [dayMigration, monthMigration, yearMigration]
+        )
+
+        let displayedTimeline = task.allAssignmentsForTesting
+
+        #expect(displayedTimeline.count == 4)
+        #expect(displayedTimeline[0].id == dayMigration.id)
+        #expect(displayedTimeline[1].id == monthMigration.id)
+        #expect(displayedTimeline[2].id == yearMigration.id)
+        #expect(displayedTimeline[3].id == liveAssignment.id)
+        #expect(displayedTimeline.dropLast().allSatisfy { $0.status == .migrated })
+        #expect(displayedTimeline.last?.status == .open)
+    }
+
+    /// Conditions: A note has 1 already-migrated historical assignment plus one live
+    /// current assignment.
+    /// Expected: the migration-history UI's combined timeline (`migrationHistory +
+    /// currentAssignments`, exactly what `NoteDetailSheet`'s assignment history section
+    /// renders) shows the migrated entry first and the live entry last.
+    @Test func testNoteMigrationHistoryDisplayOrderMatchesPreSplitFlatArrayShape() {
+        let now = makeDate(year: 2026, month: 6, day: 15)
+        let monthMigration = Assignment(period: .month, date: now, status: .migrated)
+        let liveAssignment = Assignment(period: .day, date: now, status: .active)
+
+        let note = DataModel.Note(
+            title: "Migrated note",
+            createdDate: now,
+            date: now,
+            period: .day,
+            status: .active,
+            currentAssignments: [liveAssignment],
+            migrationHistory: [monthMigration]
+        )
+
+        let displayedTimeline = note.allAssignmentsForTesting
+
+        #expect(displayedTimeline.count == 2)
+        #expect(displayedTimeline[0].id == monthMigration.id)
+        #expect(displayedTimeline[0].status == .migrated)
+        #expect(displayedTimeline[1].id == liveAssignment.id)
+        #expect(displayedTimeline[1].status == .active)
     }
 
     /// Conditions: Access EntryStatus.allCases for note-relevant statuses.
