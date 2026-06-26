@@ -44,14 +44,17 @@ enum SpreadCardStyle: Equatable {
         }
     }
 
+    /// Shared today-fill color, hoisted to a single instance so `.todayCreated.fill` and
+    /// `.todayUncreated.fill` compare equal — two separately-constructed dynamic `UIColor`
+    /// closures are never `==` even when functionally identical.
+    private static let todayFill: Color = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(Color.SpreadPalette.yellow300)
+            : UIColor(Color.SpreadPalette.yellow100)
+    }).opacity(0.2)
+
     var fill: Color {
-        if isToday {
-            return Color(uiColor: UIColor { traits in
-                traits.userInterfaceStyle == .dark
-                    ? UIColor(Color.SpreadPalette.yellow300)
-                    : UIColor(Color.SpreadPalette.yellow100)
-            }).opacity(0.2)
-        }
+        if isToday { return Self.todayFill }
         if isCreated { return Color.SpreadPalette.blue500.opacity(0.08) }
         return SpreadTheme.Paper.primary.opacity(0.6)
     }

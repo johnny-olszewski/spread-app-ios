@@ -34,22 +34,9 @@ jobs:
       - name: Xcode version
         run: xcodebuild -version
 
-      - name: Resolve iOS 26.1 simulator
-        id: simulator
-        run: |
-          set -euo pipefail
-          RUNTIME_NAME="iOS 26.1"
-          UDID=$(xcrun simctl list devices "$RUNTIME_NAME" --json | jq -r '.devices | to_entries[] | .value[] | select(.isAvailable==true) | .udid' | head -n 1)
-          if [ -z "$UDID" ]; then
-            RUNTIME_ID="com.apple.CoreSimulator.SimRuntime.iOS-26-1"
-            DEVICE_TYPE_ID="com.apple.CoreSimulator.SimDeviceType.iPhone-16"
-            UDID=$(xcrun simctl create "iPhone 16 (26.1)" "$DEVICE_TYPE_ID" "$RUNTIME_ID")
-          fi
-          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
-
       - name: Run unit tests
-        run: xcodebuild -scheme "Spread QA" -testPlan "${{ inputs.test_plan }}" -destination "id=${{ steps.simulator.outputs.udid }}" test
+        run: xcodebuild -scheme "Spread Localhost" -testPlan "${{ inputs.test_plan }}" -destination "platform=iOS Simulator,name=iPhone 17 Pro" test
 
       - name: Run UI tests
         if: ${{ inputs.run_ui_tests }}
-        run: xcodebuild -scheme "Spread QA" -testPlan "${{ inputs.ui_test_plan }}" -destination "id=${{ steps.simulator.outputs.udid }}" test
+        run: xcodebuild -scheme "Spread Localhost" -testPlan "${{ inputs.ui_test_plan }}" -destination "platform=iOS Simulator,name=iPhone 17 Pro" test
