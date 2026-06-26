@@ -17,6 +17,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | `feature/SESH-20` (formerly `WKFLW-20`) | UI polish and design system foundation for TestFlight | [DesignSystem.md](DesignSystem.md), [Accessibility.md](Accessibility.md) |
 | `feature/SESH-21` | Task Browser tab, List/Tag organizational fields | [TaskBrowser.md](TaskBrowser.md), [DataModel.md](DataModel.md), [TaskMetadata.md](TaskMetadata.md) |
 | `feature/SESH-24` | JournalManager/repository performance rebuild: drop logic-layer protocols, incremental dictionary-keyed index, caller-supplied sync diffing — built additively, cut over last | [JournalManager.md](JournalManager.md), [EntryModel.md](EntryModel.md) |
+| `feature/SESH-25` | EntryList generic flat-entries grouping/sorting primitive, shared group-by/order-by picker across all spreads, plus EntryList/EntryRow architecture cleanup | [EntryListGrouping.md](EntryListGrouping.md) |
 
 ---
 
@@ -47,6 +48,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | [ErrorHandling.md](ErrorHandling.md) | Error handling UX: auth, sync, network, app init, entry/spread ops; alert infrastructure | SPRD-233 |
 | [ResolvedDecisions.md](ResolvedDecisions.md) | Edge cases resolved, resolved decisions, open questions | — |
 | [EntryComponents.md](EntryComponents.md) | Entry status icon rendering pipeline: EntryStatusIcon, EntryStatusIconRepresentable | SPRD-227 |
+| [EntryListGrouping.md](EntryListGrouping.md) | EntryList generic grouping/sorting primitive, shared group-by/order-by picker, EntryList/EntryRow cleanup | SPRD-257–SPRD-266 |
 
 ---
 

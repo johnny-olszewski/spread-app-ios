@@ -6738,3 +6738,179 @@ Supabase: SPRD-85A -> SPRD-85C
   1. `[SPRD-256][1/n]` — Added `SpreadDeletionCoordinator` (`Spread/JournalManager/SpreadDeletionCoordinator.swift`), covering `deleteSpread`'s current logic plus the `replacementSpread` (Task/Note) and `findParentSpread` helpers, depending only on `SpreadRepository`/`TaskRepository`/`NoteRepository` and a plain `Calendar`. Takes `spreads`/`tasks`/`notes` in per call and returns the mutated tasks/notes for the caller to upsert — no dependency on `JournalManager`. Purely additive — `JournalManager.deleteSpread` is untouched and doesn't call this yet. Added `SpreadDeletionCoordinatorTests.swift` (14 tests) mirroring `SpreadDeletionTests.swift`'s deletion/reassignment scenarios (parent/grandparent reassignment for tasks and notes, Inbox fallback, history preservation, completed/migrated-entry reassignment, multiple-task reassignment, unaffected-entry skip, multiday fallback-to-best-spread vs. fallback-to-Inbox, never-deletes-entries, persists spread deletion) — constructed directly with `Test*Repository` doubles, no `JournalManager` involved. Verified via `-only-testing:SpreadTests/SpreadDeletionCoordinatorTests` (14/14 pass), a full `xcodebuild test` (1283 tests, only the pre-existing/unrelated `SpreadCardStyleTests.testTodayFillDistinct` failure), and a full clean `xcodebuild build`.
   2. `[SPRD-256][2/n]` — Wired `JournalManager.deleteSpread` to delegate to a new private `spreadDeletionCoordinator` computed property (constructed fresh on each access from `spreadRepository`/`taskRepository`/`noteRepository` + the current `calendar`, mirroring `taskCoordinator`/`noteCoordinator`'s staleness-avoidance shape from SPRD-255). `deleteSpread`'s body is now: delegate, `upsertTask`/`upsertNote` each mutated entity, `removeSpread`. Removed the now-moved `replacementSpread` (Task/Note) and `findParentSpread` private helpers from `JournalManager.swift` entirely (~150 lines net removed). Public signature unchanged. No new tests — pure delegation with unchanged behavior. Verified via a full clean `xcodebuild build` (zero errors) and a full `xcodebuild test` (1283 tests, only the pre-existing/unrelated `SpreadCardStyleTests.testTodayFillDistinct` failure) — all 18 `SpreadDeletionTests` scenarios pass unmodified, confirming the extraction is behavior-preserving.
 - Task complete — all ACs satisfied.
+
+---
+
+### [SPRD-257] Feature: EntryList.Grouping primitive + entries:groupedBy:orderedBy: init - [ ] Pending
+
+- **Context**: `EntryListView` only accepts pre-computed `[EntryList.Section]` today — every spread's view model hand-rolls its own "bucket entries by some key, sort the buckets, order entries within each bucket" logic (Day groups tasks by assigned list with a special "Untitled" bucket; Month builds one section per day in a loop). This duplicates the same mechanics across call sites and blocks adding a runtime "group by"/"order by" picker (SPRD-258).
+- **Description**: Add `EntryList.Grouping<Key: Hashable>` (closure-based `key`, `sortedKeys`, `section` builder) and a static `EntryList.Section.grouped(from:by:orderedBy:)` that buckets a flat `[any Entry]` list, sorts the buckets, and independently orders entries within each bucket before building sections. Add an additive `EntryListView` initializer (`entries:groupedBy:orderedBy:configurationMap:sectionHeaderTrailingContent:`, plus an `EmptyView` convenience overload) that calls the static helper internally. The existing `sections:` initializer is untouched.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md` — "Decision: Closure-based grouping key, not KeyPath or a closed enum baked into EntryListView"
+- **Acceptance Criteria**:
+  - [ ] `EntryList.Grouping<Key: Hashable>` exists with `key: (any Entry) -> Key`, `sortedKeys: ([Key]) -> [Key]`, `section: (Key, [any Entry]) -> EntryList.Section`.
+  - [ ] `EntryList.Section.grouped(from:by:orderedBy:)` buckets entries by `key`, orders bucket keys via `sortedKeys`, applies the optional `orderedBy` comparator within each bucket before building sections, and omits empty buckets.
+  - [ ] `EntryListView` gains `init(entries:groupedBy:orderedBy:configurationMap:sectionHeaderTrailingContent:)` (and `EmptyView` convenience) producing identical rendering to manually calling `EntryList.Section.grouped` and passing the result to the existing `sections:` init.
+  - [ ] The existing `sections:` initializer and all current call sites are unchanged and still build/render identically.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - [ ] Unit test: `grouped(from:by:orderedBy:)` correctly buckets a mixed `[any Entry]` list by a sample key closure.
+  - [ ] Unit test: bucket key ordering follows `sortedKeys`, not insertion order.
+  - [ ] Unit test: `orderedBy` comparator correctly orders entries within a bucket without affecting bucket assignment.
+  - [ ] Unit test: a bucket with zero entries (key present in `sortedKeys` but no matching entries) is omitted from the result.
+  - [ ] Unit test: `entries:groupedBy:orderedBy:` initializer produces the same `sections` as calling the static helper directly.
+- **Dependencies**: None.
+
+---
+
+### [SPRD-258] Feature: EntryGroupingOption/EntrySortOption + EntryListOptionsPicker - [ ] Pending
+
+- **Context**: With SPRD-257's generic primitive in place, every spread needs the same "group by: List/Tag/Status/None" and "order by: Priority/Due Date/Title" choices, independently selectable and persisted — list/tag/status are universal entry attributes, not spread-specific concepts, so one shared enum/component avoids duplicating near-identical option sets per spread.
+- **Description**: Add `EntryGroupingOption` (`.none`, `.list`, `.tag`, `.status`; `.list`/`.tag` key off `(entry as? DataModel.Task)?.list`/`.tags` or `DataModel.Note`'s equivalents, falling back to "Untitled" for unassigned or unsupported entry types — `.tag` uses the entry's first tag only, no fan-out) and `EntrySortOption` (`.manual`, `.priority`, `.dueDate`, `.title`; built directly on `Entry` protocol properties `displayPriority`/`sortDate`/`title`, no casting needed). Add a single reusable `EntryListOptionsPicker` component (a `Menu` containing two `Picker`s, one per option set) usable by any spread. Both option enums are `String`-backed `RawRepresentable` so they work directly with `@AppStorage`.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md` — "Decision: Grouping options are one shared enum, not per-spread bespoke types" and "Decision: Tag grouping uses 'first tag, else Untitled' (no fan-out)"
+- **Acceptance Criteria**:
+  - [ ] `EntryGroupingOption: String, CaseIterable, Identifiable` with cases `.none`, `.list`, `.tag`, `.status`, each producing an `EntryList.Grouping<String>` via a `grouping(journalManager:)` method.
+  - [ ] `EntrySortOption: String, CaseIterable, Identifiable` with cases `.manual`, `.priority`, `.dueDate`, `.title`, each exposing an `areInOrder: ((any Entry, any Entry) -> Bool)?` (`nil` for `.manual`).
+  - [ ] `.list`/`.tag` grouping falls back to an "Untitled" bucket for entries with no assignment or entry types that don't support the dimension (e.g. `Event`).
+  - [ ] `EntryListOptionsPicker` exposes both a group-by and an order-by `Picker` bound to `@Binding` parameters, rendered as a single Menu-style control.
+  - [ ] Both enums work directly with `@AppStorage` (no custom `RawRepresentable` plumbing needed beyond the `String` raw type).
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - [ ] Unit test: `.list` groups a mix of listed and unlisted tasks into the correct named buckets plus "Untitled".
+  - [ ] Unit test: `.tag` groups by first tag only; an entry with multiple tags appears in exactly one bucket.
+  - [ ] Unit test: `.status` groups entries by their `EntryStatus` display name.
+  - [ ] Unit test: `.none` produces a single bucket containing all entries.
+  - [ ] Unit test: each `EntrySortOption.areInOrder` comparator orders a sample mixed-entry array as expected; `.manual` is `nil`.
+- **Dependencies**: SPRD-257.
+
+---
+
+### [SPRD-259] Feature: Adopt grouping/sorting picker in Day spread - [ ] Pending
+
+- **Context**: Day spread currently hand-rolls "group tasks by assigned list, with an Untitled bucket for unassigned tasks" directly in its view model. This is the first and most concrete adopter of SPRD-257/258's primitives, and the user specified the picker's placement: in Day's existing top toolbar row, next to the capsule decoration, alongside the favorite/edit buttons.
+- **Description**: Replace Day's hand-rolled list-grouping logic with `EntryList.Section.grouped(from: regularEntries, by: groupingOption.grouping(journalManager:), orderedBy: sortingOption.areInOrder)`, concatenated with the existing manually-built overdue (card-styled) sections — overdue stays pinned, ungrouped, and unsorted regardless of picker choice. Add `@AppStorage`-backed `groupingOption: EntryGroupingOption` and `sortingOption: EntrySortOption` state (keyed e.g. `"entryGrouping.day"`/`"entrySorting.day"`) to `DaySpreadContentView`, and render `EntryListOptionsPicker` in the existing top `HStack` toolbar row next to the capsule.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md` — Requirements, "Day, Month, Year, MonthCard, and Multiday spreads all adopt the picker"
+- **Acceptance Criteria**:
+  - [ ] Day spread's regular (non-overdue) entries are grouped/ordered using SPRD-257/258's primitives instead of hand-rolled logic; default behavior (group by list) is visually identical to current behavior.
+  - [ ] Overdue sections remain pinned above the grouped sections, card-styled, and are never re-grouped or re-ordered by the picker.
+  - [ ] `EntryListOptionsPicker` appears in Day's existing top toolbar row next to the capsule.
+  - [ ] Per-list quick-add (`QuickAddButton` in each section's trailing content) still anchors to the correct list section regardless of grouping/sorting choice.
+  - [ ] Grouping/sorting selection persists across app relaunch via `@AppStorage`, scoped to Day specifically.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - [ ] Existing Day spread view model tests continue to pass with the new grouping/sorting path producing equivalent default output.
+  - [ ] Manual verification: toggling group-by/order-by in the simulator re-partitions/re-orders the list correctly; overdue stays pinned; quick-add still anchors correctly; selection survives relaunch.
+- **Dependencies**: SPRD-257, SPRD-258.
+
+---
+
+### [SPRD-260] Feature: Adopt grouping/sorting picker in Month, Year, MonthCard, and Multiday - [ ] Pending
+
+- **Context**: The user asked for the grouping/sorting picker in all spreads, not just Day. Month and Year don't have an existing toolbar row like Day's — the proposed placement is next to their existing "Month"/"Year" header text. Multiday doesn't use `EntryListView` at all (its grid/day-card layout is structurally different — confirmed by reading `MultidaySpreadContentView.swift`), but can still apply the same `EntryGroupingOption`/`EntrySortOption` primitives directly to the flat entries it already fetches before rendering its manual rows.
+- **Description**: Add `EntryListOptionsPicker` (with its own `@AppStorage`-backed state, keyed per spread type, e.g. `"entryGrouping.month"`/`"entrySorting.month"`) to `MonthSpreadContentView` (next to its "Month" header text, reused for the per-day sections loop), `YearSpreadContentView` (next to its "Year" header text), and `MonthCardView`'s embedded list style. For Multiday, apply `EntryGroupingOption`/`EntrySortOption` directly to its flat entry list (via the same enums, without going through `EntryListView`) before building its manual per-day-card rows.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md` — "Open Questions" (exact placement to confirm/adjust during implementation if it reads awkwardly)
+- **Acceptance Criteria**:
+  - [ ] Month spread (both month-level and per-day sections) supports group-by/order-by via the shared picker, persisted independently from Day.
+  - [ ] Year spread supports group-by/order-by via the shared picker, persisted independently from Day/Month.
+  - [ ] `MonthCardView`'s list-style embedded list supports group-by/order-by consistent with Year's setting (or its own — decide during implementation which is less surprising).
+  - [ ] Multiday applies the same grouping/sorting enums to its flat entry list before rendering, without requiring `EntryListView` adoption.
+  - [ ] Each spread type's persisted choice is independent (changing Day's grouping does not affect Month/Year/Multiday).
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - [ ] Manual verification per spread: toggling group-by/order-by re-partitions/re-orders correctly; persistence is independent per spread type.
+- **Dependencies**: SPRD-257, SPRD-258, SPRD-259 (proves the pattern on Day first).
+
+---
+
+### [SPRD-261] Refactor: Remove dead SectionTitleStyle from EntryList.Section - [ ] Pending
+
+- **Context**: Identified analyzing `EntryList+Section.swift` while designing SPRD-257: `SectionTitleStyle` (`.primary`/`.secondary`) is declared on `EntryList.Section` but never branched on — `EntryListView` always renders `Text(section.title)` as plain text.
+- **Description**: Remove the `SectionTitleStyle` enum, the `titleStyle` property, and the corresponding init parameter from `EntryList.Section`.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md`
+- **Acceptance Criteria**:
+  - [ ] `SectionTitleStyle` enum, `titleStyle` property, and init parameter are removed from `EntryList.Section`.
+  - [ ] No call site referenced `titleStyle` (verify via build) — if one did, restore minimally or flag for follow-up rather than guessing intent.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**: None required — dead code removal, no behavior change.
+- **Dependencies**: None.
+
+---
+
+### [SPRD-262] Refactor: Relocate EntryListDisplaySupport/EntryListMultidaySupport out of EntryList folder - [ ] Pending
+
+- **Context**: `EntryListDisplaySupport` and `EntryListMultidaySupport` are namespace-enum factory containers (a pattern CLAUDE.md explicitly disallows) misfiled into the `EntryList` folder — they're caller-side utilities (entry-display filtering, multiday date formatters), not part of `EntryListView`'s own rendering.
+- **Description**: Delete `EntryListDisplaySupport.swift`; move `displayedEntries(for:calendar:)`/`displayedNotes(for:)` onto `SpreadDataModel` directly via a new `SpreadDataModel+EntryDisplay.swift`. Delete `EntryListMultidaySupport.swift`; relocate `weekdayText`/`shortMonthText`/`dayNumberText` into the existing `Date+Additions.swift`, matching its established `Date` extension convention.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md`
+- **Acceptance Criteria**:
+  - [ ] `EntryListDisplaySupport.swift` and `EntryListMultidaySupport.swift` no longer exist.
+  - [ ] `SpreadDataModel` exposes `displayedEntries(calendar:)`/`displayedNotes()` (or equivalent) with identical behavior to the removed namespace methods.
+  - [ ] `Date+Additions.swift` exposes the three relocated formatters with identical behavior, following its existing method-signature convention.
+  - [ ] All prior call sites (Day/Month/Multiday/Year/MonthCard view models) are updated to the new locations.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - [ ] Existing tests covering displayed-entries filtering and multiday date formatting continue to pass unchanged (relocation only, no behavior change).
+- **Dependencies**: None.
+
+---
+
+### [SPRD-263] Refactor: Move Action's rendering switch onto Action itself - [ ] Pending
+
+- **Context**: `EntryRowView.toolbarItem(for:labelStyle:)` contains a 3-way switch over `Action` (`.openEdit`, `.migrate`, `.delete`). Every future action case requires editing `EntryRowView` itself. No drag/drop, swipe, or other row gestures exist anywhere in `Entries`/`Spreads` views today — only `.contextMenu` — and the user confirmed both drag-to-migrate and swipe actions are possible eventually, with no concrete priority.
+- **Description**: Add a `@ViewBuilder` method directly on `Action` (e.g. `menuLabel(labelStyle:entry:)`) in `EntryRowView+Configuration.swift`, moving the existing switch body verbatim. `EntryRowView` calls `action.menuLabel(...)` instead of switching. `Action` stays an enum (not promoted to a protocol — closed, app-internal set, no real extensibility win from existential overhead). Add a doc-comment note on `Configuration` that drag/swipe gestures are a deliberately deferred, separate extension point (container-view gestures, not menu items) — no speculative closures added now.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md` — "Decision: Action keeps its enum shape; only the rendering switch moves" and "Decision: Drag-to-migrate and swipe actions are explicitly deferred, not designed for yet"
+- **Acceptance Criteria**:
+  - [ ] `Action.menuLabel(labelStyle:entry:)` exists and contains the full rendering logic previously in `EntryRowView.toolbarItem(for:labelStyle:)`.
+  - [ ] `EntryRowView` no longer switches over `Action` cases for menu rendering; it calls `action.menuLabel(...)`.
+  - [ ] `Action` remains an enum; no protocol introduced.
+  - [ ] `Configuration`'s doc comment documents drag/swipe as a deliberately deferred extension point.
+  - [ ] Context menu rendering and behavior are visually/functionally identical to before (verify via existing previews).
+  - [ ] Project builds with no errors or warnings.
+- **Tests**: None required beyond existing `EntryRowView` preview/visual verification — pure refactor, no behavior change.
+- **Dependencies**: None.
+
+---
+
+### [SPRD-264] Refactor: Reduce per-type downcast boilerplate in standard*Config via typed() helper - [ ] Pending
+
+- **Context**: `standardTaskConfig`/`standardNoteConfig`/`standardEventConfig` in `EntryRowView+Configuration.swift` each repeat `entry as? DataModel.Task`-style guard/cast patterns multiple times per factory.
+- **Description**: Add a private generic helper `typed<E: Entry, T>(_ body: @escaping (E) -> T) -> (any Entry) -> T?` performing the cast once; use it inside each `standard*Config` factory (e.g. `isGreyedOut: typed { (task: DataModel.Task) in ... }`) in place of the repeated guard/cast blocks. `ConfigurationMap`/`Configuration`'s public shape is unchanged.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md`
+- **Acceptance Criteria**:
+  - [ ] A private `typed<E: Entry, T>(_:) -> (any Entry) -> T?` helper exists in `EntryRowView+Configuration.swift`.
+  - [ ] `standardTaskConfig`, `standardNoteConfig`, `standardEventConfig` use the helper in place of repeated `entry as? Concrete` guard blocks.
+  - [ ] `Configuration`/`ConfigurationMap`'s public API is unchanged; behavior of all three factories is identical to before.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - [ ] Existing tests covering `standardTaskConfig`/`standardNoteConfig`/`standardEventConfig` behavior continue to pass unchanged.
+- **Dependencies**: None.
+
+---
+
+### [SPRD-265] Refactor: Relocate task migration option logic onto DataModel.Task - [ ] Pending
+
+- **Context**: `taskMigrationOptions(for:today:calendar:)` and its label helpers are pure `DataModel.Task` date-math business logic, currently living in `EntryRowView+Configuration.swift` (a UI configuration file).
+- **Description**: Move `taskMigrationOptions(for:today:calendar:)` and its label helpers out of `EntryRowView+Configuration.swift` onto `DataModel.Task` in a new `Task+MigrationOptions.swift`. `MigrationOption`/`MigrationOption.Kind` stay nested in `Action` (UI-facing data shape) — only the computation moves. Do not generalize to month/year migration in this task — single call site, single granularity today.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md`
+- **Acceptance Criteria**:
+  - [ ] `Task+MigrationOptions.swift` exists with the relocated migration-option computation as a method on `DataModel.Task`.
+  - [ ] `EntryRowView+Configuration.swift` no longer contains the migration date-math logic, only the call to the relocated method.
+  - [ ] `MigrationOption`/`MigrationOption.Kind` remain nested in `Action`, unchanged.
+  - [ ] Migration option output (today/tomorrow/next month 1st/next month same day) is identical to before for equivalent inputs.
+  - [ ] Project builds with no errors or warnings.
+- **Tests**:
+  - [ ] Existing migration-option tests continue to pass unchanged (relocation only, no logic change).
+- **Dependencies**: None.
+
+---
+
+### [SPRD-266] Refactor: Consolidate EntryListView spacing/opacity magic numbers into SpreadTheme - [ ] Pending
+
+- **Context**: `EntryListView.swift` hardcodes `16` for `rowInsets` leading/trailing (when `SpreadTheme.Spacing.large` is already `16` and already used elsewhere in the same file) and `0.7`/`0.45` opacity literals for its `.card` section background stroke/fill, instead of using named `SpreadTheme` constants.
+- **Description**: Add `enum Opacity { static let cardStroke: Double = 0.7; static let cardFill: Double = 0.45 }` to `SpreadTheme.swift` (sibling to the existing `Overlay` enum). Replace the hardcoded `16` literals in `EntryListView`'s `rowInsets` with `SpreadTheme.Spacing.large`, and the `0.7`/`0.45` opacity literals in its `.card` background with the new `SpreadTheme.Opacity` constants.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md`
+- **Acceptance Criteria**:
+  - [ ] `SpreadTheme.Opacity` exists with `cardStroke`/`cardFill` constants matching the prior literal values.
+  - [ ] `EntryListView`'s `rowInsets` and `.card` background use `SpreadTheme` constants instead of literals.
+  - [ ] Visual output is pixel-identical to before (verify via existing `EntryListView` previews).
+  - [ ] Project builds with no errors or warnings.
+- **Tests**: None required — pure constant extraction, no behavior change; verify via preview inspection.
+- **Dependencies**: None.
