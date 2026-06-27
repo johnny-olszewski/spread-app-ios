@@ -6829,8 +6829,8 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Spec**: `Documentation/Specs/EntryListGrouping.md` — "Open Questions" (exact placement to confirm/adjust during implementation if it reads awkwardly)
 - **Acceptance Criteria**:
   - [x] Month spread (both month-level and per-day sections) supports group-by/order-by via the shared picker, persisted independently from Day.
-  - [ ] Year spread supports group-by/order-by via the shared picker, persisted independently from Day/Month.
-  - [ ] `MonthCardView`'s list-style embedded list supports group-by/order-by consistent with Year's setting (or its own — decide during implementation which is less surprising).
+  - [x] Year spread supports group-by/order-by via the shared picker, persisted independently from Day/Month.
+  - [x] `MonthCardView`'s list-style embedded list supports group-by/order-by consistent with Year's setting (or its own — decide during implementation which is less surprising). Decided: consistent with Year's setting — one `@AppStorage` pair drives both, since the month cards are rendered as part of the Year screen itself.
   - [ ] Multiday applies the same grouping/sorting enums to its flat entry list before rendering, without requiring `EntryListView` adoption.
   - [ ] Each spread type's persisted choice is independent (changing Day's grouping does not affect Month/Year/Multiday).
   - [ ] Project builds with no errors or warnings.
@@ -6839,6 +6839,7 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Dependencies**: SPRD-257, SPRD-258, SPRD-259 (proves the pattern on Day first).
 - **Progress (commits landed on feature/SESH-25)**:
   1. `[SPRD-260][1/n]` — Added `@AppStorage("entryGrouping.month")`/`@AppStorage("entrySorting.month")` (defaults `.list`/`.dueDate`, matching Day's defaults) to `MonthSpreadContentView`, rendered a single `EntryListOptionsPicker` next to the "Month" header (its selection applies uniformly to both the month-level section and every per-day section in the loop below it — one picker, not one per day). Replaced both `monthSection`'s and `daySection`'s single flat `EntryList.Section` construction with `EntryListView(entries:groupedBy:orderedBy:configurationMap:)`. Unlike Day, there's no "default behavior must look visually identical" constraint here (Month previously had no grouping at all, just one flat section) — defaulting to `.list` mirrors Day's choice for a sensible out-of-the-box grouping. Verified via a full `xcodebuild test` (1298/1298 pass, no regressions) and a full clean `xcodebuild build`.
+  2. `[SPRD-260][2/n]` — Added `@AppStorage("entryGrouping.year")`/`@AppStorage("entrySorting.year")` to `YearSpreadContentView`, rendered next to the "Year" header, applying to the top year-level section via `EntryListView(entries:groupedBy:orderedBy:configurationMap:)`. `MonthCardView`'s embedded list style (`YearSpreadContentView.monthCard`'s `else` branch, for months with no explicit spread) now builds its sections via `EntryList.Section.grouped(from:by:orderedBy:)` using the *same* Year-level `groupingOption`/`sortingOption` rather than its own state, per the AC's "consistent with Year's setting" option — the month cards are visually part of the Year screen, so a second independent toggle for them would be more surprising than useful. `entriesForMonth`'s existing internal sort is now just the base order consumed by `orderedBy` (full override when non-`.manual`, preserved as-is for `.manual`) — no changes needed there. Verified via a full `xcodebuild test` (1298/1298 pass, no regressions) and a full clean `xcodebuild build`.
 
 ---
 

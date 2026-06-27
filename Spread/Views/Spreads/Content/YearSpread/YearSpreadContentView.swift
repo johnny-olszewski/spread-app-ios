@@ -8,6 +8,9 @@ struct YearSpreadContentView: View {
     let spreadDataModel: SpreadDataModel
     let context: SpreadPageContext
 
+    @AppStorage("entryGrouping.year") private var groupingOption: EntryGroupingOption = .list
+    @AppStorage("entrySorting.year") private var sortingOption: EntrySortOption = .dueDate
+
     // MARK: - Layout
 
     private enum Layout {
@@ -67,9 +70,18 @@ struct YearSpreadContentView: View {
     @ViewBuilder
     private var topYearSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Year")
-                .font(SpreadTheme.Typography.title3)
-                .foregroundStyle(.primary)
+            HStack {
+                Text("Year")
+                    .font(SpreadTheme.Typography.title3)
+                    .foregroundStyle(.primary)
+                Spacer()
+                EntryListOptionsPicker(
+                    grouping: groupingOption,
+                    sorting: sortingOption,
+                    onGroupingSelected: { groupingOption = $0 },
+                    onSortingSelected: { sortingOption = $0 }
+                )
+            }
 
             if yearEntries.isEmpty {
                 Text("No year-level entries.")
@@ -78,14 +90,9 @@ struct YearSpreadContentView: View {
                     .padding(.vertical, SpreadTheme.Spacing.medium)
             } else {
                 EntryListView(
-                    sections: [EntryList.Section(
-                        id: "year-entries",
-                        title: "",
-                        date: spread.date,
-                        entries: yearEntries,
-                        creationPeriod: .year,
-                        creationDate: spread.date
-                    )],
+                    entries: yearEntries,
+                    groupedBy: groupingOption.grouping(date: spread.date, creationPeriod: .year, creationDate: spread.date),
+                    orderedBy: sortingOption.areInOrder,
                     configurationMap: configurationMap
                 )
             }
@@ -126,16 +133,11 @@ struct YearSpreadContentView: View {
             )
         } else {
             let entries = Self.entriesForMonth(normalizedDate, from: spreadDataModel, calendar: calendar)
-            let sections: [EntryList.Section] = entries.isEmpty ? [] : [
-                EntryList.Section(
-                    id: "month-entries-\(normalizedDate.timeIntervalSinceReferenceDate)",
-                    title: "",
-                    date: normalizedDate,
-                    entries: entries,
-                    creationPeriod: .month,
-                    creationDate: normalizedDate
-                )
-            ]
+            let sections = EntryList.Section.grouped(
+                from: entries,
+                by: groupingOption.grouping(date: normalizedDate, creationPeriod: .month, creationDate: normalizedDate),
+                orderedBy: sortingOption.areInOrder
+            )
 
             MonthCardView(
                 monthDate: normalizedDate,
