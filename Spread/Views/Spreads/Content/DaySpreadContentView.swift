@@ -50,7 +50,12 @@ struct DaySpreadContentView: View {
                     .padding(.trailing, SpreadTheme.Spacing.medium)
 
                 HStack(spacing: SpreadTheme.Spacing.medium) {
-                    EntryListOptionsPicker(grouping: $groupingOption, sorting: $sortingOption)
+                    EntryListOptionsPicker(
+                        grouping: groupingOption,
+                        sorting: sortingOption,
+                        onGroupingSelected: { groupingOption = $0 },
+                        onSortingSelected: { sortingOption = $0 }
+                    )
 
                     Button {
                         Task { await viewModel.toggleFavorite() }
