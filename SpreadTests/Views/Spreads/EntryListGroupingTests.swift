@@ -190,7 +190,9 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 4)
@@ -215,7 +217,9 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 3)
@@ -240,7 +244,9 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .dueDate
         )
 
         let aprilFirst = makeDate(year: 2026, month: 4, day: 1)
@@ -266,7 +272,9 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 3)
@@ -292,12 +300,69 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .dueDate
         )
 
         let rangeSection = sections.first { $0.creationPeriod == .multiday }
         #expect(rangeSection != nil)
         #expect(rangeSection?.title == "This Range")
         #expect(rangeSection?.entries.map(\.title) == ["Range task"])
+    }
+
+    /// `groupingOption` subdivides only the leading "This Range" section (multiday-assigned
+    /// entries) into one card per group — day cards are unaffected.
+    /// Expected: two "This Range — <list>" sections, one per list.
+    @Test("Multiday This Range section subdivides by groupingOption")
+    func multidayRangeSectionSubdividesByGrouping() {
+        let startDate = makeDate(year: 2026, month: 1, day: 6)
+        let endDate = makeDate(year: 2026, month: 1, day: 8)
+        let listA = DataModel.List(name: "Alpha")
+        let listB = DataModel.List(name: "Beta")
+        let entries: [any Entry] = [
+            DataModel.Task(title: "Range task A", date: startDate, period: .multiday, list: listA),
+            DataModel.Task(title: "Range task B", date: startDate, period: .multiday, list: listB)
+        ]
+
+        let sections = MultidaySpreadContentView.ViewModel.makeSections(
+            from: entries,
+            spreadDate: startDate,
+            startDate: startDate,
+            endDate: endDate,
+            calendar: calendar,
+            groupingOption: .list,
+            sortingOption: .dueDate
+        )
+
+        let rangeSections = sections.filter { $0.creationPeriod == .multiday }
+        #expect(rangeSections.count == 2)
+        #expect(rangeSections.map(\.title) == ["This Range — Alpha", "This Range — Beta"])
+    }
+
+    /// `sortingOption` orders entries within each day card, even though `groupingOption`
+    /// does not subdivide day cards.
+    /// Expected: a day card's entries are ordered alphabetically by title when `sortingOption == .title`.
+    @Test("Multiday day card entries follow sortingOption")
+    func multidayDayCardEntriesFollowSortingOption() {
+        let startDate = makeDate(year: 2026, month: 1, day: 6)
+        let endDate = makeDate(year: 2026, month: 1, day: 6)
+        let entries: [any Entry] = [
+            DataModel.Task(title: "Zebra task", date: startDate, period: .day),
+            DataModel.Task(title: "Apple task", date: startDate, period: .day)
+        ]
+
+        let sections = MultidaySpreadContentView.ViewModel.makeSections(
+            from: entries,
+            spreadDate: startDate,
+            startDate: startDate,
+            endDate: endDate,
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .title
+        )
+
+        #expect(sections.count == 1)
+        #expect(sections[0].entries.map(\.title) == ["Apple task", "Zebra task"])
     }
 }

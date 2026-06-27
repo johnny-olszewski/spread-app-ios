@@ -9,6 +9,9 @@ struct MultidaySpreadContentView: View {
 
     @State private var viewModel: ViewModel
 
+    @AppStorage("entryGrouping.multiday") private var groupingOption: EntryGroupingOption = .none
+    @AppStorage("entrySorting.multiday") private var sortingOption: EntrySortOption = .dueDate
+
     init(
         spread: DataModel.Spread,
         spreadDataModel: SpreadDataModel,
@@ -26,17 +29,30 @@ struct MultidaySpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
-        LazyVGrid(
-            columns: viewModel.columns,
-            alignment: .leading,
-            spacing: SpreadTheme.Spacing.large
-        ) {
-            ForEach(viewModel.sections) { section in
-                if section.creationPeriod == .multiday {
-                    multidayEntrySection(section)
-                        .gridCellColumns(viewModel.columnCount)
-                } else {
-                    daySection(section)
+        VStack(alignment: .leading, spacing: SpreadTheme.Spacing.large) {
+            HStack {
+                Spacer()
+                EntryListOptionsPicker(
+                    grouping: groupingOption,
+                    sorting: sortingOption,
+                    onGroupingSelected: { groupingOption = $0 },
+                    onSortingSelected: { sortingOption = $0 }
+                )
+                .padding(.horizontal, SpreadTheme.Spacing.large)
+            }
+
+            LazyVGrid(
+                columns: viewModel.columns,
+                alignment: .leading,
+                spacing: SpreadTheme.Spacing.large
+            ) {
+                ForEach(viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption)) { section in
+                    if section.creationPeriod == .multiday {
+                        multidayEntrySection(section)
+                            .gridCellColumns(viewModel.columnCount)
+                    } else {
+                        daySection(section)
+                    }
                 }
             }
         }
