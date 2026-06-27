@@ -8,6 +8,12 @@ extension EntryRowView {
     /// One configuration per entry type is stored in `EntryListViewModel.configurationMap`. At render time
     /// `EntryRowView` calls each closure with the specific entry to derive per-row values. All business logic —
     /// date formatting, persistence callbacks — lives in closures built at the call site.
+    ///
+    /// `actions` covers menu/toolbar-item gestures only. Drag-to-migrate and swipe actions (both possible
+    /// eventually, no concrete priority yet) are a deliberately deferred, separate extension point — they're
+    /// gestures applied to the row's container view (`.draggable`/`.swipeActions`), not menu items, so they
+    /// can't be folded into `Action`. No speculative closures are added for them here until that work is
+    /// actually scoped.
     /// A dictionary mapping concrete `Entry` metatypes (via `ObjectIdentifier`) to row configurations.
     ///
     /// Build maps using `Entry.configurationKey` on each conforming type:
@@ -56,6 +62,64 @@ extension EntryRowView {
                 let period: Period
 
                 var id: String { kind.rawValue }
+            }
+
+            /// Builds this action's menu/toolbar item.
+            ///
+            /// `editEntryButton`/`onConfirmChanges` exist because `.openEdit`'s button and the
+            /// inline-edit-confirmation flow are owned by `EntryRowView` itself (a pre-built
+            /// button view and `@State`-backed confirmation respectively) — `Action` has no
+            /// view identity of its own to hold either, so the caller supplies them.
+            @ViewBuilder
+            func menuLabel(
+                labelStyle: some LabelStyle,
+                entry: any Entry,
+                editEntryButton: @escaping () -> AnyView,
+                onConfirmChanges: @escaping (@escaping @MainActor () async -> Void) -> Void,
+                showAlert: ((SpreadsCoordinator.AlertDestination) -> Void)?
+            ) -> some View {
+                switch self {
+                case .openEdit:
+                    editEntryButton()
+                case .migrate(let migrationOptions, let onMigrationSelected):
+                    let options = migrationOptions(entry)
+                    if !options.isEmpty {
+                        Menu {
+                            ForEach(options) { option in
+                                Button {
+                                    onConfirmChanges {
+                                        await onMigrationSelected(entry, option)
+                                    }
+                                } label: {
+                                    Label(option.label, systemImage: systemImageName)
+                                }
+                                .accessibilityIdentifier(
+                                    Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationOption(
+                                        entry.title,
+                                        option: option.kind.rawValue
+                                    )
+                                )
+                            }
+                        } label: {
+                            Label("Migrate", systemImage: systemImageName)
+                                .font(.system(size: SpreadTheme.IconSize.medium))
+                                .labelStyle(labelStyle)
+                        }
+                        .accessibilityLabel("Migrate")
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu(entry.title)
+                        )
+                    }
+                case .delete(let deleteEntry):
+                    Button {
+                        let alert = SpreadsCoordinator.AlertDestination.alert(
+                            AlertModel.deleteEntryConfirmation(confirmAction: { await deleteEntry(entry) })
+                        )
+                        showAlert?(alert)
+                    } label: {
+                        Label("Delete", systemImage: systemImageName)
+                    }
+                }
             }
         }
 

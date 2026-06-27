@@ -6884,20 +6884,24 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-263] Refactor: Move Action's rendering switch onto Action itself - [ ] Pending
+### [SPRD-263] Refactor: Move Action's rendering switch onto Action itself - [x] Done
 
 - **Context**: `EntryRowView.toolbarItem(for:labelStyle:)` contains a 3-way switch over `Action` (`.openEdit`, `.migrate`, `.delete`). Every future action case requires editing `EntryRowView` itself. No drag/drop, swipe, or other row gestures exist anywhere in `Entries`/`Spreads` views today — only `.contextMenu` — and the user confirmed both drag-to-migrate and swipe actions are possible eventually, with no concrete priority.
 - **Description**: Add a `@ViewBuilder` method directly on `Action` (e.g. `menuLabel(labelStyle:entry:)`) in `EntryRowView+Configuration.swift`, moving the existing switch body verbatim. `EntryRowView` calls `action.menuLabel(...)` instead of switching. `Action` stays an enum (not promoted to a protocol — closed, app-internal set, no real extensibility win from existential overhead). Add a doc-comment note on `Configuration` that drag/swipe gestures are a deliberately deferred, separate extension point (container-view gestures, not menu items) — no speculative closures added now.
 - **Spec**: `Documentation/Specs/EntryListGrouping.md` — "Decision: Action keeps its enum shape; only the rendering switch moves" and "Decision: Drag-to-migrate and swipe actions are explicitly deferred, not designed for yet"
 - **Acceptance Criteria**:
-  - [ ] `Action.menuLabel(labelStyle:entry:)` exists and contains the full rendering logic previously in `EntryRowView.toolbarItem(for:labelStyle:)`.
-  - [ ] `EntryRowView` no longer switches over `Action` cases for menu rendering; it calls `action.menuLabel(...)`.
-  - [ ] `Action` remains an enum; no protocol introduced.
-  - [ ] `Configuration`'s doc comment documents drag/swipe as a deliberately deferred extension point.
-  - [ ] Context menu rendering and behavior are visually/functionally identical to before (verify via existing previews).
-  - [ ] Project builds with no errors or warnings.
+  - [x] `Action.menuLabel(labelStyle:entry:...)` exists and contains the full rendering logic previously in `EntryRowView.toolbarItem(for:labelStyle:)`. Took 3 additional parameters (`editEntryButton`, `onConfirmChanges`, `showAlert`) beyond the original AC's `labelStyle:entry:` — see implementation note below for why.
+  - [x] `EntryRowView` no longer switches over `Action` cases for menu rendering; it calls `action.menuLabel(...)`.
+  - [x] `Action` remains an enum; no protocol introduced.
+  - [x] `Configuration`'s doc comment documents drag/swipe as a deliberately deferred extension point.
+  - [x] Context menu rendering and behavior are visually/functionally identical to before (verify via existing previews) — logic moved verbatim, only the call site changed.
+  - [x] Project builds with no errors or warnings.
 - **Tests**: None required beyond existing `EntryRowView` preview/visual verification — pure refactor, no behavior change.
 - **Dependencies**: None.
+- **Implementation note**: the original switch body referenced `self.isConfirmingChanges` (an `EntryRowView` `@State`), `self.confirmChanges(_:)`, and `self.editEntryButton(_:)` — none of which `Action` (a plain enum, no view identity) can own. `menuLabel` takes these as parameters instead: `editEntryButton: @escaping () -> AnyView` (wraps `EntryRowView.editEntryButton(labelStyle)`, which also still serves its other, unrelated call site — the trailing inline-edit button — so its definition wasn't duplicated), `onConfirmChanges: @escaping (@escaping @MainActor () async -> Void) -> Void` (wraps the `isConfirmingChanges = true` + `confirmChanges` sequence), and `showAlert` (already just `configuration.showAlert`, passed through rather than re-derived).
+- **Progress (commits landed on feature/SESH-25)**:
+  1. `[SPRD-263][1/n]` — Added `EntryRowView.Configuration.Action.menuLabel(labelStyle:entry:editEntryButton:onConfirmChanges:showAlert:)` (`EntryRowView+Configuration.swift`) containing the full switch body moved verbatim from `EntryRowView.toolbarItem(for:labelStyle:)`, which was deleted; `EntryRowView.menuButtons(labelStyle:)` now calls `action.menuLabel(...)` directly. Added the drag/swipe-deferral doc comment to `Configuration`. Verified via a full `xcodebuild test` (1306/1306 pass, no regressions) and a full clean `xcodebuild build`.
+- Task complete — all ACs satisfied.
 
 ---
 

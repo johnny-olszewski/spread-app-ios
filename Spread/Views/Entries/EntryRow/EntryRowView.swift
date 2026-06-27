@@ -228,54 +228,18 @@ struct EntryRowView: View {
     @ViewBuilder
     private func menuButtons(labelStyle: some LabelStyle) -> some View {
         ForEach(configuration.actions) { action in
-            toolbarItem(for: action, labelStyle: labelStyle)
-        }
-    }
-
-    @ViewBuilder
-    private func toolbarItem(for action: Configuration.Action, labelStyle: some LabelStyle) -> some View {
-        switch action {
-        case .openEdit(_):
-            editEntryButton(labelStyle)
-        case .migrate(let migrationOptions, let onMigrationSelected):
-            let options = migrationOptions(entry)
-            if !options.isEmpty {
-                Menu {
-                    ForEach(options) { option in
-                        Button {
-                            isConfirmingChanges = true
-                            Task { @MainActor in
-                                await confirmChanges { await onMigrationSelected(entry, option) }
-                            }
-                        } label: {
-                            Label(option.label, systemImage: action.systemImageName)
-                        }
-                        .accessibilityIdentifier(
-                            Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationOption(
-                                entry.title,
-                                option: option.kind.rawValue
-                            )
-                        )
+            action.menuLabel(
+                labelStyle: labelStyle,
+                entry: entry,
+                editEntryButton: { AnyView(editEntryButton(labelStyle)) },
+                onConfirmChanges: { completion in
+                    isConfirmingChanges = true
+                    Task { @MainActor in
+                        await confirmChanges(completion)
                     }
-                } label: {
-                    Label("Migrate", systemImage: action.systemImageName)
-                        .font(.system(size: SpreadTheme.IconSize.medium))
-                        .labelStyle(labelStyle)
-                }
-                .accessibilityLabel("Migrate")
-                .accessibilityIdentifier(
-                    Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu(entry.title)
-                )
-            }
-        case .delete(let deleteEntry):
-            Button {
-                let alert = SpreadsCoordinator.AlertDestination.alert(
-                    AlertModel.deleteEntryConfirmation(confirmAction: { await deleteEntry(entry) })
-                )
-                configuration.showAlert?(alert)
-            } label: {
-                Label("Delete", systemImage: action.systemImageName)
-            }
+                },
+                showAlert: configuration.showAlert
+            )
         }
     }
     
