@@ -53,6 +53,14 @@ Entry rows and icon-only action buttons are the highest-priority accessibility s
 - **Entry rows** (`EntryRowView`): `.accessibilityLabel` must combine title, type (task/note), and status (open, complete, migrated, cancelled). `.accessibilityValue` exposes priority (if non-none) and due date (if set).
 - **Icon-only buttons**: Status toggle, create, migrate, delete, and favorite buttons must have `.accessibilityLabel` values that clearly identify the action. Button role (`.destructive` for delete) must be set where appropriate.
 
+### Large Title / "h1" Font (SPRD-267)
+
+`SpreadTheme.Typography.largeTitle(size:weight:)` uses the bundled **Fuzzy Bubbles** font (Google Fonts, OFL-licensed; files + license at `Spread/Resources/Fonts/`, registered via `Info.plist`'s `UIAppFonts`) instead of Avenir Next, for a more playful large-title/"h1" treatment. Scoped to `largeTitle` only — `title`/`title2`/`title3` stay Avenir Next via the existing `heading(size:weight:)` function.
+
+- **Decision**: `largeTitle` changed from a fixed `static var` to a `static func largeTitle(size: CGFloat = 28, weight: Font.Weight = .bold) -> Font`, so callers can request any size instead of being locked to 28pt.
+- **Rationale**: Fuzzy Bubbles ships as two static font files (`FuzzyBubbles-Regular`/`FuzzyBubbles-Bold`), not a variable font — there's no continuous weight axis for `.weight()` to dial, so the function selects between the two bundled PostScript names directly. Any `weight` other than `.bold` falls back to Regular.
+- **Body/supporting text**: `Typography.body`/`subheadline`/`caption` (existing) plus newly added `callout`/`footnote`/`caption2` all use SwiftUI's system Dynamic Type styles (`.callout`, `.footnote`, `.caption2`), not fixed point sizes — preserves automatic scaling with the user's text-size accessibility setting.
+
 ### Spread Header Toolbar Integration
 
 The dedicated spread action row in `SpreadHeaderView` (sync ring + favorite button + ellipsis menu) is eliminated in favour of native nav bar toolbar placement: [SPRD-220]

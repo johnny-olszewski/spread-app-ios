@@ -86,7 +86,7 @@ struct ContentView: View {
     private var loadingView: some View {
         VStack(spacing: 24) {
             Text("Spread")
-                .font(SpreadTheme.Typography.largeTitle)
+                .font(SpreadTheme.Typography.largeTitle())
             ProgressView()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

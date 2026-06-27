@@ -50,18 +50,43 @@ enum SpreadTheme {
         static let defaultDots = Accent.primary.opacity(0.35)
     }
 
+    // MARK: - Font Families
+
+    /// Bundled/named font families referenced by `Typography`.
+    enum FontFamily {
+        /// Headings — distinct sans family for titles. System-installed; no bundling needed.
+        static let heading = "Avenir Next"
+
+        /// Large title / "h1" — playful bundled font (`Spread/Resources/Fonts`, OFL-licensed).
+        ///
+        /// Ships as two static font files, not a variable font — there's no continuous weight
+        /// axis to dial with `.weight()`, so `Typography.largeTitle(size:weight:)` selects
+        /// between these two PostScript names directly. Any weight other than `.bold` falls
+        /// back to Regular.
+        static let largeTitleRegular = "FuzzyBubbles-Regular"
+        static let largeTitleBold = "FuzzyBubbles-Bold"
+    }
+
     // MARK: - Typography
 
     /// Typography definitions for headings and body text.
     enum Typography {
         /// Heading font — distinct sans family for titles.
         static func heading(size: CGFloat, weight: Font.Weight = .semibold) -> Font {
-            .custom("Avenir Next", size: size).weight(weight)
+            .custom(FontFamily.heading, size: size).weight(weight)
         }
 
-        /// Large title heading.
-        static var largeTitle: Font {
-            heading(size: 28, weight: .bold)
+        /// Large title / "h1" heading, in the playful Fuzzy Bubbles font — configurable to any
+        /// size/weight, e.g. `SpreadTheme.Typography.largeTitle(size: 40)`.
+        ///
+        /// - Parameters:
+        ///   - size: The point size.
+        ///   - weight: `.bold` (default, matches the prior Avenir Next large title's weight) or
+        ///     `.regular` — any other value falls back to Regular, since only those two static
+        ///     weights are bundled.
+        static func largeTitle(size: CGFloat = 28, weight: Font.Weight = .bold) -> Font {
+            let postScriptName = weight == .bold ? FontFamily.largeTitleBold : FontFamily.largeTitleRegular
+            return .custom(postScriptName, size: size)
         }
 
         /// Standard title heading.
@@ -79,14 +104,23 @@ enum SpreadTheme {
             heading(size: 18, weight: .medium)
         }
 
-        /// Body text uses system font for legibility.
+        /// Body text — system Dynamic Type style, scales with the user's text-size setting.
         static var body: Font { .body }
 
-        /// Subheadline text.
+        /// Callout text — system Dynamic Type style.
+        static var callout: Font { .callout }
+
+        /// Subheadline text — system Dynamic Type style.
         static var subheadline: Font { .subheadline }
 
-        /// Caption text.
+        /// Footnote text — system Dynamic Type style.
+        static var footnote: Font { .footnote }
+
+        /// Caption text — system Dynamic Type style.
         static var caption: Font { .caption }
+
+        /// Secondary caption text — system Dynamic Type style.
+        static var caption2: Font { .caption2 }
     }
 
     // MARK: - Spacing

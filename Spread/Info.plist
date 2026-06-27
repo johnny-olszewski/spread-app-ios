@@ -13,6 +13,11 @@
 	</array>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Spread shows your calendar events alongside your journal entries.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>FuzzyBubbles-Regular.ttf</string>
+		<string>FuzzyBubbles-Bold.ttf</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array/>
 	<key>SUPABASE_URL</key>

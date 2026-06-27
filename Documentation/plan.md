@@ -6960,3 +6960,24 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Progress (commits landed on feature/SESH-25)**:
   1. `[SPRD-266][1/n]` — Added `SpreadTheme.Opacity` (`cardStroke = 0.7`, `cardFill = 0.45`) as a sibling to the existing `Overlay` enum in `SpreadTheme.swift`. `EntryListView`'s `rowInsets` now uses `SpreadTheme.Spacing.large` instead of bare `16` literals, and its `.card` background uses `SpreadTheme.Opacity.cardStroke`/`.cardFill` instead of bare `0.7`/`0.45`. Verified via a full `xcodebuild test` (1313/1313 pass, no regressions) and a full clean `xcodebuild build`.
 - Task complete — all ACs satisfied. This closes out the full `EntryListGrouping` backlog (SPRD-257 through SPRD-266).
+
+---
+
+### [SPRD-267] Feature: Bundle Fuzzy Bubbles font for a configurable large title/"h1" style - [x] Done
+
+- **Context**: User wants a playful, distinct font for large titles/"h1"-style headings, separate from the existing Avenir Next heading family used for `title`/`title2`/`title3`. Provided a draft `SpreadTheme` typography extension as a starting point (fixed-size body/supporting fonts, new `callout`/`footnote`/`caption2` cases) but it didn't reference the requested font by name.
+- **Description**: Bundle the **Fuzzy Bubbles** font (Google Fonts, OFL-licensed — fetched from the official `google/fonts` GitHub repo with the user's explicit one-time permission) for `largeTitle` only; `title`/`title2`/`title3` stay Avenir Next, unchanged. Changed `largeTitle` from a fixed `static var` (28pt Bold) to `static func largeTitle(size: CGFloat = 28, weight: Font.Weight = .bold) -> Font`, per the user's explicit ask for it to be callable at any size. Added the user's new `callout`/`footnote`/`caption2` cases using SwiftUI's system Dynamic Type styles (not the fixed point sizes from the draft) to preserve accessibility text-size scaling — confirmed with the user this was the preferred approach before implementing.
+- **Spec**: `Documentation/Specs/DesignSystem.md` — "Large Title / 'h1' Font (SPRD-267)"
+- **Acceptance Criteria**:
+  - [x] `FuzzyBubbles-Regular.ttf`/`FuzzyBubbles-Bold.ttf` (+ `FuzzyBubbles-OFL.txt` license attribution) added at `Spread/Resources/Fonts/`, registered in `Info.plist`'s `UIAppFonts`, and confirmed present in the built `.app` bundle.
+  - [x] `SpreadTheme.Typography.largeTitle(size:weight:)` is callable with any size/weight; defaults (28pt, `.bold`) match the prior fixed value. Any `weight` other than `.bold` falls back to `FuzzyBubbles-Regular` (only two static weights are bundled, not a variable font).
+  - [x] The one existing call site (`ContentView.swift`'s loading screen) updated from property access to a function call.
+  - [x] `title`/`title2`/`title3` (Avenir Next, via `heading(size:weight:)`) unchanged.
+  - [x] New `callout`/`footnote`/`caption2` cases added using system Dynamic Type styles, not fixed sizes.
+  - [x] Project builds with no errors or warnings.
+- **Tests**:
+  - [x] Added `SpreadThemeTests.swift` (5 tests): both bundled PostScript names resolve via `UIFont(name:size:)` (confirms genuine runtime registration, not just a bundled file), `largeTitle()`'s default matches the prior fixed value, a custom size/weight resolves correctly, and a non-bold weight falls back to Regular.
+- **Dependencies**: None.
+- **Progress (commits landed on feature/SESH-25)**:
+  1. `[SPRD-267][1/n]` — Added `Spread/Resources/Fonts/FuzzyBubbles-{Regular,Bold}.ttf` (+ `FuzzyBubbles-OFL.txt`), registered both in `Info.plist`'s `UIAppFonts`. Added `SpreadTheme.FontFamily` (the bundled PostScript names) and changed `Typography.largeTitle` to the configurable function described above; added `callout`/`footnote`/`caption2` as system Dynamic Type styles. Updated `ContentView.swift`'s sole `largeTitle` call site. Added `SpreadThemeTests.swift` (5/5 pass). Verified via a full `xcodebuild test` (1318/1318 pass, no regressions) and a full clean `xcodebuild build`, plus confirmed both `.ttf` files are present in the built `.app` bundle's root (Copy Bundle Resources picked them up via the project's `fileSystemSynchronizedGroups` convention with no manual build-phase wiring needed).
+- Task complete — all ACs satisfied.
