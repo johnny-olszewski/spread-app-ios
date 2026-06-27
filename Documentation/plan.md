@@ -6945,15 +6945,18 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-266] Refactor: Consolidate EntryListView spacing/opacity magic numbers into SpreadTheme - [ ] Pending
+### [SPRD-266] Refactor: Consolidate EntryListView spacing/opacity magic numbers into SpreadTheme - [x] Done
 
 - **Context**: `EntryListView.swift` hardcodes `16` for `rowInsets` leading/trailing (when `SpreadTheme.Spacing.large` is already `16` and already used elsewhere in the same file) and `0.7`/`0.45` opacity literals for its `.card` section background stroke/fill, instead of using named `SpreadTheme` constants.
 - **Description**: Add `enum Opacity { static let cardStroke: Double = 0.7; static let cardFill: Double = 0.45 }` to `SpreadTheme.swift` (sibling to the existing `Overlay` enum). Replace the hardcoded `16` literals in `EntryListView`'s `rowInsets` with `SpreadTheme.Spacing.large`, and the `0.7`/`0.45` opacity literals in its `.card` background with the new `SpreadTheme.Opacity` constants.
 - **Spec**: `Documentation/Specs/EntryListGrouping.md`
 - **Acceptance Criteria**:
-  - [ ] `SpreadTheme.Opacity` exists with `cardStroke`/`cardFill` constants matching the prior literal values.
-  - [ ] `EntryListView`'s `rowInsets` and `.card` background use `SpreadTheme` constants instead of literals.
-  - [ ] Visual output is pixel-identical to before (verify via existing `EntryListView` previews).
-  - [ ] Project builds with no errors or warnings.
+  - [x] `SpreadTheme.Opacity` exists with `cardStroke`/`cardFill` constants matching the prior literal values.
+  - [x] `EntryListView`'s `rowInsets` and `.card` background use `SpreadTheme` constants instead of literals.
+  - [x] Visual output is pixel-identical to before (verify via existing `EntryListView` previews) — same numeric values, just named.
+  - [x] Project builds with no errors or warnings.
 - **Tests**: None required — pure constant extraction, no behavior change; verify via preview inspection.
 - **Dependencies**: None.
+- **Progress (commits landed on feature/SESH-25)**:
+  1. `[SPRD-266][1/n]` — Added `SpreadTheme.Opacity` (`cardStroke = 0.7`, `cardFill = 0.45`) as a sibling to the existing `Overlay` enum in `SpreadTheme.swift`. `EntryListView`'s `rowInsets` now uses `SpreadTheme.Spacing.large` instead of bare `16` literals, and its `.card` background uses `SpreadTheme.Opacity.cardStroke`/`.cardFill` instead of bare `0.7`/`0.45`. Verified via a full `xcodebuild test` (1313/1313 pass, no regressions) and a full clean `xcodebuild build`.
+- Task complete — all ACs satisfied. This closes out the full `EntryListGrouping` backlog (SPRD-257 through SPRD-266).

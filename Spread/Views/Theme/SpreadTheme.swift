@@ -112,6 +112,16 @@ enum SpreadTheme {
         static let dim = Color(.label).opacity(0.2)
     }
 
+    // MARK: - Opacity
+
+    /// Named opacity values for color-tinted surfaces (e.g. `EntryList`'s `.card` section style).
+    enum Opacity {
+        /// 70% — stroke opacity for card-styled sections.
+        static let cardStroke: Double = 0.7
+        /// 45% — fill opacity for card-styled sections.
+        static let cardFill: Double = 0.45
+    }
+
     // MARK: - Corner Radius
 
     /// Named corner radius values. Pair with `.continuous` style on `RoundedRectangle` for smooth curves.
