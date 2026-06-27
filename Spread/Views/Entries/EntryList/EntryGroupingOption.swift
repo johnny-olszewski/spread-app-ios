@@ -10,6 +10,7 @@ enum EntryGroupingOption: String, CaseIterable, Identifiable {
     case list
     case tag
     case status
+    case type
 
     var id: String { rawValue }
 
@@ -20,6 +21,7 @@ enum EntryGroupingOption: String, CaseIterable, Identifiable {
         case .list: "List"
         case .tag: "Tag"
         case .status: "Status"
+        case .type: "Type"
         }
     }
 
@@ -57,6 +59,7 @@ enum EntryGroupingOption: String, CaseIterable, Identifiable {
         case .list: entry.assignedList?.name ?? Self.untitled
         case .tag: entry.assignedTags.first?.name ?? Self.untitled
         case .status: entry.status.displayName
+        case .type: entry.entryType.displayName
         }
     }
 

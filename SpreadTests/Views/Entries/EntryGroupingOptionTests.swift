@@ -84,6 +84,24 @@ struct EntryGroupingOptionTests {
         #expect(result.count == 1)
         #expect(result[0].entries.count == 3)
     }
+
+    // `.type` buckets entries by their `EntryType.displayName` — Task/Event/Note each
+    // land in their own bucket.
+    // Expected: three buckets, one per entry type, each containing only its own kind.
+    @Test func testTypeGroupsByEntryType() {
+        let entries: [any Entry] = [
+            DataModel.Task(title: "A Task", date: today),
+            DataModel.Note(title: "A Note", date: today),
+            DataModel.Event(title: "An Event", startDate: today, endDate: today)
+        ]
+
+        let result = sections(for: entries, option: .type)
+
+        #expect(result.map(\.id).sorted() == ["Event", "Note", "Task"])
+        #expect(result.first { $0.id == "Task" }?.entries.map(\.title) == ["A Task"])
+        #expect(result.first { $0.id == "Note" }?.entries.map(\.title) == ["A Note"])
+        #expect(result.first { $0.id == "Event" }?.entries.map(\.title) == ["An Event"])
+    }
 }
 
 /// Tests for `EntrySortOption`'s within-bucket ordering comparators.
@@ -129,5 +147,16 @@ struct EntrySortOptionTests {
 
         #expect(areInOrder(alpha, beta))
         #expect(!areInOrder(beta, alpha))
+    }
+
+    // `.type` orders entries by `EntryType`'s declaration order (task, event, note).
+    // Expected: a task sorts before a note.
+    @Test func testTypeOrdersByEntryTypeDeclarationOrder() {
+        let task: any Entry = DataModel.Task(title: "A Task", date: today)
+        let note: any Entry = DataModel.Note(title: "A Note", date: today)
+        let areInOrder = EntrySortOption.type.areInOrder!
+
+        #expect(areInOrder(task, note))
+        #expect(!areInOrder(note, task))
     }
 }

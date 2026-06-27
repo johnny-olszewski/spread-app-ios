@@ -10,6 +10,7 @@ enum EntrySortOption: String, CaseIterable, Identifiable {
     case priority
     case dueDate
     case title
+    case type
 
     var id: String { rawValue }
 
@@ -20,6 +21,7 @@ enum EntrySortOption: String, CaseIterable, Identifiable {
         case .priority: "Priority"
         case .dueDate: "Due Date"
         case .title: "Title"
+        case .type: "Type"
         }
     }
 
@@ -35,6 +37,8 @@ enum EntrySortOption: String, CaseIterable, Identifiable {
             return { $0.sortDate < $1.sortDate }
         case .title:
             return { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        case .type:
+            return { Self.typeRank($0.entryType) < Self.typeRank($1.entryType) }
         }
     }
 
@@ -42,5 +46,11 @@ enum EntrySortOption: String, CaseIterable, Identifiable {
     /// (`none`/`low`/`medium`/`high`) is already the intended ascending rank.
     private static func priorityRank(_ priority: DataModel.Task.Priority) -> Int {
         DataModel.Task.Priority.allCases.firstIndex(of: priority) ?? 0
+    }
+
+    /// `EntryType` isn't `Comparable`; its case declaration order (`task`/`event`/`note`)
+    /// is used as the intended ascending rank.
+    private static func typeRank(_ entryType: EntryType) -> Int {
+        EntryType.allCases.firstIndex(of: entryType) ?? 0
     }
 }
