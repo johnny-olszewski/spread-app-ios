@@ -229,15 +229,6 @@ private extension Optional where Wrapped == UserInterfaceSizeClass {
 
 // MARK: - Entry sorting helpers
 
-private extension Entry {
-    /// The list this entry belongs to, or `nil` if it is unassigned or not list-eligible.
-    var assignedList: DataModel.List? {
-        if let task = self as? DataModel.Task { return task.list }
-        if let note = self as? DataModel.Note { return note.list }
-        return nil
-    }
-}
-
 private extension [any Entry] {
     /// Returns the entries sorted chronologically by their `sortDate`.
     func sortedByDate() -> [any Entry] {

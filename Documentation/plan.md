@@ -6765,25 +6765,29 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-258] Feature: EntryGroupingOption/EntrySortOption + EntryListOptionsPicker - [ ] Pending
+### [SPRD-258] Feature: EntryGroupingOption/EntrySortOption + EntryListOptionsPicker - [x] Done
 
+- **AC correction (2026-06-27, found during implementation)**: the original AC text specified `grouping(journalManager:)`. Verified against the actual codebase (`DaySpreadContentView+ViewModel.swift`'s existing list-grouping helper) that list/tag are stored directly on `Task`/`Note` (`task.list`, `task.tags`) — no `JournalManager` lookup is needed or used anywhere for this. What *is* needed, and wasn't in the original signature, is the per-spread section context (`date`/`creationPeriod`/`creationDate`) that `EntryList.Section.init` requires and that only the call site (a specific spread) knows. Implemented as `grouping(date:creationPeriod:creationDate:)` instead — `EntryGroupingOption` has zero dependency on `JournalManager`.
 - **Context**: With SPRD-257's generic primitive in place, every spread needs the same "group by: List/Tag/Status/None" and "order by: Priority/Due Date/Title" choices, independently selectable and persisted — list/tag/status are universal entry attributes, not spread-specific concepts, so one shared enum/component avoids duplicating near-identical option sets per spread.
 - **Description**: Add `EntryGroupingOption` (`.none`, `.list`, `.tag`, `.status`; `.list`/`.tag` key off `(entry as? DataModel.Task)?.list`/`.tags` or `DataModel.Note`'s equivalents, falling back to "Untitled" for unassigned or unsupported entry types — `.tag` uses the entry's first tag only, no fan-out) and `EntrySortOption` (`.manual`, `.priority`, `.dueDate`, `.title`; built directly on `Entry` protocol properties `displayPriority`/`sortDate`/`title`, no casting needed). Add a single reusable `EntryListOptionsPicker` component (a `Menu` containing two `Picker`s, one per option set) usable by any spread. Both option enums are `String`-backed `RawRepresentable` so they work directly with `@AppStorage`.
 - **Spec**: `Documentation/Specs/EntryListGrouping.md` — "Decision: Grouping options are one shared enum, not per-spread bespoke types" and "Decision: Tag grouping uses 'first tag, else Untitled' (no fan-out)"
 - **Acceptance Criteria**:
-  - [ ] `EntryGroupingOption: String, CaseIterable, Identifiable` with cases `.none`, `.list`, `.tag`, `.status`, each producing an `EntryList.Grouping<String>` via a `grouping(journalManager:)` method.
-  - [ ] `EntrySortOption: String, CaseIterable, Identifiable` with cases `.manual`, `.priority`, `.dueDate`, `.title`, each exposing an `areInOrder: ((any Entry, any Entry) -> Bool)?` (`nil` for `.manual`).
-  - [ ] `.list`/`.tag` grouping falls back to an "Untitled" bucket for entries with no assignment or entry types that don't support the dimension (e.g. `Event`).
-  - [ ] `EntryListOptionsPicker` exposes both a group-by and an order-by `Picker` bound to `@Binding` parameters, rendered as a single Menu-style control.
-  - [ ] Both enums work directly with `@AppStorage` (no custom `RawRepresentable` plumbing needed beyond the `String` raw type).
-  - [ ] Project builds with no errors or warnings.
+  - [x] `EntryGroupingOption: String, CaseIterable, Identifiable` with cases `.none`, `.list`, `.tag`, `.status`, each producing an `EntryList.Grouping<String>` via a `grouping(date:creationPeriod:creationDate:)` method — see AC correction above re: no `JournalManager` dependency.
+  - [x] `EntrySortOption: String, CaseIterable, Identifiable` with cases `.manual`, `.priority`, `.dueDate`, `.title`, each exposing an `areInOrder: ((any Entry, any Entry) -> Bool)?` (`nil` for `.manual`).
+  - [x] `.list`/`.tag` grouping falls back to an "Untitled" bucket for entries with no assignment or entry types that don't support the dimension (e.g. `Event`).
+  - [x] `EntryListOptionsPicker` exposes both a group-by and an order-by `Picker` bound to `@Binding` parameters, rendered as a single Menu-style control.
+  - [x] Both enums work directly with `@AppStorage` (no custom `RawRepresentable` plumbing needed beyond the `String` raw type).
+  - [x] Project builds with no errors or warnings.
 - **Tests**:
-  - [ ] Unit test: `.list` groups a mix of listed and unlisted tasks into the correct named buckets plus "Untitled".
-  - [ ] Unit test: `.tag` groups by first tag only; an entry with multiple tags appears in exactly one bucket.
-  - [ ] Unit test: `.status` groups entries by their `EntryStatus` display name.
-  - [ ] Unit test: `.none` produces a single bucket containing all entries.
-  - [ ] Unit test: each `EntrySortOption.areInOrder` comparator orders a sample mixed-entry array as expected; `.manual` is `nil`.
-- **Dependencies**: SPRD-257.
+  - [x] Unit test: `.list` groups a mix of listed and unlisted tasks into the correct named buckets plus "Untitled".
+  - [x] Unit test: `.tag` groups by first tag only; an entry with multiple tags appears in exactly one bucket.
+  - [x] Unit test: `.status` groups entries by their `EntryStatus` display name.
+  - [x] Unit test: `.none` produces a single bucket containing all entries.
+  - [x] Unit test: each `EntrySortOption.areInOrder` comparator orders a sample mixed-entry array as expected; `.manual` is `nil`.
+- **Dependencies**: SPRD-257 (done).
+- **Progress (commits landed on feature/SESH-25)**:
+  1. `[SPRD-258][1/n]` — Added `EntryGroupingOption` (`Spread/Views/Entries/EntryList/EntryGroupingOption.swift`: `.none`/`.list`/`.tag`/`.status`, `grouping(date:creationPeriod:creationDate:)` — see AC correction above) and `EntrySortOption` (`EntrySortOption.swift`: `.manual`/`.priority`/`.dueDate`/`.title`, `areInOrder` comparators built on `Entry` protocol properties, no casting). Added `EntryListOptionsPicker.swift`, a single `Menu` exposing both option `Picker`s via `@Binding`. Promoted the pre-existing `private extension Entry { var assignedList }` in `DaySpreadContentView+ViewModel.swift` to a shared, non-private `Entry+Assignment.swift` (`assignedList`/`assignedTags`) rather than duplicating equivalent lookup logic for `EntryGroupingOption.list`/`.tag` — removed the now-redundant private copy from `DaySpreadContentView+ViewModel.swift`, confirmed via the existing `EntryListGroupingTests` suite (11/11 still pass, unchanged behavior). Added `EntryGroupingOptionTests.swift` (8 tests across two suites) covering list/tag/status/none bucketing and all four sort comparators. Verified via `-only-testing:SpreadTests/EntryGroupingOptionTests -only-testing:SpreadTests/EntrySortOptionTests` (8/8 pass), `-only-testing:SpreadTests/EntryListGroupingTests` (11/11 pass, confirming the `assignedList` promotion is behavior-preserving), and a full clean `xcodebuild build`.
+- Task complete — all ACs satisfied.
 
 ---
 
