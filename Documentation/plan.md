@@ -6822,13 +6822,13 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-260] Feature: Adopt grouping/sorting picker in Month, Year, MonthCard, and Multiday - [ ] Pending
+### [SPRD-260] Feature: Adopt grouping/sorting picker in Month, Year, MonthCard, and Multiday - [ ] In Progress
 
 - **Context**: The user asked for the grouping/sorting picker in all spreads, not just Day. Month and Year don't have an existing toolbar row like Day's — the proposed placement is next to their existing "Month"/"Year" header text. Multiday doesn't use `EntryListView` at all (its grid/day-card layout is structurally different — confirmed by reading `MultidaySpreadContentView.swift`), but can still apply the same `EntryGroupingOption`/`EntrySortOption` primitives directly to the flat entries it already fetches before rendering its manual rows.
 - **Description**: Add `EntryListOptionsPicker` (with its own `@AppStorage`-backed state, keyed per spread type, e.g. `"entryGrouping.month"`/`"entrySorting.month"`) to `MonthSpreadContentView` (next to its "Month" header text, reused for the per-day sections loop), `YearSpreadContentView` (next to its "Year" header text), and `MonthCardView`'s embedded list style. For Multiday, apply `EntryGroupingOption`/`EntrySortOption` directly to its flat entry list (via the same enums, without going through `EntryListView`) before building its manual per-day-card rows.
 - **Spec**: `Documentation/Specs/EntryListGrouping.md` — "Open Questions" (exact placement to confirm/adjust during implementation if it reads awkwardly)
 - **Acceptance Criteria**:
-  - [ ] Month spread (both month-level and per-day sections) supports group-by/order-by via the shared picker, persisted independently from Day.
+  - [x] Month spread (both month-level and per-day sections) supports group-by/order-by via the shared picker, persisted independently from Day.
   - [ ] Year spread supports group-by/order-by via the shared picker, persisted independently from Day/Month.
   - [ ] `MonthCardView`'s list-style embedded list supports group-by/order-by consistent with Year's setting (or its own — decide during implementation which is less surprising).
   - [ ] Multiday applies the same grouping/sorting enums to its flat entry list before rendering, without requiring `EntryListView` adoption.
@@ -6837,6 +6837,8 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**:
   - [ ] Manual verification per spread: toggling group-by/order-by re-partitions/re-orders correctly; persistence is independent per spread type.
 - **Dependencies**: SPRD-257, SPRD-258, SPRD-259 (proves the pattern on Day first).
+- **Progress (commits landed on feature/SESH-25)**:
+  1. `[SPRD-260][1/n]` — Added `@AppStorage("entryGrouping.month")`/`@AppStorage("entrySorting.month")` (defaults `.list`/`.dueDate`, matching Day's defaults) to `MonthSpreadContentView`, rendered a single `EntryListOptionsPicker` next to the "Month" header (its selection applies uniformly to both the month-level section and every per-day section in the loop below it — one picker, not one per day). Replaced both `monthSection`'s and `daySection`'s single flat `EntryList.Section` construction with `EntryListView(entries:groupedBy:orderedBy:configurationMap:)`. Unlike Day, there's no "default behavior must look visually identical" constraint here (Month previously had no grouping at all, just one flat section) — defaulting to `.list` mirrors Day's choice for a sensible out-of-the-box grouping. Verified via a full `xcodebuild test` (1298/1298 pass, no regressions) and a full clean `xcodebuild build`.
 
 ---
 
