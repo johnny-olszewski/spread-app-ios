@@ -6741,24 +6741,27 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-257] Feature: EntryList.Grouping primitive + entries:groupedBy:orderedBy: init - [ ] Pending
+### [SPRD-257] Feature: EntryList.Grouping primitive + entries:groupedBy:orderedBy: init - [x] Done
 
 - **Context**: `EntryListView` only accepts pre-computed `[EntryList.Section]` today — every spread's view model hand-rolls its own "bucket entries by some key, sort the buckets, order entries within each bucket" logic (Day groups tasks by assigned list with a special "Untitled" bucket; Month builds one section per day in a loop). This duplicates the same mechanics across call sites and blocks adding a runtime "group by"/"order by" picker (SPRD-258).
 - **Description**: Add `EntryList.Grouping<Key: Hashable>` (closure-based `key`, `sortedKeys`, `section` builder) and a static `EntryList.Section.grouped(from:by:orderedBy:)` that buckets a flat `[any Entry]` list, sorts the buckets, and independently orders entries within each bucket before building sections. Add an additive `EntryListView` initializer (`entries:groupedBy:orderedBy:configurationMap:sectionHeaderTrailingContent:`, plus an `EmptyView` convenience overload) that calls the static helper internally. The existing `sections:` initializer is untouched.
 - **Spec**: `Documentation/Specs/EntryListGrouping.md` — "Decision: Closure-based grouping key, not KeyPath or a closed enum baked into EntryListView"
 - **Acceptance Criteria**:
-  - [ ] `EntryList.Grouping<Key: Hashable>` exists with `key: (any Entry) -> Key`, `sortedKeys: ([Key]) -> [Key]`, `section: (Key, [any Entry]) -> EntryList.Section`.
-  - [ ] `EntryList.Section.grouped(from:by:orderedBy:)` buckets entries by `key`, orders bucket keys via `sortedKeys`, applies the optional `orderedBy` comparator within each bucket before building sections, and omits empty buckets.
-  - [ ] `EntryListView` gains `init(entries:groupedBy:orderedBy:configurationMap:sectionHeaderTrailingContent:)` (and `EmptyView` convenience) producing identical rendering to manually calling `EntryList.Section.grouped` and passing the result to the existing `sections:` init.
-  - [ ] The existing `sections:` initializer and all current call sites are unchanged and still build/render identically.
-  - [ ] Project builds with no errors or warnings.
+  - [x] `EntryList.Grouping<Key: Hashable>` exists with `key: (any Entry) -> Key`, `sortedKeys: ([Key]) -> [Key]`, `section: (Key, [any Entry]) -> EntryList.Section`.
+  - [x] `EntryList.Section.grouped(from:by:orderedBy:)` buckets entries by `key`, orders bucket keys via `sortedKeys`, applies the optional `orderedBy` comparator within each bucket before building sections, and omits empty buckets.
+  - [x] `EntryListView` gains `init(entries:groupedBy:orderedBy:configurationMap:sectionHeaderTrailingContent:)` (and `EmptyView` convenience) producing identical rendering to manually calling `EntryList.Section.grouped` and passing the result to the existing `sections:` init.
+  - [x] The existing `sections:` initializer and all current call sites are unchanged and still build/render identically.
+  - [x] Project builds with no errors or warnings.
 - **Tests**:
-  - [ ] Unit test: `grouped(from:by:orderedBy:)` correctly buckets a mixed `[any Entry]` list by a sample key closure.
-  - [ ] Unit test: bucket key ordering follows `sortedKeys`, not insertion order.
-  - [ ] Unit test: `orderedBy` comparator correctly orders entries within a bucket without affecting bucket assignment.
-  - [ ] Unit test: a bucket with zero entries (key present in `sortedKeys` but no matching entries) is omitted from the result.
-  - [ ] Unit test: `entries:groupedBy:orderedBy:` initializer produces the same `sections` as calling the static helper directly.
+  - [x] Unit test: `grouped(from:by:orderedBy:)` correctly buckets a mixed `[any Entry]` list by a sample key closure.
+  - [x] Unit test: bucket key ordering follows `sortedKeys`, not insertion order.
+  - [x] Unit test: `orderedBy` comparator correctly orders entries within a bucket without affecting bucket assignment.
+  - [x] Unit test: a bucket with zero entries (key present in `sortedKeys` but no matching entries) is omitted from the result.
+  - [x] Unit test: `entries:groupedBy:orderedBy:` initializer produces the same `sections` as calling the static helper directly.
 - **Dependencies**: None.
+- **Progress (commits landed on feature/SESH-25)**:
+  1. `[SPRD-257][1/n]` — Added `EntryList.Grouping<Key: Hashable>` and the static `EntryList.Section.grouped(from:by:orderedBy:)` bucketing/ordering helper (`Spread/Views/Entries/EntryList/EntryList+Grouping.swift`), plus the additive `EntryListView.init(entries:groupedBy:orderedBy:configurationMap:sectionHeaderTrailingContent:)` (and `EmptyView` convenience) that delegates to it. The existing `sections:` initializer and all current call sites (Day/Month/Year/MonthCard) are untouched. Added `EntryListSectionGroupingTests.swift` (5 tests) covering bucketing by key, bucket-key ordering via `sortedKeys`, within-bucket ordering via `orderedBy`, omission of empty buckets, and parity between the new `EntryListView` initializer and calling the static helper directly. Named distinctly from the pre-existing `SpreadTests/Views/Spreads/EntryListGroupingTests.swift` (which tests the unrelated, soon-to-be-replaced hand-rolled Day/Multiday `makeSections` logic) to avoid confusion. Verified via `-only-testing:SpreadTests/EntryListSectionGroupingTests` (5/5 pass) and a full clean `xcodebuild build`.
+- Task complete — all ACs satisfied.
 
 ---
 
