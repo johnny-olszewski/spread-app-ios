@@ -5,7 +5,7 @@ import SwiftUI
 ///
 /// Entry is the parent protocol for all journal items: tasks, events, and notes.
 /// Each entry type has distinct behavior around assignments and visibility.
-protocol Entry: Identifiable, Hashable {
+protocol Entry: Identifiable, Hashable, EntryStatusIconRepresentable {
     /// Unique identifier for the entry.
     var id: UUID { get }
 
@@ -18,13 +18,30 @@ protocol Entry: Identifiable, Hashable {
     /// The type of entry (task, event, or note).
     var entryType: EntryType { get }
 
+    /// The preferred or range-start date for this entry, if any.
+    ///
+    /// `Task`/`Note` expose their own preferred `date` directly (`nil` means no
+    /// preferred assignment); `DateRangeEntry` conformers (`Event`) default to `startDate`.
+    var date: Date? { get }
+
+    /// Whether this entry type can ever appear in the Inbox.
+    ///
+    /// A static per-type constant — independent of this instance's `date`/`status`/assignments.
+    /// Per-instance Inbox membership still requires checking status and assignment state
+    /// separately wherever a feature needs it.
+    var isInboxEligible: Bool { get }
+
+    /// Whether this entry type can ever be migrated between spreads.
+    ///
+    /// A static per-type constant — independent of this instance's `date`/`status`/assignments.
+    var isMigratable: Bool { get }
+
+    /// Whether this entry type can ever be flagged overdue.
+    ///
+    /// A static per-type constant — independent of this instance's `date`/`status`/assignments.
+    var isOverdueEligible: Bool { get }
+
     // MARK: - Display requirements (default implementations in extension below)
-
-    /// Optional icon color. When non-nil, the leading accessory renders as a colored bar.
-    var iconColor: Color? { get }
-
-    /// Tag chips shown inline with the title, one per assigned tag.
-    var displayTagChips: [(title: String, color: Color)] { get }
 
     /// Optional one-line body preview shown below the title.
     var displayBodyPreview: String? { get }
@@ -32,55 +49,52 @@ protocol Entry: Identifiable, Hashable {
     /// Display-only task priority.
     var displayPriority: DataModel.Task.Priority { get }
 
-    /// Task status for display, or nil if not a task.
-    var displayTaskStatus: DataModel.Task.Status? { get }
+    var status: EntryStatus { get }
 
-    /// Note status for display, or nil if not a note.
-    var displayNoteStatus: DataModel.Note.Status? { get }
+    /// The date used to chronologically order this entry within a section.
+    var sortDate: Date { get }
 }
 
 extension Entry {
     var iconColor: Color? { nil }
-    var displayTagChips: [(title: String, color: Color)] { [] }
     var displayBodyPreview: String? { nil }
     var displayPriority: DataModel.Task.Priority { .none }
-    var displayTaskStatus: DataModel.Task.Status? { nil }
-    var displayNoteStatus: DataModel.Note.Status? { nil }
+    var isInboxEligible: Bool { false }
+    var isMigratable: Bool { false }
+    var isOverdueEligible: Bool { false }
 
-    /// Accessibility label for the leading icon button.
-    var leadingIconAccessibilityLabel: String {
-        displayTaskStatus?.leadingIconAccessibilityLabel ?? entryType.rawValue.capitalized
-    }
-
-    /// Configuration for the leading icon in an entry row.
-    var leadingIconConfiguration: EntryLeadingIconButton.Configuration {
-        EntryLeadingIconButton.Configuration(
-            entryType: entryType,
-            taskStatus: displayTaskStatus,
-            noteStatus: displayNoteStatus,
-            color: iconColor ?? .primary,
-            isDisabled: !(displayTaskStatus?.canToggleCompletionInTaskSheet ?? false)
-        )
-    }
+    /// A stable key identifying this concrete type for use in `EntryRowView.Configuration.Map`.
+    ///
+    /// Uses `ObjectIdentifier` over the `EntryType` enum so new `Entry` conformers are
+    /// automatically keyed without touching the enum. Call sites use `DataModel.Task.configurationKey`
+    /// etc. to build maps, and `EntryListView` looks up via `ObjectIdentifier(type(of: entry))`.
+    static var configurationKey: ObjectIdentifier { ObjectIdentifier(Self.self) }
 }
 
-/// An entry that can be assigned to spreads.
+/// A structural conformance layer between `Entry` and the SwiftData `@Model` classes
+/// (`Task`, `Note`) that track a preferred date and assignment history.
 ///
-/// Assignable entries (tasks and notes) track their preferred date and period,
-/// and maintain assignment history across spreads. Assignment types are defined
-/// separately (TaskAssignment, NoteAssignment).
+/// `date` is satisfied directly via `Entry`. `period` stays off this protocol since
+/// `Task.period: Period?` and `Note.period: Period` genuinely diverge in optionality —
+/// nothing should dispatch over it polymorphically. `currentAssignments`/`migrationHistory`
+/// are declared here since they're identical (`[Assignment]`) on both conformers and
+/// `JournalRuleEngine` (SPRD-248) dispatches over them polymorphically for spread-matching
+/// logic shared by Task and Note. This protocol also exists because the `@Model` macro's
+/// `PersistentModel`/`Hashable` synthesis fails under this project's strict-concurrency
+/// build settings when `Task`/`Note` conform directly to `Entry` — confirmed empirically;
+/// conforming through any intermediate protocol (even an empty one) resolves it. `Event`
+/// doesn't need this layer since it already conforms to `Entry` via `DateRangeEntry`.
 protocol AssignableEntry: Entry {
-    /// The assignment type for this entry.
-    associatedtype AssignmentType
+    /// The live, non-migrated assignment(s) for this entry across spreads — at most a
+    /// handful at once. The only collection spread-association/index/overdue/migration
+    /// logic reads. See `Documentation/Specs/JournalManager.md`'s "Split current assignment
+    /// from migration history" decision (SPRD-254).
+    var currentAssignments: [Assignment] { get set }
 
-    /// The preferred date for this entry.
-    var date: Date { get set }
-
-    /// The preferred period for this entry.
-    var period: Period { get set }
-
-    /// Assignment history for this entry across spreads.
-    var assignments: [AssignmentType] { get set }
+    /// Append-only record of every assignment that has transitioned to `.migrated`,
+    /// removed from `currentAssignments` the moment that happened. Read only by the
+    /// migration-history UI — never scanned by spread-association logic.
+    var migrationHistory: [Assignment] { get set }
 }
 
 /// An entry whose visibility is computed from date range overlap.
@@ -103,4 +117,13 @@ protocol DateRangeEntry: Entry {
     ///   - calendar: The calendar to use for date calculations.
     /// - Returns: `true` if this entry's date range overlaps with the spread.
     func appearsOn(period: Period, date: Date, calendar: Calendar) -> Bool
+}
+
+extension DateRangeEntry {
+    var sortDate: Date { startDate }
+    var date: Date? { startDate }
+}
+
+protocol EntryStatusIconRepresentable {
+    var baseShape: EntryStatusIcon.BaseShape { get }
 }

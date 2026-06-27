@@ -82,7 +82,7 @@ struct ListRepositoryTests {
         try await listRepo.save(list)
 
         let task = DataModel.Task(title: "Write report", list: list)
-        try await taskRepo.save(task)
+        try await taskRepo.save(task, change: EntityChange())
 
         let tasks = await taskRepo.getTasks()
         #expect(tasks.first?.list?.name == "Work")
@@ -99,7 +99,7 @@ struct ListRepositoryTests {
         try await listRepo.save(list)
 
         let task = DataModel.Task(title: "Meeting notes", list: list)
-        try await taskRepo.save(task)
+        try await taskRepo.save(task, change: EntityChange())
 
         try await listRepo.delete(list)
 
@@ -119,8 +119,8 @@ struct ListRepositoryTests {
 
         let task1 = DataModel.Task(title: "Task One", list: list)
         let task2 = DataModel.Task(title: "Task Two", list: list)
-        try await taskRepo.save(task1)
-        try await taskRepo.save(task2)
+        try await taskRepo.save(task1, change: EntityChange())
+        try await taskRepo.save(task2, change: EntityChange())
 
         let count = list.tasks.filter { $0.deletedAt == nil }.count
         #expect(count == 2)

@@ -13,8 +13,12 @@ import JohnnyOFoundationCore
 /// are excluded from the timed grid. They are typically rendered separately via
 /// `DayTimelineAllDaySection` above this view.
 ///
-/// Overlapping timed items are rendered in start-time order with escalating
-/// leading offsets so later-starting events remain partially visible.
+/// Concurrent events (those whose time ranges overlap) are partitioned into
+/// side-by-side columns. `DayTimelineItemContext.columnIndex` and `columnCount`
+/// tell the provider where to render each item horizontally.
+///
+/// When `date` is today, a live red current-time indicator (line + circle) is
+/// rendered and updated automatically every minute via `TimelineView`.
 public struct DayTimelineView<Provider: DayTimelineContentProvider>: View {
 
     // MARK: - Configuration
@@ -39,13 +43,21 @@ public struct DayTimelineView<Provider: DayTimelineContentProvider>: View {
     /// Total height of the rendered view, in points. Default `240`.
     public var height: CGFloat = 240
 
+    /// Corner radius applied to the outer clip shape. Pass `0` for rectangular clipping (default).
+    public var cornerRadius: CGFloat = 0
+
     /// Calendar used to resolve hour components for the visible window.
     public var calendar: Calendar = .current
 
     // MARK: - Layout constants
 
     private let rulerWidth: CGFloat = 44
-    private let overlapStep: CGFloat = 12
+    /// Minimum rendered height for any event block, regardless of duration.
+    private let minimumEventHeight: CGFloat = 44
+    /// Duration threshold below which the minimum height floor is applied, in seconds (30 min).
+    private let minimumHeightThresholdSeconds: TimeInterval = 30 * 60
+    /// Height of the current-time capsule indicator.
+    private let currentTimeCapsuleHeight: CGFloat = 16
 
     // MARK: - Init
 
@@ -56,6 +68,7 @@ public struct DayTimelineView<Provider: DayTimelineContentProvider>: View {
         visibleStartHour: Int = 6,
         visibleEndHour: Int = 22,
         height: CGFloat = 240,
+        cornerRadius: CGFloat = 0,
         calendar: Calendar = .current
     ) {
         self.provider = provider
@@ -64,18 +77,26 @@ public struct DayTimelineView<Provider: DayTimelineContentProvider>: View {
         self.visibleStartHour = visibleStartHour
         self.visibleEndHour = visibleEndHour
         self.height = height
+        self.cornerRadius = cornerRadius
         self.calendar = calendar
     }
 
     // MARK: - Body
 
     public var body: some View {
-        HStack(spacing: 0) {
-            rulerView
-            eventZone
+        TimelineView(.everyMinute) { timelineContext in
+            HStack(spacing: 0) {
+                rulerView
+                eventZone
+            }
+            .frame(height: height)
+            .overlay(alignment: .topLeading) {
+                // Current-time indicator spans the full width (ruler + event zone),
+                // rendered as an overlay so the circle is not clipped by the event zone.
+                currentTimeIndicator(now: timelineContext.date)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
-        .frame(height: height)
-        .clipped()
     }
 
     // MARK: - Subviews
@@ -99,17 +120,69 @@ public struct DayTimelineView<Provider: DayTimelineContentProvider>: View {
                     .offset(y: coordinateSpace.yOffset(for: hourDate(hour)))
             }
 
-            // Timed item blocks (all-day items are excluded)
-            ForEach(layoutContexts, id: \.id) { context in
-                provider.itemView(context: context)
-                    .frame(height: max(context.height, 1))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, context.overlapOffset)
-                    .offset(y: context.yOffset)
+            // Timed item blocks (all-day items excluded)
+            let contexts = layoutContexts
+            ForEach(contexts, id: \.id) { context in
+                GeometryReader { geo in
+                    let columnWidth = geo.size.width / CGFloat(context.columnCount)
+                    let xOffset = CGFloat(context.columnIndex) * columnWidth
+                    provider.itemView(context: context)
+                        .frame(width: columnWidth, height: max(context.height, 1))
+                        .offset(x: xOffset)
+                }
+                .frame(height: max(context.height, 1))
+                .offset(y: context.yOffset)
             }
         }
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .topLeading)
         .clipped()
+    }
+
+    // MARK: - Current time indicator
+
+    @ViewBuilder
+    private func currentTimeIndicator(now: Date) -> some View {
+        let isToday = calendar.isDateInToday(date)
+        let yOffset = coordinateSpace.yOffset(for: now)
+        let withinWindow = now >= hourDate(visibleStartHour) && now <= hourDate(visibleEndHour)
+
+        if isToday && withinWindow {
+            ZStack(alignment: .topLeading) {
+                // Horizontal line — starts at the ruler boundary and extends to the right
+                Rectangle()
+                    .fill(Color.red)
+                    .frame(height: 1)
+                    .padding(.leading, rulerWidth)
+
+                // Time capsule centered vertically on the line, anchored to the ruler area.
+                // Shows the current time (locale-aware) in a red pill, matching Apple Calendar.
+                currentTimeCapsule(now: now)
+                    .offset(y: -currentTimeCapsuleHeight / 2)
+            }
+            .offset(y: yOffset)
+        }
+    }
+
+    /// Locale-aware short time string for `now`.
+    private func formattedCurrentTime(_ now: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: now)
+    }
+
+    /// Red capsule containing the current time string, sized to fit within the ruler column.
+    private func currentTimeCapsule(now: Date) -> some View {
+        Text(formattedCurrentTime(now))
+            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .frame(height: currentTimeCapsuleHeight)
+            .frame(maxWidth: rulerWidth)
+            .background(Color.red)
+            .clipShape(Capsule(style: .continuous))
     }
 
     // MARK: - Coordinate space
@@ -146,35 +219,18 @@ public struct DayTimelineView<Provider: DayTimelineContentProvider>: View {
         return max(y - 8, 0)
     }
 
-    /// Computes `DayTimelineItemContext` values for timed items (all-day excluded),
-    /// sorted by start time with overlap offsets applied.
+    // MARK: - Column layout
+
+    /// Delegates to `DayTimelineLayoutEngine` to compute column-partitioned layout contexts.
     private var layoutContexts: [DayTimelineItemContext<Provider.Item>] {
-        let timedItems = items.filter { !provider.isAllDay(item: $0) }
-        let sorted = timedItems.sorted { provider.startDate(for: $0) < provider.startDate(for: $1) }
-        var contexts: [DayTimelineItemContext<Provider.Item>] = []
-
-        for item in sorted {
-            let start = provider.startDate(for: item)
-            let end = provider.endDate(for: item)
-            let yOff = coordinateSpace.yOffset(for: start)
-            let h = coordinateSpace.height(from: start, to: end)
-
-            let overlapDepth = contexts.filter { prior in
-                let priorStart = provider.startDate(for: prior.item)
-                let priorEnd = provider.endDate(for: prior.item)
-                return priorStart < end && priorEnd > start
-            }.count
-
-            let context = DayTimelineItemContext(
-                item: item,
-                yOffset: yOff,
-                height: h,
-                overlapOffset: CGFloat(overlapDepth) * overlapStep,
-                coordinateSpace: coordinateSpace
-            )
-            contexts.append(context)
-        }
-
-        return contexts
+        DayTimelineLayoutEngine.layoutContexts(
+            items: items,
+            startDate: provider.startDate,
+            endDate: provider.endDate,
+            isAllDay: provider.isAllDay,
+            coordinateSpace: coordinateSpace,
+            minimumEventHeight: minimumEventHeight,
+            minimumHeightThresholdSeconds: minimumHeightThresholdSeconds
+        )
     }
 }

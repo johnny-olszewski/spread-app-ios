@@ -26,11 +26,11 @@ struct InboxTests {
             title: "Unassigned Task",
             date: Self.testDate,
             period: .day,
-            assignments: []
+            currentAssignments: []
         )
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -42,23 +42,25 @@ struct InboxTests {
 
     /// Conditions: A note has no assignments and is loaded into the note repository.
     /// Expected: Inbox contains the note.
-    @Test @MainActor func testInboxIncludesNoteWithNoAssignments() async throws {
+    /// Conditions: An unassigned note with no matching spread.
+    /// Expected: the note is excluded from Inbox — `Note.isInboxEligible == false`
+    /// (SPRD-247/248: notes never surface as Inbox items, unlike unassigned tasks).
+    @Test @MainActor func testInboxExcludesNoteWithNoAssignments() async throws {
         let note = DataModel.Note(
             title: "Unassigned Note",
             date: Self.testDate,
             period: .day,
-            assignments: []
+            currentAssignments: []
         )
-        let noteRepo = InMemoryNoteRepository(notes: [note])
+        let noteRepo = TestNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             noteRepository: noteRepo
         )
 
-        #expect(manager.inboxEntries.count == 1)
-        #expect(manager.inboxEntries.first?.id == note.id)
+        #expect(manager.inboxEntries.isEmpty)
     }
 
     /// Conditions: A task has an assignment but no matching spread exists for its date.
@@ -70,8 +72,8 @@ struct InboxTests {
             title: "Task for January 15",
             date: taskDate,
             period: .day,
-            assignments: [
-                TaskAssignment(
+            currentAssignments: [
+                Assignment(
                     period: .day,
                     date: taskDate,
                     status: .open
@@ -81,10 +83,10 @@ struct InboxTests {
         // Create a spread for a different date (January 20)
         let differentDate = calendar.date(from: .init(year: 2026, month: 1, day: 20))!
         let spread = DataModel.Spread(period: .day, date: differentDate, calendar: calendar)
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -104,8 +106,8 @@ struct InboxTests {
             title: "Task with Spread",
             date: taskDate,
             period: .day,
-            assignments: [
-                TaskAssignment(
+            currentAssignments: [
+                Assignment(
                     period: .day,
                     date: taskDate,
                     status: .open
@@ -113,10 +115,10 @@ struct InboxTests {
             ]
         )
         let spread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -135,14 +137,14 @@ struct InboxTests {
             title: "Day Task",
             date: taskDate,
             period: .day,
-            assignments: []
+            currentAssignments: []
         )
         // Create month spread (parent of day)
         let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: calendar)
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread])
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -163,9 +165,9 @@ struct InboxTests {
             startDate: Self.testDate,
             endDate: Self.testDate
         )
-        let eventRepo = InMemoryEventRepository(events: [event])
+        let eventRepo = TestEventRepository(events: [event])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             eventRepository: eventRepo
@@ -182,10 +184,10 @@ struct InboxTests {
             startDate: Self.testDate,
             endDate: Self.testDate
         )
-        let eventRepo = InMemoryEventRepository(events: [event])
+        let eventRepo = TestEventRepository(events: [event])
         // No spreads
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             eventRepository: eventRepo
@@ -204,11 +206,11 @@ struct InboxTests {
             date: Self.testDate,
             period: .day,
             status: .cancelled,
-            assignments: []
+            currentAssignments: []
         )
-        let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])
+        let taskRepo = TestTaskRepository(tasks: [cancelledTask])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -225,17 +227,17 @@ struct InboxTests {
             date: Self.testDate,
             period: .day,
             status: .cancelled,
-            assignments: [
-                TaskAssignment(
+            currentAssignments: [
+                Assignment(
                     period: .day,
                     date: Self.testDate,
                     status: .cancelled
                 )
             ]
         )
-        let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])
+        let taskRepo = TestTaskRepository(tasks: [cancelledTask])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -249,7 +251,7 @@ struct InboxTests {
     /// Conditions: No inbox-eligible entries exist.
     /// Expected: Inbox count is zero.
     @Test @MainActor func testInboxCountReturnsZeroWhenEmpty() async throws {
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate
         )
@@ -258,22 +260,23 @@ struct InboxTests {
     }
 
     /// Conditions: Two tasks and one note have no assignments.
-    /// Expected: Inbox count is three.
+    /// Expected: Inbox count is two — the note is excluded (`Note.isInboxEligible == false`,
+    /// SPRD-247/248), only the two unassigned tasks count.
     @Test @MainActor func testInboxCountReturnsCorrectCount() async throws {
-        let task1 = DataModel.Task(title: "Task 1", date: Self.testDate, assignments: [])
-        let task2 = DataModel.Task(title: "Task 2", date: Self.testDate, assignments: [])
-        let note = DataModel.Note(title: "Note 1", date: Self.testDate, assignments: [])
-        let taskRepo = InMemoryTaskRepository(tasks: [task1, task2])
-        let noteRepo = InMemoryNoteRepository(notes: [note])
+        let task1 = DataModel.Task(title: "Task 1", date: Self.testDate, currentAssignments: [])
+        let task2 = DataModel.Task(title: "Task 2", date: Self.testDate, currentAssignments: [])
+        let note = DataModel.Note(title: "Note 1", date: Self.testDate, currentAssignments: [])
+        let taskRepo = TestTaskRepository(tasks: [task1, task2])
+        let noteRepo = TestNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo,
             noteRepository: noteRepo
         )
 
-        #expect(manager.inboxCount == 3)
+        #expect(manager.inboxCount == 2)
     }
 
     // MARK: - Auto-Resolve Tests
@@ -287,11 +290,11 @@ struct InboxTests {
             title: "Inbox Task",
             date: taskDate,
             period: .day,
-            assignments: []
+            currentAssignments: []
         )
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -305,13 +308,15 @@ struct InboxTests {
 
         #expect(manager.inboxEntries.isEmpty)
         let updatedTask = manager.tasks.first { $0.id == task.id }
-        #expect(updatedTask?.assignments.count == 1)
-        #expect(updatedTask?.assignments.first?.status == .open)
-        #expect(updatedTask?.assignments.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
+        #expect(updatedTask?.allAssignmentsForTesting.count == 1)
+        #expect(updatedTask?.allAssignmentsForTesting.first?.status == .open)
+        #expect(updatedTask?.allAssignmentsForTesting.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
     }
 
-    /// Conditions: A note is in the inbox and a matching day spread is added.
-    /// Expected: The new spread becomes the note's current assignment and the note leaves Inbox.
+    /// Conditions: An unassigned note (not counted in Inbox — `Note.isInboxEligible ==
+    /// false`, SPRD-247/248) and a matching day spread is added.
+    /// Expected: The new spread becomes the note's current assignment via the auto-migration
+    /// reconciliation pass, independent of Inbox membership.
     @Test @MainActor func testAddSpreadAutoAssignsMatchingInboxNote() async throws {
         let calendar = Self.testCalendar
         let noteDate = Self.testDate
@@ -319,27 +324,27 @@ struct InboxTests {
             title: "Inbox Note",
             date: noteDate,
             period: .day,
-            assignments: []
+            currentAssignments: []
         )
-        let noteRepo = InMemoryNoteRepository(notes: [note])
+        let noteRepo = TestNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             noteRepository: noteRepo
         )
 
-        // Note should be in inbox initially
-        #expect(manager.inboxEntries.count == 1)
+        // The note is unassigned but not counted in Inbox (notes are never Inbox-eligible).
+        #expect(manager.inboxEntries.isEmpty)
 
         // Add a spread matching the note's date
         let spread = try await manager.addSpread(period: .day, date: noteDate)
 
         #expect(manager.inboxEntries.isEmpty)
         let updatedNote = manager.notes.first { $0.id == note.id }
-        #expect(updatedNote?.assignments.count == 1)
-        #expect(updatedNote?.assignments.first?.status == .active)
-        #expect(updatedNote?.assignments.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
+        #expect(updatedNote?.allAssignmentsForTesting.count == 1)
+        #expect(updatedNote?.allAssignmentsForTesting.first?.status == .active)
+        #expect(updatedNote?.allAssignmentsForTesting.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
     }
 
     /// Conditions: Two tasks and one note are in the inbox and a matching day spread is added.
@@ -347,31 +352,33 @@ struct InboxTests {
     @Test @MainActor func testAddSpreadAutoAssignsMultipleMatchingInboxEntries() async throws {
         let calendar = Self.testCalendar
         let date = Self.testDate
-        let task1 = DataModel.Task(title: "Task 1", date: date, period: .day, assignments: [])
-        let task2 = DataModel.Task(title: "Task 2", date: date, period: .day, assignments: [])
-        let note = DataModel.Note(title: "Note 1", date: date, period: .day, assignments: [])
-        let taskRepo = InMemoryTaskRepository(tasks: [task1, task2])
-        let noteRepo = InMemoryNoteRepository(notes: [note])
+        let task1 = DataModel.Task(title: "Task 1", date: date, period: .day, currentAssignments: [])
+        let task2 = DataModel.Task(title: "Task 2", date: date, period: .day, currentAssignments: [])
+        let note = DataModel.Note(title: "Note 1", date: date, period: .day, currentAssignments: [])
+        let taskRepo = TestTaskRepository(tasks: [task1, task2])
+        let noteRepo = TestNoteRepository(notes: [note])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo,
             noteRepository: noteRepo
         )
 
-        #expect(manager.inboxEntries.count == 3)
+        // Only the two tasks count toward Inbox — the note is never Inbox-eligible
+        // (`Note.isInboxEligible == false`, SPRD-247/248).
+        #expect(manager.inboxEntries.count == 2)
 
         let spread = try await manager.addSpread(period: .day, date: date)
 
         #expect(manager.inboxEntries.isEmpty)
         for task in manager.tasks {
-            #expect(task.assignments.count == 1)
-            #expect(task.assignments.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
+            #expect(task.allAssignmentsForTesting.count == 1)
+            #expect(task.allAssignmentsForTesting.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
         }
         for note in manager.notes {
-            #expect(note.assignments.count == 1)
-            #expect(note.assignments.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
+            #expect(note.allAssignmentsForTesting.count == 1)
+            #expect(note.allAssignmentsForTesting.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
         }
     }
 
@@ -384,11 +391,11 @@ struct InboxTests {
             title: "Inbox Task",
             date: taskDate,
             period: .day,
-            assignments: []
+            currentAssignments: []
         )
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -410,11 +417,11 @@ struct InboxTests {
             title: "Day Task",
             date: taskDate,
             period: .day,
-            assignments: []
+            currentAssignments: []
         )
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -427,8 +434,8 @@ struct InboxTests {
 
         #expect(manager.inboxEntries.isEmpty)
         let updatedTask = try #require(manager.tasks.first { $0.id == task.id })
-        #expect(updatedTask.assignments.count == 1)
-        #expect(updatedTask.assignments.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
+        #expect(updatedTask.allAssignmentsForTesting.count == 1)
+        #expect(updatedTask.allAssignmentsForTesting.first?.matches(period: spread.period, date: spread.date, calendar: calendar) == true)
         let candidates = manager.migrationCandidates(to: spread)
         #expect(candidates.isEmpty)
     }
@@ -443,22 +450,22 @@ struct InboxTests {
             title: "Year Assigned Task",
             date: taskDate,
             period: .day,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread])
+            taskRepository: TestTaskRepository(tasks: [task]),
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread])
         )
 
         let monthSpread = try await manager.addSpread(period: .month, date: taskDate)
 
         let updatedTask = try #require(manager.tasks.first { $0.id == task.id })
-        #expect(updatedTask.assignments.count == 2)
-        #expect(updatedTask.assignments.first?.status == .migrated)
-        #expect(updatedTask.assignments.last?.matches(period: .month, date: monthSpread.date, calendar: calendar) == true)
-        #expect(updatedTask.assignments.last?.status == .open)
+        #expect(updatedTask.allAssignmentsForTesting.count == 2)
+        #expect(updatedTask.allAssignmentsForTesting.first?.status == .migrated)
+        #expect(updatedTask.allAssignmentsForTesting.last?.matches(period: .month, date: monthSpread.date, calendar: calendar) == true)
+        #expect(updatedTask.allAssignmentsForTesting.last?.status == .open)
 
         let yearKey = SpreadDataModelKey(spread: yearSpread, calendar: calendar)
         let monthKey = SpreadDataModelKey(spread: monthSpread, calendar: calendar)
@@ -476,22 +483,22 @@ struct InboxTests {
             title: "Month Assigned Note",
             date: noteDate,
             period: .day,
-            assignments: [NoteAssignment(period: .month, date: noteDate, status: .active)]
+            currentAssignments: [Assignment(period: .month, date: noteDate, status: .active)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
-            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread]),
-            noteRepository: InMemoryNoteRepository(notes: [note])
+            spreadRepository: TestSpreadRepository(spreads: [monthSpread]),
+            noteRepository: TestNoteRepository(notes: [note])
         )
 
         let daySpread = try await manager.addSpread(period: .day, date: noteDate)
 
         let updatedNote = try #require(manager.notes.first { $0.id == note.id })
-        #expect(updatedNote.assignments.count == 2)
-        #expect(updatedNote.assignments.first?.status == .migrated)
-        #expect(updatedNote.assignments.last?.matches(period: .day, date: daySpread.date, calendar: calendar) == true)
-        #expect(updatedNote.assignments.last?.status == .active)
+        #expect(updatedNote.allAssignmentsForTesting.count == 2)
+        #expect(updatedNote.allAssignmentsForTesting.first?.status == .migrated)
+        #expect(updatedNote.allAssignmentsForTesting.last?.matches(period: .day, date: daySpread.date, calendar: calendar) == true)
+        #expect(updatedNote.allAssignmentsForTesting.last?.status == .active)
 
         let monthKey = SpreadDataModelKey(spread: monthSpread, calendar: calendar)
         let dayKey = SpreadDataModelKey(spread: daySpread, calendar: calendar)
@@ -508,19 +515,19 @@ struct InboxTests {
             title: "Inbox Task",
             date: entryDate,
             period: .day,
-            assignments: []
+            currentAssignments: []
         )
         let note = DataModel.Note(
             title: "Inbox Note",
             date: entryDate,
             period: .day,
-            assignments: []
+            currentAssignments: []
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
-            noteRepository: InMemoryNoteRepository(notes: [note])
+            taskRepository: TestTaskRepository(tasks: [task]),
+            noteRepository: TestNoteRepository(notes: [note])
         )
 
         let result = try await manager.createSpread(period: .day, date: entryDate)
@@ -534,7 +541,7 @@ struct InboxTests {
     /// Expected: The creation result reports no auto-migration summary.
     @Test @MainActor func testCreateSpreadReturnsNilSummaryWhenNoEntriesMove() async throws {
         let calendar = Self.testCalendar
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate
         )
@@ -554,21 +561,21 @@ struct InboxTests {
             title: "Month Preferred Task",
             date: taskDate,
             period: .month,
-            assignments: [TaskAssignment(period: .month, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread])
+            taskRepository: TestTaskRepository(tasks: [task]),
+            spreadRepository: TestSpreadRepository(spreads: [monthSpread])
         )
 
         let daySpread = try await manager.addSpread(period: .day, date: taskDate)
 
         let updatedTask = try #require(manager.tasks.first { $0.id == task.id })
-        #expect(updatedTask.assignments.count == 1)
-        #expect(updatedTask.assignments.first?.matches(period: .month, date: monthSpread.date, calendar: calendar) == true)
-        #expect(updatedTask.assignments.first?.status == .open)
+        #expect(updatedTask.allAssignmentsForTesting.count == 1)
+        #expect(updatedTask.allAssignmentsForTesting.first?.matches(period: .month, date: monthSpread.date, calendar: calendar) == true)
+        #expect(updatedTask.allAssignmentsForTesting.first?.status == .open)
 
         let monthKey = SpreadDataModelKey(spread: monthSpread, calendar: calendar)
         let dayKey = SpreadDataModelKey(spread: daySpread, calendar: calendar)
@@ -585,19 +592,19 @@ struct InboxTests {
             title: "Inbox Task",
             date: entryDate,
             period: .day,
-            assignments: []
+            currentAssignments: []
         )
         let note = DataModel.Note(
             title: "Inbox Note",
             date: entryDate,
             period: .day,
-            assignments: []
+            currentAssignments: []
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
-            noteRepository: InMemoryNoteRepository(notes: [note])
+            taskRepository: TestTaskRepository(tasks: [task]),
+            noteRepository: TestNoteRepository(notes: [note])
         )
 
         let startDate = calendar.date(from: .init(year: 2026, month: 1, day: 13))!
@@ -607,12 +614,12 @@ struct InboxTests {
         #expect(manager.inboxEntries.isEmpty)
         let updatedTask = try #require(manager.tasks.first { $0.id == task.id })
         let updatedNote = try #require(manager.notes.first { $0.id == note.id })
-        #expect(updatedTask.assignments.count == 1)
-        #expect(updatedNote.assignments.count == 1)
-        #expect(updatedTask.assignments.first?.matches(spread: multidaySpread, calendar: calendar) == true)
-        #expect(updatedTask.assignments.first?.spreadID == multidaySpread.id)
-        #expect(updatedNote.assignments.first?.matches(spread: multidaySpread, calendar: calendar) == true)
-        #expect(updatedNote.assignments.first?.spreadID == multidaySpread.id)
+        #expect(updatedTask.allAssignmentsForTesting.count == 1)
+        #expect(updatedNote.allAssignmentsForTesting.count == 1)
+        #expect(updatedTask.allAssignmentsForTesting.first?.matches(spread: multidaySpread, calendar: calendar) == true)
+        #expect(updatedTask.allAssignmentsForTesting.first?.spreadID == multidaySpread.id)
+        #expect(updatedNote.allAssignmentsForTesting.first?.matches(spread: multidaySpread, calendar: calendar) == true)
+        #expect(updatedNote.allAssignmentsForTesting.first?.spreadID == multidaySpread.id)
         #expect(manager.dataModel[.multiday]?[multidaySpread.date]?.tasks.map(\.id) == [task.id])
         #expect(manager.dataModel[.multiday]?[multidaySpread.date]?.notes.map(\.id) == [note.id])
     }
@@ -622,7 +629,7 @@ struct InboxTests {
     @Test @MainActor func testAddSpreadIncrementsDataVersion() async throws {
         let calendar = Self.testCalendar
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate
         )
@@ -638,9 +645,9 @@ struct InboxTests {
     /// Expected: Repository contains the saved day spread.
     @Test @MainActor func testAddSpreadPersistsSpreadToRepository() async throws {
         let calendar = Self.testCalendar
-        let spreadRepo = InMemorySpreadRepository()
+        let spreadRepo = TestSpreadRepository()
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             spreadRepository: spreadRepo
@@ -663,11 +670,11 @@ struct InboxTests {
             title: "February Task",
             date: differentDate,
             period: .day,
-            assignments: []
+            currentAssignments: []
         )
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
+        let taskRepo = TestTaskRepository(tasks: [task])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: Self.testDate,
             taskRepository: taskRepo
@@ -686,16 +693,18 @@ struct InboxTests {
     // MARK: - Mixed Scenarios
 
     /// Conditions: One task and one note are unassigned, and one event exists.
-    /// Expected: Inbox contains the task and note, excludes the event.
-    @Test @MainActor func testInboxContainsMixOfTasksAndNotes() async throws {
-        let task = DataModel.Task(title: "Task", date: Self.testDate, assignments: [])
-        let note = DataModel.Note(title: "Note", date: Self.testDate, assignments: [])
+    /// Expected: Inbox contains the task only — notes are never Inbox-eligible
+    /// (`Note.isInboxEligible == false`, SPRD-247/248) and events use computed visibility,
+    /// not assignments, so they're excluded too.
+    @Test @MainActor func testInboxContainsOnlyUnassignedTasks() async throws {
+        let task = DataModel.Task(title: "Task", date: Self.testDate, currentAssignments: [])
+        let note = DataModel.Note(title: "Note", date: Self.testDate, currentAssignments: [])
         let event = DataModel.Event(title: "Event", startDate: Self.testDate, endDate: Self.testDate)
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
-        let noteRepo = InMemoryNoteRepository(notes: [note])
-        let eventRepo = InMemoryEventRepository(events: [event])
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let noteRepo = TestNoteRepository(notes: [note])
+        let eventRepo = TestEventRepository(events: [event])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.testCalendar,
             today: Self.testDate,
             taskRepository: taskRepo,
@@ -703,14 +712,14 @@ struct InboxTests {
             noteRepository: noteRepo
         )
 
-        #expect(manager.inboxCount == 2)
+        #expect(manager.inboxCount == 1)
 
         let taskInInbox = manager.inboxEntries.contains { $0.id == task.id }
         let noteInInbox = manager.inboxEntries.contains { $0.id == note.id }
         let eventInInbox = manager.inboxEntries.contains { $0.id == event.id }
 
         #expect(taskInInbox)
-        #expect(noteInInbox)
+        #expect(!noteInInbox)
         #expect(!eventInInbox)
     }
 }

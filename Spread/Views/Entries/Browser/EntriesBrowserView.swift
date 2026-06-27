@@ -17,7 +17,7 @@ struct EntriesBrowserView: View {
     let journalManager: JournalManager
     let listRepository: any ListRepository
     let tagRepository: any TagRepository
-    let onOpenTask: (UUID, SpreadHeaderNavigatorModel.Selection?) -> Void
+    let onOpenTask: (UUID, DataModel.Spread?) -> Void
 
     @State private var viewModel = EntriesBrowserViewModel()
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -107,14 +107,11 @@ struct EntriesBrowserView: View {
                                 EntryRowView(
                                     entry: row.task,
                                     configuration: EntryRowView.Configuration(
-                                        effectiveTaskStatus: { $0.displayTaskStatus },
                                         isGreyedOut: { entry in
-                                            guard let s = entry.displayTaskStatus else { return false }
-                                            return s == .complete || s == .migrated || s == .cancelled
+                                            guard entry.entryType == .task else { return false }
+                                            return entry.status == .complete || entry.status == .migrated || entry.status == .cancelled
                                         },
-                                        hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
-                                        onEdit: { _ in onOpenTask(row.task.id, nil) }
-                                    )
+                                        hasStrikethrough: { entry in entry.status == .cancelled }                                    )
                                 )
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)

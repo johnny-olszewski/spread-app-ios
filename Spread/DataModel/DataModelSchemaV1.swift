@@ -273,24 +273,9 @@ enum DataModelSchemaV1: VersionedSchema {
     /// An assignable entry with status and migration history.
     ///
     /// Tasks track their preferred date and period for assignment purposes.
-    /// Assignment history is tracked via TaskAssignment (SPRD-10).
+    /// Assignment history is tracked via Assignment (SPRD-10).
     @Model
     final class Task: AssignableEntry {
-        /// The status of a task on a spread.
-        enum Status: String, CaseIterable, Codable, Sendable {
-            /// Task is open and not yet completed.
-            case open
-
-            /// Task has been completed.
-            case complete
-
-            /// Task has been migrated to another spread.
-            case migrated
-
-            /// Task has been cancelled and hidden from default views.
-            case cancelled
-        }
-
         /// Display-only task priority.
         enum Priority: String, CaseIterable, Codable, Sendable {
             case none
@@ -325,26 +310,20 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The date this task was created.
         var createdDate: Date
 
-        /// The preferred date for this task.
-        var date: Date
+        /// The preferred date for this task. `nil` means no preferred assignment.
+        var date: Date?
 
-        /// The preferred period for this task.
-        var period: Period
-
-        /// Optional persisted backing for `hasPreferredAssignment`.
-        @Attribute(originalName: "hasPreferredAssignment") private var storedHasPreferredAssignment: Bool?
-
-        /// Whether `date` and `period` represent an active preferred assignment.
-        var hasPreferredAssignment: Bool {
-            get { storedHasPreferredAssignment ?? true }
-            set { storedHasPreferredAssignment = newValue }
-        }
+        /// The preferred period for this task. `nil` means no preferred assignment.
+        var period: Period?
 
         /// The current status of the task.
-        var status: Status
+        var status: EntryStatus
 
-        /// Assignment history for this task across spreads.
-        var assignments: [TaskAssignment]
+        /// The live, non-migrated assignment(s) for this task across spreads.
+        var currentAssignments: [Assignment]
+
+        /// Append-only record of assignments that have transitioned to `.migrated`.
+        var migrationHistory: [Assignment]
 
         /// The optional list this task belongs to (at most one).
         var list: DataModelSchemaV1.List?
@@ -354,6 +333,13 @@ enum DataModelSchemaV1: VersionedSchema {
 
         /// The type of entry.
         var entryType: EntryType { .task }
+
+        /// Chronological sort key. Falls back to `createdDate` when there's no preferred `date`.
+        var sortDate: Date { date ?? createdDate }
+
+        var isInboxEligible: Bool { true }
+        var isMigratable: Bool { true }
+        var isOverdueEligible: Bool { true }
 
         // MARK: Sync Metadata
 
@@ -389,6 +375,8 @@ enum DataModelSchemaV1: VersionedSchema {
 
         /// LWW timestamp for the `list` relationship field.
         var listUpdatedAt: Date?
+        
+        var baseShape: EntryStatusIcon.BaseShape { .filledCircle }
 
         /// Creates a new task.
         ///
@@ -399,7 +387,8 @@ enum DataModelSchemaV1: VersionedSchema {
         ///   - date: The preferred date (defaults to now).
         ///   - period: The preferred period (defaults to `.day`).
         ///   - status: The task status (defaults to `.open`).
-        ///   - assignments: Assignment history (defaults to empty).
+        ///   - currentAssignments: Live, non-migrated assignments (defaults to empty).
+        ///   - migrationHistory: Already-migrated assignment history (defaults to empty).
         init(
             id: UUID = UUID(),
             title: String = "",
@@ -407,11 +396,11 @@ enum DataModelSchemaV1: VersionedSchema {
             priority: Priority = .none,
             dueDate: Date? = nil,
             createdDate: Date = .now,
-            date: Date = .now,
-            period: Period = .day,
-            hasPreferredAssignment: Bool = true,
-            status: Status = .open,
-            assignments: [TaskAssignment] = [],
+            date: Date? = .now,
+            period: Period? = .day,
+            status: EntryStatus = .open,
+            currentAssignments: [Assignment] = [],
+            migrationHistory: [Assignment] = [],
             list: DataModelSchemaV1.List? = nil,
             tags: [DataModelSchemaV1.Tag] = [],
             deletedAt: Date? = nil,
@@ -434,9 +423,9 @@ enum DataModelSchemaV1: VersionedSchema {
             self.createdDate = createdDate
             self.date = date
             self.period = period
-            self.storedHasPreferredAssignment = hasPreferredAssignment
             self.status = status
-            self.assignments = assignments
+            self.currentAssignments = currentAssignments
+            self.migrationHistory = migrationHistory
             self.list = list
             self.tags = tags
             self.deletedAt = deletedAt
@@ -520,6 +509,8 @@ enum DataModelSchemaV1: VersionedSchema {
 
         /// LWW timestamp for the `endTime` field.
         var endTimeUpdatedAt: Date?
+        
+        var baseShape: EntryStatusIcon.BaseShape { .emptyCircle }
 
         /// Ephemeral EventKit backing data. Not persisted; nil for all stored events.
         @Transient var calendarEvent: CalendarEvent? = nil
@@ -617,19 +608,10 @@ enum DataModelSchemaV1: VersionedSchema {
     /// An assignable entry with explicit-only migration.
     ///
     /// Notes can have extended content and track their preferred date and period.
-    /// Assignment history is tracked via NoteAssignment (SPRD-10).
+    /// Assignment history is tracked via Assignment (SPRD-10).
     /// Notes only migrate when explicitly triggered by the user.
     @Model
     final class Note: AssignableEntry {
-        /// The status of a note on a spread.
-        enum Status: String, CaseIterable, Codable, Sendable {
-            /// Note is active on the spread.
-            case active
-
-            /// Note has been migrated to another spread.
-            case migrated
-        }
-
         /// Unique identifier for the note.
         @Attribute(.unique) var id: UUID
 
@@ -642,17 +624,20 @@ enum DataModelSchemaV1: VersionedSchema {
         /// The date this note was created.
         var createdDate: Date
 
-        /// The preferred date for this note.
-        var date: Date
+        /// The preferred date for this note. `nil` means no preferred assignment.
+        var date: Date?
 
         /// The preferred period for this note.
         var period: Period
 
         /// The current status of the note.
-        var status: Status
+        var status: EntryStatus
 
-        /// Assignment history for this note across spreads.
-        var assignments: [NoteAssignment]
+        /// The live, non-migrated assignment(s) for this note across spreads.
+        var currentAssignments: [Assignment]
+
+        /// Append-only record of assignments that have transitioned to `.migrated`.
+        var migrationHistory: [Assignment]
 
         /// The optional list this note belongs to (at most one).
         var list: DataModelSchemaV1.List?
@@ -662,6 +647,9 @@ enum DataModelSchemaV1: VersionedSchema {
 
         /// The type of entry.
         var entryType: EntryType { .note }
+
+        /// Chronological sort key. Falls back to `createdDate` when there's no preferred `date`.
+        var sortDate: Date { date ?? createdDate }
 
         // MARK: Sync Metadata
 
@@ -691,6 +679,8 @@ enum DataModelSchemaV1: VersionedSchema {
 
         /// LWW timestamp for the `list` relationship field.
         var listUpdatedAt: Date?
+        
+        var baseShape: EntryStatusIcon.BaseShape { .dash }
 
         /// Creates a new note.
         ///
@@ -702,16 +692,18 @@ enum DataModelSchemaV1: VersionedSchema {
         ///   - date: The preferred date (defaults to now).
         ///   - period: The preferred period (defaults to `.day`).
         ///   - status: The note status (defaults to `.active`).
-        ///   - assignments: Assignment history (defaults to empty).
+        ///   - currentAssignments: Live, non-migrated assignments (defaults to empty).
+        ///   - migrationHistory: Already-migrated assignment history (defaults to empty).
         init(
             id: UUID = UUID(),
             title: String = "",
             content: String = "",
             createdDate: Date = .now,
-            date: Date = .now,
+            date: Date? = .now,
             period: Period = .day,
-            status: Status = .active,
-            assignments: [NoteAssignment] = [],
+            status: EntryStatus = .active,
+            currentAssignments: [Assignment] = [],
+            migrationHistory: [Assignment] = [],
             list: DataModelSchemaV1.List? = nil,
             tags: [DataModelSchemaV1.Tag] = [],
             deletedAt: Date? = nil,
@@ -731,7 +723,8 @@ enum DataModelSchemaV1: VersionedSchema {
             self.date = date
             self.period = period
             self.status = status
-            self.assignments = assignments
+            self.currentAssignments = currentAssignments
+            self.migrationHistory = migrationHistory
             self.list = list
             self.tags = tags
             self.deletedAt = deletedAt
@@ -815,16 +808,12 @@ enum DataModelSchemaV1: VersionedSchema {
 
     /// Per-user settings synced to the server.
     ///
-    /// One row per user (singleton-like). Contains the bullet journal mode
-    /// and first weekday preference. Field-level LWW timestamps enable
-    /// conflict-free sync of individual settings.
+    /// One row per user (singleton-like). Contains the first weekday preference.
+    /// Field-level LWW timestamps enable conflict-free sync of individual settings.
     @Model
     final class Settings {
         /// Unique identifier for the settings row.
         @Attribute(.unique) var id: UUID
-
-        /// The bullet journal mode.
-        var bujoMode: BujoMode
 
         /// The first weekday as a server-compatible integer (1-7).
         ///
@@ -846,9 +835,6 @@ enum DataModelSchemaV1: VersionedSchema {
         /// Server-assigned revision for incremental pull.
         var revision: Int64
 
-        /// LWW timestamp for `bujoMode`.
-        var bujoModeUpdatedAt: Date?
-
         /// LWW timestamp for `firstWeekday`.
         var firstWeekdayUpdatedAt: Date?
 
@@ -856,33 +842,27 @@ enum DataModelSchemaV1: VersionedSchema {
         ///
         /// - Parameters:
         ///   - id: Unique identifier (defaults to new UUID).
-        ///   - bujoMode: The BuJo mode (defaults to `.conventional`).
         ///   - firstWeekday: The first weekday integer 1-7 (defaults to 1 = Sunday).
         ///   - createdDate: When these settings were created (defaults to now).
         ///   - deletedAt: Soft-delete timestamp (defaults to nil).
         ///   - deviceId: The device that created/modified these settings.
         ///   - revision: Server revision (defaults to 0).
-        ///   - bujoModeUpdatedAt: LWW timestamp for bujoMode.
         ///   - firstWeekdayUpdatedAt: LWW timestamp for firstWeekday.
         init(
             id: UUID = UUID(),
-            bujoMode: BujoMode = .conventional,
             firstWeekday: Int = 1,
             createdDate: Date = .now,
             deletedAt: Date? = nil,
             deviceId: UUID? = nil,
             revision: Int64 = 0,
-            bujoModeUpdatedAt: Date? = nil,
             firstWeekdayUpdatedAt: Date? = nil
         ) {
             self.id = id
-            self.bujoMode = bujoMode
             self.firstWeekday = firstWeekday
             self.createdDate = createdDate
             self.deletedAt = deletedAt
             self.deviceId = deviceId
             self.revision = revision
-            self.bujoModeUpdatedAt = bujoModeUpdatedAt
             self.firstWeekdayUpdatedAt = firstWeekdayUpdatedAt
         }
     }

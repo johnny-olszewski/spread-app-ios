@@ -43,8 +43,8 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .open,
-                assignments: [
-                    TaskAssignment(period: .day, date: dayDate, status: .open)
+                currentAssignments: [
+                    Assignment(period: .day, date: dayDate, status: .open)
                 ]
             ),
             completedOnMonth: DataModel.Task(
@@ -53,8 +53,8 @@ extension TestDataBuilders {
                 date: monthDate,
                 period: .month,
                 status: .complete,
-                assignments: [
-                    TaskAssignment(period: .month, date: monthDate, status: .complete)
+                currentAssignments: [
+                    Assignment(period: .month, date: monthDate, status: .complete)
                 ]
             ),
             migratedFromMonthToDay: DataModel.Task(
@@ -63,9 +63,11 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .open,
-                assignments: [
-                    TaskAssignment(period: .month, date: monthDate, status: .migrated),
-                    TaskAssignment(period: .day, date: dayDate, status: .open)
+                currentAssignments: [
+                    Assignment(period: .day, date: dayDate, status: .open)
+                ],
+                migrationHistory: [
+                    Assignment(period: .month, date: monthDate, status: .migrated)
                 ]
             ),
             cancelled: DataModel.Task(
@@ -74,8 +76,8 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .cancelled,
-                assignments: [
-                    TaskAssignment(period: .day, date: dayDate, status: .cancelled)
+                currentAssignments: [
+                    Assignment(period: .day, date: dayDate, status: .cancelled)
                 ]
             ),
             openOnYear: DataModel.Task(
@@ -84,8 +86,8 @@ extension TestDataBuilders {
                 date: yearDate,
                 period: .year,
                 status: .open,
-                assignments: [
-                    TaskAssignment(period: .year, date: yearDate, status: .open)
+                currentAssignments: [
+                    Assignment(period: .year, date: yearDate, status: .open)
                 ]
             ),
             unassigned: DataModel.Task(
@@ -94,7 +96,7 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .open,
-                assignments: []
+                currentAssignments: []
             )
         )
     }

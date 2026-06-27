@@ -18,7 +18,7 @@ struct PresentedTemporalContextTests {
             fixedContext: Self.initialContext
         )
         let appClock = AppClock(source: clockSource, notificationBridge: nil)
-        let manager = try await JournalManager.make(appClock: appClock)
+        let manager = try await JournalManager(appClock: appClock)
         let presentedContext = PresentedTemporalContext(journalManager: manager)
 
         clockSource.setFixedContext(Self.nextDayContext)

@@ -3,7 +3,7 @@ import SwiftUI
 struct TaskSearchView: View {
     let journalManager: JournalManager
     let isActive: Bool
-    let onOpenTask: (UUID, SpreadHeaderNavigatorModel.Selection?) -> Void
+    let onOpenTask: (UUID, DataModel.Spread?) -> Void
 
     @State private var searchText = ""
     @State private var isSearchPresented = false
@@ -103,12 +103,17 @@ private struct TaskSearchRowContent: View {
     let priority: DataModel.Task.Priority
     let dueDateLabel: String?
     let isDueDateHighlighted: Bool
-    let status: DataModel.Task.Status
+    let status: EntryStatus
     let subtitle: String
 
     var body: some View {
-        HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-            StatusIcon(entryType: .task, taskStatus: status, size: .body)
+        HStack(spacing: 8) {
+            EntryStatusIcon(
+                baseShape: EntryType.task.statusIconBaseShape,
+                bseeShapeConfig: .init(color: status.iconColor, iconSize: SpreadTheme.IconSize.medium),
+                overlay: status.overlayShape,
+                overlayConfig: .init(color: status.iconColor, iconSize: SpreadTheme.IconSize.medium)
+            )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)

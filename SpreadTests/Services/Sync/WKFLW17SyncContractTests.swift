@@ -3,39 +3,36 @@ import Testing
 
 struct WKFLW17SyncContractTests {
 
-    /// Conditions: The committed Supabase migration and local schema snapshot are inspected for WKFLW-17 fields.
-    /// Expected: Only approved spread/task fields are present; deferred candidates do not appear as persisted columns or RPC args.
+    /// Conditions: The committed baseline schema (post-SPRD-246/239 squash; WKFLW-17's original
+    /// migration file no longer exists as a separate artifact) is inspected for WKFLW-17 fields.
+    /// Expected: Approved spread/task fields are present; deferred candidates that are still
+    /// genuinely unimplemented do not appear as persisted columns or RPC args. `tag`/`tags` were
+    /// dropped from the deferred list — they now legitimately exist via SPRD-221/246's
+    /// `tags`/`entry_tags` tables, unrelated to WKFLW-17 scope.
     @Test func schemaSnapshotsIncludeApprovedFieldsAndNoDeferredCandidates() throws {
-        let migration = try readRepositoryFile("supabase/migrations/20260418000000_wkflw17_schema_sync_fields.sql")
-        let snapshot = try readRepositoryFile("supabase/local/public_schema_from_dev.sql")
+        let migration = try readRepositoryFile("supabase/migrations/20260624000000_baseline_schema.sql")
 
-        for sql in [migration, snapshot] {
-            for approvedField in approvedWKFLW17SQLFields {
-                #expect(sql.contains(approvedField))
-            }
+        for approvedField in approvedWKFLW17SQLFields {
+            #expect(migration.contains(approvedField))
+        }
 
-            for deferredPattern in deferredWKFLW17SQLPatterns {
-                #expect(
-                    sql.range(of: deferredPattern, options: [.regularExpression, .caseInsensitive]) == nil
-                )
-            }
+        for deferredPattern in deferredWKFLW17SQLPatterns {
+            #expect(
+                migration.range(of: deferredPattern, options: [.regularExpression, .caseInsensitive]) == nil
+            )
         }
     }
 
     /// Conditions: The merge RPC definitions are inspected for the approved metadata fields.
     /// Expected: Each independently mergeable field uses its own timestamp, and delete handling precedes metadata updates.
     @Test func mergeFunctionsUseIndependentConflictTimestampsAndDeleteWins() throws {
-        let migration = try readRepositoryFile("supabase/migrations/20260418000000_wkflw17_schema_sync_fields.sql")
-        let snapshot = try readRepositoryFile("supabase/local/public_schema_from_dev.sql")
+        let migration = try readRepositoryFile("supabase/migrations/20260624000000_baseline_schema.sql")
 
-        for sql in [migration, snapshot] {
-            #expect(sql.contains("IF p_deleted_at IS NOT NULL"))
-            #expect(sql.contains("is_favorite = CASE WHEN p_is_favorite_updated_at > v_existing.is_favorite_updated_at"))
-            #expect(sql.contains("custom_name = CASE WHEN p_custom_name_updated_at > v_existing.custom_name_updated_at"))
-            #expect(sql.contains("uses_dynamic_name = CASE WHEN p_uses_dynamic_name_updated_at > v_existing.uses_dynamic_name_updated_at"))
-            #expect(sql.contains("body = CASE WHEN p_body_updated_at > v_existing.body_updated_at"))
-            #expect(sql.contains("priority = CASE WHEN p_priority_updated_at > v_existing.priority_updated_at"))
-            #expect(sql.contains("due_date = CASE WHEN p_due_date_updated_at > v_existing.due_date_updated_at"))
+        #expect(migration.contains("IF p_deleted_at IS NOT NULL"))
+        for field in ["is_favorite", "custom_name", "uses_dynamic_name", "body", "priority", "due_date"] {
+            // Whitespace between tokens is alignment padding and may vary, so match it loosely.
+            let pattern = "\(field)\\s*=\\s*CASE WHEN p_\(field)_updated_at\\s*>\\s*v_existing\\.\(field)_updated_at"
+            #expect(migration.range(of: pattern, options: .regularExpression) != nil)
         }
     }
 
@@ -60,8 +57,6 @@ struct WKFLW17SyncContractTests {
         [
             "\\blink\\b",
             "\\blinks\\b",
-            "\\btag\\b",
-            "\\btags\\b",
             "\\bassigned_time\\b",
             "\\bsubtask\\b",
             "\\bsubtasks\\b",

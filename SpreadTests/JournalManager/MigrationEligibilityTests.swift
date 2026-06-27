@@ -28,22 +28,22 @@ struct MigrationEligibilityTests {
             date: taskDate,
             period: .month,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .year, date: taskDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .year, date: taskDate, status: .open)
             ]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+            taskRepository: TestTaskRepository(tasks: [task]),
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
         let monthCandidates = manager.migrationCandidates(to: monthSpread)
         let dayCandidates = manager.migrationCandidates(to: daySpread)
 
-        #expect(monthCandidates.map(\.task.id) == [task.id])
+        #expect(monthCandidates.map(\.entry.id) == [task.id])
         #expect(dayCandidates.isEmpty)
     }
 
@@ -60,23 +60,23 @@ struct MigrationEligibilityTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .year, date: taskDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .year, date: taskDate, status: .open)
             ]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+            taskRepository: TestTaskRepository(tasks: [task]),
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
         let monthCandidates = manager.migrationCandidates(to: monthSpread)
         let dayCandidates = manager.migrationCandidates(to: daySpread)
 
         #expect(monthCandidates.isEmpty)
-        #expect(dayCandidates.map(\.task.id) == [task.id])
+        #expect(dayCandidates.map(\.entry.id) == [task.id])
     }
 
     /// Conditions: A day-desired task is in Inbox with matching year, month, and day spreads available.
@@ -94,11 +94,11 @@ struct MigrationEligibilityTests {
             status: .open
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+            taskRepository: TestTaskRepository(tasks: [task]),
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
         let dayCandidates = manager.migrationCandidates(to: daySpread)
@@ -121,28 +121,28 @@ struct MigrationEligibilityTests {
             date: taskDate,
             period: .month,
             status: .complete,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
         let cancelledTask = DataModel.Task(
             title: "Cancelled",
             date: taskDate,
             period: .month,
             status: .cancelled,
-            assignments: [TaskAssignment(period: .year, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: taskDate, status: .open)]
         )
         let resolvedTask = DataModel.Task(
             title: "Resolved",
             date: taskDate,
             period: .month,
             status: .open,
-            assignments: [TaskAssignment(period: .month, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: taskDate, status: .open)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: InMemoryTaskRepository(tasks: [completeTask, cancelledTask, resolvedTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
+            taskRepository: TestTaskRepository(tasks: [completeTask, cancelledTask, resolvedTask]),
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread])
         )
 
         #expect(manager.migrationCandidates(to: monthSpread).isEmpty)
@@ -160,19 +160,19 @@ struct MigrationEligibilityTests {
             status: .open
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: taskDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [daySpread])
+            taskRepository: TestTaskRepository(tasks: [task]),
+            spreadRepository: TestSpreadRepository(spreads: [daySpread])
         )
 
         try await manager.moveTask(task, from: .init(kind: .inbox), to: daySpread)
 
         let updatedTask = manager.tasks.first { $0.id == task.id }
-        #expect(updatedTask?.assignments.count == 1)
-        #expect(updatedTask?.assignments.first?.status == .open)
-        #expect(updatedTask?.assignments.first?.period == .day)
+        #expect(updatedTask?.allAssignmentsForTesting.count == 1)
+        #expect(updatedTask?.allAssignmentsForTesting.first?.status == .open)
+        #expect(updatedTask?.allAssignmentsForTesting.first?.period == .day)
     }
 
     /// Conditions: A task prefers April 6, 2026 day, is currently open on the 2026 year spread, and the April 2026 month spread is later created.
@@ -189,20 +189,20 @@ struct MigrationEligibilityTests {
             date: aprilSixth,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .year, date: yearDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: yearDate, status: .open)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: makeDate(year: 2026, month: 3, day: 29),
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, aprilMonthSpread])
+            taskRepository: TestTaskRepository(tasks: [task]),
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, aprilMonthSpread])
         )
 
         let monthCandidates = manager.migrationCandidates(to: aprilMonthSpread)
         let sourceDestination = manager.migrationDestination(for: task, on: yearSpread)
 
-        #expect(monthCandidates.map(\.task.id) == [task.id])
+        #expect(monthCandidates.map(\.entry.id) == [task.id])
         #expect(sourceDestination?.id == aprilMonthSpread.id)
     }
 }

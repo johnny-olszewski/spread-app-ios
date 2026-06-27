@@ -10,7 +10,7 @@ enum AppRuntimeFactory {
 
     /// Creates a live runtime for app launch.
     ///
-    /// - Parameter configuration: Optional overrides for debug/QA builds.
+    /// - Parameter configuration: Optional overrides for debug builds.
     @MainActor
     static func makeLive() async throws -> AppRuntime {
         try await makeLive(configuration: AppRuntimeConfiguration())
@@ -51,7 +51,7 @@ enum AppRuntimeFactory {
     ///
     /// - Parameters:
     ///   - dependencies: The app dependencies to use.
-    ///   - configuration: Optional overrides for debug/QA builds.
+    ///   - configuration: Optional overrides for debug builds.
     @MainActor
     static func make(dependencies: AppDependencies) async throws -> AppRuntime {
         try await make(
@@ -88,12 +88,10 @@ enum AppRuntimeFactory {
 
         // Load persisted settings to configure JournalManager
         let savedSettings = await dependencies.settingsRepository.getSettings()
-        let bujoMode = savedSettings?.bujoMode ?? .conventional
         let firstWeekday = savedSettings.flatMap { FirstWeekday.from(weekdayValue: $0.firstWeekday) } ?? .systemDefault
 
         let journalManager = try await dependencies.makeJournalManager(
             appClock: appClock,
-            bujoMode: bujoMode,
             firstWeekday: firstWeekday
         )
 

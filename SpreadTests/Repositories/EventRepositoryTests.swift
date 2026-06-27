@@ -4,7 +4,7 @@ import Foundation
 
 /// Tests for event repository CRUD operations.
 ///
-/// Validates InMemoryEventRepository against the EventRepository protocol contract.
+/// Validates TestEventRepository against the EventRepository protocol contract.
 /// SwiftData tests will be added when SwiftDataEventRepository is implemented (SPRD-57).
 @Suite("Event Repository Tests")
 struct EventRepositoryTests {
@@ -14,7 +14,7 @@ struct EventRepositoryTests {
     /// Conditions: Save an event to an empty InMemory repository.
     /// Expected: getEvents returns one event with the correct title.
     @Test @MainActor func testInMemorySaveAndRetrieve() async throws {
-        let repo = InMemoryEventRepository()
+        let repo = TestEventRepository()
         let event = DataModel.Event(title: "Team standup")
 
         try await repo.save(event)
@@ -28,7 +28,7 @@ struct EventRepositoryTests {
     /// Conditions: Save the same event twice.
     /// Expected: Repository contains only one event (no duplicates).
     @Test @MainActor func testInMemorySaveIsIdempotent() async throws {
-        let repo = InMemoryEventRepository()
+        let repo = TestEventRepository()
         let event = DataModel.Event(title: "Test Event")
 
         try await repo.save(event)
@@ -41,7 +41,7 @@ struct EventRepositoryTests {
     /// Conditions: Save an event, modify its title, save again.
     /// Expected: Repository contains one event with the updated title.
     @Test @MainActor func testInMemoryUpdate() async throws {
-        let repo = InMemoryEventRepository()
+        let repo = TestEventRepository()
         let event = DataModel.Event(title: "Original")
 
         try await repo.save(event)
@@ -56,7 +56,7 @@ struct EventRepositoryTests {
     /// Conditions: Save an event, then delete it.
     /// Expected: getEvents returns an empty array.
     @Test @MainActor func testInMemoryDelete() async throws {
-        let repo = InMemoryEventRepository()
+        let repo = TestEventRepository()
         let event = DataModel.Event(title: "To Delete")
 
         try await repo.save(event)
@@ -69,7 +69,7 @@ struct EventRepositoryTests {
     /// Conditions: Delete an event that was never saved.
     /// Expected: Repository remains empty (no error thrown).
     @Test @MainActor func testInMemoryDeleteNonExistentIsNoOp() async throws {
-        let repo = InMemoryEventRepository()
+        let repo = TestEventRepository()
         let event = DataModel.Event(title: "Non-existent")
 
         try await repo.delete(event)
@@ -85,7 +85,7 @@ struct EventRepositoryTests {
             DataModel.Event(title: "A", createdDate: .now.addingTimeInterval(-100)),
             DataModel.Event(title: "B", createdDate: .now)
         ]
-        let repo = InMemoryEventRepository(events: events)
+        let repo = TestEventRepository(events: events)
 
         let result = await repo.getEvents()
         #expect(result.count == 2)
@@ -96,7 +96,7 @@ struct EventRepositoryTests {
     /// Conditions: Empty InMemory repository.
     /// Expected: getEvents returns an empty array.
     @Test @MainActor func testInMemoryEmptyRepository() async {
-        let repo = InMemoryEventRepository()
+        let repo = TestEventRepository()
         let result = await repo.getEvents()
         #expect(result.isEmpty)
     }
@@ -104,7 +104,7 @@ struct EventRepositoryTests {
     /// Conditions: Save events with different createdDates in random order.
     /// Expected: getEvents returns them sorted by createdDate ascending.
     @Test @MainActor func testInMemorySortsByDateAscending() async throws {
-        let repo = InMemoryEventRepository()
+        let repo = TestEventRepository()
         let now = Date.now
         let event1 = DataModel.Event(title: "Oldest", createdDate: now.addingTimeInterval(-200))
         let event2 = DataModel.Event(title: "Middle", createdDate: now.addingTimeInterval(-100))
@@ -125,7 +125,7 @@ struct EventRepositoryTests {
     /// Conditions: Save events with different date ranges, query with a range that overlaps some.
     /// Expected: getEvents(from:to:) returns only overlapping events, sorted by startDate.
     @Test @MainActor func testGetEventsInDateRange() async throws {
-        let repo = InMemoryEventRepository()
+        let repo = TestEventRepository()
         let now = Date.now
         let dayInSeconds: TimeInterval = 86400
 
@@ -163,7 +163,7 @@ struct EventRepositoryTests {
     /// Conditions: Query events with a range that matches no events.
     /// Expected: getEvents(from:to:) returns an empty array.
     @Test @MainActor func testGetEventsInDateRangeReturnsEmptyWhenNoOverlap() async throws {
-        let repo = InMemoryEventRepository()
+        let repo = TestEventRepository()
         let now = Date.now
         let dayInSeconds: TimeInterval = 86400
 
@@ -183,7 +183,7 @@ struct EventRepositoryTests {
     /// Conditions: Save multiple overlapping events, query with a range.
     /// Expected: Results are sorted by startDate ascending.
     @Test @MainActor func testGetEventsInDateRangeSortedByStartDate() async throws {
-        let repo = InMemoryEventRepository()
+        let repo = TestEventRepository()
         let now = Date.now
         let dayInSeconds: TimeInterval = 86400
 

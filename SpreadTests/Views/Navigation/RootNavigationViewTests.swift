@@ -4,35 +4,35 @@ import Testing
 
 struct RootNavigationViewTests {
     @Test func testSpreadsTabHasCorrectProperties() {
-        let tab = NavigationTab.spreads
+        let tab = RootNavigationView.Content.spreads
 
         #expect(tab.title == "Spreads")
         #expect(tab.systemImage == "book")
     }
 
     @Test func testCollectionsTabHasCorrectProperties() {
-        let tab = NavigationTab.collections
+        let tab = RootNavigationView.Content.collections
 
         #expect(tab.title == "Collections")
         #expect(tab.systemImage == "folder")
     }
 
     @Test func testEntriesTabHasCorrectProperties() {
-        let tab = NavigationTab.entries
+        let tab = RootNavigationView.Content.entries
 
         #expect(tab.title == "Entries")
         #expect(tab.systemImage == "tray.full")
     }
 
     @Test func testSettingsTabHasCorrectProperties() {
-        let tab = NavigationTab.settings
+        let tab = RootNavigationView.Content.settings
 
         #expect(tab.title == "Settings")
         #expect(tab.systemImage == "gear")
     }
 
-    @Test func testNavigationTabsAreInCorrectOrder() {
-        let tabs = NavigationTab.allCases
+    @Test func testRootNavigationViewContentsAreInCorrectOrder() {
+        let tabs = RootNavigationView.Content.allCases
 
         #expect(tabs.count >= 4)
         #expect(tabs.count <= 5)

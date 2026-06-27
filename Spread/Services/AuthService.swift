@@ -12,7 +12,6 @@ struct AuthSuccess: Sendable {
 /// Implementations include:
 /// - `SupabaseAuthService`: Real Supabase authentication for production.
 /// - `MockAuthService`: Instant success for localhost/testing.
-/// - `DebugAuthService`: Decorator that injects forced errors for testing.
 @MainActor
 protocol AuthService: Sendable {
 

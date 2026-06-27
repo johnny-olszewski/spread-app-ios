@@ -57,23 +57,22 @@ final class SpreadsCoordinator {
 
     /// All possible alert presentations in the spreads view.
     enum AlertDestination: Identifiable {
-        case deleteSpreadConfirmation(DataModel.Spread)
-        case deleteSpreadFailed(message: String)
+        case alert(AlertModel)
 
         var id: String {
             switch self {
-            case .deleteSpreadConfirmation(let spread):
-                return "deleteSpreadConfirmation-\(spread.id)"
-            case .deleteSpreadFailed:
-                return "deleteSpreadFailed"
+            case .alert(let model): return model.id
             }
         }
     }
 
     // MARK: - Shell State
 
+    /// The calendar year displayed in the spreads navigator.
+    var selectedYear: Int = Calendar.current.component(.year, from: Date())
+
     /// The current navigator selection, nil until resolved on appear.
-    var selectedSelection: SpreadHeaderNavigatorModel.Selection?
+    var selectedSpread: DataModel.Spread?
 
     /// Incremented to force the pager and strip to recenter on the current selection.
     var recenterToken: Int = 0
@@ -83,6 +82,9 @@ final class SpreadsCoordinator {
 
     /// The currently active alert, or nil if no alert is presented.
     var activeAlert: AlertDestination?
+
+    /// The currently active popover, or nil if no popover is presented.
+    var activePopover: PopoverDestination?
 
     /// State for the convenience navigation button in `SpreadHeaderView`.
     /// Non-nil means the button is visible. `.offer` fades after a timeout if not tapped.
@@ -109,21 +111,21 @@ final class SpreadsCoordinator {
 
     /// Updates selection after a multiday date edit and asks navigator/pager surfaces to recenter.
     func finishSpreadDateEdit(_ spread: DataModel.Spread) {
-        selectedSelection = .conventional(spread)
+        selectedSpread = spread
         recenterToken += 1
     }
 
     /// Shows a convenience navigation button for the newly created spread without auto-navigating.
     ///
     /// The button label reflects whether tasks were auto-migrated or the spread was simply created.
-    /// If the current selection is not a conventional spread, falls back to direct navigation.
+    /// Falls back to direct navigation when no current selection exists.
     func finishSpreadCreation(
         _ result: SpreadCreationOperationResult,
-        currentSelection: SpreadHeaderNavigatorModel.Selection,
+        currentSelection: DataModel.Spread?,
         calendar: Calendar
     ) {
-        guard let source = conventionalSpread(from: currentSelection) else {
-            selectedSelection = .conventional(result.spread)
+        guard let source = currentSelection else {
+            selectedSpread = result.spread
             recenterToken += 1
             return
         }
@@ -140,29 +142,19 @@ final class SpreadsCoordinator {
     }
 
     /// Presents spread deletion confirmation for a conventional explicit spread.
-    func showSpreadDeleteConfirmation(_ spread: DataModel.Spread) {
-        activeAlert = .deleteSpreadConfirmation(spread)
+    func showSpreadDeleteConfirmation(_ spread: DataModel.Spread, onDelete: @escaping @MainActor () async -> Void) {
+        activeAlert = .alert(AlertModel.deleteSpreadConfirmation(spread: spread, onDelete: onDelete))
     }
 
     /// Presents a spread deletion failure alert.
     func showSpreadDeleteFailure(message: String) {
-        activeAlert = .deleteSpreadFailed(message: message)
-    }
-
-    /// Presents the task creation sheet.
-    func showTaskCreation() {
-        activeSheet = .taskCreation
-    }
-
-    /// Presents the note creation sheet.
-    func showNoteCreation() {
-        activeSheet = .noteCreation
+        activeAlert = .alert(AlertModel.deleteSpreadFailed(message: message, onDismiss: dismissAlert))
     }
 
     /// Navigates to `destination` and records `source` as the navigation origin,
     /// enabling the "Go Back" button in `SpreadHeaderView`.
     func navigateViaPeek(to destination: DataModel.Spread, from source: DataModel.Spread) {
-        selectedSelection = .conventional(destination)
+        selectedSpread = destination
         recenterToken += 1
         // Cancel any active fade — go-back state does not fade
         convenienceNavigationFadeTask?.cancel()
@@ -177,9 +169,19 @@ final class SpreadsCoordinator {
         convenienceNavigation = nil
     }
 
-    /// Navigates to a conventional spread and clears any active convenience navigation.
+    /// Presents the task creation sheet.
+    func showTaskCreation() {
+        activeSheet = .taskCreation
+    }
+
+    /// Presents the note creation sheet.
+    func showNoteCreation() {
+        activeSheet = .noteCreation
+    }
+
+    /// Navigates to a spread and clears any active convenience navigation.
     func selectSpread(_ spread: DataModel.Spread) {
-        selectedSelection = .conventional(spread)
+        selectedSpread = spread
         clearConvenienceNavigation()
     }
 
@@ -187,12 +189,12 @@ final class SpreadsCoordinator {
     ///
     /// If the selection is already active, only recenters (increments `recenterToken`) without
     /// changing `selectedSelection`. If it differs, updates `selectedSelection` and recenters.
-    func navigate(to selection: SpreadHeaderNavigatorModel.Selection) {
+    func navigate(to selection: DataModel.Spread) {
         clearConvenienceNavigation()
-        if isSameSelection(selection, selectedSelection) {
+        if isSameSelection(selection, selectedSpread) {
             recenterToken += 1
         } else {
-            selectedSelection = selection
+            selectedSpread = selection
             recenterToken += 1
         }
     }
@@ -206,12 +208,12 @@ final class SpreadsCoordinator {
         case .offer(_, let destination, let source):
             convenienceNavigationFadeTask?.cancel()
             convenienceNavigationFadeTask = nil
-            selectedSelection = .conventional(destination)
+            selectedSpread = destination
             recenterToken += 1
             convenienceNavigation = .goBack(source: source)
         case .goBack(let source):
             convenienceNavigation = nil
-            selectedSelection = .conventional(source)
+            selectedSpread = source
             recenterToken += 1
         case nil:
             break
@@ -243,30 +245,56 @@ final class SpreadsCoordinator {
         activeSheet = nil
     }
 
+    /// Presents the discard-changes alert when an inline action is triggered with a pending title edit.
+    func showDiscardChanges(
+        onSave: @escaping @MainActor () async -> Void,
+        onDiscard: @escaping @MainActor () async -> Void
+    ) {
+        activeAlert = .alert(AlertModel.discardChanges(onSave: onSave, onDiscard: onDiscard))
+    }
+
     /// Dismisses the currently active alert.
     func dismissAlert() {
         activeAlert = nil
     }
 
+    /// Presents the quick-add task popover.
+    ///
+    /// - Parameter anchorID: Identifies the view that triggered the popover. Used to discriminate
+    ///   `.popover` bindings when multiple `QuickAddButton` instances sharing the same `date`/`period`
+    ///   appear on screen simultaneously. Defaults to `""`.
+    func showQuickAdd(
+        anchorID: String = "",
+        date: Date,
+        period: Period,
+        availableLists: [DataModel.List] = [],
+        availableTags: [DataModel.Tag] = [],
+        preselectedList: DataModel.List? = nil,
+        onAddTask: @escaping @MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void
+    ) {
+        activePopover = .quickAdd(QuickAddPopoverContent(
+            anchorID: anchorID,
+            date: date,
+            period: period,
+            availableLists: availableLists,
+            availableTags: availableTags,
+            preselectedList: preselectedList,
+            onAddTask: onAddTask
+        ))
+    }
+
+    /// Dismisses the currently active popover.
+    func dismissPopover() {
+        activePopover = nil
+    }
+
     // MARK: - Private
 
     private func isSameSelection(
-        _ lhs: SpreadHeaderNavigatorModel.Selection,
-        _ rhs: SpreadHeaderNavigatorModel.Selection?
+        _ lhs: DataModel.Spread,
+        _ rhs: DataModel.Spread?
     ) -> Bool {
-        guard let rhs else { return false }
-        switch (lhs, rhs) {
-        case (.conventional(let a), .conventional(let b)): return a.id == b.id
-        case (.traditionalYear(let a), .traditionalYear(let b)): return a == b
-        case (.traditionalMonth(let a), .traditionalMonth(let b)): return a == b
-        case (.traditionalDay(let a), .traditionalDay(let b)): return a == b
-        default: return false
-        }
-    }
-
-    private func conventionalSpread(from selection: SpreadHeaderNavigatorModel.Selection) -> DataModel.Spread? {
-        guard case .conventional(let spread) = selection else { return nil }
-        return spread
+        lhs.id == rhs?.id
     }
 
     private func startConvenienceNavigationFade() {

@@ -29,14 +29,14 @@ struct MonthSpreadContentView: View {
         )
     }
 
-    private var configurationMap: [EntryType: EntryRowView.Configuration] {
+    private var configurationMap: EntryRowView.ConfigurationMap {
         [
-            .task: .standardTaskConfig(
+            DataModel.Task.configurationKey: .standardTaskConfig(
                 journalManager: context.journalManager,
                 syncEngine: context.syncEngine,
                 coordinator: context.coordinator
             ),
-            .note: .standardNoteConfig(
+            DataModel.Note.configurationKey: .standardNoteConfig(
                 journalManager: context.journalManager,
                 syncEngine: context.syncEngine,
                 coordinator: context.coordinator
@@ -47,12 +47,11 @@ struct MonthSpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
+        ScrollView {
+            ScrollViewReader { proxy in
                 LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
                     SpreadMonthCalendarView(
                         monthDate: spread.date,
-                        mode: context.journalManager.bujoMode == .conventional ? .conventional : .traditional,
                         journalManager: context.journalManager,
                         calendarActionsByDate: contentModel.calendarActionsByDate,
                         onViewDaySpread: { context.coordinator.selectSpread($0) },
@@ -100,8 +99,7 @@ struct MonthSpreadContentView: View {
                         creationPeriod: .month,
                         creationDate: spread.date
                     )],
-                    configurationMap: configurationMap,
-                    style: .inline
+                    configurationMap: configurationMap
                 )
             }
         }
@@ -127,8 +125,7 @@ struct MonthSpreadContentView: View {
                         creationPeriod: .day,
                         creationDate: section.date
                     )],
-                    configurationMap: configurationMap,
-                    style: .inline
+                    configurationMap: configurationMap
                 )
             }
         }

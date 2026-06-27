@@ -2,19 +2,19 @@ import Foundation
 import Testing
 
 struct SPRD193MultidayAssignmentContractTests {
+    /// Conditions: The committed baseline schema is inspected for SPRD-193's spread_id-based
+    /// multiday assignment ownership, now expressed against the unified `assignments` table
+    /// (post-SPRD-246; the original `task_assignments`/`note_assignments` tables no longer exist).
+    /// Expected: spread_id columns/params, the assignments-table unique constraint, and the
+    /// entry_id-keyed fallback lookup (with unique_violation handling) are present.
     @Test func schemaSnapshotsIncludeSpreadIDForAssignmentOwnership() throws {
-        let migration = try readRepositoryFile("supabase/migrations/20260503000000_sprd193_multiday_assignment_spread_id.sql")
-        let snapshot = try readRepositoryFile("supabase/local/public_schema_from_dev.sql")
+        let migration = try readRepositoryFile("supabase/migrations/20260624000000_baseline_schema.sql")
 
-        for sql in [migration, snapshot] {
-            #expect(sql.contains("spread_id"))
-            #expect(sql.contains("p_spread_id"))
-            #expect(sql.contains("task_assignments_user_task_multiday_spread_unique"))
-            #expect(sql.contains("note_assignments_user_note_multiday_spread_unique"))
-            #expect(sql.contains("task_id = p_task_id"))
-            #expect(sql.contains("note_id = p_note_id"))
-            #expect(sql.contains("WHEN unique_violation"))
-        }
+        #expect(migration.contains("spread_id"))
+        #expect(migration.contains("p_spread_id"))
+        #expect(migration.contains("assignments_user_entry_multiday_spread_unique"))
+        #expect(migration.contains("entry_id = p_entry_id"))
+        #expect(migration.contains("WHEN unique_violation"))
     }
 
     private func readRepositoryFile(_ relativePath: String) throws -> String {

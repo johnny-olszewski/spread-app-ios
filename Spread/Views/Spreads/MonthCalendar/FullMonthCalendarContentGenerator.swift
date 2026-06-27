@@ -10,46 +10,52 @@ struct MonthDayState: Equatable {
 
 /// Calendar content generator for the full month spread calendar view.
 struct FullMonthCalendarContentGenerator: CalendarContentGenerator {
+    let displayedMonth: Date
     let calendar: Calendar
+    let today: Date
     let dayStateByDate: [Date: MonthDayState]
     let calendarActionsByDate: [Date: MonthSpreadCalendarDayAction]
     let isConventional: Bool
     let onViewDaySpread: ((DataModel.Spread) -> Void)?
 
-    func headerView(context: MonthCalendarHeaderContext) -> some View {
+    func headerView(month: Date) -> some View {
         EmptyView().frame(height: 0)
     }
 
-    func weekdayHeaderView(context: MonthCalendarWeekdayContext) -> some View {
-        Text(context.symbol)
+    func weekdayHeaderView(weekday: Int) -> some View {
+        Text(calendar.veryShortWeekdaySymbols[weekday - 1])
             .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
     }
 
-    func dayCellView(context: MonthCalendarDayContext) -> some View {
-        let normalizedDate = Period.day.normalizeDate(context.date, calendar: calendar)
+    func dayCellView(date: Date) -> some View {
+        let normalizedDate = Period.day.normalizeDate(date, calendar: calendar)
         let dayState = dayStateByDate[normalizedDate] ?? MonthDayState(hasExplicitDaySpread: false, contentCount: 0)
         let action = isConventional ? calendarActionsByDate[normalizedDate] : nil
-        let visualState = MultidayDayCardSupport.visualState(
-            isToday: context.isToday,
+        let isToday = calendar.isDate(date, inSameDayAs: today)
+        let isPeripheral = !calendar.isDate(date, equalTo: displayedMonth, toGranularity: .month)
+        let cardStyle = SpreadCardStyle(
+            isToday: isToday,
             isCreated: isConventional ? dayState.hasExplicitDaySpread : true
         )
         return CalendarDayCellView(
-            context: context,
+            date: date,
+            isPeripheral: isPeripheral,
+            isToday: isToday,
             calendar: calendar,
-            visualState: visualState,
+            cardStyle: cardStyle,
             action: action,
             onViewDaySpread: onViewDaySpread
         )
     }
 
-    func placeholderCellView(context: MonthCalendarPlaceholderContext) -> some View {
+    func placeholderCellView(date: Date) -> some View {
         Color.clear.frame(maxWidth: .infinity, minHeight: 54)
     }
 
-    func weekBackgroundView(context: MonthCalendarWeekContext) -> some View {
+    func weekBackgroundView(week: MonthCalendarWeek) -> some View {
         Color.clear.frame(maxWidth: .infinity, minHeight: 0)
     }
 }
@@ -57,20 +63,21 @@ struct FullMonthCalendarContentGenerator: CalendarContentGenerator {
 // MARK: - Day Cell
 
 private struct CalendarDayCellView: View {
-    let context: MonthCalendarDayContext
+    let date: Date
+    let isPeripheral: Bool
+    let isToday: Bool
     let calendar: Calendar
-    let visualState: SpreadCardStyle
+    let cardStyle: SpreadCardStyle
     let action: MonthSpreadCalendarDayAction?
     let onViewDaySpread: ((DataModel.Spread) -> Void)?
 
     private var foreground: Color {
-        context.isPeripheral ? .secondary : .primary
+        isPeripheral ? .secondary : .primary
     }
 
     private var cellFill: Color {
-        if context.isPeripheral { return .clear }
-        if visualState.isToday { return visualState.fill }
-        return visualState.isCreated ? Color.primary.opacity(0.04) : .clear
+        if isPeripheral { return .clear }
+        return (isToday || cardStyle.isCreated) ? cardStyle.fill : .clear
     }
 
     var body: some View {
@@ -88,8 +95,8 @@ private struct CalendarDayCellView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(
-                    context.isPeripheral ? Color.clear : visualState.borderColor,
-                    style: visualState.borderStyle
+                    isPeripheral ? Color.clear : cardStyle.borderColor,
+                    style: cardStyle.borderStyle
                 )
         )
         .padding(2)
@@ -97,8 +104,8 @@ private struct CalendarDayCellView: View {
 
     @ViewBuilder
     private var topRow: some View {
-        if context.isPeripheral {
-            Text(shortMonth(for: context.date))
+        if isPeripheral {
+            Text(shortMonth(for: date))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         } else {
@@ -107,10 +114,14 @@ private struct CalendarDayCellView: View {
     }
 
     private var dayNumber: some View {
-        Text("\(calendar.component(.day, from: context.date))")
+        Text("\(calendar.component(.day, from: date))")
             .font(SpreadTheme.Typography.body)
-            .fontWeight(context.isToday ? .semibold : .regular)
-            .foregroundStyle(context.isToday ? SpreadTheme.Accent.todayEmphasis : foreground)
+            .fontWeight(isToday ? .semibold : .regular)
+            .foregroundStyle(isToday ? Color(uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor(Color.SpreadPalette.yellow200).withAlphaComponent(0.7)
+                    : UIColor(Color.SpreadPalette.yellow500).withAlphaComponent(0.7)
+            }) : foreground)
     }
 
     @ViewBuilder
@@ -129,7 +140,7 @@ private struct CalendarDayCellView: View {
                 } label: {
                     Image(systemName: "arrow.right")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(SpreadTheme.Accent.todaySelectedEmphasis)
+                        .foregroundStyle(SpreadTheme.Accent.primary)
                         .frame(width: 24, height: 24)
                         .background(Circle().fill(.white.opacity(0.94)))
                 }

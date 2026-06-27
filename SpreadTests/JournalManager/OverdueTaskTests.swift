@@ -24,20 +24,20 @@ struct OverdueTaskTests {
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: dayDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
         let currentMonthTask = DataModel.Task(
             title: "Month task",
             date: monthDate,
             period: .month,
             status: .open,
-            assignments: [TaskAssignment(period: .month, date: monthDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: monthDate, status: .open)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: [overdueDayTask, currentMonthTask])
+            taskRepository: TestTaskRepository(tasks: [overdueDayTask, currentMonthTask])
         )
 
         #expect(manager.overdueTaskCount == 1)
@@ -57,20 +57,20 @@ struct OverdueTaskTests {
             date: january,
             period: .month,
             status: .open,
-            assignments: [TaskAssignment(period: .month, date: january, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: january, status: .open)]
         )
         let yearTask = DataModel.Task(
             title: "Year task",
             date: lastYear,
             period: .year,
             status: .open,
-            assignments: [TaskAssignment(period: .year, date: lastYear, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: lastYear, status: .open)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: [monthTask, yearTask])
+            taskRepository: TestTaskRepository(tasks: [monthTask, yearTask])
         )
 
         #expect(manager.overdueTaskCount == 2)
@@ -96,13 +96,13 @@ struct OverdueTaskTests {
             date: resolvedDay,
             period: .day,
             status: .complete,
-            assignments: [TaskAssignment(period: .day, date: resolvedDay, status: .complete)]
+            currentAssignments: [Assignment(period: .day, date: resolvedDay, status: .complete)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: [inboxTask, completedTask])
+            taskRepository: TestTaskRepository(tasks: [inboxTask, completedTask])
         )
 
         #expect(manager.overdueTaskCount == 1)

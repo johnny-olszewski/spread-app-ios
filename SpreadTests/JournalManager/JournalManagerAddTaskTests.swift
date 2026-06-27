@@ -34,7 +34,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -48,7 +48,7 @@ struct JournalManagerAddTaskTests {
         #expect(task.title == "Buy groceries")
         #expect(task.period == .day)
         #expect(task.status == .open)
-        #expect(calendar.isDate(task.date, inSameDayAs: today))
+        #expect(calendar.isDate(task.date!, inSameDayAs: today))
     }
 
     /// Tests that adding a task normalizes the date for the selected period.
@@ -61,7 +61,7 @@ struct JournalManagerAddTaskTests {
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
         let midMonthDate = Self.makeDate(year: 2026, month: 2, day: 17)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -74,7 +74,7 @@ struct JournalManagerAddTaskTests {
 
         // Date should be normalized to first of February
         let expectedDate = Self.makeDate(year: 2026, month: 2, day: 1)
-        #expect(calendar.isDate(task.date, inSameDayAs: expectedDate))
+        #expect(calendar.isDate(task.date!, inSameDayAs: expectedDate))
     }
 
     /// Tests that adding a task to a matching spread creates an assignment.
@@ -86,7 +86,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -102,9 +102,9 @@ struct JournalManagerAddTaskTests {
         )
 
         // Task should have an assignment
-        #expect(task.assignments.count == 1)
-        #expect(task.assignments.first?.period == .day)
-        #expect(task.assignments.first?.status == .open)
+        #expect(task.allAssignmentsForTesting.count == 1)
+        #expect(task.allAssignmentsForTesting.first?.period == .day)
+        #expect(task.allAssignmentsForTesting.first?.status == .open)
     }
 
     /// Tests that adding a task without matching spread goes to Inbox.
@@ -116,7 +116,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -129,7 +129,7 @@ struct JournalManagerAddTaskTests {
         )
 
         // Task should have no assignments (goes to Inbox)
-        #expect(task.assignments.isEmpty)
+        #expect(task.allAssignmentsForTesting.isEmpty)
         #expect(journalManager.inboxCount == 1)
         #expect(journalManager.inboxEntries.contains { ($0 as? DataModel.Task)?.id == task.id })
     }
@@ -143,7 +143,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -159,8 +159,8 @@ struct JournalManagerAddTaskTests {
         )
 
         // Task should be assigned to the month spread (next best match)
-        #expect(task.assignments.count == 1)
-        #expect(task.assignments.first?.period == .month)
+        #expect(task.allAssignmentsForTesting.count == 1)
+        #expect(task.allAssignmentsForTesting.first?.period == .month)
     }
 
     /// Tests that adding a task increments dataVersion.
@@ -172,7 +172,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -197,7 +197,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -217,7 +217,7 @@ struct JournalManagerAddTaskTests {
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
         let dueDate = calendar.date(from: DateComponents(year: 2025, month: 12, day: 31))!
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -225,16 +225,15 @@ struct JournalManagerAddTaskTests {
 
         let task = try await journalManager.addTask(
             title: "Draft launch notes",
-            date: today,
-            period: .day,
-            hasPreferredAssignment: false,
+            date: nil,
+            period: nil,
             body: "  Write rollout checklist  ",
             priority: .high,
             dueDate: dueDate
         )
 
-        #expect(task.hasPreferredAssignment == false)
-        #expect(task.assignments.isEmpty)
+        #expect(task.date == nil)
+        #expect(task.allAssignmentsForTesting.isEmpty)
         #expect(task.body == "Write rollout checklist")
         #expect(task.priority == .high)
         #expect(task.dueDate == dueDate)
@@ -250,7 +249,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 6, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )
@@ -263,7 +262,7 @@ struct JournalManagerAddTaskTests {
 
         // Date should be normalized to first of 2026
         let expectedDate = Self.makeDate(year: 2026, month: 1, day: 1)
-        #expect(calendar.isDate(task.date, inSameDayAs: expectedDate))
+        #expect(calendar.isDate(task.date!, inSameDayAs: expectedDate))
     }
 
     /// Tests that task appears in spread data model after creation.
@@ -275,7 +274,7 @@ struct JournalManagerAddTaskTests {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: today
         )

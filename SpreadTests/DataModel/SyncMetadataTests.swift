@@ -121,7 +121,7 @@ struct SyncMetadataTests {
         #expect(fetched.body == nil)
         #expect(fetched.priority == .none)
         #expect(fetched.dueDate == nil)
-        #expect(fetched.hasPreferredAssignment)
+        #expect(fetched.date != nil)
         #expect(fetched.bodyUpdatedAt == nil)
         #expect(fetched.priorityUpdatedAt == nil)
         #expect(fetched.dueDateUpdatedAt == nil)
@@ -140,7 +140,8 @@ struct SyncMetadataTests {
             body: "Details",
             priority: .high,
             dueDate: now,
-            hasPreferredAssignment: false,
+            date: nil,
+            period: nil,
             deletedAt: now,
             deviceId: deviceId,
             revision: 7,
@@ -166,7 +167,7 @@ struct SyncMetadataTests {
         #expect(fetched.body == "Details")
         #expect(fetched.priority == .high)
         #expect(fetched.dueDate != nil)
-        #expect(!fetched.hasPreferredAssignment)
+        #expect(fetched.date == nil)
         #expect(fetched.bodyUpdatedAt != nil)
         #expect(fetched.priorityUpdatedAt != nil)
         #expect(fetched.dueDateUpdatedAt != nil)
@@ -342,11 +343,11 @@ struct SyncMetadataTests {
 
     // MARK: - Assignment statusUpdatedAt
 
-    /// Conditions: Encode and decode a TaskAssignment with statusUpdatedAt set.
+    /// Conditions: Encode and decode a Assignment with statusUpdatedAt set.
     /// Expected: statusUpdatedAt should round-trip through Codable.
     @Test func testTaskAssignmentStatusUpdatedAtRoundTrips() throws {
         let now = Date.now
-        let assignment = TaskAssignment(
+        let assignment = Assignment(
             period: .day,
             date: referenceDate,
             status: .open,
@@ -354,33 +355,33 @@ struct SyncMetadataTests {
         )
 
         let data = try JSONEncoder().encode(assignment)
-        let decoded = try JSONDecoder().decode(TaskAssignment.self, from: data)
+        let decoded = try JSONDecoder().decode(Assignment.self, from: data)
 
         #expect(decoded.statusUpdatedAt != nil)
         #expect(decoded.period == .day)
         #expect(decoded.status == .open)
     }
 
-    /// Conditions: Encode and decode a TaskAssignment without statusUpdatedAt.
+    /// Conditions: Encode and decode a Assignment without statusUpdatedAt.
     /// Expected: statusUpdatedAt should default to nil after decoding.
     @Test func testTaskAssignmentStatusUpdatedAtDefaultsToNil() throws {
-        let assignment = TaskAssignment(
+        let assignment = Assignment(
             period: .month,
             date: referenceDate,
             status: .complete
         )
 
         let data = try JSONEncoder().encode(assignment)
-        let decoded = try JSONDecoder().decode(TaskAssignment.self, from: data)
+        let decoded = try JSONDecoder().decode(Assignment.self, from: data)
 
         #expect(decoded.statusUpdatedAt == nil)
     }
 
-    /// Conditions: Encode and decode a NoteAssignment with statusUpdatedAt set.
+    /// Conditions: Encode and decode a Assignment with statusUpdatedAt set.
     /// Expected: statusUpdatedAt should round-trip through Codable.
     @Test func testNoteAssignmentStatusUpdatedAtRoundTrips() throws {
         let now = Date.now
-        let assignment = NoteAssignment(
+        let assignment = Assignment(
             period: .day,
             date: referenceDate,
             status: .active,
@@ -388,24 +389,24 @@ struct SyncMetadataTests {
         )
 
         let data = try JSONEncoder().encode(assignment)
-        let decoded = try JSONDecoder().decode(NoteAssignment.self, from: data)
+        let decoded = try JSONDecoder().decode(Assignment.self, from: data)
 
         #expect(decoded.statusUpdatedAt != nil)
         #expect(decoded.period == .day)
         #expect(decoded.status == .active)
     }
 
-    /// Conditions: Encode and decode a NoteAssignment without statusUpdatedAt.
+    /// Conditions: Encode and decode a Assignment without statusUpdatedAt.
     /// Expected: statusUpdatedAt should default to nil after decoding.
     @Test func testNoteAssignmentStatusUpdatedAtDefaultsToNil() throws {
-        let assignment = NoteAssignment(
+        let assignment = Assignment(
             period: .year,
             date: referenceDate,
             status: .migrated
         )
 
         let data = try JSONEncoder().encode(assignment)
-        let decoded = try JSONDecoder().decode(NoteAssignment.self, from: data)
+        let decoded = try JSONDecoder().decode(Assignment.self, from: data)
 
         #expect(decoded.statusUpdatedAt == nil)
     }
@@ -485,7 +486,7 @@ struct SyncMetadataTests {
             dueDateUpdatedAt: modelTimestamp
         )
 
-        let data = SyncSerializer.serializeTask(task, deviceId: deviceId, timestamp: fallbackTimestamp)
+        let data = SyncSerializer.serializeTaskEntry(task, deviceId: deviceId, timestamp: fallbackTimestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(modelTimestamp)
@@ -505,7 +506,7 @@ struct SyncMetadataTests {
 
         let task = DataModel.Task(title: "Test")
 
-        let data = SyncSerializer.serializeTask(task, deviceId: deviceId, timestamp: fallbackTimestamp)
+        let data = SyncSerializer.serializeTaskEntry(task, deviceId: deviceId, timestamp: fallbackTimestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(fallbackTimestamp)
@@ -522,9 +523,9 @@ struct SyncMetadataTests {
     /// Expected: Date and period should be encoded as null while their timestamps remain present.
     @Test func testSerializerEncodesClearedTaskPreferredAssignmentAsNull() throws {
         let timestamp = SyncDateFormatting.parseTimestamp("2025-12-31T23:59:59.000Z")!
-        let task = DataModel.Task(title: "Unassigned", hasPreferredAssignment: false)
+        let task = DataModel.Task(title: "Unassigned", date: nil, period: nil)
 
-        let data = SyncSerializer.serializeTask(task, deviceId: deviceId, timestamp: timestamp)
+        let data = SyncSerializer.serializeTaskEntry(task, deviceId: deviceId, timestamp: timestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         #expect(json["date"] is NSNull)
@@ -548,7 +549,7 @@ struct SyncMetadataTests {
             statusUpdatedAt: modelTimestamp
         )
 
-        let data = SyncSerializer.serializeNote(note, deviceId: deviceId, timestamp: fallbackTimestamp)
+        let data = SyncSerializer.serializeNoteEntry(note, deviceId: deviceId, timestamp: fallbackTimestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(modelTimestamp)
@@ -587,7 +588,7 @@ struct SyncMetadataTests {
         let assignmentID = UUID()
         let spreadID = UUID()
 
-        let assignment = TaskAssignment(
+        let assignment = Assignment(
             id: assignmentID,
             period: .day,
             date: referenceDate,
@@ -596,8 +597,8 @@ struct SyncMetadataTests {
             statusUpdatedAt: modelTimestamp
         )
 
-        let data = SyncSerializer.serializeTaskAssignment(
-            assignment, taskId: UUID(), deviceId: deviceId, timestamp: fallbackTimestamp
+        let data = SyncSerializer.serializeAssignment(
+            assignment, entryId: UUID(), entryType: .task, deviceId: deviceId, timestamp: fallbackTimestamp
         )
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
@@ -615,7 +616,7 @@ struct SyncMetadataTests {
         let assignmentID = UUID()
         let spreadID = UUID()
 
-        let assignment = NoteAssignment(
+        let assignment = Assignment(
             id: assignmentID,
             period: .day,
             date: referenceDate,
@@ -624,8 +625,8 @@ struct SyncMetadataTests {
             statusUpdatedAt: modelTimestamp
         )
 
-        let data = SyncSerializer.serializeNoteAssignment(
-            assignment, noteId: UUID(), deviceId: deviceId, timestamp: fallbackTimestamp
+        let data = SyncSerializer.serializeAssignment(
+            assignment, entryId: UUID(), entryType: .note, deviceId: deviceId, timestamp: fallbackTimestamp
         )
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
@@ -646,7 +647,7 @@ struct SyncMetadataTests {
             deletedAt: deletedDate
         )
 
-        let data = SyncSerializer.serializeTask(task, deviceId: deviceId, timestamp: timestamp)
+        let data = SyncSerializer.serializeTaskEntry(task, deviceId: deviceId, timestamp: timestamp)
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]
 
         let expectedTs = SyncDateFormatting.formatTimestamp(deletedDate)
@@ -665,7 +666,7 @@ struct SyncMetadataTests {
             deletedAt: modelDeletedAt
         )
 
-        let data = SyncSerializer.serializeTask(
+        let data = SyncSerializer.serializeTaskEntry(
             task, deviceId: deviceId, timestamp: timestamp, deletedAt: paramDeletedAt
         )
         let json = try JSONSerialization.jsonObject(with: data!) as! [String: Any]

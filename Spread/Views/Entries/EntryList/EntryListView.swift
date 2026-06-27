@@ -4,125 +4,116 @@ import SwiftUI
 ///
 /// `EntryListView` is a pure renderer — it knows nothing about `SpreadDataModel` or
 /// period-based grouping. Callers compute `[EntryList.Section]` and configure an
-/// `[EntryType: EntryRowView.Configuration]` map before passing them here.
+/// `EntryRowView.ConfigurationMap` map before passing them here.
 ///
 /// Use `style: .list` (default) for a standalone scrollable `List`. Use `style: .inline`
 /// to embed the rows inside an existing scroll container (e.g., Month or Year views) —
 /// this produces a `VStack` with dividers and no own scroll view.
 ///
 /// Use `MultidayEntryGridView` for multiday spread grid layouts.
-struct EntryListView: View {
-
-    // MARK: - Style
-
-    enum Style { case list, inline }
+struct EntryListView<TrailingContent: View>: View {
 
     // MARK: - Properties
 
     let sections: [EntryList.Section]
-    let configurationMap: [EntryType: EntryRowView.Configuration]
-    var onAddTask: (@MainActor (String, Date, Period) async throws -> Void)?
-    var style: Style = .list
+    let configurationMap: EntryRowView.ConfigurationMap
+    let sectionHeaderTrailingContent: ((EntryList.Section) -> TrailingContent)?
+
+    init(
+        sections: [EntryList.Section],
+        configurationMap: EntryRowView.ConfigurationMap,
+        @ViewBuilder sectionHeaderTrailingContent: @escaping (EntryList.Section) -> TrailingContent
+    ) {
+        self.sections = sections
+        self.configurationMap = configurationMap
+        self.sectionHeaderTrailingContent = sectionHeaderTrailingContent
+    }
+
+    init(
+        sections: [EntryList.Section],
+        configurationMap: EntryRowView.ConfigurationMap
+    ) where TrailingContent == EmptyView {
+        self.sections = sections
+        self.configurationMap = configurationMap
+        self.sectionHeaderTrailingContent = nil
+    }
 
     // MARK: - Computed
 
-    private static let rowInsets = EdgeInsets(
-        top: SpreadTheme.Spacing.entryRowVertical,
-        leading: 16,
-        bottom: SpreadTheme.Spacing.entryRowVertical,
-        trailing: 16
-    )
+    private static var rowInsets: EdgeInsets {
+        EdgeInsets(
+            top: SpreadTheme.Spacing.entryRowVertical,
+            leading: 16,
+            bottom: SpreadTheme.Spacing.entryRowVertical,
+            trailing: 16
+        )
+    }
 
     private var hasAnyEntries: Bool {
-        !sections.allSatisfy { $0.entries.isEmpty }
+        sections.contains { !renderableEntries(in: $0).isEmpty }
     }
 
     // MARK: - Body
 
     var body: some View {
-        switch style {
-        case .list:
-            if hasAnyEntries || onAddTask != nil {
-                listLayout
-            } else {
-                emptyState
-            }
-        case .inline:
-            if hasAnyEntries || onAddTask != nil {
-                inlineLayout
-            }
-        }
-    }
-
-    // MARK: - List Layout
-
-    @ViewBuilder
-    private var listLayout: some View {
-        List {
+        LazyVStack {
             ForEach(sections) { section in
-                if section.title.isEmpty {
-                    listSectionRows(section)
-                } else {
-                    Section(section.title) {
-                        listSectionRows(section)
+                if shouldRender(section) {
+                    VStack(alignment: .leading, spacing: section.rowSpacing) {
+                        HStack {
+                            Text(section.title)
+                            Spacer()
+                            if let trailing = sectionHeaderTrailingContent {
+                                trailing(section)
+                            }
+                        }
+                        .padding(.leading, section.rowAreaPadding.leading + section.rowInsets.leading)
+                        .padding(.trailing, section.rowAreaPadding.trailing + section.rowInsets.trailing)
+                        
+                        VStack {
+                            ForEach(renderableEntries(in: section), id: \.id) { entry in
+                                if let configuration = rowConfiguration(for: entry, in: section) {
+                                    EntryRowView(entry: entry, configuration: configuration)
+                                        .padding(.top, section.rowInsets.top)
+                                        .padding(.bottom, section.rowInsets.bottom)
+                                        .padding(.leading, section.rowInsets.leading)
+                                        .padding(.trailing,  section.rowInsets.trailing)
+                                }
+                            }
+                        }
+                        .padding(.top, section.rowAreaPadding.top)
+                        .padding(.bottom, section.rowAreaPadding.bottom)
+                        .padding(.leading, section.rowAreaPadding.leading)
+                        .padding(.trailing,  section.rowAreaPadding.trailing)
+                    }
+                    .padding(.vertical, section.style?.verticalPadding ?? 0)
+                    .background {
+                        if case .card(let color) = section.style {
+                            RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.section)
+                                .stroke(color.opacity(0.7), lineWidth: 1)
+                                .fill(color.opacity(0.45))
+                        }
                     }
                 }
             }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(Color.clear)
-        .environment(\.defaultMinListRowHeight, 0)
+        .conditionalScrollView()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
     }
 
-    @ViewBuilder
-    private func listSectionRows(_ section: EntryList.Section) -> some View {
-        ForEach(section.entries, id: \.id) { entry in
-            if let configuration = configurationMap[entry.entryType] {
-                EntryRowView(entry: entry, configuration: configuration)
-                    .listRowInsets(Self.rowInsets)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-            }
-        }
-        if let onAddTask {
-            AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: onAddTask)
-                .listRowInsets(Self.rowInsets)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton)
-        }
+    private func rowConfiguration(
+        for entry: any Entry,
+        in section: EntryList.Section
+    ) -> EntryRowView.Configuration? {
+        (section.configurationMap ?? configurationMap)[ObjectIdentifier(type(of: entry))]
     }
 
-    // MARK: - Inline Layout
-
-    private var inlineLayout: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(sections) { section in
-                inlineSectionRows(section)
-            }
-        }
+    private func renderableEntries(in section: EntryList.Section) -> [any Entry] {
+        section.entries.filter { rowConfiguration(for: $0, in: section) != nil }
     }
 
-    @ViewBuilder
-    private func inlineSectionRows(_ section: EntryList.Section) -> some View {
-        let entries = section.entries
-        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-            if let configuration = configurationMap[entry.entryType] {
-                EntryRowView(entry: entry, configuration: configuration)
-                    .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-            }
-            if index < entries.count - 1 {
-                Divider()
-            }
-        }
-        if let onAddTask {
-            if !entries.isEmpty { Divider() }
-            AddTaskButton(date: section.creationDate, period: section.creationPeriod, onAddTask: onAddTask)
-                .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton)
-        }
+    private func shouldRender(_ section: EntryList.Section) -> Bool {
+        !renderableEntries(in: section).isEmpty
     }
 
     // MARK: - Empty State (list style only)
@@ -148,19 +139,14 @@ struct EntryListView: View {
     let notes = [DataModel.Note(title: "A note", date: today)]
     let entries: [any Entry] = tasks + notes
     let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: entries, creationPeriod: .day, creationDate: today)]
-    let configMap: [EntryType: EntryRowView.Configuration] = [
-        .task: EntryRowView.Configuration(
-            effectiveTaskStatus: { $0.displayTaskStatus },
-            isGreyedOut: { entry in
-                entry.displayTaskStatus.map { $0 == .complete || $0 == .cancelled } ?? false
-            },
-            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
-            onEdit: { _ in },
-            onDelete: { _ in }
+    let configMap: EntryRowView.ConfigurationMap = [
+        DataModel.Task.configurationKey: EntryRowView.Configuration(
+            isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
+            hasStrikethrough: { entry in entry.status == .cancelled }
         ),
-        .note: EntryRowView.Configuration(onEdit: { _ in }, onDelete: { _ in })
+        DataModel.Note.configurationKey: EntryRowView.Configuration()
     ]
-    return EntryListView(sections: sections, configurationMap: configMap)
+    EntryListView(sections: sections, configurationMap: configMap)
 }
 
 #Preview("Day Spread - With Add Task") {
@@ -168,23 +154,18 @@ struct EntryListView: View {
     let today = Date()
     let tasks = [DataModel.Task(title: "Existing task", date: today)]
     let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: tasks, creationPeriod: .day, creationDate: today)]
-    let configMap: [EntryType: EntryRowView.Configuration] = [
-        .task: EntryRowView.Configuration(
-            effectiveTaskStatus: { $0.displayTaskStatus },
-            isGreyedOut: { entry in
-                entry.displayTaskStatus.map { $0 == .complete || $0 == .cancelled } ?? false
-            },
-            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
-            onEdit: { _ in },
-            onDelete: { _ in }
+    let configMap: EntryRowView.ConfigurationMap = [
+        DataModel.Task.configurationKey: EntryRowView.Configuration(
+            isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
+            hasStrikethrough: { entry in entry.status == .cancelled }
         ),
-        .note: EntryRowView.Configuration(onEdit: { _ in }, onDelete: { _ in })
+        DataModel.Note.configurationKey: EntryRowView.Configuration()
     ]
-    return EntryListView(sections: sections, configurationMap: configMap, onAddTask: { _, _, _ in })
+    EntryListView(sections: sections, configurationMap: configMap)
 }
 
 #Preview("Empty State") {
-    return EntryListView(sections: [], configurationMap: [:])
+    EntryListView(sections: [], configurationMap: [:])
 }
 
 #Preview("All Entry Types") {
@@ -197,17 +178,13 @@ struct EntryListView: View {
         DataModel.Note(title: "Active note", date: today, status: .active)
     ]
     let sections = [EntryList.Section(id: "preview", title: "", date: today, entries: entries, creationPeriod: .day, creationDate: today)]
-    let configMap: [EntryType: EntryRowView.Configuration] = [
-        .task: EntryRowView.Configuration(
-            effectiveTaskStatus: { $0.displayTaskStatus },
-            isGreyedOut: { entry in
-                entry.displayTaskStatus.map { $0 == .complete || $0 == .cancelled } ?? false
-            },
-            hasStrikethrough: { entry in entry.displayTaskStatus == .cancelled },
-            onEdit: { _ in },
-            onDelete: { _ in }
+    let configMap: EntryRowView.ConfigurationMap = [
+        DataModel.Task.configurationKey: EntryRowView.Configuration(
+            isGreyedOut: { entry in entry.entryType == .task && (entry.status == .complete || entry.status == .cancelled) },
+            hasStrikethrough: { entry in entry.status == .cancelled }
         ),
-        .note: EntryRowView.Configuration(onEdit: { _ in }, onDelete: { _ in })
+        DataModel.Note.configurationKey: EntryRowView.Configuration()
     ]
-    return EntryListView(sections: sections, configurationMap: configMap)
+    EntryListView(sections: sections, configurationMap: configMap)
 }
+

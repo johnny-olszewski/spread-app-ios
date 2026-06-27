@@ -57,15 +57,15 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -77,7 +77,7 @@ struct SpreadDeletionTests {
         let updatedTask = manager.tasks.first { $0.id == task.id }
 
         // Task should have a new assignment on month spread
-        let monthAssignment = updatedTask?.assignments.first { $0.period == .month }
+        let monthAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .month }
         #expect(monthAssignment != nil)
         #expect(monthAssignment?.status == .open)
     }
@@ -96,15 +96,15 @@ struct SpreadDeletionTests {
             date: noteDate,
             period: .day,
             status: .active,
-            assignments: [
-                NoteAssignment(period: .day, date: noteDate, status: .active)
+            currentAssignments: [
+                Assignment(period: .day, date: noteDate, status: .active)
             ]
         )
 
-        let noteRepo = InMemoryNoteRepository(notes: [note])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let noteRepo = TestNoteRepository(notes: [note])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: noteDate,
             spreadRepository: spreadRepo,
@@ -116,7 +116,7 @@ struct SpreadDeletionTests {
         let updatedNote = manager.notes.first { $0.id == note.id }
 
         // Note should have a new assignment on month spread
-        let monthAssignment = updatedNote?.assignments.first { $0.period == Period.month }
+        let monthAssignment = updatedNote?.allAssignmentsForTesting.first { $0.period == Period.month }
         #expect(monthAssignment != nil)
         #expect(monthAssignment?.status == .active)
     }
@@ -134,15 +134,15 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let spreadRepo = TestSpreadRepository(spreads: [daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -175,15 +175,15 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -195,10 +195,10 @@ struct SpreadDeletionTests {
         let updatedTask = manager.tasks.first { $0.id == task.id }
 
         // Both assignments should exist (original day + new month)
-        #expect(updatedTask?.assignments.count == 2)
+        #expect(updatedTask?.allAssignmentsForTesting.count == 2)
 
         // Original day assignment should be marked as migrated
-        let dayAssignment = updatedTask?.assignments.first { $0.period == .day }
+        let dayAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .day }
         #expect(dayAssignment?.status == .migrated)
     }
 
@@ -218,15 +218,15 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .complete,
-            assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .complete)
+            currentAssignments: [
+                Assignment(period: .day, date: taskDate, status: .complete)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [completedTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let taskRepo = TestTaskRepository(tasks: [completedTask])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -241,7 +241,7 @@ struct SpreadDeletionTests {
         let updatedTask = manager.tasks.first { $0.id == completedTask.id }
 
         // Should have assignment on month spread with complete status
-        let monthAssignment = updatedTask?.assignments.first { $0.period == .month }
+        let monthAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .month }
         #expect(monthAssignment != nil)
         #expect(monthAssignment?.status == .complete)
     }
@@ -259,8 +259,8 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
         let note = DataModel.Note(
@@ -268,16 +268,16 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .active,
-            assignments: [
-                NoteAssignment(period: .day, date: taskDate, status: .active)
+            currentAssignments: [
+                Assignment(period: .day, date: taskDate, status: .active)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
-        let noteRepo = InMemoryNoteRepository(notes: [note])
-        let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let noteRepo = TestNoteRepository(notes: [note])
+        let spreadRepo = TestSpreadRepository(spreads: [daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -301,9 +301,9 @@ struct SpreadDeletionTests {
         let taskDate = Self.testDate
 
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
-        let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             spreadRepository: spreadRepo
@@ -323,9 +323,9 @@ struct SpreadDeletionTests {
         let taskDate = Self.testDate
 
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
-        let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             spreadRepository: spreadRepo
@@ -344,9 +344,9 @@ struct SpreadDeletionTests {
         let taskDate = Self.testDate
 
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
-        let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             spreadRepository: spreadRepo
@@ -368,7 +368,7 @@ struct SpreadDeletionTests {
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
         let spreadRepo = FailingDeleteSpreadRepository(spreads: [daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             spreadRepository: spreadRepo
@@ -400,15 +400,15 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let spreadRepo = TestSpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -420,8 +420,8 @@ struct SpreadDeletionTests {
         let updatedTask = manager.tasks.first { $0.id == task.id }
 
         // Should be assigned to month (immediate parent), not year
-        let monthAssignment = updatedTask?.assignments.first { $0.period == .month }
-        let yearAssignment = updatedTask?.assignments.first { $0.period == .year }
+        let monthAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .month }
+        let yearAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .year }
 
         #expect(monthAssignment != nil)
         #expect(yearAssignment == nil)
@@ -441,15 +441,15 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .month, date: taskDate, status: .open)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task])
-        let spreadRepo = InMemorySpreadRepository(spreads: [yearSpread, monthSpread])
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let spreadRepo = TestSpreadRepository(spreads: [yearSpread, monthSpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -461,7 +461,7 @@ struct SpreadDeletionTests {
         let updatedTask = manager.tasks.first { $0.id == task.id }
 
         // Should be assigned to year spread
-        let yearAssignment = updatedTask?.assignments.first { $0.period == .year }
+        let yearAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .year }
         #expect(yearAssignment != nil)
         #expect(yearAssignment?.status == .open)
     }
@@ -482,20 +482,20 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: taskDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: taskDate, status: .open)]
         )
         let task2 = DataModel.Task(
             title: "Task 2",
             date: taskDate,
             period: .day,
             status: .complete,
-            assignments: [TaskAssignment(period: .day, date: taskDate, status: .complete)]
+            currentAssignments: [Assignment(period: .day, date: taskDate, status: .complete)]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [task1, task2])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let taskRepo = TestTaskRepository(tasks: [task1, task2])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -505,7 +505,7 @@ struct SpreadDeletionTests {
         try await manager.deleteSpread(daySpread)
 
         for task in manager.tasks {
-            let monthAssignment = task.assignments.first { $0.period == .month }
+            let monthAssignment = task.allAssignmentsForTesting.first { $0.period == .month }
             #expect(monthAssignment != nil)
         }
     }
@@ -526,15 +526,15 @@ struct SpreadDeletionTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .migrated)
+            migrationHistory: [
+                Assignment(period: .day, date: taskDate, status: .migrated)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [migratedTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let taskRepo = TestTaskRepository(tasks: [migratedTask])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -546,7 +546,7 @@ struct SpreadDeletionTests {
         let updatedTask = manager.tasks.first { $0.id == migratedTask.id }
 
         // Should have assignment on month spread
-        let monthAssignment = updatedTask?.assignments.first { $0.period == .month }
+        let monthAssignment = updatedTask?.allAssignmentsForTesting.first { $0.period == .month }
         #expect(monthAssignment != nil)
     }
 
@@ -567,10 +567,10 @@ struct SpreadDeletionTests {
             endDate: eventDate
         )
 
-        let eventRepo = InMemoryEventRepository(events: [event])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread, daySpread])
+        let eventRepo = TestEventRepository(events: [event])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread, daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: eventDate,
             spreadRepository: spreadRepo,
@@ -593,9 +593,9 @@ struct SpreadDeletionTests {
         let taskDate = Self.testDate
 
         let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
-        let spreadRepo = InMemorySpreadRepository(spreads: [daySpread])
+        let spreadRepo = TestSpreadRepository(spreads: [daySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             spreadRepository: spreadRepo
@@ -608,5 +608,82 @@ struct SpreadDeletionTests {
 
         // Data model should no longer contain the day spread
         #expect(manager.dataModel[.day] == nil || manager.dataModel[.day]?.isEmpty == true)
+    }
+
+    // MARK: - Multiday Deletion Fallback Tests
+
+    /// Conditions: A multiday spread is deleted; a task assigned to it has a preferred day
+    /// date matching an existing day spread (not a parent-hierarchy relationship — multiday
+    /// ranges have no parent-hierarchy concept).
+    /// Expected: the task falls back to its own best-matching non-multiday spread, not Inbox.
+    @Test @MainActor func testDeleteMultidaySpreadFallsBackToTasksOwnBestSpread() async throws {
+        let calendar = Self.testCalendar
+        let startDate = Self.testDate
+        let endDate = calendar.date(byAdding: .day, value: 2, to: startDate)!
+        let taskDate = calendar.date(byAdding: .day, value: 1, to: startDate)!
+
+        let multidaySpread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: calendar)
+        let task = DataModel.Task(
+            title: "Task",
+            date: taskDate,
+            period: .day,
+            status: .open,
+            currentAssignments: [
+                Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .open)
+            ]
+        )
+
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let spreadRepo = TestSpreadRepository(spreads: [multidaySpread, daySpread])
+
+        let manager = try await JournalManager(
+            calendar: calendar,
+            today: startDate,
+            taskRepository: taskRepo,
+            spreadRepository: spreadRepo
+        )
+
+        try await manager.deleteSpread(multidaySpread)
+
+        let updatedTask = manager.tasks.first { $0.id == task.id }
+        let dayAssignment = updatedTask?.allAssignmentsForTesting.first { $0.matches(spread: daySpread, calendar: calendar) }
+        #expect(dayAssignment != nil)
+        #expect(dayAssignment?.status == .open)
+    }
+
+    /// Conditions: A multiday spread is deleted; an assigned task's preferred date has no
+    /// matching spread of any granularity.
+    /// Expected: the task falls back to Inbox (migrated-only, no replacement assignment).
+    @Test @MainActor func testDeleteMultidaySpreadFallsBackToInboxWhenNoMatchExists() async throws {
+        let calendar = Self.testCalendar
+        let startDate = Self.testDate
+        let endDate = calendar.date(byAdding: .day, value: 2, to: startDate)!
+
+        let multidaySpread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
+        let task = DataModel.Task(
+            title: "Task",
+            date: startDate,
+            period: .day,
+            status: .open,
+            currentAssignments: [
+                Assignment(period: .multiday, date: multidaySpread.date, spreadID: multidaySpread.id, status: .open)
+            ]
+        )
+
+        let taskRepo = TestTaskRepository(tasks: [task])
+        let spreadRepo = TestSpreadRepository(spreads: [multidaySpread])
+
+        let manager = try await JournalManager(
+            calendar: calendar,
+            today: startDate,
+            taskRepository: taskRepo,
+            spreadRepository: spreadRepo
+        )
+
+        try await manager.deleteSpread(multidaySpread)
+
+        let updatedTask = manager.tasks.first { $0.id == task.id }
+        #expect(updatedTask?.allAssignmentsForTesting.allSatisfy { $0.status == .migrated } == true)
     }
 }

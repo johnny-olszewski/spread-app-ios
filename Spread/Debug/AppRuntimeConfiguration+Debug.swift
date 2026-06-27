@@ -24,20 +24,17 @@ extension AppRuntimeConfiguration {
         return launchConfiguration.mockDataSet
     }
 
-    /// Creates a configuration with debug overrides for auth, sync, mock data, and network.
+    /// Creates a configuration with debug overrides for auth selection, app clock,
+    /// mock data, and the debug menu.
     ///
-    /// Called by `AppRuntimeBootstrapFactory` in debug builds. Each closure wraps or replaces
-    /// a production dependency with a debug-controllable equivalent.
+    /// Called by `AppRuntimeBootstrapFactory` in debug builds.
     static func debug() -> AppRuntimeConfiguration {
         AppRuntimeConfiguration(
-            makeAuthService: { dependencies in
-                let base: AuthService = DataEnvironment.current.isLocalOnly
+            makeAuthService: { _ in
+                let service: AuthService = DataEnvironment.current.isLocalOnly
                     ? MockAuthService()
                     : SupabaseAuthService()
-                return DebugAuthService(wrapping: base, networkMonitor: dependencies.networkMonitor)
-            },
-            makeSyncPolicy: {
-                DebugSyncPolicy()
+                return service
             },
             makeAppClock: {
                 appClock(for: AppLaunchConfiguration.current)
@@ -48,9 +45,6 @@ extension AppRuntimeConfiguration {
                     launchConfiguration: AppLaunchConfiguration.current
                 ) {
                     try await journalManager.loadMockDataSet(dataSet)
-                }
-                if let bujoMode = AppLaunchConfiguration.current.bujoMode {
-                    journalManager.bujoMode = bujoMode
                 }
             },
             makeDebugMenuView: { dependencies, journalManager, authManager, syncEngine, appClock in
@@ -63,9 +57,6 @@ extension AppRuntimeConfiguration {
                         appClock: appClock
                     )
                 )
-            },
-            makeNetworkMonitor: {
-                DebugNetworkMonitor()
             }
         )
     }

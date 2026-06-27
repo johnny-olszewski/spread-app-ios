@@ -4,7 +4,7 @@ import Supabase
 /// Production auth service that authenticates with Supabase.
 ///
 /// Creates and manages its own Supabase client internally.
-/// Use `MockAuthService` for localhost or `DebugAuthService` to inject test errors.
+/// Use `MockAuthService` for localhost.
 @MainActor
 struct SupabaseAuthService: AuthService {
 

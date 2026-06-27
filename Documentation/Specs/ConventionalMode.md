@@ -85,6 +85,25 @@
 | `February 1, 2026` | `Inbox` task with desired assignment `January 2026` month | Yes | Inbox falls back to the desired assignment period/date when no open spread assignment exists. |
 | `January 11, 2026` | `Inbox` task with desired assignment `January 10, 2026` day | Yes | Inbox day tasks become overdue after the desired day passes. |
 
+### Overdue Card in Day Spread (SPRD-235)
+
+- When the current spread is a day spread for today, an overdue card is shown above the entry list when `JournalManager.overdueTaskItems` is non-empty. [SPRD-235]
+- The overdue card is rendered as a visually distinct card: `RoundedRectangle` background at low opacity with a solid stroke border. Color is caller-supplied via `EntryList.Section.Style.card(Color)`. [SPRD-235]
+- The overdue card contains one `EntryList.Section` per distinct source spread (or Inbox) that has overdue tasks, grouped by `OverdueTaskItem.sourceKey`. [SPRD-235]
+- Each section in the card renders tasks using the same `EntryRowView.Configuration` as the standard task rows (status toggle, migrate, delete, edit). No overdue-specific actions in v1. [SPRD-235]
+- The card disappears automatically when all overdue tasks have been acted on (i.e., `overdueTaskItems` becomes empty). There is no manual dismiss. [SPRD-235]
+- The card is scoped to `DaySpreadContentView` only in v1. The general mechanism (`Section.Style`) is designed for reuse but no other call site uses it yet. [SPRD-235]
+
+#### `EntryList.Section.Style` — Generic Section Styling
+
+- `EntryList.Section` gains an optional `style: EntryList.Section.Style?` property, defaulting to `nil` (standard rendering). [SPRD-235]
+- `EntryList.Section.Style` is an enum with one case in v1: `.card(Color)`. [SPRD-235]
+- `EntryListView` in `.list` mode splits sections into two groups before rendering:
+  - Card-styled sections (`style != nil`) are rendered above the `List {}` in a `VStack`, each wrapped in the appropriate card chrome.
+  - Standard sections (`style == nil`) are rendered inside the `List {}` as today.
+- `EntryListView` and `EntryRowView` have no knowledge of the overdue concept — they only respond to `Section.Style`. [SPRD-235]
+- Card sections in `.inline` mode render identically to standard sections (card chrome is list-mode-only in v1). [SPRD-235]
+
 ### Inbox
 - Unassigned entries (tasks/notes) are stored in a global Inbox. [SPRD-14]
 - Inbox is surfaced as the first section inside the global search tab's task browser rather than a spread-toolbar button or standalone sheet. [SPRD-148]
@@ -101,21 +120,12 @@
   - Otherwise fall back to an explicit year spread for today's year.
   - If multiple multiday spreads contain today, choose the narrowest containing range; break ties by the existing chronological spread ordering.
   - If no explicit spread contains today, the button currently does nothing.
-- Traditional mode `Today` always navigates to the traditional day destination for today. [SPRD-130]
 - If `Today` is pressed while today is already the selected spread, it still refreshes the compact context bar and content pager on today's selection if needed. [SPRD-130]
 
-### Modes
-- Conventional: [SPRD-13, SPRD-14, SPRD-25, SPRD-31]
-  - Entries may appear on multiple spreads with per-spread status. [SPRD-15]
-  - Spreads must be created explicitly. [SPRD-12, SPRD-26]
-  - Unassigned entries go to global Inbox. [SPRD-14, SPRD-31]
-  - Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
-  - Inline migration affordances exist only in conventional mode. [SPRD-110, SPRD-140]
-- Traditional: [SPRD-17, SPRD-35, SPRD-38]
-  - Entries appear only on preferred assignment, no migration history visible. [SPRD-17, SPRD-35]
-  - All spreads available for navigation regardless of created spread records. [SPRD-17, SPRD-38]
-  - Must not mutate the "created spreads" data used by conventional mode. [SPRD-17, SPRD-53]
-  - Migrating updates the preferred date/period; conventional assignments recomputed. [SPRD-17, SPRD-15]
-  - If no conventional spread exists for migration target, assign to nearest parent or Inbox. [SPRD-17, SPRD-14]
-  - Traditional mode does not show migration prompts because all calendar spreads are navigable without waiting for created conventional spreads. [SPRD-110]
-- Traditional mode does not gain any separate overdue review affordance; overdue spread badges are only shown in navigator surfaces where spread destinations are listed. [SPRD-147]
+### Mode
+The app operates in conventional mode only. Traditional mode is out of scope for v1. [SPRD-226]
+- Entries may appear on multiple spreads with per-spread status. [SPRD-15]
+- Spreads must be created explicitly. [SPRD-12, SPRD-26]
+- Unassigned entries go to global Inbox. [SPRD-14, SPRD-31]
+- Inbox auto-resolves when a matching spread is created. [SPRD-14, SPRD-31]
+- Inline migration affordances exist in conventional mode. [SPRD-110, SPRD-140]

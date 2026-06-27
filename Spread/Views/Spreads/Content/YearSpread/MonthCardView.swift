@@ -17,7 +17,7 @@ struct MonthCardView: View {
         /// Displays an optional entry list with an optional create-spread action.
         case list(
             sections: [EntryList.Section],
-            configurationMap: [EntryType: EntryRowView.Configuration]
+            configurationMap: EntryRowView.ConfigurationMap
         )
     }
 
@@ -25,7 +25,7 @@ struct MonthCardView: View {
 
     let monthDate: Date
     let calendar: Calendar
-    let visualState: SpreadCardStyle
+    let cardStyle: SpreadCardStyle
     let style: Style
 
     var onPeek: (() -> Void)? = nil
@@ -55,14 +55,7 @@ struct MonthCardView: View {
             }
         }
         .padding(Layout.cardPadding)
-        .background(
-            RoundedRectangle(cornerRadius: Layout.cardCornerRadius, style: .continuous)
-                .fill(backgroundFill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Layout.cardCornerRadius, style: .continuous)
-                .strokeBorder(visualState.borderColor, style: visualState.borderStyle)
-        )
+        .spreadCardStyle(cornerRadius: Layout.cardCornerRadius, fill: backgroundFill, style: cardStyle)
     }
 
     // MARK: - Header
@@ -71,20 +64,20 @@ struct MonthCardView: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(monthDate.formatted(.dateTime.month(.wide)))
                 .font(SpreadTheme.Typography.title3)
-                .foregroundStyle(visualState.primaryHeaderColor)
+                .foregroundStyle(cardStyle.primaryHeaderColor)
 
             Spacer(minLength: 8)
 
-            if visualState.isToday {
+            if cardStyle.isToday {
                 Text("This Month")
                     .font(SpreadTheme.Typography.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(SpreadTheme.Accent.todayEmphasis)
+                    .foregroundStyle(SpreadTheme.Accent.primary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(
                         Capsule()
-                            .fill(SpreadTheme.Accent.todayEmphasis.opacity(0.1))
+                            .fill(SpreadTheme.Accent.primary.opacity(0.1))
                     )
             }
         }
@@ -94,7 +87,7 @@ struct MonthCardView: View {
 
     private var regularLayout: some View {
         HStack(alignment: .top, spacing: Layout.cardSpacing) {
-            MiniMonthGridView(monthDate: monthDate, calendar: calendar, visualState: visualState)
+            MiniMonthGridView(monthDate: monthDate, calendar: calendar, cardStyle: cardStyle)
                 .containerRelativeFrame(.horizontal, count: 10, span: 3, spacing: 0)
                 .frame(maxHeight: .infinity)
 
@@ -104,7 +97,7 @@ struct MonthCardView: View {
 
     private var compactLayout: some View {
         VStack(alignment: .leading, spacing: Layout.cardSpacing) {
-            MiniMonthGridView(monthDate: monthDate, calendar: calendar, visualState: visualState)
+            MiniMonthGridView(monthDate: monthDate, calendar: calendar, cardStyle: cardStyle)
             contentArea
         }
     }
@@ -122,36 +115,28 @@ struct MonthCardView: View {
                 HStack {
                     Spacer()
                     if let onPeek {
-                        Button(action: onPeek) {
-                            Image(systemName: "eye")
-                                .font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                                .frame(minWidth: 44, minHeight: 44)
-                        }
-                        .buttonStyle(.plain)
-                        .contentShape(Rectangle())
-                        .accessibilityLabel("Preview month spread")
+                        SpreadButton(viewModel: .init(
+                            title: "Preview month spread",
+                            systemImage: "eye",
+                            style: .secondary,
+                            action: onPeek
+                        ))
                     }
 
                     if let onViewSpread {
-                        Button(action: onViewSpread) {
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
-                                .foregroundStyle(SpreadTheme.Accent.todaySelectedEmphasis)
-                                .frame(width: 30, height: 30)
-                                .background(Circle().fill(.white.opacity(0.94)))
-                        }
-                        .buttonStyle(.plain)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
-                        .accessibilityLabel("View month spread")
+                        SpreadButton(viewModel: .init(
+                            title: "View month spread",
+                            systemImage: "arrow.right",
+                            style: .primary,
+                            action: onViewSpread
+                        ))
                     }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .list(let sections, let configurationMap):
             VStack(alignment: .leading, spacing: Layout.cardSpacing) {
-                EntryListView(sections: sections, configurationMap: configurationMap, style: .inline)
+                EntryListView(sections: sections, configurationMap: configurationMap)
                 if let onCreateSpread {
                     Button("Create Spread") {
                         onCreateSpread()
@@ -184,8 +169,8 @@ struct MonthCardView: View {
     // MARK: - Background
 
     private var backgroundFill: Color {
-        if visualState.isToday { return visualState.fill }
-        if visualState.isCreated { return SpreadTheme.Paper.secondary.opacity(0.45) }
+        if cardStyle.isToday { return cardStyle.fill }
+        if cardStyle.isCreated { return SpreadTheme.Paper.secondary.opacity(0.45) }
         return SpreadTheme.Paper.primary.opacity(0.65)
     }
 }
@@ -195,7 +180,7 @@ struct MonthCardView: View {
 private struct MiniMonthGridView: View {
     private let monthDate: Date
     private let calendar: Calendar
-    private let visualState: SpreadCardStyle
+    private let cardStyle: SpreadCardStyle
 
     private enum Layout {
         static let cellHeight: CGFloat = 24
@@ -205,11 +190,11 @@ private struct MiniMonthGridView: View {
     init(
         monthDate: Date,
         calendar: Calendar,
-        visualState: SpreadCardStyle
+        cardStyle: SpreadCardStyle
     ) {
         self.monthDate = monthDate
         self.calendar = calendar
-        self.visualState = visualState
+        self.cardStyle = cardStyle
     }
 
     private var headers: [String] {
@@ -254,8 +239,8 @@ private struct MiniMonthGridView: View {
                     Group {
                         if let dayNumber = cell.dayNumber {
                             Text("\(dayNumber)")
-                                .font(.system(size: 10, weight: visualState.headerWeight))
-                                .foregroundStyle(visualState.primaryHeaderColor)
+                                .font(.system(size: 10, weight: cardStyle.headerWeight))
+                                .foregroundStyle(cardStyle.primaryHeaderColor)
                         } else {
                             Color.clear
                         }

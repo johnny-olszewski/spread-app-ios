@@ -41,6 +41,7 @@ struct ContentView: View {
                 )
                 .environment(\.appClock, runtime.appClock)
                 .environment(\.eventKitService, runtime.dependencies.eventKitService)
+                .environment(\.calendarEventService, runtime.dependencies.calendarEventService)
             } else {
                 loadingView
             }

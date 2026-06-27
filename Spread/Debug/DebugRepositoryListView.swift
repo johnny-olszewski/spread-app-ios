@@ -103,7 +103,7 @@ struct DebugRepositoryListView: View {
 
             HStack(spacing: 12) {
                 Label(task.status.rawValue, systemImage: statusIcon(for: task.status))
-                Label("\(task.assignments.count) assignments", systemImage: "link")
+                Label("\(task.currentAssignments.count + task.migrationHistory.count) assignments", systemImage: "link")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -120,12 +120,14 @@ struct DebugRepositoryListView: View {
         .padding(.vertical, 2)
     }
 
-    private func statusIcon(for status: DataModel.Task.Status) -> String {
+    private func statusIcon(for status: EntryStatus) -> String {
         switch status {
         case .open: return "circle"
+        case .active: return "circle.fill"
         case .complete: return "checkmark.circle.fill"
         case .migrated: return "arrow.right.circle"
         case .cancelled: return "xmark.circle"
+        case .upcoming: return "calendar.circle"
         }
     }
 
@@ -284,8 +286,8 @@ struct DebugRepositoryListView: View {
             }
 
             HStack(spacing: 12) {
-                Label(note.status.rawValue, systemImage: noteStatusIcon(for: note.status))
-                Label("\(note.assignments.count) assignments", systemImage: "link")
+                Label(note.status.rawValue, systemImage: statusIcon(for: note.status))
+                Label("\(note.currentAssignments.count + note.migrationHistory.count) assignments", systemImage: "link")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -302,12 +304,6 @@ struct DebugRepositoryListView: View {
         .padding(.vertical, 2)
     }
 
-    private func noteStatusIcon(for status: DataModel.Note.Status) -> String {
-        switch status {
-        case .active: return "circle.fill"
-        case .migrated: return "arrow.right.circle"
-        }
-    }
 
     // MARK: - Collections List
 

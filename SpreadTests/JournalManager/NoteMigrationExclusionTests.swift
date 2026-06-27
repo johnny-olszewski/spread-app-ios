@@ -39,12 +39,12 @@ struct NoteMigrationExclusionTests {
             ]
         }
 
-        return try await JournalManager.make(
+        return try await JournalManager(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: tasks),
-            spreadRepository: InMemorySpreadRepository(spreads: allSpreads),
-            noteRepository: InMemoryNoteRepository(notes: notes)
+            taskRepository: TestTaskRepository(tasks: tasks),
+            spreadRepository: TestSpreadRepository(spreads: allSpreads),
+            noteRepository: TestNoteRepository(notes: notes)
         )
     }
 
@@ -62,13 +62,13 @@ struct NoteMigrationExclusionTests {
         let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: calendar)
 
         let task = DataModel.Task(title: "Task on year", date: yearDate, period: .year, status: .open)
-        task.assignments = [
-            TaskAssignment(period: .year, date: yearDate, status: .open)
+        task.currentAssignments = [
+            Assignment(period: .year, date: yearDate, status: .open)
         ]
 
         let note = DataModel.Note(title: "Note on year", date: yearDate, period: .year, status: .active)
-        note.assignments = [
-            NoteAssignment(period: .year, date: yearDate, status: .active)
+        note.currentAssignments = [
+            Assignment(period: .year, date: yearDate, status: .active)
         ]
 
         let manager = try await makeManager(
@@ -96,8 +96,8 @@ struct NoteMigrationExclusionTests {
         let monthSpread = DataModel.Spread(period: .month, date: monthDate, calendar: calendar)
 
         let note = DataModel.Note(title: "Note on year", date: yearDate, period: .year, status: .active)
-        note.assignments = [
-            NoteAssignment(period: .year, date: yearDate, status: .active)
+        note.currentAssignments = [
+            Assignment(period: .year, date: yearDate, status: .active)
         ]
 
         let manager = try await makeManager(
@@ -110,24 +110,24 @@ struct NoteMigrationExclusionTests {
         #expect(eligible.isEmpty)
     }
 
-    // MARK: - Note Display Status
+    // MARK: - Note Status
 
     /// Condition: Active note.
-    /// Expected: displayNoteStatus returns .active.
-    @Test("Active note displayNoteStatus is .active")
-    func testActiveNoteDisplayStatus() {
+    /// Expected: status is .active.
+    @Test("Active note status is .active")
+    func testActiveNoteStatus() {
         let note = DataModel.Note(title: "Test note", status: .active)
 
-        #expect(note.displayNoteStatus == .active)
+        #expect(note.status == .active)
     }
 
     /// Condition: Migrated note.
-    /// Expected: displayNoteStatus returns .migrated.
-    @Test("Migrated note displayNoteStatus is .migrated")
-    func testMigratedNoteDisplayStatus() {
+    /// Expected: status is .migrated.
+    @Test("Migrated note status is .migrated")
+    func testMigratedNoteStatus() {
         let note = DataModel.Note(title: "Test note", status: .migrated)
 
-        #expect(note.displayNoteStatus == .migrated)
+        #expect(note.status == .migrated)
     }
 
     /// Condition: A note is assigned to an overdue spread alongside an overdue task.
@@ -140,21 +140,21 @@ struct NoteMigrationExclusionTests {
         let daySpread = DataModel.Spread(period: .day, date: pastDay, calendar: calendar)
 
         let task = DataModel.Task(title: "Overdue task", date: pastDay, period: .day, status: .open)
-        task.assignments = [
-            TaskAssignment(period: .day, date: pastDay, status: .open)
+        task.currentAssignments = [
+            Assignment(period: .day, date: pastDay, status: .open)
         ]
 
         let note = DataModel.Note(title: "Overdue note", date: pastDay, period: .day, status: .active)
-        note.assignments = [
-            NoteAssignment(period: .day, date: pastDay, status: .active)
+        note.currentAssignments = [
+            Assignment(period: .day, date: pastDay, status: .active)
         ]
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(spreads: [daySpread]),
-            noteRepository: InMemoryNoteRepository(notes: [note])
+            taskRepository: TestTaskRepository(tasks: [task]),
+            spreadRepository: TestSpreadRepository(spreads: [daySpread]),
+            noteRepository: TestNoteRepository(notes: [note])
         )
 
         #expect(manager.overdueTaskItems.count == 1)

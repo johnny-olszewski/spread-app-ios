@@ -26,7 +26,6 @@ extension JournalManager {
 
         if dataSet.isScenarioFixture {
             // Scenario fixtures must be deterministic regardless of persisted settings.
-            bujoMode = .conventional
             firstWeekday = .systemDefault
         }
 
@@ -38,9 +37,17 @@ extension JournalManager {
             try await addMockSpread(spread)
         }
 
+        for list in generatedData.lists {
+            try await listRepository.save(list)
+        }
+
+        for tag in generatedData.tags {
+            try await tagRepository.save(tag)
+        }
+
         // Persist entries verbatim so scenario fixtures can encode exact assignments.
         for task in generatedData.tasks {
-            try await taskRepository.save(task)
+            try await taskRepository.save(task, change: EntityChange(isNew: true))
         }
 
         for event in generatedData.events {
@@ -48,7 +55,7 @@ extension JournalManager {
         }
 
         for note in generatedData.notes {
-            try await noteRepository.save(note)
+            try await noteRepository.save(note, change: EntityChange(isNew: true))
         }
 
         // Reload in-memory state from repositories to ensure UI sync
@@ -75,7 +82,7 @@ extension JournalManager {
         title: String,
         date: Date,
         period: Period,
-        status: DataModel.Task.Status = .open,
+        status: EntryStatus = .open,
         reloadAfter: Bool = true
     ) async throws -> DataModel.Task {
         let task = DataModel.Task(
@@ -83,23 +90,23 @@ extension JournalManager {
             date: date,
             period: period,
             status: status,
-            assignments: []
+            currentAssignments: []
         )
 
         // Find best spread for assignment
-        let spreadService = ConventionalSpreadService(calendar: calendar)
+        let spreadService = SpreadService(calendar: calendar)
         if let bestSpread = spreadService.findBestSpread(for: task, in: spreads) {
             let normalizedDate = bestSpread.period.normalizeDate(bestSpread.date, calendar: calendar)
-            let assignment = TaskAssignment(
+            let assignment = Assignment(
                 period: bestSpread.period,
                 date: normalizedDate,
                 status: status == .complete ? .complete : .open
             )
-            task.assignments.append(assignment)
+            task.currentAssignments.append(assignment)
         }
 
         // Persist and reload state
-        try await taskRepository.save(task)
+        try await taskRepository.save(task, change: EntityChange(isNew: true))
         if reloadAfter {
             await reload()
         }
@@ -175,23 +182,23 @@ extension JournalManager {
             content: content,
             date: date,
             period: period,
-            assignments: []
+            currentAssignments: []
         )
 
         // Find best spread for assignment
-        let spreadService = ConventionalSpreadService(calendar: calendar)
+        let spreadService = SpreadService(calendar: calendar)
         if let bestSpread = spreadService.findBestSpread(for: note, in: spreads) {
             let normalizedDate = bestSpread.period.normalizeDate(bestSpread.date, calendar: calendar)
-            let assignment = NoteAssignment(
+            let assignment = Assignment(
                 period: bestSpread.period,
                 date: normalizedDate,
                 status: .active
             )
-            note.assignments.append(assignment)
+            note.currentAssignments.append(assignment)
         }
 
         // Persist and reload state
-        try await noteRepository.save(note)
+        try await noteRepository.save(note, change: EntityChange(isNew: true))
         if reloadAfter {
             await reload()
         }

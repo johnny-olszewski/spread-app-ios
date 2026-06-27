@@ -7,11 +7,11 @@ struct TaskSearchSection: Identifiable {
         let bodyPreview: String?
         let priority: DataModel.Task.Priority
         let dueDate: Date?
-        let status: DataModel.Task.Status
+        let status: EntryStatus
         let period: Period
         let date: Date
         let hasPreferredAssignment: Bool
-        let selection: SpreadHeaderNavigatorModel.Selection?
+        let selection: DataModel.Spread?
 
         var id: UUID { taskID }
     }
@@ -30,17 +30,17 @@ struct TaskSearchSectionBuilder {
 
         var inboxRows: [TaskSearchSection.Row] = []
         var spreadRowsByID: [String: [TaskSearchSection.Row]] = [:]
-        var selectionByID: [String: SpreadHeaderNavigatorModel.Selection] = [:]
+        var selectionByID: [String: DataModel.Spread] = [:]
 
         for task in journalManager.tasks where task.status != .cancelled {
             guard matches(task, query: normalizedQuery) else {
                 continue
             }
 
-            if let selection = selection(for: task) {
-                let selectionID = selection.stableID(calendar: journalManager.calendar)
-                selectionByID[selectionID] = selection
-                spreadRowsByID[selectionID, default: []].append(row(for: task, selection: selection))
+            if let spread = selection(for: task) {
+                let selectionID = spread.id.uuidString
+                selectionByID[selectionID] = spread
+                spreadRowsByID[selectionID, default: []].append(row(for: task, selection: spread))
             } else {
                 inboxRows.append(inboxRow(for: task))
             }
@@ -58,14 +58,14 @@ struct TaskSearchSectionBuilder {
             )
         }
 
-        let orderedSelections = selectionByID.values.sorted(by: isEarlier)
-        sections.append(contentsOf: orderedSelections.compactMap { selection in
-            let selectionID = selection.stableID(calendar: journalManager.calendar)
+        let orderedSpreads = selectionByID.values.sorted(by: isEarlier)
+        sections.append(contentsOf: orderedSpreads.compactMap { spread in
+            let selectionID = spread.id.uuidString
             guard let rows = spreadRowsByID[selectionID], !rows.isEmpty else { return nil }
             return TaskSearchSection(
                 id: selectionID,
-                title: sectionTitle(for: selection),
-                token: selectionToken(for: selection),
+                title: sectionTitle(for: spread),
+                token: selectionToken(for: spread),
                 rows: rows.sorted(by: rowOrder)
             )
         })
@@ -73,25 +73,9 @@ struct TaskSearchSectionBuilder {
         return sections
     }
 
-    private func selection(for task: DataModel.Task) -> SpreadHeaderNavigatorModel.Selection? {
-        guard task.hasPreferredAssignment else { return nil }
-
-        switch journalManager.bujoMode {
-        case .conventional:
-            guard let spread = journalManager.currentDisplayedSpread(for: task) else { return nil }
-            return .conventional(spread)
-        case .traditional:
-            switch task.period {
-            case .year:
-                return .traditionalYear(Period.year.normalizeDate(task.date, calendar: journalManager.calendar))
-            case .month:
-                return .traditionalMonth(Period.month.normalizeDate(task.date, calendar: journalManager.calendar))
-            case .day:
-                return .traditionalDay(Period.day.normalizeDate(task.date, calendar: journalManager.calendar))
-            case .multiday:
-                return nil
-            }
-        }
+    private func selection(for task: DataModel.Task) -> DataModel.Spread? {
+        guard task.date != nil else { return nil }
+        return journalManager.currentDisplayedSpread(for: task)
     }
 
     private func inboxRow(for task: DataModel.Task) -> TaskSearchSection.Row {
@@ -102,16 +86,16 @@ struct TaskSearchSectionBuilder {
             priority: task.priority,
             dueDate: task.dueDate,
             status: task.status,
-            period: task.period,
-            date: task.date,
-            hasPreferredAssignment: task.hasPreferredAssignment,
+            period: task.period ?? .day,
+            date: task.date ?? task.createdDate,
+            hasPreferredAssignment: task.date != nil,
             selection: nil
         )
     }
 
     private func row(
         for task: DataModel.Task,
-        selection: SpreadHeaderNavigatorModel.Selection
+        selection: DataModel.Spread
     ) -> TaskSearchSection.Row {
         TaskSearchSection.Row(
             taskID: task.id,
@@ -120,10 +104,10 @@ struct TaskSearchSectionBuilder {
             priority: task.priority,
             dueDate: task.dueDate,
             status: task.status,
-            period: task.period,
-            date: task.date,
-            hasPreferredAssignment: task.hasPreferredAssignment,
-            selection: Optional(selection)
+            period: task.period ?? .day,
+            date: task.date ?? task.createdDate,
+            hasPreferredAssignment: task.date != nil,
+            selection: selection
         )
     }
 
@@ -135,21 +119,17 @@ struct TaskSearchSectionBuilder {
         return task.body?.localizedCaseInsensitiveContains(query) == true
     }
 
-    private func sectionTitle(for selection: SpreadHeaderNavigatorModel.Selection) -> String {
-        switch selection {
-        case .conventional(let spread):
-            return descriptiveTitle(for: spread.period, date: spread.date, startDate: spread.startDate, endDate: spread.endDate)
-        case .traditionalYear(let date):
-            return descriptiveTitle(for: .year, date: date)
-        case .traditionalMonth(let date):
-            return descriptiveTitle(for: .month, date: date)
-        case .traditionalDay(let date):
-            return descriptiveTitle(for: .day, date: date)
-        }
+    private func sectionTitle(for spread: DataModel.Spread) -> String {
+        descriptiveTitle(
+            for: spread.period,
+            date: spread.date,
+            startDate: spread.startDate,
+            endDate: spread.endDate
+        )
     }
 
-    private func selectionToken(for selection: SpreadHeaderNavigatorModel.Selection) -> String {
-        Definitions.AccessibilityIdentifiers.token(sectionTitle(for: selection))
+    private func selectionToken(for spread: DataModel.Spread) -> String {
+        Definitions.AccessibilityIdentifiers.token(sectionTitle(for: spread))
     }
 
     private func descriptiveTitle(
@@ -195,10 +175,7 @@ struct TaskSearchSectionBuilder {
         return lhs.status.rawValue < rhs.status.rawValue
     }
 
-    private func isEarlier(
-        _ lhs: SpreadHeaderNavigatorModel.Selection,
-        _ rhs: SpreadHeaderNavigatorModel.Selection
-    ) -> Bool {
+    private func isEarlier(_ lhs: DataModel.Spread, _ rhs: DataModel.Spread) -> Bool {
         let lhsKey = sortKey(for: lhs)
         let rhsKey = sortKey(for: rhs)
         if lhsKey.date == rhsKey.date {
@@ -207,24 +184,13 @@ struct TaskSearchSectionBuilder {
         return lhsKey.date < rhsKey.date
     }
 
-    private func sortKey(
-        for selection: SpreadHeaderNavigatorModel.Selection
-    ) -> (date: Date, rank: Int) {
-        switch selection {
-        case .conventional(let spread):
-            let rank: Int = switch spread.period {
-            case .year: 0
-            case .month: 1
-            case .multiday: 2
-            case .day: 3
-            }
-            return (spread.startDate ?? spread.date, rank)
-        case .traditionalYear(let date):
-            return (Period.year.normalizeDate(date, calendar: journalManager.calendar), 0)
-        case .traditionalMonth(let date):
-            return (Period.month.normalizeDate(date, calendar: journalManager.calendar), 1)
-        case .traditionalDay(let date):
-            return (Period.day.normalizeDate(date, calendar: journalManager.calendar), 2)
+    private func sortKey(for spread: DataModel.Spread) -> (date: Date, rank: Int) {
+        let rank: Int = switch spread.period {
+        case .year: 0
+        case .month: 1
+        case .multiday: 2
+        case .day: 3
         }
+        return (spread.startDate ?? spread.date, rank)
     }
 }

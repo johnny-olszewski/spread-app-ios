@@ -44,6 +44,9 @@ public struct DayTimelineScrollView<Provider: DayTimelineContentProvider>: View 
 
     public var calendar: Calendar = .current
 
+    /// Corner radius forwarded to `DayTimelineView` for its clip shape. Default `0`.
+    public var cornerRadius: CGFloat = 0
+
     /// Optional external scroll position. When `nil` the component manages
     /// scroll state internally.
     public var scrollPosition: Binding<ScrollPosition>?
@@ -66,6 +69,7 @@ public struct DayTimelineScrollView<Provider: DayTimelineContentProvider>: View 
         verticalCount: Int = 1,
         verticalSpan: Int = 3,
         calendar: Calendar = .current,
+        cornerRadius: CGFloat = 0,
         scrollPosition: Binding<ScrollPosition>? = nil
     ) {
         self.generator = generator
@@ -76,6 +80,7 @@ public struct DayTimelineScrollView<Provider: DayTimelineContentProvider>: View 
         self.verticalCount = verticalCount
         self.verticalSpan = verticalSpan
         self.calendar = calendar
+        self.cornerRadius = cornerRadius
         self.scrollPosition = scrollPosition
     }
 
@@ -106,6 +111,7 @@ public struct DayTimelineScrollView<Provider: DayTimelineContentProvider>: View 
                         visibleStartHour: visibleStartHour,
                         visibleEndHour: visibleEndHour,
                         height: proxy.size.height,
+                        cornerRadius: cornerRadius,
                         calendar: calendar
                     )
                     .padding(8)
@@ -117,23 +123,38 @@ public struct DayTimelineScrollView<Provider: DayTimelineContentProvider>: View 
             }
             .scrollIndicators(.hidden)
             .scrollPosition(effectiveScrollPosition)
-            .onChange(of: timedItems.count) { _, _ in scrollToFirstEvent() }
+            .onChange(of: timedItems.count) { _, _ in scrollToInitialPosition() }
         }
-        .task { scrollToFirstEvent() }
+        .task { scrollToInitialPosition() }
     }
 
     // MARK: - Private
 
-    /// Scrolls to the start of the earliest timed event. No-ops when there are no timed events.
-    private func scrollToFirstEvent() {
-        guard let firstItem = timedItems.min(by: { generator.startDate(for: $0) < generator.startDate(for: $1) }) else { return }
+    /// Margin (in points) above the scroll target to keep the current-time line
+    /// or first event from being flush against the top of the scroll view.
+    private let scrollTopMargin: CGFloat = 60
 
+    /// Scrolls to the appropriate initial position:
+    /// - Today: current time minus `scrollTopMargin` so the red line is visible near the top.
+    /// - Other dates: the start of the earliest timed event.
+    private func scrollToInitialPosition() {
         let coordinateSpace = DayTimeCoordinateSpace(
             visibleStart: hourDate(visibleStartHour),
             visibleEnd: hourDate(visibleEndHour),
             totalHeight: scrollableHeight
         )
-        let targetY = coordinateSpace.yOffset(for: generator.startDate(for: firstItem)) + 8
+
+        let targetDate: Date
+        if calendar.isDateInToday(date) {
+            targetDate = Date()
+        } else if let firstItem = timedItems.min(by: { generator.startDate(for: $0) < generator.startDate(for: $1) }) {
+            targetDate = generator.startDate(for: firstItem)
+        } else {
+            return
+        }
+
+        let rawY = coordinateSpace.yOffset(for: targetDate)
+        let targetY = max(rawY - scrollTopMargin, 0)
         effectiveScrollPosition.wrappedValue = ScrollPosition(y: targetY)
     }
 

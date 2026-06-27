@@ -13,25 +13,10 @@ struct EntryRowConfigurationTests {
     @Test func testDefaultConfigurationHasNilClosures() {
         let config = EntryRowView.Configuration()
 
-        #expect(config.effectiveTaskStatus == nil)
         #expect(config.isGreyedOut == nil)
         #expect(config.hasStrikethrough == nil)
-        #expect(config.onComplete == nil)
-        #expect(config.onEdit == nil)
-        #expect(config.onDelete == nil)
+        #expect(config.onStatusIconTap == nil)
         #expect(config.onTitleCommit == nil)
-    }
-
-    /// Conditions: Configuration created with effectiveTaskStatus closure.
-    /// Expected: Closure is non-nil and returns expected value when called.
-    @Test func testEffectiveTaskStatusClosureIsCallable() {
-        let task = DataModel.Task(title: "Test", status: .open)
-        let config = EntryRowView.Configuration(
-            effectiveTaskStatus: { _ in .complete }
-        )
-
-        let result = config.effectiveTaskStatus?(task)
-        #expect(result == .complete)
     }
 
     /// Conditions: Configuration with isGreyedOut closure that returns true.

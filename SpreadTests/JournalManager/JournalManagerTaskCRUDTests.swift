@@ -35,11 +35,11 @@ struct JournalManagerTaskCRUDTests {
             ]
         }
 
-        return try await JournalManager.make(
+        return try await JournalManager(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: tasks),
-            spreadRepository: InMemorySpreadRepository(spreads: allSpreads)
+            taskRepository: TestTaskRepository(tasks: tasks),
+            spreadRepository: TestSpreadRepository(spreads: allSpreads)
         )
     }
 
@@ -286,22 +286,22 @@ struct JournalManagerTaskCRUDTests {
             date: sourceDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: sourceDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: sourceDate, status: .open)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: sourceDate,
-            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread, destinationSpread])
+            taskRepository: TestTaskRepository(tasks: [existingTask]),
+            spreadRepository: TestSpreadRepository(spreads: [sourceSpread, destinationSpread])
         )
 
         try await manager.updateTaskDateAndPeriod(existingTask, newDate: destinationDate, newPeriod: .day)
 
         let updatedTask = try #require(manager.tasks.first { $0.id == existingTask.id })
         #expect(updatedTask.date == destinationDate)
-        #expect(updatedTask.assignments.count == 2)
-        #expect(updatedTask.assignments.first(where: { $0.matches(period: .day, date: sourceDate, calendar: calendar) })?.status == .migrated)
-        #expect(updatedTask.assignments.first(where: { $0.matches(period: .day, date: destinationDate, calendar: calendar) })?.status == .open)
+        #expect(updatedTask.allAssignmentsForTesting.count == 2)
+        #expect(updatedTask.allAssignmentsForTesting.first(where: { $0.matches(period: .day, date: sourceDate, calendar: calendar) })?.status == .migrated)
+        #expect(updatedTask.allAssignmentsForTesting.first(where: { $0.matches(period: .day, date: destinationDate, calendar: calendar) })?.status == .open)
 
         let sourceModel = try #require(manager.dataModel[.day]?[sourceDate])
         let destinationModel = try #require(manager.dataModel[.day]?[destinationDate])
@@ -324,21 +324,21 @@ struct JournalManagerTaskCRUDTests {
             date: sourceDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: sourceDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: sourceDate, status: .open)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: sourceDate,
-            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread])
+            taskRepository: TestTaskRepository(tasks: [existingTask]),
+            spreadRepository: TestSpreadRepository(spreads: [sourceSpread])
         )
 
         try await manager.updateTaskDateAndPeriod(existingTask, newDate: destinationDate, newPeriod: .day)
 
         let updatedTask = try #require(manager.tasks.first { $0.id == existingTask.id })
         #expect(updatedTask.date == destinationDate)
-        #expect(updatedTask.assignments.count == 1)
-        #expect(updatedTask.assignments.first?.status == .migrated)
+        #expect(updatedTask.allAssignmentsForTesting.count == 1)
+        #expect(updatedTask.allAssignmentsForTesting.first?.status == .migrated)
         #expect(manager.inboxEntries.contains { $0.id == existingTask.id })
     }
 
@@ -358,14 +358,14 @@ struct JournalManagerTaskCRUDTests {
             date: yearDate,
             period: .year,
             status: .open,
-            assignments: [TaskAssignment(period: .year, date: yearDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: yearDate, status: .open)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: calendar.date(from: DateComponents(year: 2026, month: 3, day: 29))!,
-            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, januaryFirstDaySpread])
+            taskRepository: TestTaskRepository(tasks: [existingTask]),
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, januaryFirstDaySpread])
         )
 
         try await manager.updateTaskDateAndPeriod(existingTask, newDate: aprilSixth, newPeriod: .day)
@@ -373,8 +373,8 @@ struct JournalManagerTaskCRUDTests {
         let updatedTask = try #require(manager.tasks.first { $0.id == existingTask.id })
         #expect(updatedTask.date == aprilSixth)
         #expect(updatedTask.period == .day)
-        #expect(updatedTask.assignments.count == 1)
-        #expect(updatedTask.assignments.first?.matches(period: .year, date: yearDate, calendar: calendar) == true)
+        #expect(updatedTask.allAssignmentsForTesting.count == 1)
+        #expect(updatedTask.allAssignmentsForTesting.first?.matches(period: .year, date: yearDate, calendar: calendar) == true)
 
         let yearModel = try #require(manager.dataModel[.year]?[yearDate])
         #expect(yearModel.tasks.contains { $0.id == updatedTask.id })
@@ -458,24 +458,20 @@ struct JournalManagerTaskCRUDTests {
             date: sourceDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: sourceDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: sourceDate, status: .open)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: sourceDate,
-            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [sourceSpread])
+            taskRepository: TestTaskRepository(tasks: [existingTask]),
+            spreadRepository: TestSpreadRepository(spreads: [sourceSpread])
         )
 
-        try await manager.clearTaskPreferredAssignment(
-            existingTask,
-            fallbackDate: sourceDate,
-            fallbackPeriod: .day
-        )
+        try await manager.clearTaskPreferredAssignment(existingTask)
 
-        #expect(existingTask.hasPreferredAssignment == false)
-        #expect(existingTask.assignments.count == 1)
-        #expect(existingTask.assignments.first?.status == .migrated)
+        #expect(existingTask.date == nil)
+        #expect(existingTask.allAssignmentsForTesting.count == 1)
+        #expect(existingTask.allAssignmentsForTesting.first?.status == .migrated)
         #expect(manager.inboxEntries.contains { ($0 as? DataModel.Task)?.id == existingTask.id })
     }
 
@@ -489,25 +485,20 @@ struct JournalManagerTaskCRUDTests {
             createdDate: today,
             date: today,
             period: .day,
-            hasPreferredAssignment: true,
             status: .open,
-            assignments: []
+            currentAssignments: []
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: today,
-            taskRepository: InMemoryTaskRepository(tasks: [existingTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [])
+            taskRepository: TestTaskRepository(tasks: [existingTask]),
+            spreadRepository: TestSpreadRepository(spreads: [])
         )
 
-        try await manager.clearTaskPreferredAssignment(
-            existingTask,
-            fallbackDate: today,
-            fallbackPeriod: .day
-        )
+        try await manager.clearTaskPreferredAssignment(existingTask)
 
-        #expect(existingTask.hasPreferredAssignment == false)
-        #expect(existingTask.assignments.isEmpty)
+        #expect(existingTask.date == nil)
+        #expect(existingTask.allAssignmentsForTesting.isEmpty)
         #expect(manager.inboxEntries.contains { ($0 as? DataModel.Task)?.id == existingTask.id })
     }
 
@@ -593,8 +584,8 @@ struct JournalManagerTaskCRUDTests {
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .day, date: dayDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .day, date: dayDate, status: .open)
             ]
         )
         let manager = try await makeManager(tasks: [existingTask])
@@ -619,8 +610,8 @@ struct JournalManagerTaskCRUDTests {
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .day, date: dayDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .day, date: dayDate, status: .open)
             ]
         )
         let manager = try await makeManager(tasks: [existingTask])

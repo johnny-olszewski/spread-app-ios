@@ -2,8 +2,9 @@ import Foundation
 
 /// Policy hooks for controlling sync behavior.
 ///
-/// Production builds should use `DefaultSyncPolicy`. Debug builds can inject
-/// policies to simulate failures or delays without changing core logic.
+/// `DefaultSyncPolicy` is the sole conformance, used by all builds. The
+/// protocol is retained as a dependency-injection seam for future test
+/// substitution (per `CLAUDE.md` testability guidelines).
 protocol SyncPolicy {
     /// Whether syncing is allowed at this time.
     func shouldAllowSync() -> Bool

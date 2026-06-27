@@ -26,7 +26,6 @@ struct MockDataSetTests {
         #expect(allCases.contains(.baseline))
         #expect(allCases.contains(.multiday))
         #expect(allCases.contains(.boundary))
-        #expect(allCases.contains(.highVolume))
         #expect(allCases.contains(.scenarioMigrationMonthBound))
         #expect(allCases.contains(.scenarioOverdueReview))
     }
@@ -69,15 +68,6 @@ struct MockDataSetTests {
         #expect(MockDataSet.boundary.displayName == "Boundary Dates")
     }
 
-    /// Verifies that high-volume data set has correct display name.
-    ///
-    /// Setup: MockDataSet.highVolume
-    /// Expected: Display name is "High Volume"
-    @Test("High volume data set has correct display name")
-    func highVolumeDisplayName() {
-        #expect(MockDataSet.highVolume.displayName == "High Volume")
-    }
-
     /// Verifies that all data sets have descriptions.
     ///
     /// Setup: All MockDataSet cases
@@ -97,7 +87,6 @@ struct MockDataSetTests {
     func scenarioFixturesAreHiddenFromDebugMenu() {
         let visible = MockDataSet.debugMenuCases
         #expect(visible.contains(.baseline))
-        #expect(visible.contains(.inboxNextYear))
         #expect(!visible.contains(.scenarioMigrationMonthBound))
         #expect(!visible.contains(.scenarioOverdueReview))
     }
@@ -304,7 +293,8 @@ struct MockDataSetTests {
         let data = MockDataSet.boundary.generateData(calendar: calendar, today: today)
 
         let leapDayTasks = data.tasks.filter { task in
-            let components = calendar.dateComponents([.month, .day], from: task.date)
+            guard let taskDate = task.date else { return false }
+            let components = calendar.dateComponents([.month, .day], from: taskDate)
             return components.month == 2 && components.day == 29
         }
         #expect(!leapDayTasks.isEmpty, "Boundary should include a task on Feb 29")
@@ -339,36 +329,11 @@ struct MockDataSetTests {
         let data = MockDataSet.boundary.generateData(calendar: calendar, today: today)
 
         let leapDayNotes = data.notes.filter { note in
-            let components = calendar.dateComponents([.month, .day], from: note.date)
+            guard let noteDate = note.date else { return false }
+            let components = calendar.dateComponents([.month, .day], from: noteDate)
             return components.month == 2 && components.day == 29
         }
         #expect(!leapDayNotes.isEmpty, "Boundary should include a note on Feb 29")
-    }
-
-    // MARK: - High Volume Data Set
-
-    /// Verifies that high-volume data set generates many spreads.
-    ///
-    /// Setup: MockDataSet.highVolume
-    /// Expected: At least 50 spreads for performance testing
-    @Test("High volume generates many spreads")
-    func highVolumeGeneratesManySpreads() {
-        let calendar = makeTestCalendar()
-        let today = makeTestDate(year: 2026, month: 1, day: 15, calendar: calendar)
-        let data = MockDataSet.highVolume.generateData(calendar: calendar, today: today)
-        #expect(data.spreads.count >= 50, "High volume should generate at least 50 spreads")
-    }
-
-    /// Verifies that high-volume data set generates many tasks.
-    ///
-    /// Setup: MockDataSet.highVolume
-    /// Expected: At least 100 tasks for performance testing
-    @Test("High volume generates many tasks")
-    func highVolumeGeneratesManyTasks() {
-        let calendar = makeTestCalendar()
-        let today = makeTestDate(year: 2026, month: 1, day: 15, calendar: calendar)
-        let data = MockDataSet.highVolume.generateData(calendar: calendar, today: today)
-        #expect(data.tasks.count >= 100, "High volume should generate at least 100 tasks")
     }
 
     // MARK: - Helpers
@@ -397,16 +362,18 @@ struct DebugDataServiceTests {
     @MainActor
     func loadingEmptyClears() async throws {
         // Setup repositories with initial data
-        let taskRepo = InMemoryTaskRepository(tasks: TestData.sampleTasks())
-        let spreadRepo = InMemorySpreadRepository(spreads: TestData.sampleSpreads())
-        let eventRepo = InMemoryEventRepository(events: TestData.sampleEvents())
-        let noteRepo = InMemoryNoteRepository(notes: TestData.sampleNotes())
+        let taskRepo = TestTaskRepository(tasks: TestData.sampleTasks())
+        let spreadRepo = TestSpreadRepository(spreads: TestData.sampleSpreads())
+        let eventRepo = TestEventRepository(events: TestData.sampleEvents())
+        let noteRepo = TestNoteRepository(notes: TestData.sampleNotes())
 
         let service = DebugDataService(
             taskRepository: taskRepo,
             spreadRepository: spreadRepo,
             eventRepository: eventRepo,
-            noteRepository: noteRepo
+            noteRepository: noteRepo,
+            listRepository: TestListRepository(),
+            tagRepository: TestTagRepository()
         )
 
         // Verify initial data exists
@@ -439,16 +406,18 @@ struct DebugDataServiceTests {
     func loadingBaselineReplacesData() async throws {
         // Setup repositories with some initial tasks (different from baseline)
         let initialTask = DataModel.Task(title: "Initial task that should be replaced")
-        let taskRepo = InMemoryTaskRepository(tasks: [initialTask])
-        let spreadRepo = InMemorySpreadRepository()
-        let eventRepo = InMemoryEventRepository()
-        let noteRepo = InMemoryNoteRepository()
+        let taskRepo = TestTaskRepository(tasks: [initialTask])
+        let spreadRepo = TestSpreadRepository()
+        let eventRepo = TestEventRepository()
+        let noteRepo = TestNoteRepository()
 
         let service = DebugDataService(
             taskRepository: taskRepo,
             spreadRepository: spreadRepo,
             eventRepository: eventRepo,
-            noteRepository: noteRepo
+            noteRepository: noteRepo,
+            listRepository: TestListRepository(),
+            tagRepository: TestTagRepository()
         )
 
         // Load baseline data set
@@ -473,10 +442,12 @@ struct DebugDataServiceTests {
         var reloadCalled = false
 
         let service = DebugDataService(
-            taskRepository: InMemoryTaskRepository(),
-            spreadRepository: InMemorySpreadRepository(),
-            eventRepository: InMemoryEventRepository(),
-            noteRepository: InMemoryNoteRepository(),
+            taskRepository: TestTaskRepository(),
+            spreadRepository: TestSpreadRepository(),
+            eventRepository: TestEventRepository(),
+            noteRepository: TestNoteRepository(),
+            listRepository: TestListRepository(),
+            tagRepository: TestTagRepository(),
             onReload: { reloadCalled = true }
         )
 
@@ -494,16 +465,18 @@ struct DebugDataServiceTests {
     @Test("Clear operation removes all data")
     @MainActor
     func clearRemovesAllData() async throws {
-        let taskRepo = InMemoryTaskRepository(tasks: TestData.sampleTasks())
-        let spreadRepo = InMemorySpreadRepository(spreads: TestData.sampleSpreads())
-        let eventRepo = InMemoryEventRepository(events: TestData.sampleEvents())
-        let noteRepo = InMemoryNoteRepository(notes: TestData.sampleNotes())
+        let taskRepo = TestTaskRepository(tasks: TestData.sampleTasks())
+        let spreadRepo = TestSpreadRepository(spreads: TestData.sampleSpreads())
+        let eventRepo = TestEventRepository(events: TestData.sampleEvents())
+        let noteRepo = TestNoteRepository(notes: TestData.sampleNotes())
 
         let service = DebugDataService(
             taskRepository: taskRepo,
             spreadRepository: spreadRepo,
             eventRepository: eventRepo,
-            noteRepository: noteRepo
+            noteRepository: noteRepo,
+            listRepository: TestListRepository(),
+            tagRepository: TestTagRepository()
         )
 
         try await service.clearAllData()

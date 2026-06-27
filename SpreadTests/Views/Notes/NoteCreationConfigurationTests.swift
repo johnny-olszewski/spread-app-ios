@@ -184,6 +184,44 @@ struct NoteCreationConfigurationTests {
         #expect(period == .month)
     }
 
+    /// Condition: Multiday spread selected, today is outside the range.
+    /// Expected: Defaults to day period with start date so the note reconciles
+    ///           to a day spread if one is later created for that date.
+    @Test("Default selection with multiday spread (today outside range) uses day period and start date")
+    @MainActor
+    func testDefaultSelectionWithMultidaySpreadTodayOutsideRange() {
+        let calendar = Self.makeCalendar()
+        let today = Self.makeDate(year: 2026, month: 1, day: 15)
+        let startDate = Self.makeDate(year: 2026, month: 1, day: 20)
+        let endDate = Self.makeDate(year: 2026, month: 1, day: 26)
+        let spread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
+        let config = NoteCreationConfiguration(calendar: calendar, today: today)
+
+        let (period, date) = config.defaultSelection(from: spread)
+
+        #expect(period == .day)
+        #expect(calendar.isDate(date, inSameDayAs: startDate))
+    }
+
+    /// Condition: Multiday spread selected, today falls within the range.
+    /// Expected: Defaults to day period with today's date so the note is
+    ///           anchored to the current day within the range.
+    @Test("Default selection with multiday spread (today inside range) uses day period and today")
+    @MainActor
+    func testDefaultSelectionWithMultidaySpreadTodayInsideRange() {
+        let calendar = Self.makeCalendar()
+        let today = Self.makeDate(year: 2026, month: 1, day: 15)
+        let startDate = Self.makeDate(year: 2026, month: 1, day: 13)
+        let endDate = Self.makeDate(year: 2026, month: 1, day: 19)
+        let spread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
+        let config = NoteCreationConfiguration(calendar: calendar, today: today)
+
+        let (period, date) = config.defaultSelection(from: spread)
+
+        #expect(period == .day)
+        #expect(calendar.isDate(date, inSameDayAs: today))
+    }
+
     // MARK: - Assignable Periods
 
     /// Condition: Request assignable periods.

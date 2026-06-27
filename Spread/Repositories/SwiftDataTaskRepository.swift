@@ -1,10 +1,11 @@
 import Foundation
 import SwiftData
 
-/// SwiftData implementation of TaskRepository.
+/// SwiftData implementation of `TaskRepository`.
 ///
-/// Provides CRUD operations for tasks using SwiftData persistence.
-/// All operations run on the main actor for thread safety with SwiftData.
+/// Diffs sync-outbox mutations from the caller-supplied `EntityChange` instead of
+/// re-fetching pre-mutation state through a throwaway `ModelContext`. Create-vs-update is
+/// read from `change.isNew` rather than a `fetchCount` query.
 @MainActor
 final class SwiftDataTaskRepository: TaskRepository {
 
@@ -22,7 +23,10 @@ final class SwiftDataTaskRepository: TaskRepository {
 
     /// Creates a repository with the specified model container.
     ///
-    /// - Parameter modelContainer: The SwiftData container for persistence.
+    /// - Parameters:
+    ///   - modelContainer: The SwiftData container for persistence.
+    ///   - deviceId: The device identifier for sync metadata.
+    ///   - nowProvider: Closure providing the current time (injectable for testing).
     init(
         modelContainer: ModelContainer,
         deviceId: UUID = DeviceIdManager.getOrCreateDeviceId(),
@@ -35,6 +39,7 @@ final class SwiftDataTaskRepository: TaskRepository {
 
     // MARK: - TaskRepository
 
+    /// Fetches all tasks from the store, ordered by creation date.
     func getTasks() async -> [DataModel.Task] {
         let descriptor = FetchDescriptor<DataModel.Task>(
             sortBy: [SortDescriptor(\.createdDate, order: .forward)]
@@ -47,45 +52,50 @@ final class SwiftDataTaskRepository: TaskRepository {
         }
     }
 
-    func save(_ task: DataModel.Task) async throws {
-        let operation: SyncOperation = hasStoredTask(id: task.id) ? .update : .create
-        let timestamp = nowProvider()
-        let previousAssignments = storedTaskAssignments(id: task.id) ?? []
-        let previousTagIds = storedTaskTagIds(id: task.id) ?? []
+    /// Persists `task` and enqueues sync-outbox mutations for the task, its assignments, and
+    /// its tags, diffing against `change` rather than re-fetching pre-mutation state from disk.
+    func save(_ task: DataModel.Task, change: EntityChange) async throws {
+        try await saveAll([TaskSaveRequest(task: task, change: change)])
+    }
 
-        enqueueTaskMutation(task, operation: operation, timestamp: timestamp)
-        enqueueTaskAssignmentMutations(
-            taskId: task.id,
-            previousAssignments: previousAssignments,
-            currentAssignments: task.assignments,
-            timestamp: timestamp
-        )
-        enqueueTaskTagMutations(
-            taskId: task.id,
-            previousTagIds: previousTagIds,
-            currentTagIds: task.tags.map(\.id),
-            timestamp: timestamp
-        )
-        modelContext.insert(task)
+    /// Persists every task in `requests` and enqueues their sync-outbox mutations in a single
+    /// persistence commit, regardless of how many requests are supplied.
+    func saveAll(_ requests: [TaskSaveRequest]) async throws {
+        let timestamp = nowProvider()
+
+        for request in requests {
+            let operation: SyncOperation = request.change.isNew ? .create : .update
+
+            enqueueTaskMutation(request.task, operation: operation, timestamp: timestamp)
+            enqueueTaskAssignmentMutations(
+                taskId: request.task.id,
+                previousAssignments: request.change.previousAssignments,
+                currentAssignments: request.task.currentAssignments + request.task.migrationHistory,
+                timestamp: timestamp
+            )
+            enqueueTaskTagMutations(
+                taskId: request.task.id,
+                previousTagIds: request.change.previousTagIDs,
+                currentTagIds: request.task.tags.map(\.id),
+                timestamp: timestamp
+            )
+            modelContext.insert(request.task)
+        }
+
         try modelContext.save()
     }
 
+    /// Deletes `task` and enqueues tombstone mutations for the task, its assignments, and tags.
     func delete(_ task: DataModel.Task) async throws {
         let timestamp = nowProvider()
-        let previousAssignments = storedTaskAssignments(id: task.id) ?? task.assignments
-        let previousTagIds = storedTaskTagIds(id: task.id) ?? task.tags.map(\.id)
 
         enqueueTaskMutation(task, operation: .delete, timestamp: timestamp)
         enqueueTaskAssignmentTombstones(
-            previousAssignments,
+            task.currentAssignments + task.migrationHistory,
             taskId: task.id,
             timestamp: timestamp
         )
-        enqueueTaskTagTombstones(
-            tagIds: previousTagIds,
-            taskId: task.id,
-            timestamp: timestamp
-        )
+        enqueueTaskTagTombstones(tagIds: task.tags.map(\.id), taskId: task.id, timestamp: timestamp)
         modelContext.delete(task)
         try modelContext.save()
     }
@@ -93,21 +103,23 @@ final class SwiftDataTaskRepository: TaskRepository {
     // MARK: - Outbox
 
     private enum Constants {
+        /// Fields reported as changed on every non-delete task mutation.
         static let changedFields = [
             "title", "body", "priority", "due_date", "list_id",
             "date", "period", "status"
         ]
+        /// Fields reported as changed on every non-delete task-assignment mutation.
         static let assignmentChangedFields = ["period", "date", "status"]
     }
 
+    /// Serializes `task` and enqueues a single sync-outbox mutation for it.
     private func enqueueTaskMutation(
         _ task: DataModel.Task,
         operation: SyncOperation,
         timestamp: Date
     ) {
         let deletedAt = operation == .delete ? timestamp : nil
-        guard let recordData = SyncSerializer.serializeTask(
-            task,
+        guard let recordData = task.serialize(
             deviceId: deviceId,
             timestamp: timestamp,
             deletedAt: deletedAt
@@ -115,20 +127,22 @@ final class SwiftDataTaskRepository: TaskRepository {
             return
         }
 
-        let mutation = DataModel.SyncMutation(
-            entityType: SyncEntityType.task.rawValue,
+        modelContext.enqueueCoalescedSyncMutation(
+            entityType: DataModel.Task.entityType.rawValue,
             entityId: task.id,
-            operation: operation.rawValue,
+            operation: operation,
             recordData: recordData,
             changedFields: operation == .delete ? [] : Constants.changedFields
         )
-        modelContext.insert(mutation)
     }
 
+    /// Diffs `previousAssignments` against `currentAssignments` by ID, enqueueing a create
+    /// mutation for additions, an update mutation for changed assignments, and a tombstone for
+    /// any previous assignment no longer present in `currentAssignments`.
     private func enqueueTaskAssignmentMutations(
         taskId: UUID,
-        previousAssignments: [TaskAssignment],
-        currentAssignments: [TaskAssignment],
+        previousAssignments: [Assignment],
+        currentAssignments: [Assignment],
         timestamp: Date
     ) {
         var previousByID = Dictionary(uniqueKeysWithValues: previousAssignments.map { ($0.id, $0) })
@@ -158,8 +172,9 @@ final class SwiftDataTaskRepository: TaskRepository {
         )
     }
 
+    /// Enqueues a delete mutation for each of `assignments`.
     private func enqueueTaskAssignmentTombstones(
-        _ assignments: [TaskAssignment],
+        _ assignments: [Assignment],
         taskId: UUID,
         timestamp: Date
     ) {
@@ -173,16 +188,18 @@ final class SwiftDataTaskRepository: TaskRepository {
         }
     }
 
+    /// Serializes `assignment` and enqueues a single sync-outbox mutation for it.
     private func enqueueTaskAssignmentMutation(
-        _ assignment: TaskAssignment,
+        _ assignment: Assignment,
         taskId: UUID,
         operation: SyncOperation,
         timestamp: Date
     ) {
         let deletedAt = operation == .delete ? timestamp : nil
-        guard let recordData = SyncSerializer.serializeTaskAssignment(
+        guard let recordData = SyncSerializer.serializeAssignment(
             assignment,
-            taskId: taskId,
+            entryId: taskId,
+            entryType: .task,
             deviceId: deviceId,
             timestamp: timestamp,
             deletedAt: deletedAt
@@ -190,16 +207,17 @@ final class SwiftDataTaskRepository: TaskRepository {
             return
         }
 
-        let mutation = DataModel.SyncMutation(
-            entityType: SyncEntityType.taskAssignment.rawValue,
+        modelContext.enqueueCoalescedSyncMutation(
+            entityType: SyncEntityType.assignment.rawValue,
             entityId: assignment.id,
-            operation: operation.rawValue,
+            operation: operation,
             recordData: recordData,
             changedFields: operation == .delete ? [] : Constants.assignmentChangedFields
         )
-        modelContext.insert(mutation)
     }
 
+    /// Diffs `previousTagIds` against `currentTagIds`, enqueueing a create mutation for each
+    /// newly-added tag and a tombstone for each removed tag.
     private func enqueueTaskTagMutations(
         taskId: UUID,
         previousTagIds: [UUID],
@@ -210,16 +228,15 @@ final class SwiftDataTaskRepository: TaskRepository {
         let currentSet = Set(currentTagIds)
 
         for tagId in currentSet.subtracting(previousSet) {
-            guard let recordData = SyncSerializer.serializeTaskTag(
-                taskId: taskId, tagId: tagId, timestamp: timestamp
+            guard let recordData = SyncSerializer.serializeEntryTag(
+                entryId: taskId, tagId: tagId, timestamp: timestamp
             ) else { continue }
-            let mutation = DataModel.SyncMutation(
-                entityType: SyncEntityType.taskTag.rawValue,
+            modelContext.enqueueCoalescedSyncMutation(
+                entityType: SyncEntityType.entryTag.rawValue,
                 entityId: UUID(),
-                operation: SyncOperation.create.rawValue,
+                operation: .create,
                 recordData: recordData
             )
-            modelContext.insert(mutation)
         }
 
         enqueueTaskTagTombstones(
@@ -229,44 +246,18 @@ final class SwiftDataTaskRepository: TaskRepository {
         )
     }
 
+    /// Enqueues a delete mutation for each tag ID in `tagIds`.
     private func enqueueTaskTagTombstones(tagIds: [UUID], taskId: UUID, timestamp: Date) {
         for tagId in tagIds {
-            guard let recordData = SyncSerializer.serializeTaskTag(
-                taskId: taskId, tagId: tagId, timestamp: timestamp, deletedAt: timestamp
+            guard let recordData = SyncSerializer.serializeEntryTag(
+                entryId: taskId, tagId: tagId, timestamp: timestamp, deletedAt: timestamp
             ) else { continue }
-            let mutation = DataModel.SyncMutation(
-                entityType: SyncEntityType.taskTag.rawValue,
+            modelContext.enqueueCoalescedSyncMutation(
+                entityType: SyncEntityType.entryTag.rawValue,
                 entityId: UUID(),
-                operation: SyncOperation.delete.rawValue,
+                operation: .delete,
                 recordData: recordData
             )
-            modelContext.insert(mutation)
         }
-    }
-
-    private func hasStoredTask(id: UUID) -> Bool {
-        var descriptor = FetchDescriptor<DataModel.Task>(
-            predicate: #Predicate { $0.id == id }
-        )
-        descriptor.fetchLimit = 1
-        return (try? modelContext.fetchCount(descriptor)) ?? 0 > 0
-    }
-
-    private func storedTaskAssignments(id: UUID) -> [TaskAssignment]? {
-        let context = ModelContext(modelContainer)
-        var descriptor = FetchDescriptor<DataModel.Task>(
-            predicate: #Predicate { $0.id == id }
-        )
-        descriptor.fetchLimit = 1
-        return try? context.fetch(descriptor).first?.assignments
-    }
-
-    private func storedTaskTagIds(id: UUID) -> [UUID]? {
-        let context = ModelContext(modelContainer)
-        var descriptor = FetchDescriptor<DataModel.Task>(
-            predicate: #Predicate { $0.id == id }
-        )
-        descriptor.fetchLimit = 1
-        return try? context.fetch(descriptor).first?.tags.map(\.id)
     }
 }

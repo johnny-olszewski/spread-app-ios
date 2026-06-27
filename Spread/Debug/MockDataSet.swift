@@ -8,8 +8,6 @@ import Foundation
 /// - `baseline`: Standard year/month/day spreads for today
 /// - `multiday`: Multiday ranges including preset and custom
 /// - `boundary`: Month and year transition dates
-/// - `highVolume`: Large data set for performance testing
-/// - `inboxNextYear`: Current year spreads with tasks dated in the following year
 /// - `scenario*`: hidden localhost UI-test fixtures for deterministic scenario coverage
 enum MockDataSet: String, CaseIterable {
     /// Clears all data (empty state).
@@ -23,12 +21,6 @@ enum MockDataSet: String, CaseIterable {
 
     /// Spreads at month and year boundaries for edge case testing.
     case boundary
-
-    /// Large data set for performance testing.
-    case highVolume
-
-    /// Current year spreads with next year tasks for inbox testing.
-    case inboxNextYear
 
     /// Hidden scenario fixture: direct assignment to an existing spread.
     case scenarioAssignmentExistingSpread
@@ -81,7 +73,7 @@ enum MockDataSet: String, CaseIterable {
 
     var isVisibleInDebugMenu: Bool {
         switch self {
-        case .empty, .baseline, .multiday, .boundary, .highVolume, .inboxNextYear:
+        case .empty, .baseline, .multiday, .boundary:
             return true
         case .scenarioAssignmentExistingSpread,
                 .scenarioAssignmentInboxFallback,
@@ -111,10 +103,6 @@ enum MockDataSet: String, CaseIterable {
             return "Multiday Ranges"
         case .boundary:
             return "Boundary Dates"
-        case .highVolume:
-            return "High Volume"
-        case .inboxNextYear:
-            return "Inbox (Next Year Tasks)"
         case .scenarioAssignmentExistingSpread:
             return "Scenario: Assignment Existing Spread"
         case .scenarioAssignmentInboxFallback:
@@ -155,10 +143,6 @@ enum MockDataSet: String, CaseIterable {
             return "Multiday spreads using This Week, Next Week presets and custom ranges."
         case .boundary:
             return "Spreads across month and year boundaries for edge case testing."
-        case .highVolume:
-            return "50+ spreads and 100+ tasks for performance testing."
-        case .inboxNextYear:
-            return "Current year spreads only, with tasks dated next year to populate the Inbox."
         case .scenarioAssignmentExistingSpread:
             return "Hidden UI-test fixture for direct assignment to an existing spread."
         case .scenarioAssignmentInboxFallback:
@@ -196,6 +180,24 @@ enum MockDataSet: String, CaseIterable {
         let tasks: [DataModel.Task]
         let events: [DataModel.Event]
         let notes: [DataModel.Note]
+        let lists: [DataModel.List]
+        let tags: [DataModel.Tag]
+
+        init(
+            spreads: [DataModel.Spread],
+            tasks: [DataModel.Task],
+            events: [DataModel.Event],
+            notes: [DataModel.Note],
+            lists: [DataModel.List] = [],
+            tags: [DataModel.Tag] = []
+        ) {
+            self.spreads = spreads
+            self.tasks = tasks
+            self.events = events
+            self.notes = notes
+            self.lists = lists
+            self.tags = tags
+        }
     }
 
     /// Generates the mock data for this data set.
@@ -218,10 +220,6 @@ enum MockDataSet: String, CaseIterable {
         case .boundary:
             return generateBoundaryData(calendar: calendar, today: today)
 
-        case .highVolume:
-            return generateHighVolumeData(calendar: calendar, today: today)
-        case .inboxNextYear:
-            return generateInboxNextYearData(calendar: calendar, today: today)
         case .scenarioAssignmentExistingSpread:
             return generateScenarioAssignmentExistingSpread(calendar: calendar, today: today)
         case .scenarioAssignmentInboxFallback:
@@ -258,6 +256,19 @@ enum MockDataSet: String, CaseIterable {
         var tasks: [DataModel.Task] = []
         var events: [DataModel.Event] = []
         var notes: [DataModel.Note] = []
+        var lists: [DataModel.List] = []
+        var tags: [DataModel.Tag] = []
+
+        let workList = DataModel.List(name: "Work")
+        let personalList = DataModel.List(name: "Personal")
+        let errandsList = DataModel.List(name: "Errands")
+        lists.append(contentsOf: [errandsList, personalList, workList])
+
+        let focusTag = DataModel.Tag(name: "Focus")
+        let planningTag = DataModel.Tag(name: "Planning")
+        let homeTag = DataModel.Tag(name: "Home")
+        let waitingTag = DataModel.Tag(name: "Waiting")
+        tags.append(contentsOf: [focusTag, homeTag, planningTag, waitingTag])
 
         // Create year spread for current year
         let yearSpread = DataModel.Spread(period: .year, date: today, calendar: calendar)
@@ -277,45 +288,191 @@ enum MockDataSet: String, CaseIterable {
             spreads.append(tomorrowSpread)
         }
 
-        // Sample tasks with assignments to the day spread
+        // Create "This Week" multiday spread
+        if let thisWeekSpread = DataModel.Spread(
+            preset: .thisWeek,
+            today: today,
+            calendar: calendar,
+            firstWeekday: .sunday
+        ) {
+            spreads.append(thisWeekSpread)
+        }
+
         let normalizedDay = Period.day.normalizeDate(today, calendar: calendar)
+        let normalizedMonth = Period.month.normalizeDate(today, calendar: calendar)
+        let normalizedYear = Period.year.normalizeDate(today, calendar: calendar)
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        let normalizedTomorrow = Period.day.normalizeDate(tomorrow, calendar: calendar)
+
+        func time(dayOffset: Int = 0, hour: Int, minute: Int = 0) -> Date {
+            let day = calendar.date(byAdding: .day, value: dayOffset, to: today) ?? today
+            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+        }
+
         tasks.append(DataModel.Task(
             title: "Review project timeline",
+            body: "Check milestone dates and confirm the next delivery window.",
+            priority: .high,
             date: today,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
+            list: workList,
+            tags: [planningTag, focusTag]
         ))
         tasks.append(DataModel.Task(
             title: "Send weekly status update",
+            body: "Include blockers, shipped work, and decisions needed.",
+            priority: .medium,
             date: today,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
+            list: workList,
+            tags: [waitingTag]
         ))
         tasks.append(DataModel.Task(
             title: "Schedule team meeting",
             date: today,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .complete)]
+            status: .complete,
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .complete)],
+            list: workList,
+            tags: [planningTag]
         ))
+        tasks.append(DataModel.Task(
+            title: "Pick up groceries",
+            priority: .medium,
+            date: today,
+            period: .day,
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
+            list: errandsList,
+            tags: [homeTag]
+        ))
+        tasks.append(DataModel.Task(
+            title: "Book dentist appointment",
+            date: today,
+            period: .day,
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
+            list: personalList,
+            tags: [waitingTag]
+        ))
+        tasks.append(DataModel.Task(
+            title: "Plan weekend meals",
+            date: tomorrow,
+            period: .day,
+            currentAssignments: [Assignment(period: .day, date: normalizedTomorrow, status: .open)],
+            list: personalList,
+            tags: [homeTag, planningTag]
+        ))
+        tasks.append(DataModel.Task(
+            title: "Draft monthly budget",
+            priority: .low,
+            date: today,
+            period: .month,
+            currentAssignments: [Assignment(period: .month, date: normalizedMonth, status: .open)],
+            list: personalList,
+            tags: [planningTag]
+        ))
+        tasks.append(DataModel.Task(
+            title: "Define yearly learning theme",
+            date: today,
+            period: .year,
+            currentAssignments: [Assignment(period: .year, date: normalizedYear, status: .open)],
+            tags: [focusTag]
+        ))
+        if let thisWeekSpread = DataModel.Spread(preset: .thisWeek, today: today, calendar: calendar, firstWeekday: .sunday) {
+            let normalizedMultiday = Period.multiday.normalizeDate(thisWeekSpread.date, calendar: calendar)
+            tasks.append(DataModel.Task(
+                title: "Plan the week",
+                date: today,
+                period: .multiday,
+                currentAssignments: [Assignment(period: .multiday, date: normalizedMultiday, status: .open)],
+                list: workList,
+                tags: [planningTag]
+            ))
+        }
 
-        // Sample event for today
         events.append(DataModel.Event(
             title: "Team standup",
             timing: .timed,
             startDate: today,
+            endDate: today,
+            startTime: time(hour: 9, minute: 30),
+            endTime: time(hour: 9, minute: 50)
+        ))
+        events.append(DataModel.Event(
+            title: "Design review",
+            timing: .timed,
+            startDate: today,
+            endDate: today,
+            startTime: time(hour: 14),
+            endTime: time(hour: 15)
+        ))
+        events.append(DataModel.Event(
+            title: "Focus block",
+            timing: .timed,
+            startDate: today,
+            endDate: today,
+            startTime: time(hour: 10),
+            endTime: time(hour: 12)
+        ))
+        events.append(DataModel.Event(
+            title: "Renew library books",
+            timing: .allDay,
+            startDate: today,
             endDate: today
         ))
+        events.append(DataModel.Event(
+            title: "Long weekend trip",
+            timing: .multiDay,
+            startDate: today,
+            endDate: calendar.date(byAdding: .day, value: 2, to: today) ?? today
+        ))
+        events.append(DataModel.Event(
+            title: "Coffee with Sam",
+            timing: .timed,
+            startDate: tomorrow,
+            endDate: tomorrow,
+            startTime: time(dayOffset: 1, hour: 8, minute: 30),
+            endTime: time(dayOffset: 1, hour: 9, minute: 15)
+        ))
 
-        // Sample note with assignment
         notes.append(DataModel.Note(
             title: "Meeting notes",
             content: "Discussed project timeline and milestones.",
             date: today,
             period: .day,
-            assignments: [NoteAssignment(period: .day, date: normalizedDay, status: .active)]
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .active)],
+            list: workList,
+            tags: [planningTag]
+        ))
+        notes.append(DataModel.Note(
+            title: "Ideas for next sprint",
+            content: "Explore a tighter day spread toolbar, faster list switching, and clearer tag chips.",
+            date: today,
+            period: .day,
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .active)],
+            list: workList,
+            tags: [focusTag]
+        ))
+        notes.append(DataModel.Note(
+            title: "Home project notes",
+            content: "Measure the hallway shelf before buying brackets.",
+            date: today,
+            period: .day,
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .active)],
+            list: personalList,
+            tags: [homeTag]
+        ))
+        notes.append(DataModel.Note(
+            title: "Monthly reflection",
+            content: "Keep planning lightweight. Use lists for context, tags for intent.",
+            date: today,
+            period: .month,
+            currentAssignments: [Assignment(period: .month, date: normalizedMonth, status: .active)],
+            tags: [planningTag]
         ))
 
-        return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes)
+        return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes, lists: lists, tags: tags)
     }
 
     private func generateMultidayData(calendar: Calendar, today: Date) -> GeneratedData {
@@ -365,7 +522,7 @@ enum MockDataSet: String, CaseIterable {
             title: "Weekly planning",
             date: today,
             period: .day,
-            assignments: [TaskAssignment(period: .day, date: normalizedDay, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)]
         ))
 
         if let dayInFuture = calendar.date(byAdding: .day, value: 3, to: today) {
@@ -374,7 +531,7 @@ enum MockDataSet: String, CaseIterable {
                 title: "Mid-week review",
                 date: dayInFuture,
                 period: .day,
-                assignments: [TaskAssignment(period: .day, date: normalizedFuture, status: .open)]
+                currentAssignments: [Assignment(period: .day, date: normalizedFuture, status: .open)]
             ))
         }
 
@@ -423,7 +580,7 @@ enum MockDataSet: String, CaseIterable {
                 title: "End of month review",
                 date: lastDayOfMonth,
                 period: .day,
-                assignments: [TaskAssignment(period: .day, date: normalizedLast, status: .open)]
+                currentAssignments: [Assignment(period: .day, date: normalizedLast, status: .open)]
             ))
         }
 
@@ -438,7 +595,7 @@ enum MockDataSet: String, CaseIterable {
                 title: "Start of month planning",
                 date: firstDayNextMonth,
                 period: .day,
-                assignments: [TaskAssignment(period: .day, date: normalizedFirst, status: .open)]
+                currentAssignments: [Assignment(period: .day, date: normalizedFirst, status: .open)]
             ))
         }
 
@@ -487,7 +644,7 @@ enum MockDataSet: String, CaseIterable {
                 title: "Leap day task",
                 date: feb29,
                 period: .day,
-                assignments: [TaskAssignment(period: .day, date: normalizedFeb29, status: .open)]
+                currentAssignments: [Assignment(period: .day, date: normalizedFeb29, status: .open)]
             ))
 
             // Note assigned to Feb 29
@@ -495,132 +652,7 @@ enum MockDataSet: String, CaseIterable {
                 title: "Leap day note",
                 date: feb29,
                 period: .day,
-                assignments: [NoteAssignment(period: .day, date: normalizedFeb29, status: .active)]
-            ))
-        }
-
-        return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes)
-    }
-
-    private func generateHighVolumeData(calendar: Calendar, today: Date) -> GeneratedData {
-        var spreads: [DataModel.Spread] = []
-        var tasks: [DataModel.Task] = []
-        var events: [DataModel.Event] = []
-        var notes: [DataModel.Note] = []
-
-        // Create year spreads for current and next 2 years (3 total)
-        for yearOffset in 0...2 {
-            if let yearDate = calendar.date(byAdding: .year, value: yearOffset, to: today) {
-                spreads.append(DataModel.Spread(period: .year, date: yearDate, calendar: calendar))
-            }
-        }
-
-        // Create month spreads for current year (12 months)
-        if let startOfYear = today.firstDayOfYear(calendar: calendar) {
-            for monthOffset in 0...11 {
-                if let monthDate = calendar.date(byAdding: .month, value: monthOffset, to: startOfYear) {
-                    spreads.append(DataModel.Spread(period: .month, date: monthDate, calendar: calendar))
-                }
-            }
-        }
-
-        // Create day spreads for next 60 days (fills out to ~75 total spreads)
-        for dayOffset in 0...59 {
-            if let dayDate = calendar.date(byAdding: .day, value: dayOffset, to: today) {
-                spreads.append(DataModel.Spread(period: .day, date: dayDate, calendar: calendar))
-            }
-        }
-
-        // Create 100+ tasks spread across the days
-        let taskTitles = [
-            "Review document", "Send email", "Update report", "Schedule meeting",
-            "Call client", "Fix bug", "Write tests", "Code review", "Deploy feature",
-            "Update documentation", "Team sync", "One-on-one", "Sprint planning",
-            "Retrospective", "Design review", "Research topic", "Prepare presentation",
-            "Follow up", "Submit request", "Archive files"
-        ]
-
-        for i in 0..<110 {
-            let dayOffset = i % 60
-            if let taskDate = calendar.date(byAdding: .day, value: dayOffset, to: today) {
-                let normalizedDate = Period.day.normalizeDate(taskDate, calendar: calendar)
-                let title = taskTitles[i % taskTitles.count]
-                let status: DataModel.Task.Status = i % 5 == 0 ? .complete : .open
-
-                tasks.append(DataModel.Task(
-                    title: "\(title) #\(i + 1)",
-                    date: taskDate,
-                    period: .day,
-                    status: status,
-                    assignments: [TaskAssignment(period: .day, date: normalizedDate, status: status == .complete ? .complete : .open)]
-                ))
-            }
-        }
-
-        // Create 20 events spread across the period
-        for i in 0..<20 {
-            let dayOffset = i * 3
-            if let eventDate = calendar.date(byAdding: .day, value: dayOffset, to: today) {
-                events.append(DataModel.Event(
-                    title: "Event #\(i + 1)",
-                    timing: i % 2 == 0 ? .allDay : .timed,
-                    startDate: eventDate,
-                    endDate: eventDate
-                ))
-            }
-        }
-
-        // Create 15 notes
-        for i in 0..<15 {
-            let dayOffset = i * 4
-            if let noteDate = calendar.date(byAdding: .day, value: dayOffset, to: today) {
-                let normalizedDate = Period.day.normalizeDate(noteDate, calendar: calendar)
-                notes.append(DataModel.Note(
-                    title: "Note #\(i + 1)",
-                    content: "Sample content for note \(i + 1).",
-                    date: noteDate,
-                    period: .day,
-                    assignments: [NoteAssignment(period: .day, date: normalizedDate, status: .active)]
-                ))
-            }
-        }
-
-        return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes)
-    }
-
-    private func generateInboxNextYearData(calendar: Calendar, today: Date) -> GeneratedData {
-        var spreads: [DataModel.Spread] = []
-        var tasks: [DataModel.Task] = []
-        var events: [DataModel.Event] = []
-        var notes: [DataModel.Note] = []
-
-        // Create only current year spreads (no next-year spreads).
-        spreads.append(DataModel.Spread(period: .year, date: today, calendar: calendar))
-        spreads.append(DataModel.Spread(period: .month, date: today, calendar: calendar))
-        spreads.append(DataModel.Spread(period: .day, date: today, calendar: calendar))
-
-        guard let startOfCurrentYear = today.firstDayOfYear(calendar: calendar),
-              let startOfNextYear = calendar.date(byAdding: .year, value: 1, to: startOfCurrentYear) else {
-            return GeneratedData(spreads: spreads, tasks: tasks, events: events, notes: notes)
-        }
-
-        let nextYearTaskSpecs: [(String, Period, Int)] = [
-            ("File 1099s", .day, 0),
-            ("Plan Q1 roadmap", .day, 14),
-            ("Renew licenses", .day, 60),
-            ("Next year budget review", .month, 90),
-            ("Next year goals", .year, 0)
-        ]
-
-        for (title, period, dayOffset) in nextYearTaskSpecs {
-            guard let taskDate = calendar.date(byAdding: .day, value: dayOffset, to: startOfNextYear) else {
-                continue
-            }
-
-            tasks.append(DataModel.Task(
-                title: title,
-                date: taskDate,
-                period: period
+                currentAssignments: [Assignment(period: .day, date: normalizedFeb29, status: .active)]
             ))
         }
 

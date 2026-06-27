@@ -34,3 +34,10 @@
 - **Concurrent field edits**: Two devices edit different fields of the same entity (e.g., one changes title, another changes status). Each field has its own `*_updated_at` timestamp; both edits are preserved because LWW is per-field, not per-row. [SPRD-83]
 - **Delete wins**: If one device deletes an entity while another edits it, the delete (`deleted_at` timestamp) wins regardless of field-level timestamps. The entity is soft-deleted on all devices after the next pull. [SPRD-83]
 - **Merge RPC response**: All merge RPCs return the canonical row after applying LWW, so the client can update its local copy to match the server's resolved state. [SPRD-83]
+
+### Outbox Mutation Coalescing
+- The outbox holds at most one unsent `SyncMutation` row per `(entityType, entityId)`. Enqueuing a mutation for an entity that already has an unsent row updates that row in place rather than appending a new one. [SPRD-253]
+- This is safe because each mutation's `recordData` is a full entity snapshot, not a field-delta — the latest pending mutation already supersedes any earlier unsent one for that entity. [SPRD-253]
+- Operation precedence on coalescing: an unsent `create` is never downgraded to `update` by a later mutation — it stays `create` with the latest data. A `delete` always wins outright and replaces any prior unsent mutation for that entity, regardless of arrival order. [SPRD-253]
+- Coalescing only applies to currently-unsent rows. Once `SyncEngine.push()` successfully pushes and deletes a row, the next mutation for that entity starts a fresh row. [SPRD-253]
+- Remote sync continues to be triggered independently of the outbox write (auto-sync on launch/foreground/reconnect, or manual `syncNow()`) — coalescing only reduces how many rows accumulate per entity while offline, it does not change when or how often a push attempt happens. [SPRD-253]

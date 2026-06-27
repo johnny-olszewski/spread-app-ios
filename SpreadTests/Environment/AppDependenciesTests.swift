@@ -41,10 +41,10 @@ struct AppDependenciesTests {
     @Test func testMakeForTestingUsesDefaultEmptyRepositories() throws {
         let dependencies = try AppDependencies.make()
 
-        #expect(dependencies.taskRepository is EmptyTaskRepository)
+        #expect(dependencies.taskRepository is TestTaskRepository)
         #expect(dependencies.spreadRepository is EmptySpreadRepository)
         #expect(dependencies.eventRepository is EmptyEventRepository)
-        #expect(dependencies.noteRepository is EmptyNoteRepository)
+        #expect(dependencies.noteRepository is TestNoteRepository)
         #expect(dependencies.collectionRepository is EmptyCollectionRepository)
         #expect(dependencies.settingsRepository is EmptySettingsRepository)
     }
@@ -129,10 +129,10 @@ struct AppDependenciesTests {
         let dependencies = try AppDependencies.make()
         let summary = dependencies.debugSummary
 
-        #expect(summary.taskRepositoryType == "EmptyTaskRepository")
+        #expect(summary.taskRepositoryType == "TestTaskRepository")
         #expect(summary.spreadRepositoryType == "EmptySpreadRepository")
         #expect(summary.eventRepositoryType == "EmptyEventRepository")
-        #expect(summary.noteRepositoryType == "EmptyNoteRepository")
+        #expect(summary.noteRepositoryType == "TestNoteRepository")
         #expect(summary.collectionRepositoryType == "EmptyCollectionRepository")
         #expect(summary.settingsRepositoryType == "EmptySettingsRepository")
     }
@@ -162,7 +162,8 @@ struct AppDependenciesTests {
 
 private struct StubTaskRepository: TaskRepository {
     func getTasks() async -> [DataModel.Task] { [] }
-    func save(_ task: DataModel.Task) async throws {}
+    func save(_ task: DataModel.Task, change: EntityChange) async throws {}
+    func saveAll(_ requests: [TaskSaveRequest]) async throws {}
     func delete(_ task: DataModel.Task) async throws {}
 }
 
@@ -181,7 +182,8 @@ private struct StubEventRepository: EventRepository {
 
 private struct StubNoteRepository: NoteRepository {
     func getNotes() async -> [DataModel.Note] { [] }
-    func save(_ note: DataModel.Note) async throws {}
+    func save(_ note: DataModel.Note, change: EntityChange) async throws {}
+    func saveAll(_ requests: [NoteSaveRequest]) async throws {}
     func delete(_ note: DataModel.Note) async throws {}
 }
 

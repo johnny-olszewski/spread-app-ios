@@ -40,10 +40,12 @@ extension TestDataBuilders {
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .year, date: yearDate, status: .migrated),
-                TaskAssignment(period: .month, date: monthDate, status: .migrated),
-                TaskAssignment(period: .day, date: dayDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .day, date: dayDate, status: .open)
+            ],
+            migrationHistory: [
+                Assignment(period: .year, date: yearDate, status: .migrated),
+                Assignment(period: .month, date: monthDate, status: .migrated)
             ]
         )
 
@@ -53,9 +55,11 @@ extension TestDataBuilders {
             date: dayDate,
             period: .day,
             status: .active,
-            assignments: [
-                NoteAssignment(period: .month, date: monthDate, status: .migrated),
-                NoteAssignment(period: .day, date: dayDate, status: .active)
+            currentAssignments: [
+                Assignment(period: .day, date: dayDate, status: .active)
+            ],
+            migrationHistory: [
+                Assignment(period: .month, date: monthDate, status: .migrated)
             ]
         )
 
@@ -103,8 +107,8 @@ extension TestDataBuilders {
                 date: monthDate,
                 period: .month,
                 status: .open,
-                assignments: [
-                    TaskAssignment(period: .month, date: monthDate, status: .open)
+                currentAssignments: [
+                    Assignment(period: .month, date: monthDate, status: .open)
                 ]
             )
         }
@@ -116,8 +120,8 @@ extension TestDataBuilders {
                 date: monthDate,
                 period: .month,
                 status: .active,
-                assignments: [
-                    NoteAssignment(period: .month, date: monthDate, status: .active)
+                currentAssignments: [
+                    Assignment(period: .month, date: monthDate, status: .active)
                 ]
             )
         }
@@ -170,8 +174,8 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .open,
-                assignments: [
-                    TaskAssignment(period: .day, date: dayDate, status: .open)
+                currentAssignments: [
+                    Assignment(period: .day, date: dayDate, status: .open)
                 ]
             )
         }
@@ -182,8 +186,8 @@ extension TestDataBuilders {
             date: monthDate,
             period: .month,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .month, date: monthDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .month, date: monthDate, status: .open)
             ]
         )
 
@@ -194,8 +198,8 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .active,
-                assignments: [
-                    NoteAssignment(period: .day, date: dayDate, status: .active)
+                currentAssignments: [
+                    Assignment(period: .day, date: dayDate, status: .active)
                 ]
             )
         ]
@@ -261,8 +265,8 @@ extension TestDataBuilders {
                 date: dec31Date,
                 period: .day,
                 status: .open,
-                assignments: [
-                    TaskAssignment(period: .day, date: dec31Date, status: .open)
+                currentAssignments: [
+                    Assignment(period: .day, date: dec31Date, status: .open)
                 ]
             ),
             crossYearMultiday: DataModel.Spread(
@@ -331,8 +335,8 @@ extension TestDataBuilders {
                 date: normalizedFeb29,
                 period: .day,
                 status: .open,
-                assignments: [
-                    TaskAssignment(period: .day, date: normalizedFeb29, status: .open)
+                currentAssignments: [
+                    Assignment(period: .day, date: normalizedFeb29, status: .open)
                 ]
             ),
             noteOnLeapDay: DataModel.Note(
@@ -341,8 +345,8 @@ extension TestDataBuilders {
                 date: normalizedFeb29,
                 period: .day,
                 status: .active,
-                assignments: [
-                    NoteAssignment(period: .day, date: normalizedFeb29, status: .active)
+                currentAssignments: [
+                    Assignment(period: .day, date: normalizedFeb29, status: .active)
                 ]
             )
         )

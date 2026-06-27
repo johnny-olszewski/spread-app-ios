@@ -37,8 +37,8 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .active,
-                assignments: [
-                    NoteAssignment(period: .day, date: dayDate, status: .active)
+                currentAssignments: [
+                    Assignment(period: .day, date: dayDate, status: .active)
                 ]
             ),
             activeOnMonth: DataModel.Note(
@@ -47,8 +47,8 @@ extension TestDataBuilders {
                 date: monthDate,
                 period: .month,
                 status: .active,
-                assignments: [
-                    NoteAssignment(period: .month, date: monthDate, status: .active)
+                currentAssignments: [
+                    Assignment(period: .month, date: monthDate, status: .active)
                 ]
             ),
             migratedFromMonthToDay: DataModel.Note(
@@ -57,9 +57,11 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .active,
-                assignments: [
-                    NoteAssignment(period: .month, date: monthDate, status: .migrated),
-                    NoteAssignment(period: .day, date: dayDate, status: .active)
+                currentAssignments: [
+                    Assignment(period: .day, date: dayDate, status: .active)
+                ],
+                migrationHistory: [
+                    Assignment(period: .month, date: monthDate, status: .migrated)
                 ]
             ),
             withContent: DataModel.Note(
@@ -69,8 +71,8 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .active,
-                assignments: [
-                    NoteAssignment(period: .day, date: dayDate, status: .active)
+                currentAssignments: [
+                    Assignment(period: .day, date: dayDate, status: .active)
                 ]
             ),
             unassigned: DataModel.Note(
@@ -79,7 +81,7 @@ extension TestDataBuilders {
                 date: dayDate,
                 period: .day,
                 status: .active,
-                assignments: []
+                currentAssignments: []
             )
         )
     }

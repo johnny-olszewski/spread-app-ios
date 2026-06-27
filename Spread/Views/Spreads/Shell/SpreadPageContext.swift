@@ -12,9 +12,10 @@ struct SpreadPageContext {
     let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
     let eventKitService: (any EventKitService)?
+    let calendarEventService: any CalendarEventService
 
     /// Calendar derived from the journal manager's locale and first-weekday settings.
     var calendar: Calendar {
-        journalManager.firstWeekday.configuredCalendar(from: journalManager.calendar)
+        journalManager.configuredCalendar
     }
 }

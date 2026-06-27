@@ -34,15 +34,15 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .cancelled)
+            currentAssignments: [
+                Assignment(period: .day, date: taskDate, status: .cancelled)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let taskRepo = TestTaskRepository(tasks: [cancelledTask])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -73,8 +73,8 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .day, date: taskDate, status: .open)
             ]
         )
 
@@ -84,15 +84,15 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .cancelled)
+            currentAssignments: [
+                Assignment(period: .day, date: taskDate, status: .cancelled)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [openTask, cancelledTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let taskRepo = TestTaskRepository(tasks: [openTask, cancelledTask])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -123,15 +123,15 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .month,
             status: .cancelled,
-            assignments: [
-                TaskAssignment(period: .month, date: taskDate, status: .cancelled)
+            currentAssignments: [
+                Assignment(period: .month, date: taskDate, status: .cancelled)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [monthSpread])
+        let taskRepo = TestTaskRepository(tasks: [cancelledTask])
+        let spreadRepo = TestSpreadRepository(spreads: [monthSpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -166,8 +166,8 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .multiday,
             status: .cancelled,
-            assignments: [
-                TaskAssignment(
+            currentAssignments: [
+                Assignment(
                     period: .multiday,
                     date: multidaySpread.date,
                     spreadID: multidaySpread.id,
@@ -176,10 +176,10 @@ struct CancelledTaskTests {
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [multidaySpread])
+        let taskRepo = TestTaskRepository(tasks: [cancelledTask])
+        let spreadRepo = TestSpreadRepository(spreads: [multidaySpread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -205,12 +205,12 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: []
+            currentAssignments: []
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [cancelledTask])
+        let taskRepo = TestTaskRepository(tasks: [cancelledTask])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo
@@ -233,7 +233,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .open,
-            assignments: []
+            currentAssignments: []
         )
 
         let completedTask = DataModel.Task(
@@ -241,7 +241,7 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .complete,
-            assignments: []
+            currentAssignments: []
         )
 
         let cancelledTask = DataModel.Task(
@@ -249,12 +249,12 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .cancelled,
-            assignments: []
+            currentAssignments: []
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [openTask, completedTask, cancelledTask])
+        let taskRepo = TestTaskRepository(tasks: [openTask, completedTask, cancelledTask])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo
@@ -280,15 +280,15 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .complete,
-            assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .complete)
+            currentAssignments: [
+                Assignment(period: .day, date: taskDate, status: .complete)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [completedTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let taskRepo = TestTaskRepository(tasks: [completedTask])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,
@@ -317,15 +317,15 @@ struct CancelledTaskTests {
             date: taskDate,
             period: .day,
             status: .migrated,
-            assignments: [
-                TaskAssignment(period: .day, date: taskDate, status: .migrated)
+            migrationHistory: [
+                Assignment(period: .day, date: taskDate, status: .migrated)
             ]
         )
 
-        let taskRepo = InMemoryTaskRepository(tasks: [migratedTask])
-        let spreadRepo = InMemorySpreadRepository(spreads: [spread])
+        let taskRepo = TestTaskRepository(tasks: [migratedTask])
+        let spreadRepo = TestSpreadRepository(spreads: [spread])
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: taskDate,
             taskRepository: taskRepo,

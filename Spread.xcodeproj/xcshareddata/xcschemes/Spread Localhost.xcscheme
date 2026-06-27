@@ -95,6 +95,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-MockDataSet scenarioSpreadNavigator"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-MockDataSet baseline"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
@@ -107,7 +111,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-Today 2026-03-29"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-DataEnvironment development"
@@ -135,18 +139,6 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-AppEnvironment testing"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "-SpreadPalette ocean"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "-SpreadPalette forest"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "-SpreadPalette ink"
             isEnabled = "NO">
          </CommandLineArgument>
       </CommandLineArguments>

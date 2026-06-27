@@ -49,6 +49,7 @@ Spread is a SwiftUI bullet journal (BuJo) app for iOS 26+ using SwiftData for lo
 - Repository pattern for persistence (`TaskRepository`, `SpreadRepository`, `EventRepository`, `NoteRepository`)
 - `JournalManager` as central coordinator for spreads, entries, and business logic
 - `DependencyContainer` for dependency injection with environment-specific configurations
+- `EntryListView` is a pure row renderer — no `ScrollView`, no background chrome. Scroll and visual containment belong to the caller.
 
 ### Folder Structure
 
@@ -76,6 +77,10 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 
 - **Protocols at boundaries**: Introduce protocols at dependency injection points (services, repositories, coordinators) to enable test substitution. Simple value types, helpers, and internal logic stay concrete.
 - **Manual mocks**: Hand-written mock types conforming to protocols. Each mock lives in its own file (`MockTypeName.swift`). No code-generation or spy frameworks.
+- **`Test*`/`Mock*` prefix any type that is exclusively non-production**: A type used only by unit tests, SwiftUI previews, and/or the debug/localhost runtime — never by the production dependency graph — must be prefixed `Test` or `Mock`, chosen by behavior:
+  - **`Mock*`**: tracks calls, records invocations, or injects errors/failures for assertion (e.g. `MockAuthService`, `MockNetworkMonitor`).
+  - **`Test*`**: a plain stand-in with no call-tracking — just enough behavior to be a working substitute (e.g. an in-memory dictionary-backed repository).
+  - Both live in the main target alongside the real implementation (not under `Debug/`).
 - **Structs by default**: Prefer structs for services, coordinators, and data types. Use classes only when identity semantics are required (`@Observable`, SwiftData `@Model`, or shared mutable state).
 - **No singletons**: Avoid `static let shared` singletons. Prefer init-injected dependencies so that tests can substitute implementations without global state coupling.
 
@@ -84,6 +89,7 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 - **Minimize `#if DEBUG` in production files**: Debug-only code (mock decorators, debug services, test helpers) must live in dedicated files under the `Debug/` folder or as `TypeName+Debug.swift` extensions. Production source files must not contain `#if DEBUG` blocks to the maximum extent practical. Shim files that use `#if DEBUG` solely for typealias configuration (e.g., switching factory types between debug and release) are acceptable.
 - **Extensions per conformance**: Each protocol conformance gets its own extension, in a separate file when non-trivial (e.g., `TypeName+Codable.swift`, `TypeName+CustomStringConvertible.swift`).
 - **Single responsibility for new types**: Extract a new coordinator or service when it has a distinct lifecycle, distinct dependencies, or the existing type exceeds ~200 lines. Prefer composition over growing existing types.
+- **No namespace enums as factory containers**: Don't create an enum with no cases (e.g., `enum FooSupport {}`) just to hold static factory methods. Factory/init logic belongs directly on the type being constructed as `init` or `static func` members (e.g., `SpreadCardStyle.init(for:today:explicitDaySpread:calendar:)` not `FooSupport.cardStyle(...)`). Namespace enums used this way are a sign the logic should be promoted to the target type.
 
 ### View Coordinators
 
@@ -93,6 +99,7 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 - **Dependencies stay on views**: Coordinators own only presentation state and actions. Dependencies (`JournalManager`, `AuthManager`, etc.) continue to be init-injected into views. The coordinator is not a service locator.
 - **Child view interaction**: Child views receive the coordinator and call action methods (e.g., `coordinator.showTaskCreation()`) instead of receiving closure callbacks.
 - **Stored in `@State`**: The parent view that creates the coordinator stores it in `@State` and passes it to children.
+- **No local sheet state in content views**: Spread content views (`DaySpreadContentView`, `MultidaySpreadContentView`, etc.) must not declare `@State` sheet variables. All sheet presentation goes through `SpreadsCoordinator.activeSheet`. Before adding any sheet-triggering state to a content view, check whether a `coordinator.showXxx()` method already exists.
 
 ### Concurrency (Swift 6 Strict)
 
@@ -101,10 +108,20 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 - **Structured concurrency preferred**: Use `async`/`await`, `async let`, and `TaskGroup` for concurrent work. Use unstructured `Task {}` only at sync-to-async boundaries (SwiftUI `.task`, button actions). Never fire-and-forget — unstructured `Task`s must be stored or awaited.
 - **Isolation boundary awareness**: When passing closures or values across isolation boundaries, ensure they are `Sendable`. Prefer value types at boundaries to avoid accidental shared mutable state.
 
+### Scroll Management
+
+- **Single decision point**: `SpreadContentPagerView` is the sole place where vertical scroll is applied, via `.conditionalScrollView()` on `contentView(for:)`. This keeps the header (`SpreadHeaderView`) pinned while the spread content scrolls.
+- **Content views own no scroll**: `YearSpreadContentView`, `MonthSpreadContentView`, `DaySpreadContentView`, and `MultidaySpreadContentView` do not own a `ScrollView`. If a content view needs programmatic scroll (e.g., `ScrollViewReader`), the reader wraps the content directly and the outer `ScrollView` is provided by the pager.
+- **`EntryListView` owns no scroll**: See Key Patterns above.
+
 ### Behavior
 
 - **Ask, don't assume**: When requirements are ambiguous or an architectural decision could go multiple ways (new protocols, new files, dependency patterns), ask for clarification before proceeding. Follow established patterns autonomously for routine implementation.
 - **Pros/cons for decisions**: When presenting options, provide pros and cons and a recommendation for each.
+- **Check for redundancy before implementing**: Before adding new logic (helpers, computed properties, extensions, view models), search for existing code that already does something similar — including the same logic duplicated across files. Prefer extending or sharing existing implementations (e.g., promoting a duplicated helper to a shared protocol extension) over adding a new, parallel one.
+- **Prefer first-class APIs over wrapper closures**: Before adding a closure parameter or computed property to derive data, verify `JournalManager` (or another existing service) doesn't already expose it directly. E.g., `journalManager.spreadDataModel(for:period:)?.spread` is the first-class lookup — wrapping it in a closure on the view adds indirection with no benefit.
+- **Two elements over one conditional element**: When a button or UI element has meaningfully different label, icon, and action depending on state, use two distinct elements with an `if/else` rather than a single element with conditional content. This makes SwiftUI animations work correctly and the intent clearer.
+- **Delete production code with no production caller**: If a type or method in the main target has zero callers outside test files (including when it's only kept alive as a "legacy baseline" for a parity test against newer code), delete it rather than leaving it as dead weight — Debug-only call sites (under `Debug/`, gated by `#if DEBUG`) count as real callers, test-only call sites do not. Before deleting, check whether any test exercises real behavior solely through the dead code with no equivalent coverage elsewhere; if so, port that behavior assertion to a still-live call path (or delete the test if the behavior is already covered) rather than leaving a parity test comparing against nothing.
 
 ## Session Workflow
 
@@ -175,6 +192,9 @@ When the user has no ready task and wants to spec one out:
 - **Previews**: Every view includes previews; component previews should have multiple examples
 - **Observable access**: Direct property access on `@Observable` classes
 - **Size class over device idiom**: When the user refers to "iPad UI" or "iOS UI" layout differences, implement them using `@Environment(\.horizontalSizeClass)` (`compact` vs `regular`) rather than platform or device-idiom checks. Use `UIDevice.current.userInterfaceIdiom` or `#if os(iOS)` only for functionality that is genuinely device- or OS-specific (e.g., a hardware API unavailable on one platform). Ask for clarification when it is unclear which applies.
+- **Inject `horizontalSizeClass` into spread content views**: `DaySpreadContentView` and `MultidaySpreadContentView` receive `horizontalSizeClass: UserInterfaceSizeClass?` via `init` from `SpreadContentPagerView`, which reads `@Environment(\.horizontalSizeClass)`. Content views do not read it via `@Environment` themselves — this prevents repeated environment subscriptions and keeps the pager as the layout authority.
+- **Layout helpers belong on existing types**: Simple layout values derived from a single type belong as an extension on that type (e.g., `UserInterfaceSizeClass.multidayColumnCount`), not in a dedicated helper enum or namespace struct.
+- **No wrapper private structs without a real boundary**: Avoid extracting a private sub-struct inside a view solely to regroup its `body`. If the type doesn't introduce new properties, lifecycle, or dependencies, inline the content instead.
 
 ### Patterns
 
@@ -193,6 +213,7 @@ When the user has no ready task and wants to spec one out:
 
 - **Doc comments**: Liberal use of `///` documentation comments on members
 - **Inline comments**: Avoid - code should be self-documenting; use only when truly necessary to explain "why"
+- **TODO comments for known planned changes**: If you know that code you're writing will change because of a task that already exists as a `SPRD-##` block in `Documentation/plan.md`, add a `- TODO: [SPRD-##] <one-line description>` line in the doc comment at the relevant type/method, naming the task and what's expected to change. This lets a reviewer see the change is coming and isn't an oversight. Only add these for changes with a real, already-scoped task — not speculative ideas with no tracked task.
 
 ### Testing (Swift Testing)
 

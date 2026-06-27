@@ -15,129 +15,139 @@ import JohnnyOFoundationUI
 ///   from the list because the timeline card already surfaces them.
 struct DaySpreadContentView: View {
 
-    let spread: DataModel.Spread
-    let spreadDataModel: SpreadDataModel
-    let context: SpreadPageContext
+    @State private var viewModel: ViewModel
     var config: Config = .default
 
-    @State private var calendarEventStore = CalendarEventStore()
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
-    private var shouldShowTimelineCard: Bool {
-        horizontalSizeClass.isRegular && !calendarEventStore.calendarEvents.isEmpty
-    }
-
-    // MARK: - Computed
-
-    private var sections: [EntryList.Section] {
-        let cal = context.calendar
-        let base = EntryListDisplaySupport.displayedEntries(for: spreadDataModel, calendar: cal)
-        let eventEntries: [DataModel.Event] = shouldShowTimelineCard
-            ? []
-            : calendarEventStore.calendarEvents.map { DataModel.Event(calendarEvent: $0) }
-        return Self.makeSections(
-            from: base + eventEntries,
-            spreadDate: spreadDataModel.spread.date,
-            calendar: cal,
-            groupsByList: context.journalManager.bujoMode == .conventional
-        )
-    }
-
-    private var configurationMap: [EntryType: EntryRowView.Configuration] {
-        [
-            .task: .standardTaskConfig(
-                journalManager: context.journalManager,
-                syncEngine: context.syncEngine,
-                coordinator: context.coordinator
-            ),
-            .note: .standardNoteConfig(
-                journalManager: context.journalManager,
-                syncEngine: context.syncEngine,
-                coordinator: context.coordinator
-            ),
-            .event: .standardEventConfig(journalManager: context.journalManager)
-        ]
-    }
-
-    private var onAddTask: (@MainActor (String, Date, Period) async throws -> Void) {
-        let jm = context.journalManager
-        let se = context.syncEngine
-        return { @MainActor title, date, period in
-            _ = try await jm.addTask(title: title, date: date, period: period)
-            Task { @MainActor in await se?.syncNow() }
-        }
+    init(
+        spread: DataModel.Spread,
+        spreadDataModel: SpreadDataModel,
+        context: SpreadPageContext,
+        horizontalSizeClass: UserInterfaceSizeClass?,
+        config: Config = .default
+    ) {
+        _viewModel = State(wrappedValue: ViewModel(
+            spread: spread,
+            spreadDataModel: spreadDataModel,
+            context: context,
+            horizontalSizeClass: horizontalSizeClass
+        ))
+        self.config = config
     }
 
     // MARK: - Body
 
     var body: some View {
-        Group {
-            if shouldShowTimelineCard {
-                regularLayout
-            } else {
-                compactLayout
+        VStack {
+            HStack {
+                Capsule()
+                    .stroke(SpreadTheme.DotGrid.defaultDots)
+                    .frame(height: SpreadTheme.CornerRadius.xxlarge)
+                    .padding(.leading, SpreadTheme.Spacing.large)
+                    .padding(.vertical, SpreadTheme.Spacing.large)
+                    .padding(.trailing, SpreadTheme.Spacing.medium)
+
+                HStack(spacing: SpreadTheme.Spacing.medium) {
+                    Button {
+                        Task { await viewModel.toggleFavorite() }
+                    } label: {
+                        Image(systemName: viewModel.spread.isFavorite ? "star.fill" : "star")
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel(viewModel.spread.isFavorite ? "Remove from Favorites" : "Add to Favorites")
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
+
+                    Button {
+                        viewModel.context.coordinator.showSpreadNameEdit(viewModel.spread)
+                    } label: {
+                        Image(systemName: "pencil")
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel("Edit Spread")
+                    .padding(SpreadTheme.Spacing.large)
+                }
             }
+
+            HStack(alignment: .top, spacing: SpreadTheme.Spacing.large) {
+                if viewModel.shouldShowTimelineCard {
+                    DayTimelineScrollView(
+                        generator: SpreadDayTimelineContentGenerator(),
+                        items: viewModel.calendarEvents,
+                        date: viewModel.spread.date,
+                        visibleStartHour: 0,
+                        visibleEndHour: 24,
+                        verticalCount: config.wideTimelineRowCount,
+                        verticalSpan: config.wideTimelineRowSpan,
+                        calendar: viewModel.context.journalManager.calendar
+                    )
+                    .containerRelativeFrame(
+                        .horizontal,
+                        count: config.wideTimelineColumnCount,
+                        span: config.wideTimelineColumnSpan,
+                        spacing: 0
+                    )
+                    .spreadCard()
+                }
+
+                EntryListView(
+                    sections: viewModel.overdueSections + viewModel.sections,
+                    configurationMap: viewModel.entryConfigurationMap
+                ) { section in
+                    let sectionList = viewModel.context.journalManager.lists.first { $0.id.uuidString == section.id }
+                    QuickAddButton(
+                        coordinator: viewModel.context.coordinator,
+                        anchorID: section.id,
+                        date: viewModel.spread.date,
+                        period: viewModel.spread.period,
+                        availableLists: viewModel.context.journalManager.lists,
+                        availableTags: viewModel.context.journalManager.tags,
+                        preselectedList: sectionList,
+                        accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton,
+                        onAddTask: viewModel.onAddTask
+                    )
+                }
+            }
+            .padding(.horizontal, SpreadTheme.Spacing.large)
+            .task(id: viewModel.spread.id) {
+                await viewModel.fetchCalendarEvents()
+            }
+
+            Spacer()
         }
-        .task(id: spread.id) {
-            await calendarEventStore.fetchCalendarEvents(
-                spread: spread,
-                service: context.eventKitService,
-                calendar: context.journalManager.calendar
-            )
-        }
-    }
-
-    // MARK: - Layout variants
-
-    /// Regular-width: full-height side-by-side layout with independent scrolls.
-    ///
-    /// Calendar events are surfaced in the timeline card only; the entry list
-    /// receives an empty events array so it does not duplicate them.
-    private var regularLayout: some View {
-        HStack(alignment: .top, spacing: 0) {
-            DayTimelineScrollView(
-                generator: SpreadDayTimelineContentGenerator(),
-                items: calendarEventStore.calendarEvents,
-                date: spread.date,
-                visibleStartHour: 0,
-                visibleEndHour: 24,
-                verticalCount: config.wideTimelineRowCount,
-                verticalSpan: config.wideTimelineRowSpan,
-                calendar: context.journalManager.calendar
-            )
-            .containerRelativeFrame(
-                .horizontal,
-                count: config.wideTimelineColumnCount,
-                span: config.wideTimelineColumnSpan,
-                spacing: 0
-            )
-            .spreadCard()
-            .padding(.leading, 16)
-            .padding(.trailing, 8)
-            .padding(.vertical, 12)
-
-            entryList
-        }
-        .frame(maxHeight: .infinity)
-    }
-
-    /// Compact-width: a single scrollable entry list with calendar events in a dedicated section.
-    private var compactLayout: some View {
-        entryList
-    }
-
-    private var entryList: some View {
-        EntryListView(
-            sections: sections,
-            configurationMap: configurationMap,
-            onAddTask: onAddTask
-        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-// MARK: - UserInterfaceSizeClass
+extension DaySpreadContentView {
 
-private extension Optional where Wrapped == UserInterfaceSizeClass {
-    /// `true` when the size class is `.regular` (wider layout context).
-    var isRegular: Bool { self == .regular }
+    /// Layout and sizing constants for `DaySpreadContentView`.
+    struct Config {
+        /// Divides the available container width into `wideTimelineColumnCount` equal parts
+        /// and sizes the timeline card to `wideTimelineColumnSpan` of them.
+        let wideTimelineColumnCount: Int
+        let wideTimelineColumnSpan: Int
+
+        /// Divides the available container height into `wideTimelineRowCount` equal parts
+        /// and sizes the scrollable timeline content to `wideTimelineRowSpan` of them.
+        ///
+        /// A span larger than the count makes the content taller than the visible card,
+        /// keeping the timeline scrollable across all device sizes.
+        let wideTimelineRowCount: Int
+        let wideTimelineRowSpan: Int
+
+        init(
+            wideTimelineColumnCount: Int = 10,
+            wideTimelineColumnSpan: Int = 4,
+            wideTimelineRowCount: Int = 1,
+            wideTimelineRowSpan: Int = 3
+        ) {
+            self.wideTimelineColumnCount = wideTimelineColumnCount
+            self.wideTimelineColumnSpan = wideTimelineColumnSpan
+            self.wideTimelineRowCount = wideTimelineRowCount
+            self.wideTimelineRowSpan = wideTimelineRowSpan
+        }
+
+        static let `default` = Config()
+    }
 }

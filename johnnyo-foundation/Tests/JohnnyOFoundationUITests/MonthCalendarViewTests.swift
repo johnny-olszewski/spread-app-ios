@@ -27,38 +27,39 @@ struct MonthCalendarViewTests {
 
         let recorder: Recorder
 
-        func headerView(context: MonthCalendarHeaderContext) -> AnyView {
+        func headerView(month: Date) -> AnyView {
             recorder.headerCalls += 1
             recorder.events.append("header")
             return AnyView(Color.clear.frame(height: 0))
         }
 
-        func weekdayHeaderView(context: MonthCalendarWeekdayContext) -> AnyView {
+        func weekdayHeaderView(weekday: Int) -> AnyView {
             recorder.weekdayCalls += 1
-            recorder.events.append("weekday:\(context.index)")
+            recorder.events.append("weekday:\(weekday)")
             return AnyView(Color.clear.frame(height: 0))
         }
 
-        func dayCellView(context: MonthCalendarDayContext) -> AnyView {
+        func dayCellView(date: Date) -> AnyView {
             recorder.dayCalls += 1
-            recorder.events.append("day:\(context.row)-\(context.column)")
+            let dateString = date.formatted(.iso8601.year().month().day())
+            recorder.events.append("day:\(dateString)")
 
-            let color: Color = context.row == 0 && context.column == 0 ? .green : .clear
+            let color: Color = dateString.hasSuffix("-01") ? .green : .clear
             return AnyView(
                 color
                     .frame(maxWidth: .infinity, minHeight: 20, maxHeight: 20)
             )
         }
 
-        func placeholderCellView(context: MonthCalendarPlaceholderContext) -> AnyView {
+        func placeholderCellView(date: Date) -> AnyView {
             recorder.placeholderCalls += 1
-            recorder.events.append("placeholder:\(context.row)-\(context.column)")
+            recorder.events.append("placeholder:\(date.formatted(.iso8601.year().month().day()))")
             return AnyView(Color.clear.frame(maxWidth: .infinity, minHeight: 20, maxHeight: 20))
         }
 
-        func weekBackgroundView(context: MonthCalendarWeekContext) -> AnyView {
+        func weekBackgroundView(week: MonthCalendarWeek) -> AnyView {
             recorder.weekBackgroundCalls += 1
-            recorder.events.append("week:\(context.index)")
+            recorder.events.append("week:\(week.index)")
             return AnyView(Color.blue.frame(maxWidth: .infinity, minHeight: 20, maxHeight: 20))
         }
     }

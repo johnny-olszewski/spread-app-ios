@@ -61,7 +61,7 @@ struct StoreWiperTests {
         let cursor = DataModel.SyncCursor(tableName: "tasks", lastRevision: 100)
         let repairMarker = DataModel.SyncRepairMarker(
             accountId: UUID(),
-            entryType: SyncEntityType.task.rawValue,
+            entryType: EntryType.task.rawValue,
             entryId: UUID(),
             didBackfill: true
         )

@@ -2,10 +2,6 @@
 
 > Source: Documentation/spec.md
 
-### BuJo Mode
-- Conventional: show only current assignments in spread content while preserving assignment history for migration logic and feedback. [SPRD-29, SPRD-186]
-- Traditional: show entries only on their preferred assignment, no migration history visible, and expose the full year/month/day hierarchy through the same shared spread navigation and surface components used by conventional mode. [SPRD-17, SPRD-35, SPRD-151]
-
 ### Journal Logic Architecture
 - `JournalManager` should remain the sole UI-facing journal facade. Views and view models should not call low-level business-rule engines directly; `JournalManager` delegates internally and remains responsible for repository effects, state refresh, logging, and `dataVersion` invalidation. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
 - `JournalManager` should not remain a rule engine. Beyond collaborator selection based on runtime mode and workflow orchestration, business-rule branching should live in extracted services/coordinators. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
@@ -15,13 +11,13 @@
 - Each refactor slice must land with exhaustive unit coverage for its extracted seam before the task is considered complete; no deferred testing sweep. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
 - Each slice task must also remove or shrink the superseded private `JournalManager` helpers in the same change so duplicate rule paths do not remain in the codebase. [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
 - Preferred extracted seams for journal logic are: [SPRD-154, SPRD-155, SPRD-156, SPRD-157, SPRD-158]
-  - `JournalDataModelBuilder` protocol with separate `ConventionalJournalDataModelBuilder` and `TraditionalJournalDataModelBuilder` implementations.
+  - `JournalDataModelBuilder` protocol with a single `ConventionalJournalDataModelBuilder` implementation.
   - `InboxResolver` protocol for Inbox membership and count resolution.
   - `OverdueEvaluator` protocol for overdue state and source resolution.
   - `MigrationPlanner` protocol for migration eligibility, current displayed/destination spread resolution, hierarchy traversal, and destination planning.
   - `AssignmentReconciliationCoordinator` protocol(s) for task/note preferred-assignment reconciliation and mutation workflows.
   - `SpreadDeletionCoordinator` protocol for deletion planning, reassignment, and persistence orchestration.
-- `JournalManager` may select mode-specific implementations internally based on `bujoMode` when that keeps runtime wiring simpler, but the implementations themselves should remain behind injected protocol boundaries. [SPRD-154, SPRD-158]
+- `JournalManager` wires the single conventional implementation at init; no runtime mode switching is required. [SPRD-226]
 
 ### Targeted Journal Mutation Architecture
 - The app should preserve the current user-visible behavior while reducing full `JournalDataModel` reconstruction after ordinary mutations. This is an internal performance and maintainability refactor, not a product behavior change. [SPRD-159, SPRD-160, SPRD-161, SPRD-162]
@@ -43,11 +39,46 @@
 - Expected mutation handling tiers:
   - simple content edits: patch only affected spread surfaces and any directly impacted summary slices
   - spread membership changes such as migration or date/period reassignment: rebuild source, destination, and any affected parent/multiday/Inbox/overdue slices
-  - structural changes such as reload, mode change, first-weekday change, large sync refresh, or other broad invalidation: full rebuild [SPRD-160, SPRD-161]
+  - structural changes such as reload, first-weekday change, large sync refresh, or other broad invalidation: full rebuild [SPRD-160, SPRD-161]
 - During rollout, correctness wins over maximal optimization. If mutation scope is ambiguous, `JournalManager` should use the structural fallback rather than risk stale UI state. [SPRD-160, SPRD-161, SPRD-162]
 - The refactor should remove redundant full-repository re-fetches on simple single-entity edits where the updated entity is already known, unless a specific repository boundary requires a verified reload. [SPRD-159]
 - Testing requirements for this architecture are strict:
   - all existing unit tests must remain green
   - new unit tests must cover mutation result scope, targeted patch behavior, and full-rebuild fallback behavior
-  - targeted patch tests must prove no user-visible regression in conventional, traditional, multiday, Inbox, migration, and overdue scenarios
+  - targeted patch tests must prove no user-visible regression in conventional, multiday, Inbox, migration, and overdue scenarios
   - tests should verify that simple mutations do not trigger unnecessary full rebuild paths once the targeted path is implemented [SPRD-159, SPRD-160, SPRD-161, SPRD-162]
+
+### Decision: Drop protocol-per-logic-seam; protocols are a repository-only boundary [SPRD-244–SPRD-250]
+
+- **Context**: A performance audit (SESH-24) found that despite the SPRD-159–162 targeted-mutation work, almost every CRUD path still ends in a full single-entity-table reload (`tasks = await taskRepository.getTasks()`), and `SwiftDataTaskRepository`/`SwiftDataNoteRepository` each open two throwaway `ModelContext`s per save purely to recover pre-mutation state for sync-outbox diffing. Separately, the "protocol-backed from day one" rule above (line 8) was applied to every extracted logic seam — `JournalDataModelBuilder`, `InboxResolver`, `MigrationPlanner`, `OverdueEvaluator`, the assignment reconcilers, and the mutation/migration coordinators — none of which have more than one production implementation or need a test double; tests exercise them by constructing the concrete type with controlled inputs. The `any X` existentials and parallel "Standard*" factory wiring (duplicated in `init` and `rebuildTemporalCollaborators()`) cost indirection with no substitution benefit.
+- **Decision**: Protocols are reserved for genuine test-substitution boundaries — repositories (`TaskRepository`, `NoteRepository`, `SpreadRepository`, `EventRepository`, `ListRepository`, `TagRepository`, `CollectionRepository`, `SettingsRepository`) — where production (SwiftData) and test (in-memory/mock) implementations both already exist and need to differ. All journal business logic (data-model building, inbox resolution, migration planning, overdue evaluation, assignment reconciliation, mutation/migration coordination) is rebuilt as concrete structs taking their dependencies (calendar, repositories) by direct initialization — no `any`, no protocol declaration, no "Standard" naming prefix.
+- **Rationale**: A protocol without a second production implementation or a need for a behavior-diverging test double is pure indirection. Concrete structs remain fully unit-testable (construct with a fixed calendar/date, assert on output) without the existential dispatch cost or the duplicated wiring in `JournalManager`'s init and `rebuildTemporalCollaborators()`.
+- **SPRD reference**: SPRD-244 (repositories), SPRD-245 (logic layer), SPRD-248 (index + facade), SPRD-249 (parity tests), SPRD-250 (cutover)
+
+### Decision: Replace full-array reload and full-rebuild with an incremental, dictionary-keyed canonical store [SPRD-244–SPRD-250]
+
+- **Context**: `JournalManager.tasks`/`.notes` are flat arrays mutated by linear scan (`first(where:)`, `removeAll(where:)`) and reassigned wholesale after nearly every mutation coordinator call, which both does an unnecessary full-table SwiftData fetch and invalidates every `@Observable` consumer of the array regardless of what actually changed. Separately, `.structural` rebuild scope (`buildDataModel()`) recomputes the entire `JournalDataModel` by filtering all tasks/notes/events against every spread — O(spreads × entries) — on every spread create-with-migration, spread delete, multiday date edit, and calendar/day-boundary crossing.
+- **Decision**: The canonical in-memory store becomes `[UUID: Entity]` dictionaries (O(1) lookup/update/delete) instead of arrays. The derived `JournalDataModel` becomes a maintained reverse index (`SpreadDataModelKey ⇄ entity IDs`) updated incrementally as a direct consequence of each mutation, rather than a cache periodically recomputed from zero. There is no longer a `.structural` vs. `.spreadKeys` distinction in the rebuilt architecture — every mutation updates only the index entries its own changed assignments touch; a full index build happens exactly once, on cold load.
+- **Rationale**: Eliminates both the algorithmic cost (O(spreads × entries) full rebuilds) and the observation cost (whole-array reassignment on every edit) in one structural change, rather than patching the two symptoms separately.
+- **SPRD reference**: SPRD-248
+
+### Decision: Sync-outbox diffing moves from repository-side disk re-fetch to caller-supplied change descriptors [SPRD-244]
+
+- **Context**: `SwiftDataTaskRepository.save()`/`SwiftDataNoteRepository.save()` need to know an entity's previous `assignments`/`tags` to compute outbox create/update/delete rows, but by the time `save()` is called the caller has already mutated the `@Model` object in place, so the repository re-fetches the pre-mutation state from disk through a second, throwaway `ModelContext` — twice per save (assignments, then tags) — plus a separate `fetchCount` query to decide create-vs-update.
+- **Decision**: Callers capture the pre-mutation `assignments`/`tags` themselves (they hold the value one statement before mutating it) and pass an explicit change descriptor into `save()`. Create-vs-update is answered from `JournalManager`'s own in-memory identity set, not a `fetchCount` query. Multi-entity operations (reconciliation passes, batch migration) get a batched save API that performs one `modelContext.save()` commit for all N changes instead of N separate commits.
+- **Rationale**: Removes all disk re-fetches from the save path — diffing becomes an in-memory comparison the caller already has the data for. This is the single highest-impact fix found in the SESH-24 audit: creating one spread against a backlog of N pending tasks today performs up to 3N redundant SwiftData operations during reconciliation alone.
+- **SPRD reference**: SPRD-244
+
+### Decision: Build additively, validate with unit tests, cut over as a final separate step [SPRD-244–SPRD-250]
+
+- **Context**: This is a from-scratch rebuild of `JournalManager` and its supporting repositories/logic layer, not an incremental patch. Building it directly against production wiring would make the in-progress branch unshippable and hard to review incrementally.
+- **Decision**: SPRD-244–247 add only new files (new repository implementations, new concrete logic types, new index/facade types, new tests) with zero edits to existing production files — `DependencyContainer` and all views keep using the legacy `JournalManager` and `SwiftData*Repository` implementations until SPRD-250. Each new layer ships with exhaustive unit test coverage as its own validation (no debug-build trial UI). SPRD-249 adds a parity test suite asserting the new facade produces identical observable behavior to the legacy `JournalManager` across the existing CRUD/migration/inbox/overdue scenarios before SPRD-250 wires it in and deletes the legacy implementation in the same task.
+- **Rationale**: Keeps the working tree shippable throughout the rebuild, gives the reviewer a clean, isolated diff per layer, and makes the cutover itself a small, low-risk, fully-reviewed swap once parity is proven — rather than a single enormous, unreviewable change.
+- **SPRD reference**: SPRD-244, SPRD-245, SPRD-248, SPRD-249, SPRD-250
+
+### Decision: Split current assignment from migration history on Task/Note [SPRD-254]
+
+- **Context**: `Task`/`Note.assignments: [Assignment]` is append-only in production — migrating an entry never removes its prior assignment, only appends a new one and flips the old one's `status` to `.migrated`. Every spread-association check (`JournalRuleEngine.spreadKeys(for:)`, `shouldShowOnSpread`, the SPRD-249 index-maintenance path, overdue evaluation, migration planning) filters this entire array down to its non-migrated entries on every call, even though at most a handful of assignments are ever live at once. A task migrated repeatedly over months carries its full history (M entries) into every one of these O(M) scans.
+- **Decision**: Split the single array into two independently-maintained collections on `Task`/`Note` (and the shared `AssignableEntry` protocol): `currentAssignments: [Assignment]` — the live, non-migrated assignment(s), read by all spread-association/index/overdue/migration logic — and `migrationHistory: [Assignment]` — append-only, written to exactly once per entry the moment it transitions to `.migrated` (removed from `currentAssignments`, appended to `migrationHistory`), read only by the migration-history UI. Each assignment exists in exactly one collection at a time — never both — so there is a single source of truth per assignment and no risk of the two copies drifting out of sync.
+- **Rationale**: A superset design (where `migrationHistory` also contains the still-live entry, so the UI could read it alone) was considered and rejected: it would require every status change to the live assignment to be written to two copies to stay visually consistent, which is exactly the kind of redundant second source of truth CLAUDE.md's pattern guidance warns against. The UI's full timeline (history *and* the live entry) is reconstructed by reading both collections (`migrationHistory + currentAssignments`, in that order — current is always the most recently appended) rather than by storing it twice.
+- **SPRD reference**: SPRD-254

@@ -111,7 +111,7 @@ struct EntryTests {
     @Test func testTaskHasRequiredEntryProperties() {
         let now = makeDate(year: 2026, month: 6, day: 15)
         let assignments = [
-            TaskAssignment(period: .day, date: now, status: .complete)
+            Assignment(period: .day, date: now, status: .complete)
         ]
         let task = DataModel.Task(
             title: "My Task",
@@ -119,7 +119,7 @@ struct EntryTests {
             date: now,
             period: .day,
             status: .complete,
-            assignments: assignments
+            currentAssignments: assignments
         )
 
         #expect(task.title == "My Task")
@@ -127,27 +127,25 @@ struct EntryTests {
         #expect(task.date == now)
         #expect(task.period == .day)
         #expect(task.status == .complete)
-        #expect(task.assignments == assignments)
+        #expect(task.allAssignmentsForTesting == assignments)
     }
 
-    /// Conditions: Access Task.Status.allCases.
-    /// Expected: Should contain 4 statuses: open, complete, migrated, cancelled.
+    /// Conditions: Access EntryStatus.allCases for task-relevant statuses.
+    /// Expected: Should contain open, complete, migrated, cancelled.
     @Test func testTaskStatusCases() {
-        let cases = DataModel.Task.Status.allCases
-        #expect(cases.count == 4)
-        #expect(cases.contains(.open))
-        #expect(cases.contains(.complete))
-        #expect(cases.contains(.migrated))
-        #expect(cases.contains(.cancelled))
+        #expect(EntryStatus.allCases.contains(.open))
+        #expect(EntryStatus.allCases.contains(.complete))
+        #expect(EntryStatus.allCases.contains(.migrated))
+        #expect(EntryStatus.allCases.contains(.cancelled))
     }
 
-    /// Conditions: Access Task.Status rawValues.
+    /// Conditions: Access EntryStatus rawValues for task statuses.
     /// Expected: Should return lowercase status names.
     @Test func testTaskStatusRawValues() {
-        #expect(DataModel.Task.Status.open.rawValue == "open")
-        #expect(DataModel.Task.Status.complete.rawValue == "complete")
-        #expect(DataModel.Task.Status.migrated.rawValue == "migrated")
-        #expect(DataModel.Task.Status.cancelled.rawValue == "cancelled")
+        #expect(EntryStatus.open.rawValue == "open")
+        #expect(EntryStatus.complete.rawValue == "complete")
+        #expect(EntryStatus.migrated.rawValue == "migrated")
+        #expect(EntryStatus.cancelled.rawValue == "cancelled")
     }
 
     /// Conditions: Create Task with default initializer.
@@ -157,7 +155,16 @@ struct EntryTests {
         #expect(task.title == "")
         #expect(task.period == .day)
         #expect(task.status == .open)
-        #expect(task.assignments.isEmpty)
+        #expect(task.allAssignmentsForTesting.isEmpty)
+    }
+
+    /// Conditions: Access Task's static per-type eligibility flags.
+    /// Expected: Task is eligible for Inbox, migration, and overdue — all true.
+    @Test func testTaskIsEligibleForInboxMigrationAndOverdue() {
+        let task = DataModel.Task()
+        #expect(task.isInboxEligible)
+        #expect(task.isMigratable)
+        #expect(task.isOverdueEligible)
     }
 
     // MARK: - Event Entry Protocol Tests
@@ -229,6 +236,15 @@ struct EntryTests {
         #expect(event.endTime == nil)
     }
 
+    /// Conditions: Access Event's static per-type eligibility flags.
+    /// Expected: Event is not eligible for Inbox, migration, or overdue — all false (default Entry implementation).
+    @Test func testEventIsNotEligibleForInboxMigrationOrOverdue() {
+        let event = DataModel.Event()
+        #expect(!event.isInboxEligible)
+        #expect(!event.isMigratable)
+        #expect(!event.isOverdueEligible)
+    }
+
     // MARK: - Note Entry Protocol Tests
 
     /// Conditions: Create Note with title.
@@ -252,7 +268,7 @@ struct EntryTests {
     @Test func testNoteHasRequiredProperties() {
         let now = makeDate(year: 2026, month: 6, day: 15)
         let assignments = [
-            NoteAssignment(period: .month, date: now, status: .migrated)
+            Assignment(period: .month, date: now, status: .migrated)
         ]
         let note = DataModel.Note(
             title: "My Note",
@@ -261,7 +277,7 @@ struct EntryTests {
             date: now,
             period: .month,
             status: .migrated,
-            assignments: assignments
+            migrationHistory: assignments
         )
 
         #expect(note.title == "My Note")
@@ -270,23 +286,86 @@ struct EntryTests {
         #expect(note.date == now)
         #expect(note.period == .month)
         #expect(note.status == .migrated)
-        #expect(note.assignments == assignments)
+        #expect(note.allAssignmentsForTesting == assignments)
     }
 
-    /// Conditions: Access Note.Status.allCases.
-    /// Expected: Should contain 2 statuses: active, migrated.
+    /// Conditions: A task has 3 already-migrated historical assignments (day, month, year,
+    /// in that order) plus one live current assignment.
+    /// Expected: the migration-history UI's combined timeline (`migrationHistory +
+    /// currentAssignments`, exactly what `TaskDetailSheet`'s assignment history section
+    /// renders) preserves migration order followed by the live entry last — the same
+    /// content and ordering the pre-SPRD-254 single flat array would have produced, since
+    /// older entries were never reordered and the live entry was always the most recently
+    /// appended.
+    @Test func testTaskMigrationHistoryDisplayOrderMatchesPreSplitFlatArrayShape() {
+        let now = makeDate(year: 2026, month: 6, day: 15)
+        let dayMigration = Assignment(period: .day, date: now, status: .migrated)
+        let monthMigration = Assignment(period: .month, date: now, status: .migrated)
+        let yearMigration = Assignment(period: .year, date: now, status: .migrated)
+        let liveAssignment = Assignment(period: .month, date: now, status: .open)
+
+        let task = DataModel.Task(
+            title: "Chain-migrated task",
+            createdDate: now,
+            date: now,
+            period: .month,
+            status: .open,
+            currentAssignments: [liveAssignment],
+            migrationHistory: [dayMigration, monthMigration, yearMigration]
+        )
+
+        let displayedTimeline = task.allAssignmentsForTesting
+
+        #expect(displayedTimeline.count == 4)
+        #expect(displayedTimeline[0].id == dayMigration.id)
+        #expect(displayedTimeline[1].id == monthMigration.id)
+        #expect(displayedTimeline[2].id == yearMigration.id)
+        #expect(displayedTimeline[3].id == liveAssignment.id)
+        #expect(displayedTimeline.dropLast().allSatisfy { $0.status == .migrated })
+        #expect(displayedTimeline.last?.status == .open)
+    }
+
+    /// Conditions: A note has 1 already-migrated historical assignment plus one live
+    /// current assignment.
+    /// Expected: the migration-history UI's combined timeline (`migrationHistory +
+    /// currentAssignments`, exactly what `NoteDetailSheet`'s assignment history section
+    /// renders) shows the migrated entry first and the live entry last.
+    @Test func testNoteMigrationHistoryDisplayOrderMatchesPreSplitFlatArrayShape() {
+        let now = makeDate(year: 2026, month: 6, day: 15)
+        let monthMigration = Assignment(period: .month, date: now, status: .migrated)
+        let liveAssignment = Assignment(period: .day, date: now, status: .active)
+
+        let note = DataModel.Note(
+            title: "Migrated note",
+            createdDate: now,
+            date: now,
+            period: .day,
+            status: .active,
+            currentAssignments: [liveAssignment],
+            migrationHistory: [monthMigration]
+        )
+
+        let displayedTimeline = note.allAssignmentsForTesting
+
+        #expect(displayedTimeline.count == 2)
+        #expect(displayedTimeline[0].id == monthMigration.id)
+        #expect(displayedTimeline[0].status == .migrated)
+        #expect(displayedTimeline[1].id == liveAssignment.id)
+        #expect(displayedTimeline[1].status == .active)
+    }
+
+    /// Conditions: Access EntryStatus.allCases for note-relevant statuses.
+    /// Expected: Should contain active, migrated.
     @Test func testNoteStatusCases() {
-        let cases = DataModel.Note.Status.allCases
-        #expect(cases.count == 2)
-        #expect(cases.contains(.active))
-        #expect(cases.contains(.migrated))
+        #expect(EntryStatus.allCases.contains(.active))
+        #expect(EntryStatus.allCases.contains(.migrated))
     }
 
-    /// Conditions: Access Note.Status rawValues.
+    /// Conditions: Access EntryStatus rawValues for note statuses.
     /// Expected: Should return lowercase status names.
     @Test func testNoteStatusRawValues() {
-        #expect(DataModel.Note.Status.active.rawValue == "active")
-        #expect(DataModel.Note.Status.migrated.rawValue == "migrated")
+        #expect(EntryStatus.active.rawValue == "active")
+        #expect(EntryStatus.migrated.rawValue == "migrated")
     }
 
     /// Conditions: Create Note with default initializer.
@@ -297,7 +376,7 @@ struct EntryTests {
         #expect(note.content == "")
         #expect(note.period == .day)
         #expect(note.status == .active)
-        #expect(note.assignments.isEmpty)
+        #expect(note.allAssignmentsForTesting.isEmpty)
     }
 
     /// Conditions: Create Note with very long content.
@@ -306,6 +385,15 @@ struct EntryTests {
         let longContent = String(repeating: "Lorem ipsum dolor sit amet. ", count: 100)
         let note = DataModel.Note(content: longContent)
         #expect(note.content == longContent)
+    }
+
+    /// Conditions: Access Note's static per-type eligibility flags.
+    /// Expected: Note is not eligible for Inbox, migration, or overdue — all false (default Entry implementation).
+    @Test func testNoteIsNotEligibleForInboxMigrationOrOverdue() {
+        let note = DataModel.Note()
+        #expect(!note.isInboxEligible)
+        #expect(!note.isMigratable)
+        #expect(!note.isOverdueEligible)
     }
 
     // MARK: - Event appearsOn() Tests

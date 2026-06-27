@@ -11,8 +11,7 @@ This guide defines the free-tier local sync-testing workflow for Spread.
 - local Supabase
   - destructive sync durability, rebuild, and repair testing
   - isolated from hosted environments
-- remote `spread-dev`
-  - shared hosted QA and schema source of truth for local bootstrap snapshots
+  - schema comes from `supabase/migrations/` (a single baseline migration kept in sync with `spread-prod`)
 - remote `spread-prod`
   - production use only
 
@@ -20,19 +19,10 @@ This guide defines the free-tier local sync-testing workflow for Spread.
 
 - Supabase CLI installed
 - Docker Desktop running
-- `psql` and `pg_dump` installed
-- remote dev DB password available before schema bootstrap, either:
-  - exported in the shell, or
-  - stored in `supabase/.env.local`
+
+Optional `supabase/.env.local` (used for deterministic local test users):
 
 ```bash
-export SUPABASE_DB_PASSWORD_DEV="..."
-```
-
-Example `supabase/.env.local`:
-
-```bash
-SUPABASE_DB_PASSWORD_DEV="..."
 SPREAD_LOCAL_TEST_PASSWORD="spread-local-pass"
 ```
 
@@ -42,20 +32,6 @@ Use the checked-in template as a starting point:
 cp supabase/.env.local.example supabase/.env.local
 ```
 
-## One-Time Bootstrap
-
-Generate the local public-schema snapshot from remote dev:
-
-```bash
-./scripts/local-supabase.sh bootstrap-schema-from-dev
-```
-
-This writes:
-
-- `supabase/local/public_schema_from_dev.sql`
-
-Commit that file whenever the hosted schema changes intentionally and local sync tests need to track it.
-
 ## Daily Workflow
 
 Start the local stack:
@@ -64,7 +40,7 @@ Start the local stack:
 ./scripts/local-supabase.sh start
 ```
 
-Reset local schema and provision deterministic local test users:
+Reset the local database from `supabase/migrations/` and provision deterministic local test users:
 
 ```bash
 ./scripts/local-supabase.sh reset
@@ -98,7 +74,7 @@ It contains:
 
 The app should continue to use:
 
-- Debug/QA default -> remote development
+- Debug default -> `localhost` (local-only, no backend)
 - Release default -> remote production
 - `-DataEnvironment localhost` -> local-only engineering mode
 
@@ -140,17 +116,21 @@ export SPREAD_LOCAL_TEST_PASSWORD="..."
 CI should:
 
 1. start Docker
-2. start local Supabase
-3. restore or bootstrap `supabase/local/public_schema_from_dev.sql`
-4. run `./scripts/local-supabase.sh reset`
-5. inject the generated local URL/key into the test process
+2. start local Supabase (`supabase db reset` replays `supabase/migrations/`)
+3. run `./scripts/local-supabase.sh reset`
+4. inject the generated local URL/key into the test process
 
-Required CI secrets:
+CI must not point automated destructive durability tests at remote `spread-prod`.
 
-- `SUPABASE_DB_PASSWORD_DEV`
-- optional `SPREAD_LOCAL_TEST_PASSWORD`
+## Updating the Local Schema
 
-CI must not point automated destructive durability tests at remote `spread-dev` or `spread-prod`.
+The local schema is defined entirely by `supabase/migrations/`. When `spread-prod`'s schema changes intentionally, regenerate the baseline migration:
+
+```bash
+pg_dump "<spread-prod connection string>" --schema-only --no-owner --schema=public -f supabase/migrations/<timestamp>_baseline_schema.sql
+```
+
+Then strip the `CREATE SCHEMA public`/`COMMENT ON SCHEMA public`/`DEFAULT PRIVILEGES`/`\restrict`/`\unrestrict` lines, remove the previous baseline migration file, and run `./scripts/local-supabase.sh reset` to verify.
 
 ## Running Sync-Enabled Durability Tests
 

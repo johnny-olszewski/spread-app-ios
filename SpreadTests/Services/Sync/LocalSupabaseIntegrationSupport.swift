@@ -144,28 +144,26 @@ struct LocalSupabaseAdmin {
     }
 
     func clearAllData(for userId: UUID) async throws {
-        try await client.from("task_assignments").delete().eq("user_id", value: userId.uuidString).execute()
-        try await client.from("note_assignments").delete().eq("user_id", value: userId.uuidString).execute()
-        try await client.from("tasks").delete().eq("user_id", value: userId.uuidString).execute()
-        try await client.from("notes").delete().eq("user_id", value: userId.uuidString).execute()
+        try await client.from("assignments").delete().eq("user_id", value: userId.uuidString).execute()
+        try await client.from("entries").delete().eq("user_id", value: userId.uuidString).execute()
         try await client.from("spreads").delete().eq("user_id", value: userId.uuidString).execute()
         try await client.from("collections").delete().eq("user_id", value: userId.uuidString).execute()
         try await client.from("settings").delete().eq("user_id", value: userId.uuidString).execute()
     }
 
     func deleteTaskAssignments(taskId: UUID, userId: UUID) async throws {
-        try await client.from("task_assignments")
+        try await client.from("assignments")
             .delete()
             .eq("user_id", value: userId.uuidString)
-            .eq("task_id", value: taskId.uuidString)
+            .eq("entry_id", value: taskId.uuidString)
             .execute()
     }
 
     func fetchTaskAssignments(taskId: UUID, userId: UUID) async throws -> [RemoteAssignmentRow] {
-        try await client.from("task_assignments")
+        try await client.from("assignments")
             .select("id, status, period, date, spread_id, deleted_at")
             .eq("user_id", value: userId.uuidString)
-            .eq("task_id", value: taskId.uuidString)
+            .eq("entry_id", value: taskId.uuidString)
             .execute()
             .value
     }
@@ -225,15 +223,14 @@ struct LocalSupabaseSyncHarness {
         let noteRepository = SwiftDataNoteRepository(modelContainer: modelContainer, deviceId: deviceId)
         let collectionRepository = SwiftDataCollectionRepository(modelContainer: modelContainer, deviceId: deviceId)
 
-        let journalManager = try await JournalManager.make(
+        let journalManager = try await JournalManager(
             calendar: calendar,
             today: TestDataBuilders.testDate,
             taskRepository: taskRepository,
             spreadRepository: spreadRepository,
-            eventRepository: InMemoryEventRepository(),
+            eventRepository: TestEventRepository(),
             noteRepository: noteRepository,
             collectionRepository: collectionRepository,
-            bujoMode: .conventional
         )
 
         let syncEngine = SyncEngine(

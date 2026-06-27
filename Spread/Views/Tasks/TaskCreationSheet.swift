@@ -368,10 +368,9 @@ struct TaskCreationSheet: View {
             do {
                 let task = try await journalManager.addTask(
                     title: viewModel.formModel.title,
-                    date: viewModel.formModel.effectiveSelectedDate,
-                    period: viewModel.formModel.selectedPeriod,
+                    date: viewModel.formModel.effectiveDate,
+                    period: viewModel.formModel.effectivePeriod,
                     preferredSpreadID: viewModel.formModel.selectedSpreadID,
-                    hasPreferredAssignment: viewModel.formModel.hasPreferredAssignment,
                     body: viewModel.formModel.sanitizedBody,
                     priority: viewModel.formModel.priority,
                     dueDate: viewModel.formModel.effectiveDueDate

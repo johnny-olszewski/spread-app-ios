@@ -11,19 +11,19 @@ struct EntryRowAccessibilityTests {
     // MARK: - Entry display requirements
 
     /// Conditions: Task with open status.
-    /// Expected: displayTaskStatus returns .open.
-    @Test func taskWithOpenStatus_displayTaskStatus_isOpen() {
+    /// Expected: status returns .open.
+    @Test func taskWithOpenStatus_isOpen() {
         let task = DataModel.Task(title: "Buy milk", status: .open)
 
-        #expect(task.displayTaskStatus == .open)
+        #expect(task.status == .open)
     }
 
     /// Conditions: Task with complete status.
-    /// Expected: displayTaskStatus returns .complete.
-    @Test func taskWithCompleteStatus_displayTaskStatus_isComplete() {
+    /// Expected: status returns .complete.
+    @Test func taskWithCompleteStatus_isComplete() {
         let task = DataModel.Task(title: "Buy milk", status: .complete)
 
-        #expect(task.displayTaskStatus == .complete)
+        #expect(task.status == .complete)
     }
 
     /// Conditions: Task with high priority.
@@ -35,11 +35,11 @@ struct EntryRowAccessibilityTests {
     }
 
     /// Conditions: Note with active status.
-    /// Expected: displayNoteStatus returns .active.
-    @Test func noteWithActiveStatus_displayNoteStatus_isActive() {
+    /// Expected: status returns .active.
+    @Test func noteWithActiveStatus_isActive() {
         let note = DataModel.Note(title: "Ideas", status: .active)
 
-        #expect(note.displayNoteStatus == .active)
+        #expect(note.status == .active)
     }
 
     /// Conditions: Default Entry (task with no explicit priority).

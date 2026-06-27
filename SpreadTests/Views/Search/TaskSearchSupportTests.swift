@@ -4,9 +4,9 @@ import Testing
 
 @MainActor
 struct TaskSearchSupportTests {
-    /// Conditions: conventional mode with inbox, year, month, and day tasks.
+    /// Conditions: inbox, year, month, and day tasks.
     /// Expected: search sections keep Inbox first and then follow the same spread ordering as the navigator.
-    @Test func testConventionalSectionsKeepInboxFirstAndNavigatorOrder() async throws {
+    @Test func testSectionsKeepInboxFirstAndNavigatorOrder() async throws {
         let calendar = Self.utcCalendar
         let yearDate = Self.makeDate(year: 2026, month: 1, day: 1, calendar: calendar)
         let monthDate = Self.makeDate(year: 2026, month: 4, day: 1, calendar: calendar)
@@ -22,29 +22,28 @@ struct TaskSearchSupportTests {
             date: yearDate,
             period: .year,
             status: .open,
-            assignments: [TaskAssignment(period: .year, date: yearDate, status: .open)]
+            currentAssignments: [Assignment(period: .year, date: yearDate, status: .open)]
         )
         let monthTask = DataModel.Task(
             title: "Month task",
             date: monthDate,
             period: .month,
             status: .open,
-            assignments: [TaskAssignment(period: .month, date: monthDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: monthDate, status: .open)]
         )
         let dayTask = DataModel.Task(
             title: "Day task",
             date: dayDate,
             period: .day,
             status: .open,
-            assignments: [TaskAssignment(period: .day, date: dayDate, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: dayDate,
-            taskRepository: InMemoryTaskRepository(tasks: [inboxTask, yearTask, monthTask, dayTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread, daySpread]),
-            bujoMode: .conventional
+            taskRepository: TestTaskRepository(tasks: [inboxTask, yearTask, monthTask, dayTask]),
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread, daySpread])
         )
 
         let sections = TaskSearchSectionBuilder(journalManager: manager).build(searchText: "")
@@ -52,36 +51,9 @@ struct TaskSearchSupportTests {
         #expect(sections.map(\.title) == ["Inbox", "2026", "April 2026", "April 6, 2026"])
     }
 
-    /// Conditions: traditional mode with year, month, and day preferred tasks plus a cancelled task.
-    /// Expected: tasks appear once under their most specific displayed section and cancelled tasks are excluded.
-    @Test func testTraditionalSectionsUseMostSpecificPreferredPeriod() async throws {
-        let calendar = Self.utcCalendar
-        let yearDate = Self.makeDate(year: 2026, month: 1, day: 1, calendar: calendar)
-        let monthDate = Self.makeDate(year: 2026, month: 4, day: 1, calendar: calendar)
-        let dayDate = Self.makeDate(year: 2026, month: 4, day: 6, calendar: calendar)
-
-        let yearTask = DataModel.Task(title: "Year task", date: yearDate, period: .year, status: .open)
-        let monthTask = DataModel.Task(title: "Month task", date: monthDate, period: .month, status: .complete)
-        let dayTask = DataModel.Task(title: "Day task", date: dayDate, period: .day, status: .open)
-        let cancelledTask = DataModel.Task(title: "Cancelled task", date: dayDate, period: .day, status: .cancelled)
-
-        let manager = try await JournalManager.make(
-            calendar: calendar,
-            today: dayDate,
-            taskRepository: InMemoryTaskRepository(tasks: [yearTask, monthTask, dayTask, cancelledTask]),
-            spreadRepository: InMemorySpreadRepository(),
-            bujoMode: .traditional
-        )
-
-        let sections = TaskSearchSectionBuilder(journalManager: manager).build(searchText: "")
-
-        #expect(sections.map(\.title) == ["2026", "April 2026", "April 6, 2026"])
-        #expect(sections.flatMap(\.rows).map(\.title).contains("Cancelled task") == false)
-    }
-
-    /// Conditions: conventional mode with a task that has both migrated and active assignments.
+    /// Conditions: a task that has both migrated and active assignments.
     /// Expected: the task appears exactly once under the active destination spread and never under the migrated source.
-    @Test func testConventionalSearchUsesCurrentDisplayedSpreadOnce() async throws {
+    @Test func testSearchUsesCurrentDisplayedSpreadOnce() async throws {
         let calendar = Self.utcCalendar
         let yearDate = Self.makeDate(year: 2026, month: 1, day: 1, calendar: calendar)
         let monthDate = Self.makeDate(year: 2026, month: 4, day: 1, calendar: calendar)
@@ -93,18 +65,19 @@ struct TaskSearchSupportTests {
             date: monthDate,
             period: .month,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .year, date: yearDate, status: .migrated),
-                TaskAssignment(period: .month, date: monthDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .month, date: monthDate, status: .open)
+            ],
+            migrationHistory: [
+                Assignment(period: .year, date: yearDate, status: .migrated)
             ]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: monthDate,
-            taskRepository: InMemoryTaskRepository(tasks: [migratedTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [yearSpread, monthSpread]),
-            bujoMode: .conventional
+            taskRepository: TestTaskRepository(tasks: [migratedTask]),
+            spreadRepository: TestSpreadRepository(spreads: [yearSpread, monthSpread])
         )
 
         let sections = TaskSearchSectionBuilder(journalManager: manager).build(searchText: "")
@@ -113,6 +86,8 @@ struct TaskSearchSupportTests {
         #expect(sections.first?.rows.map(\.title) == ["Migrated task"])
     }
 
+    /// Conditions: a task with body text, priority, and due date.
+    /// Expected: search matches body text and the row carries full metadata.
     @Test func testSearchMatchesTaskBodyAndCarriesMetadata() async throws {
         let calendar = Self.utcCalendar
         let dayDate = Self.makeDate(year: 2026, month: 4, day: 6, calendar: calendar)
@@ -122,17 +97,15 @@ struct TaskSearchSupportTests {
             body: "Prepare rollout checklist",
             priority: .high,
             dueDate: dueDate,
-            date: dayDate,
-            period: .day,
-            hasPreferredAssignment: false,
+            date: nil,
+            period: nil,
             status: .open
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: dayDate,
-            taskRepository: InMemoryTaskRepository(tasks: [task]),
-            spreadRepository: InMemorySpreadRepository(),
-            bujoMode: .conventional
+            taskRepository: TestTaskRepository(tasks: [task]),
+            spreadRepository: TestSpreadRepository()
         )
 
         let sections = TaskSearchSectionBuilder(journalManager: manager).build(searchText: "rollout")
@@ -146,28 +119,30 @@ struct TaskSearchSupportTests {
         #expect(row.hasPreferredAssignment == false)
     }
 
-    @Test func testTraditionalNilAssignmentTasksStayInboxFirst() async throws {
+    /// Conditions: a task without a preferred assignment (inbox) alongside one with an explicit day assignment.
+    /// Expected: unassigned task appears in Inbox, assigned task in its spread section.
+    @Test func testNilAssignmentTasksStayInboxFirst() async throws {
         let calendar = Self.utcCalendar
         let dayDate = Self.makeDate(year: 2026, month: 4, day: 6, calendar: calendar)
+        let daySpread = DataModel.Spread(period: .day, date: dayDate, calendar: calendar)
         let unassignedTask = DataModel.Task(
             title: "Unassigned",
-            date: dayDate,
-            period: .day,
-            hasPreferredAssignment: false,
+            date: nil,
+            period: nil,
             status: .open
         )
         let assignedTask = DataModel.Task(
             title: "Assigned",
             date: dayDate,
             period: .day,
-            status: .open
+            status: .open,
+            currentAssignments: [Assignment(period: .day, date: dayDate, status: .open)]
         )
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: calendar,
             today: dayDate,
-            taskRepository: InMemoryTaskRepository(tasks: [assignedTask, unassignedTask]),
-            spreadRepository: InMemorySpreadRepository(),
-            bujoMode: .traditional
+            taskRepository: TestTaskRepository(tasks: [assignedTask, unassignedTask]),
+            spreadRepository: TestSpreadRepository(spreads: [daySpread])
         )
 
         let sections = TaskSearchSectionBuilder(journalManager: manager).build(searchText: "")

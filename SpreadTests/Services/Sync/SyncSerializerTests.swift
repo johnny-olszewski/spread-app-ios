@@ -52,19 +52,19 @@ struct SyncSerializerTests {
         #expect(result?.params is MergeSpreadParams)
     }
 
-    /// Conditions: Valid task record data.
-    /// Expected: Should return merge_task RPC name and MergeTaskParams.
-    @Test func testBuildMergeParamsForTask() {
-        let record = makeTaskRecord()
+    /// Conditions: Valid task entry record data.
+    /// Expected: Should return merge_entry RPC name and MergeEntryParams.
+    @Test func testBuildMergeParamsForTaskEntry() {
+        let record = makeTaskEntryRecord()
         let userId = UUID()
 
         let result = SyncSerializer.buildMergeParams(
-            entityType: .task, recordData: record, userId: userId
+            entityType: .entry, recordData: record, userId: userId
         )
 
         #expect(result != nil)
-        #expect(result?.rpcName == "merge_task")
-        #expect(result?.params is MergeTaskParams)
+        #expect(result?.rpcName == "merge_entry")
+        #expect(result?.params is MergeEntryParams)
     }
 
     /// Conditions: Valid collection record data.
@@ -82,32 +82,32 @@ struct SyncSerializerTests {
         #expect(result?.params is MergeCollectionParams)
     }
 
-    /// Conditions: Valid task assignment record data.
-    /// Expected: Should return merge_task_assignment RPC name.
-    @Test func testBuildMergeParamsForTaskAssignment() {
-        let record = makeTaskAssignmentRecord()
+    /// Conditions: Valid assignment record data for a task entry.
+    /// Expected: Should return merge_assignment RPC name.
+    @Test func testBuildMergeParamsForAssignment() {
+        let record = makeAssignmentRecord()
         let userId = UUID()
 
         let result = SyncSerializer.buildMergeParams(
-            entityType: .taskAssignment, recordData: record, userId: userId
+            entityType: .assignment, recordData: record, userId: userId
         )
 
         #expect(result != nil)
-        #expect(result?.rpcName == "merge_task_assignment")
-        #expect(result?.params is MergeTaskAssignmentParams)
+        #expect(result?.rpcName == "merge_assignment")
+        #expect(result?.params is MergeAssignmentParams)
     }
 
-    @Test func testBuildMergeParamsForMultidayTaskAssignmentPreservesSpreadID() throws {
+    @Test func testBuildMergeParamsForMultidayAssignmentPreservesSpreadID() throws {
         let spreadID = UUID()
-        let record = makeTaskAssignmentRecord(spreadID: spreadID)
+        let record = makeAssignmentRecord(spreadID: spreadID)
 
         let result = SyncSerializer.buildMergeParams(
-            entityType: .taskAssignment,
+            entityType: .assignment,
             recordData: record,
             userId: UUID()
         )
 
-        let params = try #require(result?.params as? MergeTaskAssignmentParams)
+        let params = try #require(result?.params as? MergeAssignmentParams)
         #expect(params.pSpreadId == spreadID.uuidString)
     }
 
@@ -166,17 +166,17 @@ struct SyncSerializerTests {
         #expect(json["p_deleted_at"] is NSNull)
     }
 
-    /// Conditions: MergeTaskParams with nil deleted_at.
-    /// Expected: Encoded JSON should contain null value for p_deleted_at.
-    @Test func testMergeTaskParamsEncodesNilDeletedAtAsNull() throws {
-        let params = MergeTaskParams(
+    /// Conditions: MergeEntryParams for a task with nil deleted_at, content, and period.
+    /// Expected: Encoded JSON should contain null values for those fields.
+    @Test func testMergeEntryParamsEncodesNilAsNull() throws {
+        let params = MergeEntryParams(
             pId: UUID().uuidString, pUserId: UUID().uuidString,
-            pDeviceId: UUID().uuidString, pTitle: "Test",
-            pBody: nil, pPriority: "none", pDueDate: nil,
-            pListId: nil, pDate: "2025-03-15",
-            pPeriod: "day", pStatus: "open",
+            pDeviceId: UUID().uuidString, pType: "task", pTitle: "Test",
+            pContent: nil, pDate: "2025-03-15", pPeriod: "day", pStatus: "open",
+            pBody: nil, pPriority: "none", pDueDate: nil, pListId: nil,
             pCreatedAt: "2025-03-15T10:00:00.000Z", pDeletedAt: nil,
             pTitleUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pContentUpdatedAt: "2025-03-15T10:00:00.000Z",
             pDateUpdatedAt: "2025-03-15T10:00:00.000Z",
             pPeriodUpdatedAt: "2025-03-15T10:00:00.000Z",
             pStatusUpdatedAt: "2025-03-15T10:00:00.000Z",
@@ -191,18 +191,22 @@ struct SyncSerializerTests {
 
         #expect(json.keys.contains("p_deleted_at"))
         #expect(json["p_deleted_at"] is NSNull)
+        #expect(json["p_content"] is NSNull)
+        #expect(json["p_body"] is NSNull)
+        #expect(json["p_due_date"] is NSNull)
+        #expect(json["p_list_id"] is NSNull)
     }
 
     // MARK: - Pull: createTask
 
-    /// Conditions: Valid server task row.
+    /// Conditions: Valid server entry row of type task.
     /// Expected: Should create a task with matching properties.
     @Test func testCreateTaskFromValidRow() {
         let id = UUID()
-        let row = ServerTaskRow(
-            id: id, title: "Test task", body: "Details", priority: "medium",
-            dueDate: "2025-03-20", date: "2025-03-15",
-            period: "day", status: "open",
+        let row = ServerEntryRow(
+            id: id, type: "task", title: "Test task", content: nil,
+            date: "2025-03-15", period: "day", status: "open",
+            body: "Details", priority: "medium", dueDate: "2025-03-20", listId: nil,
             createdAt: "2025-03-15T10:00:00.000Z", deletedAt: nil, revision: 1
         )
 
@@ -214,32 +218,35 @@ struct SyncSerializerTests {
         #expect(task?.body == "Details")
         #expect(task?.priority == .medium)
         #expect(task?.dueDate != nil)
-        #expect(task?.hasPreferredAssignment == true)
+        #expect(task?.date != nil)
         #expect(task?.period == .day)
         #expect(task?.status == .open)
     }
 
-    /// Conditions: Server task row has nil preferred date and period.
-    /// Expected: Created task should preserve nil-assignment state while keeping local fallback values.
+    /// Conditions: Server entry row has nil preferred date and period.
+    /// Expected: Created task should preserve nil date/period directly (no local fallback values).
     @Test func testCreateTaskFromNilPreferredAssignmentRow() {
-        let row = ServerTaskRow(
-            id: UUID(), title: "Inbox task", date: nil, period: nil, status: "open",
+        let row = ServerEntryRow(
+            id: UUID(), type: "task", title: "Inbox task", content: nil,
+            date: nil, period: nil, status: "open",
+            body: nil, priority: nil, dueDate: nil, listId: nil,
             createdAt: "2025-03-15T10:00:00.000Z", deletedAt: nil, revision: 1
         )
 
         let task = SyncSerializer.createTask(from: row)
 
         #expect(task != nil)
-        #expect(task?.hasPreferredAssignment == false)
-        #expect(task?.period == .day)
+        #expect(task?.date == nil)
+        #expect(task?.period == nil)
     }
 
-    /// Conditions: Server task row with deletedAt set.
+    /// Conditions: Server entry row with deletedAt set.
     /// Expected: Should return nil (soft-deleted).
     @Test func testCreateTaskReturnsNilForDeletedRow() {
-        let row = ServerTaskRow(
-            id: UUID(), title: "Deleted", date: "2025-03-15",
-            period: "day", status: "open",
+        let row = ServerEntryRow(
+            id: UUID(), type: "task", title: "Deleted", content: nil,
+            date: "2025-03-15", period: "day", status: "open",
+            body: nil, priority: nil, dueDate: nil, listId: nil,
             createdAt: "2025-03-15T10:00:00.000Z",
             deletedAt: "2025-03-16T10:00:00.000Z", revision: 2
         )
@@ -247,12 +254,13 @@ struct SyncSerializerTests {
         #expect(SyncSerializer.createTask(from: row) == nil)
     }
 
-    /// Conditions: Server task row with invalid period.
+    /// Conditions: Server entry row with invalid period.
     /// Expected: Should return nil.
     @Test func testCreateTaskReturnsNilForInvalidPeriod() {
-        let row = ServerTaskRow(
-            id: UUID(), title: "Bad", date: "2025-03-15",
-            period: "weekly", status: "open",
+        let row = ServerEntryRow(
+            id: UUID(), type: "task", title: "Bad", content: nil,
+            date: "2025-03-15", period: "weekly", status: "open",
+            body: nil, priority: nil, dueDate: nil, listId: nil,
             createdAt: "2025-03-15T10:00:00.000Z", deletedAt: nil, revision: 1
         )
 
@@ -261,13 +269,14 @@ struct SyncSerializerTests {
 
     // MARK: - Pull: createNote
 
-    /// Conditions: Valid server note row.
+    /// Conditions: Valid server entry row of type note.
     /// Expected: Should create a note with matching properties.
     @Test func testCreateNoteFromValidRow() {
         let id = UUID()
-        let row = ServerNoteRow(
-            id: id, title: "Note title", content: "Note body",
+        let row = ServerEntryRow(
+            id: id, type: "note", title: "Note title", content: "Note body",
             date: "2025-06-01", period: "month", status: "active",
+            body: nil, priority: nil, dueDate: nil, listId: nil,
             createdAt: "2025-06-01T08:00:00.000Z", deletedAt: nil, revision: 5
         )
 
@@ -278,6 +287,22 @@ struct SyncSerializerTests {
         #expect(note?.title == "Note title")
         #expect(note?.content == "Note body")
         #expect(note?.period == .month)
+    }
+
+    /// Conditions: Server entry row of type note with nil preferred date.
+    /// Expected: Created note should have a nil date.
+    @Test func testCreateNoteFromNilDateRow() {
+        let row = ServerEntryRow(
+            id: UUID(), type: "note", title: "Dateless note", content: "Body",
+            date: nil, period: "day", status: "active",
+            body: nil, priority: nil, dueDate: nil, listId: nil,
+            createdAt: "2025-06-01T08:00:00.000Z", deletedAt: nil, revision: 5
+        )
+
+        let note = SyncSerializer.createNote(from: row)
+
+        #expect(note != nil)
+        #expect(note?.date == nil)
     }
 
     // MARK: - Pull: createCollection
@@ -346,19 +371,19 @@ struct SyncSerializerTests {
         #expect(SyncSerializer.createSpread(from: row, calendar: .current) == nil)
     }
 
-    // MARK: - Pull: createTaskAssignment
+    // MARK: - Pull: createAssignment
 
-    /// Conditions: Valid server task assignment row.
-    /// Expected: Should create a TaskAssignment with correct period, date, status.
-    @Test func testCreateTaskAssignmentFromValidRow() {
+    /// Conditions: Valid server assignment row for a task entry.
+    /// Expected: Should create an Assignment with correct period, date, status.
+    @Test func testCreateAssignmentFromValidTaskRow() {
         let rowID = UUID()
-        let row = ServerTaskAssignmentRow(
-            id: rowID, taskId: UUID(), period: "day",
-            date: "2025-03-15", status: "open",
+        let row = ServerAssignmentRow(
+            id: rowID, entryId: UUID(), entryType: "task", period: "day",
+            date: "2025-03-15", spreadId: nil, status: "open",
             createdAt: "2025-03-15T10:00:00.000Z", deletedAt: nil, revision: 1
         )
 
-        let assignment = SyncSerializer.createTaskAssignment(from: row)
+        let assignment = SyncSerializer.createAssignment(from: row)
 
         #expect(assignment != nil)
         #expect(assignment?.id == rowID)
@@ -366,11 +391,12 @@ struct SyncSerializerTests {
         #expect(assignment?.status == .open)
     }
 
-    @Test func testCreateTaskAssignmentFromMultidayRowPreservesSpreadIdentity() {
+    @Test func testCreateAssignmentFromMultidayRowPreservesSpreadIdentity() {
         let spreadID = UUID()
-        let row = ServerTaskAssignmentRow(
+        let row = ServerAssignmentRow(
             id: UUID(),
-            taskId: UUID(),
+            entryId: UUID(),
+            entryType: "task",
             period: "multiday",
             date: "2025-03-15",
             spreadId: spreadID,
@@ -380,75 +406,54 @@ struct SyncSerializerTests {
             revision: 1
         )
 
-        let assignment = SyncSerializer.createTaskAssignment(from: row)
+        let assignment = SyncSerializer.createAssignment(from: row)
 
         #expect(assignment?.spreadID == spreadID)
     }
 
-    /// Conditions: Server task assignment row with deletedAt set.
+    /// Conditions: Server assignment row with deletedAt set.
     /// Expected: Should return nil.
-    @Test func testCreateTaskAssignmentReturnsNilForDeletedRow() {
-        let row = ServerTaskAssignmentRow(
-            id: UUID(), taskId: UUID(), period: "day",
-            date: "2025-03-15", status: "open",
+    @Test func testCreateAssignmentReturnsNilForDeletedRow() {
+        let row = ServerAssignmentRow(
+            id: UUID(), entryId: UUID(), entryType: "task", period: "day",
+            date: "2025-03-15", spreadId: nil, status: "open",
             createdAt: "2025-03-15T10:00:00.000Z",
             deletedAt: "2025-03-16T10:00:00.000Z", revision: 2
         )
 
-        #expect(SyncSerializer.createTaskAssignment(from: row) == nil)
+        #expect(SyncSerializer.createAssignment(from: row) == nil)
     }
 
-    // MARK: - Pull: createNoteAssignment
-
-    /// Conditions: Valid server note assignment row.
-    /// Expected: Should create a NoteAssignment with correct properties.
-    @Test func testCreateNoteAssignmentFromValidRow() {
+    /// Conditions: Valid server assignment row for a note entry.
+    /// Expected: Should create an Assignment with correct properties.
+    @Test func testCreateAssignmentFromValidNoteRow() {
         let rowID = UUID()
-        let row = ServerNoteAssignmentRow(
-            id: rowID, noteId: UUID(), period: "month",
-            date: "2025-06-01", status: "active",
+        let row = ServerAssignmentRow(
+            id: rowID, entryId: UUID(), entryType: "note", period: "month",
+            date: "2025-06-01", spreadId: nil, status: "active",
             createdAt: "2025-06-01T08:00:00.000Z", deletedAt: nil, revision: 3
         )
 
-        let assignment = SyncSerializer.createNoteAssignment(from: row)
+        let assignment = SyncSerializer.createAssignment(from: row)
 
         #expect(assignment != nil)
         #expect(assignment?.id == rowID)
         #expect(assignment?.period == .month)
     }
 
-    @Test func testCreateNoteAssignmentFromMultidayRowPreservesSpreadIdentity() {
-        let spreadID = UUID()
-        let row = ServerNoteAssignmentRow(
-            id: UUID(),
-            noteId: UUID(),
-            period: "multiday",
-            date: "2025-06-01",
-            spreadId: spreadID,
-            status: "active",
-            createdAt: "2025-06-01T08:00:00.000Z",
-            deletedAt: nil,
-            revision: 3
-        )
-
-        let assignment = SyncSerializer.createNoteAssignment(from: row)
-
-        #expect(assignment?.spreadID == spreadID)
-    }
-
     // MARK: - Apply Rows
 
-    /// Conditions: A server task row applied to an existing task.
+    /// Conditions: A server entry row applied to an existing task.
     /// Expected: Task properties should be updated.
     @Test @MainActor func testApplyTaskRowUpdatesProperties() {
         let task = DataModel.Task(
             id: UUID(), title: "Old title", createdDate: .now,
             date: .now, period: .day, status: .open
         )
-        let row = ServerTaskRow(
-            id: task.id, title: "New title", body: "New body", priority: "high",
-            dueDate: "2025-06-10", date: "2025-06-01",
-            period: "month", status: "complete",
+        let row = ServerEntryRow(
+            id: task.id, type: "task", title: "New title", content: nil,
+            date: "2025-06-01", period: "month", status: "complete",
+            body: "New body", priority: "high", dueDate: "2025-06-10", listId: nil,
             createdAt: "2025-01-01T00:00:00.000Z", deletedAt: nil, revision: 5
         )
 
@@ -459,21 +464,22 @@ struct SyncSerializerTests {
         #expect(task.body == "New body")
         #expect(task.priority == .high)
         #expect(task.dueDate != nil)
-        #expect(task.hasPreferredAssignment)
+        #expect(task.date != nil)
         #expect(task.period == .month)
         #expect(task.status == .complete)
     }
 
-    /// Conditions: A deleted server task row applied to an existing task.
+    /// Conditions: A deleted server entry row applied to an existing task.
     /// Expected: Should return false (caller handles deletion).
     @Test @MainActor func testApplyDeletedTaskRowReturnsFalse() {
         let task = DataModel.Task(
             id: UUID(), title: "Test", createdDate: .now,
             date: .now, period: .day, status: .open
         )
-        let row = ServerTaskRow(
-            id: task.id, title: "Test", date: "2025-03-15",
-            period: "day", status: "open",
+        let row = ServerEntryRow(
+            id: task.id, type: "task", title: "Test", content: nil,
+            date: "2025-03-15", period: "day", status: "open",
+            body: nil, priority: nil, dueDate: nil, listId: nil,
             createdAt: "2025-01-01T00:00:00.000Z",
             deletedAt: "2025-03-16T00:00:00.000Z", revision: 2
         )
@@ -526,12 +532,14 @@ struct SyncSerializerTests {
         return try! JSONSerialization.data(withJSONObject: record)
     }
 
-    private func makeTaskRecord() -> Data {
+    private func makeTaskEntryRecord() -> Data {
         let ts = SyncDateFormatting.formatTimestamp(.now)
         let record: [String: Any] = [
             "id": UUID().uuidString,
             "device_id": UUID().uuidString,
+            "type": "task",
             "title": "Test",
+            "content": NSNull(),
             "body": NSNull(),
             "priority": "none",
             "due_date": NSNull(),
@@ -542,6 +550,7 @@ struct SyncSerializerTests {
             "created_at": ts,
             "deleted_at": NSNull(),
             "title_updated_at": ts,
+            "content_updated_at": ts,
             "date_updated_at": ts,
             "period_updated_at": ts,
             "status_updated_at": ts,
@@ -569,12 +578,13 @@ struct SyncSerializerTests {
         return try! JSONSerialization.data(withJSONObject: record)
     }
 
-    private func makeTaskAssignmentRecord(spreadID: UUID? = nil) -> Data {
+    private func makeAssignmentRecord(spreadID: UUID? = nil) -> Data {
         let ts = SyncDateFormatting.formatTimestamp(.now)
         let record: [String: Any] = [
             "id": UUID().uuidString,
             "device_id": UUID().uuidString,
-            "task_id": UUID().uuidString,
+            "entry_id": UUID().uuidString,
+            "entry_type": "task",
             "period": "day",
             "date": "2025-03-15",
             "spread_id": spreadID?.uuidString ?? NSNull(),

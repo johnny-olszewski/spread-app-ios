@@ -16,11 +16,11 @@ struct MultidayAggregationTests {
         notes: [DataModel.Note] = [],
         spreads: [DataModel.Spread] = []
     ) async throws -> JournalManager {
-        try await JournalManager.make(
+        try await JournalManager(
             calendar: Self.testCalendar,
-            taskRepository: InMemoryTaskRepository(tasks: tasks),
-            spreadRepository: InMemorySpreadRepository(spreads: spreads),
-            noteRepository: InMemoryNoteRepository(notes: notes)
+            taskRepository: TestTaskRepository(tasks: tasks),
+            spreadRepository: TestSpreadRepository(spreads: spreads),
+            noteRepository: TestNoteRepository(notes: notes)
         )
     }
 
@@ -37,8 +37,8 @@ struct MultidayAggregationTests {
             title: "Assigned",
             date: calendar.date(from: DateComponents(year: 2026, month: 1, day: 30))!,
             period: .multiday,
-            assignments: [
-                TaskAssignment(period: .multiday, date: spread.date, spreadID: spread.id, status: .open)
+            currentAssignments: [
+                Assignment(period: .multiday, date: spread.date, spreadID: spread.id, status: .open)
             ]
         )
         let unrelatedTask = DataModel.Task(
@@ -66,8 +66,8 @@ struct MultidayAggregationTests {
             title: "Assigned note",
             date: calendar.date(from: DateComponents(year: 2026, month: 1, day: 2))!,
             period: .multiday,
-            assignments: [
-                NoteAssignment(period: .multiday, date: spread.date, spreadID: spread.id, status: .active)
+            currentAssignments: [
+                Assignment(period: .multiday, date: spread.date, spreadID: spread.id, status: .active)
             ]
         )
         let unrelatedNote = DataModel.Note(
@@ -117,8 +117,8 @@ struct MultidayAggregationTests {
             date: calendar.date(from: DateComponents(year: 2026, month: 6, day: 3))!,
             period: .multiday,
             status: .open,
-            assignments: [
-                TaskAssignment(period: .multiday, date: spread.date, spreadID: spread.id, status: .open)
+            currentAssignments: [
+                Assignment(period: .multiday, date: spread.date, spreadID: spread.id, status: .open)
             ]
         )
         let cancelledTask = DataModel.Task(
@@ -126,8 +126,8 @@ struct MultidayAggregationTests {
             date: calendar.date(from: DateComponents(year: 2026, month: 6, day: 4))!,
             period: .multiday,
             status: .cancelled,
-            assignments: [
-                TaskAssignment(period: .multiday, date: spread.date, spreadID: spread.id, status: .cancelled)
+            currentAssignments: [
+                Assignment(period: .multiday, date: spread.date, spreadID: spread.id, status: .cancelled)
             ]
         )
 

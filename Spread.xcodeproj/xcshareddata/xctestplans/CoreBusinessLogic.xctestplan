@@ -28,23 +28,6 @@
   },
   "testTargets" : [
     {
-      "selectedTests" : [
-        "SpreadTests\/AppEnvironmentTests",
-        "SpreadTests\/AssignmentTests",
-        "SpreadTests\/CancelledTaskTests",
-        "SpreadTests\/ConventionalSpreadServiceTests",
-        "SpreadTests\/DateAdditionsTests",
-        "SpreadTests\/DependencyContainerTests",
-        "SpreadTests\/EntryTests",
-        "SpreadTests\/FirstWeekdayTests",
-        "SpreadTests\/InboxTests",
-        "SpreadTests\/JournalManagerTests",
-        "SpreadTests\/MigrationTests",
-        "SpreadTests\/MultidayPresetTests",
-        "SpreadTests\/PeriodTests",
-        "SpreadTests\/SpreadCreationPolicyTests",
-        "SpreadTests\/SpreadDeletionTests"
-      ],
       "target" : {
         "containerPath" : "container:Spread.xcodeproj",
         "identifier" : "31E0DA902F0DB76400B0A403",

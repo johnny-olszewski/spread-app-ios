@@ -1,19 +1,29 @@
 import Foundation
 
-/// Protocol defining persistence operations for tasks.
+/// Protocol defining change-aware persistence operations for tasks.
 ///
-/// Implementations handle CRUD operations for `DataModel.Task` entities.
-/// SwiftData implementation provided in SPRD-5.
+/// `save` takes an explicit `EntityChange` describing the task's pre-mutation
+/// assignments/tags so the repository can diff for the sync outbox without re-fetching
+/// prior state from disk.
 @MainActor
 protocol TaskRepository: Sendable {
     /// Retrieves all tasks from storage.
     func getTasks() async -> [DataModel.Task]
 
-    /// Saves a task to storage.
+    /// Saves a task, diffing the sync outbox against the caller-supplied pre-mutation state.
     ///
-    /// - Parameter task: The task to save.
+    /// - Parameters:
+    ///   - task: The task to save, already mutated to its new state.
+    ///   - change: The task's identity/assignments/tags as they existed before mutation.
     /// - Throws: An error if the save operation fails.
-    func save(_ task: DataModel.Task) async throws
+    func save(_ task: DataModel.Task, change: EntityChange) async throws
+
+    /// Saves multiple tasks in a single persistence commit, each diffed against its own
+    /// caller-supplied pre-mutation state.
+    ///
+    /// - Parameter requests: The tasks to save, paired with their pre-mutation change descriptors.
+    /// - Throws: An error if the save operation fails.
+    func saveAll(_ requests: [TaskSaveRequest]) async throws
 
     /// Deletes a task from storage.
     ///

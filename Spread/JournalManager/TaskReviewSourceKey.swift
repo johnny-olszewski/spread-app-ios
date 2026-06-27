@@ -1,4 +1,6 @@
 import Foundation
+import SwiftUI
+import JohnnyOFoundationUI
 
 /// Identifies the source of a task during migration or overdue-review flows.
 ///
@@ -54,4 +56,30 @@ struct TaskReviewSourceKey: Hashable, Identifiable {
     var sourceRank: Int {
         period?.granularityRank ?? 0
     }
+}
+
+// MARK: - LabelChipRepresentable
+
+extension TaskReviewSourceKey: LabelChipRepresentable {
+
+    /// The chip label: "Inbox" for inbox sources, or a period-formatted date for spread sources.
+    public var title: String {
+        switch kind {
+        case .inbox:
+            return "Inbox"
+        case .spread(_, let period, let date):
+            let formatter = DateFormatter()
+            formatter.calendar = .current
+            switch period {
+            case .day:      formatter.dateFormat = "MMM d"
+            case .month:    formatter.dateFormat = "MMMM yyyy"
+            case .year:     formatter.dateFormat = "yyyy"
+            case .multiday: formatter.dateFormat = "MMM d"
+            }
+            return formatter.string(from: date)
+        }
+    }
+
+    public var fillColor: Color { .gray }
+    public var strokeColor: Color? { nil }
 }

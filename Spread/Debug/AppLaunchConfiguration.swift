@@ -8,7 +8,6 @@ struct AppLaunchConfiguration {
     let timeZone: TimeZone?
     let locale: Locale?
     let calendarIdentifier: Calendar.Identifier?
-    let bujoMode: BujoMode?
     let showsTemporalHarness: Bool
 
     static var current: AppLaunchConfiguration {
@@ -22,7 +21,6 @@ struct AppLaunchConfiguration {
         let now = nowValue(from: launchArguments)
         let locale = localeValue(from: launchArguments)
         let calendarIdentifier = calendarIdentifierValue(from: launchArguments)
-        let bujoMode = bujoModeValue(from: launchArguments)
         let showsTemporalHarness = boolValue(for: "-ShowTemporalHarness", in: launchArguments)
         return AppLaunchConfiguration(
             mockDataSet: mockDataSet,
@@ -31,7 +29,6 @@ struct AppLaunchConfiguration {
             timeZone: timeZone,
             locale: locale,
             calendarIdentifier: calendarIdentifier,
-            bujoMode: bujoMode,
             showsTemporalHarness: showsTemporalHarness
         )
     }
@@ -146,13 +143,6 @@ struct AppLaunchConfiguration {
         default:
             return nil
         }
-    }
-
-    private static func bujoModeValue(from launchArguments: [String]) -> BujoMode? {
-        guard let value = value(for: "-BujoMode", in: launchArguments) else {
-            return nil
-        }
-        return BujoMode(rawValue: value)
     }
 
     private static func value(for key: String, in launchArguments: [String]) -> String? {

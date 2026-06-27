@@ -394,13 +394,15 @@ struct TaskCreationConfigurationTests {
         #expect(date == normalizedSpreadDate)
     }
 
-    /// Tests default selection with a multiday spread selected.
+    /// Tests default selection with a multiday spread selected when today is outside the range.
     ///
-    /// Condition: Multiday spread selected.
-    /// Expected: Uses the explicit multiday spread as the default destination.
-    @Test("Default selection with multiday spread uses multiday period and start date")
+    /// Condition: Multiday spread selected, today is before the range starts.
+    /// Expected: Defaults to day period with the range's start date so that a
+    ///           task created here will reconcile to a day spread if one is later
+    ///           created for that date.
+    @Test("Default selection with multiday spread (today outside range) uses day period and start date")
     @MainActor
-    func testDefaultSelectionWithMultidaySpread() {
+    func testDefaultSelectionWithMultidaySpreadTodayOutsideRange() {
         let calendar = Self.makeCalendar()
         let today = Self.makeDate(year: 2026, month: 1, day: 15)
         let startDate = Self.makeDate(year: 2026, month: 1, day: 20)
@@ -410,8 +412,30 @@ struct TaskCreationConfigurationTests {
 
         let (period, date) = config.defaultSelection(from: spread)
 
-        #expect(period == .multiday)
+        #expect(period == .day)
         #expect(calendar.isDate(date, inSameDayAs: startDate))
+    }
+
+    /// Tests default selection with a multiday spread selected when today falls within the range.
+    ///
+    /// Condition: Multiday spread selected, today is within the multiday range.
+    /// Expected: Defaults to day period with today's date so the task is relevant
+    ///           to the current day and will reconcile to a day spread for today
+    ///           if one is later created.
+    @Test("Default selection with multiday spread (today inside range) uses day period and today")
+    @MainActor
+    func testDefaultSelectionWithMultidaySpreadTodayInsideRange() {
+        let calendar = Self.makeCalendar()
+        let today = Self.makeDate(year: 2026, month: 1, day: 15)
+        let startDate = Self.makeDate(year: 2026, month: 1, day: 13)
+        let endDate = Self.makeDate(year: 2026, month: 1, day: 19)
+        let spread = DataModel.Spread(startDate: startDate, endDate: endDate, calendar: calendar)
+        let config = TaskCreationConfiguration(calendar: calendar, today: today)
+
+        let (period, date) = config.defaultSelection(from: spread)
+
+        #expect(period == .day)
+        #expect(calendar.isDate(date, inSameDayAs: today))
     }
 
     // MARK: - Assignable Periods Tests

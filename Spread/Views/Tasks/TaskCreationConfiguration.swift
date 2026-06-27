@@ -158,8 +158,13 @@ struct TaskCreationConfiguration {
     /// Computes the default period and date for task creation.
     ///
     /// If a spread is selected:
-    /// - Use the spread's period (converted to day if multiday)
-    /// - Use the spread's date
+    /// - Use the spread's period, with multiday converted to `.day` so that
+    ///   a task created while viewing a multiday spread defaults to a specific
+    ///   day rather than the whole range. This ensures the task will reconcile
+    ///   onto a day spread if one is later created for that date.
+    /// - For multiday spreads the default date is `today` when today falls
+    ///   within the range; otherwise it is the start of the range.
+    /// - For all other periods the spread's own date is used.
     ///
     /// If no spread is selected:
     /// - Use `.day` period
@@ -173,9 +178,14 @@ struct TaskCreationConfiguration {
             return (.day, today)
         }
 
-        let period = spread.period
-        let date = spread.period == .multiday ? (spread.startDate ?? spread.date) : spread.date
-        return (period, date)
+        if spread.period == .multiday {
+            let date = spread.contains(date: today, calendar: calendar)
+                ? today
+                : (spread.startDate ?? spread.date)
+            return (.day, date)
+        }
+
+        return (spread.period, spread.date)
     }
 
     /// Returns the assignable periods.

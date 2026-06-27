@@ -12,7 +12,7 @@ struct TaskDetailSheet: View {
 
     @Observable @MainActor final class ViewModel {
         var presentedTemporalContext: PresentedTemporalContext
-        var selectedStatus: DataModel.Task.Status
+        var selectedStatus: EntryStatus
         var formModel: TaskEditorFormModel
         var isSaving = false
         var isShowingDeleteConfirmation = false
@@ -95,7 +95,7 @@ struct TaskDetailSheet: View {
                     compactDivider
                     assignmentSection
 
-                    if !task.assignments.isEmpty {
+                    if !task.migrationHistory.isEmpty || !task.currentAssignments.isEmpty {
                         compactDivider
                         assignmentHistorySection
                     }
@@ -175,15 +175,20 @@ struct TaskDetailSheet: View {
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Title")
-            HStack(spacing: SpreadTheme.Spacing.entryIconSpacing) {
-                EntryLeadingIconButton(
-                    configuration: EntryLeadingIconButton.Configuration(
-                        entryType: .task,
-                        taskStatus: viewModel.selectedStatus,
-                        color: viewModel.selectedStatus.statusIconColor,
-                        isDisabled: !viewModel.selectedStatus.canToggleCompletionInTaskSheet
+            HStack(spacing: 8) {
+                Button {} label: {
+                    EntryStatusIcon(
+                        baseShape: EntryType.task.statusIconBaseShape,
+                        bseeShapeConfig: .init(color: viewModel.selectedStatus.iconColor, iconSize: 24),
+                        overlay: viewModel.selectedStatus.overlayShape,
+                        overlayConfig: .init(color: viewModel.selectedStatus.iconColor, iconSize: 24)
                     )
-                )
+                    .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .contentShape(Rectangle())
+//                .accessibilityLabel(viewModel.selectedStatus.accessibilityLabel(for: .task))
+                .allowsHitTesting(false)
 
                 TextField("Task title", text: $viewModel.formModel.title)
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.titleField)
@@ -438,15 +443,15 @@ struct TaskDetailSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             sectionHeader("Assignment History")
 
-            ForEach(Array(task.assignments.enumerated()), id: \.element) { index, assignment in
+            ForEach(Array((task.migrationHistory + task.currentAssignments).enumerated()), id: \.element) {
+                index,
+                assignment in
                 HStack {
-                    StatusIcon(
-                        configuration: StatusIconConfiguration(
-                            entryType: .task,
-                            taskStatus: assignment.status,
-                            size: .caption
-                        ),
-                        color: assignment.status.statusIconColor
+                    EntryStatusIcon(
+                        baseShape: EntryType.task.statusIconBaseShape,
+                        bseeShapeConfig: .init(color: assignment.status.iconColor, iconSize: SpreadTheme.IconSize.medium),
+                        overlay: assignment.status.overlayShape,
+                        overlayConfig: .init(color: assignment.status.iconColor, iconSize: SpreadTheme.IconSize.medium)
                     )
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -476,7 +481,7 @@ struct TaskDetailSheet: View {
         title: String,
         icon: String,
         role: ButtonRole?,
-        resultStatus: DataModel.Task.Status
+        resultStatus: EntryStatus
     ) -> some View {
         Button(role: role) {
             viewModel.selectedStatus = resultStatus
@@ -542,7 +547,7 @@ struct TaskDetailSheet: View {
     }
 
     private var currentMultidaySpreadID: UUID? {
-        task.assignments.first(where: { $0.status != .migrated && $0.period == .multiday })?.spreadID
+        task.currentAssignments.first(where: { $0.period == .multiday })?.spreadID
     }
 
     private var compactDivider: some View {
@@ -584,7 +589,7 @@ struct TaskDetailSheet: View {
         .opacity(isEnabled ? 1 : 0.7)
     }
 
-    private func formatAssignmentDate(_ assignment: TaskAssignment) -> String {
+    private func formatAssignmentDate(_ assignment: Assignment) -> String {
         let formatter = DateFormatter()
         formatter.calendar = journalManager.calendar
         formatter.timeZone = journalManager.calendar.timeZone
@@ -637,7 +642,7 @@ struct TaskDetailSheet: View {
                 if viewModel.selectedStatus.allowsAssignmentEditingInTaskSheet {
                     if viewModel.formModel.hasPreferredAssignment {
                         let effectiveDate = viewModel.formModel.effectiveSelectedDate
-                        if !task.hasPreferredAssignment ||
+                        if task.date == nil ||
                            effectiveDate != task.date ||
                            viewModel.formModel.selectedPeriod != task.period ||
                            viewModel.formModel.selectedSpreadID != currentMultidaySpreadID {
@@ -648,12 +653,8 @@ struct TaskDetailSheet: View {
                                 preferredSpreadID: viewModel.formModel.selectedSpreadID
                             )
                         }
-                    } else if task.hasPreferredAssignment {
-                        try await journalManager.clearTaskPreferredAssignment(
-                            task,
-                            fallbackDate: viewModel.formModel.effectiveSelectedDate,
-                            fallbackPeriod: viewModel.formModel.selectedPeriod
-                        )
+                    } else if task.date != nil {
+                        try await journalManager.clearTaskPreferredAssignment(task)
                     }
                 }
 
@@ -699,8 +700,8 @@ struct TaskDetailSheet: View {
     let task = DataModel.Task(
         title: "Review project timeline",
         status: .open,
-        assignments: [
-            TaskAssignment(period: .month, date: Date(), status: .open)
+        currentAssignments: [
+            Assignment(period: .month, date: Date(), status: .open)
         ]
     )
 

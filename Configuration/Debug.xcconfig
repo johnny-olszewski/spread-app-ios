@@ -1,11 +1,17 @@
 // Configuration/Debug.xcconfig
-// Debug build configuration - uses Supabase dev environment
+// Debug build configuration - defaults to localhost (local-only, no backend)
 
 // App Identity
 PRODUCT_BUNDLE_IDENTIFIER = dev.johnnyo.Spread.debug
 INFOPLIST_KEY_CFBundleDisplayName = Spread Dev
 
-// Supabase Dev Environment
-SUPABASE_URL = https:/$()/apblzzondjcughtgqowd.supabase.co
-SUPABASE_PUBLISHABLE_KEY = sb_publishable_G74Nb3IoMfnsmrZfp6dcaA_0_UD6QLT
-SUPABASE_ENVIRONMENT = development
+// SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY are unused in the default `.localhost`
+// data environment (SupabaseConfiguration.isAvailable == false), but must be
+// present to satisfy SupabaseConfiguration.buildURL/buildPublishableKey, which
+// also back the `.development` data environment when no explicit
+// -SupabaseURL/-SupabaseKey override is supplied. These values are the fixed
+// defaults for a local Docker Supabase stack started via `supabase start`
+// (see scripts/local-supabase.sh) and are not a live backend.
+SUPABASE_URL = http:/$()/127.0.0.1:54321
+SUPABASE_PUBLISHABLE_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+SUPABASE_ENVIRONMENT = localhost

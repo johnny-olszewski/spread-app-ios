@@ -1,11 +1,19 @@
 import SwiftUI
 
-/// Adaptive root navigation container for the app.
+/// Root navigation container for the app.
 ///
-/// Uses a single `TabView` root for both iPhone and iPad and relies on
-/// SwiftUI's adaptive tab presentation to show a tab bar on iPhone and a
-/// sidebar-capable presentation on iPad.
+/// Uses a plain `TabView` (`.tabViewStyle(.automatic)`) with one tab per top-level
+/// `Content` destination. Each tab content view owns its own `NavigationStack` internally.
+/// Destination-specific
+/// navigation state is scoped to its own tab — most notably `SpreadsTabView`, which owns
+/// all Spreads-specific state (selection, pager position, year, sheet/alert presentation)
+/// so it survives size class transitions without being lifted to the root.
+///
+/// `RootNavigationView` retains only the active tab selection and the shared
+/// `spreadsNavigationState`, used to route cross-tab navigation requests — e.g. opening
+/// a task detail from a search result while on the Entries tab.
 struct RootNavigationView: View {
+
     let journalManager: JournalManager
     let authManager: AuthManager
     let dependencies: AppDependencies
@@ -13,8 +21,9 @@ struct RootNavigationView: View {
     let appClock: AppClock
     let makeDebugMenuView: DebugMenuViewFactory?
 
-    @State private var selectedTab: NavigationTab = .spreads
-    @State private var isAuthPresented = false
+    // MARK: - Root-owned Navigation State
+
+    @State private var selectedTab: Content = .spreads
     @State private var spreadsNavigationState = SpreadsNavigationState()
 
     init(
@@ -33,111 +42,86 @@ struct RootNavigationView: View {
         self.makeDebugMenuView = makeDebugMenuView
     }
 
-    var body: some View {
-        rootTabView
-            .tabViewStyle(.sidebarAdaptable)
-            .sheet(isPresented: $isAuthPresented) {
-                AuthEntrySheet(authManager: authManager, isBlocking: false)
-            }
-            .onChange(of: syncEngine?.status) { _, newValue in
-                guard case .synced = newValue else { return }
-                Task { @MainActor in
-                    await journalManager.reload()
-                }
-            }
-    }
+    // MARK: - Body
 
-    private var rootTabView: some View {
+    var body: some View {
         TabView(selection: $selectedTab) {
-            ForEach(NavigationTab.allCases) { tab in
-                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
-                    tabContent(for: tab)
+            ForEach(Content.allCases) { content in
+                Tab(content.title, systemImage: content.systemImage, value: content) {
+                    tabContent(for: content)
                 }
             }
         }
+        .tabViewStyle(.automatic)
+        .onChange(of: syncEngine?.status) { _, newValue in
+            guard case .synced = newValue else { return }
+            Task { @MainActor in await journalManager.reload() }
+        }
     }
+
+    // MARK: - Tab Content
 
     @ViewBuilder
-    private func tabContent(for tab: NavigationTab) -> some View {
-        NavigationStack {
-            Group {
-                switch tab {
-                case .spreads:
-                    spreadsView
-                case .entries:
-                    EntriesBrowserView(
-                        journalManager: journalManager,
-                        listRepository: dependencies.listRepository,
-                        tagRepository: dependencies.tagRepository
-                    ) { taskID, selection in
-                        openTaskFromSearch(taskID: taskID, selection: selection)
-                    }
-                case .collections:
-                    CollectionsListView(
-                        collectionRepository: dependencies.collectionRepository,
-                        syncEngine: syncEngine
-                    )
-                case .settings:
-                    SettingsView(
-                        journalManager: journalManager,
-                        settingsRepository: dependencies.settingsRepository,
-                        syncEngine: syncEngine
-                    )
-                case .debug:
-                    debugMenuView
-                }
-            }
-            .modifier(NonSpreadNavigationTitleModifier(tab: tab))
-            .toolbar {
-                if tab != .spreads {
-                    ToolbarItem(placement: .primaryAction) {
-                        AuthButton(isSignedIn: authManager.state.isSignedIn) {
-                            isAuthPresented = true
-                        }
-                    }
-                }
-            }
+    private func tabContent(for content: Content) -> some View {
+        switch content {
+        case .spreads:
+            SpreadsTabView(
+                journalManager: journalManager,
+                authManager: authManager,
+                syncEngine: syncEngine,
+                spreadsNavigationState: spreadsNavigationState
+            )
+        case .entries:
+            entriesBrowserView
+        case .collections:
+            CollectionsListView(
+                collectionRepository: dependencies.collectionRepository,
+                syncEngine: syncEngine
+            )
+        case .settings:
+            SettingsView(
+                journalManager: journalManager,
+                settingsRepository: dependencies.settingsRepository,
+                syncEngine: syncEngine
+            )
+        case .debug:
+            debugMenuView
         }
     }
 
-    private var spreadsView: some View {
-        SpreadsView(
+    /// Extracted to a separate property to help the type-checker with the trailing closure.
+    private var entriesBrowserView: some View {
+        EntriesBrowserView(
             journalManager: journalManager,
-            authManager: authManager,
-            syncEngine: syncEngine,
-            navigationState: spreadsNavigationState
+            listRepository: dependencies.listRepository,
+            tagRepository: dependencies.tagRepository
+        ) { taskID, selection in
+            openTaskFromSearch(taskID: taskID, selection: selection)
+        }
+    }
+
+    // MARK: - Cross-tab Navigation
+
+    /// Routes a search-result tap from another tab to the Spreads tab: resolves the
+    /// target spread, switches `selectedTab`, and populates
+    /// `spreadsNavigationState.pendingRequest` — which `SpreadsTabView` observes to
+    /// select the spread, hide its content column, and open the task detail.
+    private func openTaskFromSearch(taskID: UUID, selection: DataModel.Spread?) {
+        let resolvedSelection = selection ?? fallbackSearchSelection()
+        selectedTab = .spreads
+        spreadsNavigationState.pendingRequest = SpreadsNavigationRequest(
+            selection: resolvedSelection,
+            taskID: taskID
         )
     }
 
-    private func openTaskFromSearch(taskID: UUID, selection: SpreadHeaderNavigatorModel.Selection?) {
-        selectedTab = .spreads
-        if let selection {
-            spreadsNavigationState.pendingRequest = SpreadsNavigationRequest(
-                selection: selection,
-                taskID: taskID
-            )
-        } else {
-            let fallbackSelection = fallbackSearchSelection()
-            spreadsNavigationState.pendingRequest = SpreadsNavigationRequest(
-                selection: fallbackSelection,
-                taskID: taskID
-            )
-        }
+    private func fallbackSearchSelection() -> DataModel.Spread {
+        journalManager.bestSpread(for: journalManager.today)
+            ?? journalManager.spreads.first
+            ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
     }
 
-    private func fallbackSearchSelection() -> SpreadHeaderNavigatorModel.Selection {
-        switch journalManager.bujoMode {
-        case .conventional:
-            let spread = journalManager.bestSpread(for: journalManager.today)
-                ?? journalManager.spreads.first
-                ?? DataModel.Spread(period: .year, date: journalManager.today, calendar: journalManager.calendar)
-            return .conventional(spread)
-        case .traditional:
-            return .traditionalYear(
-                Period.year.normalizeDate(journalManager.today, calendar: journalManager.calendar)
-            )
-        }
-    }
+    // MARK: - Debug
 
     @ViewBuilder
     private var debugMenuView: some View {
@@ -152,29 +136,9 @@ struct RootNavigationView: View {
     }
 }
 
-private struct NonSpreadNavigationTitleModifier: ViewModifier {
-    let tab: NavigationTab
+// MARK: - Preview
 
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if tab == .spreads || tab == .entries {
-            content
-        } else {
-            content.navigationTitle(tab.title)
-        }
-    }
-}
-
-#Preview("Regular Adaptive") {
-    RootNavigationView(
-        journalManager: .previewInstance,
-        authManager: .makeForPreview(),
-        dependencies: try! .makeForPreview(),
-        appClock: .live()
-    )
-}
-
-#Preview("Compact Tabs") {
+#Preview("Root navigation") {
     RootNavigationView(
         journalManager: .previewInstance,
         authManager: .makeForPreview(),

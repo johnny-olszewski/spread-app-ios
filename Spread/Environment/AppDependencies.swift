@@ -50,6 +50,9 @@ struct AppDependencies: @unchecked Sendable {
     /// EventKit calendar service for fetching and opening device calendar events.
     let eventKitService: any EventKitService
 
+    /// Service for fetching calendar events for a spread's date range.
+    let calendarEventService: any CalendarEventService
+
     // MARK: - Factory Methods
 
     /// Creates app dependencies for live app use.
@@ -77,7 +80,8 @@ struct AppDependencies: @unchecked Sendable {
             listRepository: SwiftDataListRepository(modelContainer: modelContainer),
             tagRepository: SwiftDataTagRepository(modelContainer: modelContainer),
             networkMonitor: makeNetworkMonitor(),
-            eventKitService: LiveEventKitService()
+            eventKitService: LiveEventKitService(),
+            calendarEventService: LiveCalendarEventService(eventKitService: LiveEventKitService())
         )
     }
 
@@ -109,16 +113,17 @@ struct AppDependencies: @unchecked Sendable {
             configurationLabel: "testing",
             isStoredInMemoryOnly: true,
             modelContainer: resolvedModelContainer,
-            taskRepository: taskRepository ?? EmptyTaskRepository(),
+            taskRepository: taskRepository ?? TestTaskRepository(),
             spreadRepository: spreadRepository ?? EmptySpreadRepository(),
             eventRepository: eventRepository ?? EmptyEventRepository(),
-            noteRepository: noteRepository ?? EmptyNoteRepository(),
+            noteRepository: noteRepository ?? TestNoteRepository(),
             collectionRepository: collectionRepository ?? EmptyCollectionRepository(),
             settingsRepository: settingsRepository ?? EmptySettingsRepository(),
             listRepository: EmptyListRepository(),
             tagRepository: EmptyTagRepository(),
             networkMonitor: makeNetworkMonitor(),
-            eventKitService: eventKitService ?? MockEventKitService()
+            eventKitService: eventKitService ?? MockEventKitService(),
+            calendarEventService: MockCalendarEventService()
         )
     }
 
@@ -136,17 +141,18 @@ struct AppDependencies: @unchecked Sendable {
             configurationLabel: "preview",
             isStoredInMemoryOnly: true,
             modelContainer: modelContainer,
-            taskRepository: MockTaskRepository(),
+            taskRepository: TestTaskRepository(tasks: TestData.sampleTasks()),
             spreadRepository: MockSpreadRepository(),
             // TODO: SPRD-57 - Create MockEventRepository with seeded data
             eventRepository: EmptyEventRepository(),
-            noteRepository: MockNoteRepository(),
+            noteRepository: TestNoteRepository(notes: TestData.sampleNotes()),
             collectionRepository: MockCollectionRepository(),
             settingsRepository: EmptySettingsRepository(),
             listRepository: MockListRepository(),
             tagRepository: MockTagRepository(),
             networkMonitor: makeNetworkMonitor(),
-            eventKitService: MockEventKitService()
+            eventKitService: MockEventKitService(),
+            calendarEventService: MockCalendarEventService()
         )
     }
 
@@ -156,27 +162,28 @@ struct AppDependencies: @unchecked Sendable {
     ///
     /// - Parameters:
     ///   - appClock: The shared app clock for temporal context and refreshes.
-    ///   - bujoMode: The initial BuJo mode (defaults to conventional).
     ///   - firstWeekday: The user's first day of week preference (defaults to system default).
     /// - Returns: A configured JournalManager with data loaded.
     @MainActor
     func makeJournalManager(
         appClock: AppClock? = nil,
-        bujoMode: BujoMode = .conventional,
         firstWeekday: FirstWeekday = .systemDefault
     ) async throws -> JournalManager {
-        try await JournalManager.make(
-            appClock: appClock ?? AppClock.live(),
+        let resolvedAppClock = appClock ?? AppClock.live()
+        let manager = JournalManager(
+            appClock: resolvedAppClock,
             taskRepository: taskRepository,
+            noteRepository: noteRepository,
             spreadRepository: spreadRepository,
             eventRepository: eventRepository,
-            noteRepository: noteRepository,
             collectionRepository: collectionRepository,
             listRepository: listRepository,
             tagRepository: tagRepository,
-            bujoMode: bujoMode,
-            firstWeekday: firstWeekday
+            firstWeekday: firstWeekday,
+            creationPolicy: StandardCreationPolicy(today: resolvedAppClock.now, firstWeekday: firstWeekday)
         )
+        await manager.load()
+        return manager
     }
 }
 

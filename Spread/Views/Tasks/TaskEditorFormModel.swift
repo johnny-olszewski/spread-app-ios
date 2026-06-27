@@ -57,11 +57,12 @@ struct TaskEditorFormModel {
         self.dueDate = (task.dueDate ?? configuration.today).startOfDay(calendar: configuration.calendar)
         self.selectedList = task.list
         self.selectedTagIDs = Set(task.tags.map(\.id))
-        self.hasPreferredAssignment = task.hasPreferredAssignment
-        self.selectedPeriod = task.hasPreferredAssignment ? task.period : .day
-        self.selectedDate = task.hasPreferredAssignment ? task.date : configuration.today.startOfDay(calendar: configuration.calendar)
-        self.selectedSpreadID = task.assignments.first(where: {
-            $0.status != .migrated && $0.period == .multiday
+        self.hasPreferredAssignment = task.date != nil
+        self.selectedPeriod = task.date != nil ? (task.period ?? .day) : .day
+        let today = configuration.today.startOfDay(calendar: configuration.calendar)
+        self.selectedDate = task.date ?? today
+        self.selectedSpreadID = task.currentAssignments.first(where: {
+            $0.period == .multiday
         })?.spreadID
         self.hasEditedTitle = true
     }
@@ -89,6 +90,16 @@ struct TaskEditorFormModel {
 
     var effectiveSelectedDate: Date {
         configuration.adjustedDate(selectedDate, for: selectedPeriod)
+    }
+
+    /// The date to persist, or `nil` when the user has no preferred assignment.
+    var effectiveDate: Date? {
+        hasPreferredAssignment ? effectiveSelectedDate : nil
+    }
+
+    /// The period to persist, or `nil` when the user has no preferred assignment.
+    var effectivePeriod: Period? {
+        hasPreferredAssignment ? selectedPeriod : nil
     }
 
     var sanitizedBody: String? {

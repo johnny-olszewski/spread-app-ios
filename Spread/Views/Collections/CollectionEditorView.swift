@@ -131,7 +131,7 @@ struct CollectionEditorView: View {
                 title: "Shopping List",
                 content: "Eggs\nMilk\nBread\nButter"
             ),
-            collectionRepository: InMemoryCollectionRepository(),
+            collectionRepository: TestCollectionRepository(),
             syncEngine: nil
         )
     }
@@ -141,7 +141,7 @@ struct CollectionEditorView: View {
     NavigationStack {
         CollectionEditorView(
             collection: DataModel.Collection(title: "", content: ""),
-            collectionRepository: InMemoryCollectionRepository(),
+            collectionRepository: TestCollectionRepository(),
             syncEngine: nil
         )
     }

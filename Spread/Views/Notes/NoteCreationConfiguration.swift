@@ -130,17 +130,31 @@ struct NoteCreationConfiguration {
 
     /// Computes the default period and date for note creation.
     ///
-    /// If a spread is selected, uses the spread's period/date.
-    /// Otherwise defaults to day period with today's date.
+    /// If a spread is selected:
+    /// - Use the spread's period, with multiday converted to `.day` so that
+    ///   a note created while viewing a multiday spread defaults to a specific
+    ///   day rather than the whole range. This ensures the note will reconcile
+    ///   onto a day spread if one is later created for that date.
+    /// - For multiday spreads the default date is `today` when today falls
+    ///   within the range; otherwise it is the start of the range.
+    /// - For all other periods the spread's own date is used.
+    ///
+    /// If no spread is selected:
+    /// - Use `.day` period
+    /// - Use today's date
     func defaultSelection(from selectedSpread: DataModel.Spread?) -> (period: Period, date: Date) {
         guard let spread = selectedSpread else {
             return (.day, today)
         }
 
-        let period = spread.period
-        let date = spread.period == .multiday ? (spread.startDate ?? spread.date) : spread.date
+        if spread.period == .multiday {
+            let date = spread.contains(date: today, calendar: calendar)
+                ? today
+                : (spread.startDate ?? spread.date)
+            return (.day, date)
+        }
 
-        return (period, date)
+        return (spread.period, spread.date)
     }
 
     /// Returns the assignable periods.

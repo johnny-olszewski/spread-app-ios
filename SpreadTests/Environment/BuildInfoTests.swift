@@ -23,15 +23,11 @@ struct BuildInfoTests {
     // MARK: - configurationName
 
     /// Conditions: Tests run under any shared app scheme.
-    /// Expected: configurationName reflects the active Debug, QA, or Release build configuration.
+    /// Expected: configurationName reflects the active Debug or Release build configuration.
     @Test func testConfigurationNameMatchesActiveBuildConfiguration() {
-        // configurationName is determined at runtime from the app bundle identifier.
-        // DEBUG is defined in both Debug and QA configurations, so we check the bundle
-        // suffix to distinguish them rather than relying on the compile-time flag alone.
         let expectedConfigurationName: String
         #if DEBUG
-        let appBundleID = Bundle(for: SyncEngine.self).bundleIdentifier ?? ""
-        expectedConfigurationName = appBundleID.hasSuffix(".qa") ? "QA" : "Debug"
+        expectedConfigurationName = "Debug"
         #else
         expectedConfigurationName = "Release"
         #endif
@@ -48,9 +44,9 @@ struct BuildInfoTests {
 
     // MARK: - defaultDataEnvironment
 
-    /// Conditions: Tests run under the Debug build configuration with a non-QA bundle identifier.
-    /// Expected: Debug builds default to development unless localhost is selected explicitly.
-    @Test func testDefaultDataEnvironmentIsDevelopmentInDebugBuild() {
-        #expect(BuildInfo.defaultDataEnvironment == .development)
+    /// Conditions: Tests run under the Debug build configuration.
+    /// Expected: Debug builds default to localhost (local-only, no backend) unless overridden at launch.
+    @Test func testDefaultDataEnvironmentIsLocalhostInDebugBuild() {
+        #expect(BuildInfo.defaultDataEnvironment == .localhost)
     }
 }

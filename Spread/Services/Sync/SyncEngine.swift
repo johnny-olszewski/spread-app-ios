@@ -500,19 +500,12 @@ final class SyncEngine {
             throw SyncError.notAuthenticated
         }
 
-        let column = switch entityType {
-        case .taskAssignment:
-            "task_id"
-        case .noteAssignment:
-            "note_id"
-        default:
-            preconditionFailure("Assignment presence can only be queried for assignment tables")
-        }
+        precondition(entityType == .assignment, "Assignment presence can only be queried for the assignments table")
 
         let data = try await client
             .from(entityType.rawValue)
             .select("id")
-            .eq(column, value: entryId.uuidString)
+            .eq("entry_id", value: entryId.uuidString)
             .limit(1)
             .execute()
             .data
@@ -560,18 +553,10 @@ final class SyncEngine {
                     logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
                     throw error
                 }
-            case .task:
+            case .entry:
                 do {
-                    let row = try decoder.decode(ServerTaskRow.self, from: rowData)
-                    try applyTaskRow(row, context: context)
-                } catch {
-                    logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
-                    throw error
-                }
-            case .note:
-                do {
-                    let row = try decoder.decode(ServerNoteRow.self, from: rowData)
-                    try applyNoteRow(row, context: context)
+                    let row = try decoder.decode(ServerEntryRow.self, from: rowData)
+                    try applyEntryRow(row, context: context)
                 } catch {
                     logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
                     throw error
@@ -584,18 +569,10 @@ final class SyncEngine {
                     logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
                     throw error
                 }
-            case .taskAssignment:
+            case .assignment:
                 do {
-                    let row = try decoder.decode(ServerTaskAssignmentRow.self, from: rowData)
-                    try applyTaskAssignmentRow(row, context: context)
-                } catch {
-                    logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
-                    throw error
-                }
-            case .noteAssignment:
-                do {
-                    let row = try decoder.decode(ServerNoteAssignmentRow.self, from: rowData)
-                    try applyNoteAssignmentRow(row, context: context)
+                    let row = try decoder.decode(ServerAssignmentRow.self, from: rowData)
+                    try applyAssignmentRow(row, context: context)
                 } catch {
                     logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
                     throw error
@@ -616,7 +593,7 @@ final class SyncEngine {
                     logDecodeFailure(error, entityType: entityType, rowDict: rowDict)
                     throw error
                 }
-            case .taskTag, .noteTag:
+            case .entryTag:
                 // Join table rows are applied via task/note relationship resolution;
                 // pull is not yet implemented for join tables in this version.
                 break
@@ -677,7 +654,19 @@ final class SyncEngine {
         }
     }
 
-    private func applyTaskRow(_ row: ServerTaskRow, context: ModelContext) throws {
+    /// Dispatches a server entry row to the task or note apply path based on `row.type`.
+    private func applyEntryRow(_ row: ServerEntryRow, context: ModelContext) throws {
+        switch row.type {
+        case EntryType.task.rawValue:
+            try applyTaskEntryRow(row, context: context)
+        case EntryType.note.rawValue:
+            try applyNoteEntryRow(row, context: context)
+        default:
+            logger.warning("Unknown entry type '\(row.type)' for entry \(row.id)")
+        }
+    }
+
+    private func applyTaskEntryRow(_ row: ServerEntryRow, context: ModelContext) throws {
         let id = row.id
         var descriptor = FetchDescriptor<DataModel.Task>(
             predicate: #Predicate { $0.id == id }
@@ -697,7 +686,7 @@ final class SyncEngine {
         }
     }
 
-    private func applyNoteRow(_ row: ServerNoteRow, context: ModelContext) throws {
+    private func applyNoteEntryRow(_ row: ServerEntryRow, context: ModelContext) throws {
         let id = row.id
         var descriptor = FetchDescriptor<DataModel.Note>(
             predicate: #Predicate { $0.id == id }
@@ -737,93 +726,87 @@ final class SyncEngine {
         }
     }
 
-    private func applyTaskAssignmentRow(
-        _ row: ServerTaskAssignmentRow,
-        context: ModelContext
-    ) throws {
-        let taskId = row.taskId
-        var descriptor = FetchDescriptor<DataModel.Task>(
-            predicate: #Predicate { $0.id == taskId }
-        )
-        descriptor.fetchLimit = 1
-
-        guard let task = try context.fetch(descriptor).first else {
-            logger.warning("Task \(taskId) not found for assignment \(row.id)")
-            return
-        }
-
+    /// Dispatches a server assignment row to the task or note assignment list based on `row.entryType`.
+    private func applyAssignmentRow(_ row: ServerAssignmentRow, context: ModelContext) throws {
         guard let rowPeriod = Period(rawValue: row.period),
               let rowDate = SyncDateFormatting.parseDate(row.date) else { return }
 
-        if row.deletedAt != nil {
-            task.assignments.removeAll {
-                taskAssignmentMatches(
-                    $0,
-                    rowID: row.id,
-                    rowPeriod: rowPeriod,
-                    rowDate: rowDate,
-                    rowSpreadID: row.spreadId
-                )
+        switch row.entryType {
+        case EntryType.task.rawValue:
+            let entryId = row.entryId
+            var descriptor = FetchDescriptor<DataModel.Task>(
+                predicate: #Predicate { $0.id == entryId }
+            )
+            descriptor.fetchLimit = 1
+            guard let task = try context.fetch(descriptor).first else {
+                logger.warning("Task \(entryId) not found for assignment \(row.id)")
+                return
             }
-        } else if let assignment = SyncSerializer.createTaskAssignment(from: row) {
-            if let index = task.assignments.firstIndex(where: {
-                taskAssignmentMatches(
-                    $0,
-                    rowID: row.id,
-                    rowPeriod: rowPeriod,
-                    rowDate: rowDate,
-                    rowSpreadID: row.spreadId
-                )
-            }) {
-                task.assignments[index] = assignment
-            } else {
-                task.assignments.append(assignment)
+            applyAssignmentRow(
+                row,
+                rowPeriod: rowPeriod,
+                rowDate: rowDate,
+                current: &task.currentAssignments,
+                history: &task.migrationHistory
+            )
+
+        case EntryType.note.rawValue:
+            let entryId = row.entryId
+            var descriptor = FetchDescriptor<DataModel.Note>(
+                predicate: #Predicate { $0.id == entryId }
+            )
+            descriptor.fetchLimit = 1
+            guard let note = try context.fetch(descriptor).first else {
+                logger.warning("Note \(entryId) not found for assignment \(row.id)")
+                return
             }
+            applyAssignmentRow(
+                row,
+                rowPeriod: rowPeriod,
+                rowDate: rowDate,
+                current: &note.currentAssignments,
+                history: &note.migrationHistory
+            )
+
+        default:
+            logger.warning("Unknown entry type '\(row.entryType)' for assignment \(row.id)")
         }
     }
 
-    private func applyNoteAssignmentRow(
-        _ row: ServerNoteAssignmentRow,
-        context: ModelContext
-    ) throws {
-        let noteId = row.noteId
-        var descriptor = FetchDescriptor<DataModel.Note>(
-            predicate: #Predicate { $0.id == noteId }
-        )
-        descriptor.fetchLimit = 1
+    /// Applies a pulled assignment row to whichever of `current`/`history` it belongs in.
+    ///
+    /// Removes any existing match from both collections first, then — for a non-tombstone
+    /// row — re-inserts into `history` if the incoming assignment's status is `.migrated`,
+    /// or `current` otherwise. This naturally handles a status transition arriving from the
+    /// server (e.g. an assignment that was current now arriving as migrated) without needing
+    /// to track which collection it previously lived in.
+    private func applyAssignmentRow(
+        _ row: ServerAssignmentRow,
+        rowPeriod: Period,
+        rowDate: Date,
+        current: inout [Assignment],
+        history: inout [Assignment]
+    ) {
+        let matches: (Assignment) -> Bool = { assignment in
+            self.assignmentMatches(
+                assignment,
+                rowID: row.id,
+                rowPeriod: rowPeriod,
+                rowDate: rowDate,
+                rowSpreadID: row.spreadId
+            )
+        }
+        current.removeAll(where: matches)
+        history.removeAll(where: matches)
 
-        guard let note = try context.fetch(descriptor).first else {
-            logger.warning("Note \(noteId) not found for assignment \(row.id)")
+        guard row.deletedAt == nil, let assignment = SyncSerializer.createAssignment(from: row) else {
             return
         }
 
-        guard let rowPeriod = Period(rawValue: row.period),
-              let rowDate = SyncDateFormatting.parseDate(row.date) else { return }
-
-        if row.deletedAt != nil {
-            note.assignments.removeAll {
-                noteAssignmentMatches(
-                    $0,
-                    rowID: row.id,
-                    rowPeriod: rowPeriod,
-                    rowDate: rowDate,
-                    rowSpreadID: row.spreadId
-                )
-            }
-        } else if let assignment = SyncSerializer.createNoteAssignment(from: row) {
-            if let index = note.assignments.firstIndex(where: {
-                noteAssignmentMatches(
-                    $0,
-                    rowID: row.id,
-                    rowPeriod: rowPeriod,
-                    rowDate: rowDate,
-                    rowSpreadID: row.spreadId
-                )
-            }) {
-                note.assignments[index] = assignment
-            } else {
-                note.assignments.append(assignment)
-            }
+        if assignment.status == .migrated {
+            history.append(assignment)
+        } else {
+            current.append(assignment)
         }
     }
 
@@ -867,26 +850,8 @@ final class SyncEngine {
         }
     }
 
-    private func taskAssignmentMatches(
-        _ assignment: TaskAssignment,
-        rowID: UUID,
-        rowPeriod: Period,
-        rowDate: Date,
-        rowSpreadID: UUID?
-    ) -> Bool {
-        if assignment.id == rowID {
-            return true
-        }
-
-        if let rowSpreadID {
-            return assignment.spreadID == rowSpreadID && assignment.period == rowPeriod
-        }
-
-        return assignment.spreadID == nil && assignment.period == rowPeriod && assignment.date == rowDate
-    }
-
-    private func noteAssignmentMatches(
-        _ assignment: NoteAssignment,
+    private func assignmentMatches(
+        _ assignment: Assignment,
         rowID: UUID,
         rowPeriod: Period,
         rowDate: Date,
@@ -927,58 +892,58 @@ final class SyncEngine {
         var plan = AssignmentRepairPlan()
 
         let tasks = try context.fetch(FetchDescriptor<DataModel.Task>())
-        for task in tasks where !task.assignments.isEmpty {
+        for task in tasks where !(task.currentAssignments + task.migrationHistory).isEmpty {
             guard !hasCompletedRepairMarker(
                 accountId: accountId,
-                entryType: SyncEntityType.task.rawValue,
+                entryType: EntryType.task.rawValue,
                 entryId: task.id,
                 context: context
             ) else { continue }
 
-            if try await serverHasAssignmentRows(entityType: .taskAssignment, entryId: task.id) {
+            if try await serverHasAssignmentRows(entityType: .assignment, entryId: task.id) {
                 plan.markers.append(.init(
                     accountId: accountId,
-                    entryType: SyncEntityType.task.rawValue,
+                    entryType: EntryType.task.rawValue,
                     entryId: task.id,
                     didBackfill: false
                 ))
                 continue
             }
 
-            enqueueTaskAssignmentBackfill(task)
+            enqueueAssignmentBackfill(task.currentAssignments + task.migrationHistory, entryId: task.id, entryType: .task)
             plan.enqueuedBackfill = true
             plan.markers.append(.init(
                 accountId: accountId,
-                entryType: SyncEntityType.task.rawValue,
+                entryType: EntryType.task.rawValue,
                 entryId: task.id,
                 didBackfill: true
             ))
         }
 
         let notes = try context.fetch(FetchDescriptor<DataModel.Note>())
-        for note in notes where !note.assignments.isEmpty {
+        for note in notes where !(note.currentAssignments + note.migrationHistory).isEmpty {
             guard !hasCompletedRepairMarker(
                 accountId: accountId,
-                entryType: SyncEntityType.note.rawValue,
+                entryType: EntryType.note.rawValue,
                 entryId: note.id,
                 context: context
             ) else { continue }
 
-            if try await serverHasAssignmentRows(entityType: .noteAssignment, entryId: note.id) {
+            if try await serverHasAssignmentRows(entityType: .assignment, entryId: note.id) {
                 plan.markers.append(.init(
                     accountId: accountId,
-                    entryType: SyncEntityType.note.rawValue,
+                    entryType: EntryType.note.rawValue,
                     entryId: note.id,
                     didBackfill: false
                 ))
                 continue
             }
 
-            enqueueNoteAssignmentBackfill(note)
+            enqueueAssignmentBackfill(note.currentAssignments + note.migrationHistory, entryId: note.id, entryType: .note)
             plan.enqueuedBackfill = true
             plan.markers.append(.init(
                 accountId: accountId,
-                entryType: SyncEntityType.note.rawValue,
+                entryType: EntryType.note.rawValue,
                 entryId: note.id,
                 didBackfill: true
             ))
@@ -987,40 +952,20 @@ final class SyncEngine {
         return plan
     }
 
-    private func enqueueTaskAssignmentBackfill(_ task: DataModel.Task) {
+    private func enqueueAssignmentBackfill(_ assignments: [Assignment], entryId: UUID, entryType: EntryType) {
         let timestamp = Date.now
 
-        for assignment in task.assignments {
-            guard let recordData = SyncSerializer.serializeTaskAssignment(
+        for assignment in assignments {
+            guard let recordData = SyncSerializer.serializeAssignment(
                 assignment,
-                taskId: task.id,
+                entryId: entryId,
+                entryType: entryType,
                 deviceId: deviceId,
                 timestamp: timestamp
             ) else { continue }
 
             enqueueMutation(
-                entityType: .taskAssignment,
-                entityId: assignment.id,
-                operation: .create,
-                recordData: recordData,
-                changedFields: Constants.assignmentRepairChangedFields
-            )
-        }
-    }
-
-    private func enqueueNoteAssignmentBackfill(_ note: DataModel.Note) {
-        let timestamp = Date.now
-
-        for assignment in note.assignments {
-            guard let recordData = SyncSerializer.serializeNoteAssignment(
-                assignment,
-                noteId: note.id,
-                deviceId: deviceId,
-                timestamp: timestamp
-            ) else { continue }
-
-            enqueueMutation(
-                entityType: .noteAssignment,
+                entityType: .assignment,
                 entityId: assignment.id,
                 operation: .create,
                 recordData: recordData,

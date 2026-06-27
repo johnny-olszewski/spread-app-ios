@@ -47,15 +47,17 @@ struct TaskBrowserSectionBuilder {
 
     private func openSections(from tasks: [DataModel.Task]) -> [TaskBrowserSection] {
         let inboxTasks = tasks
-            .filter { !$0.hasPreferredAssignment }
+            .filter { $0.date == nil }
             .sorted { $0.createdDate < $1.createdDate }
 
         let assignedTasks = tasks
-            .filter { $0.hasPreferredAssignment }
+            .filter { $0.date != nil }
             .sorted { a, b in
-                if a.date != b.date { return a.date < b.date }
-                let ap = a.period.browserSortPriority
-                let bp = b.period.browserSortPriority
+                let aDate = a.date ?? a.createdDate
+                let bDate = b.date ?? b.createdDate
+                if aDate != bDate { return aDate < bDate }
+                let ap = (a.period ?? .day).browserSortPriority
+                let bp = (b.period ?? .day).browserSortPriority
                 if ap != bp { return ap < bp }
                 return a.createdDate < b.createdDate
             }
@@ -74,16 +76,18 @@ struct TaskBrowserSectionBuilder {
         var seen: [String: Bool] = [:]
         var orderedKeys: [(Date, Period)] = []
         for task in assignedTasks {
-            let key = "\(task.date.timeIntervalSinceReferenceDate)-\(task.period.rawValue)"
+            let date = task.date ?? task.createdDate
+            let period = task.period ?? .day
+            let key = "\(date.timeIntervalSinceReferenceDate)-\(period.rawValue)"
             if seen[key] == nil {
                 seen[key] = true
-                orderedKeys.append((task.date, task.period))
+                orderedKeys.append((date, period))
             }
         }
 
         for (date, period) in orderedKeys {
             let rows = assignedTasks
-                .filter { $0.date == date && $0.period == period }
+                .filter { ($0.date ?? $0.createdDate) == date && ($0.period ?? .day) == period }
                 .map { TaskBrowserRow(task: $0) }
             sections.append(TaskBrowserSection(
                 kind: .dated(date, period),
@@ -180,7 +184,7 @@ struct TaskBrowserSectionBuilder {
     }
 
     private func latestStatusDate(_ task: DataModel.Task) -> Date? {
-        task.assignments
+        task.currentAssignments
             .filter { $0.status == .complete || $0.status == .cancelled }
             .compactMap { $0.statusUpdatedAt }
             .max()

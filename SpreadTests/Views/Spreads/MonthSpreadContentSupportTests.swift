@@ -131,24 +131,25 @@ struct MonthSpreadContentSupportTests {
             title: "Current Month Task",
             date: monthDate,
             period: .month,
-            assignments: [TaskAssignment(period: .month, date: monthDate, status: .open)]
+            currentAssignments: [Assignment(period: .month, date: monthDate, status: .open)]
         )
         let migratedAwayTask = DataModel.Task(
             title: "Migrated Away",
             date: dayDate,
             period: .day,
-            assignments: [
-                TaskAssignment(period: .month, date: monthDate, status: .migrated),
-                TaskAssignment(period: .day, date: dayDate, status: .open)
+            currentAssignments: [
+                Assignment(period: .day, date: dayDate, status: .open)
+            ],
+            migrationHistory: [
+                Assignment(period: .month, date: monthDate, status: .migrated)
             ]
         )
 
-        let manager = try await JournalManager.make(
+        let manager = try await JournalManager(
             calendar: Self.calendar,
             today: dayDate,
-            taskRepository: InMemoryTaskRepository(tasks: [currentMonthTask, migratedAwayTask]),
-            spreadRepository: InMemorySpreadRepository(spreads: [monthSpread, daySpread]),
-            bujoMode: .conventional
+            taskRepository: TestTaskRepository(tasks: [currentMonthTask, migratedAwayTask]),
+            spreadRepository: TestSpreadRepository(spreads: [monthSpread, daySpread])
         )
 
         let monthDataModel = try #require(
