@@ -6847,17 +6847,20 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-261] Refactor: Remove dead SectionTitleStyle from EntryList.Section - [ ] Pending
+### [SPRD-261] Refactor: Remove dead SectionTitleStyle from EntryList.Section - [x] Done
 
 - **Context**: Identified analyzing `EntryList+Section.swift` while designing SPRD-257: `SectionTitleStyle` (`.primary`/`.secondary`) is declared on `EntryList.Section` but never branched on — `EntryListView` always renders `Text(section.title)` as plain text.
 - **Description**: Remove the `SectionTitleStyle` enum, the `titleStyle` property, and the corresponding init parameter from `EntryList.Section`.
 - **Spec**: `Documentation/Specs/EntryListGrouping.md`
 - **Acceptance Criteria**:
-  - [ ] `SectionTitleStyle` enum, `titleStyle` property, and init parameter are removed from `EntryList.Section`.
-  - [ ] No call site referenced `titleStyle` (verify via build) — if one did, restore minimally or flag for follow-up rather than guessing intent.
-  - [ ] Project builds with no errors or warnings.
+  - [x] `SectionTitleStyle` enum, `titleStyle` property, and init parameter are removed from `EntryList.Section`.
+  - [x] No call site referenced `titleStyle` (verify via build) — confirmed via repo-wide grep: zero references outside the declaration itself.
+  - [x] Project builds with no errors or warnings.
 - **Tests**: None required — dead code removal, no behavior change.
 - **Dependencies**: None.
+- **Progress (commits landed on feature/SESH-25)**:
+  1. `[SPRD-261][1/n]` — Removed the unused `SectionTitleStyle` enum, the `titleStyle` property, and the init parameter from `EntryList.Section` (`Spread/Views/Entries/EntryList/EntryList+Section.swift`). Confirmed via repo-wide grep that no call site referenced `titleStyle` before removing. A stale-incremental-build linker error appeared on first test run (`Undefined symbol: ...EntryList.Section.init(...titleStyle:...)`) — resolved by a clean build, not a real code issue. Verified via a full `xcodebuild test` (1303/1303 pass) after `xcodebuild clean` and a full rebuild.
+- Task complete — all ACs satisfied.
 
 ---
 
