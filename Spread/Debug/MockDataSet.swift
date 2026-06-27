@@ -262,13 +262,15 @@ enum MockDataSet: String, CaseIterable {
         let workList = DataModel.List(name: "Work")
         let personalList = DataModel.List(name: "Personal")
         let errandsList = DataModel.List(name: "Errands")
-        lists.append(contentsOf: [errandsList, personalList, workList])
+        let healthList = DataModel.List(name: "Health")
+        lists.append(contentsOf: [errandsList, healthList, personalList, workList])
 
         let focusTag = DataModel.Tag(name: "Focus")
         let planningTag = DataModel.Tag(name: "Planning")
         let homeTag = DataModel.Tag(name: "Home")
         let waitingTag = DataModel.Tag(name: "Waiting")
-        tags.append(contentsOf: [focusTag, homeTag, planningTag, waitingTag])
+        let urgentTag = DataModel.Tag(name: "Urgent")
+        tags.append(contentsOf: [focusTag, homeTag, planningTag, urgentTag, waitingTag])
 
         // Create year spread for current year
         let yearSpread = DataModel.Spread(period: .year, date: today, calendar: calendar)
@@ -313,7 +315,7 @@ enum MockDataSet: String, CaseIterable {
             title: "Review project timeline",
             body: "Check milestone dates and confirm the next delivery window.",
             priority: .high,
-            date: today,
+            date: time(hour: 9),
             period: .day,
             currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
             list: workList,
@@ -323,7 +325,7 @@ enum MockDataSet: String, CaseIterable {
             title: "Send weekly status update",
             body: "Include blockers, shipped work, and decisions needed.",
             priority: .medium,
-            date: today,
+            date: time(hour: 16),
             period: .day,
             currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
             list: workList,
@@ -331,7 +333,7 @@ enum MockDataSet: String, CaseIterable {
         ))
         tasks.append(DataModel.Task(
             title: "Schedule team meeting",
-            date: today,
+            date: time(hour: 11),
             period: .day,
             status: .complete,
             currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .complete)],
@@ -341,7 +343,7 @@ enum MockDataSet: String, CaseIterable {
         tasks.append(DataModel.Task(
             title: "Pick up groceries",
             priority: .medium,
-            date: today,
+            date: time(hour: 17, minute: 30),
             period: .day,
             currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
             list: errandsList,
@@ -349,11 +351,46 @@ enum MockDataSet: String, CaseIterable {
         ))
         tasks.append(DataModel.Task(
             title: "Book dentist appointment",
-            date: today,
+            date: time(hour: 13),
             period: .day,
             currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
             list: personalList,
             tags: [waitingTag]
+        ))
+        tasks.append(DataModel.Task(
+            title: "Call insurance about claim",
+            priority: .low,
+            date: time(hour: 10),
+            period: .day,
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)]
+            // No list/tags — exercises the "Untitled" fallback bucket for both .list and .tag grouping.
+        ))
+        tasks.append(DataModel.Task(
+            title: "Cancel unused subscription",
+            priority: .low,
+            date: time(hour: 8),
+            period: .day,
+            status: .cancelled,
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .cancelled)],
+            list: personalList,
+            tags: [waitingTag]
+        ))
+        tasks.append(DataModel.Task(
+            title: "Morning workout",
+            priority: .medium,
+            date: time(hour: 6, minute: 30),
+            period: .day,
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
+            list: healthList,
+            tags: [focusTag, urgentTag]
+        ))
+        tasks.append(DataModel.Task(
+            title: "Take vitamins",
+            date: time(hour: 7),
+            period: .day,
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
+            list: healthList
+            // No tags — exercises the "Untitled" fallback bucket for .tag grouping.
         ))
         tasks.append(DataModel.Task(
             title: "Plan weekend meals",
@@ -462,6 +499,14 @@ enum MockDataSet: String, CaseIterable {
             currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .active)],
             list: personalList,
             tags: [homeTag]
+        ))
+        notes.append(DataModel.Note(
+            title: "Quick reminder",
+            content: "Call back the plumber about the quote.",
+            date: today,
+            period: .day,
+            currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .active)]
+            // No list/tags — exercises the "Untitled" fallback bucket for notes too.
         ))
         notes.append(DataModel.Note(
             title: "Monthly reflection",
