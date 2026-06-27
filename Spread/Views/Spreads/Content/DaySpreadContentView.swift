@@ -56,6 +56,7 @@ struct DaySpreadContentView: View {
                         onGroupingSelected: { groupingOption = $0 },
                         onSortingSelected: { sortingOption = $0 }
                     )
+                    .padding(SpreadTheme.Spacing.large)
 
                     Button {
                         Task { await viewModel.toggleFavorite() }

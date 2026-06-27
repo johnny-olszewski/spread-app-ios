@@ -27,18 +27,23 @@ enum EntrySortOption: String, CaseIterable, Identifiable {
 
     /// The within-bucket ordering comparator for this option, or `nil` for `.manual`
     /// (preserves the incoming order — see `EntryList.Section.grouped(from:by:orderedBy:)`).
+    ///
+    /// Every non-`.manual`, non-`.title` option breaks ties on its primary key by title,
+    /// alphabetically — without this, two same-priority/same-due-date/same-type entries
+    /// would fall back to whatever order `sorted(by:)` happened to preserve them in, which
+    /// is unspecified and not what a user picking "sort by X" expects.
     var areInOrder: ((any Entry, any Entry) -> Bool)? {
         switch self {
         case .manual:
             return nil
         case .priority:
-            return { Self.priorityRank($0.displayPriority) > Self.priorityRank($1.displayPriority) }
+            return Self.withTitleTiebreaker { Self.priorityRank($0.displayPriority) > Self.priorityRank($1.displayPriority) }
         case .dueDate:
-            return { $0.sortDate < $1.sortDate }
+            return Self.withTitleTiebreaker { $0.sortDate < $1.sortDate }
         case .title:
-            return { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            return Self.titleAscending
         case .type:
-            return { Self.typeRank($0.entryType) < Self.typeRank($1.entryType) }
+            return Self.withTitleTiebreaker { Self.typeRank($0.entryType) < Self.typeRank($1.entryType) }
         }
     }
 
@@ -52,5 +57,22 @@ enum EntrySortOption: String, CaseIterable, Identifiable {
     /// is used as the intended ascending rank.
     private static func typeRank(_ entryType: EntryType) -> Int {
         EntryType.allCases.firstIndex(of: entryType) ?? 0
+    }
+
+    private static let titleAscending: (any Entry, any Entry) -> Bool = {
+        $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+    }
+
+    /// Wraps `primary` so that when it considers two entries equivalent (neither sorts
+    /// before the other), the result falls back to alphabetical title order instead of
+    /// leaving the tie unresolved.
+    private static func withTitleTiebreaker(
+        _ primary: @escaping (any Entry, any Entry) -> Bool
+    ) -> (any Entry, any Entry) -> Bool {
+        { lhs, rhs in
+            if primary(lhs, rhs) { return true }
+            if primary(rhs, lhs) { return false }
+            return titleAscending(lhs, rhs)
+        }
     }
 }

@@ -159,4 +159,39 @@ struct EntrySortOptionTests {
         #expect(areInOrder(task, note))
         #expect(!areInOrder(note, task))
     }
+
+    // Two entries tied on priority break the tie alphabetically by title, rather than
+    // leaving relative order unspecified.
+    // Expected: "Alpha" sorts before "Beta" despite identical priority.
+    @Test func testPriorityTiesBreakByTitleAlphabetically() {
+        let alpha = DataModel.Task(title: "Alpha", priority: .high, date: today)
+        let beta = DataModel.Task(title: "Beta", priority: .high, date: today)
+        let areInOrder = EntrySortOption.priority.areInOrder!
+
+        #expect(areInOrder(alpha, beta))
+        #expect(!areInOrder(beta, alpha))
+    }
+
+    // Two entries tied on due date (identical `sortDate`) break the tie alphabetically
+    // by title.
+    // Expected: "Alpha" sorts before "Beta" despite an identical date.
+    @Test func testDueDateTiesBreakByTitleAlphabetically() {
+        let alpha = DataModel.Task(title: "Alpha", date: today)
+        let beta = DataModel.Task(title: "Beta", date: today)
+        let areInOrder = EntrySortOption.dueDate.areInOrder!
+
+        #expect(areInOrder(alpha, beta))
+        #expect(!areInOrder(beta, alpha))
+    }
+
+    // Two entries tied on entry type break the tie alphabetically by title.
+    // Expected: "Alpha Task" sorts before "Beta Task" despite both being tasks.
+    @Test func testTypeTiesBreakByTitleAlphabetically() {
+        let alpha = DataModel.Task(title: "Alpha Task", date: today)
+        let beta = DataModel.Task(title: "Beta Task", date: today)
+        let areInOrder = EntrySortOption.type.areInOrder!
+
+        #expect(areInOrder(alpha, beta))
+        #expect(!areInOrder(beta, alpha))
+    }
 }
