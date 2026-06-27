@@ -40,7 +40,7 @@ extension MultidaySpreadContentView {
         func sections(groupedBy groupingOption: EntryGroupingOption, orderedBy sortingOption: EntrySortOption) -> [EntryList.Section] {
             let cal = context.calendar
             let live = context.journalManager.spreadDataModel(for: spread.date, period: spread.period) ?? spreadDataModel
-            let base = EntryListDisplaySupport.displayedEntries(for: live, calendar: cal)
+            let base = live.displayedEntries(calendar: cal)
             let eventEntries: [DataModel.Event] = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
 
             return Self.makeSections(

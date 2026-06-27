@@ -106,9 +106,9 @@ struct MultidaySpreadContentView: View {
             explicitDaySpread: explicitDaySpread,
             calendar: calendar
         )
-        let shortMonthText = EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar)
-        let weekdayText = EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar)
-        let dayNumberText = EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar)
+        let shortMonthText = section.date.shortMonthText(calendar: calendar)
+        let weekdayText = section.date.weekdayText(calendar: calendar)
+        let dayNumberText = section.date.dayNumberText(calendar: calendar)
         let onFooterTap: () -> Void = {
             if let explicitDaySpread {
                 viewModel.context.coordinator.navigateViaPeek(to: explicitDaySpread, from: viewModel.spread)

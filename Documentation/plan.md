@@ -6864,20 +6864,23 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-262] Refactor: Relocate EntryListDisplaySupport/EntryListMultidaySupport out of EntryList folder - [ ] Pending
+### [SPRD-262] Refactor: Relocate EntryListDisplaySupport/EntryListMultidaySupport out of EntryList folder - [x] Done
 
 - **Context**: `EntryListDisplaySupport` and `EntryListMultidaySupport` are namespace-enum factory containers (a pattern CLAUDE.md explicitly disallows) misfiled into the `EntryList` folder — they're caller-side utilities (entry-display filtering, multiday date formatters), not part of `EntryListView`'s own rendering.
 - **Description**: Delete `EntryListDisplaySupport.swift`; move `displayedEntries(for:calendar:)`/`displayedNotes(for:)` onto `SpreadDataModel` directly via a new `SpreadDataModel+EntryDisplay.swift`. Delete `EntryListMultidaySupport.swift`; relocate `weekdayText`/`shortMonthText`/`dayNumberText` into the existing `Date+Additions.swift`, matching its established `Date` extension convention.
 - **Spec**: `Documentation/Specs/EntryListGrouping.md`
 - **Acceptance Criteria**:
-  - [ ] `EntryListDisplaySupport.swift` and `EntryListMultidaySupport.swift` no longer exist.
-  - [ ] `SpreadDataModel` exposes `displayedEntries(calendar:)`/`displayedNotes()` (or equivalent) with identical behavior to the removed namespace methods.
-  - [ ] `Date+Additions.swift` exposes the three relocated formatters with identical behavior, following its existing method-signature convention.
-  - [ ] All prior call sites (Day/Month/Multiday/Year/MonthCard view models) are updated to the new locations.
-  - [ ] Project builds with no errors or warnings.
+  - [x] `EntryListDisplaySupport.swift` and `EntryListMultidaySupport.swift` no longer exist.
+  - [x] `SpreadDataModel` exposes `displayedEntries(calendar:)`/`displayedNotes` (instance method/computed property, not the namespace's `for:` parameter shape) with identical behavior to the removed namespace methods.
+  - [x] `Date+Additions.swift` exposes the three relocated formatters (`weekdayText(calendar:)`/`shortMonthText(calendar:)`/`dayNumberText(calendar:)`) as instance methods, following its existing method-signature convention.
+  - [x] All prior call sites (only `MultidaySpreadContentView`/`+ViewModel.swift` used these — confirmed via repo-wide grep before relocating) are updated to the new locations.
+  - [x] Project builds with no errors or warnings.
 - **Tests**:
-  - [ ] Existing tests covering displayed-entries filtering and multiday date formatting continue to pass unchanged (relocation only, no behavior change).
+  - [x] Existing tests covering displayed-entries filtering continue to pass unchanged (relocated `EntryListDisplaySupportTests.swift` → `SpreadTests/JournalManager/SpreadDataModel+EntryDisplayTests.swift`, mirroring the type's new home, per CLAUDE.md's "mirror source folder structure" test convention). No pre-existing tests covered the multiday date formatters — added 3 new ones to `DateAdditionsTests.swift`.
 - **Dependencies**: None.
+- **Progress (commits landed on feature/SESH-25)**:
+  1. `[SPRD-262][1/n]` — Added `Spread/JournalManager/SpreadDataModel+EntryDisplay.swift` (`displayedEntries(calendar:)`, `displayedNotes`) and deleted `EntryListDisplaySupport.swift`; updated `MultidaySpreadContentView+ViewModel.swift`'s sole call site (`EntryListDisplaySupport.displayedEntries(for:calendar:)` → `live.displayedEntries(calendar:)`). Relocated its test file to `SpreadTests/JournalManager/SpreadDataModel+EntryDisplayTests.swift`. Added `weekdayText(calendar:)`/`shortMonthText(calendar:)`/`dayNumberText(calendar:)` to the existing `Date+Additions.swift` and deleted `EntryListMultidaySupport.swift`; updated `MultidaySpreadContentView.swift`'s 3 call sites (`EntryListMultidaySupport.shortMonthText(for:calendar:)` → `section.date.shortMonthText(calendar:)`, etc.) and added 3 new tests to `DateAdditionsTests.swift` (none existed before). Confirmed via repo-wide grep that no other call sites referenced either removed type before deleting. Verified via a full `xcodebuild test` (1306/1306 pass) and a full clean `xcodebuild build`.
+- Task complete — all ACs satisfied.
 
 ---
 

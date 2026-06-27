@@ -241,4 +241,27 @@ struct DateAdditionsTests {
         let expected = makeDate(year: 2030, month: 1, day: 1)
         #expect(result == expected)
     }
+
+    // MARK: - Multiday Section Header Formatting Tests
+
+    /// Conditions: Date is Wednesday, April 8, 2026.
+    /// Expected: weekdayText returns the full weekday name "Wednesday".
+    @Test func testWeekdayTextReturnsFullWeekdayName() {
+        let date = makeDate(year: 2026, month: 4, day: 8)
+        #expect(date.weekdayText(calendar: testCalendar) == "Wednesday")
+    }
+
+    /// Conditions: Date is April 8, 2026.
+    /// Expected: shortMonthText returns the abbreviated month name "Apr".
+    @Test func testShortMonthTextReturnsAbbreviatedMonth() {
+        let date = makeDate(year: 2026, month: 4, day: 8)
+        #expect(date.shortMonthText(calendar: testCalendar) == "Apr")
+    }
+
+    /// Conditions: Date is April 8, 2026.
+    /// Expected: dayNumberText returns the day-of-month number "8".
+    @Test func testDayNumberTextReturnsDayNumber() {
+        let date = makeDate(year: 2026, month: 4, day: 8)
+        #expect(date.dayNumberText(calendar: testCalendar) == "8")
+    }
 }

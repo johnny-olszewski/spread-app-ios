@@ -2,8 +2,8 @@ import Foundation
 import Testing
 @testable import Spread
 
-@Suite("EntryListDisplaySupportTests")
-struct EntryListDisplaySupportTests {
+@Suite("SpreadDataModel+EntryDisplay Tests")
+struct SpreadDataModelEntryDisplayTests {
     private static var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!
@@ -26,10 +26,8 @@ struct EntryListDisplaySupportTests {
         let task = DataModel.Task(title: "Range Task", date: Self.makeDate(year: 2026, month: 4, day: 7), period: .day)
         let note = DataModel.Note(title: "Range Note", date: Self.makeDate(year: 2026, month: 4, day: 8), period: .day)
 
-        let entries = EntryListDisplaySupport.displayedEntries(
-            for: SpreadDataModel(spread: spread, tasks: [task], notes: [note], events: []),
-            calendar: Self.calendar
-        )
+        let spreadDataModel = SpreadDataModel(spread: spread, tasks: [task], notes: [note], events: [])
+        let entries = spreadDataModel.displayedEntries(calendar: Self.calendar)
 
         #expect(entries.count == 2)
         #expect(Set(entries.map { $0.title }) == Set(["Range Task", "Range Note"]))
@@ -62,7 +60,7 @@ struct EntryListDisplaySupportTests {
             events: []
         )
 
-        let notes = EntryListDisplaySupport.displayedNotes(for: spreadDataModel)
+        let notes = spreadDataModel.displayedNotes
 
         #expect(notes.count == 2)
         #expect(Set(notes.map { $0.title }) == Set(["Active Note", "Migrated Note"]))
