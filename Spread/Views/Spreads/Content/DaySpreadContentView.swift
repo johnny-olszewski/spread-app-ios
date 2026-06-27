@@ -18,6 +18,9 @@ struct DaySpreadContentView: View {
     @State private var viewModel: ViewModel
     var config: Config = .default
 
+    @AppStorage("entryGrouping.day") private var groupingOption: EntryGroupingOption = .list
+    @AppStorage("entrySorting.day") private var sortingOption: EntrySortOption = .dueDate
+
     init(
         spread: DataModel.Spread,
         spreadDataModel: SpreadDataModel,
@@ -47,6 +50,8 @@ struct DaySpreadContentView: View {
                     .padding(.trailing, SpreadTheme.Spacing.medium)
 
                 HStack(spacing: SpreadTheme.Spacing.medium) {
+                    EntryListOptionsPicker(grouping: $groupingOption, sorting: $sortingOption)
+
                     Button {
                         Task { await viewModel.toggleFavorite() }
                     } label: {
@@ -91,10 +96,14 @@ struct DaySpreadContentView: View {
                 }
 
                 EntryListView(
-                    sections: viewModel.overdueSections + viewModel.sections,
+                    sections: viewModel.overdueSections + viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption),
                     configurationMap: viewModel.entryConfigurationMap
                 ) { section in
-                    let sectionList = viewModel.context.journalManager.lists.first { $0.id.uuidString == section.id }
+                    // Section ids are list names only when grouping by list — other groupings
+                    // (tag/status/none) have no notion of a corresponding list to preselect.
+                    let sectionList = groupingOption == .list
+                        ? viewModel.context.journalManager.lists.first { $0.name == section.id }
+                        : nil
                     QuickAddButton(
                         coordinator: viewModel.context.coordinator,
                         anchorID: section.id,

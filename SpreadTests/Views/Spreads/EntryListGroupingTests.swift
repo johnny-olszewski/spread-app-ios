@@ -4,7 +4,10 @@ import Testing
 
 /// Tests for entry list grouping logic.
 ///
-/// Day spread grouping is covered via `DaySpreadContentView.ViewModel.makeSections`.
+/// Day spread grouping is covered via `DaySpreadContentView.ViewModel.makeSections`, exercised
+/// here with `.list`/`.dueDate` (the spread's default picker selection) to prove parity with the
+/// pre-SPRD-259 hand-rolled behavior these tests originally covered. The "Untitled" bucket name
+/// (was "No List") is a deliberate, documented SPRD-259 change — see `EntryGroupingOption`.
 /// Multiday spread grouping is covered via `MultidaySpreadContentView.ViewModel.makeSections`.
 @Suite("Entry List Grouping Tests")
 @MainActor
@@ -41,9 +44,8 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
 
@@ -52,7 +54,7 @@ struct EntryListGroupingTests {
         #expect(sections[0].entries.map(\.title) == ["Alpha Task 1"])
         #expect(sections[1].title == "Beta")
         #expect(sections[1].entries.map(\.title) == ["Beta Task"])
-        #expect(sections[2].title == "No List")
+        #expect(sections[2].title == "Untitled")
         let unlisted = sections[2].entries.map(\.title)
         #expect(unlisted.contains("No list"))
         #expect(unlisted.contains("Note"))
@@ -73,14 +75,13 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
 
         #expect(sections.count == 1)
-        #expect(sections[0].title == "No List")
+        #expect(sections[0].title == "Untitled")
         #expect(sections[0].entries.count == 3)
     }
 
@@ -99,16 +100,15 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
 
         #expect(sections.count == 2)
         #expect(sections[0].title == "Work")
         #expect(sections[0].entries.map(\.title) == ["Listed task"])
-        #expect(sections[1].title == "No List")
+        #expect(sections[1].title == "Untitled")
         #expect(sections[1].entries.count == 2)
     }
 
@@ -124,9 +124,8 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
 
@@ -141,9 +140,8 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: [],
             spreadDate: spreadDate,
-            calendar: calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
         #expect(sections.isEmpty)
@@ -163,9 +161,8 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
 

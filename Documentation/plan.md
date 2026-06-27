@@ -6791,22 +6791,29 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-259] Feature: Adopt grouping/sorting picker in Day spread - [ ] Pending
+### [SPRD-259] Feature: Adopt grouping/sorting picker in Day spread - [ ] In Progress
 
+- **AC corrections (2026-06-27, found during implementation)**:
+  1. `groupingOption.grouping(journalManager:)` → `grouping(date:creationPeriod:creationDate:)`, per SPRD-258's already-landed correction.
+  2. The unassigned bucket's label changes from "No List" to "Untitled" — `EntryGroupingOption.list`'s fallback label is a fixed, generic constant shared by every spread (per SPRD-258's design, already committed), not parameterizable per spread. Treating "default behavior is visually identical" as referring to *structure* (alphabetical named-list sections, trailing unassigned bucket, chronological order within each) rather than exact wording — flagging here since it's a real, user-visible (if minor) label change. Say if "No List" should be preserved instead (would require either a Day-specific override or making the fallback label configurable on `EntryGroupingOption`).
+  3. **Real bug caught during audit, fixed in this commit**: `QuickAddButton`'s `preselectedList` lookup matched `section.id` against a list's **UUID string** (`$0.id.uuidString == section.id`), but `EntryGroupingOption.list`'s bucket id is the list's **name**, not its UUID — the lookup would have silently always returned `nil`, breaking AC4. Fixed by matching `$0.name == section.id`, guarded to only run when `groupingOption == .list` (other groupings have no corresponding list to preselect).
 - **Context**: Day spread currently hand-rolls "group tasks by assigned list, with an Untitled bucket for unassigned tasks" directly in its view model. This is the first and most concrete adopter of SPRD-257/258's primitives, and the user specified the picker's placement: in Day's existing top toolbar row, next to the capsule decoration, alongside the favorite/edit buttons.
-- **Description**: Replace Day's hand-rolled list-grouping logic with `EntryList.Section.grouped(from: regularEntries, by: groupingOption.grouping(journalManager:), orderedBy: sortingOption.areInOrder)`, concatenated with the existing manually-built overdue (card-styled) sections — overdue stays pinned, ungrouped, and unsorted regardless of picker choice. Add `@AppStorage`-backed `groupingOption: EntryGroupingOption` and `sortingOption: EntrySortOption` state (keyed e.g. `"entryGrouping.day"`/`"entrySorting.day"`) to `DaySpreadContentView`, and render `EntryListOptionsPicker` in the existing top `HStack` toolbar row next to the capsule.
+- **Description**: Replace Day's hand-rolled list-grouping logic with `EntryList.Section.grouped(from: regularEntries, by: groupingOption.grouping(date:creationPeriod:creationDate:), orderedBy: sortingOption.areInOrder)`, concatenated with the existing manually-built overdue (card-styled) sections — overdue stays pinned, ungrouped, and unsorted regardless of picker choice. Calendar events also stay outside the user-selectable grouping (own fixed "Events" section, same as before) since they have no list/tag/status assignment. Add `@AppStorage`-backed `groupingOption: EntryGroupingOption` and `sortingOption: EntrySortOption` state (keyed `"entryGrouping.day"`/`"entrySorting.day"`) to `DaySpreadContentView`, and render `EntryListOptionsPicker` in the existing top `HStack` toolbar row next to the capsule.
 - **Spec**: `Documentation/Specs/EntryListGrouping.md` — Requirements, "Day, Month, Year, MonthCard, and Multiday spreads all adopt the picker"
 - **Acceptance Criteria**:
-  - [ ] Day spread's regular (non-overdue) entries are grouped/ordered using SPRD-257/258's primitives instead of hand-rolled logic; default behavior (group by list) is visually identical to current behavior.
-  - [ ] Overdue sections remain pinned above the grouped sections, card-styled, and are never re-grouped or re-ordered by the picker.
-  - [ ] `EntryListOptionsPicker` appears in Day's existing top toolbar row next to the capsule.
-  - [ ] Per-list quick-add (`QuickAddButton` in each section's trailing content) still anchors to the correct list section regardless of grouping/sorting choice.
-  - [ ] Grouping/sorting selection persists across app relaunch via `@AppStorage`, scoped to Day specifically.
-  - [ ] Project builds with no errors or warnings.
+  - [x] Day spread's regular (non-overdue) entries are grouped/ordered using SPRD-257/258's primitives instead of hand-rolled logic; default behavior (group by list, order by due date) is structurally identical to current behavior — see AC correction #2 re: the "Untitled" label.
+  - [x] Overdue sections remain pinned above the grouped sections, card-styled, and are never re-grouped or re-ordered by the picker.
+  - [x] `EntryListOptionsPicker` appears in Day's existing top toolbar row next to the capsule.
+  - [x] Per-list quick-add (`QuickAddButton` in each section's trailing content) still anchors to the correct list section regardless of grouping/sorting choice — see AC correction #3, a real bug fixed in this commit.
+  - [x] Grouping/sorting selection persists across app relaunch via `@AppStorage`, scoped to Day specifically.
+  - [x] Project builds with no errors or warnings.
 - **Tests**:
-  - [ ] Existing Day spread view model tests continue to pass with the new grouping/sorting path producing equivalent default output.
-  - [ ] Manual verification: toggling group-by/order-by in the simulator re-partitions/re-orders the list correctly; overdue stays pinned; quick-add still anchors correctly; selection survives relaunch.
-- **Dependencies**: SPRD-257, SPRD-258.
+  - [x] Existing Day spread view model tests continue to pass with the new grouping/sorting path producing equivalent default output (updated to call the new `makeSections(from:spreadDate:groupingOption:sortingOption:eventConfigurationMap:)` signature with `.list`/`.dueDate`, and updated the "No List" → "Untitled" label expectation).
+  - [ ] Manual verification: toggling group-by/order-by in the simulator re-partitions/re-orders the list correctly; overdue stays pinned; quick-add still anchors correctly; selection survives relaunch. **Not yet performed — recommend running in simulator before merging.**
+- **Dependencies**: SPRD-257 (done), SPRD-258 (done).
+- **Progress (commits landed on feature/SESH-25)**:
+  1. `[SPRD-259][1/n]` — Replaced `DaySpreadContentView.ViewModel`'s hand-rolled list-grouping (`var sections`/old `makeSections`) with a new `func sections(groupedBy:orderedBy:)` instance method delegating to a rewritten `static makeSections(from:spreadDate:groupingOption:sortingOption:eventConfigurationMap:)`, which filters out calendar events (kept in their own fixed "Events" section, unchanged) and routes the remaining entries through `EntryList.Section.grouped(from:by:orderedBy:)`. Added `@AppStorage("entryGrouping.day")`/`@AppStorage("entrySorting.day")` state (defaults `.list`/`.dueDate`, matching prior behavior) to `DaySpreadContentView`, rendered `EntryListOptionsPicker` in the top toolbar row next to the capsule, and fixed the `QuickAddButton` preselected-list lookup bug (AC correction #3). Updated the 6 pre-existing Day-spread tests in `EntryListGroupingTests.swift` plus 1 in `SpreadContentPagerAssemblyTests.swift` to the new `makeSections` signature and the "Untitled" label. Verified via `-only-testing:SpreadTests/EntryListGroupingTests -only-testing:SpreadTests/SpreadContentPagerAssemblyTests` (19/19 pass) and a full `xcodebuild test` (1296/1296 pass, no regressions) plus a full clean `xcodebuild build`.
+- Remaining for this task: manual simulator verification (Tests AC #2) before this branch ships.
 
 ---
 
