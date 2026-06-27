@@ -6925,20 +6925,23 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-265] Refactor: Relocate task migration option logic onto DataModel.Task - [ ] Pending
+### [SPRD-265] Refactor: Relocate task migration option logic onto DataModel.Task - [x] Done
 
 - **Context**: `taskMigrationOptions(for:today:calendar:)` and its label helpers are pure `DataModel.Task` date-math business logic, currently living in `EntryRowView+Configuration.swift` (a UI configuration file).
 - **Description**: Move `taskMigrationOptions(for:today:calendar:)` and its label helpers out of `EntryRowView+Configuration.swift` onto `DataModel.Task` in a new `Task+MigrationOptions.swift`. `MigrationOption`/`MigrationOption.Kind` stay nested in `Action` (UI-facing data shape) — only the computation moves. Do not generalize to month/year migration in this task — single call site, single granularity today.
 - **Spec**: `Documentation/Specs/EntryListGrouping.md`
 - **Acceptance Criteria**:
-  - [ ] `Task+MigrationOptions.swift` exists with the relocated migration-option computation as a method on `DataModel.Task`.
-  - [ ] `EntryRowView+Configuration.swift` no longer contains the migration date-math logic, only the call to the relocated method.
-  - [ ] `MigrationOption`/`MigrationOption.Kind` remain nested in `Action`, unchanged.
-  - [ ] Migration option output (today/tomorrow/next month 1st/next month same day) is identical to before for equivalent inputs.
-  - [ ] Project builds with no errors or warnings.
+  - [x] `Task+MigrationOptions.swift` exists with the relocated migration-option computation as a method on `DataModel.Task`. Named `DataModel.Task+MigrationOptions.swift` to match the project's existing `DataModel.Task+SerializableData.swift` extension-file convention (plain `Task+...` would collide with Swift's own `Task` type).
+  - [x] `EntryRowView+Configuration.swift` no longer contains the migration date-math logic, only the call to the relocated method (`task.migrationOptions(today:calendar:)`).
+  - [x] `MigrationOption`/`MigrationOption.Kind` remain nested in `Action`, unchanged.
+  - [x] Migration option output (today/tomorrow/next month 1st/next month same day) is identical to before for equivalent inputs — logic moved verbatim, only `task`/`self` references changed (was a free function taking `task:` as a parameter, now an instance method).
+  - [x] Project builds with no errors or warnings.
 - **Tests**:
-  - [ ] Existing migration-option tests continue to pass unchanged (relocation only, no logic change).
+  - [x] No pre-existing tests covered this logic directly — it was `fileprivate` to the configuration file, untestable from outside. Added 7 new tests to `DataModelTaskMigrationOptionsTests.swift` now that it's a directly-callable `DataModel.Task` method: non-open exclusion, all-four-candidates with no current date, "already there" exclusion for both `.today`/`.tomorrow`, next-month-1st date/label, next-month-same-day date/label, and the day-overflow edge case (Jan 31 → Feb has no 31st, so `.nextMonthSameDay` is correctly omitted).
 - **Dependencies**: None.
+- **Progress (commits landed on feature/SESH-25)**:
+  1. `[SPRD-265][1/n]` — Added `DataModel.Task.migrationOptions(today:calendar:)` (`Spread/DataModel/DataModel.Task+MigrationOptions.swift`), moving the logic verbatim from the deleted `fileprivate func taskMigrationOptions`/`migrationMonthLabel`/`migrationDayLabel` in `EntryRowView+Configuration.swift`. Updated `standardTaskConfig`'s `.migrate` action to call `task.migrationOptions(today:calendar:)`. Added 7 new tests (none existed before — the old code was untestable `fileprivate`). Verified via `-only-testing:SpreadTests/DataModelTaskMigrationOptionsTests` (7/7 pass) and a full `xcodebuild test` (1313/1313 pass, no regressions) plus a full clean `xcodebuild build`.
+- Task complete — all ACs satisfied.
 
 ---
 

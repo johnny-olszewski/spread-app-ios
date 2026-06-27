@@ -208,7 +208,7 @@ extension EntryRowView.Configuration {
                 .migrate(
                     migrationOptions: { entry in
                         guard let task = entry as? DataModel.Task else { return [] }
-                        return taskMigrationOptions(for: task, today: today, calendar: calendar)
+                        return task.migrationOptions(today: today, calendar: calendar)
                     },
                     onMigrationSelected: { entry, option in
                         guard let task = entry as? DataModel.Task else { return }
@@ -291,76 +291,4 @@ fileprivate func typed<E: Entry, T>(default defaultValue: T, _ body: @escaping (
         guard let typedEntry = entry as? E else { return defaultValue }
         return body(typedEntry)
     }
-}
-
-// MARK: - Migration option computation
-
-fileprivate func taskMigrationOptions(
-    for task: DataModel.Task,
-    today: Date,
-    calendar: Calendar
-) -> [EntryRowView.Configuration.Action.MigrationOption] {
-    guard task.status == .open else { return [] }
-
-    // No preferred date means the task has no current position, so no candidate should be
-    // excluded as "already there" — .distantPast never matches a real comparison below.
-    let taskCurrentDate = task.date ?? .distantPast
-
-    let normalizedToday = Period.day.normalizeDate(today, calendar: calendar)
-    let tomorrow = calendar.date(byAdding: .day, value: 1, to: normalizedToday)
-    let nextMonthStart = calendar.date(byAdding: .month, value: 1, to: normalizedToday)?
-        .firstDayOfMonth(calendar: calendar)
-    let sameDayNextMonth = calendar.date(byAdding: .month, value: 1, to: normalizedToday)
-
-    let todayComponents = calendar.dateComponents([.day], from: normalizedToday)
-    let sameDayComponents = sameDayNextMonth.map { calendar.dateComponents([.day], from: $0) }
-
-    var options: [EntryRowView.Configuration.Action.MigrationOption] = []
-
-    if task.period != .day || !calendar.isDate(taskCurrentDate, inSameDayAs: normalizedToday) {
-        options.append(.init(kind: .today, label: "Today", date: normalizedToday, period: .day))
-    }
-
-    if let tomorrow, (task.period != .day || !calendar.isDate(taskCurrentDate, inSameDayAs: tomorrow)) {
-        options.append(.init(kind: .tomorrow, label: "Tomorrow", date: tomorrow, period: .day))
-    }
-
-    if let nextMonthStart,
-       task.period != .month || !calendar.isDate(taskCurrentDate, equalTo: nextMonthStart, toGranularity: .month) {
-        options.append(.init(
-            kind: .nextMonth,
-            label: migrationMonthLabel(for: nextMonthStart, calendar: calendar),
-            date: nextMonthStart,
-            period: .month
-        ))
-    }
-
-    if let sameDayNextMonth,
-       todayComponents.day == sameDayComponents?.day,
-       task.period != .day || !calendar.isDate(taskCurrentDate, inSameDayAs: sameDayNextMonth) {
-        options.append(.init(
-            kind: .nextMonthSameDay,
-            label: migrationDayLabel(for: sameDayNextMonth, calendar: calendar),
-            date: sameDayNextMonth,
-            period: .day
-        ))
-    }
-
-    return options
-}
-
-fileprivate func migrationMonthLabel(for date: Date, calendar: Calendar) -> String {
-    let formatter = DateFormatter()
-    formatter.calendar = calendar
-    formatter.timeZone = calendar.timeZone
-    formatter.dateFormat = "LLLL yyyy"
-    return formatter.string(from: date)
-}
-
-fileprivate func migrationDayLabel(for date: Date, calendar: Calendar) -> String {
-    let formatter = DateFormatter()
-    formatter.calendar = calendar
-    formatter.timeZone = calendar.timeZone
-    formatter.dateFormat = "MMMM d, yyyy"
-    return formatter.string(from: date)
 }
