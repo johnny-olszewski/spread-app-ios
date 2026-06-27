@@ -178,11 +178,9 @@ extension EntryRowView.Configuration {
             hasStrikethrough: {
                 entry in entry.status == .cancelled
             },
-            dueDateLabel: {
-                entry in (entry as? DataModel.Task)?.dueDateLabel(calendar: calendar)
-            },
-            isDueDateHighlighted: { entry in
-                (entry as? DataModel.Task)?.isDueDateHighlighted(today: today, calendar: calendar) ?? false
+            dueDateLabel: typed { (task: DataModel.Task) in task.dueDateLabel(calendar: calendar) },
+            isDueDateHighlighted: typed(default: false) { (task: DataModel.Task) in
+                task.isDueDateHighlighted(today: today, calendar: calendar)
             },
             onStatusIconTap: { entry in
                 
@@ -224,10 +222,7 @@ extension EntryRowView.Configuration {
                 })
                 
             ],
-            getChips: { entry in
-                guard let task = entry as? DataModel.Task else { return [] }
-                return getChips?(task) ?? task.tags
-            }
+            getChips: typed(default: []) { (task: DataModel.Task) in getChips?(task) ?? task.tags }
         )
     }
 
@@ -239,7 +234,7 @@ extension EntryRowView.Configuration {
         coordinator: SpreadsCoordinator
     ) -> EntryRowView.Configuration {
         return EntryRowView.Configuration(
-            isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
+            isGreyedOut: typed(default: false) { (note: DataModel.Note) in note.status == .migrated },
             showAlert: { alert in coordinator.activeAlert = alert },
             actions: [
                 .openEdit(onTapEditButton: { entry in
@@ -260,13 +255,11 @@ extension EntryRowView.Configuration {
         let calendar = journalManager.configuredCalendar
         let today = journalManager.today
         return EntryRowView.Configuration(
-            isGreyedOut: { entry in
-                guard let event = entry as? DataModel.Event else { return false }
-                return (event.calendarEvent?.endDate ?? event.endDate) < today
+            isGreyedOut: typed(default: false) { (event: DataModel.Event) in
+                (event.calendarEvent?.endDate ?? event.endDate) < today
             },
-            subtitle: { entry in
-                guard let event = entry as? DataModel.Event,
-                      let calEvent = event.calendarEvent else { return nil }
+            subtitle: typed { (event: DataModel.Event) -> String? in
+                guard let calEvent = event.calendarEvent else { return nil }
                 if calEvent.isAllDay {
                     return "All Day · \(calEvent.calendarTitle)"
                 } else {
@@ -279,6 +272,24 @@ extension EntryRowView.Configuration {
                 }
             },
         )
+    }
+}
+
+// MARK: - Type-Narrowing Helpers
+
+/// Wraps a closure typed over a concrete `Entry` conformer, downcasting once instead of
+/// repeating `entry as? Concrete` guards throughout each `standard*Config` factory. Returns
+/// `nil` when `entry` isn't an `E` — for closures whose own return type is already `Optional`.
+fileprivate func typed<E: Entry, T>(_ body: @escaping (E) -> T?) -> (any Entry) -> T? {
+    { entry in (entry as? E).flatMap(body) }
+}
+
+/// Variant of `typed` for closures returning a non-optional value, substituting `defaultValue`
+/// when `entry` isn't an `E`.
+fileprivate func typed<E: Entry, T>(default defaultValue: T, _ body: @escaping (E) -> T) -> (any Entry) -> T {
+    { entry in
+        guard let typedEntry = entry as? E else { return defaultValue }
+        return body(typedEntry)
     }
 }
 

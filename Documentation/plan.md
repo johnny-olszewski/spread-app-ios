@@ -6905,19 +6905,23 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-264] Refactor: Reduce per-type downcast boilerplate in standard*Config via typed() helper - [ ] Pending
+### [SPRD-264] Refactor: Reduce per-type downcast boilerplate in standard*Config via typed() helper - [x] Done
 
 - **Context**: `standardTaskConfig`/`standardNoteConfig`/`standardEventConfig` in `EntryRowView+Configuration.swift` each repeat `entry as? DataModel.Task`-style guard/cast patterns multiple times per factory.
 - **Description**: Add a private generic helper `typed<E: Entry, T>(_ body: @escaping (E) -> T) -> (any Entry) -> T?` performing the cast once; use it inside each `standard*Config` factory (e.g. `isGreyedOut: typed { (task: DataModel.Task) in ... }`) in place of the repeated guard/cast blocks. `ConfigurationMap`/`Configuration`'s public shape is unchanged.
 - **Spec**: `Documentation/Specs/EntryListGrouping.md`
 - **Acceptance Criteria**:
-  - [ ] A private `typed<E: Entry, T>(_:) -> (any Entry) -> T?` helper exists in `EntryRowView+Configuration.swift`.
-  - [ ] `standardTaskConfig`, `standardNoteConfig`, `standardEventConfig` use the helper in place of repeated `entry as? Concrete` guard blocks.
-  - [ ] `Configuration`/`ConfigurationMap`'s public API is unchanged; behavior of all three factories is identical to before.
-  - [ ] Project builds with no errors or warnings.
+  - [x] A private `typed<E: Entry, T>(_:) -> (any Entry) -> T?` helper exists in `EntryRowView+Configuration.swift`. Implemented as two overloads, not one — see implementation note.
+  - [x] `standardTaskConfig`, `standardNoteConfig`, `standardEventConfig` use the helper in place of repeated `entry as? Concrete` guard blocks.
+  - [x] `Configuration`/`ConfigurationMap`'s public API is unchanged; behavior of all three factories is identical to before.
+  - [x] Project builds with no errors or warnings.
 - **Tests**:
-  - [ ] Existing tests covering `standardTaskConfig`/`standardNoteConfig`/`standardEventConfig` behavior continue to pass unchanged.
+  - [x] Existing tests covering `standardTaskConfig`/`standardNoteConfig`/`standardEventConfig` behavior continue to pass unchanged.
 - **Dependencies**: None.
+- **Implementation note**: the AC's single-signature `typed<E,T>(_:) -> (any Entry) -> T?` only fits closures whose own return type is already `Optional` (e.g. `dueDateLabel`/`subtitle`, which return `String?`) — for `T` already optional, that signature would produce a double-optional. Closures returning a non-optional value (`isGreyedOut`/`isDueDateHighlighted`/`getChips`, returning `Bool`/`[any LabelChipRepresentable]`) need a substitute default on cast failure instead of `nil`. Implemented as two overloads: `typed<E,T>(_ body: (E) -> T?) -> (any Entry) -> T?` (cast-fail → `nil`) and `typed<E,T>(default: T, _ body: (E) -> T) -> (any Entry) -> T` (cast-fail → `defaultValue`). Applied to 6 closures total: `standardTaskConfig`'s `dueDateLabel`/`isDueDateHighlighted`/`getChips`, `standardNoteConfig`'s `isGreyedOut`, `standardEventConfig`'s `isGreyedOut`/`subtitle`. Left the action closures (`onStatusIconTap`, `onTitleCommit`, the three `Action` case closures) as-is — they're multi-statement with side effects (`journalManager` calls, `Task { @MainActor in ... }` wrapping) rather than a single cast-then-return expression, so `typed` doesn't cleanly fit them. `standardTaskConfig`'s `isGreyedOut` and `hasStrikethrough` were also left as-is — neither actually downcasts (they read only generic `Entry` properties: `entryType`/`status`), so there was no boilerplate to remove.
+- **Progress (commits landed on feature/SESH-25)**:
+  1. `[SPRD-264][1/n]` — Added `typed<E: Entry, T>(_:)`/`typed<E: Entry, T>(default:_:)` to `EntryRowView+Configuration.swift` and applied them to the 6 closures listed above (see implementation note). `Configuration`/`ConfigurationMap`'s public shape and all three factories' behavior unchanged. Verified via a full `xcodebuild test` (1306/1306 pass, no regressions) and a full clean `xcodebuild build`.
+- Task complete — all ACs satisfied.
 
 ---
 
