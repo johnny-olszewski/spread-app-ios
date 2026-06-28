@@ -213,7 +213,7 @@ struct NoteCreationSheet: View {
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteCreationSheet.contentField)
 
             Text("Optional extended content for this note.")
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
         }
     }
@@ -228,12 +228,12 @@ struct NoteCreationSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Select from existing spreads")
                         Text("Or choose a custom date below")
-                            .font(.caption)
+                            .font(SpreadTheme.Typography.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -260,7 +260,7 @@ struct NoteCreationSheet: View {
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteCreationSheet.periodPicker)
 
             Text(periodDescription)
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
         }
     }
@@ -270,7 +270,7 @@ struct NoteCreationSheet: View {
             sectionHeader("Date")
             if viewModel.selectedPeriod == .multiday {
                 Text(selectedMultidaySummary)
-                    .font(.subheadline)
+                    .font(SpreadTheme.Typography.subheadline)
                     .foregroundStyle(viewModel.selectedSpreadID == nil ? .secondary : .primary)
             } else {
                 PeriodDatePicker(
@@ -300,7 +300,7 @@ struct NoteCreationSheet: View {
             Image(systemName: "exclamationmark.triangle")
                 .foregroundStyle(.orange)
             Text(message)
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
         }
     }
@@ -320,7 +320,7 @@ struct NoteCreationSheet: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
     }
 

@@ -112,7 +112,7 @@ struct SpreadContentPagerView: View {
                 .lineLimit(1)
             if let subtitle = config.subtitle {
                 Text(subtitle)
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

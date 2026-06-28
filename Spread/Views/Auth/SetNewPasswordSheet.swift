@@ -107,7 +107,7 @@ struct SetNewPasswordSheet: View {
                 ForEach(errors, id: \.self) { error in
                     Text(error)
                         .foregroundStyle(.orange)
-                        .font(.callout)
+                        .font(SpreadTheme.Typography.callout)
                 }
             }
         }

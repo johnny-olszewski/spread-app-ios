@@ -45,7 +45,7 @@ private struct LocalhostTemporalHarnessView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Temporal Harness")
-                .font(.caption.weight(.semibold))
+                .font(SpreadTheme.Typography.caption.weight(.semibold))
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -222,7 +222,7 @@ private struct LocalhostTemporalHarnessView: View {
 
     private func diagnosticValue(title: String, value: String, identifier: String) -> some View {
         Text("\(title): \(value)")
-            .font(.caption.monospaced())
+            .font(SpreadTheme.Typography.caption.monospaced())
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(Color.secondary.opacity(0.12), in: Capsule())

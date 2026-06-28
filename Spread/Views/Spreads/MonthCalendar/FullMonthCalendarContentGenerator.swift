@@ -106,7 +106,7 @@ private struct CalendarDayCellView: View {
     private var topRow: some View {
         if isPeripheral {
             Text(shortMonth(for: date))
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.secondary)
         } else {
             Color.clear.frame(height: 12)

@@ -20,7 +20,7 @@ struct SpreadHeaderView: View {
         if let state, let onTap {
             Button(action: onTap) {
                 Label(state.buttonLabel, systemImage: state.systemImage)
-                    .font(.subheadline.weight(.medium))
+                    .font(SpreadTheme.Typography.subheadline.weight(.medium))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
                     .glassEffect(in: Capsule())

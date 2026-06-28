@@ -124,7 +124,7 @@ struct EntriesBrowserView: View {
                 if filteredNotes.isEmpty {
                     Text(viewModel.searchText.isEmpty ? "No notes" : "No results")
                         .foregroundStyle(.secondary)
-                        .font(.subheadline)
+                        .font(SpreadTheme.Typography.subheadline)
                         .listRowBackground(Color.clear)
                 } else {
                     ForEach(filteredNotes) { note in
@@ -150,7 +150,7 @@ struct EntriesBrowserView: View {
     private func emptyRow(for section: TaskBrowserSection) -> some View {
         Text(emptyMessage(for: section))
             .foregroundStyle(.secondary)
-            .font(.subheadline)
+            .font(SpreadTheme.Typography.subheadline)
     }
 
     private func emptyMessage(for section: TaskBrowserSection) -> String {

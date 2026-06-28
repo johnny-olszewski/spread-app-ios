@@ -70,10 +70,10 @@ struct SpreadPickerView: View {
         Section {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Assignment date context")
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
                 Text(formattedFocusDate)
-                    .font(.body.weight(.semibold))
+                    .font(SpreadTheme.Typography.body.weight(.semibold))
             }
             .padding(.vertical, 2)
         }
@@ -90,12 +90,12 @@ struct SpreadPickerView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Choose another date")
                     Text("Use the form controls for a different year, month, or day destination")
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
             }
         }
@@ -112,9 +112,9 @@ struct SpreadPickerView: View {
                 periodIcon(for: option.period)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(option.title)
-                        .font(.body)
+                        .font(SpreadTheme.Typography.body)
                     Text(option.subtitle)
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(option.availability == .existing ? .secondary : .tertiary)
                 }
                 Spacer()

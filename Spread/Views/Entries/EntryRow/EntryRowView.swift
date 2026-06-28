@@ -81,7 +81,7 @@ struct EntryRowView: View {
             HStack {
                 
                 TextField("", text: $editingText, selection: $titleSelection)
-                    .font(.body)
+                    .font(SpreadTheme.Typography.body)
                     .foregroundStyle(entry.status.iconColor)
                     .textFieldStyle(.plain)
                     .strikethrough(configuration.hasStrikethrough?(entry) ?? false, color: .secondary)
@@ -113,7 +113,7 @@ struct EntryRowView: View {
             
             if let subtitle = configuration.subtitle?(entry) {
                 Text(subtitle)
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

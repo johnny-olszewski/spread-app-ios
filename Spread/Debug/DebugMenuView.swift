@@ -166,7 +166,7 @@ struct DebugMenuView: View {
             }
             if let userId = authManager.state.user?.id.uuidString {
                 LabeledContent("User ID", value: userId)
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .monospaced()
             }
         } header: {
@@ -202,7 +202,7 @@ struct DebugMenuView: View {
                                     .fill(entry.level == .error ? Color.red : entry.level == .warning ? Color.orange : Color.green)
                                     .frame(width: 8, height: 8)
                                 Text(entry.message)
-                                    .font(.caption)
+                                    .font(SpreadTheme.Typography.caption)
                                     .monospaced()
                             }
                         }
@@ -293,7 +293,7 @@ struct DebugMenuView: View {
                     }
 
                     Text(dataSet.description)
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
 
@@ -373,7 +373,7 @@ struct DebugMenuView: View {
             DisclosureGroup("Launch Arguments (\(args.count))") {
                 ForEach(Array(args), id: \.self) { arg in
                     Text(arg)
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .monospaced()
                 }
             }

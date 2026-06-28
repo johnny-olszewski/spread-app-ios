@@ -60,11 +60,11 @@ struct OnboardingSheet: View {
                 .foregroundStyle(.accent)
 
             Text(title)
-                .font(.title2.weight(.semibold))
+                .font(SpreadTheme.Typography.title2)
                 .multilineTextAlignment(.center)
 
             Text(body)
-                .font(.body)
+                .font(SpreadTheme.Typography.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 360)

@@ -105,15 +105,15 @@ struct DebugRepositoryListView: View {
                 Label(task.status.rawValue, systemImage: statusIcon(for: task.status))
                 Label("\(task.currentAssignments.count + task.migrationHistory.count) assignments", systemImage: "link")
             }
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
 
             Text("Created: \(task.createdDate.formatted(date: .abbreviated, time: .shortened))")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
 
             Text("ID: \(task.id.uuidString.prefix(8))...")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
                 .monospaced()
         }
@@ -154,22 +154,22 @@ struct DebugRepositoryListView: View {
                 Spacer()
 
                 Text(spreadDateDisplay(spread))
-                    .font(.subheadline)
+                    .font(SpreadTheme.Typography.subheadline)
                     .foregroundStyle(.secondary)
             }
 
             if spread.period == .multiday, let start = spread.startDate, let end = spread.endDate {
                 Text("\(start.formatted(date: .abbreviated, time: .omitted)) - \(end.formatted(date: .abbreviated, time: .omitted))")
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
             }
 
             Text("Created: \(spread.createdDate.formatted(date: .abbreviated, time: .shortened))")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
 
             Text("ID: \(spread.id.uuidString.prefix(8))...")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
                 .monospaced()
         }
@@ -225,25 +225,25 @@ struct DebugRepositoryListView: View {
             HStack(spacing: 12) {
                 Label(event.timing.displayName, systemImage: timingIcon(for: event.timing))
             }
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
 
             Text("\(event.startDate.formatted(date: .abbreviated, time: .omitted)) - \(event.endDate.formatted(date: .abbreviated, time: .omitted))")
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
 
             if let startTime = event.startTime, let endTime = event.endTime {
                 Text("\(startTime.formatted(date: .omitted, time: .shortened)) - \(endTime.formatted(date: .omitted, time: .shortened))")
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
             }
 
             Text("Created: \(event.createdDate.formatted(date: .abbreviated, time: .shortened))")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
 
             Text("ID: \(event.id.uuidString.prefix(8))...")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
                 .monospaced()
         }
@@ -280,7 +280,7 @@ struct DebugRepositoryListView: View {
 
             if !note.content.isEmpty {
                 Text(note.content)
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -289,15 +289,15 @@ struct DebugRepositoryListView: View {
                 Label(note.status.rawValue, systemImage: statusIcon(for: note.status))
                 Label("\(note.currentAssignments.count + note.migrationHistory.count) assignments", systemImage: "link")
             }
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
 
             Text("Created: \(note.createdDate.formatted(date: .abbreviated, time: .shortened))")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
 
             Text("ID: \(note.id.uuidString.prefix(8))...")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
                 .monospaced()
         }
@@ -325,11 +325,11 @@ struct DebugRepositoryListView: View {
                 .fontWeight(.medium)
 
             Text("Created: \(collection.createdDate.formatted(date: .abbreviated, time: .shortened))")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
 
             Text("ID: \(collection.id.uuidString.prefix(8))...")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
                 .monospaced()
         }

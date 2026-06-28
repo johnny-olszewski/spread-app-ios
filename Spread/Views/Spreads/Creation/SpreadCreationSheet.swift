@@ -249,7 +249,7 @@ struct SpreadCreationSheet: View {
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadCreationSheet.periodPicker)
 
                     Text(SpreadCreationConfiguration.periodDescription(for: selectedPeriod))
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -359,7 +359,7 @@ struct SpreadCreationSheet: View {
             applyPreset(preset)
         } label: {
             Text(preset.displayName)
-                .font(.subheadline)
+                .font(SpreadTheme.Typography.subheadline)
                 .fontWeight(.medium)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -394,7 +394,7 @@ struct SpreadCreationSheet: View {
             Image(systemName: "exclamationmark.triangle")
                 .foregroundStyle(.orange)
             Text(message)
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
         }
     }
@@ -414,7 +414,7 @@ struct SpreadCreationSheet: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
     }
 

@@ -72,7 +72,7 @@ struct SpreadPeekPanelView: View {
                                     .overlay(alignment: .trailing) {
                                         if onTaskTap != nil {
                                             Image(systemName: "chevron.right")
-                                                .font(.caption.weight(.semibold))
+                                                .font(SpreadTheme.Typography.caption.weight(.semibold))
                                                 .foregroundStyle(.tertiary)
                                                 .padding(.trailing, 4)
                                         }

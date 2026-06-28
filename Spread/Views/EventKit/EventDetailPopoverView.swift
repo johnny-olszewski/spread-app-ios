@@ -15,7 +15,7 @@ struct EventDetailPopoverView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: SpreadTheme.Spacing.standard) {
             Text(event.title)
-                .font(.headline)
+                .font(SpreadTheme.Typography.headline)
                 .lineLimit(2)
 
             VStack(alignment: .leading, spacing: SpreadTheme.Spacing.small) {
@@ -43,7 +43,7 @@ struct EventDetailPopoverView: View {
                 .frame(width: SpreadTheme.IconSize.small, alignment: .center)
 
             Text(text)
-                .font(.subheadline)
+                .font(SpreadTheme.Typography.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
         }

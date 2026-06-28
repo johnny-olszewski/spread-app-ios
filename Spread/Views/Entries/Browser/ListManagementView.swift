@@ -36,7 +36,7 @@ struct ListManagementView: View {
                             Spacer()
                             Text("\(taskCount(list)) task\(taskCount(list) == 1 ? "" : "s")")
                                 .foregroundStyle(.secondary)
-                                .font(.subheadline)
+                                .font(SpreadTheme.Typography.subheadline)
                         }
                     }
                 }

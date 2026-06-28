@@ -50,12 +50,12 @@ struct QuickAddPopoverBodyView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("New Task")
-                    .font(.headline)
+                    .font(SpreadTheme.Typography.headline)
                 Spacer()
                 Button { dismiss() } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
-                        .font(.title3)
+                        .font(SpreadTheme.Typography.title3)
                 }
                 .buttonStyle(.plain)
             }

@@ -141,18 +141,18 @@ private struct CollectionRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(collection.title.isEmpty ? "Untitled" : collection.title)
-                .font(.headline)
+                .font(SpreadTheme.Typography.headline)
                 .foregroundStyle(collection.title.isEmpty ? .secondary : .primary)
 
             if !collection.content.isEmpty {
                 Text(collection.content)
-                    .font(.subheadline)
+                    .font(SpreadTheme.Typography.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
 
             Text(collection.modifiedDate, style: .relative)
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 2)

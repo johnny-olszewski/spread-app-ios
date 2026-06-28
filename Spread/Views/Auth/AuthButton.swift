@@ -52,12 +52,12 @@ struct AuthButton: View {
         VStack {
             AuthButton(isSignedIn: false) {}
             Text("Signed Out")
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
         }
         VStack {
             AuthButton(isSignedIn: true) {}
             Text("Signed In")
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
         }
     }
     .padding()

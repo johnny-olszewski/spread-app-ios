@@ -190,12 +190,12 @@ struct TaskCreationSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Select from existing spreads")
                         Text("Or choose a custom date below")
-                            .font(.caption)
+                            .font(SpreadTheme.Typography.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -252,7 +252,7 @@ struct TaskCreationSheet: View {
                 dateSection
             } else {
                 Text(viewModel.formModel.periodDescription)
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
             }
         }
@@ -273,7 +273,7 @@ struct TaskCreationSheet: View {
             )
 
             Text(viewModel.formModel.periodDescription)
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
         }
     }
@@ -283,7 +283,7 @@ struct TaskCreationSheet: View {
             sectionHeader("Date")
             if viewModel.formModel.selectedPeriod == .multiday {
                 Text(selectedMultidaySummary)
-                    .font(.subheadline)
+                    .font(SpreadTheme.Typography.subheadline)
                     .foregroundStyle(viewModel.formModel.selectedSpreadID == nil ? .secondary : .primary)
             } else {
                 PeriodDatePicker(
@@ -313,7 +313,7 @@ struct TaskCreationSheet: View {
             Image(systemName: "exclamationmark.triangle")
                 .foregroundStyle(.orange)
             Text(message)
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
         }
     }
@@ -333,7 +333,7 @@ struct TaskCreationSheet: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
     }
 

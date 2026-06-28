@@ -231,7 +231,7 @@ struct NoteDetailSheet: View {
             }
             if viewModel.selectedTagIDs.count >= 5 {
                 Text("Maximum 5 tags")
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
             } else {
                 Button("New Tag…") { viewModel.isCreatingTag = true }
@@ -245,7 +245,7 @@ struct NoteDetailSheet: View {
                 Text(tagsSummary)
                     .foregroundStyle(.primary)
             }
-            .font(.subheadline)
+            .font(SpreadTheme.Typography.subheadline)
         }
     }
 
@@ -263,10 +263,10 @@ struct NoteDetailSheet: View {
             Text(value)
                 .foregroundStyle(.primary)
             Image(systemName: "chevron.down")
-                .font(.caption.weight(.semibold))
+                .font(SpreadTheme.Typography.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
-        .font(.subheadline)
+        .font(SpreadTheme.Typography.subheadline)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
@@ -298,12 +298,12 @@ struct NoteDetailSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Select destination")
                         Text(viewModel.selectedPeriod == .multiday ? selectedMultidaySummary : "Or use the controls below")
-                            .font(.caption)
+                            .font(SpreadTheme.Typography.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -335,7 +335,7 @@ struct NoteDetailSheet: View {
             )
             if viewModel.selectedPeriod == .multiday {
                 Text(selectedMultidaySummary)
-                    .font(.subheadline)
+                    .font(SpreadTheme.Typography.subheadline)
                     .foregroundStyle(viewModel.selectedSpreadID == nil ? .secondary : .primary)
             } else {
                 PeriodDatePicker(
@@ -360,14 +360,14 @@ struct NoteDetailSheet: View {
                         .foregroundStyle(assignment.status == .active ? .green : .orange)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(assignment.period.displayName)
-                            .font(.subheadline)
+                            .font(SpreadTheme.Typography.subheadline)
                         Text(formatAssignmentDate(assignment))
-                            .font(.caption)
+                            .font(SpreadTheme.Typography.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
                     Text(assignment.status == .active ? "Active" : "Migrated")
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 2)
@@ -394,7 +394,7 @@ struct NoteDetailSheet: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
     }
 

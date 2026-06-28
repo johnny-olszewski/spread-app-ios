@@ -78,14 +78,14 @@ struct CollectionEditorView: View {
 
     private var titleField: some View {
         TextField("Title", text: $title)
-            .font(.title2.bold())
+            .font(SpreadTheme.Typography.heading(size: 20, weight: .bold))
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
     }
 
     private var contentEditor: some View {
         TextEditor(text: $content)
-            .font(.body)
+            .font(SpreadTheme.Typography.body)
             .padding(.horizontal, 12)
             .scrollContentBackground(.hidden)
     }

@@ -290,7 +290,7 @@ struct TaskDetailSheet: View {
             }
             if viewModel.formModel.selectedTagIDs.count >= 5 {
                 Text("Maximum 5 tags")
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
             } else {
                 Button("New Tag…") { viewModel.isCreatingTag = true }
@@ -304,7 +304,7 @@ struct TaskDetailSheet: View {
                 Text(tagsSummary)
                     .foregroundStyle(.primary)
             }
-            .font(.subheadline)
+            .font(SpreadTheme.Typography.subheadline)
         }
     }
 
@@ -340,7 +340,7 @@ struct TaskDetailSheet: View {
                 dateSection
             } else {
                 Text(viewModel.formModel.periodDescription)
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
                     .opacity(isAssignmentEditable ? 1 : 0.7)
             }
@@ -355,12 +355,12 @@ struct TaskDetailSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Select from existing spreads")
                     Text("Or choose a custom date below")
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
             }
         }
@@ -400,7 +400,7 @@ struct TaskDetailSheet: View {
             .disabled(!isAssignmentEditable)
 
             Text(viewModel.formModel.periodDescription)
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
                 .opacity(isAssignmentEditable ? 1 : 0.7)
         }
@@ -456,16 +456,16 @@ struct TaskDetailSheet: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(assignment.period.displayName)
-                            .font(.subheadline)
+                            .font(SpreadTheme.Typography.subheadline)
                         Text(formatAssignmentDate(assignment))
-                            .font(.caption)
+                            .font(SpreadTheme.Typography.caption)
                             .foregroundStyle(.secondary)
                     }
 
                     Spacer()
 
                     Text(assignment.status.displayName)
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 2)
@@ -557,7 +557,7 @@ struct TaskDetailSheet: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
     }
 
@@ -575,11 +575,11 @@ struct TaskDetailSheet: View {
                 .foregroundStyle(.primary)
             if showsChevron {
                 Image(systemName: "chevron.down")
-                    .font(.caption.weight(.semibold))
+                    .font(SpreadTheme.Typography.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
         }
-        .font(.subheadline)
+        .font(SpreadTheme.Typography.subheadline)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
