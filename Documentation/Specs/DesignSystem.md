@@ -80,6 +80,34 @@ Formalizes `SpreadTheme.Typography` around Apple's own 11-step Dynamic Type scal
 - **Rationale**: `.weight()` chaining on a *third-party* variable font's reliability varies across iOS/SwiftUI versions in ways that are harder to verify than an explicit, tested name lookup; explicit PostScript-name mapping is the already-proven pattern from SPRD-267's `largeTitle`, and is now empirically verified to work for Mulish's specific instance naming too (`SpreadThemeTests.swift` asserts each instance registers and that `heading(size:weight:)` resolves the right one).
 - **SPRD reference**: SPRD-268
 
+### Icon System: SF Symbols → Phosphor (SPRD-269)
+
+Replaces every SF Symbol icon in the app (`Image(systemName:)`, `Label(_:systemImage:)`, `Tab(_:systemImage:value:)`, and every type exposing a `String` SF Symbol name as a computed property) with the bundled-font **Phosphor** icon set, behind a new `SpreadTheme.Icon` namespace — the same "single source of truth" pattern `SpreadTheme.Typography` established for fonts in SPRD-267/268.
+
+- **Dependency**: [`phosphor-icons/swift`](https://github.com/phosphor-icons/swift) (official Phosphor SwiftUI port, MIT-licensed, product name `PhosphorSwift`), added as a remote SPM package directly in `Spread.xcodeproj/project.pbxproj` (`XCRemoteSwiftPackageReference`/`XCSwiftPackageProductDependency` — same mechanism already used for `supabase-swift`; there is no `Package.swift` in this repo). Pinned to `upToNextMajorVersion` from `2.0.0`.
+- **API shape**: Phosphor exposes a `Ph` enum where each icon is a computed `Image` per weight, e.g. `Ph.star.regular`, `Ph.star.fill`. Color is applied via `.color(_: Color)` (a color-mask `ViewModifier`), not `.foregroundStyle`/`.tint`. Images are already `.resizable()`.
+- **Scope**: All ~99 SF Symbol call sites across ~41 files, including `Spread/Debug/*` (DebugMenuView, DebugRepositoryListView) — full consistency, no carve-out for dev-only tooling.
+
+### Decision: `SpreadTheme.Icon` namespace, not inline 1:1 replacement
+
+- **Context**: SF Symbol identity is scattered across the app as raw `String`s — some inline (`Image(systemName: "star")`), some as computed properties on existing types (`SyncStatus.systemImage`, `ConvenienceNavigationButtonState.systemImage`, `RootNavigationView+Content`'s tab icons, `Action`'s menu-label icons, `EntryListOptionsPicker.Config`, `DebugRepositoryListView`'s per-entity-type icon helpers). A literal find/replace would just substitute one scattered string format for another.
+- **Decision**: Add `SpreadTheme.Icon`, a semantic enum (e.g. `.star`, `.starFilled`, `.delete`, `.calendar`, `.checkmark`, ...) where each case resolves to a Phosphor `Image` at a default weight. Every file/type currently exposing a raw SF Symbol `String` is migrated to return/use `SpreadTheme.Icon` (or its resolved `Image`) instead.
+- **Rationale**: Matches the established `SpreadTheme.Typography` precedent exactly — one place to see/change the full icon set, rather than icon choice staying scattered (just in a different vocabulary).
+- **SPRD reference**: SPRD-269
+
+### Decision: Weight mapping from SF Symbol variants
+
+- **Context**: SF Symbols here are used in two weight-like states: a plain outline (`star`, `circle`, `checkmark`) and an explicit `.fill` variant (`star.fill`, `circle.fill`, `arrow.right.circle.fill`) for filled/active states. Phosphor offers six weights (`thin`, `light`, `regular`, `bold`, `fill`, `duotone`).
+- **Decision**: SF Symbol outlines map to Phosphor `.regular`; existing `*.fill` SF Symbols map to Phosphor `.fill`. No use of `.thin`/`.light`/`.bold`/`.duotone` in this task.
+- **Rationale**: Closest visual/semantic match to the current two-state (outline vs. filled) convention already used throughout the app (favorite star, status circles, etc.) — doesn't introduce a third weight axis that nothing in the app currently models.
+- **SPRD reference**: SPRD-269
+
+### Decision: `Tab`/`Label` SF-Symbol-only initializers
+
+- **Context**: SwiftUI's `Tab(_:systemImage:value:)` (used in `RootNavigationView`'s `TabView`) and `Label(_:systemImage:)` (used in `SpreadHeaderView`, `Action`'s menu labels, `DebugRepositoryListView`) take a symbol-name `String`, not an arbitrary `Image` — incompatible with Phosphor's `Image`-returning API.
+- **Decision**: These call sites switch to the `Image`-based label-closure forms (`Tab(_:value:) { }` / `Label { Text(...) } icon: { SpreadTheme.Icon.x.image }`) so the tab bar and labeled rows can use Phosphor too, for full consistency rather than carving out an SF-Symbol-only exception.
+- **SPRD reference**: SPRD-269
+
 ### Spread Header Toolbar Integration
 
 The dedicated spread action row in `SpreadHeaderView` (sync ring + favorite button + ellipsis menu) is eliminated in favour of native nav bar toolbar placement: [SPRD-220]
