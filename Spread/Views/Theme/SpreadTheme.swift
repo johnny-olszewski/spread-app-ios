@@ -54,8 +54,22 @@ enum SpreadTheme {
 
     /// Bundled/named font families referenced by `Typography`.
     enum FontFamily {
-        /// Headings — distinct sans family for titles. System-installed; no bundling needed.
-        static let heading = "Avenir Next"
+        /// Headings — bundled variable font (`Spread/Resources/Fonts/Mulish-Variable.ttf`,
+        /// OFL-licensed). Chosen over the prior system-installed Avenir Next because it's
+        /// embeddable/portable rather than tied to Apple's font catalog.
+        ///
+        /// Ships as a single variable font with a continuous `wght` axis (200–1000), not
+        /// separate static files — but `Typography.heading(size:weight:)` still maps each
+        /// requested weight to an explicit named-instance PostScript name rather than chaining
+        /// `.weight()` onto `Font.custom`, since that's the proven-reliable pattern from
+        /// `largeTitle`/Fuzzy Bubbles. The exact instance names below were confirmed empirically
+        /// via `UIFont.fontNames(forFamilyName: "Mulish")` (CoreText resolves this particular
+        /// variable font's instances as `MulishRoman-{Weight}`, not `Mulish-{Weight}` — not
+        /// something to guess at).
+        static let headingRegular = "MulishRoman-Regular"
+        static let headingMedium = "MulishRoman-Medium"
+        static let headingSemiBold = "MulishRoman-SemiBold"
+        static let headingBold = "MulishRoman-Bold"
 
         /// Large title / "h1" — playful bundled font (`Spread/Resources/Fonts`, OFL-licensed).
         ///
@@ -71,9 +85,18 @@ enum SpreadTheme {
 
     /// Typography definitions for headings and body text.
     enum Typography {
-        /// Heading font — distinct sans family for titles.
+        /// Heading font — Mulish, mapped per `weight` to an explicit bundled named-instance
+        /// PostScript name (see `FontFamily.headingRegular`/etc.) rather than `.weight()`
+        /// chaining. Unmapped weights fall back to Regular.
         static func heading(size: CGFloat, weight: Font.Weight = .semibold) -> Font {
-            .custom(FontFamily.heading, size: size).weight(weight)
+            let postScriptName: String
+            switch weight {
+            case .bold: postScriptName = FontFamily.headingBold
+            case .semibold: postScriptName = FontFamily.headingSemiBold
+            case .medium: postScriptName = FontFamily.headingMedium
+            default: postScriptName = FontFamily.headingRegular
+            }
+            return .custom(postScriptName, size: size)
         }
 
         /// Large title / "h1" heading, in the playful Fuzzy Bubbles font — configurable to any
@@ -103,6 +126,9 @@ enum SpreadTheme {
         static var title3: Font {
             heading(size: 18, weight: .medium)
         }
+
+        /// Headline text — system Dynamic Type style (bold/semibold body-sized emphasis).
+        static var headline: Font { .headline }
 
         /// Body text — system Dynamic Type style, scales with the user's text-size setting.
         static var body: Font { .body }

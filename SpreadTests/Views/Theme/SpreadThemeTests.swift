@@ -43,4 +43,43 @@ struct SpreadThemeTests {
     @Test func testLargeTitleNonBoldWeightFallsBackToRegular() {
         #expect(SpreadTheme.Typography.largeTitle(size: 28, weight: .medium) == .custom("FuzzyBubbles-Regular", size: 28))
     }
+
+    /// Conditions: All four bundled Mulish named-instance weights, registered via the single
+    /// `Mulish-Variable.ttf` in `Info.plist`'s `UIAppFonts`.
+    /// Expected: `UIFont(name:size:)` resolves each — confirms the variable font's named
+    /// instances are individually addressable, not just the family as a whole.
+    @Test(arguments: [
+        SpreadTheme.FontFamily.headingRegular,
+        SpreadTheme.FontFamily.headingMedium,
+        SpreadTheme.FontFamily.headingSemiBold,
+        SpreadTheme.FontFamily.headingBold
+    ])
+    func testMulishWeightIsRegistered(postScriptName: String) {
+        #expect(UIFont(name: postScriptName, size: 12) != nil)
+    }
+
+    /// Conditions: `heading(size:weight:)` called with each of the four bundled weights.
+    /// Expected: Each resolves to its matching named-instance PostScript name.
+    @Test func testHeadingMapsWeightToCorrectMulishInstance() {
+        #expect(SpreadTheme.Typography.heading(size: 20, weight: .regular) == .custom("MulishRoman-Regular", size: 20))
+        #expect(SpreadTheme.Typography.heading(size: 20, weight: .medium) == .custom("MulishRoman-Medium", size: 20))
+        #expect(SpreadTheme.Typography.heading(size: 20, weight: .semibold) == .custom("MulishRoman-SemiBold", size: 20))
+        #expect(SpreadTheme.Typography.heading(size: 20, weight: .bold) == .custom("MulishRoman-Bold", size: 20))
+    }
+
+    /// Conditions: `heading(size:weight:)` called with a weight that has no bundled instance
+    /// (e.g. `.black`).
+    /// Expected: Falls back to the Regular instance rather than producing an unmapped/invalid font.
+    @Test func testHeadingUnmappedWeightFallsBackToRegular() {
+        #expect(SpreadTheme.Typography.heading(size: 20, weight: .black) == .custom("MulishRoman-Regular", size: 20))
+    }
+
+    /// Conditions: `title`/`title2`/`title3`, unchanged since SPRD-266.
+    /// Expected: Each still resolves through `heading(size:weight:)` to the expected Mulish
+    /// instance/size — confirms the font-family swap didn't change the existing size/weight scale.
+    @Test func testTitleScaleUnchangedSizesAndWeights() {
+        #expect(SpreadTheme.Typography.title == .custom("MulishRoman-SemiBold", size: 22))
+        #expect(SpreadTheme.Typography.title2 == .custom("MulishRoman-SemiBold", size: 20))
+        #expect(SpreadTheme.Typography.title3 == .custom("MulishRoman-Medium", size: 18))
+    }
 }
