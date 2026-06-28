@@ -120,7 +120,11 @@ struct EntryListView<TrailingContent: View>: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No Entries", systemImage: "tray")
+            Label {
+                Text("No Entries")
+            } icon: {
+                SpreadTheme.Icon.tray.sized(SpreadTheme.IconSize.large)
+            }
         } description: {
             Text("Add tasks or notes to this spread.")
         }

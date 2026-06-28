@@ -70,14 +70,22 @@ struct SpreadsNavigatorView: View {
                     selectedYear = year
                 } label: {
                     if year == selectedYear {
-                        Label("\(year)", systemImage: "checkmark")
+                        Label {
+                            Text("\(year)")
+                        } icon: {
+                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
+                        }
                     } else {
                         Text("\(year)")
                     }
                 }
             }
         } label: {
-            Label("\(selectedYear)", systemImage: "chevron.up.chevron.down")
+            Label {
+                Text("\(selectedYear)")
+            } icon: {
+                SpreadTheme.Icon.arrowsUpDown.sized(SpreadTheme.IconSize.small)
+            }
         }
         .pickerStyle(.menu)
         .padding(SpreadTheme.Spacing.medium)

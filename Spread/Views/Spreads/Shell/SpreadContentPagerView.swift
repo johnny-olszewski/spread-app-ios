@@ -191,7 +191,11 @@ struct SpreadContentPagerView: View {
             }
         } else {
             ContentUnavailableView {
-                Label("No Data", systemImage: "tray")
+                Label {
+                    Text("No Data")
+                } icon: {
+                    SpreadTheme.Icon.tray.sized(SpreadTheme.IconSize.large)
+                }
             } description: {
                 Text("Unable to load spread data.")
             }

@@ -104,6 +104,12 @@ extension SpreadTheme {
         case userCircle
         /// Account/profile icon, signed-in state — replaces SF Symbol `person.crop.circle.fill`.
         case userCircleFilled
+        /// Document icon — replaces SF Symbol `doc.text`.
+        case document
+        /// "Swap"/boundary icon — replaces SF Symbol `arrow.left.arrow.right`.
+        case arrowsLeftRight
+        /// Test-scenario icon — replaces SF Symbol `testtube.2`.
+        case testTube
 
         // MARK: - Resolution
 
@@ -159,6 +165,9 @@ extension SpreadTheme {
             case .books: .books
             case .noteText: .fileText
             case .userCircle, .userCircleFilled: .userCircle
+            case .document: .fileText
+            case .arrowsLeftRight: .arrowsLeftRight
+            case .testTube: .testTube
             }
         }
 

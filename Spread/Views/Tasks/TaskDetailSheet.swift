@@ -246,7 +246,11 @@ struct TaskDetailSheet: View {
                         viewModel.formModel.selectedList?.id == list.id ? nil : list
                 } label: {
                     if viewModel.formModel.selectedList?.id == list.id {
-                        Label(list.name, systemImage: "checkmark")
+                        Label {
+                            Text(list.name)
+                        } icon: {
+                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
+                        }
                     } else {
                         Text(list.name)
                     }
@@ -379,7 +383,11 @@ struct TaskDetailSheet: View {
                         viewModel.formModel.setPeriod(period)
                     } label: {
                         if period == viewModel.formModel.selectedPeriod {
-                            Label(period.displayName, systemImage: "checkmark")
+                            Label {
+                                Text(period.displayName)
+                            } icon: {
+                                SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
+                            }
                         } else {
                             Text(period.displayName)
                         }

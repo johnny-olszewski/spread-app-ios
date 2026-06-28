@@ -21,13 +21,13 @@ enum DebugRepositoryType: String, CaseIterable, Identifiable {
         }
     }
 
-    var systemImage: String {
+    var icon: SpreadTheme.Icon {
         switch self {
-        case .tasks: return "checkmark.circle"
-        case .spreads: return "book"
-        case .events: return "calendar"
-        case .notes: return "note.text"
-        case .collections: return "folder"
+        case .tasks: return .checkCircle
+        case .spreads: return .book
+        case .events: return .calendar
+        case .notes: return .noteText
+        case .collections: return .folder
         }
     }
 }
@@ -102,8 +102,8 @@ struct DebugRepositoryListView: View {
                 .fontWeight(.medium)
 
             HStack(spacing: 12) {
-                Label(task.status.rawValue, systemImage: statusIcon(for: task.status))
-                Label("\(task.currentAssignments.count + task.migrationHistory.count) assignments", systemImage: "link")
+                Label { Text(task.status.rawValue) } icon: { statusIcon(for: task.status).sized(SpreadTheme.IconSize.small) }
+                Label { Text("\(task.currentAssignments.count + task.migrationHistory.count) assignments") } icon: { SpreadTheme.Icon.link.sized(SpreadTheme.IconSize.small) }
             }
             .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
@@ -120,14 +120,14 @@ struct DebugRepositoryListView: View {
         .padding(.vertical, 2)
     }
 
-    private func statusIcon(for status: EntryStatus) -> String {
+    private func statusIcon(for status: EntryStatus) -> SpreadTheme.Icon {
         switch status {
-        case .open: return "circle"
-        case .active: return "circle.fill"
-        case .complete: return "checkmark.circle.fill"
-        case .migrated: return "arrow.right.circle"
-        case .cancelled: return "xmark.circle"
-        case .upcoming: return "calendar.circle"
+        case .open: return .circle
+        case .active: return .circleFilled
+        case .complete: return .checkCircleFilled
+        case .migrated: return .arrowRightCircle
+        case .cancelled: return .xmarkCircle
+        case .upcoming: return .calendar
         }
     }
 
@@ -148,7 +148,7 @@ struct DebugRepositoryListView: View {
     private func spreadRow(_ spread: DataModel.Spread) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Label(spread.period.displayName, systemImage: periodIcon(for: spread.period))
+                Label { Text(spread.period.displayName) } icon: { periodIcon(for: spread.period).sized(SpreadTheme.IconSize.small) }
                     .fontWeight(.medium)
 
                 Spacer()
@@ -176,12 +176,12 @@ struct DebugRepositoryListView: View {
         .padding(.vertical, 2)
     }
 
-    private func periodIcon(for period: Period) -> String {
+    private func periodIcon(for period: Period) -> SpreadTheme.Icon {
         switch period {
-        case .year: return "calendar"
-        case .month: return "calendar.badge.clock"
-        case .day: return "sun.max"
-        case .multiday: return "calendar.day.timeline.left"
+        case .year: return .calendar
+        case .month: return .calendarDots
+        case .day: return .sun
+        case .multiday: return .rows
         }
     }
 
@@ -223,7 +223,7 @@ struct DebugRepositoryListView: View {
                 .fontWeight(.medium)
 
             HStack(spacing: 12) {
-                Label(event.timing.displayName, systemImage: timingIcon(for: event.timing))
+                Label { Text(event.timing.displayName) } icon: { timingIcon(for: event.timing).sized(SpreadTheme.IconSize.small) }
             }
             .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
@@ -250,12 +250,12 @@ struct DebugRepositoryListView: View {
         .padding(.vertical, 2)
     }
 
-    private func timingIcon(for timing: EventTiming) -> String {
+    private func timingIcon(for timing: EventTiming) -> SpreadTheme.Icon {
         switch timing {
-        case .singleDay: return "calendar"
-        case .allDay: return "sun.max.fill"
-        case .timed: return "clock"
-        case .multiDay: return "calendar.day.timeline.left"
+        case .singleDay: return .calendar
+        case .allDay: return .sunFilled
+        case .timed: return .clock
+        case .multiDay: return .rows
         }
     }
 
@@ -286,8 +286,8 @@ struct DebugRepositoryListView: View {
             }
 
             HStack(spacing: 12) {
-                Label(note.status.rawValue, systemImage: statusIcon(for: note.status))
-                Label("\(note.currentAssignments.count + note.migrationHistory.count) assignments", systemImage: "link")
+                Label { Text(note.status.rawValue) } icon: { statusIcon(for: note.status).sized(SpreadTheme.IconSize.small) }
+                Label { Text("\(note.currentAssignments.count + note.migrationHistory.count) assignments") } icon: { SpreadTheme.Icon.link.sized(SpreadTheme.IconSize.small) }
             }
             .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
@@ -340,7 +340,7 @@ struct DebugRepositoryListView: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No \(repositoryType.title)", systemImage: repositoryType.systemImage)
+            Label { Text("No \(repositoryType.title)") } icon: { repositoryType.icon.sized(SpreadTheme.IconSize.large) }
         } description: {
             Text("This repository is empty.")
         }
