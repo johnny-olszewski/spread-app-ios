@@ -107,7 +107,7 @@ struct SpreadContentPagerView: View {
         )
         return VStack(spacing: 2) {
             Text(config.title)
-                .font(titleFont(for: currentSelection.period))
+                .font(SpreadTheme.Typography.largeTitle(size: 17, weight: .bold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
             if let subtitle = config.subtitle {
@@ -119,14 +119,6 @@ struct SpreadContentPagerView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-    }
-
-    /// The Day spread's title uses the playful Fuzzy Bubbles large title font; every other
-    /// spread type keeps the standard Avenir Next heading.
-    private func titleFont(for period: Period) -> Font {
-        period == .day
-            ? SpreadTheme.Typography.largeTitle(size: 17, weight: .bold)
-            : SpreadTheme.Typography.heading(size: 17, weight: .semibold)
     }
 
     private var isSyncError: Bool {

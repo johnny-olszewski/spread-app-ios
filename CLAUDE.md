@@ -203,6 +203,7 @@ When the user has no ready task and wants to spec one out:
 - **Async/MainActor**: See [Concurrency (Swift 6 Strict)](#concurrency-swift-6-strict) in Architecture Decisions
 - **Dependency injection**: Environment for app-wide (JournalManager), init injection for view-specific
 - **Logging**: Use OSLog/Logger
+- **Typography**: Always use `SpreadTheme.Typography` (e.g. `SpreadTheme.Typography.body`, `.headline`, `.title2`), never a raw system text style (`.font(.body)`) or its weight-modified variants (`.font(.caption.weight(.semibold))` → `SpreadTheme.Typography.caption.weight(.semibold)`). `SpreadTheme.Typography` is the single source of truth for the app's type scale — see `Documentation/Specs/DesignSystem.md`. Fixed-pixel `.font(.system(size:))` usages for non-hierarchy UI (e.g. calendar grid digits) are outside this scale and not subject to this rule.
 
 ### Imports
 
