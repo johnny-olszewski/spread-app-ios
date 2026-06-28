@@ -172,5 +172,39 @@ extension SpreadTheme {
         var image: Image {
             phosphorIcon.weight(weight)
         }
+
+        /// The icon sized to an explicit square frame.
+        ///
+        /// Unlike SF Symbols (font glyphs that inherit ambient `.font()` sizing automatically),
+        /// Phosphor icons are plain resizable images with no intrinsic relationship to
+        /// surrounding text size — every call site must size them explicitly. Defaults to
+        /// `SpreadTheme.IconSize.medium`, matching the "standard inline icons" sizing SF Symbols
+        /// fell back to when used without an explicit `.font()` size.
+        func sized(_ size: CGFloat = SpreadTheme.IconSize.medium) -> some View {
+            image
+                .aspectRatio(contentMode: .fit)
+                .frame(width: size, height: size)
+        }
+    }
+}
+
+private struct IconColorBlend: ViewModifier {
+    let color: Color
+
+    func body(content: Content) -> some View {
+        ZStack {
+            content
+            color.blendMode(.sourceAtop)
+        }
+        .drawingGroup(opaque: false)
+    }
+}
+
+extension View {
+    /// Recolors a `SpreadTheme.Icon`'s image, mirroring PhosphorSwift's own `.color(_:)`
+    /// modifier without requiring every call site to `import PhosphorSwift` directly —
+    /// `SpreadTheme.Icon` is the intended boundary, not the underlying Phosphor module.
+    func iconTint(_ color: Color) -> some View {
+        modifier(IconColorBlend(color: color))
     }
 }

@@ -281,7 +281,7 @@ struct TaskDetailSheet: View {
                         Text(tag.name)
                         Spacer()
                         if isSelected {
-                            Image(systemName: "checkmark").foregroundStyle(.tint)
+                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small).iconTint(.accentColor)
                         }
                     }
                 }
@@ -359,9 +359,8 @@ struct TaskDetailSheet: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .font(SpreadTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
+                SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
+                    .iconTint(.secondary)
             }
         }
         .foregroundStyle(.primary)
@@ -503,7 +502,8 @@ struct TaskDetailSheet: View {
             viewModel.isShowingDeleteConfirmation = true
         } label: {
             HStack {
-                Image(systemName: "trash")
+                SpreadTheme.Icon.trash.sized(SpreadTheme.IconSize.medium)
+                    .iconTint(.red)
                 Text("Delete Task")
             }
         }
@@ -574,9 +574,8 @@ struct TaskDetailSheet: View {
             Text(value)
                 .foregroundStyle(.primary)
             if showsChevron {
-                Image(systemName: "chevron.down")
-                    .font(SpreadTheme.Typography.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                SpreadTheme.Icon.caretDown.sized(SpreadTheme.IconSize.small)
+                    .iconTint(.secondary)
             }
         }
         .font(SpreadTheme.Typography.subheadline)

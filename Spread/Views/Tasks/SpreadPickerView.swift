@@ -85,8 +85,8 @@ struct SpreadPickerView: View {
             dismiss()
         } label: {
             HStack {
-                Image(systemName: "calendar.badge.plus")
-                    .foregroundStyle(.accent)
+                SpreadTheme.Icon.calendarPlus.sized(SpreadTheme.IconSize.medium)
+                    .iconTint(.accentColor)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Choose another date")
                     Text("Use the form controls for a different year, month, or day destination")
@@ -94,9 +94,8 @@ struct SpreadPickerView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .font(SpreadTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
+                SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
+                    .iconTint(.secondary)
             }
         }
         .foregroundStyle(.primary)
@@ -133,20 +132,20 @@ struct SpreadPickerView: View {
     }
 
     private func periodIcon(for period: Period) -> some View {
-        let systemName: String
+        let icon: SpreadTheme.Icon
         switch period {
         case .year:
-            systemName = "calendar"
+            icon = .calendar
         case .month:
-            systemName = "calendar.badge.clock"
+            icon = .calendarDots
         case .day:
-            systemName = "sun.max"
+            icon = .sun
         case .multiday:
-            systemName = "calendar.day.timeline.left"
+            icon = .rows
         }
 
-        return Image(systemName: systemName)
-            .foregroundStyle(.accent)
+        return icon.sized(SpreadTheme.IconSize.medium)
+            .iconTint(.accentColor)
             .frame(width: 24)
     }
 

@@ -53,9 +53,8 @@ struct QuickAddPopoverBodyView: View {
                     .font(SpreadTheme.Typography.headline)
                 Spacer()
                 Button { dismiss() } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                        .font(SpreadTheme.Typography.title3)
+                    SpreadTheme.Icon.xmarkCircleFilled.sized(SpreadTheme.IconSize.medium)
+                        .iconTint(.secondary)
                 }
                 .buttonStyle(.plain)
             }
@@ -107,17 +106,24 @@ struct QuickAddPopoverBodyView: View {
                     selectedList = list
                 } label: {
                     if selectedList?.id == list.id {
-                        Label(list.name, systemImage: "checkmark")
+                        Label {
+                            Text(list.name)
+                        } icon: {
+                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
+                        }
                     } else {
                         Text(list.name)
                     }
                 }
             }
         } label: {
-            Label(
-                selectedList?.name ?? "List",
-                systemImage: selectedList != nil ? "folder.fill" : "folder"
-            )
+            Label {
+                Text(selectedList?.name ?? "List")
+            } icon: {
+                (selectedList != nil ? SpreadTheme.Icon.folderFilled : SpreadTheme.Icon.folder)
+                    .sized(SpreadTheme.IconSize.small)
+                    .iconTint(selectedList != nil ? SpreadTheme.Accent.primary : .secondary)
+            }
             .foregroundStyle(selectedList != nil ? SpreadTheme.Accent.primary : .secondary)
         }
         .buttonStyle(.bordered)
@@ -134,17 +140,24 @@ struct QuickAddPopoverBodyView: View {
                     selectedTag = tag
                 } label: {
                     if selectedTag?.id == tag.id {
-                        Label(tag.name, systemImage: "checkmark")
+                        Label {
+                            Text(tag.name)
+                        } icon: {
+                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
+                        }
                     } else {
                         Text(tag.name)
                     }
                 }
             }
         } label: {
-            Label(
-                selectedTag?.name ?? "Tag",
-                systemImage: selectedTag != nil ? "tag.fill" : "tag"
-            )
+            Label {
+                Text(selectedTag?.name ?? "Tag")
+            } icon: {
+                (selectedTag != nil ? SpreadTheme.Icon.tagFilled : SpreadTheme.Icon.tag)
+                    .sized(SpreadTheme.IconSize.small)
+                    .iconTint(selectedTag != nil ? SpreadTheme.Accent.primary : .secondary)
+            }
             .foregroundStyle(selectedTag != nil ? SpreadTheme.Accent.primary : .secondary)
         }
         .buttonStyle(.bordered)

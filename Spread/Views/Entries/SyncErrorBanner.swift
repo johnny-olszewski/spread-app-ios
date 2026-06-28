@@ -8,9 +8,8 @@ struct SyncErrorBanner: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.circle.fill")
-                .font(SpreadTheme.Typography.caption)
-                .foregroundStyle(.orange)
+            SpreadTheme.Icon.warningCircleFilled.sized(SpreadTheme.IconSize.small)
+                .iconTint(.orange)
             Text("Last sync failed \u{00B7} Pull down to retry")
                 .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
