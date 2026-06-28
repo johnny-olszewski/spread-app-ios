@@ -14,10 +14,10 @@ enum ConvenienceNavigationButtonState: Equatable {
         }
     }
 
-    var systemImage: String {
+    var icon: SpreadTheme.Icon {
         switch self {
-        case .offer: return "arrow.triangle.swap"
-        case .goBack: return "chevron.left"
+        case .offer: return .swap
+        case .goBack: return .caretLeft
         }
     }
 
