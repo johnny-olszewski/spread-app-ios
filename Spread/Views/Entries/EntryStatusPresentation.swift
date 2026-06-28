@@ -66,10 +66,10 @@ extension EntryStatus {
         }
     }
 
-    var lifecycleActionIconInTaskSheet: String? {
+    var lifecycleActionIconInTaskSheet: SpreadTheme.Icon? {
         switch self {
-        case .open, .complete: return "xmark.circle"
-        case .cancelled:       return "arrow.uturn.backward.circle"
+        case .open, .complete: return .xmarkCircle
+        case .cancelled:       return .arrowUTurnLeft
         default:               return nil
         }
     }

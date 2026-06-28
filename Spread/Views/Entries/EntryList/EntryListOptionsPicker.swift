@@ -43,7 +43,8 @@ struct EntryListOptionsPicker: View {
                 }
             }
         } label: {
-            Image(systemName: config.systemImageName)
+            config.icon.sized(SpreadTheme.IconSize.medium)
+                .iconTint(.primary)
         }
         .buttonStyle(.plain)
         .contentShape(Rectangle())
@@ -53,7 +54,11 @@ struct EntryListOptionsPicker: View {
     @ViewBuilder
     private func optionLabel(_ title: String, isSelected: Bool) -> some View {
         if isSelected {
-            Label(title, systemImage: "checkmark")
+            Label {
+                Text(title)
+            } icon: {
+                SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
+            }
         } else {
             Text(title)
         }
@@ -67,14 +72,14 @@ extension EntryListOptionsPicker {
     /// Visual configuration for `EntryListOptionsPicker`, letting callers customize its
     /// icon/label without changing the menu's structure.
     struct Config {
-        let systemImageName: String
+        let icon: SpreadTheme.Icon
         let accessibilityLabel: String
 
         init(
-            systemImageName: String = "line.3.horizontal.decrease.circle",
+            icon: SpreadTheme.Icon = .funnel,
             accessibilityLabel: String = "Group and Sort Options"
         ) {
-            self.systemImageName = systemImageName
+            self.icon = icon
             self.accessibilityLabel = accessibilityLabel
         }
 

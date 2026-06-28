@@ -215,7 +215,11 @@ struct EntryRowView: View {
             Button {
                 onEdit(entry)
             } label: {
-                Label("Edit", systemImage: "square.and.pencil")
+                Label {
+                    Text("Edit")
+                } icon: {
+                    SpreadTheme.Icon.editCompose.sized(SpreadTheme.IconSize.medium)
+                }
             }
             .buttonStyle(.plain)
             .contentShape(Rectangle())

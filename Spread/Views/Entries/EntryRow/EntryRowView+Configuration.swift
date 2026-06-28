@@ -40,11 +40,11 @@ extension EntryRowView {
                 }
             }
             
-            var systemImageName: String {
+            var icon: SpreadTheme.Icon {
                 switch self {
-                case .openEdit(_): "square.and.pencil"
-                case .migrate(_, _): "arrow.right"
-                case .delete(_): "trash"
+                case .openEdit(_): .editCompose
+                case .migrate(_, _): .arrowRight
+                case .delete(_): .trash
                 }
             }
 
@@ -91,7 +91,11 @@ extension EntryRowView {
                                         await onMigrationSelected(entry, option)
                                     }
                                 } label: {
-                                    Label(option.label, systemImage: systemImageName)
+                                    Label {
+                                        Text(option.label)
+                                    } icon: {
+                                        icon.sized(SpreadTheme.IconSize.medium)
+                                    }
                                 }
                                 .accessibilityIdentifier(
                                     Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationOption(
@@ -101,9 +105,12 @@ extension EntryRowView {
                                 )
                             }
                         } label: {
-                            Label("Migrate", systemImage: systemImageName)
-                                .font(.system(size: SpreadTheme.IconSize.medium))
-                                .labelStyle(labelStyle)
+                            Label {
+                                Text("Migrate")
+                            } icon: {
+                                icon.sized(SpreadTheme.IconSize.medium)
+                            }
+                            .labelStyle(labelStyle)
                         }
                         .accessibilityLabel("Migrate")
                         .accessibilityIdentifier(
@@ -117,7 +124,11 @@ extension EntryRowView {
                         )
                         showAlert?(alert)
                     } label: {
-                        Label("Delete", systemImage: systemImageName)
+                        Label {
+                            Text("Delete")
+                        } icon: {
+                            icon.sized(SpreadTheme.IconSize.medium)
+                        }
                     }
                 }
             }

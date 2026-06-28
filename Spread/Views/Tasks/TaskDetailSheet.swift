@@ -478,7 +478,7 @@ struct TaskDetailSheet: View {
 
     private func lifecycleSection(
         title: String,
-        icon: String,
+        icon: SpreadTheme.Icon,
         role: ButtonRole?,
         resultStatus: EntryStatus
     ) -> some View {
@@ -486,7 +486,8 @@ struct TaskDetailSheet: View {
             viewModel.selectedStatus = resultStatus
         } label: {
             HStack {
-                Image(systemName: icon)
+                icon.sized(SpreadTheme.IconSize.medium)
+                    .iconTint(role == .destructive ? .red : .accentColor)
                 Text(title)
             }
         }
