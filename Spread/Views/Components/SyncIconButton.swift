@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// A toolbar button that communicates sync state using SF Symbols.
+/// A toolbar button that communicates sync state using `SpreadTheme.Icon`.
 ///
 /// Visual states:
-/// - **Syncing**: `arrow.triangle.2.circlepath` with continuous rotation animation.
-/// - **Idle / synced / offline**: `arrow.triangle.2.circlepath`, static.
-/// - **Error**: `exclamationmark.arrow.triangle.2.circlepath` in orange.
+/// - **Syncing**: `.arrowsClockwise` with continuous rotation animation (driven manually via
+///   `.rotationEffect` + `repeatForever`, since Phosphor icons are plain images and don't
+///   support SF Symbol's `.symbolEffect(.rotate)`).
+/// - **Idle / synced / offline**: `.arrowsClockwise`, static.
+/// - **Error**: `.cloudWarning` in orange.
 /// - **Local only**: hidden.
 ///
 /// Tapping triggers a manual sync when `status.shouldTriggerSync`.
@@ -14,16 +16,18 @@ struct SyncIconButton: View {
     let outboxCount: Int
     var onSyncNow: (() -> Void)? = nil
 
+    @State private var rotationAngle: Angle = .zero
+
     private var isSpinning: Bool {
         if case .syncing = status { return true }
         return false
     }
 
-    private var symbolName: String {
+    private var icon: SpreadTheme.Icon {
         if case .error = status {
-            return "exclamationmark.arrow.triangle.2.circlepath"
+            return .cloudWarning
         }
-        return "arrow.triangle.2.circlepath"
+        return .arrowsClockwise
     }
 
     private var iconColor: Color {
@@ -48,15 +52,25 @@ struct SyncIconButton: View {
             EmptyView()
         } else {
             Button(action: handleTap) {
-                Image(systemName: symbolName)
-                    .font(.system(size: SpreadTheme.IconSize.medium))
-                    .foregroundStyle(iconColor)
-                    .symbolEffect(.rotate, options: .repeating.speed(1.0), isActive: isSpinning)
+                icon.sized(SpreadTheme.IconSize.medium)
+                    .iconTint(iconColor)
+                    .rotationEffect(rotationAngle)
                     .frame(minWidth: 44, minHeight: 44)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(accessibilityLabel)
             .accessibilityHint(status.shouldTriggerSync ? "Tap to sync now" : "")
+            .onChange(of: isSpinning, initial: true) { _, isSpinning in
+                if isSpinning {
+                    withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
+                        rotationAngle = .degrees(360)
+                    }
+                } else {
+                    withAnimation(.linear(duration: 0)) {
+                        rotationAngle = .zero
+                    }
+                }
+            }
         }
     }
 
