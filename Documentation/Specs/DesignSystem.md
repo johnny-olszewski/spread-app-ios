@@ -108,6 +108,14 @@ Replaces every SF Symbol icon in the app (`Image(systemName:)`, `Label(_:systemI
 - **Decision**: These call sites switch to the `Image`-based label-closure forms (`Tab(_:value:) { }` / `Label { Text(...) } icon: { SpreadTheme.Icon.x.image }`) so the tab bar and labeled rows can use Phosphor too, for full consistency rather than carving out an SF-Symbol-only exception.
 - **SPRD reference**: SPRD-269
 
+### Decision: Explicit sizing/tinting on `SpreadTheme.Icon` (`.sized(_:)`/`.iconTint(_:)`)
+
+- **Context**: Discovered mid-implementation that Phosphor icons (`Ph.<name>.<weight>`) are plain resizable `Image`s — unlike SF Symbols, they have no ambient relationship to surrounding `.font()` size and don't respond to `.foregroundStyle()`/`.tint()`. Most existing call sites relied on exactly this implicit behavior (an `Image(systemName:)` with no explicit size inside a `Label`/`HStack` next to `Text` just matched the ambient text size automatically).
+- **Decision**: Added `SpreadTheme.Icon.sized(_:)` (explicit square frame, defaulting to `SpreadTheme.IconSize.medium`) and a local `.iconTint(_:)` view modifier — a from-scratch re-implementation of PhosphorSwift's own `.color(_:)` color-mask blend, kept inside `SpreadTheme+Icon.swift` rather than re-exposing PhosphorSwift's modifier — so call sites depend only on `SpreadTheme.Icon` and never need to `import PhosphorSwift` directly.
+- **Also discovered**: SwiftUI's `.symbolEffect(.rotate:)` (used by `SyncIconButton`'s spinning sync icon) is SF-Symbol-only and has no Phosphor equivalent. Replaced with a manual `.rotationEffect` driven by a `repeatForever` linear animation toggled on/off via `.onChange(of: isSpinning)`.
+- **Rationale**: Every migrated call site now makes an explicit sizing/coloring decision instead of silently losing implicit behavior that doesn't carry over from SF Symbols. This is also why "no visual regression" is the one AC left unchecked — it requires manual visual QA per call site, which an LLM can't substitute for.
+- **SPRD reference**: SPRD-269
+
 ### Spread Header Toolbar Integration
 
 The dedicated spread action row in `SpreadHeaderView` (sync ring + favorite button + ellipsis menu) is eliminated in favour of native nav bar toolbar placement: [SPRD-220]
