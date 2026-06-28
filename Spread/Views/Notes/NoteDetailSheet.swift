@@ -190,7 +190,11 @@ struct NoteDetailSheet: View {
                         viewModel.selectedList?.id == list.id ? nil : list
                 } label: {
                     if viewModel.selectedList?.id == list.id {
-                        Label(list.name, systemImage: "checkmark")
+                        Label {
+                            Text(list.name)
+                        } icon: {
+                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
+                        }
                     } else {
                         Text(list.name)
                     }
@@ -222,7 +226,7 @@ struct NoteDetailSheet: View {
                         Text(tag.name)
                         Spacer()
                         if isSelected {
-                            Image(systemName: "checkmark").foregroundStyle(.tint)
+                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small).iconTint(.accentColor)
                         }
                     }
                 }
@@ -262,9 +266,8 @@ struct NoteDetailSheet: View {
             Spacer()
             Text(value)
                 .foregroundStyle(.primary)
-            Image(systemName: "chevron.down")
-                .font(SpreadTheme.Typography.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+            SpreadTheme.Icon.caretDown.sized(SpreadTheme.IconSize.small)
+                .iconTint(.secondary)
         }
         .font(SpreadTheme.Typography.subheadline)
         .padding(.horizontal, 12)
@@ -302,9 +305,8 @@ struct NoteDetailSheet: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(SpreadTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
+                    SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
+                        .iconTint(.secondary)
                 }
             }
             .foregroundStyle(.primary)
@@ -356,8 +358,9 @@ struct NoteDetailSheet: View {
             sectionHeader("Assignment History")
             ForEach(note.migrationHistory + note.currentAssignments, id: \.self) { assignment in
                 HStack {
-                    Image(systemName: assignment.status == .active ? "checkmark.circle" : "arrow.right.circle")
-                        .foregroundStyle(assignment.status == .active ? .green : .orange)
+                    (assignment.status == .active ? SpreadTheme.Icon.checkCircle : SpreadTheme.Icon.arrowRightCircle)
+                        .sized(SpreadTheme.IconSize.medium)
+                        .iconTint(assignment.status == .active ? .green : .orange)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(assignment.period.displayName)
                             .font(SpreadTheme.Typography.subheadline)
@@ -380,7 +383,8 @@ struct NoteDetailSheet: View {
             deleteNote()
         } label: {
             HStack {
-                Image(systemName: "trash")
+                SpreadTheme.Icon.trash.sized(SpreadTheme.IconSize.medium)
+                    .iconTint(.red)
                 Text("Delete Note")
             }
         }

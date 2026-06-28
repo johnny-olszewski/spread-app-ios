@@ -100,6 +100,10 @@ extension SpreadTheme {
         case books
         /// Note entity icon — replaces SF Symbol `note.text`.
         case noteText
+        /// Account/profile icon — replaces SF Symbol `person.crop.circle`.
+        case userCircle
+        /// Account/profile icon, signed-in state — replaces SF Symbol `person.crop.circle.fill`.
+        case userCircleFilled
 
         // MARK: - Resolution
 
@@ -154,6 +158,7 @@ extension SpreadTheme {
             case .book: .book
             case .books: .books
             case .noteText: .fileText
+            case .userCircle, .userCircleFilled: .userCircle
             }
         }
 
@@ -161,7 +166,7 @@ extension SpreadTheme {
             switch self {
             case .xmarkCircleFilled, .checkCircleFilled, .circleFilled, .starFilled, .tagFilled,
                  .folderFilled, .arrowRightCircleFilled, .calendarFilled, .sunFilled, .funnelFilled,
-                 .envelopeFilled, .warningCircleFilled:
+                 .envelopeFilled, .warningCircleFilled, .userCircleFilled:
                 .fill
             default:
                 .regular

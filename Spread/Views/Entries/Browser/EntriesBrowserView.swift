@@ -203,9 +203,9 @@ struct EntriesBrowserView: View {
         Button {
             viewModel.isFilterSheetPresented = true
         } label: {
-            Image(systemName: viewModel.hasActiveFilters
-                ? "line.3.horizontal.decrease.circle.fill"
-                : "line.3.horizontal.decrease.circle")
+            (viewModel.hasActiveFilters ? SpreadTheme.Icon.funnelFilled : SpreadTheme.Icon.funnel)
+                .sized(SpreadTheme.IconSize.medium)
+                .iconTint(.primary)
         }
         .accessibilityLabel(viewModel.hasActiveFilters ? "Filter (active)" : "Filter")
     }

@@ -3,8 +3,8 @@ import SwiftUI
 /// A toolbar button for accessing authentication features.
 ///
 /// Shows a person icon that changes based on auth state:
-/// - Logged out: `person.crop.circle` (outline)
-/// - Logged in: `person.crop.circle.fill` (filled)
+/// - Logged out: `SpreadTheme.Icon.userCircle` (outline)
+/// - Logged in: `SpreadTheme.Icon.userCircleFilled` (filled)
 struct AuthButton: View {
 
     // MARK: - Properties
@@ -19,15 +19,16 @@ struct AuthButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: iconName)
+            icon.sized(SpreadTheme.IconSize.large)
+                .iconTint(.primary)
         }
         .accessibilityLabel(accessibilityLabel)
     }
 
     // MARK: - Computed Properties
 
-    private var iconName: String {
-        isSignedIn ? "person.crop.circle.fill" : "person.crop.circle"
+    private var icon: SpreadTheme.Icon {
+        isSignedIn ? .userCircleFilled : .userCircle
     }
 
     private var accessibilityLabel: String {
