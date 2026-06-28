@@ -61,6 +61,24 @@ Entry rows and icon-only action buttons are the highest-priority accessibility s
 - **Rationale**: Fuzzy Bubbles ships as two static font files (`FuzzyBubbles-Regular`/`FuzzyBubbles-Bold`), not a variable font — there's no continuous weight axis for `.weight()` to dial, so the function selects between the two bundled PostScript names directly. Any `weight` other than `.bold` falls back to Regular.
 - **Body/supporting text**: `Typography.body`/`subheadline`/`caption` (existing) plus newly added `callout`/`footnote`/`caption2` all use SwiftUI's system Dynamic Type styles (`.callout`, `.footnote`, `.caption2`), not fixed point sizes — preserves automatic scaling with the user's text-size accessibility setting.
 
+### Typography System Standardization (SPRD-268)
+
+Formalizes `SpreadTheme.Typography` around Apple's own 11-step Dynamic Type scale (the same one SwiftUI models natively via `Font.TextStyle`, and what Dynamic Type/VoiceOver text-size scaling is built on) as the permanent foundation, replaces the heading font family, and migrates every direct/ad hoc font usage in the app onto it. Builds directly on SPRD-267's Fuzzy Bubbles `largeTitle` work, which is retained unchanged and folded into this task's acceptance criteria.
+
+- **Complete the 11-style scale**: `largeTitle`, `title`, `title2`, `title3`, `headline`, `body`, `callout`, `subheadline`, `footnote`, `caption`, `caption2`. `headline` is the one style currently missing from `SpreadTheme.Typography` despite already being used directly (and inconsistently) in at least 4 files (`EventDetailPopoverView`, `QuickAddPopoverContent`, `SpreadsNavigatorView+CalendarGenerator`, `CollectionsListView`).
+- **Heading font family changes to Mulish**: `title`/`title2`/`title3` and the `heading(size:weight:)` function move from Avenir Next to a newly-bundled **Mulish** (Google Fonts, OFL-licensed — same sourcing pattern as SPRD-267's Fuzzy Bubbles). Chosen specifically because it's an embeddable, OFL-licensed font (works identically on every platform) rather than an Apple-only system font — directly serves the "scalable, portable design system" goal, instead of a font choice tied to one platform's font catalog.
+- **`largeTitle` is unchanged**: stays on Fuzzy Bubbles per SPRD-267 — a deliberate exception, not an oversight. Two distinct non-system fonts in the scale (Fuzzy Bubbles for the one hero moment, Mulish for the rest of the heading hierarchy) is intentional, not a consistency gap to close.
+- **Body/supporting text is unchanged**: `body`/`callout`/`subheadline`/`footnote`/`caption`/`caption2` stay on SwiftUI's system Dynamic Type styles (not fixed point sizes, not Mulish) — preserves automatic accessibility text-size scaling, per the decision already made in SPRD-267.
+- **App-wide migration**: every existing direct/raw font usage that bypasses `SpreadTheme.Typography` (e.g. `.font(.body)`, `.font(.headline)`, `.font(.title2.weight(.semibold))`) is migrated to the equivalent `SpreadTheme.Typography.*` member, across all ~24 affected files. This is the part that actually delivers "standardized" rather than just "available."
+- **Enforcement**: documentation + code review only for this task — no SwiftLint custom rule. The convention ("always use `SpreadTheme.Typography`, never a raw system text style") is documented in `CLAUDE.md`'s Code Style Guide and/or this file; automated enforcement is an explicitly deferred follow-up, not part of this task's scope.
+
+### Decision: Bundle Mulish as separate static weight files, not a single family name with `.weight()`
+
+- **Context**: The existing `heading(size:weight:)` does `Font.custom("Avenir Next", size: size).weight(weight)` — this works because Avenir Next is a system-installed font where iOS can resolve the requested weight within one family at render time. A *bundled* custom font (like SPRD-267's Fuzzy Bubbles) ships as separate physical font files per weight; `.weight()` chained onto `Font.custom(familyName:)` does not reliably switch between separate embedded static files.
+- **Decision**: Mulish is bundled as multiple static weight files (likely Regular/Medium/SemiBold/Bold, based on the weights `heading(size:weight:)` is actually called with today — confirmed/finalized during implementation), with `heading(size:weight:)` mapping the requested `Font.Weight` to the matching bundled PostScript name directly, the same pattern SPRD-267 established for `largeTitle(size:weight:)`/Fuzzy Bubbles.
+- **Rationale**: Avoids a silent fallback-to-system-font bug if `.weight()` doesn't resolve a bundled static file correctly — explicit PostScript-name mapping is the proven-working pattern from SPRD-267.
+- **SPRD reference**: SPRD-268
+
 ### Spread Header Toolbar Integration
 
 The dedicated spread action row in `SpreadHeaderView` (sync ring + favorite button + ellipsis menu) is eliminated in favour of native nav bar toolbar placement: [SPRD-220]
