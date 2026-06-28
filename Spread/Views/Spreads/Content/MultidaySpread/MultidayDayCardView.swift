@@ -114,7 +114,7 @@ struct MultidayDayCardView<Content: View>: View {
             if let onPeek {
                 SpreadButton(viewModel: .init(
                     title: "Preview day spread",
-                    systemImage: "eye",
+                    icon: .eye,
                     style: .secondary,
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayPeekButton(dateID),
                     action: onPeek
@@ -126,7 +126,7 @@ struct MultidayDayCardView<Content: View>: View {
             if cardStyle.isCreated {
                 SpreadButton(viewModel: .init(
                     title: "Open day spread",
-                    systemImage: "arrow.right",
+                    icon: .arrowRight,
                     style: .primary,
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID),
                     action: onFooterTap
@@ -134,7 +134,7 @@ struct MultidayDayCardView<Content: View>: View {
             } else {
                 SpreadButton(viewModel: .init(
                     title: "Create day spread",
-                    systemImage: "calendar.badge.plus",
+                    icon: .calendarPlus,
                     style: .primary,
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID),
                     action: onFooterTap

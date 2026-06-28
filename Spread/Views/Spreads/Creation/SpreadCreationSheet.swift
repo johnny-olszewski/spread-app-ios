@@ -391,8 +391,8 @@ struct SpreadCreationSheet: View {
 
     private func validationSection(message: String) -> some View {
         HStack {
-            Image(systemName: "exclamationmark.triangle")
-                .foregroundStyle(.orange)
+            SpreadTheme.Icon.warning.sized(SpreadTheme.IconSize.medium)
+                .iconTint(.orange)
             Text(message)
                 .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)

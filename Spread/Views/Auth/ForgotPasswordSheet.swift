@@ -117,8 +117,8 @@ struct ForgotPasswordSheet: View {
                         .foregroundStyle(.secondary)
                 }
             } icon: {
-                Image(systemName: "envelope.badge.fill")
-                    .foregroundStyle(.green)
+                SpreadTheme.Icon.envelopeFilled.sized(SpreadTheme.IconSize.large)
+                    .iconTint(.green)
             }
         }
     }

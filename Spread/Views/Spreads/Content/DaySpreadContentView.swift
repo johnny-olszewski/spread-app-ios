@@ -61,7 +61,9 @@ struct DaySpreadContentView: View {
                     Button {
                         Task { await viewModel.toggleFavorite() }
                     } label: {
-                        Image(systemName: viewModel.spread.isFavorite ? "star.fill" : "star")
+                        (viewModel.spread.isFavorite ? SpreadTheme.Icon.starFilled : SpreadTheme.Icon.star)
+                            .sized(SpreadTheme.IconSize.medium)
+                            .iconTint(.primary)
                     }
                     .buttonStyle(.plain)
                     .contentShape(Rectangle())
@@ -71,7 +73,8 @@ struct DaySpreadContentView: View {
                     Button {
                         viewModel.context.coordinator.showSpreadNameEdit(viewModel.spread)
                     } label: {
-                        Image(systemName: "pencil")
+                        SpreadTheme.Icon.pencil.sized(SpreadTheme.IconSize.medium)
+                            .iconTint(.primary)
                     }
                     .buttonStyle(.plain)
                     .contentShape(Rectangle())

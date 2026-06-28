@@ -195,8 +195,8 @@ struct SignUpSheet: View {
                         .foregroundStyle(.secondary)
                 }
             } icon: {
-                Image(systemName: "envelope.badge.fill")
-                    .foregroundStyle(.green)
+                SpreadTheme.Icon.envelopeFilled.sized(SpreadTheme.IconSize.large)
+                    .iconTint(.green)
             }
         }
     }
@@ -304,8 +304,8 @@ struct SignUpSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 } icon: {
-                    Image(systemName: "envelope.badge.fill")
-                        .foregroundStyle(.green)
+                    SpreadTheme.Icon.envelopeFilled.sized(SpreadTheme.IconSize.large)
+                        .iconTint(.green)
                 }
             }
             Section {

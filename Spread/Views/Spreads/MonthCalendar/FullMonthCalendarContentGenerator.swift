@@ -138,9 +138,8 @@ private struct CalendarDayCellView: View {
                 Button {
                     onViewDaySpread?(spread)
                 } label: {
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(SpreadTheme.Accent.primary)
+                    SpreadTheme.Icon.arrowRight.sized(12)
+                        .iconTint(SpreadTheme.Accent.primary)
                         .frame(width: 24, height: 24)
                         .background(Circle().fill(.white.opacity(0.94)))
                 }

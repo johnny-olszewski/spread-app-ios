@@ -117,7 +117,7 @@ struct MonthCardView: View {
                     if let onPeek {
                         SpreadButton(viewModel: .init(
                             title: "Preview month spread",
-                            systemImage: "eye",
+                            icon: .eye,
                             style: .secondary,
                             action: onPeek
                         ))
@@ -126,7 +126,7 @@ struct MonthCardView: View {
                     if let onViewSpread {
                         SpreadButton(viewModel: .init(
                             title: "View month spread",
-                            systemImage: "arrow.right",
+                            icon: .arrowRight,
                             style: .primary,
                             action: onViewSpread
                         ))
@@ -157,8 +157,8 @@ struct MonthCardView: View {
                     .font(SpreadTheme.Typography.title3)
                     .fontWeight(.medium)
             } icon: {
-                Image(systemName: "circle")
-                    .font(.system(size: 15))
+                SpreadTheme.Icon.circle.sized(15)
+                    .iconTint(openTaskCount > 0 ? Color.primary : Color.secondary)
             }
             .foregroundStyle(openTaskCount > 0 ? Color.primary : Color.secondary)
         }

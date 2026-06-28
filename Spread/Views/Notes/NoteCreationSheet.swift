@@ -232,9 +232,8 @@ struct NoteCreationSheet: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(SpreadTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
+                    SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
+                        .iconTint(.secondary)
                 }
             }
             .foregroundStyle(.primary)
@@ -297,8 +296,8 @@ struct NoteCreationSheet: View {
 
     private func validationErrorRow(message: String) -> some View {
         HStack {
-            Image(systemName: "exclamationmark.triangle")
-                .foregroundStyle(.orange)
+            SpreadTheme.Icon.warning.sized(SpreadTheme.IconSize.medium)
+                .iconTint(.orange)
             Text(message)
                 .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)

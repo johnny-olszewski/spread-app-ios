@@ -19,13 +19,13 @@ struct EventDetailPopoverView: View {
                 .lineLimit(2)
 
             VStack(alignment: .leading, spacing: SpreadTheme.Spacing.small) {
-                detailRow(systemImage: "clock", text: formattedDateTimeRange)
+                detailRow(icon: .clock, text: formattedDateTimeRange)
 
                 if let location = event.location, !location.isEmpty {
-                    detailRow(systemImage: "mappin.and.ellipse", text: location)
+                    detailRow(icon: .mapPin, text: location)
                 }
 
-                detailRow(systemImage: "calendar.circle.fill", text: event.calendarTitle, tint: event.calendarColor)
+                detailRow(icon: .calendarFilled, text: event.calendarTitle, tint: event.calendarColor)
             }
         }
         .padding(SpreadTheme.Spacing.large)
@@ -36,10 +36,10 @@ struct EventDetailPopoverView: View {
     // MARK: - Subviews
 
     @ViewBuilder
-    private func detailRow(systemImage: String, text: String, tint: Color = .secondary) -> some View {
+    private func detailRow(icon: SpreadTheme.Icon, text: String, tint: Color = .secondary) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: SpreadTheme.Spacing.medium) {
-            Image(systemName: systemImage)
-                .foregroundStyle(tint)
+            icon.sized(SpreadTheme.IconSize.small)
+                .iconTint(tint)
                 .frame(width: SpreadTheme.IconSize.small, alignment: .center)
 
             Text(text)

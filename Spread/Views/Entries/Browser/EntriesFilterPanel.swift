@@ -103,9 +103,8 @@ struct EntriesFilterPanel: View {
                     .font(SpreadTheme.Typography.subheadline)
                 Spacer()
                 if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(SpreadTheme.Typography.subheadline.weight(.semibold))
-                        .foregroundStyle(.tint)
+                    SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
+                        .iconTint(.accentColor)
                 }
             }
             .padding(.vertical, 8)
@@ -130,9 +129,8 @@ struct EntriesFilterPanel: View {
     }
 
     private var chevron: some View {
-        Image(systemName: "chevron.right")
-            .font(SpreadTheme.Typography.caption.weight(.semibold))
-            .foregroundStyle(.tertiary)
+        SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
+            .iconTint(Color(.tertiaryLabel))
     }
 
     private var sectionDivider: some View {

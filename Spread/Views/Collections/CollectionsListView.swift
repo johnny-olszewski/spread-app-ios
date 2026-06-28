@@ -42,7 +42,7 @@ struct CollectionsListView: View {
                 Button {
                     createCollection()
                 } label: {
-                    Image(systemName: "plus")
+                    SpreadTheme.Icon.plus.sized(SpreadTheme.IconSize.medium)
                 }
                 .disabled(isCreating)
                 .accessibilityLabel("Create Collection")
@@ -74,7 +74,11 @@ struct CollectionsListView: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No Collections", systemImage: "folder")
+            Label {
+                Text("No Collections")
+            } icon: {
+                SpreadTheme.Icon.folder.sized(SpreadTheme.IconSize.large)
+            }
         } description: {
             Text("Tap + to create your first collection.")
         }

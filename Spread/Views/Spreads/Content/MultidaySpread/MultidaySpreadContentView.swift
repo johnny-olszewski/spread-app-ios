@@ -179,8 +179,8 @@ struct MultidaySpreadContentView: View {
                     .font(SpreadTheme.Typography.title3)
                     .fontWeight(.medium)
             } icon: {
-                Image(systemName: "circle")
-                    .font(.system(size: 15))
+                SpreadTheme.Icon.circle.sized(15)
+                    .iconTint(taskCount > 0 ? Color.primary : Color.secondary)
             }
             .foregroundStyle(taskCount > 0 ? Color.primary : Color.secondary)
 
@@ -189,8 +189,8 @@ struct MultidaySpreadContentView: View {
                     .font(SpreadTheme.Typography.title3)
                     .fontWeight(.medium)
             } icon: {
-                Image(systemName: "calendar")
-                    .font(.system(size: 15))
+                SpreadTheme.Icon.calendar.sized(15)
+                    .iconTint(eventCount > 0 ? Color.primary : Color.secondary)
             }
             .foregroundStyle(eventCount > 0 ? Color.primary : Color.secondary)
         }
