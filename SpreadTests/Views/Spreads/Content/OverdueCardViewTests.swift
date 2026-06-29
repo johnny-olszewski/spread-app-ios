@@ -222,4 +222,112 @@ struct OverdueCardViewTests {
 
         #expect(OverdueCardView.sections(for: spread, context: context).isEmpty)
     }
+
+    // MARK: - Read-only row configuration
+
+    /// Setup: an overdue task's row configuration, as produced by the overdue card.
+    /// Expected: the row is locked down -- no inline title editing, no context menu, and
+    /// `onRowTap`/`onStatusIconTap` are both wired (read-only review surface).
+    @MainActor @Test func rowConfigurationIsReadOnly() async throws {
+        let today = Self.date(2026, 1, 12)
+        let overdueDate = Self.date(2026, 1, 10)
+        let task = DataModel.Task(
+            title: "Overdue",
+            date: overdueDate,
+            period: .day,
+            status: .open,
+            currentAssignments: [Assignment(period: .day, date: overdueDate, status: .open)]
+        )
+        let context = try await Self.makeContext(today: today, tasks: [task])
+        let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
+
+        let section = try #require(OverdueCardView.sections(for: spread, context: context).first)
+        let configuration = try #require(section.configurationMap?[DataModel.Task.configurationKey])
+
+        #expect(configuration.onTitleCommit == nil)
+        #expect(configuration.actions.isEmpty)
+        #expect(configuration.onRowTap != nil)
+        #expect(configuration.onStatusIconTap != nil)
+    }
+
+    /// Setup: tapping the row (not the status icon) for a task whose source is a concrete spread.
+    /// Expected: the coordinator navigates directly to that spread -- no alert, no confirmation.
+    @MainActor @Test func rowTapOnSpreadSourcedTaskNavigatesDirectly() async throws {
+        let today = Self.date(2026, 1, 12)
+        let overdueDate = Self.date(2026, 1, 10)
+        let sourceSpread = DataModel.Spread(period: .day, date: overdueDate, calendar: Self.testCalendar)
+        let task = DataModel.Task(
+            title: "Overdue",
+            date: overdueDate,
+            period: .day,
+            status: .open,
+            currentAssignments: [Assignment(period: .day, date: overdueDate, spreadID: sourceSpread.id, status: .open)]
+        )
+        let context = try await Self.makeContext(today: today, tasks: [task], spreads: [sourceSpread])
+        let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
+
+        let section = try #require(OverdueCardView.sections(for: spread, context: context).first)
+        let configuration = try #require(section.configurationMap?[DataModel.Task.configurationKey])
+
+        configuration.onRowTap?(task)
+
+        #expect(context.coordinator.selectedSpread?.id == sourceSpread.id)
+        #expect(context.coordinator.activeAlert == nil)
+    }
+
+    /// Setup: tapping the status icon for a task whose source is a concrete spread.
+    /// Expected: a confirmation alert is shown instead of navigating immediately or toggling status.
+    @MainActor @Test func statusIconTapOnSpreadSourcedTaskShowsConfirmationAlert() async throws {
+        let today = Self.date(2026, 1, 12)
+        let overdueDate = Self.date(2026, 1, 10)
+        let sourceSpread = DataModel.Spread(period: .day, date: overdueDate, calendar: Self.testCalendar)
+        let task = DataModel.Task(
+            title: "Overdue",
+            date: overdueDate,
+            period: .day,
+            status: .open,
+            currentAssignments: [Assignment(period: .day, date: overdueDate, spreadID: sourceSpread.id, status: .open)]
+        )
+        let context = try await Self.makeContext(today: today, tasks: [task], spreads: [sourceSpread])
+        let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
+
+        let section = try #require(OverdueCardView.sections(for: spread, context: context).first)
+        let configuration = try #require(section.configurationMap?[DataModel.Task.configurationKey])
+
+        configuration.onStatusIconTap?(task)
+
+        #expect(context.coordinator.selectedSpread?.id != sourceSpread.id)
+        guard case .alert(let model) = context.coordinator.activeAlert else {
+            Issue.record("Expected an active alert")
+            return
+        }
+        #expect(model.id == "overdueCardNavigateConfirmation")
+    }
+
+    /// Setup: tapping the row for an Inbox-sourced overdue task (no spread assignment).
+    /// Expected: an informational alert is shown -- there's nothing to navigate to.
+    @MainActor @Test func rowTapOnInboxSourcedTaskShowsInformationalAlert() async throws {
+        let today = Self.date(2026, 1, 12)
+        let overdueDate = Self.date(2026, 1, 10)
+        let task = DataModel.Task(
+            title: "Overdue",
+            date: overdueDate,
+            period: .day,
+            status: .open
+        )
+        let context = try await Self.makeContext(today: today, tasks: [task])
+        let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
+
+        let section = try #require(OverdueCardView.sections(for: spread, context: context).first)
+        let configuration = try #require(section.configurationMap?[DataModel.Task.configurationKey])
+
+        configuration.onRowTap?(task)
+
+        #expect(context.coordinator.selectedSpread == nil)
+        guard case .alert(let model) = context.coordinator.activeAlert else {
+            Issue.record("Expected an active alert")
+            return
+        }
+        #expect(model.id == "overdueCardInboxNotice")
+    }
 }

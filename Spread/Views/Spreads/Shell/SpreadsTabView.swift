@@ -210,14 +210,13 @@ struct SpreadsTabView: View {
         .sheet(item: $spreadsCoordinator.activeSheet) { destination in
             spreadsSheetContent(for: destination)
         }
-        // TODO: Re-add alert
-//        .modifier(AlertModelModifier(
-//            model: activeAlertModel,
-//            isPresented: Binding(
-//                get: { spreadsCoordinator.activeAlert != nil },
-//                set: { if !$0 { spreadsCoordinator.activeAlert = nil } }
-//            )
-//        ))
+        .modifier(AlertModelModifier(
+            model: activeAlertModel,
+            isPresented: Binding(
+                get: { spreadsCoordinator.activeAlert != nil },
+                set: { if !$0 { spreadsCoordinator.activeAlert = nil } }
+            )
+        ))
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()
         }
@@ -234,6 +233,16 @@ struct SpreadsTabView: View {
         )
     }
     
+    /// The `AlertModel` to present for `spreadsCoordinator.activeAlert`, or `nil` when no
+    /// alert is active. `AlertDestination` currently has only one case (`.alert(AlertModel)`),
+    /// so this just unwraps it — kept as its own property so the modifier call site stays simple.
+    private var activeAlertModel: AlertModel? {
+        if case .alert(let model) = spreadsCoordinator.activeAlert {
+            return model
+        }
+        return nil
+    }
+
     /// Re-resolves the selection when the current spread is removed from the journal
     /// (e.g. deleted via sync), falling back to the best spread for today.
     private func resetSelectionIfNeeded() {

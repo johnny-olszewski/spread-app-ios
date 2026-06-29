@@ -112,6 +112,17 @@
 - `DaySpreadContentView` is refactored to consume `OverdueCardView` instead of its own `ViewModel.overdueSections` computed property; this is a pure extraction with no visual or behavioral change to Day's existing overdue card. [SPRD-274]
 - Multiday's existing per-day-card `overdueCount` badge (`MultidayDayCardView`) is a separate, unrelated mechanism (a count badge on each day card within a multiday grid) and is unaffected by this task. [SPRD-274]
 
+#### Overdue Card Rows Are Read-Only
+
+- Rows in the overdue card cannot be modified in place — the card is a review/navigation surface only, not an editing surface. This applies on every content view that shows it (Day, Month, Year, Multiday). [SPRD-274]
+- Tapping anywhere on an overdue row other than the status icon navigates immediately to that task's current source: [SPRD-274]
+  - Source is a concrete spread (day/month/year/multiday): navigates directly to that spread via `SpreadsCoordinator.selectSpread`, no confirmation.
+  - Source is Inbox (no spread assignment): shows an informational alert ("Task in Inbox" / "This task can't be modified from here. Open the Search tab to view and edit it.") since there is no spread to navigate to. Building cross-tab navigation from the Spreads tab to the Entries tab's Inbox section is out of scope for this task — no existing mechanism supports that direction (only Entries→Spreads exists, via `SpreadsNavigationState`).
+- Tapping the status icon never toggles status from the overdue card — it shows a confirmation alert ("Can't Modify From Here" / "Navigate to {source} to make changes to this task?", Navigate/Cancel) before navigating, since the status icon doing something other than a status toggle would otherwise be surprising. The Inbox case shows the same informational alert as a row tap (nothing to confirm navigating to). [SPRD-274]
+- Inline title editing (tap-to-rename) and the long-press context menu (Edit/Migrate/Delete) are both disabled on overdue rows. [SPRD-274]
+- Implemented as a new `EntryRowView.Configuration.onRowTap` field (a per-row tap target distinct from `onStatusIconTap`) and a new `EntryRowView.Configuration.readOnlyOverdueTaskConfig(...)` factory, used only by `OverdueCardView`. When `onRowTap` is set, `EntryRowView` disables its title `TextField` and replaces its long-press context menu with a plain tap gesture routed to `onRowTap` — this is a general mechanism on `EntryRowView` itself, not something bolted onto the overdue card specifically, so any future review-only surface can reuse it. [SPRD-274]
+- **Pre-existing bug fixed as a prerequisite**: `SpreadsTabView`'s alert presentation (`.modifier(AlertModelModifier(...))`) was commented out (`// TODO: Re-add alert`), so `SpreadsCoordinator.activeAlert` was already silently doing nothing for every alert app-wide (delete confirmations, discard-changes prompts) before this task. Re-enabled as part of this work since the new overdue-card alerts depend on it. [SPRD-274]
+
 #### `EntryList.Section.Style` — Generic Section Styling
 
 - `EntryList.Section` gains an optional `style: EntryList.Section.Style?` property, defaulting to `nil` (standard rendering). [SPRD-235]

@@ -45,10 +45,13 @@ struct OverdueCardView: View {
                 creationPeriod: spread.period,
                 creationDate: spread.date,
                 configurationMap: [
-                    DataModel.Task.configurationKey: .standardTaskConfig(
+                    DataModel.Task.configurationKey: .readOnlyOverdueTaskConfig(
                         journalManager: context.journalManager,
-                        syncEngine: context.syncEngine,
                         coordinator: context.coordinator,
+                        sourceKey: { entry in
+                            guard let task = entry as? DataModel.Task else { return nil }
+                            return sourceKeyByTaskID[task.id]
+                        },
                         getChips: { entry in
                             guard let task = entry as? DataModel.Task else { return [] }
                             return sourceKeyByTaskID[task.id].map { [$0] } ?? []

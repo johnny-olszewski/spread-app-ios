@@ -71,15 +71,21 @@ struct EntryRowView: View {
     private var supportsInlineEditing: Bool {
         return configuration.onTitleCommit != nil
     }
-    
+
+    /// Read-only rows (e.g. the overdue card) disable inline title editing and the context
+    /// menu, routing all non-status-icon taps to `configuration.onRowTap` instead.
+    private var isReadOnly: Bool {
+        configuration.onRowTap != nil
+    }
+
     // MARK: - Body
-    
+
     var body: some View {
-        
+
         VStack(alignment: .leading, spacing: 2) {
-            
+
             HStack {
-                
+
                 TextField("", text: $editingText, selection: $titleSelection)
                     .font(SpreadTheme.Typography.body)
                     .foregroundStyle(entry.status.iconColor)
@@ -87,7 +93,7 @@ struct EntryRowView: View {
                     .strikethrough(configuration.hasStrikethrough?(entry) ?? false, color: .secondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .disabled(entry.status.inlineChangesAreLocked)
+                    .disabled(entry.status.inlineChangesAreLocked || isReadOnly)
                     .focused($isTitleFocused)
                     .submitLabel(.done)
                     .onSubmit { commitTitleEdit() }
@@ -105,12 +111,12 @@ struct EntryRowView: View {
                             }
                         }
                     }
-                
+
                 ForEach(chips.indices, id: \.self) { i in
                     LabelChip(chips[i])
                 }
             }
-            
+
             if let subtitle = configuration.subtitle?(entry) {
                 Text(subtitle)
                     .font(SpreadTheme.Typography.caption)
@@ -127,9 +133,11 @@ struct EntryRowView: View {
             }
         }
         .contentShape(Rectangle())
-        .contextMenu {
-            menuButtons(labelStyle: .titleAndIcon)
-        }
+        .modifier(ReadOnlyRowInteractionModifier(
+            isReadOnly: isReadOnly,
+            onRowTap: { configuration.onRowTap?(entry) },
+            contextMenuContent: { menuButtons(labelStyle: .titleAndIcon) }
+        ))
         .onChange(of: isTitleFocused) { _, isFocused in
             if isFocused {
                 editingText = entry.title
@@ -291,6 +299,25 @@ struct EntryRowView: View {
 
         configuration.showAlert?(alert)
         isConfirmingChanges = false
+    }
+}
+
+// MARK: - Read-Only Row Interaction
+
+/// Switches a row between its normal long-press context menu and a read-only tap-to-navigate
+/// mode, depending on `isReadOnly`. Kept as a separate modifier (rather than inline `if`/`else`
+/// in `EntryRowView.body`) so the two interaction modes don't need to share one expression's type.
+private struct ReadOnlyRowInteractionModifier<ContextMenuContent: View>: ViewModifier {
+    let isReadOnly: Bool
+    let onRowTap: () -> Void
+    @ViewBuilder let contextMenuContent: () -> ContextMenuContent
+
+    func body(content: Content) -> some View {
+        if isReadOnly {
+            content.onTapGesture(perform: onRowTap)
+        } else {
+            content.contextMenu(menuItems: contextMenuContent)
+        }
     }
 }
 
