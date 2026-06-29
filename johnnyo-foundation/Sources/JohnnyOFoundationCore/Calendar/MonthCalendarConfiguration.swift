@@ -1,6 +1,6 @@
 import Foundation
 
-public struct MonthCalendarConfiguration: Sendable {
+public struct MonthCalendarConfiguration: Hashable, Sendable {
     public var showsPeripheralDates: Bool
 
     public init(showsPeripheralDates: Bool = true) {
