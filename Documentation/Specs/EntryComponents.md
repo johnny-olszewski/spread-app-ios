@@ -1,8 +1,8 @@
 # Entry Components
 
 > **Status**: Draft  
-> **SPRD tasks**: [SPRD-227]  
-> **Session**: SESH-22
+> **SPRD tasks**: [SPRD-227], [SPRD-270]  
+> **Session**: SESH-22, SESH-25
 
 ## Overview
 
@@ -19,6 +19,7 @@ This spec covers the view-layer component architecture for rendering entry statu
 - `EntryIconSize` is deleted. Call sites that previously used it to convert `Font.TextStyle` to points switch to raw `CGFloat` literals. [SPRD-227]
 - `rowIconColor` is removed from `EntryRowView`. `EntryRowView` renders `EntryStatusIcon` directly from `entry.baseShape` and the effective row status config. [SPRD-227]
 - `TaskDetailSheet` renders its title status icon with an inline button containing `EntryStatusIcon`; no shared wrapper component is used. [SPRD-227]
+- The `.slash` overlay's `frameSize` is enlarged (centered, no alignment change) so it visually extends past the base circle's edges on both ends, matching the "extends beyond the circle" look `.arrowRight` already has — a configuration-only change to existing `EntryStatusIcon.overlayView` values, with no new shapes, enums, or view types. [SPRD-270]
 
 ### Entry protocol — single status property
 
@@ -139,6 +140,13 @@ All alerts (spread delete, entry delete, discard title changes) are handled by a
 `standardNoteConfig` provides `.openEdit` (opens the note detail sheet) and `.delete` (triggers the `deleteEntryConfirmation` alert) actions, matching the task row pattern. Notes do not have a status icon tap handler — the leading icon is display-only.
 
 ---
+
+### Decision: `.slash` extends beyond the circle symmetrically, not directionally like `.arrowRight`
+
+- **Context**: `.arrowRight` (the `.migrated` overlay) already reads as "extending beyond the circle" — its `frameSize` is `CGSize(width: s * 2, height: s)` with `overlayAlignment == .leading`, so the arrow starts at the base shape's center and pokes out past its trailing edge. The user wants `.slash` (the `.cancelled` overlay, currently `frameSize: CGSize(width: s * 1.1, height: s * 1.1)`, centered, fully contained within the circle) to read the same way.
+- **Decision**: Unlike the arrow, a diagonal slash has no inherent direction to point the oversized frame toward. Rather than copying `.arrowRight`'s leading-alignment mechanism, `.slash` keeps `overlayAlignment == .center` (no change to `EntryStatusIcon.overlayAlignment`) and only its `frameSize` multiplier grows — large enough that the diagonal line's two ends clear the base circle's bounds on both sides. `strokeStyle`'s `lineWidth` scales with it, consistent with how `.xmark`/`.arrowRight` already scale their line width off `s`.
+- **Rationale**: Reuses the exact same `AnimatedOverlayView`/`Config` plumbing already in place for `.xmark`/`.arrowRight`/`.slash` — this is a numeric tuning change to one `case .slash:` branch in `EntryStatusIcon.overlayView`, not a new shape, alignment case, or component. Matches the user's explicit ask to keep this "mostly configuration of existing objects."
+- **SPRD reference**: SPRD-270
 
 ## Open Questions
 

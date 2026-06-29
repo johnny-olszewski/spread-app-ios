@@ -7028,3 +7028,17 @@ Supabase: SPRD-85A -> SPRD-85C
   2. `[SPRD-269][2/n]` — Added `SpreadTheme.Icon` (59 initial cases) + `SpreadThemeIconTests.swift`.
   3. `[SPRD-269][3/n]`–`[9/n]` — Migrated all ~99 call sites across ~44 files (more than originally estimated) in batches: Tasks/Notes/Auth/Collections/Settings sheets, spread content views, `SpreadButton`/`SyncIconButton`/`EntryListOptionsPicker` components, `RootNavigationView`'s `Tab`, `Action`'s menu icons, `Spread/Debug/*`, and a final repo-wide sweep for stragglers. Added `.sized(_:)`/`.iconTint(_:)` to `SpreadTheme.Icon` along the way (see AC correction). Full `xcodebuild build` + `test` (1324/1324) pass after every batch.
 - Remaining for this task: manual/visual verification that migrated icons render with unchanged size/color/state semantics (no automated tool exists for this — needs the user to spot-check key screens, e.g. tab bar, Day spread toolbar, sync icon, debug menu).
+
+### [SPRD-270] Visual: Restyle the cancelled-status slash overlay to extend beyond the circle like the migrated-status arrow - [ ] Pending
+
+- **Context**: The `.migrated` status's `.arrowRight` overlay already reads as "extending beyond the circle" — its oversized, leading-aligned frame makes the arrow start at the base shape's center and poke out past its trailing edge. The user wants the `.cancelled` status's `.slash` overlay (currently a small diagonal line fully contained within the circle) to read the same way, reusing `EntryStatusIcon`'s existing `AnimatedOverlayView`/`Config` structure rather than introducing any new shape or component.
+- **Description**: In `EntryStatusIcon.swift`'s `overlayView`, enlarge the `.slash` case's `frameSize` multiplier (currently `s * 1.1` on both axes) so the diagonal line's ends clear the base circle's bounds on both sides, and scale `strokeStyle`'s `lineWidth` to match — purely numeric tuning of one existing switch case. `overlayAlignment` stays `.center` for `.slash` (no new alignment case): unlike the arrow, a diagonal slash has no inherent direction, so the "extends beyond circle" effect comes from frame size alone, symmetrically on both ends, not from `.arrowRight`'s leading-alignment mechanism.
+- **Spec**: `Documentation/Specs/EntryComponents.md` — "Decision: `.slash` extends beyond the circle symmetrically, not directionally like `.arrowRight`"
+- **Acceptance Criteria**:
+  - [ ] `.slash`'s `frameSize` in `EntryStatusIcon.overlayView` is large enough that the diagonal line visibly extends past the base circle's edges on both ends, at the default 12pt icon size and at larger sizes used elsewhere (17/28/34pt, per the existing "Sizes" preview).
+  - [ ] `.slash`'s `strokeStyle.lineWidth` scales proportionally with the new frame size, consistent with how `.xmark`/`.arrowRight` already scale off `s`.
+  - [ ] `overlayAlignment` is unchanged (`.slash` still resolves to `.center`) — no new `OverlayShape` case, `BaseShape` case, or view type is added.
+  - [ ] No other `.slash` call site exists to re-verify — confirmed via `grep` that `EntryStatus.overlayShape`'s `.cancelled` branch is the only place `.slash` is referenced.
+  - [ ] Existing `#Preview` blocks in `EntryStatusIcon.swift` (`"Task Statuses"`, `"Sizes"`) continue to compile and show the resized cancel icon.
+- **Tests**:
+  - Manual/visual verification via `EntryStatusIcon.swift`'s existing previews (no unit test changes needed — `EntryStatusPresentationTests.swift` covers status-to-shape mapping, which is unchanged; this task only retunes draw-time sizing).
