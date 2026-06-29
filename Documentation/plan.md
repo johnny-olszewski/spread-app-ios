@@ -7044,3 +7044,48 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**:
   - [x] `EntryStatusPresentationTests.swift` (status-to-shape mapping, unaffected by this draw-time-only change) re-run and passing.
   - [ ] Manual/visual verification via `EntryStatusIcon.swift`'s existing previews — pending user spot-check.
+### [SPRD-271] Perf: Cache MonthCalendarModel and row-overlay layouts per month - [ ] Open
+
+- **Context**: Profiling the Spreads navigator calendar (analysis on 2026-06-28) found that `MonthCalendarView.init` (`johnnyo-foundation/Sources/JohnnyOFoundationUI/Calendar/MonthCalendarView.swift:50-65`) calls `MonthCalendarModelBuilder.makeModel(...)` and `MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts(...)` unconditionally on every `init` — i.e. every time `CalendarView`'s body re-evaluates that month's `ForEach` row, not just on first appearance. Since `LazyVStack` only defers *off-screen* months, every currently-visible month repeats full week-grid construction and multiday-bar lane-packing on any upstream state change (selection, year picker, unrelated `@Observable` mutation the view chain depends on). Neither builder result is cached or memoized anywhere.
+- **Description**: Add a cache keyed by the builder inputs — `(displayedMonth, calendar, configuration, today)` for `MonthCalendarModelBuilder.makeModel`, and `(overlays identity/hash, model, calendar, maximumVisibleLaneCount)` for `MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts` — so repeated `MonthCalendarView.init` calls for the same inputs reuse the prior result instead of rebuilding. Scope this inside `johnnyo-foundation` (the package already owns both builders); do not change `MonthCalendarView`'s public init signature or its callers (`CalendarView`, `SpreadsNavigatorView`). Favor a simple `NSCache`/dictionary-backed cache scoped to the builder type over introducing a new caching abstraction — match the existing static-function style of `MonthCalendarModelBuilder`/`MonthCalendarRowOverlayLayoutBuilder` rather than converting them to stateful types, unless the cache's lifetime/invalidation needs genuinely require an instance (flag this as an architectural decision if it comes up — don't assume).
+- **Spec**: `Documentation/Specs/CalendarFoundation.md`
+- **Acceptance Criteria**:
+  - [ ] Re-rendering `CalendarView` with the same visible months and unchanged inputs does not re-run `MonthCalendarModelBuilder.makeModel` or `MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts` for those months a second time (verified via a call-counting test double or instrumentation, not just visual inspection).
+  - [ ] Changing `displayedMonth`, `calendar`, `configuration`, or the overlay set for a month still produces a freshly correct model/layout for that month (no stale-cache bugs).
+  - [ ] `MonthCalendarView`'s public init signature and existing call sites (`CalendarView.swift`, `SpreadsNavigatorView.swift`) are unchanged.
+  - [ ] Project builds with no errors or warnings; full existing `johnnyo-foundation` and `Spread` test suites pass unmodified.
+- **Tests**:
+  - [ ] New unit test(s) in the `johnnyo-foundation` package asserting `MonthCalendarModelBuilder.makeModel` is not re-invoked (e.g. via a counting wrapper or cache-hit assertion) when called twice with identical inputs, and is correctly invoked again when an input changes.
+  - [ ] Equivalent test(s) for `MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts`.
+  - [ ] Existing `MonthCalendarView`/`CalendarView` rendering tests (if any) pass unmodified, confirming the cache is behavior-preserving.
+- **Dependencies**: None — purely additive within `johnnyo-foundation`, no dependency on SPRD-272 or SPRD-273.
+
+### [SPRD-272] Perf: Avoid forced multi-month layout from the navigator's initial scrollTo - [ ] Open
+
+- **Context**: `CalendarView.body` (`johnnyo-foundation/Sources/JohnnyOFoundationUI/Calendar/CalendarView.swift:126-136`) calls `proxy.scrollTo(target, anchor: .center)` inside `.onAppear` (deferred one run-loop tick via `DispatchQueue.main.async`) to jump to `initialScrollTarget` (today). Because months are wrapped in a `LazyVStack` (`CalendarView.swift:110`), `scrollTo` on an unrealized item forces SwiftUI to instantiate and lay out every month between the top of the list and the target month to resolve scroll geometry. When the Spreads navigator opens mid-year, this synchronously bursts through however many months precede today — each paying the full `MonthCalendarView.init` cost (compounded further if SPRD-271 isn't done first) — right as the pane animates in, which is the proximate cause of the visible stutter/delay the user reported.
+- **Description**: Change how `CalendarView` reaches its initial scroll position so it doesn't require laying out every intervening month. Options to evaluate (present pros/cons before picking one, since this is a real architectural choice): (a) set the `ScrollView`'s initial content offset/position directly via `scrollPosition(id:anchor:)` or a `ScrollPosition` binding set *before* first layout rather than `scrollTo` after `.onAppear`; (b) split `months` into "before today" and "from today onward" and render only the latter range initially, lazily prepending earlier months on scroll-up; (c) keep `scrollTo` but only require it to resolve geometry for a bounded window (e.g. clamp how far back `LazyVStack` must realize) if SwiftUI APIs allow. Pick the option that eliminates the forced-layout burst without changing the user-visible behavior (calendar opens already scrolled to today). Do not change `CalendarView`'s public init signature.
+- **Spec**: `Documentation/Specs/CalendarFoundation.md`
+- **Acceptance Criteria**:
+  - [ ] Opening the Spreads navigator scrolled to a month other than the first no longer forces synchronous layout of every intervening month (verified via instrumentation/call-counting on `MonthCalendarView.init`, not just visual smoothness).
+  - [ ] The calendar still visibly opens scrolled to `today` (or the configured `initialScrollTarget`), matching current user-visible behavior exactly.
+  - [ ] `CalendarView`'s public init signature is unchanged.
+  - [ ] Project builds with no errors or warnings; full existing `johnnyo-foundation` and `Spread` test suites pass unmodified.
+- **Tests**:
+  - [ ] New unit/UI test asserting the number of `MonthCalendarView` instantiations triggered by initial appearance with a target several months in is bounded (e.g. only the target month ± a small visible window), not proportional to months-since-range-start.
+  - [ ] Existing scroll-to-today behavior test (or a new one if none exists) confirming the visible scroll position matches `today` after appearance.
+- **Dependencies**: None directly, but should land after or alongside SPRD-271 since fixing this without the model/layout cache still leaves a (smaller) burst of rebuild work for the realized window.
+
+### [SPRD-273] Perf: Memoize SpreadsNavigatorView.selectedYearSpreads - [ ] Open
+
+- **Context**: `SpreadsNavigatorView.selectedYearSpreads` (`Spread/Views/Spreads/Navigation/SpreadsNavigatorView.swift:38-42`) is a computed property that walks `calendarModels[selectedYear]?.values.flatMap { $0 }` and dedupes by `UUID` on every access. Because it's referenced from `body` (`SpreadsNavigatorView.swift:107`, passed into `RowOverlayGenerator`), it re-walks and re-dedupes the entire year's model on every single `body` re-evaluation, even though the underlying model for `selectedYear` is unchanged within that render cycle (it only changes when `SpreadsTabView` rebuilds `navigatorCalendarModels`, a much rarer event). This is the smallest of the three identified issues but is pure wasted work on every render.
+- **Description**: Memoize `selectedYearSpreads` so it's only recomputed when `calendarModels` or `selectedYear` actually change, rather than on every `body` evaluation. Given `SpreadsNavigatorView` is a `View` struct (no identity across re-renders to hang a cache on directly), evaluate options: (a) precompute the deduped array once in `SpreadsTabView` alongside `navigatorCalendarModels` (same lifecycle, same staleness profile) and pass it down instead of deriving it inside `SpreadsNavigatorView`; (b) keep it local but back it with a `@State`-held cache keyed on `(selectedYear, a cheap change-detector for calendarModels)` recomputed in `.onChange`. Prefer (a) if it doesn't leak navigator-specific derivation into `SpreadsTabView` in a way that violates separation of concerns — flag the tradeoff before picking.
+- **Spec**: `Documentation/Specs/CalendarFoundation.md`
+- **Acceptance Criteria**:
+  - [ ] `selectedYearSpreads`'s dedup walk is not re-executed on every `SpreadsNavigatorView.body` evaluation when `calendarModels` and `selectedYear` are unchanged from the prior render.
+  - [ ] Switching `selectedYear`, or `calendarModels` itself changing, still produces a correct, fully up-to-date deduped spread list (no stale-cache bugs).
+  - [ ] `SpreadsNavigatorView`'s and `SpreadsTabView`'s existing public-facing behavior (multiday bar rendering via `RowOverlayGenerator`) is unchanged.
+  - [ ] Project builds with no errors or warnings; full existing `Spread` test suite passes unmodified.
+- **Tests**:
+  - [ ] New unit test asserting the memoized/cached path is not recomputed across repeated accesses with unchanged inputs (call-counting on the dedup logic or equivalent instrumentation).
+  - [ ] Test confirming a `selectedYear` change produces the correct deduped spread list for the new year.
+- **Dependencies**: None — independent of SPRD-271/SPRD-272, can land in any order.
