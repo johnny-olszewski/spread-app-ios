@@ -104,26 +104,30 @@ struct DaySpreadContentView: View {
                     .spreadCard()
                 }
 
-                EntryListView(
-                    sections: viewModel.overdueSections + viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption),
-                    configurationMap: viewModel.entryConfigurationMap
-                ) { section in
-                    // Section ids are list names only when grouping by list — other groupings
-                    // (tag/status/none) have no notion of a corresponding list to preselect.
-                    let sectionList = groupingOption == .list
-                        ? viewModel.context.journalManager.lists.first { $0.name == section.id }
-                        : nil
-                    QuickAddButton(
-                        coordinator: viewModel.context.coordinator,
-                        anchorID: section.id,
-                        date: viewModel.spread.date,
-                        period: viewModel.spread.period,
-                        availableLists: viewModel.context.journalManager.lists,
-                        availableTags: viewModel.context.journalManager.tags,
-                        preselectedList: sectionList,
-                        accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton,
-                        onAddTask: viewModel.onAddTask
-                    )
+                VStack(spacing: 0) {
+                    OverdueCardView(spread: viewModel.spread, context: viewModel.context)
+
+                    EntryListView(
+                        sections: viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption),
+                        configurationMap: viewModel.entryConfigurationMap
+                    ) { section in
+                        // Section ids are list names only when grouping by list — other groupings
+                        // (tag/status/none) have no notion of a corresponding list to preselect.
+                        let sectionList = groupingOption == .list
+                            ? viewModel.context.journalManager.lists.first { $0.name == section.id }
+                            : nil
+                        QuickAddButton(
+                            coordinator: viewModel.context.coordinator,
+                            anchorID: section.id,
+                            date: viewModel.spread.date,
+                            period: viewModel.spread.period,
+                            availableLists: viewModel.context.journalManager.lists,
+                            availableTags: viewModel.context.journalManager.tags,
+                            preselectedList: sectionList,
+                            accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton,
+                            onAddTask: viewModel.onAddTask
+                        )
+                    }
                 }
             }
             .padding(.horizontal, SpreadTheme.Spacing.large)
