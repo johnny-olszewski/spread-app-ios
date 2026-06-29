@@ -350,33 +350,115 @@ struct OverdueCardViewTests {
         #expect(context.coordinator.activeAlert == nil)
     }
 
-    /// Setup: tapping the status icon for a task whose source is a concrete spread.
-    /// Expected: a confirmation alert is shown instead of navigating immediately or toggling status.
-    @MainActor @Test func statusIconTapOnSpreadSourcedTaskShowsConfirmationAlert() async throws {
+    /// Setup: the configuration built by `sections(...)` for a custom `onStatusIconTap` closure.
+    /// Expected: the exact closure passed in is wired to `onStatusIconTap` -- the status icon
+    /// remains fully interactive (no built-in confirmation/alert at this layer); the calling
+    /// view (`OverdueCardView.body`) owns the actual rotate + grace-period behavior.
+    @MainActor @Test func statusIconTapUsesTheSuppliedClosure() async throws {
         let today = Self.date(2026, 1, 12)
         let overdueDate = Self.date(2026, 1, 10)
-        let sourceSpread = DataModel.Spread(period: .day, date: overdueDate, calendar: Self.testCalendar)
         let task = DataModel.Task(
             title: "Overdue",
             date: overdueDate,
             period: .day,
             status: .open,
-            currentAssignments: [Assignment(period: .day, date: overdueDate, spreadID: sourceSpread.id, status: .open)]
+            currentAssignments: [Assignment(period: .day, date: overdueDate, status: .open)]
         )
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
-        let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread, sourceSpread])
+        let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread])
 
-        let section = try #require(OverdueCardView.sections(for: spread, context: context).first)
+        var tappedEntryIDs: [UUID] = []
+        let section = try #require(
+            OverdueCardView.sections(
+                for: spread,
+                context: context,
+                onStatusIconTap: { entry in tappedEntryIDs.append(entry.id) }
+            ).first
+        )
         let configuration = try #require(section.configurationMap?[DataModel.Task.configurationKey])
 
         configuration.onStatusIconTap?(task)
 
-        #expect(context.coordinator.selectedSpread?.id != sourceSpread.id)
-        guard case .alert(let model) = context.coordinator.activeAlert else {
-            Issue.record("Expected an active alert")
-            return
-        }
-        #expect(model.id == "overdueCardNavigateConfirmation")
+        #expect(tappedEntryIDs == [task.id])
+        #expect(context.coordinator.activeAlert == nil)
+    }
+
+    // MARK: - Grace period
+
+    /// Setup: a task that has already left `overdueTaskItems` (status is `.complete`, so it's
+    /// no longer open/overdue) but is still within its grace window, passed via `graceTaskIDs`.
+    /// Expected: it still appears in the card's entries, using its live (complete) status, with
+    /// the snapshotted source key from `graceSourceKeys` available for the chip.
+    @MainActor @Test func graceTaskStillAppearsAfterLeavingOverdueTaskItems() async throws {
+        let today = Self.date(2026, 1, 12)
+        let overdueDate = Self.date(2026, 1, 10)
+        let completedTask = DataModel.Task(
+            title: "Just completed",
+            date: overdueDate,
+            period: .day,
+            status: .complete,
+            currentAssignments: [Assignment(period: .day, date: overdueDate, status: .complete)]
+        )
+        let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
+        let context = try await Self.makeContext(today: today, tasks: [completedTask], spreads: [spread])
+        let snapshotKey = TaskReviewSourceKey(kind: .spread(id: spread.id, period: .day, date: overdueDate))
+
+        let sections = OverdueCardView.sections(
+            for: spread,
+            context: context,
+            graceTaskIDs: [completedTask.id],
+            graceSourceKeys: [completedTask.id: snapshotKey]
+        )
+
+        let section = try #require(sections.first)
+        #expect(section.entries.map(\.id) == [completedTask.id])
+        #expect((section.entries.first as? DataModel.Task)?.status == .complete)
+
+        let configuration = try #require(section.configurationMap?[DataModel.Task.configurationKey])
+        let chips = configuration.getChips?(completedTask) ?? []
+        #expect(chips.map(\.title) == [snapshotKey.title])
+    }
+
+    /// Setup: a grace-period task ID that no longer exists in `journalManager.tasks` at all
+    /// (e.g. deleted).
+    /// Expected: it's silently skipped rather than crashing or producing a placeholder entry.
+    @MainActor @Test func graceTaskIDWithNoMatchingTaskIsSkipped() async throws {
+        let today = Self.date(2026, 1, 12)
+        let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
+        let context = try await Self.makeContext(today: today, spreads: [spread])
+
+        let sections = OverdueCardView.sections(
+            for: spread,
+            context: context,
+            graceTaskIDs: [UUID()]
+        )
+
+        #expect(sections.isEmpty)
+    }
+
+    /// Setup: a task that is both live-overdue (in `overdueTaskItems`) AND happens to also be
+    /// listed in `graceTaskIDs` (e.g. a stale grace entry that never got cleared).
+    /// Expected: it appears exactly once -- no duplicate row.
+    @MainActor @Test func taskInBothLiveAndGraceListsAppearsOnce() async throws {
+        let today = Self.date(2026, 1, 12)
+        let overdueDate = Self.date(2026, 1, 10)
+        let task = DataModel.Task(
+            title: "Overdue",
+            date: overdueDate,
+            period: .day,
+            status: .open,
+            currentAssignments: [Assignment(period: .day, date: overdueDate, status: .open)]
+        )
+        let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
+        let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread])
+
+        let sections = OverdueCardView.sections(
+            for: spread,
+            context: context,
+            graceTaskIDs: [task.id]
+        )
+
+        #expect(sections.first?.entries.map(\.id) == [task.id])
     }
 
     /// Setup: tapping the row for an Inbox-sourced overdue task (no spread assignment).

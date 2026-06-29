@@ -129,24 +129,6 @@ extension AlertModel {
         )
     }
 
-    /// Shown when the user taps the status icon on a read-only overdue-card row. Confirms
-    /// before navigating away, since tapping the icon looks like a status toggle elsewhere
-    /// in the app — this surface can't make that change directly.
-    static func overdueCardNavigateConfirmation(
-        destinationLabel: String,
-        onNavigate: @escaping @MainActor () async -> Void
-    ) -> AlertModel {
-        AlertModel(
-            id: "overdueCardNavigateConfirmation",
-            title: "Can't Modify From Here",
-            message: "Navigate to \(destinationLabel) to make changes to this task?",
-            buttons: [
-                Button(label: "Navigate", action: onNavigate),
-                Button(label: "Cancel", role: .cancel)
-            ]
-        )
-    }
-
     /// Shown for an overdue-card row whose task lives in the Inbox — there's no spread to
     /// navigate to, so this is informational only.
     static var overdueCardInboxNotice: AlertModel {

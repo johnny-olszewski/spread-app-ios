@@ -293,16 +293,17 @@ extension EntryRowView.Configuration {
     }
 
     /// Read-only task row configuration for review-only surfaces (currently just the overdue
-    /// card). Tapping the status icon shows a confirmation alert instead of toggling status —
-    /// tapping looks like a status toggle everywhere else in the app, so this surface can't
-    /// silently make that change directly. Tapping anywhere else on the row navigates straight
-    /// to the task's source spread, or shows an informational alert when the source is Inbox
-    /// (no spread to navigate to). No inline title editing, no context menu (no `actions`).
+    /// card). The status icon still works — the caller supplies `onStatusIconTap` (e.g. to
+    /// rotate status with a grace period before the row disappears). Tapping anywhere else on
+    /// the row navigates straight to the task's source spread, or shows an informational alert
+    /// when the source is Inbox (no spread to navigate to). No inline title editing, no context
+    /// menu (no `actions`).
     @MainActor
     static func readOnlyOverdueTaskConfig(
         journalManager: JournalManager,
         coordinator: SpreadsCoordinator,
         sourceKey: @escaping (any Entry) -> TaskReviewSourceKey?,
+        onStatusIconTap: @escaping (any Entry) -> Void,
         getChips: ((any Entry) -> [any LabelChipRepresentable])? = nil
     ) -> EntryRowView.Configuration {
 
@@ -315,22 +316,13 @@ extension EntryRowView.Configuration {
             coordinator.selectSpread(targetSpread)
         }
 
-        func handleTap(on entry: any Entry, confirmFirst: Bool) {
+        func handleRowTap(on entry: any Entry) {
             guard let key = sourceKey(entry) else { return }
             switch key.kind {
             case .inbox:
                 coordinator.activeAlert = .alert(.overdueCardInboxNotice)
             case .spread:
-                if confirmFirst {
-                    coordinator.activeAlert = .alert(
-                        .overdueCardNavigateConfirmation(
-                            destinationLabel: key.title,
-                            onNavigate: { navigate(to: key) }
-                        )
-                    )
-                } else {
-                    navigate(to: key)
-                }
+                navigate(to: key)
             }
         }
 
@@ -344,9 +336,9 @@ extension EntryRowView.Configuration {
             isDueDateHighlighted: typed(default: false) { (task: DataModel.Task) in
                 task.isDueDateHighlighted(today: today, calendar: calendar)
             },
-            onStatusIconTap: { entry in handleTap(on: entry, confirmFirst: true) },
+            onStatusIconTap: onStatusIconTap,
             showAlert: { alert in coordinator.activeAlert = alert },
-            onRowTap: { entry in handleTap(on: entry, confirmFirst: false) },
+            onRowTap: { entry in handleRowTap(on: entry) },
             getChips: { entry in getChips?(entry) ?? [] }
         )
     }
