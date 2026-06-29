@@ -45,7 +45,6 @@ struct DaySpreadContentView: View {
                 Capsule()
                     .stroke(SpreadTheme.DotGrid.defaultDots)
                     .frame(height: SpreadTheme.CornerRadius.xxlarge)
-                    .padding(.leading, SpreadTheme.Spacing.large)
                     .padding(.vertical, SpreadTheme.Spacing.large)
                     .padding(.trailing, SpreadTheme.Spacing.medium)
 
@@ -82,6 +81,7 @@ struct DaySpreadContentView: View {
                     .padding(SpreadTheme.Spacing.large)
                 }
             }
+            .padding(.horizontal, SpreadTheme.Spacing.large)
 
             HStack(alignment: .top, spacing: SpreadTheme.Spacing.large) {
                 if viewModel.shouldShowTimelineCard {
