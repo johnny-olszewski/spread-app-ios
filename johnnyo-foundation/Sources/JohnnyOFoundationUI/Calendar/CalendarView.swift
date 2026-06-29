@@ -27,6 +27,14 @@ public struct CalendarView<
     private let initialScrollTarget: Date?
     private let onDateTapped: (Date) -> Void
 
+    /// Backs `.scrollPosition(id:anchor:)`, seeded at construction time from
+    /// `initialScrollTarget`. Using `scrollPosition` rather than `ScrollViewReader.scrollTo`
+    /// lets SwiftUI place the initial scroll offset directly against the target month's `id`
+    /// without forcing every intervening month's `LazyVStack` row to be realized and laid out
+    /// just to resolve scroll geometry — `scrollTo` cannot resolve a position for an
+    /// unrealized item and instead instantiates everything between the top and the target.
+    @State private var scrollPosition: Date?
+
     // MARK: - Init (without overlays)
 
     /// Creates a multi-month calendar without row overlays.
@@ -88,7 +96,8 @@ public struct CalendarView<
         initialScrollTarget: Date? = nil,
         onDateTapped: @escaping (Date) -> Void
     ) {
-        self.months = monthDateRange(from: startDate, to: endDate, calendar: calendar)
+        let months = monthDateRange(from: startDate, to: endDate, calendar: calendar)
+        self.months = months
         self.startDate = startDate
         self.endDate = endDate
         self.calendar = calendar
@@ -98,57 +107,68 @@ public struct CalendarView<
         self.rowOverlayGenerator = rowOverlayGenerator
         self.initialScrollTarget = initialScrollTarget
         self.onDateTapped = onDateTapped
+        self._scrollPosition = State(
+            initialValue: resolvedCalendarScrollTarget(
+                initialScrollTarget: initialScrollTarget,
+                startDate: startDate,
+                endDate: endDate,
+                calendar: calendar,
+                months: months
+            )
+        )
     }
 
     // MARK: - Body
 
     public var body: some View {
         let delegate = DateTapDelegate(onDateTapped)
-        let scrollTarget = resolvedScrollTarget
-        ScrollViewReader { proxy in
-            ScrollView(.vertical) {
-                LazyVStack(spacing: 0) {
-                    ForEach(months, id: \.self) { month in
-                        MonthCalendarView(
-                            displayedMonth: month,
-                            calendar: calendar,
-                            today: today,
-                            configuration: configuration,
-                            contentGenerator: contentGenerator,
-                            rowOverlayGenerator: rowOverlayGenerator,
-                            actionDelegate: delegate
-                        )
-                        .id(month)
-                    }
-                }
-            }
-            .scrollIndicators(.hidden)
-            .onAppear {
-                guard let target = scrollTarget else { return }
-                
-                guard (startDate...endDate).contains(today) else { return }
-                
-                // Defer one run-loop iteration so LazyVStack has established geometry
-                // for items beyond the initial visible window before scrollTo fires.
-                DispatchQueue.main.async {
-                    proxy.scrollTo(target, anchor: .center)
+        ScrollView(.vertical) {
+            LazyVStack(spacing: 0) {
+                ForEach(months, id: \.self) { month in
+                    MonthCalendarView(
+                        displayedMonth: month,
+                        calendar: calendar,
+                        today: today,
+                        configuration: configuration,
+                        contentGenerator: contentGenerator,
+                        rowOverlayGenerator: rowOverlayGenerator,
+                        actionDelegate: delegate
+                    )
+                    .id(month)
                 }
             }
         }
+        .scrollIndicators(.hidden)
+        .scrollPosition(id: $scrollPosition, anchor: .center)
         .accessibilityIdentifier("johnnyo.foundation.calendarView")
     }
+}
 
-    /// Normalizes `initialScrollTarget` to the first-of-month date used as each month's ID,
-    /// returning `nil` when no target is set or the target falls outside the rendered range.
-    private var resolvedScrollTarget: Date? {
-        guard let raw = initialScrollTarget,
-              let firstOfMonth = calendar.date(
-                from: calendar.dateComponents([.year, .month], from: raw)
-              ),
-              months.contains(firstOfMonth)
-        else { return nil }
-        return firstOfMonth
-    }
+// MARK: - Initial Scroll Target
+
+/// Normalizes `initialScrollTarget` to the first-of-month date used as each month's `id`,
+/// returning `nil` when no target is set or it falls outside the rendered range. A free
+/// function (mirroring `monthDateRange` below) rather than a method on `CalendarView` so it
+/// can run before `self` is fully initialized — it seeds `_scrollPosition`'s initial `State`
+/// value directly in `init` — and so package tests can call it directly via `@testable import`
+/// without needing to specialize `CalendarView`'s generic parameters.
+///
+/// Exposed at internal access for the same reason as `monthDateRange`.
+func resolvedCalendarScrollTarget(
+    initialScrollTarget: Date?,
+    startDate: Date,
+    endDate: Date,
+    calendar: Calendar,
+    months: [Date]
+) -> Date? {
+    guard let raw = initialScrollTarget,
+          (startDate...endDate).contains(raw),
+          let firstOfMonth = calendar.date(
+            from: calendar.dateComponents([.year, .month], from: raw)
+          ),
+          months.contains(firstOfMonth)
+    else { return nil }
+    return firstOfMonth
 }
 
 // MARK: - Month Range

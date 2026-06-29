@@ -82,4 +82,48 @@ struct CalendarViewTests {
         #expect(firstComps.month == 4)
         #expect(lastComps.month == 7)
     }
+
+    // initialScrollTarget falls inside the rendered range, mid-month.
+    // Expected: the result normalizes to the first of that target's month.
+    @Test func resolvedScrollTargetNormalizesToFirstOfMonth() {
+        let start = date(year: 2026, month: 1, day: 1)
+        let end = date(year: 2026, month: 12, day: 31)
+        let target = date(year: 2026, month: 6, day: 15)
+        let months = monthDateRange(from: start, to: end, calendar: calendar)
+
+        let result = resolvedCalendarScrollTarget(
+            initialScrollTarget: target, startDate: start, endDate: end, calendar: calendar, months: months
+        )
+
+        #expect(result == date(year: 2026, month: 6, day: 1))
+    }
+
+    // initialScrollTarget is nil.
+    // Expected: no scroll target is resolved.
+    @Test func resolvedScrollTargetIsNilWhenInitialTargetIsNil() {
+        let start = date(year: 2026, month: 1, day: 1)
+        let end = date(year: 2026, month: 12, day: 31)
+        let months = monthDateRange(from: start, to: end, calendar: calendar)
+
+        let result = resolvedCalendarScrollTarget(
+            initialScrollTarget: nil, startDate: start, endDate: end, calendar: calendar, months: months
+        )
+
+        #expect(result == nil)
+    }
+
+    // initialScrollTarget falls entirely outside [startDate, endDate].
+    // Expected: no scroll target is resolved, rather than scrolling to an out-of-range month.
+    @Test func resolvedScrollTargetIsNilWhenTargetOutsideRange() {
+        let start = date(year: 2026, month: 1, day: 1)
+        let end = date(year: 2026, month: 12, day: 31)
+        let target = date(year: 2027, month: 3, day: 1)
+        let months = monthDateRange(from: start, to: end, calendar: calendar)
+
+        let result = resolvedCalendarScrollTarget(
+            initialScrollTarget: target, startDate: start, endDate: end, calendar: calendar, months: months
+        )
+
+        #expect(result == nil)
+    }
 }
