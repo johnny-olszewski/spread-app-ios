@@ -6,7 +6,7 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
     /// Foundation owns row segmentation, same-row lane packing, visible-lane limiting,
     /// and overflow metadata derivation. Visible peripheral dates participate when they
     /// are rendered as day cells; hidden placeholder slots do not.
-    public static func makeWeekLayouts<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>(
+    public static func makeWeekLayouts<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>(
         overlays: [MonthCalendarLogicalRowOverlay<OverlayID, OverlayPayload>],
         model: MonthCalendarModel,
         calendar: Calendar,
@@ -31,7 +31,7 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
         }
     }
 
-    private static func makeWeekLayout<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>(
+    private static func makeWeekLayout<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>(
         for week: MonthCalendarWeek,
         overlays: [NormalizedOverlay<OverlayID, OverlayPayload>],
         visibleLaneCount: Int
@@ -106,7 +106,7 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
         )
     }
 
-    private static func makeRowSegment<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>(
+    private static func makeRowSegment<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>(
         for overlay: NormalizedOverlay<OverlayID, OverlayPayload>,
         week: MonthCalendarWeek,
         visibleDays: [VisibleDay]
@@ -132,7 +132,7 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
         )
     }
 
-    private static func rowSegmentSortOrder<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>(
+    private static func rowSegmentSortOrder<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>(
         _ lhs: RowSegment<OverlayID, OverlayPayload>,
         _ rhs: RowSegment<OverlayID, OverlayPayload>
     ) -> Bool {
@@ -145,7 +145,7 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
         return lhs.overlay.sourceIndex < rhs.overlay.sourceIndex
     }
 
-    private static func pack<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>(
+    private static func pack<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>(
         _ segments: [RowSegment<OverlayID, OverlayPayload>]
     ) -> [RowSegment<OverlayID, OverlayPayload>] {
         var laneEndColumns: [Int] = []
@@ -165,7 +165,7 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
         }
     }
 
-    private static func overflowContext<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>(
+    private static func overflowContext<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>(
         week: MonthCalendarWeek,
         overflowedSegments: [RowSegment<OverlayID, OverlayPayload>],
         visibleSegmentLaneCount: Int,
@@ -225,14 +225,14 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
     }
 }
 
-private struct NormalizedOverlay<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>: Sendable {
+private struct NormalizedOverlay<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>: Sendable {
     let overlay: MonthCalendarLogicalRowOverlay<OverlayID, OverlayPayload>
     let sourceIndex: Int
     let startDate: Date
     let endDate: Date
 }
 
-private struct RowSegment<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>: Sendable {
+private struct RowSegment<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>: Sendable {
     let overlay: NormalizedOverlay<OverlayID, OverlayPayload>
     let week: MonthCalendarWeek
     let visibleStartDate: Date
