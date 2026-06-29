@@ -194,10 +194,16 @@ extension SpreadTheme {
         /// surrounding text size — every call site must size them explicitly. Defaults to
         /// `SpreadTheme.IconSize.medium`, matching the "standard inline icons" sizing SF Symbols
         /// fell back to when used without an explicit `.font()` size.
+        ///
+        /// `.fixedSize()` pins this as the view's *actual* size rather than a mere layout
+        /// preference — needed because some UIKit-bridged chrome (e.g. `Tab`'s floating-glass
+        /// tab bar) lays out custom icon views through its own sizing pass that doesn't reliably
+        /// honor a plain `.frame()` on a non-SF-Symbol image.
         func sized(_ size: CGFloat = SpreadTheme.IconSize.medium) -> some View {
             image
                 .aspectRatio(contentMode: .fit)
                 .frame(width: size, height: size)
+                .fixedSize()
         }
     }
 }
@@ -206,11 +212,17 @@ private struct IconColorBlend: ViewModifier {
     let color: Color
 
     func body(content: Content) -> some View {
-        ZStack {
-            content
-            color.blendMode(.sourceAtop)
-        }
-        .drawingGroup(opaque: false)
+        // `.overlay` sizes the overlaying `Color` to `content`'s own resolved frame. A `ZStack`
+        // here is the wrong tool: a bare `Color` view is greedy — it reports back whatever size
+        // its parent proposes, up to infinity — so `ZStack { content; color }` would size itself
+        // to the *largest* child, letting `color` balloon the whole result to fill all available
+        // space in any context with generous surrounding room (this caused a real bug: the
+        // floating "+" button's circle background filled almost the entire screen).
+        content
+            .overlay {
+                color.blendMode(.sourceAtop)
+            }
+            .drawingGroup(opaque: false)
     }
 }
 
