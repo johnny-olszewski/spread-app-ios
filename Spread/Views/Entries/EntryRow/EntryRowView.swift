@@ -81,7 +81,7 @@ struct EntryRowView: View {
             HStack {
                 
                 TextField("", text: $editingText, selection: $titleSelection)
-                    .font(.body)
+                    .font(SpreadTheme.Typography.body)
                     .foregroundStyle(entry.status.iconColor)
                     .textFieldStyle(.plain)
                     .strikethrough(configuration.hasStrikethrough?(entry) ?? false, color: .secondary)
@@ -113,7 +113,7 @@ struct EntryRowView: View {
             
             if let subtitle = configuration.subtitle?(entry) {
                 Text(subtitle)
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -215,7 +215,11 @@ struct EntryRowView: View {
             Button {
                 onEdit(entry)
             } label: {
-                Label("Edit", systemImage: "square.and.pencil")
+                Label {
+                    Text("Edit")
+                } icon: {
+                    SpreadTheme.Icon.editCompose.sized(SpreadTheme.IconSize.medium)
+                }
             }
             .buttonStyle(.plain)
             .contentShape(Rectangle())
@@ -228,54 +232,18 @@ struct EntryRowView: View {
     @ViewBuilder
     private func menuButtons(labelStyle: some LabelStyle) -> some View {
         ForEach(configuration.actions) { action in
-            toolbarItem(for: action, labelStyle: labelStyle)
-        }
-    }
-
-    @ViewBuilder
-    private func toolbarItem(for action: Configuration.Action, labelStyle: some LabelStyle) -> some View {
-        switch action {
-        case .openEdit(_):
-            editEntryButton(labelStyle)
-        case .migrate(let migrationOptions, let onMigrationSelected):
-            let options = migrationOptions(entry)
-            if !options.isEmpty {
-                Menu {
-                    ForEach(options) { option in
-                        Button {
-                            isConfirmingChanges = true
-                            Task { @MainActor in
-                                await confirmChanges { await onMigrationSelected(entry, option) }
-                            }
-                        } label: {
-                            Label(option.label, systemImage: action.systemImageName)
-                        }
-                        .accessibilityIdentifier(
-                            Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationOption(
-                                entry.title,
-                                option: option.kind.rawValue
-                            )
-                        )
+            action.menuLabel(
+                labelStyle: labelStyle,
+                entry: entry,
+                editEntryButton: { AnyView(editEntryButton(labelStyle)) },
+                onConfirmChanges: { completion in
+                    isConfirmingChanges = true
+                    Task { @MainActor in
+                        await confirmChanges(completion)
                     }
-                } label: {
-                    Label("Migrate", systemImage: action.systemImageName)
-                        .font(.system(size: SpreadTheme.IconSize.medium))
-                        .labelStyle(labelStyle)
-                }
-                .accessibilityLabel("Migrate")
-                .accessibilityIdentifier(
-                    Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu(entry.title)
-                )
-            }
-        case .delete(let deleteEntry):
-            Button {
-                let alert = SpreadsCoordinator.AlertDestination.alert(
-                    AlertModel.deleteEntryConfirmation(confirmAction: { await deleteEntry(entry) })
-                )
-                configuration.showAlert?(alert)
-            } label: {
-                Label("Delete", systemImage: action.systemImageName)
-            }
+                },
+                showAlert: configuration.showAlert
+            )
         }
     }
     

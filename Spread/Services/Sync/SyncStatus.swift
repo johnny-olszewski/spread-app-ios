@@ -130,23 +130,6 @@ enum SyncStatus: Equatable, Sendable {
         }
     }
 
-    /// The SF Symbol name for the current status (legacy — prefer `iconName`).
-    var systemImage: String {
-        switch self {
-        case .idle:
-            "arrow.triangle.2.circlepath"
-        case .syncing:
-            "arrow.triangle.2.circlepath"
-        case .synced:
-            "checkmark.icloud"
-        case .error:
-            "exclamationmark.icloud"
-        case .offline:
-            "icloud.slash"
-        case .localOnly:
-            "internaldrive"
-        }
-    }
 
     /// Whether the status represents an error state.
     var isError: Bool {

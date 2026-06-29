@@ -4,7 +4,10 @@ import Testing
 
 /// Tests for entry list grouping logic.
 ///
-/// Day spread grouping is covered via `DaySpreadContentView.ViewModel.makeSections`.
+/// Day spread grouping is covered via `DaySpreadContentView.ViewModel.makeSections`, exercised
+/// here with `.list`/`.dueDate` (the spread's default picker selection) to prove parity with the
+/// pre-SPRD-259 hand-rolled behavior these tests originally covered. The "Untitled" bucket name
+/// (was "No List") is a deliberate, documented SPRD-259 change — see `EntryGroupingOption`.
 /// Multiday spread grouping is covered via `MultidaySpreadContentView.ViewModel.makeSections`.
 @Suite("Entry List Grouping Tests")
 @MainActor
@@ -41,9 +44,8 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
 
@@ -52,7 +54,7 @@ struct EntryListGroupingTests {
         #expect(sections[0].entries.map(\.title) == ["Alpha Task 1"])
         #expect(sections[1].title == "Beta")
         #expect(sections[1].entries.map(\.title) == ["Beta Task"])
-        #expect(sections[2].title == "No List")
+        #expect(sections[2].title == "Untitled")
         let unlisted = sections[2].entries.map(\.title)
         #expect(unlisted.contains("No list"))
         #expect(unlisted.contains("Note"))
@@ -73,14 +75,13 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
 
         #expect(sections.count == 1)
-        #expect(sections[0].title == "No List")
+        #expect(sections[0].title == "Untitled")
         #expect(sections[0].entries.count == 3)
     }
 
@@ -99,16 +100,15 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
 
         #expect(sections.count == 2)
         #expect(sections[0].title == "Work")
         #expect(sections[0].entries.map(\.title) == ["Listed task"])
-        #expect(sections[1].title == "No List")
+        #expect(sections[1].title == "Untitled")
         #expect(sections[1].entries.count == 2)
     }
 
@@ -124,9 +124,8 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
 
@@ -141,9 +140,8 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: [],
             spreadDate: spreadDate,
-            calendar: calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
         #expect(sections.isEmpty)
@@ -163,9 +161,8 @@ struct EntryListGroupingTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
 
@@ -193,7 +190,9 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 4)
@@ -218,7 +217,9 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 3)
@@ -243,7 +244,9 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .dueDate
         )
 
         let aprilFirst = makeDate(year: 2026, month: 4, day: 1)
@@ -269,7 +272,9 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 3)
@@ -295,12 +300,69 @@ struct EntryListGroupingTests {
             spreadDate: startDate,
             startDate: startDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .dueDate
         )
 
         let rangeSection = sections.first { $0.creationPeriod == .multiday }
         #expect(rangeSection != nil)
         #expect(rangeSection?.title == "This Range")
         #expect(rangeSection?.entries.map(\.title) == ["Range task"])
+    }
+
+    /// `groupingOption` subdivides only the leading "This Range" section (multiday-assigned
+    /// entries) into one card per group — day cards are unaffected.
+    /// Expected: two "This Range — <list>" sections, one per list.
+    @Test("Multiday This Range section subdivides by groupingOption")
+    func multidayRangeSectionSubdividesByGrouping() {
+        let startDate = makeDate(year: 2026, month: 1, day: 6)
+        let endDate = makeDate(year: 2026, month: 1, day: 8)
+        let listA = DataModel.List(name: "Alpha")
+        let listB = DataModel.List(name: "Beta")
+        let entries: [any Entry] = [
+            DataModel.Task(title: "Range task A", date: startDate, period: .multiday, list: listA),
+            DataModel.Task(title: "Range task B", date: startDate, period: .multiday, list: listB)
+        ]
+
+        let sections = MultidaySpreadContentView.ViewModel.makeSections(
+            from: entries,
+            spreadDate: startDate,
+            startDate: startDate,
+            endDate: endDate,
+            calendar: calendar,
+            groupingOption: .list,
+            sortingOption: .dueDate
+        )
+
+        let rangeSections = sections.filter { $0.creationPeriod == .multiday }
+        #expect(rangeSections.count == 2)
+        #expect(rangeSections.map(\.title) == ["This Range — Alpha", "This Range — Beta"])
+    }
+
+    /// `sortingOption` orders entries within each day card, even though `groupingOption`
+    /// does not subdivide day cards.
+    /// Expected: a day card's entries are ordered alphabetically by title when `sortingOption == .title`.
+    @Test("Multiday day card entries follow sortingOption")
+    func multidayDayCardEntriesFollowSortingOption() {
+        let startDate = makeDate(year: 2026, month: 1, day: 6)
+        let endDate = makeDate(year: 2026, month: 1, day: 6)
+        let entries: [any Entry] = [
+            DataModel.Task(title: "Zebra task", date: startDate, period: .day),
+            DataModel.Task(title: "Apple task", date: startDate, period: .day)
+        ]
+
+        let sections = MultidaySpreadContentView.ViewModel.makeSections(
+            from: entries,
+            spreadDate: startDate,
+            startDate: startDate,
+            endDate: endDate,
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .title
+        )
+
+        #expect(sections.count == 1)
+        #expect(sections[0].entries.map(\.title) == ["Apple task", "Zebra task"])
     }
 }

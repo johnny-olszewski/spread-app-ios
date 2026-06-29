@@ -4,11 +4,6 @@ import SwiftUI
 enum EntryList {}
 
 extension EntryList {
-    enum SectionTitleStyle {
-        case primary
-        case secondary
-    }
-
     /// Controls the visual chrome applied to a section by `EntryListView`.
     ///
     /// When `nil` (the default), sections render inside the standard `List`.
@@ -38,8 +33,6 @@ extension EntryList {
         /// The display title for the section header.
         let title: String
 
-        let titleStyle: SectionTitleStyle
-
         /// The date this section represents.
         ///
         /// For year spreads: First day of the month
@@ -68,7 +61,6 @@ extension EntryList {
         init(
             id: String,
             title: String,
-            titleStyle: SectionTitleStyle = .primary,
             date: Date,
             entries: [any Entry],
             creationPeriod: Period,
@@ -81,7 +73,6 @@ extension EntryList {
         ) {
             self.id = id
             self.title = title
-            self.titleStyle = titleStyle
             self.date = date
             self.entries = entries
             self.creationPeriod = creationPeriod

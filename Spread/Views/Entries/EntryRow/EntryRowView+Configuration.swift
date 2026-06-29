@@ -8,6 +8,12 @@ extension EntryRowView {
     /// One configuration per entry type is stored in `EntryListViewModel.configurationMap`. At render time
     /// `EntryRowView` calls each closure with the specific entry to derive per-row values. All business logic —
     /// date formatting, persistence callbacks — lives in closures built at the call site.
+    ///
+    /// `actions` covers menu/toolbar-item gestures only. Drag-to-migrate and swipe actions (both possible
+    /// eventually, no concrete priority yet) are a deliberately deferred, separate extension point — they're
+    /// gestures applied to the row's container view (`.draggable`/`.swipeActions`), not menu items, so they
+    /// can't be folded into `Action`. No speculative closures are added for them here until that work is
+    /// actually scoped.
     /// A dictionary mapping concrete `Entry` metatypes (via `ObjectIdentifier`) to row configurations.
     ///
     /// Build maps using `Entry.configurationKey` on each conforming type:
@@ -34,11 +40,11 @@ extension EntryRowView {
                 }
             }
             
-            var systemImageName: String {
+            var icon: SpreadTheme.Icon {
                 switch self {
-                case .openEdit(_): "square.and.pencil"
-                case .migrate(_, _): "arrow.right"
-                case .delete(_): "trash"
+                case .openEdit(_): .editCompose
+                case .migrate(_, _): .arrowRight
+                case .delete(_): .trash
                 }
             }
 
@@ -56,6 +62,75 @@ extension EntryRowView {
                 let period: Period
 
                 var id: String { kind.rawValue }
+            }
+
+            /// Builds this action's menu/toolbar item.
+            ///
+            /// `editEntryButton`/`onConfirmChanges` exist because `.openEdit`'s button and the
+            /// inline-edit-confirmation flow are owned by `EntryRowView` itself (a pre-built
+            /// button view and `@State`-backed confirmation respectively) — `Action` has no
+            /// view identity of its own to hold either, so the caller supplies them.
+            @ViewBuilder
+            func menuLabel(
+                labelStyle: some LabelStyle,
+                entry: any Entry,
+                editEntryButton: @escaping () -> AnyView,
+                onConfirmChanges: @escaping (@escaping @MainActor () async -> Void) -> Void,
+                showAlert: ((SpreadsCoordinator.AlertDestination) -> Void)?
+            ) -> some View {
+                switch self {
+                case .openEdit:
+                    editEntryButton()
+                case .migrate(let migrationOptions, let onMigrationSelected):
+                    let options = migrationOptions(entry)
+                    if !options.isEmpty {
+                        Menu {
+                            ForEach(options) { option in
+                                Button {
+                                    onConfirmChanges {
+                                        await onMigrationSelected(entry, option)
+                                    }
+                                } label: {
+                                    Label {
+                                        Text(option.label)
+                                    } icon: {
+                                        icon.sized(SpreadTheme.IconSize.medium)
+                                    }
+                                }
+                                .accessibilityIdentifier(
+                                    Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationOption(
+                                        entry.title,
+                                        option: option.kind.rawValue
+                                    )
+                                )
+                            }
+                        } label: {
+                            Label {
+                                Text("Migrate")
+                            } icon: {
+                                icon.sized(SpreadTheme.IconSize.medium)
+                            }
+                            .labelStyle(labelStyle)
+                        }
+                        .accessibilityLabel("Migrate")
+                        .accessibilityIdentifier(
+                            Definitions.AccessibilityIdentifiers.SpreadContent.taskInlineMigrationMenu(entry.title)
+                        )
+                    }
+                case .delete(let deleteEntry):
+                    Button {
+                        let alert = SpreadsCoordinator.AlertDestination.alert(
+                            AlertModel.deleteEntryConfirmation(confirmAction: { await deleteEntry(entry) })
+                        )
+                        showAlert?(alert)
+                    } label: {
+                        Label {
+                            Text("Delete")
+                        } icon: {
+                            icon.sized(SpreadTheme.IconSize.medium)
+                        }
+                    }
+                }
             }
         }
 
@@ -114,11 +189,9 @@ extension EntryRowView.Configuration {
             hasStrikethrough: {
                 entry in entry.status == .cancelled
             },
-            dueDateLabel: {
-                entry in (entry as? DataModel.Task)?.dueDateLabel(calendar: calendar)
-            },
-            isDueDateHighlighted: { entry in
-                (entry as? DataModel.Task)?.isDueDateHighlighted(today: today, calendar: calendar) ?? false
+            dueDateLabel: typed { (task: DataModel.Task) in task.dueDateLabel(calendar: calendar) },
+            isDueDateHighlighted: typed(default: false) { (task: DataModel.Task) in
+                task.isDueDateHighlighted(today: today, calendar: calendar)
             },
             onStatusIconTap: { entry in
                 
@@ -146,7 +219,7 @@ extension EntryRowView.Configuration {
                 .migrate(
                     migrationOptions: { entry in
                         guard let task = entry as? DataModel.Task else { return [] }
-                        return taskMigrationOptions(for: task, today: today, calendar: calendar)
+                        return task.migrationOptions(today: today, calendar: calendar)
                     },
                     onMigrationSelected: { entry, option in
                         guard let task = entry as? DataModel.Task else { return }
@@ -160,10 +233,7 @@ extension EntryRowView.Configuration {
                 })
                 
             ],
-            getChips: { entry in
-                guard let task = entry as? DataModel.Task else { return [] }
-                return getChips?(task) ?? task.tags
-            }
+            getChips: typed(default: []) { (task: DataModel.Task) in getChips?(task) ?? task.tags }
         )
     }
 
@@ -175,7 +245,7 @@ extension EntryRowView.Configuration {
         coordinator: SpreadsCoordinator
     ) -> EntryRowView.Configuration {
         return EntryRowView.Configuration(
-            isGreyedOut: { entry in (entry as? DataModel.Note)?.status == .migrated },
+            isGreyedOut: typed(default: false) { (note: DataModel.Note) in note.status == .migrated },
             showAlert: { alert in coordinator.activeAlert = alert },
             actions: [
                 .openEdit(onTapEditButton: { entry in
@@ -196,13 +266,11 @@ extension EntryRowView.Configuration {
         let calendar = journalManager.configuredCalendar
         let today = journalManager.today
         return EntryRowView.Configuration(
-            isGreyedOut: { entry in
-                guard let event = entry as? DataModel.Event else { return false }
-                return (event.calendarEvent?.endDate ?? event.endDate) < today
+            isGreyedOut: typed(default: false) { (event: DataModel.Event) in
+                (event.calendarEvent?.endDate ?? event.endDate) < today
             },
-            subtitle: { entry in
-                guard let event = entry as? DataModel.Event,
-                      let calEvent = event.calendarEvent else { return nil }
+            subtitle: typed { (event: DataModel.Event) -> String? in
+                guard let calEvent = event.calendarEvent else { return nil }
                 if calEvent.isAllDay {
                     return "All Day · \(calEvent.calendarTitle)"
                 } else {
@@ -218,74 +286,20 @@ extension EntryRowView.Configuration {
     }
 }
 
-// MARK: - Migration option computation
+// MARK: - Type-Narrowing Helpers
 
-fileprivate func taskMigrationOptions(
-    for task: DataModel.Task,
-    today: Date,
-    calendar: Calendar
-) -> [EntryRowView.Configuration.Action.MigrationOption] {
-    guard task.status == .open else { return [] }
-
-    // No preferred date means the task has no current position, so no candidate should be
-    // excluded as "already there" — .distantPast never matches a real comparison below.
-    let taskCurrentDate = task.date ?? .distantPast
-
-    let normalizedToday = Period.day.normalizeDate(today, calendar: calendar)
-    let tomorrow = calendar.date(byAdding: .day, value: 1, to: normalizedToday)
-    let nextMonthStart = calendar.date(byAdding: .month, value: 1, to: normalizedToday)?
-        .firstDayOfMonth(calendar: calendar)
-    let sameDayNextMonth = calendar.date(byAdding: .month, value: 1, to: normalizedToday)
-
-    let todayComponents = calendar.dateComponents([.day], from: normalizedToday)
-    let sameDayComponents = sameDayNextMonth.map { calendar.dateComponents([.day], from: $0) }
-
-    var options: [EntryRowView.Configuration.Action.MigrationOption] = []
-
-    if task.period != .day || !calendar.isDate(taskCurrentDate, inSameDayAs: normalizedToday) {
-        options.append(.init(kind: .today, label: "Today", date: normalizedToday, period: .day))
-    }
-
-    if let tomorrow, (task.period != .day || !calendar.isDate(taskCurrentDate, inSameDayAs: tomorrow)) {
-        options.append(.init(kind: .tomorrow, label: "Tomorrow", date: tomorrow, period: .day))
-    }
-
-    if let nextMonthStart,
-       task.period != .month || !calendar.isDate(taskCurrentDate, equalTo: nextMonthStart, toGranularity: .month) {
-        options.append(.init(
-            kind: .nextMonth,
-            label: migrationMonthLabel(for: nextMonthStart, calendar: calendar),
-            date: nextMonthStart,
-            period: .month
-        ))
-    }
-
-    if let sameDayNextMonth,
-       todayComponents.day == sameDayComponents?.day,
-       task.period != .day || !calendar.isDate(taskCurrentDate, inSameDayAs: sameDayNextMonth) {
-        options.append(.init(
-            kind: .nextMonthSameDay,
-            label: migrationDayLabel(for: sameDayNextMonth, calendar: calendar),
-            date: sameDayNextMonth,
-            period: .day
-        ))
-    }
-
-    return options
+/// Wraps a closure typed over a concrete `Entry` conformer, downcasting once instead of
+/// repeating `entry as? Concrete` guards throughout each `standard*Config` factory. Returns
+/// `nil` when `entry` isn't an `E` — for closures whose own return type is already `Optional`.
+fileprivate func typed<E: Entry, T>(_ body: @escaping (E) -> T?) -> (any Entry) -> T? {
+    { entry in (entry as? E).flatMap(body) }
 }
 
-fileprivate func migrationMonthLabel(for date: Date, calendar: Calendar) -> String {
-    let formatter = DateFormatter()
-    formatter.calendar = calendar
-    formatter.timeZone = calendar.timeZone
-    formatter.dateFormat = "LLLL yyyy"
-    return formatter.string(from: date)
-}
-
-fileprivate func migrationDayLabel(for date: Date, calendar: Calendar) -> String {
-    let formatter = DateFormatter()
-    formatter.calendar = calendar
-    formatter.timeZone = calendar.timeZone
-    formatter.dateFormat = "MMMM d, yyyy"
-    return formatter.string(from: date)
+/// Variant of `typed` for closures returning a non-optional value, substituting `defaultValue`
+/// when `entry` isn't an `E`.
+fileprivate func typed<E: Entry, T>(default defaultValue: T, _ body: @escaping (E) -> T) -> (any Entry) -> T {
+    { entry in
+        guard let typedEntry = entry as? E else { return defaultValue }
+        return body(typedEntry)
+    }
 }

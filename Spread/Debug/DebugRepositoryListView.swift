@@ -21,13 +21,13 @@ enum DebugRepositoryType: String, CaseIterable, Identifiable {
         }
     }
 
-    var systemImage: String {
+    var icon: SpreadTheme.Icon {
         switch self {
-        case .tasks: return "checkmark.circle"
-        case .spreads: return "book"
-        case .events: return "calendar"
-        case .notes: return "note.text"
-        case .collections: return "folder"
+        case .tasks: return .checkCircle
+        case .spreads: return .book
+        case .events: return .calendar
+        case .notes: return .noteText
+        case .collections: return .folder
         }
     }
 }
@@ -102,32 +102,32 @@ struct DebugRepositoryListView: View {
                 .fontWeight(.medium)
 
             HStack(spacing: 12) {
-                Label(task.status.rawValue, systemImage: statusIcon(for: task.status))
-                Label("\(task.currentAssignments.count + task.migrationHistory.count) assignments", systemImage: "link")
+                Label { Text(task.status.rawValue) } icon: { statusIcon(for: task.status).sized(SpreadTheme.IconSize.small) }
+                Label { Text("\(task.currentAssignments.count + task.migrationHistory.count) assignments") } icon: { SpreadTheme.Icon.link.sized(SpreadTheme.IconSize.small) }
             }
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
 
             Text("Created: \(task.createdDate.formatted(date: .abbreviated, time: .shortened))")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
 
             Text("ID: \(task.id.uuidString.prefix(8))...")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
                 .monospaced()
         }
         .padding(.vertical, 2)
     }
 
-    private func statusIcon(for status: EntryStatus) -> String {
+    private func statusIcon(for status: EntryStatus) -> SpreadTheme.Icon {
         switch status {
-        case .open: return "circle"
-        case .active: return "circle.fill"
-        case .complete: return "checkmark.circle.fill"
-        case .migrated: return "arrow.right.circle"
-        case .cancelled: return "xmark.circle"
-        case .upcoming: return "calendar.circle"
+        case .open: return .circle
+        case .active: return .circleFilled
+        case .complete: return .checkCircleFilled
+        case .migrated: return .arrowRightCircle
+        case .cancelled: return .xmarkCircle
+        case .upcoming: return .calendar
         }
     }
 
@@ -148,40 +148,40 @@ struct DebugRepositoryListView: View {
     private func spreadRow(_ spread: DataModel.Spread) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Label(spread.period.displayName, systemImage: periodIcon(for: spread.period))
+                Label { Text(spread.period.displayName) } icon: { periodIcon(for: spread.period).sized(SpreadTheme.IconSize.small) }
                     .fontWeight(.medium)
 
                 Spacer()
 
                 Text(spreadDateDisplay(spread))
-                    .font(.subheadline)
+                    .font(SpreadTheme.Typography.subheadline)
                     .foregroundStyle(.secondary)
             }
 
             if spread.period == .multiday, let start = spread.startDate, let end = spread.endDate {
                 Text("\(start.formatted(date: .abbreviated, time: .omitted)) - \(end.formatted(date: .abbreviated, time: .omitted))")
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
             }
 
             Text("Created: \(spread.createdDate.formatted(date: .abbreviated, time: .shortened))")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
 
             Text("ID: \(spread.id.uuidString.prefix(8))...")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
                 .monospaced()
         }
         .padding(.vertical, 2)
     }
 
-    private func periodIcon(for period: Period) -> String {
+    private func periodIcon(for period: Period) -> SpreadTheme.Icon {
         switch period {
-        case .year: return "calendar"
-        case .month: return "calendar.badge.clock"
-        case .day: return "sun.max"
-        case .multiday: return "calendar.day.timeline.left"
+        case .year: return .calendar
+        case .month: return .calendarDots
+        case .day: return .sun
+        case .multiday: return .rows
         }
     }
 
@@ -223,39 +223,39 @@ struct DebugRepositoryListView: View {
                 .fontWeight(.medium)
 
             HStack(spacing: 12) {
-                Label(event.timing.displayName, systemImage: timingIcon(for: event.timing))
+                Label { Text(event.timing.displayName) } icon: { timingIcon(for: event.timing).sized(SpreadTheme.IconSize.small) }
             }
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
 
             Text("\(event.startDate.formatted(date: .abbreviated, time: .omitted)) - \(event.endDate.formatted(date: .abbreviated, time: .omitted))")
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
 
             if let startTime = event.startTime, let endTime = event.endTime {
                 Text("\(startTime.formatted(date: .omitted, time: .shortened)) - \(endTime.formatted(date: .omitted, time: .shortened))")
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
             }
 
             Text("Created: \(event.createdDate.formatted(date: .abbreviated, time: .shortened))")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
 
             Text("ID: \(event.id.uuidString.prefix(8))...")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
                 .monospaced()
         }
         .padding(.vertical, 2)
     }
 
-    private func timingIcon(for timing: EventTiming) -> String {
+    private func timingIcon(for timing: EventTiming) -> SpreadTheme.Icon {
         switch timing {
-        case .singleDay: return "calendar"
-        case .allDay: return "sun.max.fill"
-        case .timed: return "clock"
-        case .multiDay: return "calendar.day.timeline.left"
+        case .singleDay: return .calendar
+        case .allDay: return .sunFilled
+        case .timed: return .clock
+        case .multiDay: return .rows
         }
     }
 
@@ -280,24 +280,24 @@ struct DebugRepositoryListView: View {
 
             if !note.content.isEmpty {
                 Text(note.content)
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
 
             HStack(spacing: 12) {
-                Label(note.status.rawValue, systemImage: statusIcon(for: note.status))
-                Label("\(note.currentAssignments.count + note.migrationHistory.count) assignments", systemImage: "link")
+                Label { Text(note.status.rawValue) } icon: { statusIcon(for: note.status).sized(SpreadTheme.IconSize.small) }
+                Label { Text("\(note.currentAssignments.count + note.migrationHistory.count) assignments") } icon: { SpreadTheme.Icon.link.sized(SpreadTheme.IconSize.small) }
             }
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
 
             Text("Created: \(note.createdDate.formatted(date: .abbreviated, time: .shortened))")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
 
             Text("ID: \(note.id.uuidString.prefix(8))...")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
                 .monospaced()
         }
@@ -325,11 +325,11 @@ struct DebugRepositoryListView: View {
                 .fontWeight(.medium)
 
             Text("Created: \(collection.createdDate.formatted(date: .abbreviated, time: .shortened))")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
 
             Text("ID: \(collection.id.uuidString.prefix(8))...")
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.tertiary)
                 .monospaced()
         }
@@ -340,7 +340,7 @@ struct DebugRepositoryListView: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No \(repositoryType.title)", systemImage: repositoryType.systemImage)
+            Label { Text("No \(repositoryType.title)") } icon: { repositoryType.icon.sized(SpreadTheme.IconSize.large) }
         } description: {
             Text("This repository is empty.")
         }

@@ -10,8 +10,8 @@ struct SpreadButton: View {
 
     /// What is rendered inside the button.
     enum Content {
-        /// An SF Symbol, by name.
-        case systemImage(String)
+        /// A semantic icon token.
+        case icon(SpreadTheme.Icon)
         /// A custom image.
         case image(Image)
         /// A text label.
@@ -52,17 +52,17 @@ struct SpreadButton: View {
             self.action = action
         }
 
-        /// Convenience initializer for the common case of an SF Symbol icon.
+        /// Convenience initializer for the common case of an icon.
         init(
             title: String,
-            systemImage: String,
+            icon: SpreadTheme.Icon,
             style: Style = .tertiary,
             accessibilityIdentifier: String? = nil,
             action: @escaping @MainActor () -> Void
         ) {
             self.init(
                 title: title,
-                content: .systemImage(systemImage),
+                content: .icon(icon),
                 style: style,
                 accessibilityIdentifier: accessibilityIdentifier,
                 action: action
@@ -90,12 +90,12 @@ struct SpreadButton: View {
     @ViewBuilder
     private var content: some View {
         switch viewModel.content {
-        case .systemImage(let name):
-            Image(systemName: name)
+        case .icon(let icon):
+            icon.sized(SpreadTheme.IconSize.small)
         case .image(let image):
             image
         case .text(let text):
-            Text(text)
+            Text(text).font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
         }
     }
 
@@ -103,19 +103,26 @@ struct SpreadButton: View {
     private var styledContent: some View {
         switch viewModel.style {
         case .primary:
-            iconContent
-                .foregroundStyle(SpreadTheme.Accent.primary)
+            tinted(content, SpreadTheme.Accent.primary)
                 .frame(width: 30, height: 30)
                 .background(Circle().fill(.white.opacity(0.94)))
         case .secondary:
-            iconContent
-                .foregroundStyle(.secondary)
+            tinted(content, .secondary)
         case .tertiary:
             content
         }
     }
 
-    private var iconContent: some View {
-        content.font(.system(size: SpreadTheme.IconSize.small, weight: .semibold))
+    /// Applies the right tint for whichever `Content` case is being rendered — `SpreadTheme.Icon`
+    /// needs `.iconTint(_:)` since it's a plain image with no ambient color propagation, while
+    /// `Text`/`Image` content tint correctly via `.foregroundStyle(_:)`.
+    @ViewBuilder
+    private func tinted(_ view: some View, _ color: Color) -> some View {
+        switch viewModel.content {
+        case .icon:
+            view.iconTint(color)
+        case .image, .text:
+            view.foregroundStyle(color)
+        }
     }
 }

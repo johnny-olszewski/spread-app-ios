@@ -13,7 +13,7 @@ struct TaskPeriodControl: View {
                     selection.wrappedValue = period
                 } label: {
                     Text(period.displayName)
-                        .font(.subheadline.weight(.medium))
+                        .font(SpreadTheme.Typography.subheadline.weight(.medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                 }

@@ -246,7 +246,11 @@ struct TaskDetailSheet: View {
                         viewModel.formModel.selectedList?.id == list.id ? nil : list
                 } label: {
                     if viewModel.formModel.selectedList?.id == list.id {
-                        Label(list.name, systemImage: "checkmark")
+                        Label {
+                            Text(list.name)
+                        } icon: {
+                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
+                        }
                     } else {
                         Text(list.name)
                     }
@@ -281,7 +285,7 @@ struct TaskDetailSheet: View {
                         Text(tag.name)
                         Spacer()
                         if isSelected {
-                            Image(systemName: "checkmark").foregroundStyle(.tint)
+                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small).iconTint(.accentColor)
                         }
                     }
                 }
@@ -290,7 +294,7 @@ struct TaskDetailSheet: View {
             }
             if viewModel.formModel.selectedTagIDs.count >= 5 {
                 Text("Maximum 5 tags")
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
             } else {
                 Button("New Tag…") { viewModel.isCreatingTag = true }
@@ -304,7 +308,7 @@ struct TaskDetailSheet: View {
                 Text(tagsSummary)
                     .foregroundStyle(.primary)
             }
-            .font(.subheadline)
+            .font(SpreadTheme.Typography.subheadline)
         }
     }
 
@@ -340,7 +344,7 @@ struct TaskDetailSheet: View {
                 dateSection
             } else {
                 Text(viewModel.formModel.periodDescription)
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
                     .opacity(isAssignmentEditable ? 1 : 0.7)
             }
@@ -355,13 +359,12 @@ struct TaskDetailSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Select from existing spreads")
                     Text("Or choose a custom date below")
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
+                    .iconTint(.secondary)
             }
         }
         .foregroundStyle(.primary)
@@ -380,7 +383,11 @@ struct TaskDetailSheet: View {
                         viewModel.formModel.setPeriod(period)
                     } label: {
                         if period == viewModel.formModel.selectedPeriod {
-                            Label(period.displayName, systemImage: "checkmark")
+                            Label {
+                                Text(period.displayName)
+                            } icon: {
+                                SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
+                            }
                         } else {
                             Text(period.displayName)
                         }
@@ -400,7 +407,7 @@ struct TaskDetailSheet: View {
             .disabled(!isAssignmentEditable)
 
             Text(viewModel.formModel.periodDescription)
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
                 .opacity(isAssignmentEditable ? 1 : 0.7)
         }
@@ -456,16 +463,16 @@ struct TaskDetailSheet: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(assignment.period.displayName)
-                            .font(.subheadline)
+                            .font(SpreadTheme.Typography.subheadline)
                         Text(formatAssignmentDate(assignment))
-                            .font(.caption)
+                            .font(SpreadTheme.Typography.caption)
                             .foregroundStyle(.secondary)
                     }
 
                     Spacer()
 
                     Text(assignment.status.displayName)
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 2)
@@ -479,7 +486,7 @@ struct TaskDetailSheet: View {
 
     private func lifecycleSection(
         title: String,
-        icon: String,
+        icon: SpreadTheme.Icon,
         role: ButtonRole?,
         resultStatus: EntryStatus
     ) -> some View {
@@ -487,7 +494,8 @@ struct TaskDetailSheet: View {
             viewModel.selectedStatus = resultStatus
         } label: {
             HStack {
-                Image(systemName: icon)
+                icon.sized(SpreadTheme.IconSize.medium)
+                    .iconTint(role == .destructive ? .red : .accentColor)
                 Text(title)
             }
         }
@@ -503,7 +511,8 @@ struct TaskDetailSheet: View {
             viewModel.isShowingDeleteConfirmation = true
         } label: {
             HStack {
-                Image(systemName: "trash")
+                SpreadTheme.Icon.trash.sized(SpreadTheme.IconSize.medium)
+                    .iconTint(.red)
                 Text("Delete Task")
             }
         }
@@ -557,7 +566,7 @@ struct TaskDetailSheet: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
     }
 
@@ -574,12 +583,11 @@ struct TaskDetailSheet: View {
             Text(value)
                 .foregroundStyle(.primary)
             if showsChevron {
-                Image(systemName: "chevron.down")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                SpreadTheme.Icon.caretDown.sized(SpreadTheme.IconSize.small)
+                    .iconTint(.secondary)
             }
         }
-        .font(.subheadline)
+        .font(SpreadTheme.Typography.subheadline)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(

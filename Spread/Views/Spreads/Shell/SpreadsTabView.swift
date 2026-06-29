@@ -143,7 +143,9 @@ struct SpreadsTabView: View {
                                 }
                             }
                         } label: {
-                            Image(systemName: isContentColumnVisible ? "chevron.left" : "calendar")
+                            (isContentColumnVisible ? SpreadTheme.Icon.caretLeft : SpreadTheme.Icon.calendar)
+                                .sized(SpreadTheme.IconSize.medium)
+                                .iconTint(.primary)
                         }
                         .accessibilityLabel(isContentColumnVisible ? "Hide spread list" : "Show spread list")
                     }
@@ -227,28 +229,39 @@ struct SpreadsTabView: View {
                 Button {
                     spreadsCoordinator.activeSheet = .spreadCreation(nil)
                 } label: {
-                    Label("Create Spread", systemImage: "book")
+                    Label {
+                        Text("Create Spread")
+                    } icon: {
+                        SpreadTheme.Icon.book.sized(SpreadTheme.IconSize.medium)
+                    }
                 }
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createSpread)
 
                 Button {
                     spreadsCoordinator.activeSheet = .taskCreation
                 } label: {
-                    Label("Create Task", systemImage: "circle.fill")
+                    Label {
+                        Text("Create Task")
+                    } icon: {
+                        SpreadTheme.Icon.circleFilled.sized(SpreadTheme.IconSize.medium)
+                    }
                 }
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createTask)
 
                 Button {
                     spreadsCoordinator.activeSheet = .noteCreation
                 } label: {
-                    Label("Create Note", systemImage: "minus")
+                    Label {
+                        Text("Create Note")
+                    } icon: {
+                        SpreadTheme.Icon.minus.sized(SpreadTheme.IconSize.medium)
+                    }
                 }
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.createNote)
             } label: {
-                Image(systemName: "plus")
+                SpreadTheme.Icon.plus.sized(SpreadTheme.IconSize.extraLarge)
                     .padding(8)
-                    .font(.system(size: SpreadTheme.IconSize.extraLarge, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .iconTint(.white)
                     .glassEffect(.regular.tint(SpreadTheme.Accent.primary), in: Circle())
             }
             .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.CreateMenu.button)

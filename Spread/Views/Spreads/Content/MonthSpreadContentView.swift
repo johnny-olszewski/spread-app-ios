@@ -8,6 +8,9 @@ struct MonthSpreadContentView: View {
     let spreadDataModel: SpreadDataModel
     let context: SpreadPageContext
 
+    @AppStorage("entryGrouping.month") private var groupingOption: EntryGroupingOption = .list
+    @AppStorage("entrySorting.month") private var sortingOption: EntrySortOption = .dueDate
+
     // MARK: - Layout
 
     private enum Layout {
@@ -80,9 +83,19 @@ struct MonthSpreadContentView: View {
     @ViewBuilder
     private func monthSection(entries: [any Entry]) -> some View {
         VStack(alignment: .leading, spacing: Layout.sectionRowSpacing) {
-            Text("Month")
-                .font(SpreadTheme.Typography.title3)
-                .foregroundStyle(.primary)
+            HStack {
+                Text("Month")
+                    .font(SpreadTheme.Typography.title3)
+                    .foregroundStyle(.primary)
+                Spacer()
+                EntryListOptionsPicker(
+                    grouping: groupingOption,
+                    sorting: sortingOption,
+                    onGroupingSelected: { groupingOption = $0 },
+                    onSortingSelected: { sortingOption = $0 }
+                )
+                .padding(.horizontal, SpreadTheme.Spacing.large)
+            }
 
             if entries.isEmpty {
                 Text("No month-level entries.")
@@ -91,14 +104,9 @@ struct MonthSpreadContentView: View {
                     .padding(.vertical, SpreadTheme.Spacing.medium)
             } else {
                 EntryListView(
-                    sections: [EntryList.Section(
-                        id: "month-entries",
-                        title: "",
-                        date: spread.date,
-                        entries: entries,
-                        creationPeriod: .month,
-                        creationDate: spread.date
-                    )],
+                    entries: entries,
+                    groupedBy: groupingOption.grouping(date: spread.date, creationPeriod: .month, creationDate: spread.date),
+                    orderedBy: sortingOption.areInOrder,
                     configurationMap: configurationMap
                 )
             }
@@ -117,14 +125,9 @@ struct MonthSpreadContentView: View {
                     .padding(.vertical, SpreadTheme.Spacing.small)
             } else {
                 EntryListView(
-                    sections: [EntryList.Section(
-                        id: section.date.timeIntervalSinceReferenceDate.description,
-                        title: "",
-                        date: section.date,
-                        entries: section.entries,
-                        creationPeriod: .day,
-                        creationDate: section.date
-                    )],
+                    entries: section.entries,
+                    groupedBy: groupingOption.grouping(date: section.date, creationPeriod: .day, creationDate: section.date),
+                    orderedBy: sortingOption.areInOrder,
                     configurationMap: configurationMap
                 )
             }

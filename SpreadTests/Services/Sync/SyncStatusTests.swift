@@ -37,19 +37,6 @@ struct SyncStatusTests {
         #expect(status.displayText == "Connection failed")
     }
 
-    // MARK: - System Image
-
-    /// Conditions: Each status case.
-    /// Expected: Each should return a non-empty SF Symbol name.
-    @Test func testAllStatusesHaveSystemImage() {
-        let statuses: [SyncStatus] = [
-            .idle, .syncing, .synced(.now), .error("test"), .offline, .localOnly
-        ]
-        for status in statuses {
-            #expect(!status.systemImage.isEmpty)
-        }
-    }
-
     // MARK: - isError
 
     /// Conditions: Error status.

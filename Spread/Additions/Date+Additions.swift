@@ -88,4 +88,39 @@ extension Date {
         }
         return calendar.date(byAdding: .day, value: 6, to: firstDay)
     }
+
+    // MARK: - Formatting
+
+    /// Returns the full weekday name for this date (e.g. "Monday"), used in multiday section headers.
+    ///
+    /// - Parameter calendar: The calendar to use for date formatting.
+    func weekdayText(calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "EEEE"
+        return formatter.string(from: self)
+    }
+
+    /// Returns the abbreviated month name for this date (e.g. "Apr"), used in multiday section headers.
+    ///
+    /// - Parameter calendar: The calendar to use for date formatting.
+    func shortMonthText(calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "MMM"
+        return formatter.string(from: self)
+    }
+
+    /// Returns the day-of-month number for this date (e.g. "7"), used in multiday section headers.
+    ///
+    /// - Parameter calendar: The calendar to use for date formatting.
+    func dayNumberText(calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "d"
+        return formatter.string(from: self)
+    }
 }

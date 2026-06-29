@@ -47,8 +47,14 @@ struct RootNavigationView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             ForEach(Content.allCases) { content in
-                Tab(content.title, systemImage: content.systemImage, value: content) {
+                Tab(value: content) {
                     tabContent(for: content)
+                } label: {
+                    Label {
+                        Text(content.title)
+                    } icon: {
+                        content.icon.chromeImage(size: SpreadTheme.IconSize.medium)
+                    }
                 }
             }
         }

@@ -17,6 +17,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | `feature/SESH-20` (formerly `WKFLW-20`) | UI polish and design system foundation for TestFlight | [DesignSystem.md](DesignSystem.md), [Accessibility.md](Accessibility.md) |
 | `feature/SESH-21` | Task Browser tab, List/Tag organizational fields | [TaskBrowser.md](TaskBrowser.md), [DataModel.md](DataModel.md), [TaskMetadata.md](TaskMetadata.md) |
 | `feature/SESH-24` | JournalManager/repository performance rebuild: drop logic-layer protocols, incremental dictionary-keyed index, caller-supplied sync diffing — built additively, cut over last | [JournalManager.md](JournalManager.md), [EntryModel.md](EntryModel.md) |
+| `feature/SESH-25` | EntryList generic flat-entries grouping/sorting primitive, shared group-by/order-by picker across all spreads, plus EntryList/EntryRow architecture cleanup | [EntryListGrouping.md](EntryListGrouping.md) |
 
 ---
 
@@ -36,7 +37,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | [TaskMetadata.md](TaskMetadata.md) | WKFLW-17: task body, priority, due date, nil assignment; SESH-21: List and Tags fields; AddTaskButton toolbar quick-pick | SPRD-170, SPRD-221, SPRD-234 |
 | [TaskBrowser.md](TaskBrowser.md) | SESH-21: Tasks tab, List/Tag models, management sheet, filter behavior | SPRD-221, SPRD-222, SPRD-223, SPRD-224 |
 | [CalendarFoundation.md](CalendarFoundation.md) | `johnnyo-foundation` package, MonthCalendarView, row overlays, CalendarView (multi-month) | SPRD-152, SPRD-153, SPRD-183, SPRD-184, SPRD-231 |
-| [DesignSystem.md](DesignSystem.md) | SpreadTheme, palette tokens, dark mode, WKFLW-20 polish | SPRD-213–SPRD-220 |
+| [DesignSystem.md](DesignSystem.md) | SpreadTheme, palette tokens, dark mode, typography, icons, WKFLW-20 polish | SPRD-213–SPRD-220, SPRD-267, SPRD-268, SPRD-269 |
 | [Sync.md](Sync.md) | Supabase offline-first sync, persistence, conflict scenarios | SPRD-80, SPRD-85 |
 | [Authentication.md](Authentication.md) | Auth UI, email confirmation, deeplinks, WKFLW-19, account management | SPRD-104, SPRD-106, SPRD-200–SPRD-207 |
 | [EventKit.md](EventKit.md) | Read-only EventKit events, day timeline, DayTimelineView, CalendarEventService, v2 future | SPRD-57, SPRD-194–SPRD-197, SPRD-228 |
@@ -46,7 +47,8 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | [Accessibility.md](Accessibility.md) | Accessibility labels, VoiceOver, dynamic type | SPRD-218 |
 | [ErrorHandling.md](ErrorHandling.md) | Error handling UX: auth, sync, network, app init, entry/spread ops; alert infrastructure | SPRD-233 |
 | [ResolvedDecisions.md](ResolvedDecisions.md) | Edge cases resolved, resolved decisions, open questions | — |
-| [EntryComponents.md](EntryComponents.md) | Entry status icon rendering pipeline: EntryStatusIcon, EntryStatusIconRepresentable | SPRD-227 |
+| [EntryComponents.md](EntryComponents.md) | Entry status icon rendering pipeline: EntryStatusIcon, EntryStatusIconRepresentable | SPRD-227, SPRD-270 |
+| [EntryListGrouping.md](EntryListGrouping.md) | EntryList generic grouping/sorting primitive, shared group-by/order-by picker, EntryList/EntryRow cleanup | SPRD-257–SPRD-266 |
 
 ---
 

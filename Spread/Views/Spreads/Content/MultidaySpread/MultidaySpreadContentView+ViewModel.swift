@@ -31,10 +31,16 @@ extension MultidaySpreadContentView {
 
         // MARK: - Computed
 
-        var sections: [EntryList.Section] {
+        /// Groups/orders the spread's entries per `groupingOption`/`sortingOption`.
+        ///
+        /// `groupingOption` only subdivides the leading "This Range" section (multiday-assigned
+        /// entries) — per-day cards are already a fixed, structural grouping by date, and the
+        /// compact card layout has no room for a second nested grouping dimension inside it.
+        /// `sortingOption` applies everywhere: within "This Range" and within every day card.
+        func sections(groupedBy groupingOption: EntryGroupingOption, orderedBy sortingOption: EntrySortOption) -> [EntryList.Section] {
             let cal = context.calendar
             let live = context.journalManager.spreadDataModel(for: spread.date, period: spread.period) ?? spreadDataModel
-            let base = EntryListDisplaySupport.displayedEntries(for: live, calendar: cal)
+            let base = live.displayedEntries(calendar: cal)
             let eventEntries: [DataModel.Event] = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
 
             return Self.makeSections(
@@ -42,7 +48,9 @@ extension MultidaySpreadContentView {
                 spreadDate: spread.date,
                 startDate: spread.startDate ?? spread.date,
                 endDate: spread.endDate ?? spread.date,
-                calendar: cal
+                calendar: cal,
+                groupingOption: groupingOption,
+                sortingOption: sortingOption
             )
         }
         
@@ -143,15 +151,21 @@ extension MultidaySpreadContentView {
 
         /// Groups multiday spread entries into per-day sections.
         ///
-        /// Multiday-assigned entries appear in a leading "This Range" section.
-        /// Day-assigned entries are bucketed per day. Every day in the range gets a
-        /// section, even when empty.
+        /// Multiday-assigned entries appear in one or more leading "This Range" sections —
+        /// subdivided by `groupingOption` (e.g. one "This Range" card per list/tag/status/type),
+        /// or a single "This Range" card when `groupingOption == .none`. Day-assigned entries are
+        /// bucketed per day — that bucketing is fixed and not affected by `groupingOption`, since
+        /// each day card already has no room for a second nested grouping dimension; `sortingOption`
+        /// still orders entries within each day card. Every day in the range gets a section, even
+        /// when empty.
         static func makeSections(
             from entries: [any Entry],
             spreadDate: Date,
             startDate: Date,
             endDate: Date,
-            calendar: Calendar
+            calendar: Calendar,
+            groupingOption: EntryGroupingOption,
+            sortingOption: EntrySortOption
         ) -> [EntryList.Section] {
             func entryPeriod(_ entry: any Entry) -> Period {
                 if let task = entry as? DataModel.Task { return task.period ?? .day }
@@ -159,14 +173,17 @@ extension MultidaySpreadContentView {
                 return .day
             }
 
-            func sorted(_ entries: [any Entry]) -> [any Entry] {
-                entries.sorted { $0.sortDate < $1.sortDate }
+            func ordered(_ entries: [any Entry]) -> [any Entry] {
+                if let areInOrder = sortingOption.areInOrder {
+                    return entries.sorted(by: areInOrder)
+                }
+                return entries.sorted { $0.sortDate < $1.sortDate }
             }
 
             let start = startDate.startOfDay(calendar: calendar)
             let end = endDate.startOfDay(calendar: calendar)
 
-            let multidayEntries = sorted(entries.filter { entryPeriod($0) == .multiday })
+            let multidayEntries = entries.filter { entryPeriod($0) == .multiday }
 
             var dayGroups: [Date: [any Entry]] = [:]
             for entry in entries {
@@ -178,14 +195,21 @@ extension MultidaySpreadContentView {
             var sections: [EntryList.Section] = []
 
             if !multidayEntries.isEmpty {
-                sections.append(EntryList.Section(
-                    id: "multiday-header",
-                    title: "This Range",
-                    date: start,
-                    entries: multidayEntries,
-                    creationPeriod: .multiday,
-                    creationDate: spreadDate
-                ))
+                let grouped = EntryList.Section.grouped(
+                    from: multidayEntries,
+                    by: groupingOption.grouping(date: start, creationPeriod: .multiday, creationDate: spreadDate),
+                    orderedBy: sortingOption.areInOrder
+                )
+                sections.append(contentsOf: grouped.map { section in
+                    EntryList.Section(
+                        id: "multiday-header-\(section.id)",
+                        title: groupingOption == .none ? "This Range" : "This Range — \(section.title)",
+                        date: section.date,
+                        entries: section.entries,
+                        creationPeriod: .multiday,
+                        creationDate: spreadDate
+                    )
+                })
             }
 
             var current = start
@@ -194,7 +218,7 @@ extension MultidaySpreadContentView {
                     id: String(current.timeIntervalSinceReferenceDate),
                     title: "",
                     date: current,
-                    entries: sorted(dayGroups[current] ?? []),
+                    entries: ordered(dayGroups[current] ?? []),
                     creationPeriod: .day,
                     creationDate: current
                 ))

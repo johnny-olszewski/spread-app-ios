@@ -190,13 +190,12 @@ struct TaskCreationSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Select from existing spreads")
                         Text("Or choose a custom date below")
-                            .font(.caption)
+                            .font(SpreadTheme.Typography.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
+                        .iconTint(.secondary)
                 }
             }
             .foregroundStyle(.primary)
@@ -252,7 +251,7 @@ struct TaskCreationSheet: View {
                 dateSection
             } else {
                 Text(viewModel.formModel.periodDescription)
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
             }
         }
@@ -273,7 +272,7 @@ struct TaskCreationSheet: View {
             )
 
             Text(viewModel.formModel.periodDescription)
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
         }
     }
@@ -283,7 +282,7 @@ struct TaskCreationSheet: View {
             sectionHeader("Date")
             if viewModel.formModel.selectedPeriod == .multiday {
                 Text(selectedMultidaySummary)
-                    .font(.subheadline)
+                    .font(SpreadTheme.Typography.subheadline)
                     .foregroundStyle(viewModel.formModel.selectedSpreadID == nil ? .secondary : .primary)
             } else {
                 PeriodDatePicker(
@@ -310,10 +309,10 @@ struct TaskCreationSheet: View {
 
     private func validationErrorRow(message: String) -> some View {
         HStack {
-            Image(systemName: "exclamationmark.triangle")
-                .foregroundStyle(.orange)
+            SpreadTheme.Icon.warning.sized(SpreadTheme.IconSize.medium)
+                .iconTint(.orange)
             Text(message)
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
         }
     }
@@ -333,7 +332,7 @@ struct TaskCreationSheet: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
     }
 

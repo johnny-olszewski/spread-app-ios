@@ -1,8 +1,8 @@
 # Entry Components
 
 > **Status**: Draft  
-> **SPRD tasks**: [SPRD-227]  
-> **Session**: SESH-22
+> **SPRD tasks**: [SPRD-227], [SPRD-270]  
+> **Session**: SESH-22, SESH-25
 
 ## Overview
 
@@ -19,6 +19,7 @@ This spec covers the view-layer component architecture for rendering entry statu
 - `EntryIconSize` is deleted. Call sites that previously used it to convert `Font.TextStyle` to points switch to raw `CGFloat` literals. [SPRD-227]
 - `rowIconColor` is removed from `EntryRowView`. `EntryRowView` renders `EntryStatusIcon` directly from `entry.baseShape` and the effective row status config. [SPRD-227]
 - `TaskDetailSheet` renders its title status icon with an inline button containing `EntryStatusIcon`; no shared wrapper component is used. [SPRD-227]
+- The `.slash` overlay's `frameSize` is enlarged (centered, no alignment change) so it visually extends past the base circle's edges on both ends, matching the "extends beyond the circle" look `.arrowRight` already has — a configuration-only change to existing `EntryStatusIcon.overlayView` values, with no new shapes, enums, or view types. [SPRD-270]
 
 ### Entry protocol — single status property
 
@@ -139,6 +140,13 @@ All alerts (spread delete, entry delete, discard title changes) are handled by a
 `standardNoteConfig` provides `.openEdit` (opens the note detail sheet) and `.delete` (triggers the `deleteEntryConfirmation` alert) actions, matching the task row pattern. Notes do not have a status icon tap handler — the leading icon is display-only.
 
 ---
+
+### Decision: `.slash` mirrors `.xmark`'s shape/configuration structure, not a standalone frameSize tweak
+
+- **Context**: `.arrowRight` (the `.migrated` overlay) already reads as "extending beyond the circle" — its `frameSize` is `CGSize(width: s * 2, height: s)` with `overlayAlignment == .leading`, so the arrow starts at the base shape's center and pokes out past its trailing edge. The user wants `.slash` (the `.cancelled` overlay, originally `frameSize: CGSize(width: s * 1.1, height: s * 1.1)`, centered, fully contained within the circle) to read the same way. A first pass (since superseded) just grew `.slash`'s own `frameSize` multiplier in isolation (`s * 2.2`). The user then asked explicitly for component reuse: make `SlashShape` structurally match `XMarkShape` (centered-in-rect, scaled by an `armLength` parameter, single arm) and configure `.slash` in `EntryStatusIcon` exactly like `.xmark` already is.
+- **Decision**: `SlashShape` (in `johnnyo-foundation`) now takes an `armLength: CGFloat` and draws one diagonal arm from top-right to bottom-left, centered on `rect.midX`/`rect.midY` — the same shape-construction pattern `XMarkShape` already uses (it draws two such arms via one continuous `Path` for `.trim` animation; `SlashShape` only needs one). `EntryStatusIcon.overlayView`'s `.slash` case now computes `decoratorSize`/`armLength` with the **identical formula** `.xmark` uses (`decoratorSize = s * (1 + 2 * 0.35)`, `armLength = decoratorSize * 0.6`, `frameSize = decoratorSize²`) — `overlayAlignment` stays `.center` (a slash, like an X mark, has no inherent direction). `.slash`'s own `strokeStyle`/`animationDuration` values are unchanged (still distinct from `.xmark`'s, since those are legitimately different visual weights/timings, not part of what needed to match).
+- **Rationale**: This is the literal "reuse the same component structure" outcome — `SlashShape` and `XMarkShape` are now the same kind of shape (centered, `armLength`-scaled), and `.slash`'s configuration block in `EntryStatusIcon` is now line-for-line structurally identical to `.xmark`'s, differing only in which `Shape` type and stroke values are passed in. No new types, alignment cases, or one-off magic numbers were introduced.
+- **SPRD reference**: SPRD-270
 
 ## Open Questions
 

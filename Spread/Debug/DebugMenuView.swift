@@ -73,7 +73,7 @@ struct DebugMenuView: View {
                 LabeledContent("Override", value: overrideSource)
             }
         } header: {
-            Label("Supabase", systemImage: "cloud")
+            Label { Text("Supabase") } icon: { SpreadTheme.Icon.cloud.sized(SpreadTheme.IconSize.medium) }
         } footer: {
             Text("Supabase configuration is driven by the resolved Data Environment. Debug localhost bypasses Supabase entirely.")
         }
@@ -146,7 +146,7 @@ struct DebugMenuView: View {
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.Debug.temporalResumeLive)
             }
         } header: {
-            Label("Temporal Context", systemImage: "clock")
+            Label { Text("Temporal Context") } icon: { SpreadTheme.Icon.clock.sized(SpreadTheme.IconSize.medium) }
         } footer: {
             Text("Localhost can freeze or mutate AppClock at runtime without rebuilding the app runtime. Production builds expose no temporal controls.")
         }
@@ -166,11 +166,11 @@ struct DebugMenuView: View {
             }
             if let userId = authManager.state.user?.id.uuidString {
                 LabeledContent("User ID", value: userId)
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .monospaced()
             }
         } header: {
-            Label("Auth", systemImage: "person.badge.key")
+            Label { Text("Auth") } icon: { SpreadTheme.Icon.key.sized(SpreadTheme.IconSize.medium) }
         }
     }
 
@@ -202,14 +202,14 @@ struct DebugMenuView: View {
                                     .fill(entry.level == .error ? Color.red : entry.level == .warning ? Color.orange : Color.green)
                                     .frame(width: 8, height: 8)
                                 Text(entry.message)
-                                    .font(.caption)
+                                    .font(SpreadTheme.Typography.caption)
                                     .monospaced()
                             }
                         }
                     }
                 }
             } header: {
-                Label("Sync", systemImage: "arrow.triangle.2.circlepath")
+                Label { Text("Sync") } icon: { SpreadTheme.Icon.arrowsClockwise.sized(SpreadTheme.IconSize.medium) }
             } footer: {
                 Text("Current sync engine state.")
             }
@@ -242,7 +242,7 @@ struct DebugMenuView: View {
                 implementationName: info.shortTypeName(for: info.collectionRepositoryType)
             )
         } header: {
-            Label("Dependencies", systemImage: "shippingbox")
+            Label { Text("Dependencies") } icon: { SpreadTheme.Icon.package.sized(SpreadTheme.IconSize.medium) }
         } footer: {
             Text("Tap a repository to browse its contents. Shows implementation type in use.")
         }
@@ -266,7 +266,7 @@ struct DebugMenuView: View {
                     mockDataSetButton(for: dataSet)
                 }
             } header: {
-                Label("Mock Data Sets", systemImage: "doc.on.doc")
+                Label { Text("Mock Data Sets") } icon: { SpreadTheme.Icon.copy.sized(SpreadTheme.IconSize.medium) }
             } footer: {
                 Text("Load predefined data sets to test various scenarios. Loading a data set will overwrite existing data. Only available in localhost mode.")
             }
@@ -293,29 +293,29 @@ struct DebugMenuView: View {
                     }
 
                     Text(dataSet.description)
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
-                Image(systemName: iconName(for: dataSet))
-                    .foregroundStyle(.secondary)
+                icon(for: dataSet).sized(SpreadTheme.IconSize.medium)
+                    .iconTint(.secondary)
             }
         }
         .disabled(isLoading)
     }
 
-    private func iconName(for dataSet: MockDataSet) -> String {
+    private func icon(for dataSet: MockDataSet) -> SpreadTheme.Icon {
         switch dataSet {
         case .empty:
-            "trash"
+            .trash
         case .baseline:
-            "doc.text"
+            .document
         case .multiday:
-            "calendar"
+            .calendar
         case .boundary:
-            "arrow.left.arrow.right"
+            .arrowsLeftRight
         case .scenarioAssignmentExistingSpread,
                 .scenarioAssignmentInboxFallback,
                 .scenarioInboxResolution,
@@ -329,7 +329,7 @@ struct DebugMenuView: View {
                 .scenarioNoteExclusions,
                 .scenarioMultidayLayout,
                 .scenarioSpreadNavigator:
-            "testtube.2"
+            .testTube
         }
     }
 
@@ -360,7 +360,7 @@ struct DebugMenuView: View {
             LabeledContent("Date", value: Date.now.formatted(date: .abbreviated, time: .shortened))
             launchArgumentsView
         } header: {
-            Label("Build Info", systemImage: "info.circle")
+            Label { Text("Build Info") } icon: { SpreadTheme.Icon.info.sized(SpreadTheme.IconSize.medium) }
         }
     }
 
@@ -373,7 +373,7 @@ struct DebugMenuView: View {
             DisclosureGroup("Launch Arguments (\(args.count))") {
                 ForEach(Array(args), id: \.self) { arg in
                     Text(arg)
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .monospaced()
                 }
             }

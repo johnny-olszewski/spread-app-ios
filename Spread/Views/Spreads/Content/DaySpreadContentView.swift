@@ -18,6 +18,9 @@ struct DaySpreadContentView: View {
     @State private var viewModel: ViewModel
     var config: Config = .default
 
+    @AppStorage("entryGrouping.day") private var groupingOption: EntryGroupingOption = .list
+    @AppStorage("entrySorting.day") private var sortingOption: EntrySortOption = .dueDate
+
     init(
         spread: DataModel.Spread,
         spreadDataModel: SpreadDataModel,
@@ -42,15 +45,24 @@ struct DaySpreadContentView: View {
                 Capsule()
                     .stroke(SpreadTheme.DotGrid.defaultDots)
                     .frame(height: SpreadTheme.CornerRadius.xxlarge)
-                    .padding(.leading, SpreadTheme.Spacing.large)
                     .padding(.vertical, SpreadTheme.Spacing.large)
                     .padding(.trailing, SpreadTheme.Spacing.medium)
 
                 HStack(spacing: SpreadTheme.Spacing.medium) {
+                    EntryListOptionsPicker(
+                        grouping: groupingOption,
+                        sorting: sortingOption,
+                        onGroupingSelected: { groupingOption = $0 },
+                        onSortingSelected: { sortingOption = $0 }
+                    )
+                    .padding(SpreadTheme.Spacing.large)
+
                     Button {
                         Task { await viewModel.toggleFavorite() }
                     } label: {
-                        Image(systemName: viewModel.spread.isFavorite ? "star.fill" : "star")
+                        (viewModel.spread.isFavorite ? SpreadTheme.Icon.starFilled : SpreadTheme.Icon.star)
+                            .sized(SpreadTheme.IconSize.medium)
+                            .iconTint(.primary)
                     }
                     .buttonStyle(.plain)
                     .contentShape(Rectangle())
@@ -60,7 +72,8 @@ struct DaySpreadContentView: View {
                     Button {
                         viewModel.context.coordinator.showSpreadNameEdit(viewModel.spread)
                     } label: {
-                        Image(systemName: "pencil")
+                        SpreadTheme.Icon.pencil.sized(SpreadTheme.IconSize.medium)
+                            .iconTint(.primary)
                     }
                     .buttonStyle(.plain)
                     .contentShape(Rectangle())
@@ -68,6 +81,7 @@ struct DaySpreadContentView: View {
                     .padding(SpreadTheme.Spacing.large)
                 }
             }
+            .padding(.horizontal, SpreadTheme.Spacing.large)
 
             HStack(alignment: .top, spacing: SpreadTheme.Spacing.large) {
                 if viewModel.shouldShowTimelineCard {
@@ -91,10 +105,14 @@ struct DaySpreadContentView: View {
                 }
 
                 EntryListView(
-                    sections: viewModel.overdueSections + viewModel.sections,
+                    sections: viewModel.overdueSections + viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption),
                     configurationMap: viewModel.entryConfigurationMap
                 ) { section in
-                    let sectionList = viewModel.context.journalManager.lists.first { $0.id.uuidString == section.id }
+                    // Section ids are list names only when grouping by list — other groupings
+                    // (tag/status/none) have no notion of a corresponding list to preselect.
+                    let sectionList = groupingOption == .list
+                        ? viewModel.context.journalManager.lists.first { $0.name == section.id }
+                        : nil
                     QuickAddButton(
                         coordinator: viewModel.context.coordinator,
                         anchorID: section.id,

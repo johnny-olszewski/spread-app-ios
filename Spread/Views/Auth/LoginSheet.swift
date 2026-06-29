@@ -132,7 +132,7 @@ struct LoginSheet: View {
                 ForEach(errors, id: \.self) { error in
                     Text(error)
                         .foregroundStyle(.orange)
-                        .font(.callout)
+                        .font(SpreadTheme.Typography.callout)
                 }
             }
         }
@@ -144,7 +144,7 @@ struct LoginSheet: View {
             Section {
                 if resentEmail {
                     Text("Verification email sent.")
-                        .font(.callout)
+                        .font(SpreadTheme.Typography.callout)
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier(
                             Definitions.AccessibilityIdentifiers.LoginSheet.verificationSentConfirmation
@@ -156,7 +156,7 @@ struct LoginSheet: View {
                             resentEmail = true
                         }
                     }
-                    .font(.callout)
+                    .font(SpreadTheme.Typography.callout)
                     .accessibilityIdentifier(
                         Definitions.AccessibilityIdentifiers.LoginSheet.resendVerificationButton
                     )

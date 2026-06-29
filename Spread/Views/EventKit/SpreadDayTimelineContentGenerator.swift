@@ -113,20 +113,20 @@ private struct SpreadDayTimelineEventBlock: View {
             // Text content
             VStack(alignment: .leading, spacing: 1) {
                 Text(event.title)
-                    .font(.caption.weight(.semibold))
+                    .font(SpreadTheme.Typography.caption.weight(.semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(showTime ? 1 : 2)
 
                 if showTime {
                     Text(timeRangeText)
-                        .font(.caption2)
+                        .font(SpreadTheme.Typography.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
 
                 if showLocation, let location = event.location {
                     Text(location)
-                        .font(.caption2)
+                        .font(SpreadTheme.Typography.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }

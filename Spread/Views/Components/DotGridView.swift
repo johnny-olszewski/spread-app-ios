@@ -174,7 +174,7 @@ extension View {
     VStack(spacing: 20) {
         VStack {
             Text("Paper (Default for Spreads)")
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
             DotGridView(configuration: .paper)
                 .frame(height: 100)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -182,7 +182,7 @@ extension View {
 
         VStack {
             Text("Standard")
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
             DotGridView(configuration: .standard)
                 .frame(height: 100)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -190,7 +190,7 @@ extension View {
 
         VStack {
             Text("Subtle")
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
             DotGridView(configuration: .subtle)
                 .frame(height: 100)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -198,7 +198,7 @@ extension View {
 
         VStack {
             Text("Dense")
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
             DotGridView(configuration: .dense)
                 .frame(height: 100)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -206,7 +206,7 @@ extension View {
 
         VStack {
             Text("Prominent")
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
             DotGridView(configuration: .prominent)
                 .frame(height: 100)
                 .clipShape(RoundedRectangle(cornerRadius: 8))

@@ -52,8 +52,9 @@ struct PasswordField: View {
             Button {
                 isVisible.toggle()
             } label: {
-                Image(systemName: isVisible ? "eye.slash" : "eye")
-                    .foregroundStyle(.secondary)
+                (isVisible ? SpreadTheme.Icon.eyeSlash : SpreadTheme.Icon.eye)
+                    .sized(SpreadTheme.IconSize.medium)
+                    .iconTint(.secondary)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(isVisible ? "Hide password" : "Show password")

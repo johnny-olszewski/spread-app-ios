@@ -109,8 +109,8 @@ struct ProfileSheet: View {
                 HStack {
                     Text("Terms of Service")
                     Spacer()
-                    Image(systemName: "safari")
-                        .foregroundStyle(.secondary)
+                    SpreadTheme.Icon.openExternal.sized(SpreadTheme.IconSize.small)
+                        .iconTint(.secondary)
                 }
             }
             .foregroundStyle(.primary)
@@ -120,8 +120,8 @@ struct ProfileSheet: View {
                 HStack {
                     Text("Privacy Policy")
                     Spacer()
-                    Image(systemName: "safari")
-                        .foregroundStyle(.secondary)
+                    SpreadTheme.Icon.openExternal.sized(SpreadTheme.IconSize.small)
+                        .iconTint(.secondary)
                 }
             }
             .foregroundStyle(.primary)

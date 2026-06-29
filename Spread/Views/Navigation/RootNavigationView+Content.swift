@@ -50,14 +50,14 @@ extension RootNavigationView {
             }
         }
 
-        /// The SF Symbol name for this destination's icon.
-        var systemImage: String {
+        /// The icon for this destination.
+        var icon: SpreadTheme.Icon {
             switch self {
-            case .spreads:      return "book"
-            case .entries:      return "tray.full"
-            case .collections:  return "folder"
-            case .settings:     return "gear"
-            case .debug:        return "ant"
+            case .spreads:      return .book
+            case .entries:      return .tray
+            case .collections:  return .folder
+            case .settings:     return .gear
+            case .debug:        return .bug
             }
         }
     }

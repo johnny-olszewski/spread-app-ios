@@ -109,7 +109,7 @@ struct EntryStatusIcon: View {
                     shape: XMarkShape(armLength: decoratorSize * 0.6),
                     color: overlayConfig?.color ?? Constants.defaultBaseShapeColor,
                     frameSize: CGSize(width: decoratorSize, height: decoratorSize),
-                    strokeStyle: StrokeStyle(lineWidth: max(2.0, s * 0.22), lineCap: .round),
+                    strokeStyle: StrokeStyle(lineWidth: max(1.5, s * 0.13), lineCap: .round),
                     animationDuration: 0.22
                 )
             case .arrowRight:
@@ -123,10 +123,11 @@ struct EntryStatusIcon: View {
                 )
             case .slash:
                 let s = overlayConfig?.iconSize ?? Constants.defaultBaseShapeSize
+                let decoratorSize = s * (1 + 2 * 0.35)
                 AnimatedOverlayView(
-                    shape: SlashShape(),
+                    shape: SlashShape(armLength: decoratorSize * 0.6),
                     color: overlayConfig?.color ?? Constants.defaultBaseShapeColor,
-                    frameSize: CGSize(width: s * 1.1, height: s * 1.1),
+                    frameSize: CGSize(width: decoratorSize, height: decoratorSize),
                     strokeStyle: StrokeStyle(lineWidth: max(1.5, s * 0.13), lineCap: .round),
                     animationDuration: 0.18
                 )

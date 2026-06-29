@@ -71,9 +71,8 @@ struct SpreadPeekPanelView: View {
                                     .onTapGesture { onTaskTap?(task) }
                                     .overlay(alignment: .trailing) {
                                         if onTaskTap != nil {
-                                            Image(systemName: "chevron.right")
-                                                .font(.caption.weight(.semibold))
-                                                .foregroundStyle(.tertiary)
+                                            SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
+                                                .iconTint(Color(.tertiaryLabel))
                                                 .padding(.trailing, 4)
                                         }
                                     }
@@ -116,14 +115,15 @@ struct SpreadPeekPanelView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(action: { onClose(); dismiss() }) {
-                        Image(systemName: "xmark")
+                        SpreadTheme.Icon.xmark.sized(SpreadTheme.IconSize.medium)
+                            .iconTint(.primary)
                     }
                     .accessibilityLabel("Close preview")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: { onNavigate(data.spread) }) {
-                        Image(systemName: "arrow.right.circle.fill")
-                            .foregroundStyle(SpreadTheme.Accent.primary)
+                        SpreadTheme.Icon.arrowRightCircleFilled.sized(SpreadTheme.IconSize.medium)
+                            .iconTint(SpreadTheme.Accent.primary)
                     }
                     .accessibilityLabel("Open spread")
                 }

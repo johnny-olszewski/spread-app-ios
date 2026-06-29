@@ -109,7 +109,9 @@ struct MultidaySpreadUITests {
             spreadDate: spreadDate,
             startDate: spreadDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 3)
@@ -133,7 +135,9 @@ struct MultidaySpreadUITests {
             spreadDate: spreadDate,
             startDate: spreadDate,
             endDate: endDate,
-            calendar: calendar
+            calendar: calendar,
+            groupingOption: .none,
+            sortingOption: .dueDate
         )
 
         #expect(sections.count == 3)

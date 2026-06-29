@@ -9,6 +9,9 @@ struct MultidaySpreadContentView: View {
 
     @State private var viewModel: ViewModel
 
+    @AppStorage("entryGrouping.multiday") private var groupingOption: EntryGroupingOption = .none
+    @AppStorage("entrySorting.multiday") private var sortingOption: EntrySortOption = .dueDate
+
     init(
         spread: DataModel.Spread,
         spreadDataModel: SpreadDataModel,
@@ -26,17 +29,30 @@ struct MultidaySpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
-        LazyVGrid(
-            columns: viewModel.columns,
-            alignment: .leading,
-            spacing: SpreadTheme.Spacing.large
-        ) {
-            ForEach(viewModel.sections) { section in
-                if section.creationPeriod == .multiday {
-                    multidayEntrySection(section)
-                        .gridCellColumns(viewModel.columnCount)
-                } else {
-                    daySection(section)
+        VStack(alignment: .leading, spacing: SpreadTheme.Spacing.large) {
+            HStack {
+                Spacer()
+                EntryListOptionsPicker(
+                    grouping: groupingOption,
+                    sorting: sortingOption,
+                    onGroupingSelected: { groupingOption = $0 },
+                    onSortingSelected: { sortingOption = $0 }
+                )
+                .padding(.horizontal, SpreadTheme.Spacing.large)
+            }
+
+            LazyVGrid(
+                columns: viewModel.columns,
+                alignment: .leading,
+                spacing: SpreadTheme.Spacing.large
+            ) {
+                ForEach(viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption)) { section in
+                    if section.creationPeriod == .multiday {
+                        multidayEntrySection(section)
+                            .gridCellColumns(viewModel.columnCount)
+                    } else {
+                        daySection(section)
+                    }
                 }
             }
         }
@@ -90,9 +106,9 @@ struct MultidaySpreadContentView: View {
             explicitDaySpread: explicitDaySpread,
             calendar: calendar
         )
-        let shortMonthText = EntryListMultidaySupport.shortMonthText(for: section.date, calendar: calendar)
-        let weekdayText = EntryListMultidaySupport.weekdayText(for: section.date, calendar: calendar)
-        let dayNumberText = EntryListMultidaySupport.dayNumberText(for: section.date, calendar: calendar)
+        let shortMonthText = section.date.shortMonthText(calendar: calendar)
+        let weekdayText = section.date.weekdayText(calendar: calendar)
+        let dayNumberText = section.date.dayNumberText(calendar: calendar)
         let onFooterTap: () -> Void = {
             if let explicitDaySpread {
                 viewModel.context.coordinator.navigateViaPeek(to: explicitDaySpread, from: viewModel.spread)
@@ -163,8 +179,8 @@ struct MultidaySpreadContentView: View {
                     .font(SpreadTheme.Typography.title3)
                     .fontWeight(.medium)
             } icon: {
-                Image(systemName: "circle")
-                    .font(.system(size: 15))
+                SpreadTheme.Icon.circle.sized(15)
+                    .iconTint(taskCount > 0 ? Color.primary : Color.secondary)
             }
             .foregroundStyle(taskCount > 0 ? Color.primary : Color.secondary)
 
@@ -173,8 +189,8 @@ struct MultidaySpreadContentView: View {
                     .font(SpreadTheme.Typography.title3)
                     .fontWeight(.medium)
             } icon: {
-                Image(systemName: "calendar")
-                    .font(.system(size: 15))
+                SpreadTheme.Icon.calendar.sized(15)
+                    .iconTint(eventCount > 0 ? Color.primary : Color.secondary)
             }
             .foregroundStyle(eventCount > 0 ? Color.primary : Color.secondary)
         }

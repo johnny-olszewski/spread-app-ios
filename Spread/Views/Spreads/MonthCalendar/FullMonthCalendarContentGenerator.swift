@@ -106,7 +106,7 @@ private struct CalendarDayCellView: View {
     private var topRow: some View {
         if isPeripheral {
             Text(shortMonth(for: date))
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .foregroundStyle(.secondary)
         } else {
             Color.clear.frame(height: 12)
@@ -138,9 +138,8 @@ private struct CalendarDayCellView: View {
                 Button {
                     onViewDaySpread?(spread)
                 } label: {
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(SpreadTheme.Accent.primary)
+                    SpreadTheme.Icon.arrowRight.sized(12)
+                        .iconTint(SpreadTheme.Accent.primary)
                         .frame(width: 24, height: 24)
                         .background(Circle().fill(.white.opacity(0.94)))
                 }

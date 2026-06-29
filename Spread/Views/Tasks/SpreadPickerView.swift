@@ -70,10 +70,10 @@ struct SpreadPickerView: View {
         Section {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Assignment date context")
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
                 Text(formattedFocusDate)
-                    .font(.body.weight(.semibold))
+                    .font(SpreadTheme.Typography.body.weight(.semibold))
             }
             .padding(.vertical, 2)
         }
@@ -85,18 +85,17 @@ struct SpreadPickerView: View {
             dismiss()
         } label: {
             HStack {
-                Image(systemName: "calendar.badge.plus")
-                    .foregroundStyle(.accent)
+                SpreadTheme.Icon.calendarPlus.sized(SpreadTheme.IconSize.medium)
+                    .iconTint(.accentColor)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Choose another date")
                     Text("Use the form controls for a different year, month, or day destination")
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
+                    .iconTint(.secondary)
             }
         }
         .foregroundStyle(.primary)
@@ -112,9 +111,9 @@ struct SpreadPickerView: View {
                 periodIcon(for: option.period)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(option.title)
-                        .font(.body)
+                        .font(SpreadTheme.Typography.body)
                     Text(option.subtitle)
-                        .font(.caption)
+                        .font(SpreadTheme.Typography.caption)
                         .foregroundStyle(option.availability == .existing ? .secondary : .tertiary)
                 }
                 Spacer()
@@ -133,20 +132,20 @@ struct SpreadPickerView: View {
     }
 
     private func periodIcon(for period: Period) -> some View {
-        let systemName: String
+        let icon: SpreadTheme.Icon
         switch period {
         case .year:
-            systemName = "calendar"
+            icon = .calendar
         case .month:
-            systemName = "calendar.badge.clock"
+            icon = .calendarDots
         case .day:
-            systemName = "sun.max"
+            icon = .sun
         case .multiday:
-            systemName = "calendar.day.timeline.left"
+            icon = .rows
         }
 
-        return Image(systemName: systemName)
-            .foregroundStyle(.accent)
+        return icon.sized(SpreadTheme.IconSize.medium)
+            .iconTint(.accentColor)
             .frame(width: 24)
     }
 

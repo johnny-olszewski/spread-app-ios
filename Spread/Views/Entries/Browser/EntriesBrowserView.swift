@@ -124,7 +124,7 @@ struct EntriesBrowserView: View {
                 if filteredNotes.isEmpty {
                     Text(viewModel.searchText.isEmpty ? "No notes" : "No results")
                         .foregroundStyle(.secondary)
-                        .font(.subheadline)
+                        .font(SpreadTheme.Typography.subheadline)
                         .listRowBackground(Color.clear)
                 } else {
                     ForEach(filteredNotes) { note in
@@ -150,7 +150,7 @@ struct EntriesBrowserView: View {
     private func emptyRow(for section: TaskBrowserSection) -> some View {
         Text(emptyMessage(for: section))
             .foregroundStyle(.secondary)
-            .font(.subheadline)
+            .font(SpreadTheme.Typography.subheadline)
     }
 
     private func emptyMessage(for section: TaskBrowserSection) -> String {
@@ -203,9 +203,9 @@ struct EntriesBrowserView: View {
         Button {
             viewModel.isFilterSheetPresented = true
         } label: {
-            Image(systemName: viewModel.hasActiveFilters
-                ? "line.3.horizontal.decrease.circle.fill"
-                : "line.3.horizontal.decrease.circle")
+            (viewModel.hasActiveFilters ? SpreadTheme.Icon.funnelFilled : SpreadTheme.Icon.funnel)
+                .sized(SpreadTheme.IconSize.medium)
+                .iconTint(.primary)
         }
         .accessibilityLabel(viewModel.hasActiveFilters ? "Filter (active)" : "Filter")
     }

@@ -6,7 +6,11 @@ import SwiftUI
 struct SettingsPlaceholderView: View {
     var body: some View {
         ContentUnavailableView {
-            Label("Settings", systemImage: "gear")
+            Label {
+                Text("Settings")
+            } icon: {
+                SpreadTheme.Icon.gear.sized(SpreadTheme.IconSize.large)
+            }
         } description: {
             Text("App preferences will appear here.")
         }

@@ -36,7 +36,7 @@ struct TagManagementView: View {
                             Spacer()
                             Text("\(taskCount(tag)) task\(taskCount(tag) == 1 ? "" : "s")")
                                 .foregroundStyle(.secondary)
-                                .font(.subheadline)
+                                .font(SpreadTheme.Typography.subheadline)
                         }
                     }
                 }

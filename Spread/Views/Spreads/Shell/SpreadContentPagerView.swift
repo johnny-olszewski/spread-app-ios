@@ -107,12 +107,12 @@ struct SpreadContentPagerView: View {
         )
         return VStack(spacing: 2) {
             Text(config.title)
-                .font(SpreadTheme.Typography.heading(size: 17, weight: .semibold))
+                .font(SpreadTheme.Typography.largeTitle(size: 17, weight: .bold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
             if let subtitle = config.subtitle {
                 Text(subtitle)
-                    .font(.caption)
+                    .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -191,7 +191,11 @@ struct SpreadContentPagerView: View {
             }
         } else {
             ContentUnavailableView {
-                Label("No Data", systemImage: "tray")
+                Label {
+                    Text("No Data")
+                } icon: {
+                    SpreadTheme.Icon.tray.sized(SpreadTheme.IconSize.large)
+                }
             } description: {
                 Text("Unable to load spread data.")
             }

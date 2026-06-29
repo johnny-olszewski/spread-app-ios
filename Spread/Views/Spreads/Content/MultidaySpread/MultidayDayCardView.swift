@@ -114,7 +114,7 @@ struct MultidayDayCardView<Content: View>: View {
             if let onPeek {
                 SpreadButton(viewModel: .init(
                     title: "Preview day spread",
-                    systemImage: "eye",
+                    icon: .eye,
                     style: .secondary,
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayPeekButton(dateID),
                     action: onPeek
@@ -126,7 +126,7 @@ struct MultidayDayCardView<Content: View>: View {
             if cardStyle.isCreated {
                 SpreadButton(viewModel: .init(
                     title: "Open day spread",
-                    systemImage: "arrow.right",
+                    icon: .arrowRight,
                     style: .primary,
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID),
                     action: onFooterTap
@@ -134,7 +134,7 @@ struct MultidayDayCardView<Content: View>: View {
             } else {
                 SpreadButton(viewModel: .init(
                     title: "Create day spread",
-                    systemImage: "calendar.badge.plus",
+                    icon: .calendarPlus,
                     style: .primary,
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID),
                     action: onFooterTap
@@ -148,7 +148,7 @@ struct MultidayDayCardView<Content: View>: View {
         if overdueCount > 0 {
             if overdueCount > 9 {
                 Text("\(overdueCount)")
-                    .font(.caption.weight(.bold))
+                    .font(SpreadTheme.Typography.caption.weight(.bold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
@@ -156,7 +156,7 @@ struct MultidayDayCardView<Content: View>: View {
                     .accessibilityLabel("\(overdueCount) overdue tasks")
             } else {
                 Text("\(overdueCount)")
-                    .font(.caption.weight(.bold))
+                    .font(SpreadTheme.Typography.caption.weight(.bold))
                     .foregroundStyle(.white)
                     .frame(width: 24, height: 24)
                     .background(.red, in: Circle())

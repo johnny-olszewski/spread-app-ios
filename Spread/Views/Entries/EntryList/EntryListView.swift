@@ -43,9 +43,9 @@ struct EntryListView<TrailingContent: View>: View {
     private static var rowInsets: EdgeInsets {
         EdgeInsets(
             top: SpreadTheme.Spacing.entryRowVertical,
-            leading: 16,
+            leading: SpreadTheme.Spacing.large,
             bottom: SpreadTheme.Spacing.entryRowVertical,
-            trailing: 16
+            trailing: SpreadTheme.Spacing.large
         )
     }
 
@@ -90,8 +90,8 @@ struct EntryListView<TrailingContent: View>: View {
                     .background {
                         if case .card(let color) = section.style {
                             RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.section)
-                                .stroke(color.opacity(0.7), lineWidth: 1)
-                                .fill(color.opacity(0.45))
+                                .stroke(color.opacity(SpreadTheme.Opacity.cardStroke), lineWidth: 1)
+                                .fill(color.opacity(SpreadTheme.Opacity.cardFill))
                         }
                     }
                 }
@@ -120,7 +120,11 @@ struct EntryListView<TrailingContent: View>: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No Entries", systemImage: "tray")
+            Label {
+                Text("No Entries")
+            } icon: {
+                SpreadTheme.Icon.tray.sized(SpreadTheme.IconSize.large)
+            }
         } description: {
             Text("Add tasks or notes to this spread.")
         }

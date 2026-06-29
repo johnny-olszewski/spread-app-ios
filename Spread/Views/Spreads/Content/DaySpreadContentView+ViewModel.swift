@@ -76,8 +76,9 @@ extension DaySpreadContentView {
             ]
         }
 
-        var sections: [EntryList.Section] {
-            let cal = context.calendar
+        /// Groups and orders the spread's regular (non-overdue) entries per the caller's
+        /// current `EntryGroupingOption`/`EntrySortOption` picker selection.
+        func sections(groupedBy groupingOption: EntryGroupingOption, orderedBy sortingOption: EntrySortOption) -> [EntryList.Section] {
             let live = context.journalManager.spreadDataModel(for: spread.date, period: spread.period) ?? spreadDataModel
             let base: [any Entry] = live.tasks + live.notes
             let eventEntries = calendarEvents.map { DataModel.Event(calendarEvent: $0) }
@@ -85,9 +86,8 @@ extension DaySpreadContentView {
             return Self.makeSections(
                 from: base + eventEntries,
                 spreadDate: spread.date,
-                calendar: cal,
-                listConfigurationMap: entryConfigurationMap,
-                unassignedConfigurationMap: entryConfigurationMap,
+                groupingOption: groupingOption,
+                sortingOption: sortingOption,
                 eventConfigurationMap: eventConfigurationMap
             )
         }
@@ -138,74 +138,38 @@ extension DaySpreadContentView {
 
         // MARK: - Section Grouping
 
-        /// Groups day spread entries into named-list sections (alphabetical),
-        /// with a trailing untitled section for entries with no list.
+        /// Groups/orders the spread's non-event entries per `groupingOption`/`sortingOption`,
+        /// with calendar events always appearing last in their own fixed, ungrouped "Events"
+        /// section — events have no list/tag/status assignment, so they sit outside the
+        /// user-selectable grouping entirely, the same way overdue items sit outside it.
         static func makeSections(
             from entries: [any Entry],
             spreadDate: Date,
-            calendar: Calendar,
-            listConfigurationMap: EntryRowView.ConfigurationMap,
-            unassignedConfigurationMap: EntryRowView.ConfigurationMap,
+            groupingOption: EntryGroupingOption,
+            sortingOption: EntrySortOption,
             eventConfigurationMap: EntryRowView.ConfigurationMap
         ) -> [EntryList.Section] {
             guard !entries.isEmpty else { return [] }
 
-            let sectionID = String(spreadDate.timeIntervalSinceReferenceDate)
-            let eventSectionID = "\(sectionID)-events"
-
-            // Partition entries into three buckets: named-list, unassigned, and events.
-            var listGroups: [UUID: [any Entry]] = [:]
-            var listsByID: [UUID: DataModel.List] = [:]
-            var unassignedEntries: [any Entry] = []
+            var regularEntries: [any Entry] = []
             var eventEntries: [any Entry] = []
-
             for entry in entries {
                 if entry.entryType == .event {
                     eventEntries.append(entry)
-                } else if let list = entry.assignedList {
-                    listGroups[list.id, default: []].append(entry)
-                    listsByID[list.id] = list
                 } else {
-                    unassignedEntries.append(entry)
+                    regularEntries.append(entry)
                 }
             }
 
-            var sections: [EntryList.Section] = []
+            var sections = EntryList.Section.grouped(
+                from: regularEntries,
+                by: groupingOption.grouping(date: spreadDate, creationPeriod: .day, creationDate: spreadDate),
+                orderedBy: sortingOption.areInOrder
+            )
 
-            // Named-list sections — sorted alphabetically by list name.
-            let sortedListIDs = listsByID.keys.sorted { listsByID[$0]!.name < listsByID[$1]!.name }
-            for listID in sortedListIDs {
-                sections.append(EntryList.Section(
-                    id: listID.uuidString,
-                    title: listsByID[listID]?.name ?? "",
-                    date: spreadDate,
-                    entries: (listGroups[listID] ?? []).sortedByDate(),
-                    creationPeriod: .day,
-                    creationDate: spreadDate,
-                    configurationMap: listConfigurationMap
-                ))
-            }
-
-            // Unassigned entries trailing the named-list sections.
-            if !unassignedEntries.isEmpty {
-                sections.append(
-                    EntryList.Section(
-                        id: sectionID,
-                        title: "No List",
-                        titleStyle: .secondary,
-                        date: spreadDate,
-                        entries: unassignedEntries.sortedByDate(),
-                        creationPeriod: .day,
-                        creationDate: spreadDate,
-                        configurationMap: unassignedConfigurationMap
-                    )
-                )
-            }
-
-            // Calendar events always appear last.
             if !eventEntries.isEmpty {
                 sections.append(EntryList.Section(
-                    id: eventSectionID,
+                    id: "\(spreadDate.timeIntervalSinceReferenceDate)-events",
                     title: "Events",
                     date: spreadDate,
                     entries: eventEntries.sortedByDate(),
@@ -228,15 +192,6 @@ private extension Optional where Wrapped == UserInterfaceSizeClass {
 }
 
 // MARK: - Entry sorting helpers
-
-private extension Entry {
-    /// The list this entry belongs to, or `nil` if it is unassigned or not list-eligible.
-    var assignedList: DataModel.List? {
-        if let task = self as? DataModel.Task { return task.list }
-        if let note = self as? DataModel.Note { return note.list }
-        return nil
-    }
-}
 
 private extension [any Entry] {
     /// Returns the entries sorted chronologically by their `sortDate`.

@@ -132,14 +132,13 @@ struct SpreadContentPagerAssemblyTests {
         let sections = DaySpreadContentView.ViewModel.makeSections(
             from: entries,
             spreadDate: spreadDate,
-            calendar: Self.calendar,
-            listConfigurationMap: [:],
-            unassignedConfigurationMap: [:],
+            groupingOption: .list,
+            sortingOption: .dueDate,
             eventConfigurationMap: [:]
         )
 
         #expect(sections.count == 2)
         #expect(sections[0].title == "Work")
-        #expect(sections[1].title == "No List")
+        #expect(sections[1].title == "Untitled")
     }
 }

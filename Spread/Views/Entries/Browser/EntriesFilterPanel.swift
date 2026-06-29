@@ -66,7 +66,7 @@ struct EntriesFilterPanel: View {
             sectionHeader("Tags")
             if tags.isEmpty {
                 Text("No tags")
-                    .font(.subheadline)
+                    .font(SpreadTheme.Typography.subheadline)
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 8)
             } else {
@@ -91,7 +91,7 @@ struct EntriesFilterPanel: View {
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(.caption)
+            .font(SpreadTheme.Typography.caption)
             .foregroundStyle(.secondary)
             .padding(.bottom, 6)
     }
@@ -100,12 +100,11 @@ struct EntriesFilterPanel: View {
         Button(action: action) {
             HStack {
                 Text(title)
-                    .font(.subheadline)
+                    .font(SpreadTheme.Typography.subheadline)
                 Spacer()
                 if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.tint)
+                    SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
+                        .iconTint(.accentColor)
                 }
             }
             .padding(.vertical, 8)
@@ -119,7 +118,7 @@ struct EntriesFilterPanel: View {
         } label: {
             HStack {
                 Text(title)
-                    .font(.subheadline)
+                    .font(SpreadTheme.Typography.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer()
                 trailing
@@ -130,9 +129,8 @@ struct EntriesFilterPanel: View {
     }
 
     private var chevron: some View {
-        Image(systemName: "chevron.right")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.tertiary)
+        SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
+            .iconTint(Color(.tertiaryLabel))
     }
 
     private var sectionDivider: some View {

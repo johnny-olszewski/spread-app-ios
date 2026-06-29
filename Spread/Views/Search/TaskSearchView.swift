@@ -128,7 +128,7 @@ private struct TaskSearchRowContent: View {
                     HStack(spacing: 6) {
                         if let badgeTitle = priority.badgeTitle {
                             Text(badgeTitle)
-                                .font(.caption2.weight(.semibold))
+                                .font(SpreadTheme.Typography.caption2.weight(.semibold))
                                 .foregroundStyle(priority.badgeColor)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 2)

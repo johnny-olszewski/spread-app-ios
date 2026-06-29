@@ -164,7 +164,7 @@ struct SignUpSheet: View {
                 )
             Text(".")
         }
-        .font(.caption)
+        .font(SpreadTheme.Typography.caption)
         .foregroundStyle(.secondary)
     }
 
@@ -176,7 +176,7 @@ struct SignUpSheet: View {
                 ForEach(errors, id: \.self) { error in
                     Text(error)
                         .foregroundStyle(.orange)
-                        .font(.callout)
+                        .font(SpreadTheme.Typography.callout)
                 }
             }
         }
@@ -191,12 +191,12 @@ struct SignUpSheet: View {
                     Text("Check Your Email")
                         .fontWeight(.medium)
                     Text("We sent a verification link to \(email). Tap it to confirm your account.")
-                        .font(.callout)
+                        .font(SpreadTheme.Typography.callout)
                         .foregroundStyle(.secondary)
                 }
             } icon: {
-                Image(systemName: "envelope.badge.fill")
-                    .foregroundStyle(.green)
+                SpreadTheme.Icon.envelopeFilled.sized(SpreadTheme.IconSize.large)
+                    .iconTint(.green)
             }
         }
     }
@@ -212,7 +212,7 @@ struct SignUpSheet: View {
             if let errorMessage = authManager.errorMessage {
                 Text(errorMessage)
                     .foregroundStyle(.red)
-                    .font(.callout)
+                    .font(SpreadTheme.Typography.callout)
             }
         }
     }
@@ -265,7 +265,7 @@ struct SignUpSheet: View {
                     Link("Privacy Policy", destination: LegalLinks.privacyPolicy)
                     Text(".")
                 }
-                .font(.caption)
+                .font(SpreadTheme.Typography.caption)
                 .foregroundStyle(.secondary)
             }
         }
@@ -300,12 +300,12 @@ struct SignUpSheet: View {
                         Text("Check Your Email")
                             .fontWeight(.medium)
                         Text("We sent a verification link to user@example.com. Tap it to confirm your account.")
-                            .font(.callout)
+                            .font(SpreadTheme.Typography.callout)
                             .foregroundStyle(.secondary)
                     }
                 } icon: {
-                    Image(systemName: "envelope.badge.fill")
-                        .foregroundStyle(.green)
+                    SpreadTheme.Icon.envelopeFilled.sized(SpreadTheme.IconSize.large)
+                        .iconTint(.green)
                 }
             }
             Section {

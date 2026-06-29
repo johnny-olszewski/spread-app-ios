@@ -50,7 +50,7 @@ extension SpreadsNavigatorView {
             
             HStack {
                 Text(monthYearString)
-                    .font(.headline)
+                    .font(SpreadTheme.Typography.headline)
                     .foregroundStyle(.primary)
                 Spacer()
             }
@@ -63,7 +63,7 @@ extension SpreadsNavigatorView {
 
         func weekdayHeaderView(weekday: Int) -> some View {
             Text(calendar.veryShortWeekdaySymbols[weekday - 1].prefix(1))
-                .font(.caption2)
+                .font(SpreadTheme.Typography.caption2)
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
@@ -88,7 +88,7 @@ extension SpreadsNavigatorView {
             let textColor: Color = cardStyle.textColor
 
             return Text("\(dayNumber)")
-                .font(.subheadline)
+                .font(SpreadTheme.Typography.subheadline)
                 .fontWeight(cardStyle.headerWeight)
                 .foregroundStyle(textColor)
                 .lineLimit(1)
