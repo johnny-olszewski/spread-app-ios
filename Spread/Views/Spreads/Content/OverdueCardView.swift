@@ -4,10 +4,14 @@ import JohnnyOFoundationUI
 
 /// A card-styled overdue-task review surface, shared across every spread content view.
 ///
-/// Renders nothing when `spread` does not represent today (per `Spread.contains(date:calendar:)`,
-/// which is period-aware for day/month/year/multiday) or when there are no overdue tasks.
-/// When applicable, renders one `EntryList.Section` per distinct source spread (or Inbox) inside
-/// the existing `EntryListView` + `EntryList.Section.Style.card` mechanism — no new visual chrome.
+/// Renders nothing unless `spread` is the *most granular* spread containing today — per
+/// `[DataModel.Spread].bestSpread(for:calendar:)`'s existing priority cascade (day > narrowest
+/// multiday > month > year), the same logic already used by the Today button and default
+/// navigation. Without this, a day spread and its parent month/year spread would all show the
+/// card simultaneously, since each independently "contains" today. Also renders nothing when
+/// there are no overdue tasks. When applicable, renders one `EntryList.Section` per distinct
+/// source spread (or Inbox) inside the existing `EntryListView` + `EntryList.Section.Style.card`
+/// mechanism — no new visual chrome.
 struct OverdueCardView: View {
 
     let spread: DataModel.Spread
@@ -24,11 +28,11 @@ struct OverdueCardView: View {
 
     // MARK: - Section Building
 
-    /// Builds the overdue card's sections for `spread`, or `[]` when `spread` doesn't represent
-    /// today or there are no overdue tasks. A `static` function so it's directly unit-testable
-    /// without constructing the view.
+    /// Builds the overdue card's sections for `spread`, or `[]` when `spread` isn't the most
+    /// granular spread containing today, or there are no overdue tasks. A `static` function so
+    /// it's directly unit-testable without constructing the view.
     static func sections(for spread: DataModel.Spread, context: SpreadPageContext) -> [EntryList.Section] {
-        guard spread.contains(date: context.journalManager.today, calendar: context.calendar) else { return [] }
+        guard spread.id == context.journalManager.bestSpread(for: context.journalManager.today)?.id else { return [] }
 
         let overdueItems = context.journalManager.overdueTaskItems
         guard !overdueItems.isEmpty else { return [] }

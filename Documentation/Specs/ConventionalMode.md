@@ -96,12 +96,8 @@
 
 ### Overdue Card on All Spread Content Views (SPRD-274)
 
-- The overdue card is no longer scoped to `DaySpreadContentView`. It appears on **any** spread content view (Day, Month, Year, Multiday) whenever the currently-displayed spread represents today, using the same "is this today" condition already defined by `DataModel.Spread.contains(date:calendar:)` for every period:
-  - Day: today falls on the spread's date.
-  - Month: today falls within the spread's month.
-  - Year: today falls within the spread's year.
-  - Multiday: today falls within the spread's `startDate`...`endDate` range (inclusive). [SPRD-274]
-- The card-building logic (querying `JournalManager.overdueTaskItems`, checking the spread-represents-today condition, and grouping into one `EntryList.Section` per source spread/Inbox) is extracted into a standalone, reusable `OverdueCardView(spread:context:)` component. It takes the current spread plus the existing `SpreadPageContext` bundle (already carrying `JournalManager`/calendar) — no other injected dependency. It renders nothing (`EmptyView`) when the spread doesn't represent today or there are no overdue items. [SPRD-274]
+- The overdue card is no longer scoped to `DaySpreadContentView`. It appears on **any** spread content view (Day, Month, Year, Multiday), but only on the *most granular* spread that contains today — not on every spread that merely contains today. A spread qualifies exactly when it is `[DataModel.Spread].bestSpread(for:calendar:)`'s result for today (the same priority cascade already used by the Today button and default navigation): day spread for today > narrowest multiday spread containing today > month spread containing today > year spread containing today. If today has both an explicit day spread and its parent month spread, only the day spread shows the card — the month spread shows nothing, even though it also "contains" today. [SPRD-274]
+- The card-building logic (querying `JournalManager.overdueTaskItems`, checking the spread-is-most-granular-for-today condition, and grouping into one `EntryList.Section` per source spread/Inbox) is extracted into a standalone, reusable `OverdueCardView(spread:context:)` component. It takes the current spread plus the existing `SpreadPageContext` bundle (already carrying `JournalManager`/calendar) — no other injected dependency. It renders nothing (`EmptyView`) when the spread isn't `bestSpread(for: today)` or there are no overdue items. [SPRD-274]
 - `OverdueCardView` renders via the same `EntryListView` + `EntryList.Section.Style.card` mechanism `DaySpreadContentView` already used — no new visual chrome, no new rendering path. [SPRD-274]
 - Each content view places `OverdueCardView` as the first element of its *scrollable* content, before any of its own period-specific content: [SPRD-274]
   - Day: before the existing entry list (unchanged from current behavior).
