@@ -21,6 +21,12 @@ struct SpreadsNavigatorView: View {
     /// and passes it directly to `CalendarGenerator`.
     let calendarModels: [Int: CalendarGenerator.Model]
 
+    /// Pre-built, deduped `.day`/`.multiday` spreads keyed by year, injected by `SpreadsTabView`
+    /// alongside `calendarModels` (same lifecycle, same build pass). Looked up directly for
+    /// `selectedYear` rather than derived by flat-mapping and deduping `calendarModels` on every
+    /// render.
+    let yearSpreads: [Int: [DataModel.Spread]]
+
     /// The calendar year displayed. Owned by the caller so it persists across pane
     /// show/hide and size class transitions; this view supplies the picker UI.
     @Binding var selectedYear: Int
@@ -33,14 +39,13 @@ struct SpreadsNavigatorView: View {
 
     // MARK: - Derived from Model
 
-    /// Unique spreads for the selected year, used by `RowOverlayGenerator` to draw
-    /// multiday span bars. Extracted from the model rather than from a raw spreads array.
+    /// Unique spreads for the selected year, used by `RowOverlayGenerator` to draw multiday
+    /// span bars. A direct lookup into `yearSpreads` (pre-built and deduped by `SpreadsTabView`)
+    /// rather than a per-render flat-map/dedup walk over `calendarModels`.
     private var selectedYearSpreads: [DataModel.Spread] {
-        guard let model = calendarModels[selectedYear] else { return [] }
-        var seen = Set<UUID>()
-        return model.values.flatMap { $0 }.filter { seen.insert($0.id).inserted }
+        yearSpreads[selectedYear] ?? []
     }
-    
+
     // MARK: - Year Date Range
 
     private var selectedYearStartDate: Date {

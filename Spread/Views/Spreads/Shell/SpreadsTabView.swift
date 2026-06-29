@@ -63,6 +63,12 @@ struct SpreadsTabView: View {
     /// matching the navigator's display semantics.
     private var navigatorCalendarModels: [Int: SpreadsNavigatorView.CalendarGenerator.Model]
 
+    /// Unique `.day`/`.multiday` spreads per calendar year, built in the same pass as
+    /// `navigatorCalendarModels`. `SpreadsNavigatorView` looks this up directly for
+    /// `selectedYear` rather than deriving it by flat-mapping and deduping the model on every
+    /// render — that walk is now paid once here, at the same lifecycle point as the model itself.
+    private var navigatorYearSpreads: [Int: [DataModel.Spread]]
+
     // MARK: - Init
 
     init(
@@ -80,30 +86,50 @@ struct SpreadsTabView: View {
         // yet at this point in init. Inline the calendar construction from the already-assigned
         // `journalManager` instead.
         let calendar = journalManager.configuredCalendar
-        navigatorCalendarModels = {
-            var result = [Int: SpreadsNavigatorView.CalendarGenerator.Model]()
-            for spread in journalManager.spreads {
-                switch spread.period {
-                case .day:
-                    let year = calendar.component(.year, from: spread.date)
-                    let dayStart = spread.date.startOfDay(calendar: calendar)
-                    result[year, default: SpreadsNavigatorView.CalendarGenerator.Model()][dayStart, default: []].append(spread)
-                case .multiday:
-                    guard let startDate = spread.startDate, let endDate = spread.endDate else { continue }
-                    var date = startDate
-                    while date <= endDate {
-                        let year = calendar.component(.year, from: date)
-                        let dayStart = date.startOfDay(calendar: calendar)
-                        result[year, default: SpreadsNavigatorView.CalendarGenerator.Model()][dayStart, default: []].append(spread)
-                        guard let next = calendar.date(byAdding: .day, value: 1, to: date) else { break }
-                        date = next
-                    }
-                case .year, .month:
-                    continue
+        let built = Self.buildNavigatorCalendarData(spreads: journalManager.spreads, calendar: calendar)
+        navigatorCalendarModels = built.models
+        navigatorYearSpreads = built.yearSpreads
+    }
+
+    /// Builds `navigatorCalendarModels` and `navigatorYearSpreads` in a single pass over
+    /// `spreads`. A `static` function (rather than inline `init` logic) so it's directly
+    /// unit-testable without constructing a full `JournalManager`/SwiftUI environment.
+    static func buildNavigatorCalendarData(
+        spreads: [DataModel.Spread],
+        calendar: Calendar
+    ) -> (models: [Int: SpreadsNavigatorView.CalendarGenerator.Model], yearSpreads: [Int: [DataModel.Spread]]) {
+        var models = [Int: SpreadsNavigatorView.CalendarGenerator.Model]()
+        var yearSpreads = [Int: [DataModel.Spread]]()
+        var seenSpreadIDsByYear = [Int: Set<UUID>]()
+
+        for spread in spreads {
+            switch spread.period {
+            case .day:
+                let year = calendar.component(.year, from: spread.date)
+                let dayStart = spread.date.startOfDay(calendar: calendar)
+                models[year, default: SpreadsNavigatorView.CalendarGenerator.Model()][dayStart, default: []].append(spread)
+                if seenSpreadIDsByYear[year, default: []].insert(spread.id).inserted {
+                    yearSpreads[year, default: []].append(spread)
                 }
+            case .multiday:
+                guard let startDate = spread.startDate, let endDate = spread.endDate else { continue }
+                var date = startDate
+                while date <= endDate {
+                    let year = calendar.component(.year, from: date)
+                    let dayStart = date.startOfDay(calendar: calendar)
+                    models[year, default: SpreadsNavigatorView.CalendarGenerator.Model()][dayStart, default: []].append(spread)
+                    if seenSpreadIDsByYear[year, default: []].insert(spread.id).inserted {
+                        yearSpreads[year, default: []].append(spread)
+                    }
+                    guard let next = calendar.date(byAdding: .day, value: 1, to: date) else { break }
+                    date = next
+                }
+            case .year, .month:
+                continue
             }
-            return result
-        }()
+        }
+
+        return (models: models, yearSpreads: yearSpreads)
     }
 
     // MARK: - Body
@@ -200,6 +226,7 @@ struct SpreadsTabView: View {
     private var spreadsNavigatorView: some View {
         SpreadsNavigatorView(
             calendarModels: navigatorCalendarModels,
+            yearSpreads: navigatorYearSpreads,
             selectedYear: $spreadsCoordinator.selectedYear,
             selectedSpread: $spreadsCoordinator.selectedSpread,
             today: journalManager.today,
