@@ -50,30 +50,37 @@ struct MonthSpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollView {
-            ScrollViewReader { proxy in
-                LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-                    SpreadMonthCalendarView(
-                        monthDate: spread.date,
-                        journalManager: context.journalManager,
-                        calendarActionsByDate: contentModel.calendarActionsByDate,
-                        onViewDaySpread: { context.coordinator.selectSpread($0) },
-                        onRevealMonthDaySection: { date in
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                proxy.scrollTo(date, anchor: .top)
-                            }
+        ScrollViewReader { proxy in
+            VStack(spacing: 0) {
+                // Pinned, non-scrolling top inset — kept outside the ScrollView below so the
+                // calendar grid stays visible while the entry content beneath it scrolls.
+                SpreadMonthCalendarView(
+                    monthDate: spread.date,
+                    journalManager: context.journalManager,
+                    calendarActionsByDate: contentModel.calendarActionsByDate,
+                    onViewDaySpread: { context.coordinator.selectSpread($0) },
+                    onRevealMonthDaySection: { date in
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            proxy.scrollTo(date, anchor: .top)
                         }
-                    )
-
-                    monthSection(entries: contentModel.monthEntries)
-
-                    ForEach(contentModel.daySections) { section in
-                        daySection(section)
-                            .id(section.id)
                     }
-                }
+                )
                 .padding(.horizontal, Layout.contentPadding)
-                .padding(.bottom, Layout.sectionSpacing)
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+                        OverdueCardView(spread: spread, context: context)
+
+                        monthSection(entries: contentModel.monthEntries)
+
+                        ForEach(contentModel.daySections) { section in
+                            daySection(section)
+                                .id(section.id)
+                        }
+                    }
+                    .padding(.horizontal, Layout.contentPadding)
+                    .padding(.bottom, Layout.sectionSpacing)
+                }
             }
         }
     }
