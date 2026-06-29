@@ -53,7 +53,7 @@ struct RootNavigationView: View {
                     Label {
                         Text(content.title)
                     } icon: {
-                        content.icon.sized(SpreadTheme.IconSize.medium)
+                        content.icon.tabBarImage(size: SpreadTheme.IconSize.medium)
                     }
                 }
             }

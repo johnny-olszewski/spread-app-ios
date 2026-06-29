@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import PhosphorSwift
 
 /// Semantic icon tokens for the app, backed by the bundled Phosphor icon set.
@@ -195,15 +196,32 @@ extension SpreadTheme {
         /// `SpreadTheme.IconSize.medium`, matching the "standard inline icons" sizing SF Symbols
         /// fell back to when used without an explicit `.font()` size.
         ///
-        /// `.fixedSize()` pins this as the view's *actual* size rather than a mere layout
-        /// preference — needed because some UIKit-bridged chrome (e.g. `Tab`'s floating-glass
-        /// tab bar) lays out custom icon views through its own sizing pass that doesn't reliably
-        /// honor a plain `.frame()` on a non-SF-Symbol image.
+        /// Works for ordinary SwiftUI layout contexts. `Tab`'s floating-glass tab bar chrome does
+        /// **not** reliably honor this — it extracts/lays out the icon through its own sizing
+        /// pass that ignores `.frame()`/`.fixedSize()` on a non-SF-Symbol image. Use
+        /// `tabBarImage(size:)` there instead.
         func sized(_ size: CGFloat = SpreadTheme.IconSize.medium) -> some View {
             image
                 .aspectRatio(contentMode: .fit)
                 .frame(width: size, height: size)
                 .fixedSize()
+        }
+
+        /// A pre-rasterized, fixed-pixel template image for `Tab`'s icon slot.
+        ///
+        /// `Tab`'s floating-glass tab bar chrome ignores SwiftUI `.frame()`/`.fixedSize()` on a
+        /// live Phosphor `Image` (confirmed via manual visual verification — the icon rendered at
+        /// the underlying asset's native resolution, filling the whole tab bar). Rasterizing to a
+        /// `UIImage` at an exact pixel size and marking it `.alwaysTemplate` sidesteps this
+        /// entirely: the tab bar receives a literal fixed-size bitmap (nothing left to
+        /// mis-measure) and `.alwaysTemplate` lets it still apply its own selected/unselected
+        /// tint, matching how SF Symbols behave there by default.
+        @MainActor
+        func tabBarImage(size: CGFloat = SpreadTheme.IconSize.medium) -> Image {
+            let renderer = ImageRenderer(content: sized(size))
+            renderer.scale = UIScreen.main.scale
+            guard let uiImage = renderer.uiImage else { return image }
+            return Image(uiImage: uiImage.withRenderingMode(.alwaysTemplate))
         }
     }
 }
