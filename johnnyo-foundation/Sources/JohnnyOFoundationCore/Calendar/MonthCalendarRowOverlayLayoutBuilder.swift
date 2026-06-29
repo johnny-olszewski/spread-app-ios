@@ -1,6 +1,105 @@
 import Foundation
 
 public enum MonthCalendarRowOverlayLayoutBuilder {
+    /// Memoizes `makeWeekLayouts` results per `(overlays, model, calendar, maximumVisibleLaneCount)`
+    /// combination, mirroring `MonthCalendarModelBuilder`'s cache — `MonthCalendarView.init` calls
+    /// this synchronously on every re-render of an already-visible month, and the inputs are fully
+    /// deterministic. `OverlayPayload: Hashable` (tightened in a prior increment) lets the key
+    /// include the actual overlay values, so a payload change for the same id/date-range is never
+    /// served stale.
+    ///
+    /// Swift does not support static stored properties directly inside a generic type, so storage
+    /// is type-erased behind one non-generic singleton, keyed by the `(OverlayID, OverlayPayload)`
+    /// type pair plus the typed `CacheKey`. Each generic call site casts back to its own concrete
+    /// dictionary type, which is always safe here since the cast target is derived from the same
+    /// `OverlayID`/`OverlayPayload` used to build the type-pair key.
+    private final class Cache: @unchecked Sendable {
+        static let shared = Cache()
+
+        private struct TypePairKey: Hashable {
+            let overlayID: ObjectIdentifier
+            let overlayPayload: ObjectIdentifier
+        }
+
+        private let lock = NSLock()
+        private var storages: [TypePairKey: Any] = [:]
+        private var missCounts: [TypePairKey: Int] = [:]
+
+        private func typePairKey<OverlayID, OverlayPayload>(
+            overlayID: OverlayID.Type,
+            overlayPayload: OverlayPayload.Type
+        ) -> TypePairKey {
+            TypePairKey(overlayID: ObjectIdentifier(overlayID), overlayPayload: ObjectIdentifier(overlayPayload))
+        }
+
+        func layouts<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>(
+            for key: CacheKey<OverlayID, OverlayPayload>,
+            build: () -> [MonthCalendarPackedRowOverlayWeekLayout<OverlayID, OverlayPayload>]
+        ) -> [MonthCalendarPackedRowOverlayWeekLayout<OverlayID, OverlayPayload>] {
+            lock.lock()
+            defer { lock.unlock() }
+
+            let typeKey = typePairKey(overlayID: OverlayID.self, overlayPayload: OverlayPayload.self)
+            var typedStorage = (storages[typeKey] as? [CacheKey<OverlayID, OverlayPayload>: [MonthCalendarPackedRowOverlayWeekLayout<OverlayID, OverlayPayload>]]) ?? [:]
+
+            if let cached = typedStorage[key] {
+                return cached
+            }
+
+            let layouts = build()
+            typedStorage[key] = layouts
+            storages[typeKey] = typedStorage
+            missCounts[typeKey, default: 0] += 1
+            return layouts
+        }
+
+        func missCountForTesting<OverlayID, OverlayPayload>(
+            overlayID: OverlayID.Type,
+            overlayPayload: OverlayPayload.Type
+        ) -> Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return missCounts[typePairKey(overlayID: overlayID, overlayPayload: overlayPayload)] ?? 0
+        }
+
+        func removeAllForTesting<OverlayID, OverlayPayload>(
+            overlayID: OverlayID.Type,
+            overlayPayload: OverlayPayload.Type
+        ) {
+            lock.lock()
+            defer { lock.unlock() }
+            let typeKey = typePairKey(overlayID: overlayID, overlayPayload: overlayPayload)
+            storages[typeKey] = nil
+            missCounts[typeKey] = nil
+        }
+    }
+
+    private struct CacheKey<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>: Hashable {
+        let overlays: [MonthCalendarLogicalRowOverlay<OverlayID, OverlayPayload>]
+        let model: MonthCalendarModel
+        let calendar: Calendar
+        let maximumVisibleLaneCount: Int
+    }
+
+    /// Number of times `makeWeekLayouts` has actually recomputed layouts (cache misses) for the
+    /// given `(OverlayID, OverlayPayload)` specialization, since the last `resetCacheForTesting()`
+    /// for that specialization. Internal — reachable only via `@testable import`.
+    static func buildCountForTesting<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>(
+        overlayID: OverlayID.Type,
+        overlayPayload: OverlayPayload.Type
+    ) -> Int {
+        Cache.shared.missCountForTesting(overlayID: overlayID, overlayPayload: overlayPayload)
+    }
+
+    /// Clears the memoization cache for the given `(OverlayID, OverlayPayload)` specialization
+    /// and resets its `buildCountForTesting`. Test-only.
+    static func resetCacheForTesting<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>(
+        overlayID: OverlayID.Type,
+        overlayPayload: OverlayPayload.Type
+    ) {
+        Cache.shared.removeAllForTesting(overlayID: overlayID, overlayPayload: overlayPayload)
+    }
+
     /// Builds packed week-row layouts for logical overlays in a month shell.
     ///
     /// Foundation owns row segmentation, same-row lane packing, visible-lane limiting,
@@ -12,22 +111,31 @@ public enum MonthCalendarRowOverlayLayoutBuilder {
         calendar: Calendar,
         maximumVisibleLaneCount: Int
     ) -> [MonthCalendarPackedRowOverlayWeekLayout<OverlayID, OverlayPayload>] {
-        let normalizedOverlays = overlays.enumerated().map { sourceIndex, overlay in
-            NormalizedOverlay(
-                overlay: overlay,
-                sourceIndex: sourceIndex,
-                startDate: calendar.startOfDay(for: min(overlay.startDate, overlay.endDate)),
-                endDate: calendar.startOfDay(for: max(overlay.startDate, overlay.endDate))
-            )
-        }
-        let clampedVisibleLaneCount = max(0, maximumVisibleLaneCount)
+        let key = CacheKey(
+            overlays: overlays,
+            model: model,
+            calendar: calendar,
+            maximumVisibleLaneCount: maximumVisibleLaneCount
+        )
 
-        return model.weeks.map { week in
-            makeWeekLayout(
-                for: week,
-                overlays: normalizedOverlays,
-                visibleLaneCount: clampedVisibleLaneCount
-            )
+        return Cache.shared.layouts(for: key) {
+            let normalizedOverlays = overlays.enumerated().map { sourceIndex, overlay in
+                NormalizedOverlay(
+                    overlay: overlay,
+                    sourceIndex: sourceIndex,
+                    startDate: calendar.startOfDay(for: min(overlay.startDate, overlay.endDate)),
+                    endDate: calendar.startOfDay(for: max(overlay.startDate, overlay.endDate))
+                )
+            }
+            let clampedVisibleLaneCount = max(0, maximumVisibleLaneCount)
+
+            return model.weeks.map { week in
+                makeWeekLayout(
+                    for: week,
+                    overlays: normalizedOverlays,
+                    visibleLaneCount: clampedVisibleLaneCount
+                )
+            }
         }
     }
 

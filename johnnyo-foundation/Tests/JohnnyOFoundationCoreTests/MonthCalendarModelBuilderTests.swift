@@ -451,4 +451,65 @@ struct MonthCalendarModelBuilderTests {
 
         #expect(MonthCalendarModelBuilder.buildCountForTesting == 1)
     }
+
+    /// Calling `makeWeekLayouts` twice with identical overlays/model/calendar/lane-count inputs.
+    /// Expected: the second call is served from the cache, so the build count increments only once.
+    @Test func testMakeWeekLayoutsCachesIdenticalInputs() {
+        MonthCalendarRowOverlayLayoutBuilder.resetCacheForTesting(overlayID: String.self, overlayPayload: String.self)
+        let calendar = Self.sundayFirstCalendar
+        let model = MonthCalendarModelBuilder.makeModel(
+            displayedMonth: Self.makeDate(year: 2026, month: 6, calendar: calendar),
+            calendar: calendar
+        )
+        let overlay = Self.makeOverlay(
+            id: "a", startYear: 2026, startMonth: 6, startDay: 1,
+            endYear: 2026, endMonth: 6, endDay: 5, calendar: calendar
+        )
+
+        _ = MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts(
+            overlays: [overlay], model: model, calendar: calendar, maximumVisibleLaneCount: 2
+        )
+        _ = MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts(
+            overlays: [overlay], model: model, calendar: calendar, maximumVisibleLaneCount: 2
+        )
+
+        #expect(MonthCalendarRowOverlayLayoutBuilder.buildCountForTesting(overlayID: String.self, overlayPayload: String.self) == 1)
+    }
+
+    /// Calling `makeWeekLayouts` with the same overlay id/date-range but a different payload value,
+    /// then with a different `maximumVisibleLaneCount`. Expected: each distinct input triggers its
+    /// own cache miss/build — a payload change for the same id/date-range is never served stale.
+    @Test func testMakeWeekLayoutsRebuildsWhenPayloadOrLaneCountChanges() {
+        MonthCalendarRowOverlayLayoutBuilder.resetCacheForTesting(overlayID: String.self, overlayPayload: String.self)
+        let calendar = Self.sundayFirstCalendar
+        let model = MonthCalendarModelBuilder.makeModel(
+            displayedMonth: Self.makeDate(year: 2026, month: 6, calendar: calendar),
+            calendar: calendar
+        )
+        let overlay = Self.makeOverlay(
+            id: "a", startYear: 2026, startMonth: 6, startDay: 1,
+            endYear: 2026, endMonth: 6, endDay: 5, calendar: calendar
+        )
+        let samePositionDifferentPayload = MonthCalendarLogicalRowOverlay(
+            id: overlay.id,
+            startDate: overlay.startDate,
+            endDate: overlay.endDate,
+            payload: "different-payload"
+        )
+
+        _ = MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts(
+            overlays: [overlay], model: model, calendar: calendar, maximumVisibleLaneCount: 2
+        )
+        #expect(MonthCalendarRowOverlayLayoutBuilder.buildCountForTesting(overlayID: String.self, overlayPayload: String.self) == 1)
+
+        _ = MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts(
+            overlays: [samePositionDifferentPayload], model: model, calendar: calendar, maximumVisibleLaneCount: 2
+        )
+        #expect(MonthCalendarRowOverlayLayoutBuilder.buildCountForTesting(overlayID: String.self, overlayPayload: String.self) == 2)
+
+        _ = MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts(
+            overlays: [samePositionDifferentPayload], model: model, calendar: calendar, maximumVisibleLaneCount: 3
+        )
+        #expect(MonthCalendarRowOverlayLayoutBuilder.buildCountForTesting(overlayID: String.self, overlayPayload: String.self) == 3)
+    }
 }

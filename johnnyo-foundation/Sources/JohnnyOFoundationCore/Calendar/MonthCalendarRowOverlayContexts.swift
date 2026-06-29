@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Foundation splits each logical overlay into week-row-bounded render contexts.
 /// Cross-row continuation is intentionally out of scope for this version of the seam.
-public struct MonthCalendarLogicalRowOverlay<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>: Identifiable, Sendable {
+public struct MonthCalendarLogicalRowOverlay<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>: Identifiable, Hashable, Sendable {
     public let id: OverlayID
     public let startDate: Date
     public let endDate: Date
