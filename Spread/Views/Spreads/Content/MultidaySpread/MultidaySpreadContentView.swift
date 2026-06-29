@@ -41,6 +41,8 @@ struct MultidaySpreadContentView: View {
                 .padding(.horizontal, SpreadTheme.Spacing.large)
             }
 
+            OverdueCardView(spread: viewModel.spread, context: viewModel.context)
+
             LazyVGrid(
                 columns: viewModel.columns,
                 alignment: .leading,

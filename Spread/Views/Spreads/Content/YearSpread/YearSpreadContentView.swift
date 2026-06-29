@@ -55,6 +55,8 @@ struct YearSpreadContentView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+                OverdueCardView(spread: spread, context: context)
+
                 topYearSection
 
                 ForEach(monthDates, id: \.self) { date in
