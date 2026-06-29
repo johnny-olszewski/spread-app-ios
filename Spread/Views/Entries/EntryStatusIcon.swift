@@ -123,10 +123,15 @@ struct EntryStatusIcon: View {
                 )
             case .slash:
                 let s = overlayConfig?.iconSize ?? Constants.defaultBaseShapeSize
+                // `SlashShape` always draws within the central 60% of its frame (20%–80% on
+                // each axis). For the line to clear the base circle (diameter `s`, centered in
+                // this frame) on both ends, the frame must exceed `s / 0.6 ≈ 1.667 * s`. `s * 2.2`
+                // clears that with room to spare, giving a visible "extends beyond the circle"
+                // look comparable to `.arrowRight`'s.
                 AnimatedOverlayView(
                     shape: SlashShape(),
                     color: overlayConfig?.color ?? Constants.defaultBaseShapeColor,
-                    frameSize: CGSize(width: s * 1.1, height: s * 1.1),
+                    frameSize: CGSize(width: s * 2.2, height: s * 2.2),
                     strokeStyle: StrokeStyle(lineWidth: max(1.5, s * 0.13), lineCap: .round),
                     animationDuration: 0.18
                 )
