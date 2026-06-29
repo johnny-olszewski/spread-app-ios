@@ -73,7 +73,7 @@ struct SpreadsNavigatorView: View {
                         Label {
                             Text("\(year)")
                         } icon: {
-                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
+                            SpreadTheme.Icon.checkmark.chromeImage(size: SpreadTheme.IconSize.small)
                         }
                     } else {
                         Text("\(year)")
@@ -84,7 +84,7 @@ struct SpreadsNavigatorView: View {
             Label {
                 Text("\(selectedYear)")
             } icon: {
-                SpreadTheme.Icon.arrowsUpDown.sized(SpreadTheme.IconSize.small)
+                SpreadTheme.Icon.arrowsUpDown.chromeImage(size: SpreadTheme.IconSize.small)
             }
         }
         .pickerStyle(.menu)

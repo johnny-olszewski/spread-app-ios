@@ -196,10 +196,11 @@ extension SpreadTheme {
         /// `SpreadTheme.IconSize.medium`, matching the "standard inline icons" sizing SF Symbols
         /// fell back to when used without an explicit `.font()` size.
         ///
-        /// Works for ordinary SwiftUI layout contexts. `Tab`'s floating-glass tab bar chrome does
-        /// **not** reliably honor this — it extracts/lays out the icon through its own sizing
-        /// pass that ignores `.frame()`/`.fixedSize()` on a non-SF-Symbol image. Use
-        /// `tabBarImage(size:)` there instead.
+        /// Works for ordinary SwiftUI layout contexts. UIKit-bridged chrome (`Tab`'s
+        /// floating-glass tab bar, `Picker`'s `.menu` style) does **not** reliably honor this —
+        /// confirmed via manual visual verification for both: the icon rendered at the underlying
+        /// asset's native resolution, ballooning to fill the tab bar / overlapping the calendar
+        /// behind a `Picker`. Use `chromeImage(size:)` in those contexts instead.
         func sized(_ size: CGFloat = SpreadTheme.IconSize.medium) -> some View {
             image
                 .aspectRatio(contentMode: .fit)
@@ -207,17 +208,18 @@ extension SpreadTheme {
                 .fixedSize()
         }
 
-        /// A pre-rasterized, fixed-pixel template image for `Tab`'s icon slot.
+        /// A pre-rasterized, fixed-pixel template image for icon slots inside UIKit-bridged
+        /// chrome (`Tab`'s floating-glass tab bar, `Picker` with `.pickerStyle(.menu)`, and
+        /// similar system components that don't render a live SwiftUI view tree for their icon).
         ///
-        /// `Tab`'s floating-glass tab bar chrome ignores SwiftUI `.frame()`/`.fixedSize()` on a
-        /// live Phosphor `Image` (confirmed via manual visual verification — the icon rendered at
-        /// the underlying asset's native resolution, filling the whole tab bar). Rasterizing to a
-        /// `UIImage` at an exact pixel size and marking it `.alwaysTemplate` sidesteps this
-        /// entirely: the tab bar receives a literal fixed-size bitmap (nothing left to
-        /// mis-measure) and `.alwaysTemplate` lets it still apply its own selected/unselected
-        /// tint, matching how SF Symbols behave there by default.
+        /// That chrome ignores SwiftUI `.frame()`/`.fixedSize()` on a live Phosphor `Image` — it
+        /// extracts/lays out the icon through its own sizing pass instead of the normal SwiftUI
+        /// layout protocol. Rasterizing to a `UIImage` at an exact pixel size and marking it
+        /// `.alwaysTemplate` sidesteps this entirely: the chrome receives a literal fixed-size
+        /// bitmap (nothing left to mis-measure) and `.alwaysTemplate` lets it still apply its own
+        /// tint (e.g. selected/unselected tab state), matching how SF Symbols behave there.
         @MainActor
-        func tabBarImage(size: CGFloat = SpreadTheme.IconSize.medium) -> Image {
+        func chromeImage(size: CGFloat = SpreadTheme.IconSize.medium) -> Image {
             let renderer = ImageRenderer(content: sized(size))
             renderer.scale = UIScreen.main.scale
             guard let uiImage = renderer.uiImage else { return image }
