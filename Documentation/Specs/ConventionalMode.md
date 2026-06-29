@@ -92,7 +92,25 @@
 - The overdue card contains one `EntryList.Section` per distinct source spread (or Inbox) that has overdue tasks, grouped by `OverdueTaskItem.sourceKey`. [SPRD-235]
 - Each section in the card renders tasks using the same `EntryRowView.Configuration` as the standard task rows (status toggle, migrate, delete, edit). No overdue-specific actions in v1. [SPRD-235]
 - The card disappears automatically when all overdue tasks have been acted on (i.e., `overdueTaskItems` becomes empty). There is no manual dismiss. [SPRD-235]
-- The card is scoped to `DaySpreadContentView` only in v1. The general mechanism (`Section.Style`) is designed for reuse but no other call site uses it yet. [SPRD-235]
+- The card is scoped to `DaySpreadContentView` only in v1. The general mechanism (`Section.Style`) is designed for reuse but no other call site uses it yet. [SPRD-235] — **Superseded by SPRD-274**: the card is no longer Day-only; see below.
+
+### Overdue Card on All Spread Content Views (SPRD-274)
+
+- The overdue card is no longer scoped to `DaySpreadContentView`. It appears on **any** spread content view (Day, Month, Year, Multiday) whenever the currently-displayed spread represents today, using the same "is this today" condition already defined by `DataModel.Spread.contains(date:calendar:)` for every period:
+  - Day: today falls on the spread's date.
+  - Month: today falls within the spread's month.
+  - Year: today falls within the spread's year.
+  - Multiday: today falls within the spread's `startDate`...`endDate` range (inclusive). [SPRD-274]
+- The card-building logic (querying `JournalManager.overdueTaskItems`, checking the spread-represents-today condition, and grouping into one `EntryList.Section` per source spread/Inbox) is extracted into a standalone, reusable `OverdueCardView(spread:context:)` component. It takes the current spread plus the existing `SpreadPageContext` bundle (already carrying `JournalManager`/calendar) — no other injected dependency. It renders nothing (`EmptyView`) when the spread doesn't represent today or there are no overdue items. [SPRD-274]
+- `OverdueCardView` renders via the same `EntryListView` + `EntryList.Section.Style.card` mechanism `DaySpreadContentView` already used — no new visual chrome, no new rendering path. [SPRD-274]
+- Each content view places `OverdueCardView` as the first element of its *scrollable* content, before any of its own period-specific content: [SPRD-274]
+  - Day: before the existing entry list (unchanged from current behavior).
+  - Year: above the top year-entry section.
+  - Multiday: above the day-card grid, full width (same width treatment as the existing multiday-assignment section).
+  - Month: **requires a layout restructuring**. Today, `MonthSpreadContentView` puts everything — the calendar grid, the month section, and the day sections — inside one scrollable `LazyVStack`. Every other content view keeps a non-scrolling element pinned above its scrollable content (Day's favorite/edit header row; the pager's own header above Year/Multiday). Month is the outlier: it has no fixed top inset today. As part of this task, the month calendar grid moves out of the scrollable `LazyVStack` into a fixed top inset above the `ScrollView` (non-scrollable, always visible), and `OverdueCardView` becomes the first item inside the now-calendar-free `ScrollView`/`LazyVStack`, ahead of the month section and day sections. [SPRD-274]
+- Source chips (the per-task label identifying which spread/Inbox an overdue task currently lives on) are preserved on every content view, not just Day — overdue tasks shown from a Month/Year/Multiday spread can originate from many different source spreads, so the chip remains useful everywhere. [SPRD-274]
+- `DaySpreadContentView` is refactored to consume `OverdueCardView` instead of its own `ViewModel.overdueSections` computed property; this is a pure extraction with no visual or behavioral change to Day's existing overdue card. [SPRD-274]
+- Multiday's existing per-day-card `overdueCount` badge (`MultidayDayCardView`) is a separate, unrelated mechanism (a count badge on each day card within a multiday grid) and is unaffected by this task. [SPRD-274]
 
 #### `EntryList.Section.Style` — Generic Section Styling
 
