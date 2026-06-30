@@ -120,12 +120,12 @@ struct OverdueCardView: View {
 
         guard !entries.isEmpty else { return [] }
 
-        // Sorted explicitly by date, then title — never by status. `JournalManager.tasks`
-        // (the source for grace-period lookups, and indirectly for `overdueItems`'s order via
-        // `JournalRuleEngine`) is itself sorted by `createdDate`, which has nothing to do with
-        // the date relevant here; left unsorted, a status change could also reorder unrelated
-        // rows, and grace-period tasks would always land at the end regardless of their date.
-        entries.sort { ($0.sortDate, $0.title) < ($1.sortDate, $1.title) }
+        // Sorted using the same period-aware convention as Year's month cards and Month's day
+        // sections — never by status, insertion order, or `JournalManager.tasks`'s incidental
+        // createdDate-based order. Left unsorted, a status change could reorder unrelated rows,
+        // and grace-period tasks would always land at the end regardless of their actual date.
+        let calendar = context.calendar
+        entries.sort { $0.conventionalSortKey(calendar: calendar) < $1.conventionalSortKey(calendar: calendar) }
 
         return [
             EntryList.Section(

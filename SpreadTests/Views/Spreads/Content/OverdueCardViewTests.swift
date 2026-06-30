@@ -502,6 +502,41 @@ struct OverdueCardViewTests {
         #expect(sections.first?.entries.map(\.title) == ["A", "B", "C"])
     }
 
+    /// Setup: a month-period overdue task with `date` set to the last day of January, alongside
+    /// a day-period overdue task on January 15 -- a case where raw date comparison and the
+    /// period-normalized "conventional" ordering disagree. Raw dates would put the month task
+    /// (Jan 31) after the day task (Jan 15); period-normalized, the month task's date normalizes
+    /// to Jan 1 (the start of its month), which sorts *before* Jan 15.
+    /// Expected: entries follow the period-normalized order (month task first), matching how
+    /// Year's month cards and Month's day sections already order mixed-period entries -- not raw
+    /// date order.
+    @MainActor @Test func entriesAreSortedByPeriodNormalizedDateNotRawDate() async throws {
+        let today = Self.date(2026, 2, 15)
+        let monthTaskDate = Self.date(2026, 1, 31)
+        let dayTaskDate = Self.date(2026, 1, 15)
+
+        let monthTask = DataModel.Task(
+            title: "Month task",
+            date: monthTaskDate,
+            period: .month,
+            status: .open,
+            currentAssignments: [Assignment(period: .month, date: monthTaskDate, status: .open)]
+        )
+        let dayTask = DataModel.Task(
+            title: "Day task",
+            date: dayTaskDate,
+            period: .day,
+            status: .open,
+            currentAssignments: [Assignment(period: .day, date: dayTaskDate, status: .open)]
+        )
+        let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
+        let context = try await Self.makeContext(today: today, tasks: [dayTask, monthTask], spreads: [spread])
+
+        let sections = OverdueCardView.sections(for: spread, context: context)
+
+        #expect(sections.first?.entries.map(\.title) == ["Month task", "Day task"])
+    }
+
     /// Setup: a task in its grace period (status `.complete`, no longer live-overdue) whose date
     /// falls *earlier* than a live overdue task's date.
     /// Expected: the grace-period task keeps its date-correct position (first) rather than being
