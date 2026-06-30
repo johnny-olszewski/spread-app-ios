@@ -2,10 +2,12 @@ import SwiftUI
 
 /// Horizontally pages through spread content, assembling each page as a header and period-appropriate content view.
 ///
-/// `spreads` and `currentSelection` are passed in from `SpreadsTabView` so the pager shell does not
-/// read from `JournalManager` directly. Scroll-driven re-renders (from `scrollPhase` and
-/// `settledSpreadID` state changes) therefore only perform cheap lookups against already-
-/// computed values — the year-spreads filtering stays in the parent.
+/// `spreads`, `currentSelection`, and the `calendar`/`today`/`firstWeekday` triple are passed in
+/// from `SpreadsTabView` so `spreadDetailTitle` does not observe `JournalManager` directly.
+/// Scroll-driven re-renders (from `scrollPhase` and `settledSpreadID` state changes) therefore
+/// only perform cheap lookups against already-computed values for the title — the year-spreads
+/// filtering stays in the parent. `journalManager` is still read directly by `spreadDataModel(for:)`,
+/// called from `body` via `contentView(for:)` — see that method's doc comment for how its cost is bounded.
 struct SpreadContentPagerView: View {
     private let backgroundShape = UnevenRoundedRectangle(topLeadingRadius: SpreadTheme.CornerRadius.xxlarge, topTrailingRadius: SpreadTheme.CornerRadius.xxlarge)
 
@@ -23,8 +25,9 @@ struct SpreadContentPagerView: View {
     let firstWeekday: FirstWeekday
     @State private var settledSpreadID: UUID?
 
-    /// Not accessed in `body` — stored here only for the `deleteSpread` action which fires
-    /// outside of scroll-driven re-renders and therefore does not create a scroll-time observation.
+    /// Accessed in `body` only by `spreadDataModel(for:)` (called per-page from `contentView(for:)`).
+    /// `spreadDetailTitle` does not read this — see the `calendar`/`today`/`firstWeekday`
+    /// properties above.
     @Environment(JournalManager.self) private var journalManager
     @Environment(\.eventKitService) private var eventKitService
     @Environment(\.calendarEventService) private var calendarEventService
