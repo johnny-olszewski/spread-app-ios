@@ -467,6 +467,232 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION public.merge_entry_batch(p_rows jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_row jsonb;
+    v_result jsonb;
+    v_results jsonb := '[]'::jsonb;
+BEGIN
+    FOR v_row IN SELECT * FROM jsonb_array_elements(p_rows)
+    LOOP
+        BEGIN
+            v_result := public.merge_entry(
+                (v_row->>'p_id')::uuid, (v_row->>'p_user_id')::uuid, (v_row->>'p_device_id')::uuid,
+                v_row->>'p_type', v_row->>'p_title', v_row->>'p_content',
+                (v_row->>'p_date')::date, v_row->>'p_period', v_row->>'p_status',
+                v_row->>'p_body', v_row->>'p_priority', (v_row->>'p_due_date')::date,
+                (v_row->>'p_list_id')::uuid,
+                (v_row->>'p_created_at')::timestamptz, (v_row->>'p_deleted_at')::timestamptz,
+                (v_row->>'p_title_updated_at')::timestamptz, (v_row->>'p_content_updated_at')::timestamptz,
+                (v_row->>'p_date_updated_at')::timestamptz, (v_row->>'p_period_updated_at')::timestamptz,
+                (v_row->>'p_status_updated_at')::timestamptz, (v_row->>'p_body_updated_at')::timestamptz,
+                (v_row->>'p_priority_updated_at')::timestamptz, (v_row->>'p_due_date_updated_at')::timestamptz,
+                (v_row->>'p_list_updated_at')::timestamptz
+            );
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', true, 'row', v_result));
+        EXCEPTION WHEN OTHERS THEN
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', false, 'error', SQLERRM));
+        END;
+    END LOOP;
+
+    RETURN v_results;
+END;
+$$;
+
+CREATE FUNCTION public.merge_assignment_batch(p_rows jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_row jsonb;
+    v_result jsonb;
+    v_results jsonb := '[]'::jsonb;
+BEGIN
+    FOR v_row IN SELECT * FROM jsonb_array_elements(p_rows)
+    LOOP
+        BEGIN
+            v_result := public.merge_assignment(
+                (v_row->>'p_id')::uuid, (v_row->>'p_user_id')::uuid, (v_row->>'p_device_id')::uuid,
+                (v_row->>'p_entry_id')::uuid, v_row->>'p_entry_type', v_row->>'p_period',
+                (v_row->>'p_date')::date, (v_row->>'p_spread_id')::uuid, v_row->>'p_status',
+                (v_row->>'p_created_at')::timestamptz, (v_row->>'p_deleted_at')::timestamptz,
+                (v_row->>'p_status_updated_at')::timestamptz
+            );
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', true, 'row', v_result));
+        EXCEPTION WHEN OTHERS THEN
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', false, 'error', SQLERRM));
+        END;
+    END LOOP;
+
+    RETURN v_results;
+END;
+$$;
+
+CREATE FUNCTION public.merge_entry_tag_batch(p_rows jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_row jsonb;
+    v_id text;
+    v_results jsonb := '[]'::jsonb;
+BEGIN
+    FOR v_row IN SELECT * FROM jsonb_array_elements(p_rows)
+    LOOP
+        v_id := (v_row->>'p_entry_id') || ':' || (v_row->>'p_tag_id');
+        BEGIN
+            PERFORM public.merge_entry_tag(
+                (v_row->>'p_entry_id')::uuid, (v_row->>'p_tag_id')::uuid, (v_row->>'p_user_id')::uuid,
+                (v_row->>'p_created_at')::timestamptz, (v_row->>'p_deleted_at')::timestamptz
+            );
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_id, 'success', true, 'row', NULL));
+        EXCEPTION WHEN OTHERS THEN
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_id, 'success', false, 'error', SQLERRM));
+        END;
+    END LOOP;
+
+    RETURN v_results;
+END;
+$$;
+
+CREATE FUNCTION public.merge_collection_batch(p_rows jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_row jsonb;
+    v_result jsonb;
+    v_results jsonb := '[]'::jsonb;
+BEGIN
+    FOR v_row IN SELECT * FROM jsonb_array_elements(p_rows)
+    LOOP
+        BEGIN
+            v_result := public.merge_collection(
+                (v_row->>'p_id')::uuid, (v_row->>'p_user_id')::uuid, (v_row->>'p_device_id')::uuid,
+                v_row->>'p_title',
+                (v_row->>'p_created_at')::timestamptz, (v_row->>'p_deleted_at')::timestamptz,
+                (v_row->>'p_title_updated_at')::timestamptz
+            );
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', true, 'row', v_result));
+        EXCEPTION WHEN OTHERS THEN
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', false, 'error', SQLERRM));
+        END;
+    END LOOP;
+
+    RETURN v_results;
+END;
+$$;
+
+CREATE FUNCTION public.merge_list_batch(p_rows jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_row jsonb;
+    v_results jsonb := '[]'::jsonb;
+BEGIN
+    FOR v_row IN SELECT * FROM jsonb_array_elements(p_rows)
+    LOOP
+        BEGIN
+            PERFORM public.merge_list(
+                (v_row->>'p_id')::uuid, (v_row->>'p_user_id')::uuid, (v_row->>'p_device_id')::uuid,
+                v_row->>'p_name',
+                (v_row->>'p_created_at')::timestamptz, (v_row->>'p_deleted_at')::timestamptz,
+                (v_row->>'p_name_updated_at')::timestamptz
+            );
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', true, 'row', NULL));
+        EXCEPTION WHEN OTHERS THEN
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', false, 'error', SQLERRM));
+        END;
+    END LOOP;
+
+    RETURN v_results;
+END;
+$$;
+
+CREATE FUNCTION public.merge_settings_batch(p_rows jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_row jsonb;
+    v_result jsonb;
+    v_results jsonb := '[]'::jsonb;
+BEGIN
+    FOR v_row IN SELECT * FROM jsonb_array_elements(p_rows)
+    LOOP
+        BEGIN
+            v_result := public.merge_settings(
+                (v_row->>'p_id')::uuid, (v_row->>'p_user_id')::uuid, (v_row->>'p_device_id')::uuid,
+                v_row->>'p_bujo_mode', (v_row->>'p_first_weekday')::integer,
+                (v_row->>'p_created_at')::timestamptz, (v_row->>'p_deleted_at')::timestamptz,
+                (v_row->>'p_bujo_mode_updated_at')::timestamptz, (v_row->>'p_first_weekday_updated_at')::timestamptz
+            );
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', true, 'row', v_result));
+        EXCEPTION WHEN OTHERS THEN
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', false, 'error', SQLERRM));
+        END;
+    END LOOP;
+
+    RETURN v_results;
+END;
+$$;
+
+CREATE FUNCTION public.merge_spread_batch(p_rows jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_row jsonb;
+    v_result jsonb;
+    v_results jsonb := '[]'::jsonb;
+BEGIN
+    FOR v_row IN SELECT * FROM jsonb_array_elements(p_rows)
+    LOOP
+        BEGIN
+            v_result := public.merge_spread(
+                (v_row->>'p_id')::uuid, (v_row->>'p_user_id')::uuid, (v_row->>'p_device_id')::uuid,
+                v_row->>'p_period', (v_row->>'p_date')::date,
+                (v_row->>'p_start_date')::date, (v_row->>'p_end_date')::date,
+                (v_row->>'p_is_favorite')::boolean, v_row->>'p_custom_name', (v_row->>'p_uses_dynamic_name')::boolean,
+                (v_row->>'p_created_at')::timestamptz, (v_row->>'p_deleted_at')::timestamptz,
+                (v_row->>'p_period_updated_at')::timestamptz, (v_row->>'p_date_updated_at')::timestamptz,
+                (v_row->>'p_start_date_updated_at')::timestamptz, (v_row->>'p_end_date_updated_at')::timestamptz,
+                (v_row->>'p_is_favorite_updated_at')::timestamptz, (v_row->>'p_custom_name_updated_at')::timestamptz,
+                (v_row->>'p_uses_dynamic_name_updated_at')::timestamptz
+            );
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', true, 'row', v_result));
+        EXCEPTION WHEN OTHERS THEN
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', false, 'error', SQLERRM));
+        END;
+    END LOOP;
+
+    RETURN v_results;
+END;
+$$;
+
+CREATE FUNCTION public.merge_tag_batch(p_rows jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_row jsonb;
+    v_results jsonb := '[]'::jsonb;
+BEGIN
+    FOR v_row IN SELECT * FROM jsonb_array_elements(p_rows)
+    LOOP
+        BEGIN
+            PERFORM public.merge_tag(
+                (v_row->>'p_id')::uuid, (v_row->>'p_user_id')::uuid, (v_row->>'p_device_id')::uuid,
+                v_row->>'p_name',
+                (v_row->>'p_created_at')::timestamptz, (v_row->>'p_deleted_at')::timestamptz,
+                (v_row->>'p_name_updated_at')::timestamptz
+            );
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', true, 'row', NULL));
+        EXCEPTION WHEN OTHERS THEN
+            v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', false, 'error', SQLERRM));
+        END;
+    END LOOP;
+
+    RETURN v_results;
+END;
+$$;
+
 CREATE FUNCTION public.next_revision() RETURNS bigint
     LANGUAGE sql
     AS $$
@@ -899,6 +1125,38 @@ GRANT ALL ON FUNCTION public.merge_spread(p_id uuid, p_user_id uuid, p_device_id
 GRANT ALL ON FUNCTION public.merge_tag(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone) TO anon;
 GRANT ALL ON FUNCTION public.merge_tag(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone) TO authenticated;
 GRANT ALL ON FUNCTION public.merge_tag(p_id uuid, p_user_id uuid, p_device_id uuid, p_name text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_name_updated_at timestamp with time zone) TO service_role;
+
+GRANT ALL ON FUNCTION public.merge_entry_batch(p_rows jsonb) TO anon;
+GRANT ALL ON FUNCTION public.merge_entry_batch(p_rows jsonb) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_entry_batch(p_rows jsonb) TO service_role;
+
+GRANT ALL ON FUNCTION public.merge_assignment_batch(p_rows jsonb) TO anon;
+GRANT ALL ON FUNCTION public.merge_assignment_batch(p_rows jsonb) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_assignment_batch(p_rows jsonb) TO service_role;
+
+GRANT ALL ON FUNCTION public.merge_entry_tag_batch(p_rows jsonb) TO anon;
+GRANT ALL ON FUNCTION public.merge_entry_tag_batch(p_rows jsonb) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_entry_tag_batch(p_rows jsonb) TO service_role;
+
+GRANT ALL ON FUNCTION public.merge_collection_batch(p_rows jsonb) TO anon;
+GRANT ALL ON FUNCTION public.merge_collection_batch(p_rows jsonb) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_collection_batch(p_rows jsonb) TO service_role;
+
+GRANT ALL ON FUNCTION public.merge_list_batch(p_rows jsonb) TO anon;
+GRANT ALL ON FUNCTION public.merge_list_batch(p_rows jsonb) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_list_batch(p_rows jsonb) TO service_role;
+
+GRANT ALL ON FUNCTION public.merge_settings_batch(p_rows jsonb) TO anon;
+GRANT ALL ON FUNCTION public.merge_settings_batch(p_rows jsonb) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_settings_batch(p_rows jsonb) TO service_role;
+
+GRANT ALL ON FUNCTION public.merge_spread_batch(p_rows jsonb) TO anon;
+GRANT ALL ON FUNCTION public.merge_spread_batch(p_rows jsonb) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_spread_batch(p_rows jsonb) TO service_role;
+
+GRANT ALL ON FUNCTION public.merge_tag_batch(p_rows jsonb) TO anon;
+GRANT ALL ON FUNCTION public.merge_tag_batch(p_rows jsonb) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_tag_batch(p_rows jsonb) TO service_role;
 
 GRANT ALL ON FUNCTION public.next_revision() TO anon;
 GRANT ALL ON FUNCTION public.next_revision() TO authenticated;
