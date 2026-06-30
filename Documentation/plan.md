@@ -7129,6 +7129,23 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**:
   - [x] Unit tests covering the section-building logic for each period: day spread matching/not matching today, month spread whose month contains/doesn't contain today, year spread whose year contains/doesn't contain today, and multiday spread where today falls inside/outside/exactly on the range boundary.
   - [x] Unit test confirming an empty `overdueTaskItems` produces no sections even when the spread represents today.
+
+### [SPRD-275] Perf: Stop redundant title/journalManager reads and unwindowed spreadDataModel computation in SpreadContentPagerView - [ ] Pending
+
+- **Context**: A follow-up scroll-lag investigation (prompted by user-reported lag after SPRD-272/SPRD-273 already fixed the navigator's forced multi-month layout and `selectedYearSpreads` recomputation) surfaced two remaining sources of per-frame work in `SpreadContentPagerView.swift`: (1) `spreadDetailTitle` is documented as receiving its dependencies pre-computed from the parent so the view "does not observe `JournalManager` during scrolling," but it still reads `journalManager.calendar`/`.today`/`.firstWeekday` directly via the environment-injected `journalManager` — so any unrelated `JournalManager` state change (new spread creation, background sync, coordinator updates) can re-trigger this body read; (2) the pager's `ForEach(spreads)` calls `spreadDataModel(for:)` for every spread in the array on each render, not just the page(s) near `settledSpreadID`, performing O(n) lookup work every frame when only O(1) is needed.
+- **Description**: Three independently verifiable fixes, landed as separate commits under this one task: (a) hoist `calendar`/`today`/`firstWeekday` out of `journalManager` reads inside `spreadDetailTitle` into plain, parent-injected stored properties on `SpreadContentPagerView`; (b) correct the existing doc comment on `SpreadContentPagerView`/`spreadDetailTitle` that incorrectly claims `journalManager` is not accessed in `body`; (c) restrict `spreadDataModel(for:)` computation to `settledSpreadID` plus a fixed, easily adjustable neighbor radius (default `±1`) instead of every spread in `spreads`.
+- **Spec**: `Documentation/Specs/SpreadNavigation.md` — "Spread Content Pager Render Performance (SPRD-275)"
+- **Acceptance Criteria**:
+  - [ ] `SpreadContentPagerView` receives `calendar`/`today`/`firstWeekday` as plain init-injected properties from the parent; `spreadDetailTitle` no longer reads them from `journalManager`.
+  - [ ] The doc comment on `SpreadContentPagerView`/`spreadDetailTitle` accurately describes which values are observed vs. pre-computed (no longer claims `journalManager` is unobserved in `body` while leaving live reads in place).
+  - [ ] `spreadDataModel(for:)` is computed only for the spread matching `settledSpreadID` and spreads within a fixed neighbor radius of it in `spreads`; spreads outside the window render without a computed `SpreadDataModel` (e.g. a placeholder) until the window moves to include them.
+  - [ ] The neighbor radius is a single named constant (defaulted to `1`) that can be changed in one place without touching the windowing logic.
+  - [ ] No change to pager paging/animation behavior, page transition visuals, or `SpreadDataModel` contents for spreads inside the window.
+  - [ ] Project builds with no errors or warnings; full existing test suite passes unmodified.
+- **Tests**:
+  - [ ] Unit tests on the windowing predicate: settled page and `±1` neighbors included, pages at `±2` excluded, for a representative `spreads` array.
+  - [ ] Unit tests on title derivation confirming the same output as before given the same plain `calendar`/`today`/`firstWeekday` inputs, without requiring a `JournalManager` instance.
+  - [ ] Manual scroll-performance check: scroll through a year of populated day/multiday spreads and confirm no regression plus a qualitative improvement versus pre-fix behavior.
   - [x] Unit test confirming the overdue row's configuration disables inline editing and the context menu, with `onRowTap`/`onStatusIconTap` both set.
   - [x] Unit test confirming a row tap on a spread-sourced task navigates directly (`coordinator.selectedSpread` updates, no alert).
   - [x] Unit test confirming `onStatusIconTap` on the built configuration is exactly the closure the caller supplied (no built-in confirmation/alert at the configuration layer).

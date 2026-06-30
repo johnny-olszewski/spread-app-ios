@@ -1,7 +1,7 @@
 # Spread Navigation
 
 > Source: Documentation/spec.md  
-> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244
+> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275
 
 ### Spread View Architecture
 - The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
@@ -693,3 +693,91 @@ var body: some View {
 - **Decision**: Each anchor view (e.g., `AddTaskButton`) applies `.popover` on itself. It binds to a derived `Binding<ConcreteContent?>` that maps `coordinator.activePopover` to/from the specific case it owns. The coordinator still owns all presentation state — the anchor view only reads and clears it.
 - **Rationale**: Correct visual behavior (arrow points at the button) without duplicating state. The coordinator remains the single source of truth; the anchor view is just a passthrough for the SwiftUI modifier.
 - **SPRD reference**: [SPRD-244]
+
+---
+
+## Spread Content Pager Render Performance [SPRD-275]
+
+**Status**: Draft
+**Date**: 2026-06-29
+
+### Overview
+
+Reduce unnecessary recomputation in `SpreadContentPagerView` during active scrolling. SPRD-272/SPRD-273 already addressed forced multi-month layout and `selectedYearSpreads` recomputation. This task closes two remaining sources of per-frame work surfaced during a follow-up lag investigation: `spreadDetailTitle` still reads `journalManager.calendar`/`.today`/`.firstWeekday` directly from `body`-reachable code despite its doc comment claiming otherwise, and `spreadDataModel(for:)` is computed for every spread in the pager's `ForEach` rather than only the pages near the settled selection.
+
+### Problem Statement
+
+`SpreadContentPagerView`'s `spreadDetailTitle` computed property is documented as receiving its dependencies pre-computed from the parent so the view does not observe `JournalManager` during scrolling, but it still reads `journalManager.calendar`, `.today`, and `.firstWeekday` directly via the environment-injected manager — meaning any unrelated `JournalManager` state change (new spread creation, background sync, coordinator updates) can re-trigger this body read and its title derivation work. Separately, the pager's `ForEach(spreads)` calls `spreadDataModel(for:)` for every spread in the array on each render, not just the page(s) actually visible near `settledSpreadID`, performing O(n) lookup work when only O(1) is needed.
+
+### Goals
+
+- Make `spreadDetailTitle` depend only on plain, parent-injected values — no direct `JournalManager` environment reads.
+- Restrict `spreadDataModel(for:)` computation to the settled page and its immediate neighbors, with the neighbor radius defined as an easily adjustable constant.
+- Correct the existing doc comment on `SpreadContentPagerView` that incorrectly claims `journalManager` is not accessed in `body`.
+
+### Non-Goals
+
+- `selectedYearSpreads` memoization — already done in [SPRD-273].
+- Caching `SpreadsTabView`'s uncached `yearSpreads` filter/sort property — tracked separately, not part of this task.
+- Any change to pager paging/animation behavior, page transition visuals, or `SpreadDataModel` contents.
+
+### Functional Requirements
+
+1. `SpreadContentPagerView` receives `calendar: Calendar`, `today: Date`, and `firstWeekday: Int` (or equivalent plain values) as init-injected properties from the parent, rather than reading them from `journalManager` inside `spreadDetailTitle`. [SPRD-275]
+2. `spreadDataModel(for:)` is computed only for the spread matching `settledSpreadID` and spreads within a fixed neighbor radius of it in the `spreads` array. [SPRD-275]
+3. The neighbor radius is a named constant (e.g. `Constants.spreadDataModelWindowRadius`), defaulted to `1`, so it can be changed in one place without touching the windowing logic. [SPRD-275]
+4. Spreads outside the window render without a computed `SpreadDataModel` (e.g. an empty/placeholder content state) until they enter the window as the pager settles. [SPRD-275]
+5. The doc comment on `SpreadContentPagerView` (and/or `spreadDetailTitle`) is corrected to accurately describe which values are observed vs. pre-computed. [SPRD-275]
+
+### Technical Design
+
+#### Title Derivation
+
+`spreadDetailTitle` stops reading `journalManager.calendar`/`.today`/`.firstWeekday`. These three are added as plain stored properties on `SpreadContentPagerView`, injected once from the parent at construction (the parent already reads them from `journalManager` itself elsewhere, so no new `JournalManager` call site is introduced — just relocated to the parent's init-time read instead of the child's per-render read).
+
+#### Windowing
+
+```swift
+private enum Constants {
+    static let spreadDataModelWindowRadius = 1
+}
+
+private func isWithinDataModelWindow(_ spread: DataModel.Spread) -> Bool {
+    guard let settledIndex = spreads.firstIndex(where: { $0.id == settledSpreadID }),
+          let index = spreads.firstIndex(where: { $0.id == spread.id }) else { return false }
+    return abs(index - settledIndex) <= Constants.spreadDataModelWindowRadius
+}
+```
+
+`contentView(for:)` checks `isWithinDataModelWindow(spread)` before calling `spreadDataModel(for:)`; outside the window it renders a lightweight placeholder.
+
+#### Edge Cases
+
+- First render before any page has settled: `settledSpreadID` defaults to the initially selected spread, so the window is centered there from the start — no flash of empty content on initial load.
+- Fast multi-page flicks: pages more than `±1` away briefly show the placeholder until the settle event updates `settledSpreadID` and brings them into the window.
+
+#### Testing Strategy
+
+- Unit tests on the windowing predicate (`isWithinDataModelWindow` or equivalent extracted support function): verify the settled page and ±1 neighbors are included, and pages at ±2 are excluded, for a representative `spreads` array.
+- Unit tests on title derivation confirming it produces the same output as before when given the same plain `calendar`/`today`/`firstWeekday` inputs, without requiring a `JournalManager` instance.
+- Manual scroll-performance check: scroll through a year of populated day/multiday spreads and confirm no perceptible lag regression introduction and a qualitative improvement versus pre-fix behavior.
+
+### Design Decisions
+
+#### Decision: Fixed-radius window constant instead of dynamic/adaptive radius
+
+- **Context**: The radius around `settledSpreadID` that gets a computed `SpreadDataModel` could be fixed or tuned dynamically (e.g. based on scroll velocity).
+- **Decision**: Use a single fixed constant, defaulted to `1`, defined in one place for easy adjustment.
+- **Rationale**: A dynamic/velocity-based radius adds complexity with no demonstrated need; a simple constant is trivially tunable if `±1` proves insufficient in practice, per explicit request to keep this easy to change.
+- **SPRD reference**: [SPRD-275]
+
+#### Decision: Three separate commits for one SPRD task
+
+- **Context**: The three fixes (title-derivation hoist, doc comment correction, data-model windowing) are independently verifiable but were diagnosed together as one investigation.
+- **Decision**: Track all three under a single SPRD-275 task, but land them as three separate, independently buildable commits.
+- **Rationale**: Keeps the spec/plan surface small (one task) while preserving small, reviewable, independently revertible commits per CLAUDE.md's git conventions.
+- **SPRD reference**: [SPRD-275]
+
+### Open Questions
+
+- None.
