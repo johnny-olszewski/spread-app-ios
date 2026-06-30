@@ -461,6 +461,86 @@ struct OverdueCardViewTests {
         #expect(sections.first?.entries.map(\.id) == [task.id])
     }
 
+    /// Setup: three open overdue tasks with deliberately out-of-order `date`/`createdDate`
+    /// (the array is constructed in scrambled `createdDate` order, mimicking
+    /// `JournalManager.tasks`'s own createdDate-based sort, which is unrelated to task date).
+    /// Expected: entries come back sorted strictly by date, ignoring `createdDate`/insertion order.
+    @MainActor @Test func entriesAreSortedByDateNotInsertionOrder() async throws {
+        let today = Self.date(2026, 1, 12)
+        let earliest = Self.date(2026, 1, 5)
+        let middle = Self.date(2026, 1, 8)
+        let latest = Self.date(2026, 1, 10)
+
+        // Constructed out of date order, with createdDate also scrambled relative to date,
+        // so a createdDate-based sort would NOT happen to match the expected date order.
+        let taskC = DataModel.Task(
+            title: "C",
+            date: latest,
+            period: .day,
+            status: .open,
+            currentAssignments: [Assignment(period: .day, date: latest, status: .open)]
+        )
+        let taskA = DataModel.Task(
+            title: "A",
+            date: earliest,
+            period: .day,
+            status: .open,
+            currentAssignments: [Assignment(period: .day, date: earliest, status: .open)]
+        )
+        let taskB = DataModel.Task(
+            title: "B",
+            date: middle,
+            period: .day,
+            status: .open,
+            currentAssignments: [Assignment(period: .day, date: middle, status: .open)]
+        )
+        let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
+        let context = try await Self.makeContext(today: today, tasks: [taskC, taskA, taskB], spreads: [spread])
+
+        let sections = OverdueCardView.sections(for: spread, context: context)
+
+        #expect(sections.first?.entries.map(\.title) == ["A", "B", "C"])
+    }
+
+    /// Setup: a task in its grace period (status `.complete`, no longer live-overdue) whose date
+    /// falls *earlier* than a live overdue task's date.
+    /// Expected: the grace-period task keeps its date-correct position (first) rather than being
+    /// appended after the live task -- completing a task must not move it to the end of the list.
+    @MainActor @Test func graceTaskKeepsItsDateOrderedPositionRatherThanMovingToTheEnd() async throws {
+        let today = Self.date(2026, 1, 12)
+        let earlierDate = Self.date(2026, 1, 5)
+        let laterDate = Self.date(2026, 1, 10)
+
+        let justCompletedTask = DataModel.Task(
+            title: "Just completed",
+            date: earlierDate,
+            period: .day,
+            status: .complete,
+            currentAssignments: [Assignment(period: .day, date: earlierDate, status: .complete)]
+        )
+        let stillOpenTask = DataModel.Task(
+            title: "Still open",
+            date: laterDate,
+            period: .day,
+            status: .open,
+            currentAssignments: [Assignment(period: .day, date: laterDate, status: .open)]
+        )
+        let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
+        let context = try await Self.makeContext(
+            today: today,
+            tasks: [justCompletedTask, stillOpenTask],
+            spreads: [spread]
+        )
+
+        let sections = OverdueCardView.sections(
+            for: spread,
+            context: context,
+            graceTaskIDs: [justCompletedTask.id]
+        )
+
+        #expect(sections.first?.entries.map(\.title) == ["Just completed", "Still open"])
+    }
+
     /// Setup: tapping the row for an Inbox-sourced overdue task (no spread assignment).
     /// Expected: an informational alert is shown -- there's nothing to navigate to.
     @MainActor @Test func rowTapOnInboxSourcedTaskShowsInformationalAlert() async throws {
