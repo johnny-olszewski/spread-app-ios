@@ -22,7 +22,7 @@ import UIKit
 @MainActor
 final class SyncEngine {
     typealias ServerRowsFetcher = @Sendable (SyncEntityType, Int64, Int) async throws -> (rows: [[String: Any]], maxRevision: Int64)
-    typealias MergeRPCCaller = @Sendable (String, AnyEncodable) async throws -> Void
+    typealias MergeRPCCaller = @Sendable (String, AnyEncodable) async throws -> Data
     typealias AssignmentPresenceChecker = @Sendable (SyncEntityType, UUID) async throws -> Bool
 
     // MARK: - Observable State
@@ -321,6 +321,17 @@ final class SyncEngine {
 
     // MARK: - Push
 
+    /// The decoded shape of one row in a `merge_X_batch` RPC's result array.
+    ///
+    /// `id` and `row` are part of the server response but unused here — mutations are
+    /// correlated back to their result positionally (the batch SQL functions preserve
+    /// input order via `jsonb_array_elements`), since `entry_tags` mutations have no
+    /// single `id` to match on.
+    private struct BatchMergeRowResult: Decodable {
+        let success: Bool
+        let error: String?
+    }
+
     private func push() async throws {
         let context = modelContainer.mainContext
         let descriptor = FetchDescriptor<DataModel.SyncMutation>(
@@ -343,49 +354,66 @@ final class SyncEngine {
         let grouped = Dictionary(grouping: mutations) { $0.entityType }
 
         for entityType in SyncEntityType.ordered {
-            guard let typeMutations = grouped[entityType.rawValue] else { continue }
+            guard let typeMutations = grouped[entityType.rawValue], !typeMutations.isEmpty else { continue }
 
-            for mutation in typeMutations {
-                try Task.checkCancellation()
+            try Task.checkCancellation()
 
-                guard let result = SyncSerializer.buildMergeParams(
-                    entityType: entityType,
-                    recordData: mutation.recordData,
-                    userId: userId
-                ) else {
-                    logger.warning("Failed to build params for mutation \(mutation.id), removing")
-                    context.delete(mutation)
-                    continue
+            let batch = SyncSerializer.buildBatchMergeParams(
+                entityType: entityType,
+                mutations: typeMutations.map { (mutationID: $0.id, recordData: $0.recordData) },
+                userId: userId
+            )
+
+            let failedMutationIDs = Set(batch.failedMutationIDs)
+            for mutation in typeMutations where failedMutationIDs.contains(mutation.id) {
+                logger.warning("Failed to build params for mutation \(mutation.id), removing")
+                context.delete(mutation)
+            }
+
+            let validMutations = typeMutations.filter { !failedMutationIDs.contains($0.id) }
+            guard !validMutations.isEmpty else { continue }
+
+            do {
+                let results = try await callBatchMergeRPC(name: batch.rpcName, params: batch.params)
+                guard results.count == validMutations.count else {
+                    throw SyncError.batchResultCountMismatch
                 }
 
-                do {
-                    try await callMergeRPC(name: result.rpcName, params: result.params)
-                    context.delete(mutation)
-                    logger.debug("Pushed \(entityType.rawValue) \(mutation.entityId)")
-                } catch {
+                for (mutation, result) in zip(validMutations, results) {
+                    if result.success {
+                        context.delete(mutation)
+                        logger.debug("Pushed \(entityType.rawValue) \(mutation.entityId)")
+                    } else {
+                        mutation.retryCount += 1
+                        logger.warning(
+                            "Push failed for \(entityType.rawValue) \(mutation.entityId): \(result.error ?? "unknown error")"
+                        )
+                    }
+                }
+            } catch {
+                for mutation in validMutations {
                     mutation.retryCount += 1
-                    logger.warning(
-                        "Push failed for \(entityType.rawValue) \(mutation.entityId): \(error)"
-                    )
-                    throw error
                 }
+                logger.warning("Batch push failed for \(entityType.rawValue): \(error)")
+                throw error
             }
         }
 
         try context.save()
     }
 
-    private func callMergeRPC(name: String, params: any Encodable) async throws {
+    private func callBatchMergeRPC(name: String, params: BatchMergeParams) async throws -> [BatchMergeRowResult] {
         let wrapper = AnyEncodable(params)
+        let data: Data
         if let mergeRPCCaller {
-            try await mergeRPCCaller(name, wrapper)
-            return
+            data = try await mergeRPCCaller(name, wrapper)
+        } else {
+            guard let client else {
+                throw SyncError.notAuthenticated
+            }
+            data = try await client.rpc(name, params: wrapper).execute().data
         }
-
-        guard let client else {
-            throw SyncError.notAuthenticated
-        }
-        _ = try await client.rpc(name, params: wrapper).execute()
+        return try JSONDecoder().decode([BatchMergeRowResult].self, from: data)
     }
 
     // MARK: - Pull

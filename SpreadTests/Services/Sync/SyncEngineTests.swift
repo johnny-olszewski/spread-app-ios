@@ -131,6 +131,15 @@ struct SyncEngineTests {
         }
     }
 
+    /// Builds a successful batch-RPC response matching the number of rows in the sent params,
+    /// for `mergeRPCCaller` mocks that don't need to simulate per-row failures.
+    private nonisolated static func batchSuccessData(from data: Data) throws -> Data {
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let rows = json?["p_rows"] as? [Any] ?? []
+        let results = rows.map { _ in ["success": true] }
+        return try JSONSerialization.data(withJSONObject: results)
+    }
+
     // MARK: - Test Helpers
 
     /// Mock network monitor for controlling connectivity in tests.
@@ -377,7 +386,7 @@ struct SyncEngineTests {
     @Test func pullReplayRebuildsWKFLW17FieldsIntoCleanStore() async throws {
         let (engine, container, _, _) = try makeEngine(
             serverRowsFetcher: Self.wkflw17ServerRowsFetcher,
-            mergeRPCCaller: { _, _ in },
+            mergeRPCCaller: { _, _ in Data() },
             assignmentPresenceChecker: { _, _ in true }
         )
 
@@ -428,6 +437,7 @@ struct SyncEngineTests {
             mergeRPCCaller: { name, params in
                 let data = try JSONEncoder().encode(params)
                 mergeCalls.append((name, data))
+                return try Self.batchSuccessData(from: data)
             },
             assignmentPresenceChecker: { _, _ in true }
         )
@@ -458,8 +468,8 @@ struct SyncEngineTests {
         try await taskRepository.save(task, change: EntityChange())
         await engine.syncNow()
 
-        let spreadJSON = try jsonPayload(for: SyncEntityType.spread.mergeRPCName, in: mergeCalls)
-        let taskJSON = try jsonPayload(for: SyncEntityType.entry.mergeRPCName, in: mergeCalls)
+        let spreadJSON = try jsonPayload(for: SyncEntityType.spread.mergeBatchRPCName, in: mergeCalls)
+        let taskJSON = try jsonPayload(for: SyncEntityType.entry.mergeBatchRPCName, in: mergeCalls)
 
         #expect(spreadJSON["p_is_favorite"] as? Bool == true)
         #expect(spreadJSON["p_custom_name"] as? String == "Launch")
@@ -477,12 +487,152 @@ struct SyncEngineTests {
         #expect(taskJSON.keys.contains("p_due_date_updated_at"))
     }
 
+    // MARK: - Batch Push (SPRD-276)
+
+    /// Conditions: Three pending spread mutations of the same entity type.
+    /// Expected: Push issues exactly one batched RPC call carrying all three rows, not three calls.
+    @Test func batchPushIssuesOneRPCCallPerEntityType() async throws {
+        var mergeCalls: [(String, Data)] = []
+        let deviceId = UUID()
+        let (engine, container, _, _) = try makeEngine(
+            serverRowsFetcher: Self.emptyServerRowsFetcher,
+            mergeRPCCaller: { name, params in
+                let data = try JSONEncoder().encode(params)
+                mergeCalls.append((name, data))
+                return try Self.batchSuccessData(from: data)
+            }
+        )
+
+        let calendar = TestDataBuilders.testCalendar
+        let spreadRepository = SwiftDataSpreadRepository(modelContainer: container, deviceId: deviceId)
+        for day in 1...3 {
+            let date = TestDataBuilders.makeDate(year: 2026, month: 4, day: day, calendar: calendar)
+            try await spreadRepository.save(
+                DataModel.Spread(period: .day, date: date, calendar: calendar)
+            )
+        }
+
+        await engine.syncNow()
+
+        let spreadCalls = mergeCalls.filter { $0.0 == SyncEntityType.spread.mergeBatchRPCName }
+        #expect(spreadCalls.count == 1)
+        let rows = try jsonRows(for: SyncEntityType.spread.mergeBatchRPCName, in: mergeCalls)
+        #expect(rows.count == 3)
+
+        let remaining = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncMutation>())
+        #expect(remaining.isEmpty)
+    }
+
+    /// Conditions: A batch of two spread mutations where the mocked RPC reports one row
+    /// succeeding and the other failing, by id, within a single batch call.
+    /// Expected: The succeeded mutation is deleted from the outbox; the failed mutation's
+    /// retryCount increments by 1 and it remains in the outbox.
+    @Test func batchPushAppliesPerRowPartialFailure() async throws {
+        var mergeCalls: [(String, Data)] = []
+        let deviceId = UUID()
+        let succeedingID = UUID()
+        let failingID = UUID()
+
+        let (engine, container, _, _) = try makeEngine(
+            serverRowsFetcher: Self.emptyServerRowsFetcher,
+            mergeRPCCaller: { name, params in
+                let data = try JSONEncoder().encode(params)
+                mergeCalls.append((name, data))
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                let rows = json?["p_rows"] as? [[String: Any]] ?? []
+                let results = rows.map { row -> [String: Any] in
+                    ["success": (row["p_id"] as? String) != failingID.uuidString]
+                }
+                return try JSONSerialization.data(withJSONObject: results)
+            }
+        )
+
+        let calendar = TestDataBuilders.testCalendar
+        let date = TestDataBuilders.makeDate(year: 2026, month: 4, day: 1, calendar: calendar)
+        let spreadRepository = SwiftDataSpreadRepository(modelContainer: container, deviceId: deviceId)
+        try await spreadRepository.save(
+            DataModel.Spread(id: succeedingID, period: .month, date: date, calendar: calendar)
+        )
+        try await spreadRepository.save(
+            DataModel.Spread(id: failingID, period: .day, date: date, calendar: calendar)
+        )
+
+        await engine.syncNow()
+
+        let spreadCalls = mergeCalls.filter { $0.0 == SyncEntityType.spread.mergeBatchRPCName }
+        #expect(spreadCalls.count == 1)
+
+        let remaining = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncMutation>())
+        #expect(remaining.count == 1)
+        #expect(remaining.first?.entityId == failingID)
+        #expect(remaining.first?.retryCount == 1)
+    }
+
+    /// Conditions: A pending spread mutation whose batch RPC call throws (whole-call failure),
+    /// followed by a second sync attempt where the RPC succeeds.
+    /// Expected: The first attempt leaves the mutation in the outbox with retryCount
+    /// incremented by 1 and the local entity untouched; the second attempt clears it.
+    @Test func batchPushWholeCallFailureRetriesThenSucceeds() async throws {
+        var shouldFail = true
+        let deviceId = UUID()
+        let spreadID = UUID()
+
+        let (engine, container, _, _) = try makeEngine(
+            serverRowsFetcher: Self.emptyServerRowsFetcher,
+            mergeRPCCaller: { name, params in
+                if shouldFail {
+                    throw SyncError.serverError("transport error")
+                }
+                let data = try JSONEncoder().encode(params)
+                return try Self.batchSuccessData(from: data)
+            }
+        )
+
+        let calendar = TestDataBuilders.testCalendar
+        let date = TestDataBuilders.makeDate(year: 2026, month: 4, day: 1, calendar: calendar)
+        let spreadRepository = SwiftDataSpreadRepository(modelContainer: container, deviceId: deviceId)
+        try await spreadRepository.save(
+            DataModel.Spread(id: spreadID, period: .month, date: date, calendar: calendar)
+        )
+
+        await engine.syncNow()
+
+        let afterFailure = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncMutation>())
+        #expect(afterFailure.count == 1)
+        #expect(afterFailure.first?.entityId == spreadID)
+        #expect(afterFailure.first?.retryCount == 1)
+
+        let localSpread = try #require(
+            try container.mainContext.fetch(FetchDescriptor<DataModel.Spread>()).first { $0.id == spreadID }
+        )
+        #expect(localSpread.period == .month)
+
+        shouldFail = false
+        await engine.syncNow()
+
+        let afterRetry = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncMutation>())
+        #expect(afterRetry.isEmpty)
+    }
+
+    /// Extracts the first row's params dict from a batch RPC call's `{"p_rows": [...]}` payload.
     private func jsonPayload(
         for rpcName: String,
         in mergeCalls: [(String, Data)]
     ) throws -> [String: Any] {
         let data = try #require(mergeCalls.first { $0.0 == rpcName }?.1)
-        return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let rows = try #require(json["p_rows"] as? [[String: Any]])
+        return try #require(rows.first)
+    }
+
+    /// Extracts all rows from a batch RPC call's `{"p_rows": [...]}` payload.
+    private func jsonRows(
+        for rpcName: String,
+        in mergeCalls: [(String, Data)]
+    ) throws -> [[String: Any]] {
+        let data = try #require(mergeCalls.first { $0.0 == rpcName }?.1)
+        let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        return try #require(json["p_rows"] as? [[String: Any]])
     }
 
     // MARK: - Sync Log
@@ -509,6 +659,7 @@ struct SyncEngineTests {
             mergeRPCCaller: { name, params in
                 let data = try JSONEncoder().encode(params)
                 mergeCalls.append((name, data))
+                return try Self.batchSuccessData(from: data)
             },
             assignmentPresenceChecker: { entityType, _ in
                 #expect(entityType == .assignment)
@@ -530,8 +681,10 @@ struct SyncEngineTests {
 
         await engine.syncNow()
 
-        let taskAssignmentCalls = mergeCalls.filter { $0.0 == SyncEntityType.assignment.mergeRPCName }
-        #expect(taskAssignmentCalls.count == 2)
+        let taskAssignmentCalls = mergeCalls.filter { $0.0 == SyncEntityType.assignment.mergeBatchRPCName }
+        #expect(taskAssignmentCalls.count == 1)
+        let assignmentRows = try jsonRows(for: SyncEntityType.assignment.mergeBatchRPCName, in: mergeCalls)
+        #expect(assignmentRows.count == 2)
 
         let markers = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncRepairMarker>())
         #expect(markers.count == 1)
@@ -549,6 +702,7 @@ struct SyncEngineTests {
             mergeRPCCaller: { name, params in
                 let data = try JSONEncoder().encode(params)
                 mergeCalls.append((name, data))
+                return try Self.batchSuccessData(from: data)
             },
             assignmentPresenceChecker: { entityType, _ in
                 #expect(entityType == .assignment)
@@ -565,7 +719,7 @@ struct SyncEngineTests {
 
         await engine.syncNow()
 
-        #expect(!mergeCalls.contains(where: { $0.0 == SyncEntityType.assignment.mergeRPCName }))
+        #expect(!mergeCalls.contains(where: { $0.0 == SyncEntityType.assignment.mergeBatchRPCName }))
 
         let markers = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncRepairMarker>())
         #expect(markers.count == 1)
@@ -612,6 +766,7 @@ struct SyncEngineTests {
             mergeRPCCaller: { name, params in
                 let data = try JSONEncoder().encode(params)
                 mergeCalls.append((name, data))
+                return try Self.batchSuccessData(from: data)
             },
             assignmentPresenceChecker: { _, _ in
                 presenceChecks += 1
@@ -622,7 +777,7 @@ struct SyncEngineTests {
         await engine.syncNow()
 
         #expect(presenceChecks == 0)
-        #expect(!mergeCalls.contains(where: { $0.0 == SyncEntityType.assignment.mergeRPCName }))
+        #expect(!mergeCalls.contains(where: { $0.0 == SyncEntityType.assignment.mergeBatchRPCName }))
     }
 
     /// Conditions: Entry was previously evaluated while the server still had assignment rows.
@@ -663,6 +818,7 @@ struct SyncEngineTests {
             mergeRPCCaller: { name, params in
                 let data = try JSONEncoder().encode(params)
                 mergeCalls.append((name, data))
+                return try Self.batchSuccessData(from: data)
             },
             assignmentPresenceChecker: { entityType, _ in
                 #expect(entityType == .assignment)
@@ -674,7 +830,7 @@ struct SyncEngineTests {
         await engine.syncNow()
 
         #expect(presenceChecks == 1)
-        #expect(mergeCalls.contains(where: { $0.0 == SyncEntityType.assignment.mergeRPCName }))
+        #expect(mergeCalls.contains(where: { $0.0 == SyncEntityType.assignment.mergeBatchRPCName }))
 
         let markers = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncRepairMarker>())
         #expect(markers.count == 1)
@@ -694,7 +850,7 @@ struct SyncEngineTests {
 
         let (engine, container, _, _) = try makeEngine(
             serverRowsFetcher: Self.multidayIdentityServerRowsFetcher,
-            mergeRPCCaller: { _, _ in }
+            mergeRPCCaller: { _, _ in Data() }
         )
 
         let task = DataModel.Task(
