@@ -150,7 +150,10 @@ struct SpreadsTabView: View {
                     coordinator: spreadsCoordinator,
                     syncEngine: syncEngine,
                     spreads: yearSpreads,
-                    currentSelection: currentSelection
+                    currentSelection: currentSelection,
+                    calendar: journalManager.calendar,
+                    today: journalManager.today,
+                    firstWeekday: journalManager.firstWeekday
                 )
                 .environment(spreadsCoordinator)
                 .environment(journalManager)

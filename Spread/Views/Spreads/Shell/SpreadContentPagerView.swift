@@ -15,6 +15,12 @@ struct SpreadContentPagerView: View {
     let spreads: [DataModel.Spread]
     /// Pre-computed by the parent so this view does not observe JournalManager during scrolling.
     let currentSelection: DataModel.Spread
+    /// Pre-computed by the parent so `spreadDetailTitle` does not observe JournalManager during scrolling.
+    let calendar: Calendar
+    /// Pre-computed by the parent so `spreadDetailTitle` does not observe JournalManager during scrolling.
+    let today: Date
+    /// Pre-computed by the parent so `spreadDetailTitle` does not observe JournalManager during scrolling.
+    let firstWeekday: FirstWeekday
     @State private var settledSpreadID: UUID?
 
     /// Not accessed in `body` — stored here only for the `deleteSpread` action which fires
@@ -100,9 +106,9 @@ struct SpreadContentPagerView: View {
     private var spreadDetailTitle: some View {
         let config = SpreadHeaderConfiguration(
             spread: currentSelection,
-            calendar: journalManager.calendar,
-            today: journalManager.today,
-            firstWeekday: journalManager.firstWeekday,
+            calendar: calendar,
+            today: today,
+            firstWeekday: firstWeekday,
             allowsPersonalization: true
         )
         return VStack(spacing: 2) {
