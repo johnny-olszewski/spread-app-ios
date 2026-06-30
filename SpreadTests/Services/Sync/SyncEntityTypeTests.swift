@@ -15,6 +15,19 @@ struct SyncEntityTypeTests {
         #expect(SyncEntityType.entryTag.mergeRPCName == "merge_entry_tag")
     }
 
+    /// Conditions: Each entity type.
+    /// Expected: Should map to the correct batch merge RPC function name.
+    @Test func testMergeBatchRPCNames() {
+        #expect(SyncEntityType.settings.mergeBatchRPCName == "merge_settings_batch")
+        #expect(SyncEntityType.spread.mergeBatchRPCName == "merge_spread_batch")
+        #expect(SyncEntityType.entry.mergeBatchRPCName == "merge_entry_batch")
+        #expect(SyncEntityType.collection.mergeBatchRPCName == "merge_collection_batch")
+        #expect(SyncEntityType.list.mergeBatchRPCName == "merge_list_batch")
+        #expect(SyncEntityType.tag.mergeBatchRPCName == "merge_tag_batch")
+        #expect(SyncEntityType.assignment.mergeBatchRPCName == "merge_assignment_batch")
+        #expect(SyncEntityType.entryTag.mergeBatchRPCName == "merge_entry_tag_batch")
+    }
+
     // MARK: - Raw Values (Table Names)
 
     /// Conditions: Each entity type.
