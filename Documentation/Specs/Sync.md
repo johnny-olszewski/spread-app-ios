@@ -41,3 +41,60 @@
 - Operation precedence on coalescing: an unsent `create` is never downgraded to `update` by a later mutation — it stays `create` with the latest data. A `delete` always wins outright and replaces any prior unsent mutation for that entity, regardless of arrival order. [SPRD-253]
 - Coalescing only applies to currently-unsent rows. Once `SyncEngine.push()` successfully pushes and deletes a row, the next mutation for that entity starts a fresh row. [SPRD-253]
 - Remote sync continues to be triggered independently of the outbox write (auto-sync on launch/foreground/reconnect, or manual `syncNow()`) — coalescing only reduces how many rows accumulate per entity while offline, it does not change when or how often a push attempt happens. [SPRD-253]
+
+### Batch Mutation Push [SPRD-276]
+
+**Status**: Draft
+
+#### Overview
+
+`SyncEngine.push()` currently sends one RPC call per pending `SyncMutation`, sequentially, awaiting each round-trip before starting the next. For N pending mutations of the same entity type, that's N network round-trips where one would do. This batches all pending mutations of a given entity type into a single RPC call per sync pass (≤8 calls total — one per `SyncEntityType` case — down from N).
+
+Mutation coalescing (per-entity, see "Outbox Mutation Coalescing" above) is unaffected and unrelated — it already collapses repeated edits to *the same entity* into one outbox row before this layer ever runs. This feature batches across *different* entities of the same type into one network call.
+
+Deletes require no special handling: they are already expressed as a soft-delete (`deleted_at`) field inside the same merge RPC payload, so batching the merge call batches deletes for free.
+
+#### Requirements
+
+1. For each `SyncEntityType` with one or more pending mutations, `SyncEngine.push()` issues exactly one RPC call carrying all of that type's pending mutations, instead of one RPC call per mutation. [SPRD-276]
+2. Each of the 8 existing `merge_*` Postgres functions (`merge_settings`, `merge_spread`, `merge_entry`, `merge_collection`, `merge_list`, `merge_tag`, `merge_assignment`, `merge_entry_tag`) gains a sibling `merge_X_batch(p_rows jsonb) RETURNS jsonb` function accepting a JSON array of the same per-row fields the scalar function already takes. [SPRD-276]
+3. Within a batch call, one row's failure does not abort the rest of the batch — each row is processed in its own isolated exception block, and the function returns a per-row result array (`{"id":..., "success":true, "row":{...}}` or `{"id":..., "success":false, "error":"..."}`) so the client can selectively clear succeeded mutations and retry only failed ones. [SPRD-276]
+4. Each row in a batch is still authorized independently via `auth.uid()` — there is no single batch-level trust boundary. [SPRD-276]
+5. A whole-call failure (e.g. transport error, the RPC call itself throws) is treated the same as today's per-mutation failure: every mutation in that batch has its `retryCount` incremented and remains in the outbox for the existing exponential-backoff retry to pick up later. No local entity data is reverted or lost in either failure mode — local SwiftData writes are already final and independent of network success. [SPRD-276]
+6. Mutations that fail local serialization (`buildMergeParams` returns nil for malformed `recordData`) are filtered out and deleted from the outbox before the batch is built, exactly as today's per-mutation logic does — this is unrelated to the new batching and behavior here is unchanged. [SPRD-276]
+7. `Task.checkCancellation()` is preserved between entity-type batches (not per-row within a batch, since rows now travel together in one call). [SPRD-276]
+8. The existing scalar `merge_X` functions are removed from `baseline_schema.sql` if no other caller exists after this change; if a caller is found, they are kept and noted. [SPRD-276]
+
+#### Design Decisions
+
+##### Decision: Batch via new `merge_X_batch` Postgres functions, not PostgREST's native bulk `upsert()`
+
+- **Context**: PostgREST supports native bulk upsert via posting an array to a REST endpoint. This was evaluated as a simpler alternative to writing 8 new SQL functions.
+- **Decision**: Add `merge_X_batch(p_rows jsonb)` functions that loop over the array server-side, reusing each existing `merge_X` function's per-row INSERT/UPDATE/field-level-LWW logic — not PostgREST's bulk `upsert()`.
+- **Rationale**: PostgREST's native bulk upsert requires uniform row shape and has no support for per-field last-write-wins semantics or mixed insert/update/delete handling in one call — both of which the existing `merge_X` functions already implement per-row. The batch functions are a thin looping wrapper around proven per-row logic, not a reimplementation.
+- **SPRD reference**: [SPRD-276]
+
+##### Decision: Per-row exception isolation inside one transaction, not one transaction per row
+
+- **Context**: A batch could process each row in its own transaction (matching the granularity of today's one-call-per-mutation behavior exactly) or all rows in one transaction with per-row exception handling.
+- **Decision**: One RPC call (so one transaction) per entity type per sync pass, with each row wrapped in its own `BEGIN ... EXCEPTION WHEN OTHERS THEN ...` block inside that transaction so a single malformed row doesn't abort the others.
+- **Rationale**: This is what makes the batching actually reduce round-trips — one transaction per row would still mean N database operations even if sent as one network call (no win). The per-row exception block preserves today's "one bad row doesn't block its siblings" behavior without losing the round-trip savings.
+- **SPRD reference**: [SPRD-276]
+
+##### Decision: Whole-batch network failure still blocks via existing backoff, not finer-grained retry
+
+- **Context**: If the entire RPC call throws (e.g. the device loses signal mid-request), that failure could be handled by retrying only the batch, or by some finer per-row fallback.
+- **Decision**: A whole-call failure increments `retryCount` and leaves all mutations in that batch in the outbox, exactly mirroring today's per-mutation failure behavior — the existing exponential backoff (2s → 4s → ... → 5min cap, reset on next success) is unchanged and applies at the same granularity as before.
+- **Rationale**: This refactor's scope is reducing round-trip count when the network is healthy, not changing failure/retry semantics. A single bad *row* inside a successful batch call is now isolated (new behavior, requirement 3 above); a failure of the *entire call* is not finer-grained than before, since there's no way to know which rows would have succeeded without the call completing.
+- **SPRD reference**: [SPRD-276]
+
+##### Decision: One combined SPRD task for server + client changes
+
+- **Context**: The server-side `merge_X_batch` functions and the client-side `SyncEngine.push()`/`SyncSerializer` changes touch different systems (live Supabase Postgres functions vs. local Swift code) and could in principle be split into two tasks landed independently.
+- **Decision**: Track both under a single SPRD-276 task.
+- **Rationale**: The client batching change is not independently useful or shippable without the server batch RPCs existing first — there's no meaningful intermediate state where landing one without the other provides value. Splitting would add task-tracking overhead with no real decoupling benefit.
+- **SPRD reference**: [SPRD-276]
+
+#### Open Questions
+
+- Whether any screen currently shows the user a visible "not synced yet" indicator is worth checking separately — not part of this refactor's scope, since this refactor changes round-trip count, not what's shown to the user about sync state.
