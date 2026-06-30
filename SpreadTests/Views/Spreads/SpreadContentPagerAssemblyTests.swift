@@ -141,4 +141,65 @@ struct SpreadContentPagerAssemblyTests {
         #expect(sections[0].title == "Work")
         #expect(sections[1].title == "Untitled")
     }
+
+    // MARK: - Data Model Windowing (SPRD-275)
+
+    private static func makeSpreads(count: Int) -> [DataModel.Spread] {
+        (0..<count).map { offset in
+            DataModel.Spread(period: .day, date: Self.makeDate(year: 2026, month: 1, day: offset + 1), calendar: Self.calendar)
+        }
+    }
+
+    /// Condition: A spread is exactly at the settled index.
+    /// Expected: It is within the window regardless of radius.
+    @Test("Settled spread is always within the window")
+    func testSettledSpreadIsWithinWindow() {
+        let spreads = Self.makeSpreads(count: 5)
+        let settledID = spreads[2].id
+
+        #expect(SpreadContentPagerView.isWithinDataModelWindow(
+            spread: spreads[2], spreads: spreads, settledSpreadID: settledID, radius: 1
+        ))
+    }
+
+    /// Condition: Spreads at ±1 index from the settled spread, radius 1.
+    /// Expected: Both immediate neighbors are within the window.
+    @Test("Immediate neighbors are within a radius-1 window")
+    func testImmediateNeighborsAreWithinWindow() {
+        let spreads = Self.makeSpreads(count: 5)
+        let settledID = spreads[2].id
+
+        #expect(SpreadContentPagerView.isWithinDataModelWindow(
+            spread: spreads[1], spreads: spreads, settledSpreadID: settledID, radius: 1
+        ))
+        #expect(SpreadContentPagerView.isWithinDataModelWindow(
+            spread: spreads[3], spreads: spreads, settledSpreadID: settledID, radius: 1
+        ))
+    }
+
+    /// Condition: Spreads at ±2 index from the settled spread, radius 1.
+    /// Expected: Both are excluded from the window.
+    @Test("Spreads two pages away are excluded from a radius-1 window")
+    func testFartherSpreadsAreExcludedFromWindow() {
+        let spreads = Self.makeSpreads(count: 5)
+        let settledID = spreads[2].id
+
+        #expect(!SpreadContentPagerView.isWithinDataModelWindow(
+            spread: spreads[0], spreads: spreads, settledSpreadID: settledID, radius: 1
+        ))
+        #expect(!SpreadContentPagerView.isWithinDataModelWindow(
+            spread: spreads[4], spreads: spreads, settledSpreadID: settledID, radius: 1
+        ))
+    }
+
+    /// Condition: settledSpreadID is nil (e.g. not yet seeded).
+    /// Expected: No spread is considered within the window.
+    @Test("No spread is within the window when settledSpreadID is nil")
+    func testNoWindowWhenSettledSpreadIDIsNil() {
+        let spreads = Self.makeSpreads(count: 3)
+
+        #expect(!SpreadContentPagerView.isWithinDataModelWindow(
+            spread: spreads[0], spreads: spreads, settledSpreadID: nil, radius: 1
+        ))
+    }
 }

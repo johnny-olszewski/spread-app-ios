@@ -23,17 +23,41 @@ struct SpreadContentPagerView: View {
     let today: Date
     /// Pre-computed by the parent so `spreadDetailTitle` does not observe JournalManager during scrolling.
     let firstWeekday: FirstWeekday
+    /// Seeded from `currentSelection.id` at construction (not just `.onAppear`) so the very
+    /// first render's `spreadDataModel(for:)` window is already centered on the selected
+    /// spread, rather than briefly showing the "No Data" placeholder before `.onAppear` runs.
     @State private var settledSpreadID: UUID?
 
-    /// Accessed in `body` only by `spreadDataModel(for:)` (called per-page from `contentView(for:)`).
-    /// `spreadDetailTitle` does not read this — see the `calendar`/`today`/`firstWeekday`
-    /// properties above.
+    /// Accessed in `body` only by `spreadDataModel(for:)`, scoped to the windowed set of spreads
+    /// near `settledSpreadID` (see `Constants.spreadDataModelWindowRadius`). `spreadDetailTitle`
+    /// does not read this — see the `calendar`/`today`/`firstWeekday` properties above.
     @Environment(JournalManager.self) private var journalManager
     @Environment(\.eventKitService) private var eventKitService
     @Environment(\.calendarEventService) private var calendarEventService
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var scrollPhase: ScrollPhase = .idle
+
+    // MARK: - Init
+
+    init(
+        coordinator: SpreadsCoordinator,
+        syncEngine: SyncEngine?,
+        spreads: [DataModel.Spread],
+        currentSelection: DataModel.Spread,
+        calendar: Calendar,
+        today: Date,
+        firstWeekday: FirstWeekday
+    ) {
+        self.coordinator = coordinator
+        self.syncEngine = syncEngine
+        self.spreads = spreads
+        self.currentSelection = currentSelection
+        self.calendar = calendar
+        self.today = today
+        self.firstWeekday = firstWeekday
+        _settledSpreadID = State(initialValue: currentSelection.id)
+    }
 
     // MARK: - Pager State
 
@@ -175,6 +199,13 @@ struct SpreadContentPagerView: View {
         )
     }
 
+    /// How many pages on either side of `settledSpreadID` get a computed `SpreadDataModel`.
+    /// Tune this in one place if the window needs to widen (e.g. for faster multi-page flicks)
+    /// or narrow further.
+    private enum Constants {
+        static let spreadDataModelWindowRadius = 1
+    }
+
     @ViewBuilder
     private func contentView(for spread: DataModel.Spread) -> some View {
         if let dataModel = spreadDataModel(for: spread) {
@@ -211,7 +242,30 @@ struct SpreadContentPagerView: View {
         }
     }
 
+    /// Whether `spread` falls within `Constants.spreadDataModelWindowRadius` pages of
+    /// `settledSpreadID` in `spreads`. Spreads outside the window skip the `JournalManager`
+    /// dictionary lookup entirely and render the "No Data" placeholder until the window moves
+    /// to include them, bounding per-render work to a small constant regardless of how many
+    /// spreads are loaded into the pager.
+    static func isWithinDataModelWindow(
+        spread: DataModel.Spread,
+        spreads: [DataModel.Spread],
+        settledSpreadID: UUID?,
+        radius: Int
+    ) -> Bool {
+        guard let settledSpreadID,
+              let settledIndex = spreads.firstIndex(where: { $0.id == settledSpreadID }),
+              let index = spreads.firstIndex(where: { $0.id == spread.id }) else { return false }
+        return abs(index - settledIndex) <= radius
+    }
+
     private func spreadDataModel(for spread: DataModel.Spread) -> SpreadDataModel? {
+        guard Self.isWithinDataModelWindow(
+            spread: spread,
+            spreads: spreads,
+            settledSpreadID: settledSpreadID,
+            radius: Constants.spreadDataModelWindowRadius
+        ) else { return nil }
         let normalizedDate = spread.period.normalizeDate(spread.date, calendar: journalManager.calendar)
         return journalManager.dataModel[spread.period]?[normalizedDate]
     }
