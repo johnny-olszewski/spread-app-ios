@@ -408,6 +408,15 @@ struct MergeAssignmentParams: Encodable, Sendable {
     }
 }
 
+/// Parameters for a `merge_X_batch` RPC: a jsonb array of per-row params.
+struct BatchMergeParams: Encodable, Sendable {
+    let rows: [AnyEncodable]
+
+    enum CodingKeys: String, CodingKey {
+        case rows = "p_rows"
+    }
+}
+
 // MARK: - Server Row Types (Pull)
 
 /// A row from the `settings` table.
@@ -1080,6 +1089,33 @@ enum SyncSerializer {
             )
             return (entityType.mergeRPCName, params)
         }
+    }
+
+    /// Wraps a batch of mutations' record data into the `{"p_rows": [...]}` payload for the
+    /// batch merge RPC, reusing `buildMergeParams` unchanged for each row's parameters.
+    ///
+    /// Mutations whose `recordData` fails to parse are excluded from the payload and returned
+    /// separately via `failedMutationIDs`, so the caller can delete them from the outbox before
+    /// issuing the batch RPC call — unchanged from today's per-mutation filtering behavior.
+    static func buildBatchMergeParams(
+        entityType: SyncEntityType,
+        mutations: [(mutationID: UUID, recordData: Data)],
+        userId: UUID
+    ) -> (rpcName: String, params: BatchMergeParams, failedMutationIDs: [UUID]) {
+        var rows: [AnyEncodable] = []
+        var failedMutationIDs: [UUID] = []
+
+        for mutation in mutations {
+            guard let (_, params) = buildMergeParams(
+                entityType: entityType, recordData: mutation.recordData, userId: userId
+            ) else {
+                failedMutationIDs.append(mutation.mutationID)
+                continue
+            }
+            rows.append(AnyEncodable(params))
+        }
+
+        return (entityType.mergeBatchRPCName, BatchMergeParams(rows: rows), failedMutationIDs)
     }
 
     // MARK: - Pull Deserialization (Server Row → Local Model)

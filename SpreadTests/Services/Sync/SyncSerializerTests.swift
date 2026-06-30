@@ -132,6 +132,51 @@ struct SyncSerializerTests {
         #expect(result == nil)
     }
 
+    // MARK: - buildBatchMergeParams
+
+    /// Conditions: Three valid spread mutations of the same entity type.
+    /// Expected: Should return merge_spread_batch RPC name and a payload with 3 rows, no failures.
+    @Test func testBuildBatchMergeParamsWrapsAllRows() {
+        let mutations = (0..<3).map { _ in (mutationID: UUID(), recordData: makeSpreadRecord()) }
+
+        let result = SyncSerializer.buildBatchMergeParams(
+            entityType: .spread, mutations: mutations, userId: UUID()
+        )
+
+        #expect(result.rpcName == "merge_spread_batch")
+        #expect(result.params.rows.count == 3)
+        #expect(result.failedMutationIDs.isEmpty)
+    }
+
+    /// Conditions: One valid spread mutation and one with invalid record data.
+    /// Expected: Valid row is included in the payload; invalid mutation's id is reported as failed.
+    @Test func testBuildBatchMergeParamsFiltersInvalidRows() {
+        let validID = UUID()
+        let invalidID = UUID()
+        let mutations = [
+            (mutationID: validID, recordData: makeSpreadRecord()),
+            (mutationID: invalidID, recordData: Data("not json".utf8))
+        ]
+
+        let result = SyncSerializer.buildBatchMergeParams(
+            entityType: .spread, mutations: mutations, userId: UUID()
+        )
+
+        #expect(result.params.rows.count == 1)
+        #expect(result.failedMutationIDs == [invalidID])
+    }
+
+    /// Conditions: Empty mutation list.
+    /// Expected: Should return an empty rows payload with no failures.
+    @Test func testBuildBatchMergeParamsHandlesEmptyInput() {
+        let result = SyncSerializer.buildBatchMergeParams(
+            entityType: .spread, mutations: [], userId: UUID()
+        )
+
+        #expect(result.params.rows.isEmpty)
+        #expect(result.failedMutationIDs.isEmpty)
+    }
+
     // MARK: - Nil Encoding
 
     /// Conditions: MergeSpreadParams with nil optional fields.
