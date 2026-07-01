@@ -42,18 +42,27 @@ struct SpreadsTabView: View {
     }
 
     /// Spreads in the same year as the current selection — used by the spread pager.
-    private var yearSpreads: [DataModel.Spread] {
-        
-        let year = spreadsCalendar.component(.year, from: currentSelection.startDate ?? currentSelection.date)
-        
-        return journalManager.spreads
-            .filter { spreadsCalendar.component(.year, from: $0.startDate ?? $0.date) == year }
-            .sorted { ($0.startDate ?? $0.date) < ($1.startDate ?? $1.date) }
-    }
+    ///
+    /// Cached as `@State` so that intra-year scroll settles (which update
+    /// `spreadsCoordinator.selectedSpread` via `syncSelectionFromSettledID`) do not produce
+    /// a new array and re-render `SpreadContentPagerView`. Updated only when the selection
+    /// crosses a calendar year boundary or when the spread collection grows/shrinks.
+    @State private var cachedYearSpreads: [DataModel.Spread]
 
     private var spreadsCalendar: Calendar {
         journalManager.configuredCalendar
     }
+
+    /// Calendar year derived from the current spread selection. Used as the `onChange` key
+    /// for updating `cachedYearSpreads` only when the user actually crosses a year boundary.
+    private var currentSelectionYear: Int {
+        spreadsCalendar.component(.year, from: currentSelection.startDate ?? currentSelection.date)
+    }
+
+    /// Stable spread ID seeded from `journalManager.defaultNavigationSelection` at init time.
+    /// Passed to `SpreadContentPagerView` as `initialSelectedSpreadID` so the pager's `@State`
+    /// is seeded once without requiring `currentSelection` as a changing init param.
+    private let initialSelectedSpreadID: UUID
 
     /// `CalendarGenerator.Model` keyed by calendar year, built from `journalManager.spreads`.
     ///
@@ -89,6 +98,29 @@ struct SpreadsTabView: View {
         let built = Self.buildNavigatorCalendarData(spreads: journalManager.spreads, calendar: calendar)
         navigatorCalendarModels = built.models
         navigatorYearSpreads = built.yearSpreads
+
+        let defaultSelection = journalManager.defaultNavigationSelection
+        initialSelectedSpreadID = defaultSelection.id
+        let initialYear = calendar.component(.year, from: defaultSelection.startDate ?? defaultSelection.date)
+        _cachedYearSpreads = State(initialValue: Self.buildYearSpreads(
+            spreads: journalManager.spreads,
+            year: initialYear,
+            calendar: calendar
+        ))
+    }
+
+    /// Returns spreads in `year` sorted by start/date ascending.
+    ///
+    /// A `static` function so it can be called from both `init` and `onChange` handlers
+    /// without capturing `self`, and tested directly without a full SwiftUI environment.
+    static func buildYearSpreads(
+        spreads: [DataModel.Spread],
+        year: Int,
+        calendar: Calendar
+    ) -> [DataModel.Spread] {
+        spreads
+            .filter { calendar.component(.year, from: $0.startDate ?? $0.date) == year }
+            .sorted { ($0.startDate ?? $0.date) < ($1.startDate ?? $1.date) }
     }
 
     /// Builds `navigatorCalendarModels` and `navigatorYearSpreads` in a single pass over
@@ -149,8 +181,8 @@ struct SpreadsTabView: View {
                 SpreadContentPagerView(
                     coordinator: spreadsCoordinator,
                     syncEngine: syncEngine,
-                    spreads: yearSpreads,
-                    currentSelection: currentSelection,
+                    spreads: cachedYearSpreads,
+                    initialSelectedSpreadID: initialSelectedSpreadID,
                     calendar: journalManager.calendar,
                     today: journalManager.today,
                     firstWeekday: journalManager.firstWeekday
@@ -222,6 +254,22 @@ struct SpreadsTabView: View {
         ))
         .onChange(of: journalManager.dataVersion) { _, _ in
             resetSelectionIfNeeded()
+        }
+        // Rebuild the pager's spread list when the user crosses a calendar year boundary.
+        .onChange(of: currentSelectionYear) { _, newYear in
+            cachedYearSpreads = Self.buildYearSpreads(
+                spreads: journalManager.spreads,
+                year: newYear,
+                calendar: spreadsCalendar
+            )
+        }
+        // Rebuild when spreads are added or removed so newly created spreads appear in the pager.
+        .onChange(of: journalManager.spreads.count) { _, _ in
+            cachedYearSpreads = Self.buildYearSpreads(
+                spreads: journalManager.spreads,
+                year: currentSelectionYear,
+                calendar: spreadsCalendar
+            )
         }
     }
     

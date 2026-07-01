@@ -2,30 +2,30 @@ import SwiftUI
 
 /// Horizontally pages through spread content, assembling each page as a header and period-appropriate content view.
 ///
-/// `spreads`, `currentSelection`, and the `calendar`/`today`/`firstWeekday` triple are passed in
-/// from `SpreadsTabView` so `spreadDetailTitle` does not observe `JournalManager` directly.
-/// Scroll-driven re-renders (from `scrollPhase` and `settledSpreadID` state changes) therefore
-/// only perform cheap lookups against already-computed values for the title — the year-spreads
-/// filtering stays in the parent. `journalManager` is still read directly by `spreadDataModel(for:)`,
-/// called from `body` via `contentView(for:)` — see that method's doc comment for how its cost is bounded.
+/// `spreads` and the `calendar`/`today`/`firstWeekday` triple are passed in from `SpreadsTabView`.
+/// `spreads` is a `@State`-cached value in the parent so that intra-year scroll settles — which update
+/// `coordinator.selectedSpread` — do not produce a new array and trigger a `@self changed` re-render
+/// of this view. This view's struct value therefore remains stable between settles within the same year,
+/// preventing the cascade of `DaySpreadContentView: @self changed` events observed before SPRD-284.
+///
+/// `journalManager` is still read directly by `spreadDataModel(for:)`, called from `body` via
+/// `contentView(for:)` — see that method's doc comment for how its cost is bounded.
 struct SpreadContentPagerView: View {
     private let backgroundShape = UnevenRoundedRectangle(topLeadingRadius: SpreadTheme.CornerRadius.xxlarge, topTrailingRadius: SpreadTheme.CornerRadius.xxlarge)
 
     let coordinator: SpreadsCoordinator
     let syncEngine: SyncEngine?
-    /// Pre-computed by the parent so this view does not observe JournalManager during scrolling.
+    /// Pre-computed and cached by the parent so this view does not observe JournalManager during scrolling.
     let spreads: [DataModel.Spread]
-    /// Pre-computed by the parent so this view does not observe JournalManager during scrolling.
-    let currentSelection: DataModel.Spread
     /// Pre-computed by the parent so `spreadDetailTitle` does not observe JournalManager during scrolling.
     let calendar: Calendar
     /// Pre-computed by the parent so `spreadDetailTitle` does not observe JournalManager during scrolling.
     let today: Date
     /// Pre-computed by the parent so `spreadDetailTitle` does not observe JournalManager during scrolling.
     let firstWeekday: FirstWeekday
-    /// Seeded from `currentSelection.id` at construction (not just `.onAppear`) so the very
-    /// first render's `spreadDataModel(for:)` window is already centered on the selected
-    /// spread, rather than briefly showing the "No Data" placeholder before `.onAppear` runs.
+    /// Seeded at construction (not just `.onAppear`) so the very first render's `spreadDataModel(for:)`
+    /// window is already centered on the selected spread, rather than briefly showing the "No Data"
+    /// placeholder before `.onAppear` fires. Stable across parent re-renders — only ever set once at init.
     @State private var settledSpreadID: UUID?
 
     /// Accessed in `body` only by `spreadDataModel(for:)`, scoped to the windowed set of spreads
@@ -44,7 +44,7 @@ struct SpreadContentPagerView: View {
         coordinator: SpreadsCoordinator,
         syncEngine: SyncEngine?,
         spreads: [DataModel.Spread],
-        currentSelection: DataModel.Spread,
+        initialSelectedSpreadID: UUID,
         calendar: Calendar,
         today: Date,
         firstWeekday: FirstWeekday
@@ -52,20 +52,19 @@ struct SpreadContentPagerView: View {
         self.coordinator = coordinator
         self.syncEngine = syncEngine
         self.spreads = spreads
-        self.currentSelection = currentSelection
         self.calendar = calendar
         self.today = today
         self.firstWeekday = firstWeekday
-        _settledSpreadID = State(initialValue: currentSelection.id)
+        _settledSpreadID = State(initialValue: initialSelectedSpreadID)
     }
 
     // MARK: - Pager State
 
-    /// `DataModel.Spread.id` is used directly for pager identity — both the `ForEach`'s `.id()` and
-    /// `settledSpreadID` are `UUID`. There is no need for a separate string-based "stable ID"; the
-    /// model's own identity is already stable and unique.
-    private var selectedSpreadID: UUID {
-        currentSelection.id
+    /// The coordinator's explicit spread selection, used to detect external navigation changes
+    /// (e.g. tapping a day in the navigator calendar) so the pager can recenter without a swipe.
+    /// `nil` when the app first launches and the coordinator hasn't received an explicit selection yet.
+    private var selectedSpreadID: UUID? {
+        coordinator.selectedSpread?.id
     }
 
     var body: some View {
@@ -105,15 +104,18 @@ struct SpreadContentPagerView: View {
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $settledSpreadID)
         .onAppear {
-            settledSpreadID = selectedSpreadID
+            // Only override the seeded settledSpreadID if the coordinator already has an explicit
+            // selection (e.g. a deep-link drove the launch). When selectedSpreadID is nil the
+            // seeded value from init already shows the right page — don't clobber it with nil.
+            if let id = selectedSpreadID { settledSpreadID = id }
         }
         // Recenter whenever the externally-driven selection changes (e.g. tab/title navigation).
         .onChange(of: selectedSpreadID) { _, newValue in
-            guard newValue != settledSpreadID else { return }
+            guard let newValue, newValue != settledSpreadID else { return }
             center(on: newValue, animated: false)
         }
         .onChange(of: coordinator.recenterToken) { _, _ in
-            center(on: selectedSpreadID, animated: false)
+            if let id = selectedSpreadID { center(on: id, animated: false) }
         }
         // These two handlers cover the two possible orderings of "settled ID changed" vs.
         // "scroll phase became idle" — see `syncSelectionFromSettledID` for why both are needed.
@@ -131,19 +133,22 @@ struct SpreadContentPagerView: View {
     // MARK: - Detail Title
 
     private var spreadDetailTitle: some View {
-        let config = SpreadHeaderConfiguration(
-            spread: currentSelection,
-            calendar: calendar,
-            today: today,
-            firstWeekday: firstWeekday,
-            allowsPersonalization: true
-        )
+        let spread = coordinator.selectedSpread ?? spreads.first
+        let config = spread.map {
+            SpreadHeaderConfiguration(
+                spread: $0,
+                calendar: calendar,
+                today: today,
+                firstWeekday: firstWeekday,
+                allowsPersonalization: true
+            )
+        }
         return VStack(spacing: 2) {
-            Text(config.title)
+            Text(config?.title ?? "")
                 .font(SpreadTheme.Typography.largeTitle(size: 17, weight: .bold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
-            if let subtitle = config.subtitle {
+            if let subtitle = config?.subtitle {
                 Text(subtitle)
                     .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
@@ -170,7 +175,7 @@ struct SpreadContentPagerView: View {
     /// Both call this same check; the `scrollPhase == .idle` guard makes mid-scroll updates a no-op.
     private func syncSelectionFromSettledID() {
         guard scrollPhase == .idle,
-              let settledSpreadID, settledSpreadID != selectedSpreadID,
+              let settledSpreadID, settledSpreadID != coordinator.selectedSpread?.id,
               let spread = spreads.first(where: { $0.id == settledSpreadID }) else { return }
         coordinator.selectedSpread = spread
         coordinator.clearConvenienceNavigation()
