@@ -351,7 +351,7 @@ struct SpreadsTabView: View {
                 Color.clear
             }
         case .taskCreation:
-            TaskCreationSheet(
+            TaskEntrySheet(
                 journalManager: journalManager,
                 selectedSpread: currentSelection,
                 onTaskCreated: { _ in
@@ -367,7 +367,7 @@ struct SpreadsTabView: View {
                 }
             )
         case .taskDetail(let task):
-            TaskDetailSheet(
+            TaskEntrySheet(
                 task: task,
                 journalManager: journalManager,
                 onDelete: {
