@@ -88,6 +88,7 @@ struct PeriodDatePicker: View {
             calendar: calendar,
             today: today,
             configuration: .init(showsPeripheralDates: false),
+            displayConfiguration: .singleMonthPager,
             contentGenerator: EntrySheetCalendarGenerator(
                 selectedDate: selectedDate,
                 minimumDate: minimumDate,
