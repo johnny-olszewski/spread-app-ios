@@ -268,7 +268,10 @@ struct SpreadsTabView: View {
             calendarModels: navigatorCalendarModels,
             yearSpreads: navigatorYearSpreads,
             selectedYear: $spreadsCoordinator.selectedYear,
-            selectedSpread: $spreadsCoordinator.selectedSpread,
+            selectedSpread: Binding(
+                get: { spreadsCoordinator.selectedSpread },
+                set: { if let spread = $0 { spreadsCoordinator.navigate(to: spread) } }
+            ),
             today: journalManager.today,
             calendar: spreadsCalendar
         )
