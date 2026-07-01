@@ -8,8 +8,13 @@ import Foundation
 ///
 /// Supports both day spreads (uses `spread.date`) and multiday spreads
 /// (uses `spread.startDate`/`spread.endDate` when present).
+///
+/// Declared as a `final class` (not `struct`) so that environment injection via
+/// `CalendarEventServiceEnvironmentKey.Box` can use `ObjectIdentifier`-based identity
+/// comparison (`===`) to detect when the same instance is re-injected, preventing
+/// spurious SwiftUI re-renders on every `ContentView.body` evaluation.
 @MainActor
-struct LiveCalendarEventService: CalendarEventService {
+final class LiveCalendarEventService: CalendarEventService {
 
     private let eventKitService: any EventKitService
 
