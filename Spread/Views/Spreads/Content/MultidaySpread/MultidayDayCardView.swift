@@ -112,7 +112,7 @@ struct MultidayDayCardView<Content: View>: View {
     private var footer: some View {
         HStack {
             if let onPeek {
-                SpreadButton(viewModel: .init(
+                SpreadButton(.init(
                     title: "Preview day spread",
                     icon: .eye,
                     kind: .plain,
@@ -125,7 +125,7 @@ struct MultidayDayCardView<Content: View>: View {
             Spacer()
 
             if cardStyle.isCreated {
-                SpreadButton(viewModel: .init(
+                SpreadButton(.init(
                     title: "Open day spread",
                     icon: .arrowRight,
                     kind: .glass,
@@ -134,7 +134,7 @@ struct MultidayDayCardView<Content: View>: View {
                     action: onFooterTap
                 ))
             } else {
-                SpreadButton(viewModel: .init(
+                SpreadButton(.init(
                     title: "Create day spread",
                     icon: .calendarPlus,
                     kind: .glass,

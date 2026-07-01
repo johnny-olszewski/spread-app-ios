@@ -115,7 +115,7 @@ struct MonthCardView: View {
                 HStack {
                     Spacer()
                     if let onPeek {
-                        SpreadButton(viewModel: .init(
+                        SpreadButton(.init(
                             title: "Preview month spread",
                             icon: .eye,
                             kind: .plain,
@@ -125,7 +125,7 @@ struct MonthCardView: View {
                     }
 
                     if let onViewSpread {
-                        SpreadButton(viewModel: .init(
+                        SpreadButton(.init(
                             title: "View month spread",
                             icon: .arrowRight,
                             kind: .glass,
