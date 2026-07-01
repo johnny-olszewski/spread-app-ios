@@ -14,13 +14,7 @@ struct NoteDetailSheet: View {
 
     @Observable @MainActor final class ViewModel {
         var presentedTemporalContext: PresentedTemporalContext
-        var title: String
-        var content: String
-        var selectedPeriod: Period
-        var selectedDate: Date
-        var selectedSpreadID: UUID?
-        var selectedList: DataModel.List?
-        var selectedTagIDs: Set<UUID>
+        var formModel: NoteEditorFormModel
         var isSaving = false
         var isShowingSpreadPicker = false
         var isCreatingList = false
@@ -32,15 +26,11 @@ struct NoteDetailSheet: View {
         init(note: DataModel.Note, journalManager: JournalManager) {
             let context = PresentedTemporalContext(journalManager: journalManager)
             presentedTemporalContext = context
-            title = note.title
-            content = note.content
-            selectedPeriod = note.period
-            selectedDate = note.date ?? note.createdDate
-            selectedSpreadID = note.currentAssignments.first(where: {
-                $0.period == .multiday
-            })?.spreadID
-            selectedList = note.list
-            selectedTagIDs = Set(note.tags.map(\.id))
+            let configuration = EntryCreationConfiguration(
+                calendar: context.calendar,
+                today: context.today
+            )
+            formModel = NoteEditorFormModel(configuration: configuration, note: note)
         }
     }
 
@@ -107,11 +97,9 @@ struct NoteDetailSheet: View {
                     spreads: journalManager.spreads,
                     calendar: viewModel.presentedTemporalContext.calendar,
                     today: viewModel.presentedTemporalContext.today,
-                    focusDate: viewModel.selectedDate,
+                    focusDate: viewModel.formModel.selectedDate,
                     onSpreadSelected: { selection in
-                        viewModel.selectedPeriod = selection.period
-                        viewModel.selectedDate = selection.date
-                        viewModel.selectedSpreadID = selection.spreadID
+                        viewModel.formModel.applySpreadSelection(selection)
                     },
                     onChooseCustomDate: {}
                 )
@@ -131,16 +119,11 @@ struct NoteDetailSheet: View {
                     }
                     .disabled(
                         viewModel.isSaving ||
-                        viewModel.title.isEmpty ||
-                        viewModel.title.allSatisfy(\.isWhitespace) ||
-                        (viewModel.selectedPeriod == .multiday && viewModel.selectedSpreadID == nil)
+                        viewModel.formModel.title.isEmpty ||
+                        viewModel.formModel.title.allSatisfy(\.isWhitespace) ||
+                        (viewModel.formModel.selectedPeriod == .multiday && viewModel.formModel.selectedSpreadID == nil)
                     )
                     .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteDetailSheet.saveButton)
-                }
-            }
-            .onChange(of: viewModel.selectedPeriod) { _, newPeriod in
-                if newPeriod != .multiday {
-                    viewModel.selectedSpreadID = nil
                 }
             }
         }
@@ -157,7 +140,7 @@ struct NoteDetailSheet: View {
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             EntrySheetSectionHeader(title: "Title")
-            TextField("Note title", text: $viewModel.title)
+            TextField("Note title", text: $viewModel.formModel.title)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteDetailSheet.titleField)
         }
     }
@@ -182,14 +165,14 @@ struct NoteDetailSheet: View {
 
     private var listPickerRow: some View {
         Menu {
-            Button("None") { viewModel.selectedList = nil }
+            Button("None") { viewModel.formModel.selectedList = nil }
             Divider()
             ForEach(journalManager.lists) { list in
                 Button {
-                    viewModel.selectedList =
-                        viewModel.selectedList?.id == list.id ? nil : list
+                    viewModel.formModel.selectedList =
+                        viewModel.formModel.selectedList?.id == list.id ? nil : list
                 } label: {
-                    if viewModel.selectedList?.id == list.id {
+                    if viewModel.formModel.selectedList?.id == list.id {
                         Label {
                             Text(list.name)
                         } icon: {
@@ -205,7 +188,7 @@ struct NoteDetailSheet: View {
         } label: {
             EntrySheetSelectionSummaryRow(
                 title: "List",
-                value: viewModel.selectedList?.name ?? "None",
+                value: viewModel.formModel.selectedList?.name ?? "None",
                 isEnabled: true
             )
         }
@@ -214,13 +197,13 @@ struct NoteDetailSheet: View {
     private var tagsPickerSection: some View {
         DisclosureGroup(isExpanded: $viewModel.isTagsExpanded) {
             ForEach(journalManager.tags) { tag in
-                let isSelected = viewModel.selectedTagIDs.contains(tag.id)
-                let atLimit = viewModel.selectedTagIDs.count >= 5
+                let isSelected = viewModel.formModel.selectedTagIDs.contains(tag.id)
+                let atLimit = viewModel.formModel.selectedTagIDs.count >= 5
                 Button {
                     if isSelected {
-                        viewModel.selectedTagIDs.remove(tag.id)
+                        viewModel.formModel.selectedTagIDs.remove(tag.id)
                     } else if !atLimit {
-                        viewModel.selectedTagIDs.insert(tag.id)
+                        viewModel.formModel.selectedTagIDs.insert(tag.id)
                     }
                 } label: {
                     HStack {
@@ -234,7 +217,7 @@ struct NoteDetailSheet: View {
                 .buttonStyle(.plain)
                 .disabled(!isSelected && atLimit)
             }
-            if viewModel.selectedTagIDs.count >= 5 {
+            if viewModel.formModel.selectedTagIDs.count >= 5 {
                 Text("Maximum 5 tags")
                     .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
@@ -255,7 +238,7 @@ struct NoteDetailSheet: View {
     }
 
     private var tagsSummary: String {
-        let selected = journalManager.tags.filter { viewModel.selectedTagIDs.contains($0.id) }
+        let selected = journalManager.tags.filter { viewModel.formModel.selectedTagIDs.contains($0.id) }
         if selected.isEmpty { return "None" }
         return selected.map(\.name).sorted().joined(separator: ", ")
     }
@@ -263,7 +246,7 @@ struct NoteDetailSheet: View {
     private var contentSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             EntrySheetSectionHeader(title: "Content")
-            TextEditor(text: $viewModel.content)
+            TextEditor(text: $viewModel.formModel.content)
                 .frame(minHeight: 100)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
@@ -282,7 +265,7 @@ struct NoteDetailSheet: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Select destination")
-                        Text(viewModel.selectedPeriod == .multiday ? selectedMultidaySummary : "Or use the controls below")
+                        Text(viewModel.formModel.selectedPeriod == .multiday ? selectedMultidaySummary : "Or use the controls below")
                             .font(SpreadTheme.Typography.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -299,7 +282,10 @@ struct NoteDetailSheet: View {
     private var periodSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             EntrySheetSectionHeader(title: "Period")
-            Picker("Period", selection: $viewModel.selectedPeriod) {
+            Picker("Period", selection: Binding(
+                get: { viewModel.formModel.selectedPeriod },
+                set: { viewModel.formModel.setPeriod($0) }
+            )) {
                 ForEach(EntryCreationConfiguration.assignablePeriods, id: \.self) { period in
                     Text(period.displayName)
                         .tag(period)
@@ -313,22 +299,18 @@ struct NoteDetailSheet: View {
     private var dateSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             EntrySheetSectionHeader(title: "Date")
-            let configuration = EntryCreationConfiguration(
-                calendar: viewModel.presentedTemporalContext.calendar,
-                today: viewModel.presentedTemporalContext.today
-            )
-            if viewModel.selectedPeriod == .multiday {
+            if viewModel.formModel.selectedPeriod == .multiday {
                 Text(selectedMultidaySummary)
                     .font(SpreadTheme.Typography.subheadline)
-                    .foregroundStyle(viewModel.selectedSpreadID == nil ? .secondary : .primary)
+                    .foregroundStyle(viewModel.formModel.selectedSpreadID == nil ? .secondary : .primary)
             } else {
                 PeriodDatePicker(
-                    period: viewModel.selectedPeriod,
-                    selectedDate: $viewModel.selectedDate,
+                    period: viewModel.formModel.selectedPeriod,
+                    selectedDate: $viewModel.formModel.selectedDate,
                     calendar: viewModel.presentedTemporalContext.calendar,
                     today: viewModel.presentedTemporalContext.today,
-                    minimumDate: configuration.minimumDate(for: .day),
-                    maximumDate: configuration.maximumDate,
+                    minimumDate: viewModel.formModel.configuration.minimumDate(for: .day),
+                    maximumDate: viewModel.formModel.configuration.maximumDate,
                     accessibilityIdentifiers: nil
                 )
             }
@@ -391,7 +373,7 @@ struct NoteDetailSheet: View {
     }
 
     private var selectedMultidaySummary: String {
-        guard let spreadID = viewModel.selectedSpreadID,
+        guard let spreadID = viewModel.formModel.selectedSpreadID,
               let spread = journalManager.spreads.first(where: { $0.id == spreadID }) else {
             return "Select an existing multiday spread"
         }
@@ -411,27 +393,31 @@ struct NoteDetailSheet: View {
 
         Task { @MainActor in
             do {
-                if viewModel.title != note.title || viewModel.content != note.content {
-                    try await journalManager.updateNoteTitle(note, newTitle: viewModel.title, newContent: viewModel.content)
-                }
-
-                if viewModel.selectedDate != note.date || viewModel.selectedPeriod != note.period {
-                    try await journalManager.updateNoteDateAndPeriod(
+                if viewModel.formModel.title != note.title || viewModel.formModel.content != note.content {
+                    try await journalManager.updateNoteTitle(
                         note,
-                        newDate: viewModel.selectedDate,
-                        newPeriod: viewModel.selectedPeriod,
-                        preferredSpreadID: viewModel.selectedSpreadID
+                        newTitle: viewModel.formModel.title,
+                        newContent: viewModel.formModel.content
                     )
                 }
 
-                let selectedTags = journalManager.tags.filter { viewModel.selectedTagIDs.contains($0.id) }
+                if viewModel.formModel.selectedDate != note.date || viewModel.formModel.selectedPeriod != note.period {
+                    try await journalManager.updateNoteDateAndPeriod(
+                        note,
+                        newDate: viewModel.formModel.selectedDate,
+                        newPeriod: viewModel.formModel.selectedPeriod,
+                        preferredSpreadID: viewModel.formModel.selectedSpreadID
+                    )
+                }
+
+                let selectedTags = journalManager.tags.filter { viewModel.formModel.selectedTagIDs.contains($0.id) }
                 let metadataChanged =
-                    viewModel.selectedList?.id != note.list?.id ||
+                    viewModel.formModel.selectedList?.id != note.list?.id ||
                     Set(selectedTags.map(\.id)) != Set(note.tags.map(\.id))
                 if metadataChanged {
                     try await journalManager.updateNoteMetadata(
                         note,
-                        list: viewModel.selectedList,
+                        list: viewModel.formModel.selectedList,
                         tags: selectedTags
                     )
                 }
@@ -449,7 +435,7 @@ struct NoteDetailSheet: View {
         guard !name.isEmpty else { return }
         Task { @MainActor in
             if let list = try? await journalManager.createList(name: name) {
-                viewModel.selectedList = list
+                viewModel.formModel.selectedList = list
             }
         }
     }
@@ -457,10 +443,10 @@ struct NoteDetailSheet: View {
     private func createTag() {
         let name = viewModel.newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
         viewModel.newTagName = ""
-        guard !name.isEmpty, viewModel.selectedTagIDs.count < 5 else { return }
+        guard !name.isEmpty, viewModel.formModel.selectedTagIDs.count < 5 else { return }
         Task { @MainActor in
             if let tag = try? await journalManager.createTag(name: name) {
-                viewModel.selectedTagIDs.insert(tag.id)
+                viewModel.formModel.selectedTagIDs.insert(tag.id)
             }
         }
     }
