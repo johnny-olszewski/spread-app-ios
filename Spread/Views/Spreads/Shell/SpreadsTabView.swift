@@ -329,7 +329,7 @@ struct SpreadsTabView: View {
                 }
             )
         case .spreadNameEdit(let spread):
-            SpreadNameEditSheet(
+            SpreadNameEntrySheet(
                 journalManager: journalManager,
                 spread: spread,
                 onSaved: {
