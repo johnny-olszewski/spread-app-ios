@@ -21,7 +21,7 @@ struct TaskEditorFormModelTests {
         let today = makeDate(year: 2026, month: 3, day: 29)
         let yearSpread = DataModel.Spread(period: .year, date: today, calendar: calendar)
         var model = TaskEditorFormModel(
-            configuration: TaskCreationConfiguration(calendar: calendar, today: today),
+            configuration: EntryCreationConfiguration(calendar: calendar, today: today),
             selectedSpread: yearSpread
         )
 
@@ -43,7 +43,7 @@ struct TaskEditorFormModelTests {
             currentAssignments: [Assignment(period: .year, date: today, status: .open)]
         )
         var model = TaskEditorFormModel(
-            configuration: TaskCreationConfiguration(calendar: calendar, today: today),
+            configuration: EntryCreationConfiguration(calendar: calendar, today: today),
             task: task
         )
 
@@ -65,7 +65,7 @@ struct TaskEditorFormModelTests {
             currentAssignments: [Assignment(period: .year, date: makeDate(year: 2026, month: 1, day: 1), status: .open)]
         )
         var model = TaskEditorFormModel(
-            configuration: TaskCreationConfiguration(calendar: calendar, today: today),
+            configuration: EntryCreationConfiguration(calendar: calendar, today: today),
             task: task
         )
 
@@ -78,7 +78,7 @@ struct TaskEditorFormModelTests {
     func createModeDefaultsAssignmentOffWithoutSelectedSpread() {
         let today = makeDate(year: 2026, month: 4, day: 6)
         let model = TaskEditorFormModel(
-            configuration: TaskCreationConfiguration(calendar: calendar, today: today),
+            configuration: EntryCreationConfiguration(calendar: calendar, today: today),
             selectedSpread: nil
         )
 
@@ -93,7 +93,7 @@ struct TaskEditorFormModelTests {
         let monthDate = makeDate(year: 2026, month: 4, day: 1)
         let spread = DataModel.Spread(period: .month, date: monthDate, calendar: calendar)
         let model = TaskEditorFormModel(
-            configuration: TaskCreationConfiguration(calendar: calendar, today: today),
+            configuration: EntryCreationConfiguration(calendar: calendar, today: today),
             selectedSpread: spread
         )
 
@@ -112,7 +112,7 @@ struct TaskEditorFormModelTests {
             status: .open
         )
         var model = TaskEditorFormModel(
-            configuration: TaskCreationConfiguration(calendar: calendar, today: today),
+            configuration: EntryCreationConfiguration(calendar: calendar, today: today),
             task: task
         )
 
@@ -127,7 +127,7 @@ struct TaskEditorFormModelTests {
     func taskEditorNormalizesBodyAndDueDate() {
         let today = makeDate(year: 2026, month: 4, day: 6)
         var model = TaskEditorFormModel(
-            configuration: TaskCreationConfiguration(calendar: calendar, today: today),
+            configuration: EntryCreationConfiguration(calendar: calendar, today: today),
             selectedSpread: nil
         )
         let dueDate = calendar.date(from: DateComponents(year: 2026, month: 5, day: 2, hour: 15))!

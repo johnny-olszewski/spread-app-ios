@@ -24,19 +24,19 @@ struct PresentedTemporalContextTests {
         clockSource.setFixedContext(Self.nextDayContext)
         appClock.refresh(reason: .significantTimeChange)
 
-        let frozenTaskConfiguration = TaskCreationConfiguration(
+        let frozenTaskConfiguration = EntryCreationConfiguration(
             calendar: presentedContext.calendar,
             today: presentedContext.today
         )
-        let liveTaskConfiguration = TaskCreationConfiguration(
+        let liveTaskConfiguration = EntryCreationConfiguration(
             calendar: manager.calendar,
             today: manager.today
         )
-        let frozenNoteConfiguration = NoteCreationConfiguration(
+        let frozenNoteConfiguration = EntryCreationConfiguration(
             calendar: presentedContext.calendar,
             today: presentedContext.today
         )
-        let liveNoteConfiguration = NoteCreationConfiguration(
+        let liveNoteConfiguration = EntryCreationConfiguration(
             calendar: manager.calendar,
             today: manager.today
         )
@@ -53,10 +53,10 @@ struct PresentedTemporalContextTests {
             existingSpreads: []
         )
 
-        #expect(frozenTaskConfiguration.defaultSelection(from: nil).date == Self.initialContext.now)
-        #expect(liveTaskConfiguration.defaultSelection(from: nil).date == Self.nextDayContext.now)
-        #expect(frozenNoteConfiguration.defaultSelection(from: nil).date == Self.initialContext.now)
-        #expect(liveNoteConfiguration.defaultSelection(from: nil).date == Self.nextDayContext.now)
+        #expect(frozenTaskConfiguration.defaultSelection(from: DataModel.Spread?.none).date == Self.initialContext.now)
+        #expect(liveTaskConfiguration.defaultSelection(from: DataModel.Spread?.none).date == Self.nextDayContext.now)
+        #expect(frozenNoteConfiguration.defaultSelection(from: DataModel.Spread?.none).date == Self.initialContext.now)
+        #expect(liveNoteConfiguration.defaultSelection(from: DataModel.Spread?.none).date == Self.nextDayContext.now)
         #expect(
             frozenSpreadConfiguration.minimumDate(for: .day)
             == Self.initialContext.now.startOfDay(calendar: Self.calendar)
