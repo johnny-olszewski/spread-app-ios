@@ -210,8 +210,10 @@ struct SpreadContentPagerView: View {
             switch spread.period {
             case .year:
                 YearSpreadContentView(spread: spread, spreadDataModel: dataModel, context: context)
+                    .equatable()
             case .month:
                 MonthSpreadContentView(spread: spread, spreadDataModel: dataModel, context: context)
+                    .equatable()
             case .day:
                 DaySpreadContentView(
                     spread: spread,
@@ -227,6 +229,7 @@ struct SpreadContentPagerView: View {
                     context: context,
                     horizontalSizeClass: horizontalSizeClass
                 )
+                .equatable()
             }
         } else {
             ContentUnavailableView {

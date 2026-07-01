@@ -9,6 +9,11 @@ struct MultidaySpreadContentView: View {
 
     @State private var viewModel: ViewModel
 
+    /// Stored for `Equatable` comparison without accessing `@State`.
+    /// See `MultidaySpreadContentView+Equatable.swift`.
+    let spreadID: UUID
+    let storedHorizontalSizeClass: UserInterfaceSizeClass?
+
     @AppStorage("entryGrouping.multiday") private var groupingOption: EntryGroupingOption = .none
     @AppStorage("entrySorting.multiday") private var sortingOption: EntrySortOption = .dueDate
 
@@ -18,6 +23,8 @@ struct MultidaySpreadContentView: View {
         context: SpreadPageContext,
         horizontalSizeClass: UserInterfaceSizeClass?
     ) {
+        spreadID = spread.id
+        storedHorizontalSizeClass = horizontalSizeClass
         _viewModel = State(wrappedValue: ViewModel(
             spread: spread,
             spreadDataModel: spreadDataModel,
