@@ -196,6 +196,8 @@ struct SpreadsTabView: View {
                             (isNavigatorVisible ? SpreadTheme.Icon.caretLeft : SpreadTheme.Icon.calendar)
                                 .sized(SpreadTheme.IconSize.medium)
                                 .iconTint(.primary)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
                         }
                         .accessibilityLabel(isNavigatorVisible ? "Hide spread list" : "Show spread list")
                     }
