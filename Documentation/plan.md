@@ -7362,3 +7362,50 @@ Supabase: SPRD-85A -> SPRD-85C
 4. `[SPRD-284][6/n]` — Extended Equatable optimization to `MultidaySpreadContentView`, `YearSpreadContentView`, and `MonthSpreadContentView`. Instruments Time Profiler confirmed `MultidaySpreadContentView.ViewModel.makeSections` firing during ~380ms microhangs. `MultidaySpreadContentView` gained stored `spreadID` + `storedHorizontalSizeClass` properties (same pattern as day view). Year and month views already stored `spread` as `let`, so only `+Equatable` files and `.equatable()` call-site modifiers were needed. Post-fix Instruments run shows zero hangs.
 5. `[SPRD-284][7/n]` — Re-enabled `.task(id: viewModel.spread.id)` calendar event fetch in `DaySpreadContentView` (had been commented out during debugging).
 - Remaining: none — all ACs satisfied; zero microhangs confirmed via Instruments.
+
+---
+
+### [SPRD-285] Fix: Navigator toggle button intermittently no-ops on iPad - [ ] Pending
+
+- **Context**: The toolbar button that shows/hides `SpreadsNavigatorView` visually reacts to taps but intermittently produces no visible change on iPad. Root cause: the button action switches on `horizontalSizeClass` captured from inside the `ToolbarItem` closure, which may see a different environment context than `SpreadsTabView.body`, causing it to toggle the wrong boolean (`shouldShowSpreadsNavigatorSheet` instead of `shouldShowSpreadsNavigatorColumn`) with no visible result.
+- **Description**: Consolidate `shouldShowSpreadsNavigatorColumn` and `shouldShowSpreadsNavigatorSheet` into a single `isNavigatorVisible: Bool`. The button action calls `isNavigatorVisible.toggle()` with no size class check. Presentation mode (inline column vs. full-screen cover) is determined at render time by `horizontalSizeClass`. The `.onChange(of: horizontalSizeClass)` reset is removed — visibility is preserved across size class changes.
+- **Spec**: `Documentation/Specs/SpreadNavigation.md` — Navigator Toggle State Consolidation [SPRD-285]
+- **Acceptance Criteria**:
+  - AC1: Tapping the navigator toolbar button on iPad always toggles the navigator column, with no intermittent no-op.
+  - AC2: Tapping the button on iPhone always toggles the full-screen cover.
+  - AC3: If the navigator is open and the device changes size class (e.g., entering iPad multitasking split view), the navigator remains open, switching presentation mode automatically.
+  - AC4: `shouldShowSpreadsNavigatorColumn` and `shouldShowSpreadsNavigatorSheet` are fully removed; only `isNavigatorVisible` remains.
+  - AC5: Build succeeds with no errors.
+- **Tests**:
+  - No unit tests: state consolidation on a view type. Correctness verified by AC1–AC3 via manual testing on iPad.
+
+### [SPRD-286] Refactor: Full-width day cards with two-column entry layout in MultidaySpreadContentView - [ ] Pending
+
+- **Context**: The current outer `LazyVGrid` places day cards in a two-column grid side-by-side. The desired layout is full-width day cards (one per row) with entries inside each card displayed in two balanced columns on regular width.
+- **Description**: Replace the outer `LazyVGrid` with a `LazyVStack` so each day card is full width. Inside each day card's entry list (non-summary cards only), split the entries array in half and render two `VStack`s in an `HStack` on regular width; a single `VStack` on compact. Remove all dead code: `viewModel.columns`, `viewModel.columnCount`, `.gridCellColumns(...)`, `UserInterfaceSizeClass.multidayColumnCount`, and any other grid-related helpers that become unused.
+- **Spec**: `Documentation/Specs/ConventionalMode.md` — Multiday Spread Day Card Layout [SPRD-286]
+- **Acceptance Criteria**:
+  - AC1: Day cards render full-width (one per row) in `MultidaySpreadContentView` on both compact and regular width.
+  - AC2: On regular width, entries within a non-summary day card are displayed in two equal-width columns with balanced heights (first half left, second half right).
+  - AC3: On compact width, entries within a non-summary day card are displayed in a single column.
+  - AC4: Summary cards (days with an explicit day spread) are unaffected — they still show the task/event count summary, not an entry list.
+  - AC5: `viewModel.columns`, `viewModel.columnCount`, `UserInterfaceSizeClass.multidayColumnCount`, `.gridCellColumns(...)`, and any other grid-only dead code are fully deleted.
+  - AC6: Build succeeds with no errors.
+- **Tests**:
+  - No unit tests: layout change on a view type. Correctness verified by AC1–AC5 via manual testing on iPad and iPhone.
+
+### [SPRD-287] Visual: Entry list section header style — named vs. unnamed buckets - [ ] Pending
+
+- **Context**: All nil-bucket sections currently render "Untitled" regardless of which grouping mode produced them, and with the same font/opacity as named sections. This makes nil buckets indistinguishable from sections with a list/tag/status named "Untitled".
+- **Description**: Add `EntryList.SectionHeaderStyle` enum (`.named`, `.unnamed`) to the `EntryList` namespace. Add a `headerStyle: EntryList.SectionHeaderStyle` property to `EntryList.Section`, populated by the grouping primitive. Update `EntryListView` to render `.named` headers with a larger, prominent font at full opacity and `.unnamed` headers with a smaller font at reduced opacity. Rename nil-bucket labels per grouping mode: "No list", "No tag", "No status". Update `EntryGroupingOption` nil-bucket constant and `sortedKeysUntitledLast` to match.
+- **Spec**: `Documentation/Specs/EntryListGrouping.md` — Entry List Section Header Style [SPRD-287]
+- **Acceptance Criteria**:
+  - AC1: When grouping by list, sections with an assigned list display the list name in a larger, full-opacity font; sections with no list display "No list" in a smaller, reduced-opacity style.
+  - AC2: When grouping by tag, nil-bucket sections display "No tag" in the dimmed style.
+  - AC3: When grouping by status, nil-bucket sections (if any) display "No status" in the dimmed style.
+  - AC4: `.none` grouping produces no section header and is unaffected.
+  - AC5: `EntryListView` has no knowledge of which grouping mode produced a section — it reads only `section.headerStyle`.
+  - AC6: The nil-bucket section sorts last within its grouping (existing behavior preserved).
+  - AC7: Build succeeds with no errors.
+- **Tests**:
+  - No unit tests: visual rendering change. Correctness verified by AC1–AC4 via manual inspection across all grouping modes on Day and Multiday spreads.

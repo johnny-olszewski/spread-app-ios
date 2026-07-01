@@ -1,7 +1,7 @@
 # Spread Navigation
 
 > Source: Documentation/spec.md  
-> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275, SPRD-283, SPRD-284
+> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275, SPRD-283, SPRD-284, SPRD-285
 
 ### Spread View Architecture
 - The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
@@ -948,3 +948,27 @@ Also recompute `yearSpreads` when `journalManager.spreads` changes (e.g. a new s
 ### Open Questions
 
 - None.
+
+---
+
+## Navigator Toggle State Consolidation [SPRD-285]
+
+### Problem
+
+`SpreadsTabView` uses two separate `@State` booleans — `shouldShowSpreadsNavigatorColumn` and `shouldShowSpreadsNavigatorSheet` — to represent the same logical intent: "the user wants the navigator visible." The toolbar button action switches on `horizontalSizeClass` to decide which boolean to toggle. SwiftUI `ToolbarItem` closures can capture environment values from the toolbar's rendering context, which may differ from the parent view's environment, causing the size class check inside the action to read a stale or incorrect value. The result: the button visually responds to the tap but toggles the wrong boolean, so nothing visible changes — intermittently, on iPad.
+
+### Requirements
+
+- Replace `shouldShowSpreadsNavigatorColumn` and `shouldShowSpreadsNavigatorSheet` with a single `isNavigatorVisible: Bool` state. [SPRD-285]
+- The toolbar button action calls `isNavigatorVisible.toggle()` with no size class check. [SPRD-285]
+- The presentation mode (inline column vs. full-screen cover) is determined entirely at render time: column when `isNavigatorVisible && horizontalSizeClass == .regular`; full-screen cover when `isNavigatorVisible && horizontalSizeClass != .regular`. [SPRD-285]
+- Navigator visibility is preserved across size class changes — if the navigator is open and the device rotates or multitasking changes the size class, the navigator remains open (switching presentation mode automatically). The `.onChange(of: horizontalSizeClass)` reset is removed. [SPRD-285]
+
+### Design Decisions
+
+#### Decision: One boolean, presentation mode at render time
+
+- **Context**: Two booleans encode what is fundamentally a single user intent. The size class check in the action closure is the source of the intermittent bug.
+- **Decision**: `isNavigatorVisible: Bool`. Column vs. sheet is a rendering concern, not a state concern.
+- **Rationale**: Eliminates the toolbar-closure environment-capture problem entirely. Simpler state model. Preserves intent across size class transitions as a free consequence of the design.
+- **SPRD reference**: [SPRD-285]

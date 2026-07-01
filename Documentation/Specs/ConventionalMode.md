@@ -157,6 +157,28 @@
   - If no explicit spread contains today, the button currently does nothing.
 - If `Today` is pressed while today is already the selected spread, it still refreshes the compact context bar and content pager on today's selection if needed. [SPRD-130]
 
+---
+
+## Multiday Spread Day Card Layout [SPRD-286]
+
+### Requirements
+
+- Day cards in `MultidaySpreadContentView` are rendered in a full-width `LazyVStack` (one card per row, no outer grid). [SPRD-286]
+- Within each day card, entry rows are split into two equal halves and displayed in two `VStack`s inside an `HStack` on regular width, giving balanced column heights without custom geometry. On compact width, all entries appear in a single `VStack`. [SPRD-286]
+- The outer `LazyVGrid`, `viewModel.columns`, `viewModel.columnCount`, `.gridCellColumns(...)`, and `UserInterfaceSizeClass.multidayColumnCount` are removed as dead code. [SPRD-286]
+- Any other grid-related helpers, extensions, or view model properties that become unused after the outer grid is removed are also deleted. [SPRD-286]
+
+### Design Decisions
+
+#### Decision: Split array into two halves rather than LazyVGrid for inner entry columns
+
+- **Context**: `LazyVGrid` with two flexible columns distributes entries left-to-right but cannot guarantee equal total column heights when entry rows have variable heights.
+- **Decision**: Divide the entries array in half (first half left column, second half right column) and render each half as a `VStack` inside an `HStack`.
+- **Rationale**: Produces balanced column heights using only native SwiftUI primitives — no custom `GeometryReader` or `PreferenceKey` required. Simple to implement and reason about. Consistent with "native APIs to the maximum extent, without doing anything crazy."
+- **SPRD reference**: [SPRD-286]
+
+---
+
 ### Mode
 The app operates in conventional mode only. Traditional mode is out of scope for v1. [SPRD-226]
 - Entries may appear on multiple spreads with per-spread status. [SPRD-15]

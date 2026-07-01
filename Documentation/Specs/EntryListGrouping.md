@@ -1,7 +1,7 @@
 # EntryList Generic Grouping & Sorting
 
 > **Status**: Draft
-> **SPRD tasks**: SPRD-257, SPRD-258, SPRD-259, SPRD-260, SPRD-261, SPRD-262, SPRD-263, SPRD-264, SPRD-265, SPRD-266
+> **SPRD tasks**: SPRD-257, SPRD-258, SPRD-259, SPRD-260, SPRD-261, SPRD-262, SPRD-263, SPRD-264, SPRD-265, SPRD-266, SPRD-287
 > **Session**: SESH-25
 
 ## Overview
@@ -76,3 +76,25 @@ This feature adds a generic flat-entries + group-by + order-by capability to the
 
 - Tag grouping with multiple tags per entry: confirmed "first tag, else Untitled" for v1 (see Design Decisions) — revisit if multi-tag fan-out is explicitly requested.
 - Exact picker placement in Month/Year/MonthCard: Day's placement is concrete (next to the existing capsule decoration in its toolbar row, alongside the favorite/edit buttons — see [DaySpreadContentView.swift](../../Spread/Views/Spreads/Content/DaySpreadContentView.swift)). Month/Year don't have an equivalent toolbar row today; proposed placement is next to their existing "Month"/"Year" header text — confirm during SPRD-260 implementation or adjust if it reads awkwardly in practice.
+
+---
+
+## Entry List Section Header Style [SPRD-287]
+
+### Requirements
+
+- `EntryList` gains a `SectionHeaderStyle` enum with two cases: `.named` (a real value is present) and `.unnamed` (the nil/fallback bucket). [SPRD-287]
+- `EntryList.Section` gains a `headerStyle: EntryList.SectionHeaderStyle` property, set by the grouping primitive when constructing sections. [SPRD-287]
+- `EntryListView` renders section headers using the style: `.named` uses a larger, more prominent font (e.g. `SpreadTheme.Typography.title3`) at full opacity; `.unnamed` uses a smaller font at reduced opacity to visually de-emphasize the fallback bucket. [SPRD-287]
+- Nil-bucket labels are renamed per grouping mode — "No list", "No tag", "No status" — replacing the current "Untitled" fallback used for all modes. [SPRD-287]
+- The style applies to all grouping options that can produce a nil bucket: `.list`, `.tag`, and `.status`. `.none` grouping produces no section header and is unaffected. [SPRD-287]
+- The existing `EntryGroupingOption.untitled` constant and `sortedKeysUntitledLast` helper are updated or replaced to match the new per-mode nil labels and remain sorted last. [SPRD-287]
+
+### Design Decisions
+
+#### Decision: Style enum on `EntryList.Section`, not derived at render time in `EntryListView`
+
+- **Context**: The style could be inferred at render time by checking whether `section.title` matches a known nil-bucket string. But that couples `EntryListView` to grouping-option semantics it should not know about.
+- **Decision**: `headerStyle` is set when the section is constructed by the grouping primitive, alongside `title`. `EntryListView` is purely a renderer — it observes the style property and applies the appropriate font/opacity without knowing what grouping mode produced it.
+- **Rationale**: Keeps `EntryListView` free of grouping logic. The section is the right owner of its own display intent. Consistent with the existing pattern where `EntryList.Section` carries `style`, `rowSpacing`, and `rowInsets` as display-intent properties set by callers.
+- **SPRD reference**: [SPRD-287]
