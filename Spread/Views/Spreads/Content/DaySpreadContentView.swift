@@ -130,9 +130,9 @@ struct DaySpreadContentView: View {
                 }
             }
             .padding(.horizontal, SpreadTheme.Spacing.large)
-//            .task(id: viewModel.spread.id) {
-//                await viewModel.fetchCalendarEvents()
-//            }
+            .task(id: viewModel.spread.id) {
+                await viewModel.fetchCalendarEvents()
+            }
 
             Spacer()
         }
