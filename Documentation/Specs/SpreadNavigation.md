@@ -1,7 +1,7 @@
 # Spread Navigation
 
 > Source: Documentation/spec.md  
-> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275
+> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275, SPRD-283, SPRD-284
 
 ### Spread View Architecture
 - The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
@@ -777,6 +777,173 @@ private func isWithinDataModelWindow(_ spread: DataModel.Spread) -> Bool {
 - **Decision**: Track all three under a single SPRD-275 task, but land them as three separate, independently buildable commits.
 - **Rationale**: Keeps the spec/plan surface small (one task) while preserving small, reviewable, independently revertible commits per CLAUDE.md's git conventions.
 - **SPRD reference**: [SPRD-275]
+
+### Open Questions
+
+- None.
+
+---
+
+## Pager Re-Render: Environment Service Churn [SPRD-283]
+
+**Status**: Draft
+**Date**: 2026-07-01
+
+### Overview
+
+`SpreadContentPagerView` re-renders multiple times on app launch and on every scene-activation event — even with no user interaction — because the `eventKitService` and `calendarEventService` environment values appear "changed" to SwiftUI on every `ContentView.body` re-run. This fires even when the underlying service instances are identical.
+
+### Problem Statement
+
+`ContentView.body` re-runs whenever any observed state in its scope changes (e.g. `scenePhase` becoming active, `AuthManager.state` updating during launch). Each re-run calls `.environment(\.eventKitService, ...)` and `.environment(\.calendarEventService, ...)` with the same service instances that were injected before. However, both environment keys store their values as `any Protocol` existentials (`any EventKitService` and `any CalendarEventService`). Existential types in Swift are not `Equatable` — SwiftUI has no way to compare old vs. new to determine whether the value actually changed, so it always propagates a "changed" signal down the tree.
+
+`SpreadContentPagerView` reads both values via `@Environment`, so every propagation causes its `body` to re-evaluate. Confirmed via `Self._printChanges()` output:
+
+```
+SpreadContentPagerView: _eventKitService, _calendarEventService changed.
+SpreadContentPagerView: _eventKitService, _calendarEventService changed.
+SpreadContentPagerView: _eventKitService, _calendarEventService changed.
+```
+
+This fires ~10+ times on a cold launch before any scrolling, and again on every scene-activation (`sceneDidBecomeActive`). Each re-render evaluates `contentView(for:)` for every windowed spread page, doing redundant `JournalManager.dataModel` lookups and re-constructing `SpreadPageContext`.
+
+### Goals
+
+- Eliminate `SpreadContentPagerView` re-renders triggered solely by `_eventKitService` or `_calendarEventService` changing when the underlying service instances have not actually changed.
+
+### Non-Goals
+
+- Changing how `EventKitService` or `CalendarEventService` is used by content views (fetch logic, `openEvent`, etc.).
+- Removing the environment key pattern in favour of direct init injection — the environment approach is intentional for deep pass-through.
+
+### Functional Requirements
+
+1. `SpreadContentPagerView` does not re-render due to `_eventKitService` or `_calendarEventService` environment changes when the same service instances are re-injected by `ContentView`. [SPRD-283]
+2. Both environment keys use a stable identity comparison so SwiftUI can short-circuit propagation when the value has not changed. [SPRD-283]
+
+### Technical Design
+
+#### Root Cause
+
+The environment keys are typed as `any Protocol` existentials:
+
+```swift
+// EventKitService+Environment.swift
+var eventKitService: (any EventKitService)?
+
+// CalendarEventService+Environment.swift  
+var calendarEventService: any CalendarEventService
+```
+
+SwiftUI's environment change detection requires the value type to be comparable. For existentials, there is no `==` available, so SwiftUI conservatively treats every assignment as a change.
+
+#### Fix
+
+Change `LiveCalendarEventService` from `struct` to `final class`. It has no value semantics (it holds a service reference and is never copied for mutation), and making it a class enables identity-based comparison alongside `LiveEventKitService` (already a `final class`).
+
+Wrap both environment values in an identity-based `Equatable` box at the key level:
+
+```swift
+struct ServiceBox<S: AnyObject>: Equatable {
+    let service: S
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.service === rhs.service
+    }
+}
+```
+
+The environment key stores `ServiceBox<ConcreteType>` internally; the public `get`/`set` accessors unwrap/wrap transparently so all existing call sites (`@Environment(\.eventKitService)`, `.environment(\.eventKitService, ...)`) are unchanged.
+
+Since `AppDependencies` creates both services once and holds them as `let` properties, the same instance is always re-injected — the identity check will always return `true` in production, preventing propagation entirely.
+
+### Design Decisions
+
+#### Decision: Class over `@Observable` injection for these services
+
+- **Context**: An alternative is to make both services `@Observable` classes and inject them via `.environment(service)` (not a custom key). SwiftUI tracks `@Observable` by identity automatically.
+- **Decision**: Keep the custom environment key pattern; fix identity comparison at the key level by changing `LiveCalendarEventService` to a class.
+- **Rationale**: `@Observable` requires adding `import Observation` and the macro to service types that have no need for observation (they hold no `@Observable` published state). The identity-box fix is local to the two environment key files and doesn't change any other type's shape or conformances. Call sites are unaffected.
+- **SPRD reference**: [SPRD-283]
+
+### Open Questions
+
+- None.
+
+---
+
+## Pager Re-Render: Scroll-Settle Chain [SPRD-284]
+
+**Status**: Draft
+**Date**: 2026-07-01
+
+### Overview
+
+Every time the pager settles on a new spread after a swipe, a re-render cascade propagates from `SpreadsTabView` down through `SpreadContentPagerView` to `DaySpreadContentView` — even when the settled spread is in the same year and nothing in the display data has changed. This is the primary source of lag on repeated scrolling.
+
+### Problem Statement
+
+When the pager settles on a new page, `SpreadContentPagerView.syncSelectionFromSettledID()` sets `coordinator.selectedSpread`. `SpreadsTabView.body` observes `spreadsCoordinator.selectedSpread` (via the `currentSelection` computed property), so it re-renders. The re-render recomputes `yearSpreads` — a `filter` + `sorted` pass over `journalManager.spreads` — producing a new `[DataModel.Spread]` array. Even though the contents are identical (same spreads, same year), it is a newly allocated array value. This new array is passed to `SpreadContentPagerView` as `spreads:`, causing SwiftUI to see `@self changed` on the pager struct. The pager body re-evaluates and propagates `@self` changes to each visible content view.
+
+Confirmed via `Self._printChanges()`:
+
+```
+SpreadContentPagerView: _settledSpreadID changed.           ← scroll settled
+SpreadsTabView: \SpreadsCoordinator.<computed> (Optional<Spread>) changed.  ← coordinator updated
+SpreadContentPagerView: @self changed.                      ← new yearSpreads array passed in
+DaySpreadContentView: @self, @identity, _viewModel changed. ← content view reconstructed
+```
+
+This fires on every single page swipe. The re-render is wasted work: if the new settled spread is in the same calendar year as the previous one, `yearSpreads` is identical in content to what was just computed. The cascade to `DaySpreadContentView` is the most expensive part — the view model is reconstructed.
+
+### Goals
+
+- Eliminate the `SpreadsTabView` → `SpreadContentPagerView` → `DaySpreadContentView` re-render cascade that fires on every intra-year scroll settle.
+
+### Non-Goals
+
+- Preventing re-renders when the user navigates to a spread in a different calendar year (the `yearSpreads` array genuinely changes there).
+- Changing pager scroll mechanics, settle behavior, or how `coordinator.selectedSpread` is updated.
+- Eliminating all `DaySpreadContentView` re-renders — only the ones triggered by identical `yearSpreads` being re-passed.
+
+### Functional Requirements
+
+1. Scrolling within the same calendar year does not cause `SpreadsTabView` to pass a new `yearSpreads` array to `SpreadContentPagerView`. [SPRD-284]
+2. Navigating to a spread in a different calendar year (via the navigator or convenience nav) does update `yearSpreads` correctly. [SPRD-284]
+3. `DaySpreadContentView` does not show `@self, @identity, _viewModel changed` in `_printChanges()` output during intra-year scroll settling. [SPRD-284]
+
+### Technical Design
+
+#### Root Cause
+
+`yearSpreads` is a computed property on `SpreadsTabView`:
+
+```swift
+private var yearSpreads: [DataModel.Spread] {
+    let year = spreadsCalendar.component(.year, from: currentSelection.startDate ?? currentSelection.date)
+    return journalManager.spreads
+        .filter { ... }
+        .sorted { ... }
+}
+```
+
+It is re-executed on every `SpreadsTabView.body` evaluation. The result changes identity (new array allocation) even when content is unchanged.
+
+#### Fix
+
+Cache `yearSpreads` as a `@State` value. Track the current year as a `@State<Int>` derived from `currentSelection`. In `.onChange(of: currentSelectionYear)`, recompute `yearSpreads` and update the cached state. Because `@State` updates trigger a body re-run only when the value actually changes (and only for the views that depend on it), a same-year scroll settle will not update the cached array and therefore will not pass a new `spreads:` value to `SpreadContentPagerView`.
+
+The initial value is computed once in `SpreadsTabView.init` (same pattern as `navigatorCalendarModels` and `navigatorYearSpreads` today).
+
+Also recompute `yearSpreads` when `journalManager.spreads` changes (e.g. a new spread is created) — wire this via `onChange(of: journalManager.spreads.count)` or a stable hash, so new spreads appear in the pager without a navigator-triggered year change.
+
+### Design Decisions
+
+#### Decision: Cache via `@State` rather than extracting a child view
+
+- **Context**: An alternative is to extract the pager and its `yearSpreads`/`currentSelection` inputs into a dedicated child view that only observes the coordinator's `selectedYear` (not `selectedSpread`), so scroll-settle changes don't reach it. This is a larger structural refactor.
+- **Decision**: Cache `yearSpreads` as `@State` on `SpreadsTabView`, updated only on year change. No child view extraction.
+- **Rationale**: The `@State` cache is a local, contained change — it touches only `SpreadsTabView` and is easy to verify by re-running `_printChanges()`. The child-view extraction would require understanding which parts of `SpreadsTabView.body` should move, risking unintended behavioral changes. Prefer the minimal targeted fix; if further re-render issues surface in `SpreadsTabView`, a structural refactor can follow.
+- **SPRD reference**: [SPRD-284]
 
 ### Open Questions
 
