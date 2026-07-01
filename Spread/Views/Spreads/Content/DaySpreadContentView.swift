@@ -57,26 +57,18 @@ struct DaySpreadContentView: View {
                     )
                     .padding(SpreadTheme.Spacing.large)
 
-                    Button {
+                    SpreadButton(
+                        icon: viewModel.spread.isFavorite ? .starFilled : .star,
+                        kind: .glass,
+                        accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle
+                    ) {
                         Task { await viewModel.toggleFavorite() }
-                    } label: {
-                        (viewModel.spread.isFavorite ? SpreadTheme.Icon.starFilled : SpreadTheme.Icon.star)
-                            .sized(SpreadTheme.IconSize.medium)
-                            .iconTint(.primary)
                     }
-                    .buttonStyle(.plain)
-                    .contentShape(Rectangle())
                     .accessibilityLabel(viewModel.spread.isFavorite ? "Remove from Favorites" : "Add to Favorites")
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
 
-                    Button {
+                    SpreadButton(icon: .pencil, kind: .glass) {
                         viewModel.context.coordinator.showSpreadNameEdit(viewModel.spread)
-                    } label: {
-                        SpreadTheme.Icon.pencil.sized(SpreadTheme.IconSize.medium)
-                            .iconTint(.primary)
                     }
-                    .buttonStyle(.plain)
-                    .contentShape(Rectangle())
                     .accessibilityLabel("Edit Spread")
                     .padding(SpreadTheme.Spacing.large)
                 }

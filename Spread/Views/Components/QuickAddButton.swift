@@ -27,7 +27,8 @@ struct QuickAddButton: View {
     let preselectedList: DataModel.List?
     let onAddTask: @MainActor (String, Date, Period, DataModel.List?, DataModel.Tag?) async throws -> Void
 
-    var content: SpreadButton.Content
+    var title: String
+    var icon: SpreadTheme.Icon?
     var accessibilityIdentifier: String?
     var arrowEdge: Edge
 
@@ -36,7 +37,8 @@ struct QuickAddButton: View {
         anchorID: String,
         date: Date,
         period: Period,
-        content: SpreadButton.Content = .text("+ Add Task"),
+        title: String = "+ Add Task",
+        icon: SpreadTheme.Icon? = nil,
         availableLists: [DataModel.List] = [],
         availableTags: [DataModel.Tag] = [],
         preselectedList: DataModel.List? = nil,
@@ -48,7 +50,8 @@ struct QuickAddButton: View {
         self.anchorID = anchorID
         self.date = date
         self.period = period
-        self.content = content
+        self.title = title
+        self.icon = icon
         self.availableLists = availableLists
         self.availableTags = availableTags
         self.preselectedList = preselectedList
@@ -59,8 +62,8 @@ struct QuickAddButton: View {
 
     var body: some View {
         SpreadButton(viewModel: .init(
-            title: "Add Task",
-            content: content,
+            title: title,
+            icon: icon,
             accessibilityIdentifier: accessibilityIdentifier
         ) {
             coordinator.showQuickAdd(
