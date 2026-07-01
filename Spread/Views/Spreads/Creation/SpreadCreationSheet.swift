@@ -355,7 +355,7 @@ struct SpreadCreationSheet: View {
     }
 
     private func presetButton(for preset: MultidayPreset) -> some View {
-        SpreadButton(preset.displayName, kind: .tonal, size: .small) {
+        SpreadButton(preset.displayName, style: .tonal, size: .small) {
             applyPreset(preset)
         }
         .accessibilityIdentifier(

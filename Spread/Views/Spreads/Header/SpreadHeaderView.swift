@@ -18,7 +18,7 @@ struct SpreadHeaderView: View {
 
     var body: some View {
         if let state, let onTap {
-            SpreadButton(state.buttonLabel, icon: state.icon, kind: .glass, size: .small, action: onTap)
+            SpreadButton(state.buttonLabel, icon: state.icon, style: .glass, size: .small, action: onTap)
                 .transition(.scale(scale: 0.88).combined(with: .opacity))
                 .accessibilityLabel(state.accessibilityLabel)
                 .frame(maxWidth: .infinity)

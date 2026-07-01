@@ -2,18 +2,18 @@ import SwiftUI
 
 // MARK: - SpreadButton
 
-/// The single button primitive for Spread. Pick a `kind` + `size`; the style
+/// The single button primitive for Spread. Pick a `style` + `size`; the style
 /// pulls every color, radius, font, and metric from `SpreadTheme`.
 ///
-///     SpreadButton("Create", kind: .prominent) { submit() }
-///     SpreadButton("Clear", kind: .plain, role: .destructive) { clear() }
-///     SpreadButton(icon: .editCompose, kind: .glass) { edit() }
+///     SpreadButton("Create", style: .prominent) { submit() }
+///     SpreadButton("Clear", style: .plain, role: .destructive) { clear() }
+///     SpreadButton(icon: .editCompose, style: .glass) { edit() }
 struct SpreadButton: View {
 
-    // MARK: Kind
+    // MARK: Style
 
     /// Visual treatment for the button.
-    enum Kind {
+    enum Style {
         /// Filled accent background, white label — one primary action per surface.
         case prominent
         /// Accent at 12% fill with accent label — secondary actions and chips.
@@ -33,7 +33,7 @@ struct SpreadButton: View {
 
     private let title: String?
     private let icon: SpreadTheme.Icon?
-    private let kind: Kind
+    private let style: Style
     private let size: Size
     private let role: ButtonRole?
     private let fillsWidth: Bool
@@ -43,7 +43,7 @@ struct SpreadButton: View {
     init(
         _ title: String? = nil,
         icon: SpreadTheme.Icon? = nil,
-        kind: Kind = .tonal,
+        style: Style = .tonal,
         size: Size = .medium,
         role: ButtonRole? = nil,
         fillsWidth: Bool = false,
@@ -52,7 +52,7 @@ struct SpreadButton: View {
     ) {
         self.title = title
         self.icon = icon
-        self.kind = kind
+        self.style = style
         self.size = size
         self.role = role
         self.fillsWidth = fillsWidth
@@ -76,7 +76,7 @@ struct SpreadButton: View {
         }
         .buttonStyle(
             SpreadButtonStyle(
-                kind: kind,
+                style: style,
                 size: size,
                 foregroundColor: foregroundColor,
                 fillsWidth: fillsWidth
@@ -89,12 +89,12 @@ struct SpreadButton: View {
 
     /// Resolved label color — shared with `SpreadButtonStyle` so icon and text always agree.
     var foregroundColor: Color {
-        Self.foregroundColor(kind: kind, role: role)
+        Self.foregroundColor(style: style, role: role)
     }
 
-    static func foregroundColor(kind: Kind, role: ButtonRole?) -> Color {
+    static func foregroundColor(style: Style, role: ButtonRole?) -> Color {
         let accent: Color = role == .destructive ? SpreadTheme.Status.error : SpreadTheme.Accent.primary
-        switch kind {
+        switch style {
         case .prominent: return .white
         case .tonal, .bordered, .plain, .glass: return accent
         }
@@ -120,7 +120,7 @@ extension SpreadButton {
         let id = UUID()
         var title: String?
         var icon: SpreadTheme.Icon?
-        var kind: Kind
+        var style: Style
         var size: Size
         var role: ButtonRole?
         var accessibilityIdentifier: String?
@@ -129,7 +129,7 @@ extension SpreadButton {
         init(
             title: String? = nil,
             icon: SpreadTheme.Icon? = nil,
-            kind: Kind = .plain,
+            style: Style = .plain,
             size: Size = .small,
             role: ButtonRole? = nil,
             accessibilityIdentifier: String? = nil,
@@ -137,7 +137,7 @@ extension SpreadButton {
         ) {
             self.title = title
             self.icon = icon
-            self.kind = kind
+            self.style = style
             self.size = size
             self.role = role
             self.accessibilityIdentifier = accessibilityIdentifier
@@ -150,7 +150,7 @@ extension SpreadButton {
         self.init(
             viewModel.title,
             icon: viewModel.icon,
-            kind: viewModel.kind,
+            style: viewModel.style,
             size: viewModel.size,
             role: viewModel.role,
             accessibilityIdentifier: viewModel.accessibilityIdentifier,
@@ -162,7 +162,7 @@ extension SpreadButton {
 // MARK: - SpreadButtonStyle
 
 struct SpreadButtonStyle: ButtonStyle {
-    let kind: SpreadButton.Kind
+    let style: SpreadButton.Style
     let size: SpreadButton.Size
     let foregroundColor: Color
     var fillsWidth: Bool = false
@@ -212,7 +212,7 @@ struct SpreadButtonStyle: ButtonStyle {
     }
 
     private var shape: AnyShape {
-        kind == .glass
+        style == .glass
             ? AnyShape(Capsule())
             : AnyShape(RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.standard, style: .continuous))
     }
@@ -220,7 +220,7 @@ struct SpreadButtonStyle: ButtonStyle {
     // MARK: Background
 
     @ViewBuilder private var background: some View {
-        switch kind {
+        switch style {
         case .prominent:
             foregroundColor == .white ? SpreadTheme.Accent.primary : foregroundColor
         case .tonal:
@@ -233,7 +233,7 @@ struct SpreadButtonStyle: ButtonStyle {
     }
 
     @ViewBuilder private var border: some View {
-        if kind == .bordered {
+        if style == .bordered {
             shape.stroke(SpreadTheme.Separator.strong, lineWidth: 1)
         }
     }
@@ -243,26 +243,26 @@ struct SpreadButtonStyle: ButtonStyle {
 
 #Preview("Kinds") {
     VStack(spacing: 12) {
-        SpreadButton("Prominent", kind: .prominent) {}
-        SpreadButton("Tonal", kind: .tonal) {}
-        SpreadButton("Bordered", kind: .bordered) {}
-        SpreadButton("Plain", kind: .plain) {}
-        SpreadButton("Glass", kind: .glass) {}
-        SpreadButton("Destructive", kind: .tonal, role: .destructive) {}
+        SpreadButton("Prominent", style: .prominent) {}
+        SpreadButton("Tonal", style: .tonal) {}
+        SpreadButton("Bordered", style: .bordered) {}
+        SpreadButton("Plain", style: .plain) {}
+        SpreadButton("Glass", style: .glass) {}
+        SpreadButton("Destructive", style: .tonal, role: .destructive) {}
         Divider()
-        SpreadButton("Icon + label", icon: .pencil, kind: .tonal) {}
-        SpreadButton(icon: .editCompose, kind: .glass) {}
-        SpreadButton("Disabled", kind: .prominent) {}.disabled(true)
+        SpreadButton("Icon + label", icon: .pencil, style: .tonal) {}
+        SpreadButton(icon: .editCompose, style: .glass) {}
+        SpreadButton("Disabled", style: .prominent) {}.disabled(true)
     }
     .padding()
 }
 
 #Preview("Sizes") {
     VStack(spacing: 12) {
-        SpreadButton("Small", kind: .tonal, size: .small) {}
-        SpreadButton("Medium", kind: .tonal, size: .medium) {}
-        SpreadButton("Large", kind: .tonal, size: .large) {}
-        SpreadButton("Fill width", kind: .prominent, fillsWidth: true) {}
+        SpreadButton("Small", style: .tonal, size: .small) {}
+        SpreadButton("Medium", style: .tonal, size: .medium) {}
+        SpreadButton("Large", style: .tonal, size: .large) {}
+        SpreadButton("Fill width", style: .prominent, fillsWidth: true) {}
     }
     .padding()
 }

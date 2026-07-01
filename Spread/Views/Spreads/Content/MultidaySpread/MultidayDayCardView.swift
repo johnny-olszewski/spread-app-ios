@@ -115,7 +115,7 @@ struct MultidayDayCardView<Content: View>: View {
                 SpreadButton(.init(
                     title: "Preview day spread",
                     icon: .eye,
-                    kind: .plain,
+                    style: .plain,
                     size: .small,
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayPeekButton(dateID),
                     action: onPeek
@@ -128,7 +128,7 @@ struct MultidayDayCardView<Content: View>: View {
                 SpreadButton(.init(
                     title: "Open day spread",
                     icon: .arrowRight,
-                    kind: .glass,
+                    style: .glass,
                     size: .small,
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID),
                     action: onFooterTap
@@ -137,7 +137,7 @@ struct MultidayDayCardView<Content: View>: View {
                 SpreadButton(.init(
                     title: "Create day spread",
                     icon: .calendarPlus,
-                    kind: .glass,
+                    style: .glass,
                     size: .small,
                     accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayFooterButton(dateID),
                     action: onFooterTap

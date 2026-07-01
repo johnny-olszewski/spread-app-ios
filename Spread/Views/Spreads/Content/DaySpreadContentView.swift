@@ -40,6 +40,7 @@ struct DaySpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
+        let _ = Self._printChanges()
         VStack {
             HStack {
                 Capsule()
@@ -59,14 +60,14 @@ struct DaySpreadContentView: View {
 
                     SpreadButton(
                         icon: viewModel.spread.isFavorite ? .starFilled : .star,
-                        kind: .glass,
+                        style: .glass,
                         accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle
                     ) {
                         Task { await viewModel.toggleFavorite() }
                     }
                     .accessibilityLabel(viewModel.spread.isFavorite ? "Remove from Favorites" : "Add to Favorites")
 
-                    SpreadButton(icon: .pencil, kind: .glass) {
+                    SpreadButton(icon: .pencil, style: .glass) {
                         viewModel.context.coordinator.showSpreadNameEdit(viewModel.spread)
                     }
                     .accessibilityLabel("Edit Spread")
@@ -123,9 +124,9 @@ struct DaySpreadContentView: View {
                 }
             }
             .padding(.horizontal, SpreadTheme.Spacing.large)
-            .task(id: viewModel.spread.id) {
-                await viewModel.fetchCalendarEvents()
-            }
+//            .task(id: viewModel.spread.id) {
+//                await viewModel.fetchCalendarEvents()
+//            }
 
             Spacer()
         }
