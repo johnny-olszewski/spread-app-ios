@@ -5,8 +5,14 @@ import SwiftUI
 /// `spreads` and the `calendar`/`today`/`firstWeekday` triple are passed in from `SpreadsTabView`.
 /// `spreads` is a `@State`-cached value in the parent so that intra-year scroll settles — which update
 /// `coordinator.selectedSpread` — do not produce a new array and trigger a `@self changed` re-render
-/// of this view. This view's struct value therefore remains stable between settles within the same year,
-/// preventing the cascade of `DaySpreadContentView: @self changed` events observed before SPRD-284.
+/// of this view. This view's struct value therefore remains stable between settles within the same year.
+///
+/// `coordinator.selectedSpread` is deliberately NOT read in this view's `body` scope: the title
+/// derives from `settledSpreadID` (see `spreadDetailTitle`), per-page header state is isolated in
+/// `SpreadPageHeaderView`, and external-navigation recentering reacts only to `coordinator.recenterToken`
+/// (which changes only on explicit nav actions, not scroll settles). This breaks the
+/// `coordinator.selectedSpread → body re-run → DaySpreadContentView @self changed` cascade that
+/// fired on every swipe before SPRD-284.
 ///
 /// `journalManager` is still read directly by `spreadDataModel(for:)`, called from `body` via
 /// `contentView(for:)` — see that method's doc comment for how its cost is bounded.
@@ -29,8 +35,7 @@ struct SpreadContentPagerView: View {
     @State private var settledSpreadID: UUID?
 
     /// Accessed in `body` only by `spreadDataModel(for:)`, scoped to the windowed set of spreads
-    /// near `settledSpreadID` (see `Constants.spreadDataModelWindowRadius`). `spreadDetailTitle`
-    /// does not read this — see the `calendar`/`today`/`firstWeekday` properties above.
+    /// near `settledSpreadID` (see `Constants.spreadDataModelWindowRadius`).
     @Environment(JournalManager.self) private var journalManager
     @Environment(\.eventKitService) private var eventKitService
     @Environment(\.calendarEventService) private var calendarEventService
@@ -58,16 +63,8 @@ struct SpreadContentPagerView: View {
         _settledSpreadID = State(initialValue: initialSelectedSpreadID)
     }
 
-    // MARK: - Pager State
-
-    /// The coordinator's explicit spread selection, used to detect external navigation changes
-    /// (e.g. tapping a day in the navigator calendar) so the pager can recenter without a swipe.
-    /// `nil` when the app first launches and the coordinator hasn't received an explicit selection yet.
-    private var selectedSpreadID: UUID? {
-        coordinator.selectedSpread?.id
-    }
-
     var body: some View {
+        let _ = Self._printChanges()
         VStack(spacing: 0) {
             spreadDetailTitle
 
@@ -81,13 +78,8 @@ struct SpreadContentPagerView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 0) {
                 ForEach(spreads) { spread in
-                    let isCurrentPage = spread.id == coordinator.selectedSpread?.id
-                    let navState = isCurrentPage ? coordinator.convenienceNavigation : nil
                     VStack(spacing: 0) {
-                        SpreadHeaderView(
-                            state: navState,
-                            onTap: navState != nil ? { coordinator.handleConvenienceNavButtonTapped() } : nil
-                        )
+                        SpreadPageHeaderView(spread: spread, coordinator: coordinator)
                         contentView(for: spread)
                     }
                     .containerRelativeFrame(.horizontal)
@@ -105,17 +97,17 @@ struct SpreadContentPagerView: View {
         .scrollPosition(id: $settledSpreadID)
         .onAppear {
             // Only override the seeded settledSpreadID if the coordinator already has an explicit
-            // selection (e.g. a deep-link drove the launch). When selectedSpreadID is nil the
-            // seeded value from init already shows the right page — don't clobber it with nil.
-            if let id = selectedSpreadID { settledSpreadID = id }
+            // selection (e.g. a deep-link drove the launch). When the coordinator has no selection
+            // yet, the seeded value from init already shows the right page.
+            if let id = coordinator.selectedSpread?.id { settledSpreadID = id }
         }
-        // Recenter whenever the externally-driven selection changes (e.g. tab/title navigation).
-        .onChange(of: selectedSpreadID) { _, newValue in
-            guard let newValue, newValue != settledSpreadID else { return }
-            center(on: newValue, animated: false)
-        }
+        // Recenter when externally-driven navigation fires (navigator tap, spread creation, deletion).
+        // `coordinator.selectedSpread?.id` is read inside the handler closure, not as the `of:`
+        // parameter, so it does not register a body-level @Observable dependency on selectedSpread.
+        // All external navigation actions also increment recenterToken, so this replaces the prior
+        // `onChange(of: selectedSpreadID)` without losing any recentering coverage.
         .onChange(of: coordinator.recenterToken) { _, _ in
-            if let id = selectedSpreadID { center(on: id, animated: false) }
+            if let id = coordinator.selectedSpread?.id { center(on: id, animated: false) }
         }
         // These two handlers cover the two possible orderings of "settled ID changed" vs.
         // "scroll phase became idle" — see `syncSelectionFromSettledID` for why both are needed.
@@ -132,8 +124,10 @@ struct SpreadContentPagerView: View {
 
     // MARK: - Detail Title
 
+    /// Derives the display spread from `settledSpreadID` so that `coordinator.selectedSpread` is
+    /// not read in body — keeping `coordinator.selectedSpread` changes from triggering a re-render.
     private var spreadDetailTitle: some View {
-        let spread = coordinator.selectedSpread ?? spreads.first
+        let spread = spreads.first(where: { $0.id == settledSpreadID }) ?? spreads.first
         let config = spread.map {
             SpreadHeaderConfiguration(
                 spread: $0,
@@ -273,5 +267,28 @@ struct SpreadContentPagerView: View {
         ) else { return nil }
         let normalizedDate = spread.period.normalizeDate(spread.date, calendar: journalManager.calendar)
         return journalManager.dataModel[spread.period]?[normalizedDate]
+    }
+}
+
+// MARK: - SpreadPageHeaderView
+
+/// Per-page header that reads `coordinator.selectedSpread` and `coordinator.convenienceNavigation`
+/// in its own body scope, isolated from `SpreadContentPagerView`.
+///
+/// Isolating these coordinator reads here prevents them from registering as body-level
+/// `@Observable` dependencies on `SpreadContentPagerView`. When `coordinator.selectedSpread`
+/// changes on a scroll settle, only this lightweight view re-renders — not the full pager body,
+/// and not the sibling `DaySpreadContentView` / `MultidaySpreadContentView`.
+private struct SpreadPageHeaderView: View {
+    let spread: DataModel.Spread
+    let coordinator: SpreadsCoordinator
+
+    var body: some View {
+        let isCurrentPage = spread.id == coordinator.selectedSpread?.id
+        let navState = isCurrentPage ? coordinator.convenienceNavigation : nil
+        SpreadHeaderView(
+            state: navState,
+            onTap: navState != nil ? { coordinator.handleConvenienceNavButtonTapped() } : nil
+        )
     }
 }
