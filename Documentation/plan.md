@@ -7223,21 +7223,26 @@ Supabase: SPRD-85A -> SPRD-85C
   2. `[SPRD-277][2/n]` — Wired all 4 Task/Note sheets (`TaskCreationSheet`, `TaskDetailSheet`, `NoteCreationSheet`, `NoteDetailSheet`) to use the shared components; deleted all private duplicate helpers (`sectionHeader`, `compactDivider`, `validationErrorRow`, `loadingOverlay`, `selectionSummaryRow`, `noteSelectionRow`). `SpreadNameEditSheet` is unchanged — it uses a native `Form` layout with none of these helpers; it will adopt the shared chrome when SPRD-281 migrates it onto the `EntrySheet` shell. Build verified clean.
 - Remaining for this task: Manual/visual verification across all 4 sheets in the simulator.
 
-### [SPRD-278] Refactor: Generalize the entry editor form-model abstraction for Notes and Spreads - [ ] Pending
+### [SPRD-278] Refactor: Generalize the entry editor form-model abstraction for Notes and Spreads - [x] Done
 
 - **Context**: `TaskEditorFormModel` already centralizes Task creation/edit form state (title, body, priority, due date, list/tags, period/date/spread assignment) and is shared by `TaskCreationSheet`/`TaskDetailSheet` today. `NoteCreationSheet`/`NoteDetailSheet` instead duplicate equivalent state directly as independent `@Observable` properties on each sheet's own `ViewModel`, and `SpreadNameEditSheet` has its own much smaller, unrelated state shape (custom name, dynamic-name toggle). Building the generic `EntrySheet` shell (SPRD-279) against only `TaskEditorFormModel` risks baking in Task-specific assumptions that don't generalize.
 - **Description**: Design and implement a shared form-model abstraction (protocol-based or a single configurable type — implementer's choice, weighed against `CLAUDE.md`'s "structs by default" / "no namespace enums as factory containers" guidance) that both Task and Note editing can drive, and that is extensible enough for Spread's much smaller field set without forcing irrelevant fields onto it. Generalize `TaskEditorFormModel` (or introduce a new shared base it conforms to) so Notes can adopt the same abstraction in place of their current independent `ViewModel` state. Do not yet build the generic shell view (SPRD-279) — this task is the form-model layer only.
 - **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Design Decisions: "Form-model generalization precedes shell construction"
 - **Acceptance Criteria**:
-  - [ ] A single shared form-model abstraction exists that `TaskEditorFormModel` conforms to or is reshaped into, covering title, content/body, metadata (priority, due date, list, tags), and period/date/spread assignment as optional/applicable-per-entry-type fields.
-  - [ ] Notes' form state (currently inline on `NoteCreationSheet.ViewModel`/`NoteDetailSheet.ViewModel`) is migrated onto the shared abstraction, with validation behavior (title required, multiday-spread-required) preserved exactly.
-  - [ ] The abstraction does not yet require Spread's name/dynamic-name fields to fit awkwardly — confirm during this task whether Spread can reasonably conform or whether its much smaller field set is better expressed as a degenerate/near-empty conformance (document the decision either way for SPRD-281 to consume).
-  - [ ] No change to Task or Note sheet UI or behavior yet — sheets still use their existing (now-shared-model-backed) view code.
-  - [ ] Project builds with no errors or warnings; full existing test suite passes unmodified.
+  - [x] A single shared form-model abstraction exists that `TaskEditorFormModel` conforms to or is reshaped into, covering title, content/body, metadata (priority, due date, list, tags), and period/date/spread assignment as optional/applicable-per-entry-type fields.
+  - [x] Notes' form state (currently inline on `NoteCreationSheet.ViewModel`/`NoteDetailSheet.ViewModel`) is migrated onto the shared abstraction, with validation behavior (title required, multiday-spread-required) preserved exactly.
+  - [x] The abstraction does not yet require Spread's name/dynamic-name fields to fit awkwardly — **Decision**: `SpreadNameEditSheet` has a fundamentally different field set (custom name string + dynamic-name toggle, no period/date/assignment at all). It will not adopt `NoteEditorFormModel` or `TaskEditorFormModel`. SPRD-281 will give it a purpose-built `SpreadEditorFormModel` or inline form state as appropriate.
+  - [x] No change to Task or Note sheet UI or behavior yet — sheets still use their existing (now-shared-model-backed) view code.
+  - [x] Project builds with no errors or warnings; full existing test suite passes unmodified.
 - **Tests**:
   - Unit tests for the shared form-model's validation logic (title required, multiday-spread-required, period-change side effects) covering both a Task-shaped and a Note-shaped instantiation.
   - Existing `TaskEditorFormModel` test coverage (if any) continues to pass against the generalized type.
 - **Dependencies**: SPRD-277 (recommended ordering, not a hard blocker — chrome extraction and form-model work touch disjoint files).
+
+**Progress (commits landed on feature/SESH-27)**:
+1. `[SPRD-278][1/n]` — Introduced `EntryCreationConfiguration`, `EntryCreationError`, `EntryCreationResult` as unified shared types replacing the byte-for-byte-identical `TaskCreationConfiguration`/`NoteCreationConfiguration` pairs. Updated `TaskEditorFormModel`, `TaskCreationSheet`, `TaskDetailSheet`, `TaskPeriodControl`, `NoteCreationSheet`, `NoteDetailSheet`. Deleted old config files.
+2. `[SPRD-278][2/n]` — Added `NoteEditorFormModel` (struct, mirrors `TaskEditorFormModel`) with create/edit inits, `validateForSubmission`, `setPeriod`, `applySpreadSelection`. Migrated `NoteCreationSheet.ViewModel` and `NoteDetailSheet.ViewModel` form state onto it; presentation state stays on ViewModel.
+3. `[SPRD-278][3/n]` — Added `NoteEditorFormModelTests`, unified config tests under `EntryCreationConfigurationTests` (deleting `TaskCreationConfigurationTests`/`NoteCreationConfigurationTests`). Updated `TaskEditorFormModelTests` and `PresentedTemporalContextTests`. All 1353 tests pass. Documented Spread field-set decision in plan.md.
 
 ### [SPRD-279] Feature: Build generic EntrySheet shell and migrate Task sheets onto it - [ ] Pending
 
