@@ -7365,7 +7365,7 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-285] Fix: Navigator toggle button intermittently no-ops on iPad - [ ] Pending
+### [SPRD-285] Fix: Navigator toggle button intermittently no-ops on iPad - [ ] Done
 
 - **Context**: The toolbar button that shows/hides `SpreadsNavigatorView` visually reacts to taps but intermittently produces no visible change on iPad. Root cause: the button action switches on `horizontalSizeClass` captured from inside the `ToolbarItem` closure, which may see a different environment context than `SpreadsTabView.body`, causing it to toggle the wrong boolean (`shouldShowSpreadsNavigatorSheet` instead of `shouldShowSpreadsNavigatorColumn`) with no visible result.
 - **Description**: Consolidate `shouldShowSpreadsNavigatorColumn` and `shouldShowSpreadsNavigatorSheet` into a single `isNavigatorVisible: Bool`. The button action calls `isNavigatorVisible.toggle()` with no size class check. Presentation mode (inline column vs. full-screen cover) is determined at render time by `horizontalSizeClass`. The `.onChange(of: horizontalSizeClass)` reset is removed — visibility is preserved across size class changes.
@@ -7378,6 +7378,10 @@ Supabase: SPRD-85A -> SPRD-85C
   - AC5: Build succeeds with no errors.
 - **Tests**:
   - No unit tests: state consolidation on a view type. Correctness verified by AC1–AC3 via manual testing on iPad.
+
+**Progress (commits landed on feature/SESH-27)**
+1. `[SPRD-285][1/n]` — Replaced `shouldShowSpreadsNavigatorColumn` + `shouldShowSpreadsNavigatorSheet` with `isNavigatorVisible: Bool` in `SpreadsTabView`. Button action calls `isNavigatorVisible.toggle()` with no size class switch. Column condition and full-screen cover binding computed at render time from `horizontalSizeClass`. `.onChange(of: horizontalSizeClass)` reset removed. All ACs satisfied.
+- Remaining: none.
 
 ### [SPRD-286] Refactor: Full-width day cards with two-column entry layout in MultidaySpreadContentView - [ ] Pending
 
