@@ -3,16 +3,17 @@ import JohnnyOFoundationUI
 
 /// Self-contained Spreads tab content.
 ///
-/// Lays out the calendar content column (`SpreadsContentColumnView`) as a togglable
+/// Lays out the calendar content column (`SpreadsNavigatorView`) as a togglable
 /// left pane alongside the spread detail pager as the right pane in a top-level `HStack`.
 ///
 /// Owns all Spreads-specific navigation state — `spreadsCoordinator`, the selected
 /// spread, pager scroll position, and year selection — so it survives size class
 /// transitions without `RootNavigationView` needing to mirror or coordinate it.
 ///
-/// On regular width, a single leading toolbar button toggles `isContentColumnVisible`,
-/// sliding the left pane in/out inline. On compact width, the same toggle presents the
-/// left pane as a `.fullScreenCover` instead.
+/// A single `isNavigatorVisible` boolean tracks user intent. Presentation mode is
+/// determined at render time: inline column on regular width, full-screen cover on compact.
+/// Visibility is preserved across size class changes — rotating from portrait to landscape
+/// while the navigator is open switches from cover to column automatically.
 struct SpreadsTabView: View {
 
     let journalManager: JournalManager
@@ -26,16 +27,11 @@ struct SpreadsTabView: View {
     // MARK: - Spreads-owned Navigation State
 
     @State private var spreadsCoordinator = SpreadsCoordinator()
-    @State private var shouldShowSpreadsNavigatorSheet = false
-    @State private var shouldShowSpreadsNavigatorColumn = false
+    /// Whether the navigator is shown. Presentation mode (inline column vs. full-screen cover)
+    /// is determined at render time by `horizontalSizeClass` — this boolean encodes only intent.
+    @State private var isNavigatorVisible = false
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    
-    /// Whether the calendar content pane is shown — inline on regular width,
-    /// as a full-screen cover on compact width.
-    private var isContentColumnVisible: Bool {
-        shouldShowSpreadsNavigatorColumn || shouldShowSpreadsNavigatorSheet
-    }
     /// The currently active spread selection, defaulting to the journal's default when unset.
     private var currentSelection: DataModel.Spread {
         spreadsCoordinator.selectedSpread ?? journalManager.defaultNavigationSelection
@@ -169,7 +165,7 @@ struct SpreadsTabView: View {
     var body: some View {
         NavigationStack {
             HStack(spacing: 0) {
-                if shouldShowSpreadsNavigatorColumn && horizontalSizeClass == .regular {
+                if isNavigatorVisible && horizontalSizeClass == .regular {
                     spreadsNavigatorView
                         .background(.ultraThinMaterial.opacity(0.65))
                         .clipShape(RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.card))
@@ -195,20 +191,13 @@ struct SpreadsTabView: View {
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button {
-                            withAnimation {
-                                switch horizontalSizeClass {
-                                case .regular:
-                                    shouldShowSpreadsNavigatorColumn.toggle()
-                                default:
-                                    shouldShowSpreadsNavigatorSheet.toggle()
-                                }
-                            }
+                            withAnimation { isNavigatorVisible.toggle() }
                         } label: {
-                            (isContentColumnVisible ? SpreadTheme.Icon.caretLeft : SpreadTheme.Icon.calendar)
+                            (isNavigatorVisible ? SpreadTheme.Icon.caretLeft : SpreadTheme.Icon.calendar)
                                 .sized(SpreadTheme.IconSize.medium)
                                 .iconTint(.primary)
                         }
-                        .accessibilityLabel(isContentColumnVisible ? "Hide spread list" : "Show spread list")
+                        .accessibilityLabel(isNavigatorVisible ? "Hide spread list" : "Show spread list")
                     }
 
                     ToolbarItem(placement: .automatic) {
@@ -230,17 +219,16 @@ struct SpreadsTabView: View {
             }
             .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
         }
-        .fullScreenCover(isPresented: $shouldShowSpreadsNavigatorSheet) {
+        .fullScreenCover(isPresented: Binding(
+            get: { isNavigatorVisible && horizontalSizeClass != .regular },
+            set: { isNavigatorVisible = $0 }
+        )) {
             spreadsNavigatorView
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Done") { shouldShowSpreadsNavigatorSheet = false }
+                        Button("Done") { isNavigatorVisible = false }
                     }
                 }
-        }
-        .onChange(of: horizontalSizeClass) {
-            shouldShowSpreadsNavigatorSheet = false
-            shouldShowSpreadsNavigatorColumn = false
         }
         .sheet(item: $spreadsCoordinator.activeSheet) { destination in
             spreadsSheetContent(for: destination)
