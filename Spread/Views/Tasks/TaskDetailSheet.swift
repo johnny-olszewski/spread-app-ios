@@ -88,22 +88,22 @@ struct TaskDetailSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     titleSection
-                    compactDivider
+                    EntrySheetDivider()
                     metadataSection
-                    compactDivider
+                    EntrySheetDivider()
                     detailsSection
-                    compactDivider
+                    EntrySheetDivider()
                     assignmentSection
 
                     if !task.migrationHistory.isEmpty || !task.currentAssignments.isEmpty {
-                        compactDivider
+                        EntrySheetDivider()
                         assignmentHistorySection
                     }
 
                     if let lifecycleActionTitle = viewModel.selectedStatus.lifecycleActionTitleInTaskSheet,
                        let lifecycleResult = viewModel.selectedStatus.lifecycleActionResultInTaskSheet,
                        let lifecycleIcon = viewModel.selectedStatus.lifecycleActionIconInTaskSheet {
-                        compactDivider
+                        EntrySheetDivider()
                         lifecycleSection(
                             title: lifecycleActionTitle,
                             icon: lifecycleIcon,
@@ -112,7 +112,7 @@ struct TaskDetailSheet: View {
                         )
                     }
 
-                    compactDivider
+                    EntrySheetDivider()
                     deleteSection
                 }
                 .padding(.horizontal, 16)
@@ -174,7 +174,7 @@ struct TaskDetailSheet: View {
 
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Title")
+            EntrySheetSectionHeader(title: "Title")
             HStack(spacing: 8) {
                 Button {} label: {
                     EntryStatusIcon(
@@ -199,7 +199,7 @@ struct TaskDetailSheet: View {
 
     private var metadataSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Metadata")
+            EntrySheetSectionHeader(title: "Metadata")
 
             Picker("Priority", selection: $viewModel.formModel.priority) {
                 ForEach(DataModel.Task.Priority.allCases, id: \.self) { priority in
@@ -259,7 +259,7 @@ struct TaskDetailSheet: View {
             Divider()
             Button("New List…") { viewModel.isCreatingList = true }
         } label: {
-            selectionSummaryRow(
+            EntrySheetSelectionSummaryRow(
                 title: "List",
                 value: viewModel.formModel.selectedList?.name ?? "None",
                 isEnabled: true
@@ -331,7 +331,7 @@ struct TaskDetailSheet: View {
 
     private var assignmentSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Assignment")
+            EntrySheetSectionHeader(title: "Assignment")
 
             Toggle("Assign to spread", isOn: assignmentBinding)
                 .disabled(!isAssignmentEditable)
@@ -375,7 +375,7 @@ struct TaskDetailSheet: View {
 
     private var periodSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Period")
+            EntrySheetSectionHeader(title: "Period")
 
             Menu {
                 ForEach(TaskCreationConfiguration.assignablePeriods, id: \.self) { period in
@@ -397,7 +397,7 @@ struct TaskDetailSheet: View {
                     )
                 }
             } label: {
-                selectionSummaryRow(
+                EntrySheetSelectionSummaryRow(
                     title: "Period",
                     value: viewModel.formModel.selectedPeriod.displayName,
                     isEnabled: isAssignmentEditable
@@ -415,9 +415,9 @@ struct TaskDetailSheet: View {
 
     private var dateSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Date")
+            EntrySheetSectionHeader(title: "Date")
 
-            selectionSummaryRow(
+            EntrySheetSelectionSummaryRow(
                 title: viewModel.formModel.selectedPeriod == .multiday ? "Multiday spread" : "Date",
                 value: formattedDateSummary,
                 isEnabled: isAssignmentEditable,
@@ -448,7 +448,7 @@ struct TaskDetailSheet: View {
 
     private var assignmentHistorySection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Assignment History")
+            EntrySheetSectionHeader(title: "Assignment History")
 
             ForEach(Array((task.migrationHistory + task.currentAssignments).enumerated()), id: \.element) {
                 index,
@@ -557,44 +557,6 @@ struct TaskDetailSheet: View {
 
     private var currentMultidaySpreadID: UUID? {
         task.currentAssignments.first(where: { $0.period == .multiday })?.spreadID
-    }
-
-    private var compactDivider: some View {
-        Divider()
-            .padding(.vertical, 2)
-    }
-
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(SpreadTheme.Typography.caption)
-            .foregroundStyle(.secondary)
-    }
-
-    private func selectionSummaryRow(
-        title: String,
-        value: String,
-        isEnabled: Bool,
-        showsChevron: Bool = true
-    ) -> some View {
-        HStack {
-            Text(title)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(value)
-                .foregroundStyle(.primary)
-            if showsChevron {
-                SpreadTheme.Icon.caretDown.sized(SpreadTheme.IconSize.small)
-                    .iconTint(.secondary)
-            }
-        }
-        .font(SpreadTheme.Typography.subheadline)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemFill))
-        )
-        .opacity(isEnabled ? 1 : 0.7)
     }
 
     private func formatAssignmentDate(_ assignment: Assignment) -> String {

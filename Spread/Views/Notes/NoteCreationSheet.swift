@@ -103,13 +103,13 @@ struct NoteCreationSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     titleSection
-                    compactDivider
+                    EntrySheetDivider()
                     contentSection
-                    compactDivider
+                    EntrySheetDivider()
                     spreadSelectionSection
-                    compactDivider
+                    EntrySheetDivider()
                     periodSection
-                    compactDivider
+                    EntrySheetDivider()
                     dateSection
                 }
                 .padding(.horizontal, 16)
@@ -160,7 +160,7 @@ struct NoteCreationSheet: View {
         }
         .overlay {
             if viewModel.isCreating {
-                loadingOverlay
+                EntrySheetLoadingOverlay()
             }
         }
         .interactiveDismissDisabled(isCreateButtonVisible)
@@ -184,7 +184,7 @@ struct NoteCreationSheet: View {
 
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Title")
+            EntrySheetSectionHeader(title: "Title")
             TextField("Note title", text: $viewModel.title)
                 .focused($isTitleFocused)
                 .onChange(of: viewModel.title) { _, _ in
@@ -196,14 +196,14 @@ struct NoteCreationSheet: View {
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteCreationSheet.titleField)
 
             if viewModel.showValidationErrors, let error = viewModel.titleError {
-                validationErrorRow(message: error.message)
+                EntrySheetValidationErrorRow(message: error.message)
             }
         }
     }
 
     private var contentSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Content")
+            EntrySheetSectionHeader(title: "Content")
             TextEditor(text: $viewModel.content)
                 .frame(minHeight: 100)
                 .overlay(
@@ -220,7 +220,7 @@ struct NoteCreationSheet: View {
 
     private var spreadSelectionSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Spread")
+            EntrySheetSectionHeader(title: "Spread")
             Button {
                 viewModel.isShowingSpreadPicker = true
             } label: {
@@ -243,7 +243,7 @@ struct NoteCreationSheet: View {
 
     private var periodSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Period")
+            EntrySheetSectionHeader(title: "Period")
             Picker("Period", selection: $viewModel.selectedPeriod) {
                 ForEach(NoteCreationConfiguration.assignablePeriods, id: \.self) { period in
                     Text(period.displayName)
@@ -266,7 +266,7 @@ struct NoteCreationSheet: View {
 
     private var dateSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Date")
+            EntrySheetSectionHeader(title: "Date")
             if viewModel.selectedPeriod == .multiday {
                 Text(selectedMultidaySummary)
                     .font(SpreadTheme.Typography.subheadline)
@@ -289,38 +289,9 @@ struct NoteCreationSheet: View {
             }
 
             if viewModel.showValidationErrors, let error = viewModel.dateError {
-                validationErrorRow(message: error.message)
+                EntrySheetValidationErrorRow(message: error.message)
             }
         }
-    }
-
-    private func validationErrorRow(message: String) -> some View {
-        HStack {
-            SpreadTheme.Icon.warning.sized(SpreadTheme.IconSize.medium)
-                .iconTint(.orange)
-            Text(message)
-                .font(SpreadTheme.Typography.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var loadingOverlay: some View {
-        ZStack {
-            SpreadTheme.Overlay.dim
-            ProgressView()
-        }
-        .ignoresSafeArea()
-    }
-
-    private var compactDivider: some View {
-        Divider()
-            .padding(.vertical, 2)
-    }
-
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(SpreadTheme.Typography.caption)
-            .foregroundStyle(.secondary)
     }
 
     // MARK: - Period Description

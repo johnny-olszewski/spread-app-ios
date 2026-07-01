@@ -95,11 +95,11 @@ struct TaskCreationSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     titleSection
-                    compactDivider
+                    EntrySheetDivider()
                     metadataSection
-                    compactDivider
+                    EntrySheetDivider()
                     detailsSection
-                    compactDivider
+                    EntrySheetDivider()
                     assignmentSection
                 }
                 .padding(.horizontal, 16)
@@ -142,7 +142,7 @@ struct TaskCreationSheet: View {
         }
         .overlay {
             if viewModel.isCreating {
-                loadingOverlay
+                EntrySheetLoadingOverlay()
             }
         }
         .interactiveDismissDisabled(isCreateButtonVisible)
@@ -166,7 +166,7 @@ struct TaskCreationSheet: View {
 
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Title")
+            EntrySheetSectionHeader(title: "Title")
             TextField("Task title", text: $viewModel.formModel.title)
                 .focused($isTitleFocused)
                 .onChange(of: viewModel.formModel.title) { _, _ in
@@ -175,14 +175,14 @@ struct TaskCreationSheet: View {
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.titleField)
 
             if viewModel.formModel.showValidationErrors, let error = viewModel.formModel.titleError {
-                validationErrorRow(message: error.message)
+                EntrySheetValidationErrorRow(message: error.message)
             }
         }
     }
 
     private var spreadSelectionSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Spread")
+            EntrySheetSectionHeader(title: "Spread")
             Button {
                 viewModel.isShowingSpreadPicker = true
             } label: {
@@ -205,7 +205,7 @@ struct TaskCreationSheet: View {
 
     private var metadataSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Metadata")
+            EntrySheetSectionHeader(title: "Metadata")
 
             Picker("Priority", selection: $viewModel.formModel.priority) {
                 ForEach(DataModel.Task.Priority.allCases, id: \.self) { priority in
@@ -259,7 +259,7 @@ struct TaskCreationSheet: View {
 
     private var periodSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Period")
+            EntrySheetSectionHeader(title: "Period")
             TaskPeriodControl(
                 selection: Binding(
                     get: { viewModel.formModel.selectedPeriod },
@@ -279,7 +279,7 @@ struct TaskCreationSheet: View {
 
     private var dateSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Date")
+            EntrySheetSectionHeader(title: "Date")
             if viewModel.formModel.selectedPeriod == .multiday {
                 Text(selectedMultidaySummary)
                     .font(SpreadTheme.Typography.subheadline)
@@ -302,38 +302,9 @@ struct TaskCreationSheet: View {
             }
 
             if viewModel.formModel.showValidationErrors, let error = viewModel.formModel.dateError {
-                validationErrorRow(message: error.message)
+                EntrySheetValidationErrorRow(message: error.message)
             }
         }
-    }
-
-    private func validationErrorRow(message: String) -> some View {
-        HStack {
-            SpreadTheme.Icon.warning.sized(SpreadTheme.IconSize.medium)
-                .iconTint(.orange)
-            Text(message)
-                .font(SpreadTheme.Typography.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var loadingOverlay: some View {
-        ZStack {
-            SpreadTheme.Overlay.dim
-            ProgressView()
-        }
-        .ignoresSafeArea()
-    }
-
-    private var compactDivider: some View {
-        Divider()
-            .padding(.vertical, 2)
-    }
-
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(SpreadTheme.Typography.caption)
-            .foregroundStyle(.secondary)
     }
 
     private var selectedMultidaySummary: String {

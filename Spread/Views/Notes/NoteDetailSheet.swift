@@ -80,23 +80,23 @@ struct NoteDetailSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     titleSection
-                    compactDivider
+                    EntrySheetDivider()
                     contentSection
-                    compactDivider
+                    EntrySheetDivider()
                     metadataSection
-                    compactDivider
+                    EntrySheetDivider()
                     spreadSelectionSection
-                    compactDivider
+                    EntrySheetDivider()
                     periodSection
-                    compactDivider
+                    EntrySheetDivider()
                     dateSection
 
                     if !note.migrationHistory.isEmpty || !note.currentAssignments.isEmpty {
-                        compactDivider
+                        EntrySheetDivider()
                         assignmentHistorySection
                     }
 
-                    compactDivider
+                    EntrySheetDivider()
                     deleteSection
                 }
                 .padding(.horizontal, 16)
@@ -156,7 +156,7 @@ struct NoteDetailSheet: View {
 
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Title")
+            EntrySheetSectionHeader(title: "Title")
             TextField("Note title", text: $viewModel.title)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteDetailSheet.titleField)
         }
@@ -164,7 +164,7 @@ struct NoteDetailSheet: View {
 
     private var metadataSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Metadata")
+            EntrySheetSectionHeader(title: "Metadata")
             listPickerRow
             tagsPickerSection
         }
@@ -203,9 +203,10 @@ struct NoteDetailSheet: View {
             Divider()
             Button("New List…") { viewModel.isCreatingList = true }
         } label: {
-            noteSelectionRow(
+            EntrySheetSelectionSummaryRow(
                 title: "List",
-                value: viewModel.selectedList?.name ?? "None"
+                value: viewModel.selectedList?.name ?? "None",
+                isEnabled: true
             )
         }
     }
@@ -259,28 +260,9 @@ struct NoteDetailSheet: View {
         return selected.map(\.name).sorted().joined(separator: ", ")
     }
 
-    private func noteSelectionRow(title: String, value: String) -> some View {
-        HStack {
-            Text(title)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(value)
-                .foregroundStyle(.primary)
-            SpreadTheme.Icon.caretDown.sized(SpreadTheme.IconSize.small)
-                .iconTint(.secondary)
-        }
-        .font(SpreadTheme.Typography.subheadline)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemFill))
-        )
-    }
-
     private var contentSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Content")
+            EntrySheetSectionHeader(title: "Content")
             TextEditor(text: $viewModel.content)
                 .frame(minHeight: 100)
                 .overlay(
@@ -293,7 +275,7 @@ struct NoteDetailSheet: View {
 
     private var spreadSelectionSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Spread")
+            EntrySheetSectionHeader(title: "Spread")
             Button {
                 viewModel.isShowingSpreadPicker = true
             } label: {
@@ -316,7 +298,7 @@ struct NoteDetailSheet: View {
 
     private var periodSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Period")
+            EntrySheetSectionHeader(title: "Period")
             Picker("Period", selection: $viewModel.selectedPeriod) {
                 ForEach(NoteCreationConfiguration.assignablePeriods, id: \.self) { period in
                     Text(period.displayName)
@@ -330,7 +312,7 @@ struct NoteDetailSheet: View {
 
     private var dateSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Date")
+            EntrySheetSectionHeader(title: "Date")
             let configuration = NoteCreationConfiguration(
                 calendar: viewModel.presentedTemporalContext.calendar,
                 today: viewModel.presentedTemporalContext.today
@@ -355,7 +337,7 @@ struct NoteDetailSheet: View {
 
     private var assignmentHistorySection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionHeader("Assignment History")
+            EntrySheetSectionHeader(title: "Assignment History")
             ForEach(note.migrationHistory + note.currentAssignments, id: \.self) { assignment in
                 HStack {
                     (assignment.status == .active ? SpreadTheme.Icon.checkCircle : SpreadTheme.Icon.arrowRightCircle)
@@ -389,17 +371,6 @@ struct NoteDetailSheet: View {
             }
         }
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteDetailSheet.deleteButton)
-    }
-
-    private var compactDivider: some View {
-        Divider()
-            .padding(.vertical, 2)
-    }
-
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(SpreadTheme.Typography.caption)
-            .foregroundStyle(.secondary)
     }
 
     // MARK: - Helpers
