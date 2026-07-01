@@ -40,7 +40,6 @@ struct DaySpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
-        let _ = Self._printChanges()
         VStack {
             HStack {
                 Capsule()
