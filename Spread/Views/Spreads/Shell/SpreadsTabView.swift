@@ -359,7 +359,7 @@ struct SpreadsTabView: View {
                 }
             )
         case .noteCreation:
-            NoteCreationSheet(
+            NoteEntrySheet(
                 journalManager: journalManager,
                 selectedSpread: currentSelection,
                 onNoteCreated: { _ in
@@ -375,7 +375,7 @@ struct SpreadsTabView: View {
                 }
             )
         case .noteDetail(let note):
-            NoteDetailSheet(
+            NoteEntrySheet(
                 note: note,
                 journalManager: journalManager,
                 onDelete: {
