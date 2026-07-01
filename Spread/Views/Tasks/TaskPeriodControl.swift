@@ -8,7 +8,7 @@ struct TaskPeriodControl: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(TaskCreationConfiguration.assignablePeriods, id: \.self) { period in
+            ForEach(EntryCreationConfiguration.assignablePeriods, id: \.self) { period in
                 Button {
                     selection.wrappedValue = period
                 } label: {

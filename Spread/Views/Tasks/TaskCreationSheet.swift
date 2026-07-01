@@ -20,7 +20,7 @@ struct TaskCreationSheet: View {
         init(journalManager: JournalManager, selectedSpread: DataModel.Spread?) {
             let context = PresentedTemporalContext(journalManager: journalManager)
             presentedTemporalContext = context
-            let configuration = TaskCreationConfiguration(
+            let configuration = EntryCreationConfiguration(
                 calendar: context.calendar,
                 today: context.today
             )
@@ -62,7 +62,7 @@ struct TaskCreationSheet: View {
 
     // MARK: - Computed Properties
 
-    private var configuration: TaskCreationConfiguration {
+    private var configuration: EntryCreationConfiguration {
         viewModel.formModel.configuration
     }
 

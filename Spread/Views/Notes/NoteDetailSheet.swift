@@ -300,7 +300,7 @@ struct NoteDetailSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             EntrySheetSectionHeader(title: "Period")
             Picker("Period", selection: $viewModel.selectedPeriod) {
-                ForEach(NoteCreationConfiguration.assignablePeriods, id: \.self) { period in
+                ForEach(EntryCreationConfiguration.assignablePeriods, id: \.self) { period in
                     Text(period.displayName)
                         .tag(period)
                 }
@@ -313,7 +313,7 @@ struct NoteDetailSheet: View {
     private var dateSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             EntrySheetSectionHeader(title: "Date")
-            let configuration = NoteCreationConfiguration(
+            let configuration = EntryCreationConfiguration(
                 calendar: viewModel.presentedTemporalContext.calendar,
                 today: viewModel.presentedTemporalContext.today
             )

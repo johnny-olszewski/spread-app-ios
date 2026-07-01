@@ -2,7 +2,7 @@ import Foundation
 
 struct TaskEditorFormModel {
 
-    let configuration: TaskCreationConfiguration
+    let configuration: EntryCreationConfiguration
 
     var title: String
     var body: String
@@ -18,11 +18,11 @@ struct TaskEditorFormModel {
     var hasEditedTitle: Bool
     var isDetailsExpanded = false
     var showValidationErrors = false
-    var titleError: TaskCreationError?
-    var dateError: TaskCreationError?
+    var titleError: EntryCreationError?
+    var dateError: EntryCreationError?
 
     init(
-        configuration: TaskCreationConfiguration,
+        configuration: EntryCreationConfiguration,
         selectedSpread: DataModel.Spread?
     ) {
         self.configuration = configuration
@@ -46,7 +46,7 @@ struct TaskEditorFormModel {
     }
 
     init(
-        configuration: TaskCreationConfiguration,
+        configuration: EntryCreationConfiguration,
         task: DataModel.Task
     ) {
         self.configuration = configuration
@@ -165,7 +165,7 @@ struct TaskEditorFormModel {
 
     mutating func validateForSubmission() -> Bool {
         let titleResult = configuration.validateTitle(title)
-        let dateResult: TaskCreationResult
+        let dateResult: EntryCreationResult
         if !hasPreferredAssignment {
             dateResult = .valid
         } else if selectedPeriod == .multiday && selectedSpreadID == nil {

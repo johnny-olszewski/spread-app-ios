@@ -27,7 +27,7 @@ struct TaskDetailSheet: View {
             let context = PresentedTemporalContext(journalManager: journalManager)
             presentedTemporalContext = context
             selectedStatus = task.status
-            let configuration = TaskCreationConfiguration(
+            let configuration = EntryCreationConfiguration(
                 calendar: context.calendar,
                 today: context.today
             )
@@ -63,7 +63,7 @@ struct TaskDetailSheet: View {
         )
     }
 
-    private var configuration: TaskCreationConfiguration {
+    private var configuration: EntryCreationConfiguration {
         viewModel.formModel.configuration
     }
 
@@ -378,7 +378,7 @@ struct TaskDetailSheet: View {
             EntrySheetSectionHeader(title: "Period")
 
             Menu {
-                ForEach(TaskCreationConfiguration.assignablePeriods, id: \.self) { period in
+                ForEach(EntryCreationConfiguration.assignablePeriods, id: \.self) { period in
                     Button {
                         viewModel.formModel.setPeriod(period)
                     } label: {

@@ -22,15 +22,15 @@ struct NoteCreationSheet: View {
         var hasEditedTitle = false
         var showValidationErrors = false
         var isCreating = false
-        var titleError: NoteCreationError?
-        var dateError: NoteCreationError?
+        var titleError: EntryCreationError?
+        var dateError: EntryCreationError?
         var isShowingSpreadPicker = false
 
         init(journalManager: JournalManager, selectedSpread: DataModel.Spread?) {
             let context = PresentedTemporalContext(journalManager: journalManager)
             presentedTemporalContext = context
 
-            let configuration = NoteCreationConfiguration(
+            let configuration = EntryCreationConfiguration(
                 calendar: context.calendar,
                 today: context.today
             )
@@ -81,8 +81,8 @@ struct NoteCreationSheet: View {
 
     // MARK: - Computed Properties
 
-    private var configuration: NoteCreationConfiguration {
-        NoteCreationConfiguration(
+    private var configuration: EntryCreationConfiguration {
+        EntryCreationConfiguration(
             calendar: viewModel.presentedTemporalContext.calendar,
             today: viewModel.presentedTemporalContext.today
         )
@@ -245,7 +245,7 @@ struct NoteCreationSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             EntrySheetSectionHeader(title: "Period")
             Picker("Period", selection: $viewModel.selectedPeriod) {
-                ForEach(NoteCreationConfiguration.assignablePeriods, id: \.self) { period in
+                ForEach(EntryCreationConfiguration.assignablePeriods, id: \.self) { period in
                     Text(period.displayName)
                         .tag(period)
                         .accessibilityIdentifier(
@@ -349,7 +349,7 @@ struct NoteCreationSheet: View {
 
     private func attemptCreate() {
         let titleResult = configuration.validateTitle(viewModel.title)
-        let dateResult: NoteCreationResult
+        let dateResult: EntryCreationResult
         if viewModel.selectedPeriod == .multiday && viewModel.selectedSpreadID == nil {
             dateResult = .invalid(.missingMultidaySpread)
         } else if viewModel.selectedPeriod == .multiday {
