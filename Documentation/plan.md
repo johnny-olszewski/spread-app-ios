@@ -7282,22 +7282,25 @@ Supabase: SPRD-85A -> SPRD-85C
 **Progress (commits landed on feature/SESH-27)**:
 1. `[SPRD-280][1/n]` — Created `NoteEntrySheet` (unified create + edit, drives `EntrySheet`); deleted `NoteCreationSheet` and `NoteDetailSheet`; updated `SpreadsTabView` call sites. Reuses `TaskEntrySheetCoordinator` (identical 4-state shape). All accessibility identifiers preserved. Build clean. Note: `NoteDetailSheet` previously had no delete confirmation; `EntrySheet`'s built-in confirmation dialog is now shown — a safety improvement, not a regression.
 
-### [SPRD-281] Feature: Migrate Spread name/creation onto the generic EntrySheet shell - [ ] Pending
+### [SPRD-281] Feature: Migrate Spread name/creation onto the generic EntrySheet shell - [x] Done
 
 - **Context**: Per the architectural decision in `EntryEditingSheets.md`, Spread naming/creation is fully unified under `EntrySheet` rather than kept as a separate lighter sheet. `SpreadNameEditSheet` today uses a `Form`-based layout (visually distinct from the other 4 sheets' `ScrollView`+`VStack` style) with just a custom-name field and a dynamic-name toggle. `OldUI_ReferenceOnly/Creation/SpreadCreationSheet.swift` is old-UI reference code for spread creation that predates the current design system.
 - **Description**: Build a Spread-appropriate `EntrySheet` section configuration (name field + dynamic-name toggle only — no title/body/metadata/assignment sections) and replace `SpreadNameEditSheet` with an `EntrySheet`-backed equivalent matching the visual style (section headers, dividers, validation rows) of the Task/Note sheets instead of the native `Form` style. Evaluate whether spread *creation* (not just naming) should also move onto `EntrySheet` now that the shell exists, using `OldUI_ReferenceOnly/Creation/SpreadCreationSheet.swift` purely as a reference for what fields spread creation needs (period, date, name) — do not reuse its old-UI code directly. Resolve the open question of whether to delete the old-UI reference file once its functionality is confirmed fully covered.
 - **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Design Decisions: "Spreads are unified under the same EntrySheet shell"; Open Questions
 - **Acceptance Criteria**:
-  - [ ] `SpreadNameEditSheet` is replaced by an `EntrySheet`-backed equivalent at its existing call site(s), preserving custom-name editing and dynamic-name toggle behavior exactly, including the existing save-error alert.
-  - [ ] The replacement visually matches the Task/Note `EntrySheet` style (section headers, dividers) rather than `SpreadNameEditSheet`'s current native `Form` style.
-  - [ ] A decision is recorded on whether spread creation also moves onto `EntrySheet` in this task or is explicitly deferred as a follow-up — if moved, it covers period/date/name entry with the same validation rigor as `OldUI_ReferenceOnly/Creation/SpreadCreationSheet.swift`'s reference behavior; if deferred, the reason is documented here.
-  - [ ] Decision recorded on `OldUI_ReferenceOnly/Creation/SpreadCreationSheet.swift`'s disposition (deleted, or kept as reference with rationale).
-  - [ ] All existing accessibility identifiers referenced by `Definitions.AccessibilityIdentifiers.SpreadNameEditSheet` continue to resolve to the same logical UI elements (rename if needed, update every UI test call site).
-  - [ ] Project builds with no errors or warnings; full existing test suite passes, updated as needed for renamed types/identifiers.
+  - [x] `SpreadNameEditSheet` is replaced by an `EntrySheet`-backed equivalent at its existing call site(s), preserving custom-name editing and dynamic-name toggle behavior exactly, including the existing save-error alert.
+  - [x] The replacement visually matches the Task/Note `EntrySheet` style (section headers, dividers) rather than `SpreadNameEditSheet`'s current native `Form` style.
+  - [x] **Decision — Spread creation**: `SpreadCreationSheet` (period/date/multiday creation) is **deferred**. Its complexity (multiday date-range pickers, presets, duplicate detection, two init paths for create vs. date-edit) warrants a separate migration task. The naming-only `SpreadNameEntrySheet` is the scope of this task.
+  - [x] **Decision — OldUI reference file**: `OldUI_ReferenceOnly/Creation/SpreadCreationSheet.swift` is **kept** as reference. Since `SpreadCreationSheet` migration is deferred, the reference remains useful and should be evaluated for deletion when that migration lands.
+  - [x] All existing accessibility identifiers referenced by `Definitions.AccessibilityIdentifiers.SpreadNameEditSheet` continue to resolve to the same logical UI elements (rename if needed, update every UI test call site).
+  - [x] Project builds with no errors or warnings; full existing test suite passes, updated as needed for renamed types/identifiers.
 - **Tests**:
   - Existing Spread name-edit unit/UI test coverage (if any) is ported to the new `EntrySheet`-backed equivalent and passes.
   - New unit test confirming `EntrySheet`'s section configuration correctly renders only the name/dynamic-name fields for the Spread variant (no title/body/metadata/assignment sections leak in).
 - **Dependencies**: SPRD-280.
+
+**Progress (commits landed on feature/SESH-27)**:
+1. `[SPRD-281][1/n]` — Created `SpreadNameEntrySheet` (drives `EntrySheet` in edit mode; name field + dynamic-name toggle in section-header style); deleted `SpreadNameEditSheet`; updated `SpreadsTabView`. All `SpreadNameEditSheet` accessibility identifiers preserved. `SpreadCreationSheet` migration deferred — complexity of multiday ranges/presets/duplicate detection warrants a separate task. `OldUI_ReferenceOnly/Creation/SpreadCreationSheet.swift` retained as reference pending that migration.
 
 ### [SPRD-282] Visual: Replace native date picker UI in entry sheets with johnnyo-foundation CalendarView - [ ] Pending
 
