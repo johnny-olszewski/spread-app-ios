@@ -18,6 +18,11 @@ struct DaySpreadContentView: View {
     @State private var viewModel: ViewModel
     var config: Config = .default
 
+    /// Stored for `Equatable` comparison without accessing `@State`.
+    /// See `DaySpreadContentView+Equatable.swift`.
+    let spreadID: UUID
+    let storedHorizontalSizeClass: UserInterfaceSizeClass?
+
     @AppStorage("entryGrouping.day") private var groupingOption: EntryGroupingOption = .list
     @AppStorage("entrySorting.day") private var sortingOption: EntrySortOption = .dueDate
 
@@ -28,6 +33,8 @@ struct DaySpreadContentView: View {
         horizontalSizeClass: UserInterfaceSizeClass?,
         config: Config = .default
     ) {
+        spreadID = spread.id
+        storedHorizontalSizeClass = horizontalSizeClass
         _viewModel = State(wrappedValue: ViewModel(
             spread: spread,
             spreadDataModel: spreadDataModel,
