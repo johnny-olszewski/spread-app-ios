@@ -7265,19 +7265,22 @@ Supabase: SPRD-85A -> SPRD-85C
 1. `[SPRD-279][1/n]` — Added `EntrySheetMode` enum (`.create`/`.edit`), `EntrySheet` generic shell view with mode-driven toolbar/overlay/delete-confirmation, and `TaskEntrySheetCoordinator` owning 4 presentation states (spread picker + list/tag creation alerts + tags expansion). No Task-specific code in the shell itself.
 2. `[SPRD-279][2/n]` — Created `TaskEntrySheet` (unified create + edit, drives `EntrySheet`); deleted `TaskCreationSheet` and `TaskDetailSheet`; updated `SpreadsTabView` call sites. All accessibility identifiers preserved via existing `Definitions.AccessibilityIdentifiers.TaskCreationSheet`/`TaskDetailSheet` structs. Build clean. Note: `EntrySheet` mode-driven section-visibility unit tests are view-level behavior with no pure-logic boundary to test in isolation; coverage is via the AC verification and the build passing.
 
-### [SPRD-280] Feature: Migrate Note sheets onto the generic EntrySheet shell - [ ] Pending
+### [SPRD-280] Feature: Migrate Note sheets onto the generic EntrySheet shell - [x] Done
 
 - **Context**: With `EntrySheet` proven out by Task sheets (SPRD-279), `NoteCreationSheet` and `NoteDetailSheet` can collapse onto the same shell, eliminating their duplicated body code (title, content, spread/period/date sections, metadata, assignment history, delete).
 - **Description**: Replace `NoteCreationSheet` and `NoteDetailSheet` with a single `NoteEntrySheet` (or equivalent) built on `EntrySheet`, using the shared form-model abstraction from SPRD-278 with a Note-appropriate section configuration (no priority/due-date fields, content field instead of body, explicit-only migration semantics preserved).
 - **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Requirements
 - **Acceptance Criteria**:
-  - [ ] `NoteCreationSheet` and `NoteDetailSheet` are deleted; a single `NoteEntrySheet` (or equivalent) replaces both, used at every existing call site.
-  - [ ] All existing Note creation/edit behavior is preserved: title auto-focus, hidden-until-edited Create button, content editing, period/date/spread assignment, list/tags, assignment history, delete with confirmation.
-  - [ ] All existing accessibility identifiers referenced by `Definitions.AccessibilityIdentifiers.NoteCreationSheet`/`NoteDetailSheet` continue to resolve to the same logical UI elements (rename if needed, update every UI test call site).
-  - [ ] Project builds with no errors or warnings; full existing test suite passes, updated as needed for renamed types/identifiers.
+  - [x] `NoteCreationSheet` and `NoteDetailSheet` are deleted; a single `NoteEntrySheet` (or equivalent) replaces both, used at every existing call site.
+  - [x] All existing Note creation/edit behavior is preserved: title auto-focus, hidden-until-edited Create button, content editing, period/date/spread assignment, list/tags, assignment history, delete with confirmation.
+  - [x] All existing accessibility identifiers referenced by `Definitions.AccessibilityIdentifiers.NoteCreationSheet`/`NoteDetailSheet` continue to resolve to the same logical UI elements (rename if needed, update every UI test call site).
+  - [x] Project builds with no errors or warnings; full existing test suite passes, updated as needed for renamed types/identifiers.
 - **Tests**:
   - Existing Note creation/edit unit and UI test coverage (if any) is ported to the new `NoteEntrySheet` and passes.
 - **Dependencies**: SPRD-279.
+
+**Progress (commits landed on feature/SESH-27)**:
+1. `[SPRD-280][1/n]` — Created `NoteEntrySheet` (unified create + edit, drives `EntrySheet`); deleted `NoteCreationSheet` and `NoteDetailSheet`; updated `SpreadsTabView` call sites. Reuses `TaskEntrySheetCoordinator` (identical 4-state shape). All accessibility identifiers preserved. Build clean. Note: `NoteDetailSheet` previously had no delete confirmation; `EntrySheet`'s built-in confirmation dialog is now shown — a safety improvement, not a regression.
 
 ### [SPRD-281] Feature: Migrate Spread name/creation onto the generic EntrySheet shell - [ ] Pending
 
