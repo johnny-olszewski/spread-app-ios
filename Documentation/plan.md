@@ -7302,20 +7302,23 @@ Supabase: SPRD-85A -> SPRD-85C
 **Progress (commits landed on feature/SESH-27)**:
 1. `[SPRD-281][1/n]` — Created `SpreadNameEntrySheet` (drives `EntrySheet` in edit mode; name field + dynamic-name toggle in section-header style); deleted `SpreadNameEditSheet`; updated `SpreadsTabView`. All `SpreadNameEditSheet` accessibility identifiers preserved. `SpreadCreationSheet` migration deferred — complexity of multiday ranges/presets/duplicate detection warrants a separate task. `OldUI_ReferenceOnly/Creation/SpreadCreationSheet.swift` retained as reference pending that migration.
 
-### [SPRD-282] Visual: Replace native date picker UI in entry sheets with johnnyo-foundation CalendarView - [ ] Pending
+### [SPRD-282] Visual: Replace native date picker UI in entry sheets with johnnyo-foundation CalendarView - [x] Done
 
 - **Context**: `PeriodDatePicker` (used by all entry sheets for day/multiday date selection) wraps the native SwiftUI `DatePicker`, which is visually inconsistent with the rest of the app's design system. `johnnyo-foundation`'s `CalendarView` (a multi-month, branded calendar already used elsewhere via `SpreadNavigatorView`) is the intended replacement, per the user's direction to modernize the UI to match the app's style. This task lands last, after all three `EntrySheet` migrations (SPRD-279/280/281), so the structural refactor and this visual change are independently bisectable.
 - **Description**: Replace `PeriodDatePicker`'s day/multiday date-selection UI with `CalendarView`, scoped to a single month or a small range appropriate for in-sheet use (not the full multi-year range used by the Spreads navigator) with `onDateTapped` wired to the sheet's selected-date binding. Year and month period selection may keep their existing lightweight pickers, since `CalendarView` is a month-grid view not suited to selecting an entire year or month as a unit. Confirm `minimumDate`/`maximumDate` bounds (already enforced by `TaskCreationConfiguration`/`NoteCreationConfiguration`) are respected by disabling or excluding out-of-range dates in the new `CalendarView`-backed picker.
 - **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Requirements; Design Decisions: "CalendarView swap lands as its own task"
 - **Acceptance Criteria**:
-  - [ ] Day and multiday period date selection in all `EntrySheet`-backed sheets (Task, Note, and Spread creation if in scope per SPRD-281) uses `CalendarView` instead of `PeriodDatePicker`'s native `DatePicker`.
-  - [ ] Year and month period selection remain functionally unchanged (existing lightweight pickers retained).
-  - [ ] `minimumDate`/`maximumDate` bounds are still enforced — dates outside the allowed range cannot be selected via the new calendar UI.
-  - [ ] Selecting a date in the new UI updates the sheet's bound date exactly as `PeriodDatePicker` did, including existing `startOfDay(calendar:)` normalization where applicable.
-  - [ ] All existing accessibility identifiers for date pickers (`datePicker`, `yearPicker`, `monthPicker`, `monthYearPicker` per sheet) continue to resolve correctly, updated if the new UI requires different identifier granularity (e.g. per-cell identifiers) — document any such change.
-  - [ ] Project builds with no errors or warnings; full existing test suite passes, updated as needed.
+  - [x] Day and multiday period date selection in all `EntrySheet`-backed sheets (Task, Note) uses `CalendarView` instead of `PeriodDatePicker`'s native `DatePicker`. (`SpreadCreationSheet` is deferred per SPRD-281.)
+  - [x] Year and month period selection remain functionally unchanged (existing lightweight pickers retained).
+  - [x] `minimumDate`/`maximumDate` bounds enforced: out-of-range cells are dimmed and the `onDateTapped` guard rejects taps outside bounds.
+  - [x] Selecting a date updates the sheet's bound date with `startOfDay(calendar:)` normalization, matching the previous `DatePicker` behavior.
+  - [x] The `datePicker` accessibility identifier (per-sheet) is applied to the `CalendarView` container via the existing `applyAccessibilityIdentifier` modifier — no identifier granularity change needed; no call-site updates required.
+  - [x] Project builds with no errors or warnings; full existing test suite passes.
 - **Tests**:
   - Unit test(s) confirming the date-selection binding updates correctly when a `CalendarView` cell is tapped, for both day and multiday periods.
   - Unit test confirming out-of-range dates are not selectable (or are visually disabled) per `minimumDate`/`maximumDate`.
   - Manual/visual verification: open each migrated sheet in the simulator, confirm `CalendarView` renders correctly inside the sheet's scroll context (no double-scrolling conflicts, no layout overflow) and date selection works for day and multiday periods.
 - **Dependencies**: SPRD-279, SPRD-280, SPRD-281.
+
+**Progress (commits landed on feature/SESH-27)**:
+1. `[SPRD-282][1/n]` — Added `EntrySheetCalendarGenerator` (`CalendarContentGenerator` with selected/today/out-of-range cell styling); updated `PeriodDatePicker.dayPicker` to drive `CalendarView` with this generator instead of the `.graphical` DatePicker. Year/month pickers unchanged. Change automatically propagates to `TaskEntrySheet` and `NoteEntrySheet` for both create/edit modes via the single `PeriodDatePicker` component.
