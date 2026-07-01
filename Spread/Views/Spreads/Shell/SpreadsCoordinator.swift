@@ -72,7 +72,9 @@ final class SpreadsCoordinator {
     var selectedYear: Int = Calendar.current.component(.year, from: Date())
 
     /// The current navigator selection, nil until resolved on appear.
-    var selectedSpread: DataModel.Spread?
+    /// Write access is intentionally restricted — use `navigate(to:)` or `navigate(to:shouldRecenter:)`
+    /// so that `recenterToken` is always managed through a single code path.
+    private(set) var selectedSpread: DataModel.Spread?
 
     /// Incremented to force the pager and strip to recenter on the current selection.
     var recenterToken: Int = 0
@@ -185,17 +187,26 @@ final class SpreadsCoordinator {
         clearConvenienceNavigation()
     }
 
-    /// Navigates to the given selection, clearing convenience navigation and recentering.
+    /// Navigates to the given selection, clearing convenience navigation.
     ///
-    /// If the selection is already active, only recenters (increments `recenterToken`) without
-    /// changing `selectedSelection`. If it differs, updates `selectedSelection` and recenters.
-    func navigate(to selection: DataModel.Spread) {
+    /// When `shouldRecenter` is `true` (default), `recenterToken` is incremented so the pager
+    /// scrolls to the selection. Pass `false` for callers that are reporting a position that
+    /// already settled (e.g. `SpreadContentPagerView.syncSelectionFromSettledID`) — recentering
+    /// would cause a feedback loop.
+    ///
+    /// If `shouldRecenter` is `true` and the selection is already active, only `recenterToken`
+    /// is incremented without changing `selectedSpread`.
+    func navigate(to selection: DataModel.Spread, shouldRecenter: Bool = true) {
         clearConvenienceNavigation()
-        if isSameSelection(selection, selectedSpread) {
-            recenterToken += 1
+        if shouldRecenter {
+            if isSameSelection(selection, selectedSpread) {
+                recenterToken += 1
+            } else {
+                selectedSpread = selection
+                recenterToken += 1
+            }
         } else {
             selectedSpread = selection
-            recenterToken += 1
         }
     }
 

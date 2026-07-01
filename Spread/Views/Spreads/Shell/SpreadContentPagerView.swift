@@ -170,8 +170,7 @@ struct SpreadContentPagerView: View {
         guard scrollPhase == .idle,
               let settledSpreadID, settledSpreadID != coordinator.selectedSpread?.id,
               let spread = spreads.first(where: { $0.id == settledSpreadID }) else { return }
-        coordinator.selectedSpread = spread
-        coordinator.clearConvenienceNavigation()
+        coordinator.navigate(to: spread, shouldRecenter: false)
     }
 
     private func center(on id: UUID, animated: Bool) {

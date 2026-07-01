@@ -293,9 +293,8 @@ struct SpreadsTabView: View {
         guard let spread = spreadsCoordinator.selectedSpread else { return }
         guard !journalManager.spreads.contains(where: { $0.id == spread.id }) else { return }
 
-        let newSelection = journalManager.bestSpread(for: journalManager.today)
-        spreadsCoordinator.selectedSpread = newSelection
-        spreadsCoordinator.recenterToken += 1
+        guard let newSelection = journalManager.bestSpread(for: journalManager.today) else { return }
+        spreadsCoordinator.navigate(to: newSelection)
     }
 
     // MARK: - Bottom Controls
