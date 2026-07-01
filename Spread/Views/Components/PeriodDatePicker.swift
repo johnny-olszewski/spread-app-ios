@@ -1,4 +1,6 @@
 import SwiftUI
+import JohnnyOFoundationUI
+import JohnnyOFoundationCore
 
 struct PeriodDatePicker: View {
     struct AccessibilityIdentifiers {
@@ -80,13 +82,26 @@ struct PeriodDatePicker: View {
     }
 
     private var dayPicker: some View {
-        DatePicker(
-            "Date",
-            selection: $selectedDate,
-            in: minimumDate...maximumDate,
-            displayedComponents: [.date]
+        CalendarView(
+            startDate: minimumDate,
+            endDate: maximumDate,
+            calendar: calendar,
+            today: today,
+            configuration: .init(showsPeripheralDates: false),
+            contentGenerator: EntrySheetCalendarGenerator(
+                selectedDate: selectedDate,
+                minimumDate: minimumDate,
+                maximumDate: maximumDate,
+                calendar: calendar,
+                today: today
+            ),
+            initialScrollTarget: selectedDate,
+            onDateTapped: { date in
+                guard date >= minimumDate && date <= maximumDate else { return }
+                selectedDate = date.startOfDay(calendar: calendar)
+            }
         )
-        .datePickerStyle(.graphical)
+        .frame(height: 320)
         .applyAccessibilityIdentifier(accessibilityIdentifiers?.dayPicker)
     }
 
