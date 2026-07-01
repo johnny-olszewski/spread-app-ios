@@ -7212,7 +7212,7 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Requirements (shared visual chrome)
 - **Acceptance Criteria**:
   - [x] `Spread/Views/Components/` contains standalone, documented, individually-previewed views for section header, divider, validation error row, loading overlay, and selection summary row.
-  - [x] `TaskCreationSheet`, `TaskDetailSheet`, `NoteCreationSheet`, `NoteDetailSheet`, and `SpreadNameEditSheet` all use the shared components; their private duplicate helpers are deleted. (`SpreadNameEditSheet` has no such helpers to delete — it will adopt the shared chrome in SPRD-281.)
+  - [x] `TaskCreationSheet`, `TaskDetailSheet`, `NoteCreationSheet`, and `NoteDetailSheet` all use the shared components; their private duplicate helpers are deleted.
   - [x] No visual or behavioral change to any of the 5 sheets — same spacing, fonts, colors, accessibility identifiers.
   - [x] Project builds with no errors or warnings; full existing test suite passes unmodified.
 - **Tests**:
