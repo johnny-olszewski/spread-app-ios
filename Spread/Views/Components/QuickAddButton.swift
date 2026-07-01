@@ -61,7 +61,7 @@ struct QuickAddButton: View {
     }
 
     var body: some View {
-        SpreadButton(viewModel: .init(
+        SpreadButton(.init(
             title: title,
             icon: icon,
             accessibilityIdentifier: accessibilityIdentifier
