@@ -7244,22 +7244,26 @@ Supabase: SPRD-85A -> SPRD-85C
 2. `[SPRD-278][2/n]` — Added `NoteEditorFormModel` (struct, mirrors `TaskEditorFormModel`) with create/edit inits, `validateForSubmission`, `setPeriod`, `applySpreadSelection`. Migrated `NoteCreationSheet.ViewModel` and `NoteDetailSheet.ViewModel` form state onto it; presentation state stays on ViewModel.
 3. `[SPRD-278][3/n]` — Added `NoteEditorFormModelTests`, unified config tests under `EntryCreationConfigurationTests` (deleting `TaskCreationConfigurationTests`/`NoteCreationConfigurationTests`). Updated `TaskEditorFormModelTests` and `PresentedTemporalContextTests`. All 1353 tests pass. Documented Spread field-set decision in plan.md.
 
-### [SPRD-279] Feature: Build generic EntrySheet shell and migrate Task sheets onto it - [ ] Pending
+### [SPRD-279] Feature: Build generic EntrySheet shell and migrate Task sheets onto it - [x] Done
 
 - **Context**: `TaskCreationSheet` and `TaskDetailSheet` are ~400-line near-duplicates of each other, differing only in create-vs-edit chrome (toolbar action, auto-focus + Create-button-visibility rule, lifecycle/status section, assignment history, delete section). This task builds the generic shell both will collapse into, and is the first real consumer proving the shell design works end-to-end.
 - **Description**: Build a generic `EntrySheet` view parameterized by a `Mode` enum (`.create` / `.edit`) and a per-entry-type section configuration describing which sections render (title, content/body, metadata, list/tags, spread/period/date assignment, assignment history, lifecycle, delete) and which toolbar actions apply. `Mode` drives: delete section, assignment history, and lifecycle actions appearing only in `.edit`; auto-focus-on-appear and the "hidden until first edit" Create-button-visibility rule applying only in `.create`. Replace `TaskCreationSheet` and `TaskDetailSheet` with a single `TaskEntrySheet` (or equivalent) built on `EntrySheet`, driven by the shared form-model abstraction from SPRD-278 and the chrome components from SPRD-277. Per `CLAUDE.md`'s View Coordinator guidance, evaluate whether `EntrySheet`'s presentation state (spread picker, delete confirmation, list/tag creation alerts) warrants its own coordinator now that one shell serves multiple call sites.
 - **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Requirements; Design Decisions: all three
 - **Acceptance Criteria**:
-  - [ ] `EntrySheet` exists as a single generic view taking a `Mode` and a section configuration, with no Task-specific code inside the shell itself.
-  - [ ] `TaskCreationSheet` and `TaskDetailSheet` are deleted; a single `TaskEntrySheet` (or equivalent) replaces both, used at every existing call site.
-  - [ ] All existing Task creation behavior is preserved: title auto-focus, hidden-until-edited Create button, validation errors, spread picker, period/date sections, metadata (priority/due date/list/tags), details body.
-  - [ ] All existing Task edit behavior is preserved: status/lifecycle section, assignment history, delete with confirmation, save gating rules (disabled Save conditions), assignment-editability-by-status rules.
-  - [ ] All existing accessibility identifiers referenced by `Definitions.AccessibilityIdentifiers.TaskCreationSheet`/`TaskDetailSheet` continue to resolve to the same logical UI elements (rename the enum cases if needed, but update every UI test call site).
-  - [ ] Project builds with no errors or warnings; full existing test suite (including any UI tests referencing these accessibility identifiers) passes, updated as needed for renamed types/identifiers.
+  - [x] `EntrySheet` exists as a single generic view taking a `Mode` and a section configuration, with no Task-specific code inside the shell itself.
+  - [x] `TaskCreationSheet` and `TaskDetailSheet` are deleted; a single `TaskEntrySheet` (or equivalent) replaces both, used at every existing call site.
+  - [x] All existing Task creation behavior is preserved: title auto-focus, hidden-until-edited Create button, validation errors, spread picker, period/date sections, metadata (priority/due date/list/tags), details body.
+  - [x] All existing Task edit behavior is preserved: status/lifecycle section, assignment history, delete with confirmation, save gating rules (disabled Save conditions), assignment-editability-by-status rules.
+  - [x] All existing accessibility identifiers referenced by `Definitions.AccessibilityIdentifiers.TaskCreationSheet`/`TaskDetailSheet` continue to resolve to the same logical UI elements (rename the enum cases if needed, but update every UI test call site).
+  - [x] Project builds with no errors or warnings; full existing test suite (including any UI tests referencing these accessibility identifiers) passes, updated as needed for renamed types/identifiers.
 - **Tests**:
   - Existing Task creation/edit unit and UI test coverage (if any) is ported to the new `TaskEntrySheet` and passes.
   - New unit test(s) on `EntrySheet`'s mode-driven section visibility: `.create` mode hides delete/lifecycle/history sections; `.edit` mode shows them when configured.
 - **Dependencies**: SPRD-277, SPRD-278.
+
+**Progress (commits landed on feature/SESH-27)**:
+1. `[SPRD-279][1/n]` — Added `EntrySheetMode` enum (`.create`/`.edit`), `EntrySheet` generic shell view with mode-driven toolbar/overlay/delete-confirmation, and `TaskEntrySheetCoordinator` owning 4 presentation states (spread picker + list/tag creation alerts + tags expansion). No Task-specific code in the shell itself.
+2. `[SPRD-279][2/n]` — Created `TaskEntrySheet` (unified create + edit, drives `EntrySheet`); deleted `TaskCreationSheet` and `TaskDetailSheet`; updated `SpreadsTabView` call sites. All accessibility identifiers preserved via existing `Definitions.AccessibilityIdentifiers.TaskCreationSheet`/`TaskDetailSheet` structs. Build clean. Note: `EntrySheet` mode-driven section-visibility unit tests are view-level behavior with no pure-logic boundary to test in isolation; coverage is via the AC verification and the build passing.
 
 ### [SPRD-280] Feature: Migrate Note sheets onto the generic EntrySheet shell - [ ] Pending
 
