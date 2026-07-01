@@ -204,6 +204,24 @@ enum SpreadTheme {
         static let xxlarge: CGFloat = 48
     }
 
+    // MARK: - Status
+
+    /// Semantic status colors for system states (error, warning, success).
+    enum Status {
+        /// Destructive / error state — red, adaptive for light and dark mode.
+        static let error = Color(.systemRed)
+    }
+
+    // MARK: - Separator
+
+    /// Separator and border colors.
+    enum Separator {
+        /// Standard hairline separator — maps to the system separator color.
+        static let standard = Color(.separator)
+        /// Slightly more opaque separator for bordered UI elements like `SpreadButton(.bordered)`.
+        static let strong = Color(.opaqueSeparator)
+    }
+
     // MARK: - Motion
 
     /// Named animation constants. Named `Motion` to avoid shadowing SwiftUI's `Animation` type.
