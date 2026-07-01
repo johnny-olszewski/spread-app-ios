@@ -97,7 +97,6 @@ struct EntryListView<TrailingContent: View>: View {
                 }
             }
         }
-        .conditionalScrollView()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
     }
 
