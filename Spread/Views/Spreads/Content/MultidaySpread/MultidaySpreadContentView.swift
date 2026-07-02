@@ -12,7 +12,6 @@ struct MultidaySpreadContentView: View {
     /// Stored for `Equatable` comparison without accessing `@State`.
     /// See `MultidaySpreadContentView+Equatable.swift`.
     let spreadID: UUID
-    let storedHorizontalSizeClass: UserInterfaceSizeClass?
 
     @AppStorage("entryGrouping.multiday") private var groupingOption: EntryGroupingOption = .none
     @AppStorage("entrySorting.multiday") private var sortingOption: EntrySortOption = .dueDate
@@ -20,16 +19,13 @@ struct MultidaySpreadContentView: View {
     init(
         spread: DataModel.Spread,
         spreadDataModel: SpreadDataModel,
-        context: SpreadPageContext,
-        horizontalSizeClass: UserInterfaceSizeClass?
+        context: SpreadPageContext
     ) {
         spreadID = spread.id
-        storedHorizontalSizeClass = horizontalSizeClass
         _viewModel = State(wrappedValue: ViewModel(
             spread: spread,
             spreadDataModel: spreadDataModel,
-            context: context,
-            horizontalSizeClass: horizontalSizeClass
+            context: context
         ))
     }
 
@@ -154,59 +150,23 @@ struct MultidaySpreadContentView: View {
                 dayNumberText: dayNumberText,
                 onFooterTap: onFooterTap
             ) {
-                entryColumns(section: section, dateID: dateID)
-            }
-        }
-    }
-
-    /// Renders entries for a non-summary day card.
-    ///
-    /// On regular width, splits entries into two equal columns to fill the card width.
-    /// On compact width, a single column is used.
-    @ViewBuilder
-    private func entryColumns(section: EntryList.Section, dateID: String) -> some View {
-        let quickAdd = QuickAddButton(
-            coordinator: viewModel.context.coordinator,
-            anchorID: section.id,
-            date: section.creationDate,
-            period: section.creationPeriod,
-            availableLists: viewModel.context.journalManager.lists,
-            availableTags: viewModel.context.journalManager.tags,
-            accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID),
-            onAddTask: viewModel.onAddTask
-        )
-
-        if storedHorizontalSizeClass == .regular && !section.entries.isEmpty {
-            let midpoint = (section.entries.count + 1) / 2
-            let left = Array(section.entries.prefix(midpoint))
-            let right = Array(section.entries.dropFirst(midpoint))
-            HStack(alignment: .top, spacing: SpreadTheme.Spacing.medium) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(left, id: \.id) { entry in
+                    ForEach(section.entries, id: \.id) { entry in
                         entryRow(entry: entry)
                             .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                     }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(right, id: \.id) { entry in
-                        entryRow(entry: entry)
-                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            quickAdd
-                .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-        } else {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(section.entries, id: \.id) { entry in
-                    entryRow(entry: entry)
-                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
-                }
-                quickAdd
+                    QuickAddButton(
+                        coordinator: viewModel.context.coordinator,
+                        anchorID: section.id,
+                        date: section.creationDate,
+                        period: section.creationPeriod,
+                        availableLists: viewModel.context.journalManager.lists,
+                        availableTags: viewModel.context.journalManager.tags,
+                        accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID),
+                        onAddTask: viewModel.onAddTask
+                    )
                     .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                }
             }
         }
     }

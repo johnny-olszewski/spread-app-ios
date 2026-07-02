@@ -225,8 +225,7 @@ struct SpreadContentPagerView: View {
                 MultidaySpreadContentView(
                     spread: spread,
                     spreadDataModel: dataModel,
-                    context: context,
-                    horizontalSizeClass: horizontalSizeClass
+                    context: context
                 )
                 .equatable()
             }
