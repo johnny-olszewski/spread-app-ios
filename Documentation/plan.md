@@ -7383,7 +7383,7 @@ Supabase: SPRD-85A -> SPRD-85C
 1. `[SPRD-285][1/n]` — Replaced `shouldShowSpreadsNavigatorColumn` + `shouldShowSpreadsNavigatorSheet` with `isNavigatorVisible: Bool` in `SpreadsTabView`. Button action calls `isNavigatorVisible.toggle()` with no size class switch. Column condition and full-screen cover binding computed at render time from `horizontalSizeClass`. `.onChange(of: horizontalSizeClass)` reset removed. All ACs satisfied.
 - Remaining: none.
 
-### [SPRD-286] Refactor: Full-width day cards with two-column entry layout in MultidaySpreadContentView - [ ] Pending
+### [SPRD-286] Refactor: Full-width day cards with two-column entry layout in MultidaySpreadContentView - [ ] Done
 
 - **Context**: The current outer `LazyVGrid` places day cards in a two-column grid side-by-side. The desired layout is full-width day cards (one per row) with entries inside each card displayed in two balanced columns on regular width.
 - **Description**: Replace the outer `LazyVGrid` with a `LazyVStack` so each day card is full width. Inside each day card's entry list (non-summary cards only), split the entries array in half and render two `VStack`s in an `HStack` on regular width; a single `VStack` on compact. Remove all dead code: `viewModel.columns`, `viewModel.columnCount`, `.gridCellColumns(...)`, `UserInterfaceSizeClass.multidayColumnCount`, and any other grid-related helpers that become unused.
@@ -7397,6 +7397,11 @@ Supabase: SPRD-85A -> SPRD-85C
   - AC6: Build succeeds with no errors.
 - **Tests**:
   - No unit tests: layout change on a view type. Correctness verified by AC1–AC5 via manual testing on iPad and iPhone.
+
+**Progress (commits landed on feature/SESH-27)**
+1. **[SPRD-286][1/n]** — Replaced outer `LazyVGrid` with `LazyVStack` for full-width day cards; added `entryColumns` method for two-column entry layout on regular width via split-array `HStack`; deleted `viewModel.columns`, `viewModel.columnCount`, `UserInterfaceSizeClass.multidayColumnCount`.
+   - Files: `MultidaySpreadContentView.swift`, `MultidaySpreadContentView+ViewModel.swift`
+   - All ACs satisfied in one increment.
 
 ### [SPRD-287] Visual: Entry list section header style — named vs. unnamed buckets - [ ] Pending
 

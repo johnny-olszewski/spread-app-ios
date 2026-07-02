@@ -50,15 +50,10 @@ struct MultidaySpreadContentView: View {
 
             OverdueCardView(spread: viewModel.spread, context: viewModel.context)
 
-            LazyVGrid(
-                columns: viewModel.columns,
-                alignment: .leading,
-                spacing: SpreadTheme.Spacing.large
-            ) {
+            LazyVStack(alignment: .leading, spacing: SpreadTheme.Spacing.large) {
                 ForEach(viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption)) { section in
                     if section.creationPeriod == .multiday {
                         multidayEntrySection(section)
-                            .gridCellColumns(viewModel.columnCount)
                     } else {
                         daySection(section)
                     }
@@ -159,24 +154,59 @@ struct MultidaySpreadContentView: View {
                 dayNumberText: dayNumberText,
                 onFooterTap: onFooterTap
             ) {
+                entryColumns(section: section, dateID: dateID)
+            }
+        }
+    }
+
+    /// Renders entries for a non-summary day card.
+    ///
+    /// On regular width, splits entries into two equal columns to fill the card width.
+    /// On compact width, a single column is used.
+    @ViewBuilder
+    private func entryColumns(section: EntryList.Section, dateID: String) -> some View {
+        let quickAdd = QuickAddButton(
+            coordinator: viewModel.context.coordinator,
+            anchorID: section.id,
+            date: section.creationDate,
+            period: section.creationPeriod,
+            availableLists: viewModel.context.journalManager.lists,
+            availableTags: viewModel.context.journalManager.tags,
+            accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID),
+            onAddTask: viewModel.onAddTask
+        )
+
+        if storedHorizontalSizeClass == .regular && !section.entries.isEmpty {
+            let midpoint = (section.entries.count + 1) / 2
+            let left = Array(section.entries.prefix(midpoint))
+            let right = Array(section.entries.dropFirst(midpoint))
+            HStack(alignment: .top, spacing: SpreadTheme.Spacing.medium) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(section.entries, id: \.id) { entry in
+                    ForEach(left, id: \.id) { entry in
                         entryRow(entry: entry)
                             .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                     }
-
-                    QuickAddButton(
-                        coordinator: viewModel.context.coordinator,
-                        anchorID: section.id,
-                        date: section.creationDate,
-                        period: section.creationPeriod,
-                        availableLists: viewModel.context.journalManager.lists,
-                        availableTags: viewModel.context.journalManager.tags,
-                        accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.multidayAddTaskButton(dateID),
-                        onAddTask: viewModel.onAddTask
-                    )
-                    .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(right, id: \.id) { entry in
+                        entryRow(entry: entry)
+                            .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            quickAdd
+                .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(section.entries, id: \.id) { entry in
+                    entryRow(entry: entry)
+                        .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
+                }
+                quickAdd
+                    .padding(.vertical, SpreadTheme.Spacing.entryRowVertical)
             }
         }
     }
@@ -213,11 +243,4 @@ struct MultidaySpreadContentView: View {
             EntryRowView(entry: entry, configuration: config)
         }
     }
-}
-
-// MARK: - Column Count
-
-extension UserInterfaceSizeClass {
-    /// The number of day-card columns to use in a multiday spread grid.
-    var multidayColumnCount: Int { self == .regular ? 2 : 1 }
 }

@@ -54,15 +54,6 @@ extension MultidaySpreadContentView {
             )
         }
         
-        var columnCount: Int { horizontalSizeClass?.multidayColumnCount ?? 1 }
-        
-        var columns: [GridItem] {
-            Array(
-                repeating: GridItem(.flexible(), spacing: 16, alignment: .top),
-                count: columnCount
-            )
-        }
-
         var configurationMap: EntryRowView.ConfigurationMap {
             [
                 DataModel.Task.configurationKey: .standardTaskConfig(
