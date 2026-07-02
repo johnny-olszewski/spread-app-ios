@@ -7423,3 +7423,20 @@ Supabase: SPRD-85A -> SPRD-85C
 1. **[SPRD-287][1/n]** — Added `EntryList.SectionHeaderStyle` enum; added `headerStyle` to `EntryList.Section`; updated `EntryGroupingOption` with per-mode nil labels ("No list", "No tag"), `nilBucketLabel` computed property, and `sortedNilBucketLast` replacing `sortedKeysUntitledLast`; updated `EntryListView` to render `.named` headers with `title3`/full opacity and `.unnamed` headers with `caption`/secondary color.
    - Files: `EntryList+Section.swift`, `EntryGroupingOption.swift`, `EntryListView.swift`
    - All ACs satisfied in one increment.
+
+### [SPRD-288] Visual: Priority icon in entry rows — leading the chip area - [ ] Pending
+
+- **Context**: Tasks have a priority field (none/low/medium/high) but no visual representation of priority in the entry row. The priority icon should appear to the left of any tag chips in the row, providing at-a-glance priority signal without requiring the user to open the task.
+- **Description**: Add `icon: SpreadTheme.Icon?` and `iconColor: Color?` computed properties to `DataModel.Task.Priority`. Add `.caretDoubleUp`, `.caretUp`, `.caretDoubleDown` to `SpreadTheme.Icon`. Add `showsPriorityIcon: ((any Entry) -> Bool)?` to `EntryRowView.Configuration`. Render the icon in `EntryRowView`'s chip `HStack` when enabled, sized at `SpreadTheme.IconSize.small` and tinted with the priority color. Enable by default in `standardTaskConfig`.
+- **Spec**: `Documentation/Specs/TaskMetadata.md` — Priority Icon in Entry Rows [SPRD-288]
+- **Acceptance Criteria**:
+  - AC1: Tasks with `.high` priority show a double-caret-up icon tinted red, leading the chip area.
+  - AC2: Tasks with `.medium` priority show a single-caret-up icon tinted yellow, leading the chip area.
+  - AC3: Tasks with `.low` priority show a double-caret-down icon tinted green, leading the chip area.
+  - AC4: Tasks with `.none` priority show no priority icon.
+  - AC5: The priority icon appears to the left of any tag chips when both are present.
+  - AC6: `showsPriorityIcon` is `nil` in note and event configurations — no icon appears for non-task entries.
+  - AC7: `DataModel.Task.Priority.icon` and `iconColor` return `nil` for `.none` and non-nil for the other three cases.
+  - AC8: Build succeeds with no errors.
+- **Tests**:
+  - No unit tests: visual rendering change. Correctness verified by AC1–AC6 via manual inspection on a Day spread with tasks of each priority level.

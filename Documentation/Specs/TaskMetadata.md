@@ -1,6 +1,7 @@
 # Task Metadata
 
 > Source: Documentation/spec.md
+> **SPRD tasks**: SPRD-288
 
 ## Approved Task Scope (WKFLW-17)
 - Tasks gain task-level plain multiline `body`, non-null display-only `priority`, and optional day-only `dueDate`. These fields are not assignment-level metadata. [SPRD-170]
@@ -30,3 +31,34 @@
 - `AddTaskButton` receives `availableLists: [DataModel.List]` and `availableTags: [DataModel.Tag]` from its call site (defaulting to `[]`). When both arrays are empty the menu buttons are hidden. [SPRD-234]
 - State (title, selectedList, selectedTag) is cleared on `onDisappear` so re-opening the popover starts fresh. [SPRD-234]
 - This enhancement is scoped to `AddTaskButton` only — it does not apply to `EntryRowView` inline editing or `TaskCreationSheet`. [SPRD-234]
+
+---
+
+## Priority Icon in Entry Rows [SPRD-288]
+
+### Requirements
+
+- `DataModel.Task.Priority` gains two computed display properties: `icon: SpreadTheme.Icon?` and `iconColor: Color?`. Both return `nil` for `.none`. [SPRD-288]
+  - `.high` → `SpreadTheme.Icon.caretDoubleUp`, `Color.red`
+  - `.medium` → `SpreadTheme.Icon.caretUp`, `Color.yellow`
+  - `.low` → `SpreadTheme.Icon.caretDoubleDown`, `Color.green`
+- `SpreadTheme.Icon` gains three new cases: `.caretDoubleUp`, `.caretUp`, `.caretDoubleDown`, mapping to the Phosphor icons `caretDoubleUp`, `caretUp`, and `caretDoubleDown` respectively. [SPRD-288]
+- `EntryRowView.Configuration` gains an optional closure `showsPriorityIcon: ((any Entry) -> Bool)?`. When provided and returning `true` for a given entry, the priority icon is rendered leading the chip area in the row. When `nil` or returning `false`, no icon is shown. [SPRD-288]
+- In `EntryRowView`, when `showsPriorityIcon?(entry) == true` and `entry.displayPriority.icon != nil`, the icon is rendered as the leftmost item in the chip `HStack`, before any tag chips. The icon uses `SpreadTheme.IconSize.small` and is tinted with the priority's `iconColor`. [SPRD-288]
+- `standardTaskConfig` enables `showsPriorityIcon` by default (always returns `true`), so all standard task surfaces show the icon. Call sites that want to suppress it pass a custom configuration with `showsPriorityIcon` returning `false` or `nil`. [SPRD-288]
+
+### Design Decisions
+
+#### Decision: `icon`/`iconColor` on `Priority`, not on `Configuration`
+
+- **Context**: Priority icon appearance (which icon, which color) is intrinsic to the priority level, not a per-surface decision. Only whether to show the icon at all is surface-dependent.
+- **Decision**: `icon` and `iconColor` are computed properties on `DataModel.Task.Priority`. `Configuration` carries only `showsPriorityIcon`, a boolean-returning closure that lets each surface opt in or out.
+- **Rationale**: Keeps the icon/color definition in one place (the model layer), avoids duplicating the mapping at every call site, and follows the same pattern as `entry.status.iconColor` already used in `EntryRowView`.
+- **SPRD reference**: SPRD-288
+
+#### Decision: Priority icon placed via `showsPriorityIcon` closure on `Configuration`, not a new chip type
+
+- **Context**: Tag chips already use `getChips: ((any Entry) -> [any LabelChipRepresentable])?` and render via `LabelChip`. Priority could be inserted as a chip, but `LabelChipRepresentable` is text-oriented and priority is icon-only.
+- **Decision**: A separate `showsPriorityIcon` closure on `Configuration` controls visibility. `EntryRowView` renders the icon directly in the chip `HStack`, positioned before the `getChips` results.
+- **Rationale**: Avoids forcing an icon-only priority representation into the text-chip contract. Keeps the rendering path explicit and independently controllable from tag chips. Adding it as a configuration closure follows the established pattern of all other per-row display decisions.
+- **SPRD reference**: SPRD-288
