@@ -144,7 +144,7 @@ struct OverdueCardView: View {
                         }
                     )
                 ],
-                style: .card(.orange)
+                style: .card(.yellow)
             )
         ]
     }
