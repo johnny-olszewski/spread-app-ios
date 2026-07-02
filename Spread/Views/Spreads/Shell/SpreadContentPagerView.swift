@@ -109,7 +109,7 @@ struct SpreadContentPagerView: View {
                     .id(spread.id)
                     .background {
                         self.backgroundShape
-                            .fill(.background.opacity(0.6))
+                            .fill(.background.opacity(isOverduePanelOpen ? 0.6 : 1.0))
                     }
                     .clipShape(self.backgroundShape)
                 }
@@ -310,7 +310,7 @@ private struct OverduePanelToggleButton: View {
                 withAnimation(SpreadTheme.Motion.spring) { isOpen.toggle() }
             } label: {
                 SpreadTheme.Icon.clockCountdown.sized(SpreadTheme.IconSize.medium)
-                    .iconTint(isOpen ? SpreadTheme.Accent.primary : .secondary)
+                    .iconTint(.yellow)
             }
             .buttonStyle(.plain)
             .contentShape(Circle())
