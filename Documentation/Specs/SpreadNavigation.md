@@ -1,7 +1,7 @@
 # Spread Navigation
 
 > Source: Documentation/spec.md  
-> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275, SPRD-283, SPRD-284, SPRD-285
+> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275, SPRD-283, SPRD-284, SPRD-285, SPRD-289
 
 ### Spread View Architecture
 - The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
@@ -972,3 +972,54 @@ Also recompute `yearSpreads` when `journalManager.spreads` changes (e.g. a new s
 - **Decision**: `isNavigatorVisible: Bool`. Column vs. sheet is a rendering concern, not a state concern.
 - **Rationale**: Eliminates the toolbar-closure environment-capture problem entirely. Simpler state model. Preserves intent across size class transitions as a free consequence of the design.
 - **SPRD reference**: [SPRD-285]
+
+---
+
+## Overdue Panel [SPRD-289]
+
+### Problem
+
+`OverdueCardView` currently appears inline at the top of individual spread content views (`DaySpreadContentView`, `MonthSpreadContentView`). This placement is spread-type-specific, creates visual inconsistency, and lacks any reveal animation. The intent is to give the overdue panel a dedicated presence above the pager that the user consciously opens rather than something always visible.
+
+### Requirements
+
+- A `clockCountdown` (Phosphor) toolbar button appears in the `spreadDetailTitle` row on the trailing edge, overlaid on the right side of the header row. [SPRD-289]
+- The button is only visible when `journalManager.overdueTaskItems` is non-empty. [SPRD-289]
+- `OverdueCardView` sits in the spread shell, positioned between the header row and `SpreadContentPagerView`, hidden behind the pager at rest. [SPRD-289]
+- When the button is tapped, the pager slides down by the overdue card's height (measured via `onGeometryChange`), revealing the card. [SPRD-289]
+- Tapping anywhere on the pager while the panel is open slides the pager back up, hiding the card. [SPRD-289]
+- `OverdueCardView` is removed from `DaySpreadContentView` and `MonthSpreadContentView`. [SPRD-289]
+
+### Design Decisions
+
+#### Decision: Pager offset rather than ZStack insertion
+
+- **Context**: The overdue card needs to appear to slide out from behind the pager.
+- **Decision**: `OverdueCardView` is placed in the view hierarchy immediately above `SpreadContentPagerView` (normal document flow), and the pager slides down via `.offset(y: isOverduePanelOpen ? overdueCardHeight : 0)` to reveal it.
+- **Rationale**: Simpler than a ZStack with clipping and ordering concerns. The card naturally occupies its own layout slot; the pager offset creates the illusion of revealing what was hidden behind it.
+- **SPRD reference**: [SPRD-289]
+
+#### Decision: Button as trailing overlay on spreadDetailTitle row
+
+- **Context**: The toolbar button could live in the navigation bar or in the `spreadDetailTitle` row.
+- **Decision**: Button is a trailing overlay on the `spreadDetailTitle` row (not a navigation bar item).
+- **Rationale**: Keeps the button visually adjacent to the spread header content rather than in the nav bar chrome. Consistent with the existing trailing button pattern on that row.
+- **SPRD reference**: [SPRD-289]
+
+#### Decision: Dynamic card height via onGeometryChange
+
+- **Context**: The card height isn't a fixed constant — it depends on how many overdue items exist.
+- **Decision**: Use `.onGeometryChange(for: CGFloat.self) { $0.size.height }` on the `OverdueCardView` to capture height into `@State var overdueCardHeight`. The pager offset reads this value.
+- **Rationale**: No hardcoded constants. Automatically adjusts if item count changes.
+- **SPRD reference**: [SPRD-289]
+
+#### Decision: Dismiss gesture on pager
+
+- **Context**: The user needs a way to close the overdue panel without a dedicated close button.
+- **Decision**: Add a `.simultaneousGesture(TapGesture())` on the pager that sets `isOverduePanelOpen = false` when the panel is open.
+- **Rationale**: Tapping the pager is the natural "go back to my journal" affordance. `.simultaneousGesture` preserves normal pager tap-through behavior (page scrolling, entry taps) while also closing the panel.
+- **SPRD reference**: [SPRD-289]
+
+### Open Questions
+
+- None.

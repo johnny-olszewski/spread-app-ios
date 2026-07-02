@@ -7445,3 +7445,22 @@ Supabase: SPRD-85A -> SPRD-85C
 1. **[SPRD-288][1/n]** — Added `.caretDoubleUp`, `.caretUp`, `.caretDoubleDown` to `SpreadTheme.Icon`; added `icon`/`iconColor` to `DataModel.Task.Priority` in `DataModel.Task+DisplayHelpers.swift`; added `showsPriorityIcon` closure to `EntryRowView.Configuration`, enabled by default in `standardTaskConfig`; rendered icon in `EntryRowView` chip HStack leading tag chips.
    - Files: `SpreadTheme+Icon.swift`, `DataModel.Task+DisplayHelpers.swift`, `EntryRowView+Configuration.swift`, `EntryRowView.swift`
    - All ACs satisfied in one increment.
+
+---
+
+### [SPRD-289] Visual: Overdue panel as slide-down reveal behind pager - [ ] Open
+
+- **Context**: `OverdueCardView` currently appears inline at the top of individual spread content views, creating spread-type-specific placement and no reveal animation. The overdue panel should be a consciously opened surface rather than always-visible content in the spread.
+- **Description**: Move `OverdueCardView` to the spread shell above `SpreadContentPagerView`. Add a `clockCountdown` toolbar button on the trailing edge of the `spreadDetailTitle` row (visible only when overdue tasks exist). Tapping the button slides the pager down by the card height to reveal the card; tapping the pager again slides it back up.
+- **Spec**: `Documentation/Specs/SpreadNavigation.md` — Overdue Panel [SPRD-289]
+- **Acceptance Criteria**:
+  - AC1: A `clockCountdown` icon button appears on the trailing edge of the `spreadDetailTitle` row only when `journalManager.overdueTaskItems` is non-empty.
+  - AC2: Tapping the button slides `SpreadContentPagerView` down by the height of `OverdueCardView`, revealing the card behind the pager.
+  - AC3: Tapping anywhere on the pager while the panel is open slides the pager back up.
+  - AC4: The pager offset equals the dynamic height of `OverdueCardView`, measured via `onGeometryChange`.
+  - AC5: `OverdueCardView` is removed from `DaySpreadContentView` and `MonthSpreadContentView`.
+  - AC6: When `overdueTaskItems` becomes empty (e.g. all tasks resolved), the panel closes and the button disappears.
+  - AC7: Build succeeds with no errors.
+- **Tests**:
+  - No unit tests: visual/interaction change. Correctness verified by manual inspection.
+- **Dependencies**: SPRD-288
