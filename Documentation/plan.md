@@ -7448,7 +7448,7 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-289] Visual: Overdue panel as slide-down reveal behind pager - [ ] Open
+### [SPRD-289] Visual: Overdue panel as slide-down reveal behind pager - [ ] Done
 
 - **Context**: `OverdueCardView` currently appears inline at the top of individual spread content views, creating spread-type-specific placement and no reveal animation. The overdue panel should be a consciously opened surface rather than always-visible content in the spread.
 - **Description**: Move `OverdueCardView` to the spread shell above `SpreadContentPagerView`. Add a `clockCountdown` toolbar button on the trailing edge of the `spreadDetailTitle` row (visible only when overdue tasks exist). Tapping the button slides the pager down by the card height to reveal the card; tapping the pager again slides it back up.
@@ -7464,3 +7464,6 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**:
   - No unit tests: visual/interaction change. Correctness verified by manual inspection.
 - **Dependencies**: SPRD-288
+
+**Progress (commits landed on feature/SESH-27)**
+1. **[SPRD-289][1/n]** — Added `.clockCountdown` to `SpreadTheme.Icon`; removed `spread` param from `OverdueCardView` (bestSpread guard removed, derived internally for section metadata); removed `OverdueCardView` from all content views (day, month, year, multiday); added `OverdueCardView` in ZStack behind pager in `SpreadContentPagerView` with spring-animated offset; added `OverduePanelToggleButton` private struct (isolates `overdueTaskItems` observation); pager tap gesture dismisses panel; auto-closes when items become empty. All ACs satisfied.

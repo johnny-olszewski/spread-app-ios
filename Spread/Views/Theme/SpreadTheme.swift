@@ -178,8 +178,8 @@ enum SpreadTheme {
     enum Opacity {
         /// 70% — stroke opacity for card-styled sections.
         static let cardStroke: Double = 0.7
-        /// 45% — fill opacity for card-styled sections.
-        static let cardFill: Double = 0.45
+        /// 15% — fill opacity for card-styled sections.
+        static let cardFill: Double = 0.15
     }
 
     // MARK: - Corner Radius
