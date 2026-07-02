@@ -7403,7 +7403,7 @@ Supabase: SPRD-85A -> SPRD-85C
    - Files: `MultidaySpreadContentView.swift`, `MultidaySpreadContentView+ViewModel.swift`
    - All ACs satisfied in one increment.
 
-### [SPRD-287] Visual: Entry list section header style — named vs. unnamed buckets - [ ] Pending
+### [SPRD-287] Visual: Entry list section header style — named vs. unnamed buckets - [ ] Done
 
 - **Context**: All nil-bucket sections currently render "Untitled" regardless of which grouping mode produced them, and with the same font/opacity as named sections. This makes nil buckets indistinguishable from sections with a list/tag/status named "Untitled".
 - **Description**: Add `EntryList.SectionHeaderStyle` enum (`.named`, `.unnamed`) to the `EntryList` namespace. Add a `headerStyle: EntryList.SectionHeaderStyle` property to `EntryList.Section`, populated by the grouping primitive. Update `EntryListView` to render `.named` headers with a larger, prominent font at full opacity and `.unnamed` headers with a smaller font at reduced opacity. Rename nil-bucket labels per grouping mode: "No list", "No tag", "No status". Update `EntryGroupingOption` nil-bucket constant and `sortedKeysUntitledLast` to match.
@@ -7418,3 +7418,8 @@ Supabase: SPRD-85A -> SPRD-85C
   - AC7: Build succeeds with no errors.
 - **Tests**:
   - No unit tests: visual rendering change. Correctness verified by AC1–AC4 via manual inspection across all grouping modes on Day and Multiday spreads.
+
+**Progress (commits landed on feature/SESH-27)**
+1. **[SPRD-287][1/n]** — Added `EntryList.SectionHeaderStyle` enum; added `headerStyle` to `EntryList.Section`; updated `EntryGroupingOption` with per-mode nil labels ("No list", "No tag"), `nilBucketLabel` computed property, and `sortedNilBucketLast` replacing `sortedKeysUntitledLast`; updated `EntryListView` to render `.named` headers with `title3`/full opacity and `.unnamed` headers with `caption`/secondary color.
+   - Files: `EntryList+Section.swift`, `EntryGroupingOption.swift`, `EntryListView.swift`
+   - All ACs satisfied in one increment.

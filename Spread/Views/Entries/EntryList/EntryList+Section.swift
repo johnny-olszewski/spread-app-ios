@@ -4,6 +4,15 @@ import SwiftUI
 enum EntryList {}
 
 extension EntryList {
+    /// Controls how `EntryListView` renders the section header.
+    ///
+    /// `.named` applies a prominent font at full opacity (a real list, tag, or status value).
+    /// `.unnamed` applies a smaller font at reduced opacity (the nil-bucket fallback — "No list", "No tag", etc.).
+    enum SectionHeaderStyle {
+        case named
+        case unnamed
+    }
+
     /// Controls the visual chrome applied to a section by `EntryListView`.
     ///
     /// When `nil` (the default), sections render inside the standard `List`.
@@ -54,6 +63,10 @@ extension EntryList {
         /// Optional visual style applied by `EntryListView`. `nil` means standard list rendering.
         let style: EntryList.SectionStyle?
 
+        /// Controls how the section header is rendered in `EntryListView`.
+        /// `.named` for real values; `.unnamed` for nil-bucket fallbacks ("No list", "No tag", etc.).
+        let headerStyle: EntryList.SectionHeaderStyle
+
         let rowSpacing: CGFloat
         let rowInsets: EdgeInsets
         let rowAreaPadding: EdgeInsets
@@ -67,6 +80,7 @@ extension EntryList {
             creationDate: Date,
             configurationMap: EntryRowView.ConfigurationMap? = nil,
             style: EntryList.SectionStyle? = nil,
+            headerStyle: EntryList.SectionHeaderStyle = .named,
             rowSpacing: CGFloat = 8,
             rowInsets: EdgeInsets = .init(top: 0, leading: 8, bottom: 0, trailing: 8),
             rowAreaPadding: EdgeInsets = .init(top: 0, leading: 0, bottom: 8, trailing: 0)
@@ -79,6 +93,7 @@ extension EntryList {
             self.creationDate = creationDate
             self.configurationMap = configurationMap
             self.style = style
+            self.headerStyle = headerStyle
             self.rowSpacing = rowSpacing
             self.rowInsets = rowInsets
             self.rowAreaPadding = rowAreaPadding
