@@ -11,6 +11,22 @@ extension EntryList {
     enum SectionHeaderStyle {
         case named
         case unnamed
+
+        /// The font used to render this header style.
+        var font: Font {
+            switch self {
+            case .named: SpreadTheme.Typography.title2
+            case .unnamed: SpreadTheme.Typography.body
+            }
+        }
+
+        /// The foreground color used to render this header style.
+        var foregroundStyle: Color {
+            switch self {
+            case .named: .primary
+            case .unnamed: .secondary
+            }
+        }
     }
 
     /// Controls the visual chrome applied to a section by `EntryListView`.

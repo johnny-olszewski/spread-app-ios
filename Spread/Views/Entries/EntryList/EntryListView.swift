@@ -60,14 +60,10 @@ struct EntryListView<TrailingContent: View>: View {
             ForEach(sections) { section in
                 if shouldRender(section) {
                     VStack(alignment: .leading, spacing: section.rowSpacing) {
-                        HStack {
+                        HStack(alignment: .firstTextBaseline) {
                             Text(section.title)
-                                .font(section.headerStyle == .named
-                                      ? SpreadTheme.Typography.title3
-                                      : SpreadTheme.Typography.caption)
-                                .foregroundStyle(section.headerStyle == .named
-                                                 ? Color.primary
-                                                 : Color.secondary)
+                                .font(section.headerStyle.font)
+                                .foregroundStyle(section.headerStyle.foregroundStyle)
                             Spacer()
                             if let trailing = sectionHeaderTrailingContent {
                                 trailing(section)

@@ -103,7 +103,7 @@ struct DaySpreadContentView: View {
                     .spreadCard()
                 }
 
-                VStack(spacing: 0) {
+                VStack(spacing: SpreadTheme.Spacing.medium) {
                     OverdueCardView(spread: viewModel.spread, context: viewModel.context)
 
                     EntryListView(
