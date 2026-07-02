@@ -78,6 +78,8 @@ extension SpreadTheme {
         /// Multiday/timeline period icon — replaces SF Symbol `calendar.day.timeline.left`.
         case rows
         case clock
+        /// Overdue panel toggle — a clock with a countdown indicator.
+        case clockCountdown
 
         // MARK: - Filter / Sort
 
@@ -157,6 +159,7 @@ extension SpreadTheme {
             case .sun, .sunFilled: .sun
             case .rows: .rows
             case .clock: .clock
+            case .clockCountdown: .clockCountdown
             case .funnel, .funnelFilled: .funnel
             case .envelopeFilled: .envelope
             case .warning: .warning

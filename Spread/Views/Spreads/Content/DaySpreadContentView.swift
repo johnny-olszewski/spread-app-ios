@@ -104,8 +104,6 @@ struct DaySpreadContentView: View {
                 }
 
                 VStack(spacing: SpreadTheme.Spacing.medium) {
-                    OverdueCardView(spread: viewModel.spread, context: viewModel.context)
-
                     EntryListView(
                         sections: viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption),
                         configurationMap: viewModel.entryConfigurationMap

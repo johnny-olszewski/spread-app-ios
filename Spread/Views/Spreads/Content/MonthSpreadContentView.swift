@@ -69,8 +69,6 @@ struct MonthSpreadContentView: View {
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-                        OverdueCardView(spread: spread, context: context)
-
                         monthSection(entries: contentModel.monthEntries)
 
                         ForEach(contentModel.daySections) { section in

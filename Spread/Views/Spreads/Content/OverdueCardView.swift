@@ -2,14 +2,9 @@ import SwiftUI
 import JohnnyOFoundationCore
 import JohnnyOFoundationUI
 
-/// A card-styled overdue-task review surface, shared across every spread content view.
+/// A card-styled overdue-task review surface rendered above `SpreadContentPagerView`.
 ///
-/// Renders nothing unless `spread` is the *most granular* spread containing today — per
-/// `[DataModel.Spread].bestSpread(for:calendar:)`'s existing priority cascade (day > narrowest
-/// multiday > month > year), the same logic already used by the Today button and default
-/// navigation. Without this, a day spread and its parent month/year spread would all show the
-/// card simultaneously, since each independently "contains" today. Also renders nothing when
-/// there are no overdue (or grace-period, see below) tasks. When applicable, renders one
+/// Renders nothing when there are no overdue (or grace-period) tasks. Renders one
 /// `EntryList.Section` per distinct source spread (or Inbox) inside the existing `EntryListView`
 /// + `EntryList.Section.Style.card` mechanism — no new visual chrome.
 ///
@@ -21,7 +16,6 @@ import JohnnyOFoundationUI
 /// again within that window (e.g. complete → cancelled) restarts the 5 seconds.
 struct OverdueCardView: View {
 
-    let spread: DataModel.Spread
     let context: SpreadPageContext
 
     /// Maps a task's ID to the wall-clock time its grace period ends. Presence in this
@@ -38,7 +32,6 @@ struct OverdueCardView: View {
 
     var body: some View {
         let sections = Self.sections(
-            for: spread,
             context: context,
             graceTaskIDs: Set(graceExpirations.keys),
             graceSourceKeys: graceSourceKeys,
@@ -93,18 +86,15 @@ struct OverdueCardView: View {
 
     // MARK: - Section Building
 
-    /// Builds the overdue card's sections for `spread`, or `[]` when `spread` isn't the most
-    /// granular spread containing today, or there are no overdue/grace-period tasks. A `static`
-    /// function so it's directly unit-testable without constructing the view.
+    /// Builds the overdue card's sections, or `[]` when there are no overdue/grace-period tasks.
+    /// Uses `bestSpread(for:today)` to derive the creation date/period for the section metadata.
+    /// A `static` function so it's directly unit-testable without constructing the view.
     static func sections(
-        for spread: DataModel.Spread,
         context: SpreadPageContext,
         graceTaskIDs: Set<UUID> = [],
         graceSourceKeys: [UUID: TaskReviewSourceKey] = [:],
         onStatusIconTap: @escaping (any Entry) -> Void = { _ in }
     ) -> [EntryList.Section] {
-        guard spread.id == context.journalManager.bestSpread(for: context.journalManager.today)?.id else { return [] }
-
         let overdueItems = context.journalManager.overdueTaskItems
         var sourceKeyByTaskID = Dictionary(uniqueKeysWithValues: overdueItems.map { ($0.task.id, $0.sourceKey) })
         var entries: [any Entry] = overdueItems.map { $0.task }
@@ -127,14 +117,18 @@ struct OverdueCardView: View {
         let calendar = context.calendar
         entries.sort { $0.conventionalSortKey(calendar: calendar) < $1.conventionalSortKey(calendar: calendar) }
 
+        let bestSpread = context.journalManager.bestSpread(for: context.journalManager.today)
+        let creationDate = bestSpread?.date ?? context.journalManager.today
+        let creationPeriod = bestSpread?.period ?? .day
+
         return [
             EntryList.Section(
                 id: "overdue",
                 title: "Overdue",
-                date: spread.date,
+                date: creationDate,
                 entries: entries,
-                creationPeriod: spread.period,
-                creationDate: spread.date,
+                creationPeriod: creationPeriod,
+                creationDate: creationDate,
                 configurationMap: [
                     DataModel.Task.configurationKey: .readOnlyOverdueTaskConfig(
                         journalManager: context.journalManager,

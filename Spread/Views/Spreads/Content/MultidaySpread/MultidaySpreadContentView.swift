@@ -44,7 +44,6 @@ struct MultidaySpreadContentView: View {
                 .padding(.horizontal, SpreadTheme.Spacing.large)
             }
 
-            OverdueCardView(spread: viewModel.spread, context: viewModel.context)
 
             LazyVStack(alignment: .leading, spacing: SpreadTheme.Spacing.large) {
                 ForEach(viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption)) { section in
