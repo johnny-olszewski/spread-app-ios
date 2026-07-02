@@ -50,6 +50,12 @@ extension SpreadTheme {
         case caretDown
         case caretRight
         case caretLeft
+        /// Priority high indicator.
+        case caretDoubleUp
+        /// Priority medium indicator.
+        case caretUp
+        /// Priority low indicator.
+        case caretDoubleDown
         /// Sort/expand indicator — replaces SF Symbol `chevron.up.chevron.down`.
         case arrowsUpDown
         case swap
@@ -137,6 +143,9 @@ extension SpreadTheme {
             case .caretDown: .caretDown
             case .caretRight: .caretRight
             case .caretLeft: .caretLeft
+            case .caretDoubleUp: .caretDoubleUp
+            case .caretUp: .caretUp
+            case .caretDoubleDown: .caretDoubleDown
             case .arrowsUpDown: .arrowsDownUp
             case .swap: .swap
             case .arrowsClockwise: .arrowsClockwise

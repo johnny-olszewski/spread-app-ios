@@ -7424,7 +7424,7 @@ Supabase: SPRD-85A -> SPRD-85C
    - Files: `EntryList+Section.swift`, `EntryGroupingOption.swift`, `EntryListView.swift`
    - All ACs satisfied in one increment.
 
-### [SPRD-288] Visual: Priority icon in entry rows — leading the chip area - [ ] Pending
+### [SPRD-288] Visual: Priority icon in entry rows — leading the chip area - [ ] Done
 
 - **Context**: Tasks have a priority field (none/low/medium/high) but no visual representation of priority in the entry row. The priority icon should appear to the left of any tag chips in the row, providing at-a-glance priority signal without requiring the user to open the task.
 - **Description**: Add `icon: SpreadTheme.Icon?` and `iconColor: Color?` computed properties to `DataModel.Task.Priority`. Add `.caretDoubleUp`, `.caretUp`, `.caretDoubleDown` to `SpreadTheme.Icon`. Add `showsPriorityIcon: ((any Entry) -> Bool)?` to `EntryRowView.Configuration`. Render the icon in `EntryRowView`'s chip `HStack` when enabled, sized at `SpreadTheme.IconSize.small` and tinted with the priority color. Enable by default in `standardTaskConfig`.
@@ -7440,3 +7440,8 @@ Supabase: SPRD-85A -> SPRD-85C
   - AC8: Build succeeds with no errors.
 - **Tests**:
   - No unit tests: visual rendering change. Correctness verified by AC1–AC6 via manual inspection on a Day spread with tasks of each priority level.
+
+**Progress (commits landed on feature/SESH-27)**
+1. **[SPRD-288][1/n]** — Added `.caretDoubleUp`, `.caretUp`, `.caretDoubleDown` to `SpreadTheme.Icon`; added `icon`/`iconColor` to `DataModel.Task.Priority` in `DataModel.Task+DisplayHelpers.swift`; added `showsPriorityIcon` closure to `EntryRowView.Configuration`, enabled by default in `standardTaskConfig`; rendered icon in `EntryRowView` chip HStack leading tag chips.
+   - Files: `SpreadTheme+Icon.swift`, `DataModel.Task+DisplayHelpers.swift`, `EntryRowView+Configuration.swift`, `EntryRowView.swift`
+   - All ACs satisfied in one increment.

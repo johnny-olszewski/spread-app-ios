@@ -1,6 +1,28 @@
 import Foundation
 import SwiftUI
 
+extension DataModel.Task.Priority {
+    /// The icon representing this priority level, or `nil` for `.none`.
+    var icon: SpreadTheme.Icon? {
+        switch self {
+        case .none: nil
+        case .high: .caretDoubleUp
+        case .medium: .caretUp
+        case .low: .caretDoubleDown
+        }
+    }
+
+    /// The tint color for the priority icon, or `nil` for `.none`.
+    var iconColor: Color? {
+        switch self {
+        case .none: nil
+        case .high: .red
+        case .medium: .yellow
+        case .low: .green
+        }
+    }
+}
+
 extension DataModel.Task {
     /// Trimmed body text, or nil if empty. Used for row preview rendering.
     var bodyPreview: String? {

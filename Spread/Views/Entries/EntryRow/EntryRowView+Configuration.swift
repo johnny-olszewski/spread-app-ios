@@ -169,6 +169,10 @@ extension EntryRowView {
         var onRowTap: ((any Entry) -> Void)?
         
         var getChips: ((any Entry) -> [any LabelChipRepresentable])?
+
+        /// When non-nil and returning `true`, a priority icon is rendered leading the chip area.
+        /// Only meaningful for task entries — leave `nil` for notes and events.
+        var showsPriorityIcon: ((any Entry) -> Bool)?
     }
 }
 
@@ -240,7 +244,8 @@ extension EntryRowView.Configuration {
                 })
                 
             ],
-            getChips: typed(default: []) { (task: DataModel.Task) in getChips?(task) ?? task.tags }
+            getChips: typed(default: []) { (task: DataModel.Task) in getChips?(task) ?? task.tags },
+            showsPriorityIcon: { _ in true }
         )
     }
 

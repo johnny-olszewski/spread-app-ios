@@ -112,6 +112,13 @@ struct EntryRowView: View {
                         }
                     }
 
+                if configuration.showsPriorityIcon?(entry) == true,
+                   let icon = entry.displayPriority.icon,
+                   let color = entry.displayPriority.iconColor {
+                    icon.sized(SpreadTheme.IconSize.small)
+                        .iconTint(color)
+                }
+
                 ForEach(chips.indices, id: \.self) { i in
                     LabelChip(chips[i])
                 }
