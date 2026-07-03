@@ -29,16 +29,6 @@ struct SpreadContentPagerView: View {
     let today: Date
     /// Pre-computed by the parent so `spreadDetailTitle` does not observe JournalManager during scrolling.
     let firstWeekday: FirstWeekday
-    /// Today's year spread, pre-computed once at init from `spreads`. Stable for the view's lifetime.
-    let todayYearSpread: DataModel.Spread?
-    /// Today's month spread, pre-computed once at init from `spreads`. Stable for the view's lifetime.
-    let todayMonthSpread: DataModel.Spread?
-    /// The multiday spread containing today, pre-computed once at init. Stable for the view's lifetime.
-    let todayMultidaySpread: DataModel.Spread?
-    /// Display label for `todayMultidaySpread` — custom name → dynamic name → canonical date range.
-    let todayMultidayLabel: String?
-    /// Today's day spread, pre-computed once at init from `spreads`. Stable for the view's lifetime.
-    let todayDaySpread: DataModel.Spread?
     /// Seeded at construction (not just `.onAppear`) so the very first render's `spreadDataModel(for:)`
     /// window is already centered on the selected spread, rather than briefly showing the "No Data"
     /// placeholder before `.onAppear` fires. Stable across parent re-renders — only ever set once at init.
@@ -73,31 +63,11 @@ struct SpreadContentPagerView: View {
         self.today = today
         self.firstWeekday = firstWeekday
         _settledSpreadID = State(initialValue: initialSelectedSpreadID)
-        let formatter = SpreadDisplayNameFormatter(calendar: calendar, today: today, firstWeekday: firstWeekday)
-        todayYearSpread = spreads.first { $0.period == .year && $0.contains(date: today, calendar: calendar) }
-        todayMonthSpread = spreads.first { $0.period == .month && $0.contains(date: today, calendar: calendar) }
-        let multiday = spreads.first { $0.period == .multiday && $0.contains(date: today, calendar: calendar) }
-        todayMultidaySpread = multiday
-        todayMultidayLabel = multiday.map { formatter.display(for: $0, allowsPersonalization: true).primary }
-        todayDaySpread = spreads.first { $0.period == .day && $0.contains(date: today, calendar: calendar) }
     }
 
     var body: some View {
         VStack(spacing: 0) {
             spreadDetailTitle
-                .overlay(alignment: .leading) {
-                    SpreadParentNavButtons(
-                        settledSpreadID: settledSpreadID,
-                        spreads: spreads,
-                        todayYearSpread: todayYearSpread,
-                        todayMonthSpread: todayMonthSpread,
-                        todayMultidaySpread: todayMultidaySpread,
-                        todayMultidayLabel: todayMultidayLabel,
-                        todayDaySpread: todayDaySpread,
-                        coordinator: coordinator
-                    )
-                    .padding(.leading, SpreadTheme.Spacing.large)
-                }
                 .overlay(alignment: .trailing) {
                     OverduePanelToggleButton(
                         journalManager: journalManager,
@@ -345,57 +315,6 @@ private struct OverduePanelToggleButton: View {
             }
             .buttonStyle(.plain)
             .contentShape(Circle())
-        }
-    }
-}
-
-// MARK: - SpreadParentNavButtons
-
-/// Renders `SpreadButton` shortcuts for today's year, month, and day spreads.
-///
-/// All three buttons are always shown when the corresponding spread exists, regardless of which
-/// spread is currently on screen. The button matching the settled spread's period is styled `.tonal`
-/// (selected); the others use `.plain`. Buttons are ordered least-granular to most-granular
-/// (year → month → today) so the visual trail reads leading → trailing.
-///
-/// Today's spreads are passed as pre-computed `let` properties from `SpreadContentPagerView.init`,
-/// so this struct has no `JournalManager` dependency — its body reads only value-type parameters.
-private struct SpreadParentNavButtons: View {
-    let settledSpreadID: UUID?
-    let spreads: [DataModel.Spread]
-    let todayYearSpread: DataModel.Spread?
-    let todayMonthSpread: DataModel.Spread?
-    let todayMultidaySpread: DataModel.Spread?
-    let todayMultidayLabel: String?
-    let todayDaySpread: DataModel.Spread?
-    let coordinator: SpreadsCoordinator
-
-    var body: some View {
-        let settledPeriod = spreads.first(where: { $0.id == settledSpreadID })?.period
-        let hasAny = todayYearSpread != nil || todayMonthSpread != nil || todayMultidaySpread != nil || todayDaySpread != nil
-        if hasAny {
-            HStack(spacing: SpreadTheme.Spacing.small) {
-                if let spread = todayYearSpread {
-                    SpreadButton("This year", style: settledPeriod == .year ? .tonal : .plain, size: .small) {
-                        coordinator.navigate(to: spread, shouldRecenter: true)
-                    }
-                }
-                if let spread = todayMonthSpread {
-                    SpreadButton("This Month", style: settledPeriod == .month ? .tonal : .plain, size: .small) {
-                        coordinator.navigate(to: spread, shouldRecenter: true)
-                    }
-                }
-                if let spread = todayMultidaySpread {
-                    SpreadButton(todayMultidayLabel ?? "Multiday", style: settledPeriod == .multiday ? .tonal : .plain, size: .small) {
-                        coordinator.navigate(to: spread, shouldRecenter: true)
-                    }
-                }
-                if let spread = todayDaySpread {
-                    SpreadButton("Today", style: settledPeriod == .day ? .tonal : .plain, size: .small) {
-                        coordinator.navigate(to: spread, shouldRecenter: true)
-                    }
-                }
-            }
         }
     }
 }

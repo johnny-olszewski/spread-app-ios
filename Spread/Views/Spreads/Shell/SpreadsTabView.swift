@@ -264,7 +264,13 @@ struct SpreadsTabView: View {
     }
     
     private var spreadsNavigatorView: some View {
-        SpreadsNavigatorView(
+        let calendar = spreadsCalendar
+        let today = journalManager.today
+        let spreads = journalManager.spreads
+        let firstWeekday = journalManager.firstWeekday
+        let formatter = SpreadDisplayNameFormatter(calendar: calendar, today: today, firstWeekday: firstWeekday)
+        let todayMultiday = spreads.first { $0.period == .multiday && $0.contains(date: today, calendar: calendar) }
+        return SpreadsNavigatorView(
             calendarModels: navigatorCalendarModels,
             yearSpreads: navigatorYearSpreads,
             selectedYear: $spreadsCoordinator.selectedYear,
@@ -272,8 +278,14 @@ struct SpreadsTabView: View {
                 get: { spreadsCoordinator.selectedSpread },
                 set: { if let spread = $0 { spreadsCoordinator.navigate(to: spread) } }
             ),
-            today: journalManager.today,
-            calendar: spreadsCalendar
+            today: today,
+            calendar: calendar,
+            coordinator: spreadsCoordinator,
+            todayYearSpread: spreads.first { $0.period == .year && $0.contains(date: today, calendar: calendar) },
+            todayMonthSpread: spreads.first { $0.period == .month && $0.contains(date: today, calendar: calendar) },
+            todayMultidaySpread: todayMultiday,
+            todayMultidayLabel: todayMultiday.map { formatter.display(for: $0, allowsPersonalization: true).primary },
+            todayDaySpread: spreads.first { $0.period == .day && $0.contains(date: today, calendar: calendar) }
         )
     }
     

@@ -37,6 +37,22 @@ struct SpreadsNavigatorView: View {
     let today: Date
     let calendar: Calendar
 
+    /// Coordinator used by the context navigation buttons to navigate and recenter the pager.
+    let coordinator: SpreadsCoordinator
+
+    // MARK: - Today Context Spreads
+
+    /// Today's year spread, pre-computed by the parent. Nil when no such spread exists.
+    let todayYearSpread: DataModel.Spread?
+    /// Today's month spread, pre-computed by the parent. Nil when no such spread exists.
+    let todayMonthSpread: DataModel.Spread?
+    /// The multiday spread containing today, pre-computed by the parent. Nil when none exists.
+    let todayMultidaySpread: DataModel.Spread?
+    /// Display label for `todayMultidaySpread` (custom name → dynamic → canonical date range).
+    let todayMultidayLabel: String?
+    /// Today's day spread, pre-computed by the parent. Nil when no such spread exists.
+    let todayDaySpread: DataModel.Spread?
+
     // MARK: - Derived from Model
 
     /// Unique spreads for the selected year, used by `RowOverlayGenerator` to draw multiday
@@ -123,8 +139,44 @@ struct SpreadsNavigatorView: View {
             initialScrollTarget: today,
             onDateTapped: handleDateTap
         )
+        .overlay(alignment: .top) {
+            topInsetControls
+        }
         .overlay(alignment: .bottom) {
             bottomInsetControls
+        }
+    }
+
+    // MARK: - Top Inset Controls
+
+    @ViewBuilder
+    private var topInsetControls: some View {
+        let selectedPeriod = selectedSpread?.period
+        let hasAny = todayYearSpread != nil || todayMonthSpread != nil || todayMultidaySpread != nil || todayDaySpread != nil
+        if hasAny {
+            HStack(spacing: SpreadTheme.Spacing.small) {
+                if let spread = todayYearSpread {
+                    SpreadButton("This year", style: selectedPeriod == .year ? .tonal : .plain, size: .small) {
+                        coordinator.navigate(to: spread, shouldRecenter: true)
+                    }
+                }
+                if let spread = todayMonthSpread {
+                    SpreadButton("This Month", style: selectedPeriod == .month ? .tonal : .plain, size: .small) {
+                        coordinator.navigate(to: spread, shouldRecenter: true)
+                    }
+                }
+                if let spread = todayMultidaySpread {
+                    SpreadButton(todayMultidayLabel ?? "Multiday", style: selectedPeriod == .multiday ? .tonal : .plain, size: .small) {
+                        coordinator.navigate(to: spread, shouldRecenter: true)
+                    }
+                }
+                if let spread = todayDaySpread {
+                    SpreadButton("Today", style: selectedPeriod == .day ? .tonal : .plain, size: .small) {
+                        coordinator.navigate(to: spread, shouldRecenter: true)
+                    }
+                }
+            }
+            .padding(SpreadTheme.Spacing.medium)
         }
     }
 
