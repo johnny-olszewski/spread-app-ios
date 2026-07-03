@@ -53,7 +53,7 @@ struct JournalManagerParentSpreadsTests {
     }
 
     /// Conditions: Viewing a year spread. Both a day spread for today and a month spread exist.
-    /// Expected: Returns [daySpread, monthSpread] — most-granular first.
+    /// Expected: Returns [monthSpread, daySpread] — least-granular first (year excluded, month before day).
     @Test @MainActor func yearPeriodReturnsSpreadsInGranularityOrder() async throws {
         let calendar = Self.testCalendar
         let today = Self.date(year: 2026, month: 7, day: 6)
@@ -68,8 +68,8 @@ struct JournalManagerParentSpreadsTests {
 
         let context = manager.todayContextSpreads(for: .year)
         #expect(context.count == 2)
-        #expect(context[0].id == daySpread.id)
-        #expect(context[1].id == monthSpread.id)
+        #expect(context[0].id == monthSpread.id)
+        #expect(context[1].id == daySpread.id)
     }
 
     // MARK: - Month period
@@ -94,8 +94,8 @@ struct JournalManagerParentSpreadsTests {
     }
 
     /// Conditions: Today is July 6, 2026. Both a day spread and a year spread exist. Viewing a month spread.
-    /// Expected: Returns [daySpread, yearSpread] in that order (most-granular first).
-    @Test @MainActor func monthPeriodIncludesTodayDaySpreadBeforeYearSpread() async throws {
+    /// Expected: Returns [yearSpread, daySpread] in that order (least-granular first).
+    @Test @MainActor func monthPeriodReturnsYearBeforeDaySpread() async throws {
         let calendar = Self.testCalendar
         let today = Self.date(year: 2026, month: 7, day: 6)
         let daySpread = DataModel.Spread(period: .day, date: today, calendar: calendar)
@@ -109,8 +109,8 @@ struct JournalManagerParentSpreadsTests {
 
         let context = manager.todayContextSpreads(for: .month)
         #expect(context.count == 2)
-        #expect(context[0].id == daySpread.id)
-        #expect(context[1].id == yearSpread.id)
+        #expect(context[0].id == yearSpread.id)
+        #expect(context[1].id == daySpread.id)
     }
 
     /// Conditions: Today is July 6, 2026. No year or day spread exists. Viewing a month spread.
@@ -133,7 +133,7 @@ struct JournalManagerParentSpreadsTests {
     // MARK: - Day period
 
     /// Conditions: Today is July 6, 2026. Both a July month spread and a 2026 year spread exist.
-    /// Expected: Returns [monthSpread, yearSpread] in that order (most-granular first).
+    /// Expected: Returns [yearSpread, monthSpread] in that order (least-granular first).
     @Test @MainActor func dayPeriodReturnsTodayMonthAndYearSpreads() async throws {
         let calendar = Self.testCalendar
         let today = Self.date(year: 2026, month: 7, day: 6)
@@ -148,8 +148,8 @@ struct JournalManagerParentSpreadsTests {
 
         let context = manager.todayContextSpreads(for: .day)
         #expect(context.count == 2)
-        #expect(context[0].id == monthSpread.id)
-        #expect(context[1].id == yearSpread.id)
+        #expect(context[0].id == yearSpread.id)
+        #expect(context[1].id == monthSpread.id)
     }
 
     /// Conditions: Today is July 6, 2026. Only a year spread exists (no month spread).
@@ -210,7 +210,7 @@ struct JournalManagerParentSpreadsTests {
     // MARK: - Multiday period
 
     /// Conditions: Today is July 6, 2026. July month and 2026 year spreads exist. Viewing multiday.
-    /// Expected: Returns [monthSpread, yearSpread] — multiday shows all other existing-period shortcuts.
+    /// Expected: Returns [yearSpread, monthSpread] — least-granular first.
     @Test @MainActor func multidayPeriodReturnsTodayMonthAndYearSpreads() async throws {
         let calendar = Self.testCalendar
         let today = Self.date(year: 2026, month: 7, day: 6)
@@ -230,12 +230,12 @@ struct JournalManagerParentSpreadsTests {
 
         let context = manager.todayContextSpreads(for: .multiday)
         #expect(context.count == 2)
-        #expect(context[0].id == monthSpread.id)
-        #expect(context[1].id == yearSpread.id)
+        #expect(context[0].id == yearSpread.id)
+        #expect(context[1].id == monthSpread.id)
     }
 
     /// Conditions: Today is July 6, 2026. Day, month, and year spreads all exist. Viewing multiday.
-    /// Expected: Returns [daySpread, monthSpread, yearSpread] — most-granular first.
+    /// Expected: Returns [yearSpread, monthSpread, daySpread] — least-granular first.
     @Test @MainActor func multidayPeriodIncludesTodayDaySpread() async throws {
         let calendar = Self.testCalendar
         let today = Self.date(year: 2026, month: 7, day: 6)
@@ -251,8 +251,8 @@ struct JournalManagerParentSpreadsTests {
 
         let context = manager.todayContextSpreads(for: .multiday)
         #expect(context.count == 3)
-        #expect(context[0].id == daySpread.id)
+        #expect(context[0].id == yearSpread.id)
         #expect(context[1].id == monthSpread.id)
-        #expect(context[2].id == yearSpread.id)
+        #expect(context[2].id == daySpread.id)
     }
 }
