@@ -269,7 +269,47 @@ struct SpreadsTabView: View {
         let spreads = journalManager.spreads
         let firstWeekday = journalManager.firstWeekday
         let formatter = SpreadDisplayNameFormatter(calendar: calendar, today: today, firstWeekday: firstWeekday)
-        let todayMultiday = spreads.first { $0.period == .multiday && $0.contains(date: today, calendar: calendar) }
+        let selectedPeriod = spreadsCoordinator.selectedSpread?.period
+
+        var topInsetButtons: [SpreadButton.ViewModel] = []
+
+        if let spread = spreads.first(where: { $0.period == .year && $0.contains(date: today, calendar: calendar) }) {
+            topInsetButtons.append(SpreadButton.ViewModel(
+                title: "This year",
+                style: selectedPeriod == .year ? .tonal : .plain,
+                size: .small,
+                action: { spreadsCoordinator.navigate(to: spread, shouldRecenter: true) }
+            ))
+        }
+
+        if let spread = spreads.first(where: { $0.period == .month && $0.contains(date: today, calendar: calendar) }) {
+            topInsetButtons.append(SpreadButton.ViewModel(
+                title: "This month",
+                style: selectedPeriod == .month ? .tonal : .plain,
+                size: .small,
+                action: { spreadsCoordinator.navigate(to: spread, shouldRecenter: true) }
+            ))
+        }
+
+        if let spread = spreads.first(where: { $0.period == .multiday && $0.contains(date: today, calendar: calendar) }) {
+            let label = formatter.display(for: spread, allowsPersonalization: true).primary
+            topInsetButtons.append(SpreadButton.ViewModel(
+                title: label,
+                style: selectedPeriod == .multiday ? .tonal : .plain,
+                size: .small,
+                action: { spreadsCoordinator.navigate(to: spread, shouldRecenter: true) }
+            ))
+        }
+
+        if let spread = spreads.first(where: { $0.period == .day && $0.contains(date: today, calendar: calendar) }) {
+            topInsetButtons.append(SpreadButton.ViewModel(
+                title: "Today",
+                style: selectedPeriod == .day ? .tonal : .plain,
+                size: .small,
+                action: { spreadsCoordinator.navigate(to: spread, shouldRecenter: true) }
+            ))
+        }
+
         return SpreadsNavigatorView(
             calendarModels: navigatorCalendarModels,
             yearSpreads: navigatorYearSpreads,
@@ -280,12 +320,7 @@ struct SpreadsTabView: View {
             ),
             today: today,
             calendar: calendar,
-            coordinator: spreadsCoordinator,
-            todayYearSpread: spreads.first { $0.period == .year && $0.contains(date: today, calendar: calendar) },
-            todayMonthSpread: spreads.first { $0.period == .month && $0.contains(date: today, calendar: calendar) },
-            todayMultidaySpread: todayMultiday,
-            todayMultidayLabel: todayMultiday.map { formatter.display(for: $0, allowsPersonalization: true).primary },
-            todayDaySpread: spreads.first { $0.period == .day && $0.contains(date: today, calendar: calendar) }
+            topInsetButtons: topInsetButtons
         )
     }
     
