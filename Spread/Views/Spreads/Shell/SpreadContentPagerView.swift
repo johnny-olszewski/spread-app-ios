@@ -345,10 +345,10 @@ private struct SpreadParentNavButtons: View {
 
     var body: some View {
         if let spread = spreads.first(where: { $0.id == settledSpreadID }) {
-            let parents = journalManager.containingParentSpreads(for: spread)
-            if !parents.isEmpty {
+            let context = journalManager.todayContextSpreads(for: spread.period)
+            if !context.isEmpty {
                 HStack(spacing: 6) {
-                    ForEach(parents) { parent in
+                    ForEach(context) { parent in
                         parentButton(for: parent)
                     }
                 }
@@ -368,8 +368,8 @@ private struct SpreadParentNavButtons: View {
                     .font(SpreadTheme.Typography.caption2)
             }
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .background(Capsule().fill(.secondary.opacity(0.12)))
         }
         .buttonStyle(.plain)
