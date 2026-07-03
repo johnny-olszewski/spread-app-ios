@@ -7468,24 +7468,25 @@ Supabase: SPRD-85A -> SPRD-85C
 **Progress (commits landed on feature/SESH-27)**
 ---
 
-### [SPRD-290] Feature: Parent period context buttons in spreadDetailTitle - [ ] Open
+### [SPRD-290] Feature: Parent period context buttons in spreadDetailTitle - [ ] Done
 
 - **Context**: No quick in-surface way to jump from a day spread to its containing month/year spread. The navigator requires an extra tap to open.
 - **Description**: Add `JournalManager.containingParentSpreads(for:) -> [DataModel.Spread]` returning existing less-granular spreads that contain the current spread's date. Render each as a small secondary chip button on the leading edge of the `spreadDetailTitle` row. Button shows "This Month"/"This Year" as primary label and the canonical spread name (e.g. "July") as sublabel. Isolated in a `SpreadParentNavButtons` private struct to preserve the coordinator.selectedSpread-free pager body invariant from SPRD-284.
 - **Spec**: `Documentation/Specs/SpreadNavigation.md` — Parent Period Context Buttons [SPRD-290]
 - **Acceptance Criteria**:
-  - AC1: `JournalManager.containingParentSpreads(for:)` returns existing month/year spreads for a day spread, existing year spread for a month spread, existing month+year spreads for a multiday spread, and `[]` for a year spread.
-  - AC2: Buttons appear on the leading edge of `spreadDetailTitle`, fixed while the pager scrolls.
-  - AC3: Each button shows "This Month" or "This Year" as the primary label and the canonical name as sublabel.
-  - AC4: Tapping a button navigates to that spread.
-  - AC5: No buttons appear when `containingParentSpreads` returns `[]` (e.g. on a year spread, or when no parent spreads exist).
-  - AC6: `journalManager.spreads` is read only inside the isolated `SpreadParentNavButtons` subview, not in `SpreadContentPagerView.body`.
-  - AC7: Build succeeds with no errors.
+  - [x] AC1: `JournalManager.containingParentSpreads(for:)` returns existing month/year spreads for a day spread, existing year spread for a month spread, existing month+year spreads for a multiday spread, and `[]` for a year spread.
+  - [x] AC2: Buttons appear on the leading edge of `spreadDetailTitle`, fixed while the pager scrolls.
+  - [x] AC3: Each button shows "This Month" or "This Year" as the primary label and the canonical name as sublabel.
+  - [x] AC4: Tapping a button navigates to that spread.
+  - [x] AC5: No buttons appear when `containingParentSpreads` returns `[]` (e.g. on a year spread, or when no parent spreads exist).
+  - [x] AC6: `journalManager.spreads` is read only inside the isolated `SpreadParentNavButtons` subview, not in `SpreadContentPagerView.body`.
+  - [x] AC7: Build succeeds with no errors.
 - **Tests**:
   - Unit tests for `containingParentSpreads(for:)`: day/month/multiday/year inputs; some parent spreads exist, some don't.
 
 **Progress (commits landed on feature/SESH-27)**
 1. **[SPRD-290][1/n]** — Added `JournalManager+ParentSpreads.swift` with `containingParentSpreads(for:)` and private `normalizedPeriodKeys(_:from:to:)` helper. Added 9 unit tests in `JournalManagerParentSpreadsTests.swift` covering all four period types with and without parent spreads present. Also fixed 3 pre-existing test compile failures: `SpreadsCoordinatorTests` (direct `selectedSpread` set→ `navigate(to:)` after SPRD-285), `OverdueCardViewTests` (removed `for:` param removed in SPRD-289, updated 3 spread-priority tests whose behavior was removed), `MultidaySectionLayoutTests` (added missing `UserInterfaceSizeClass+MultidayLayout.swift` with `multidayColumnCount`). AC1 ✅.
-- Remaining for this task: view component `SpreadParentNavButtons` + wire into `spreadDetailTitle` overlay (ACs 2–6, 7).
+2. **[SPRD-290][2/n]** — Added `SpreadParentNavButtons` private struct to `SpreadContentPagerView.swift`. Reads `journalManager.containingParentSpreads(for:)` in its own body scope (isolated from pager body per SPRD-284 invariant). Renders a capsule-styled chip per parent spread showing "This Month"/"This Year" as primary label and canonical spread name as sublabel. Tapping calls `coordinator.navigate(to:shouldRecenter:true)`. Wired as `.overlay(alignment: .leading)` on `spreadDetailTitle`. All ACs satisfied.
+- Remaining for this task: none — all ACs complete.
 
 1. **[SPRD-289][1/n]** — Added `.clockCountdown` to `SpreadTheme.Icon`; removed `spread` param from `OverdueCardView` (bestSpread guard removed, derived internally for section metadata); removed `OverdueCardView` from all content views (day, month, year, multiday); added `OverdueCardView` in ZStack behind pager in `SpreadContentPagerView` with spring-animated offset; added `OverduePanelToggleButton` private struct (isolates `overdueTaskItems` observation); pager tap gesture dismisses panel; auto-closes when items become empty. All ACs satisfied.

@@ -68,6 +68,15 @@ struct SpreadContentPagerView: View {
     var body: some View {
         VStack(spacing: 0) {
             spreadDetailTitle
+                .overlay(alignment: .leading) {
+                    SpreadParentNavButtons(
+                        settledSpreadID: settledSpreadID,
+                        spreads: spreads,
+                        coordinator: coordinator,
+                        calendar: calendar
+                    )
+                    .padding(.leading, SpreadTheme.Spacing.large)
+                }
                 .overlay(alignment: .trailing) {
                     OverduePanelToggleButton(
                         journalManager: journalManager,
@@ -315,6 +324,62 @@ private struct OverduePanelToggleButton: View {
             }
             .buttonStyle(.plain)
             .contentShape(Circle())
+        }
+    }
+}
+
+// MARK: - SpreadParentNavButtons
+
+/// Renders chip buttons for each less-granular spread containing the settled spread's dates.
+///
+/// Reads `journalManager.spreads` (via `containingParentSpreads`) in its own body scope, isolated
+/// from `SpreadContentPagerView`, preserving the coordinator.selectedSpread-free pager body
+/// invariant from SPRD-284. Hidden automatically when `containingParentSpreads` returns `[]`
+/// (e.g. on a year spread, or when no parent spreads exist yet).
+private struct SpreadParentNavButtons: View {
+    let settledSpreadID: UUID?
+    let spreads: [DataModel.Spread]
+    let coordinator: SpreadsCoordinator
+    let calendar: Calendar
+    @Environment(JournalManager.self) private var journalManager
+
+    var body: some View {
+        if let spread = spreads.first(where: { $0.id == settledSpreadID }) {
+            let parents = journalManager.containingParentSpreads(for: spread)
+            if !parents.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(parents) { parent in
+                        parentButton(for: parent)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func parentButton(for spread: DataModel.Spread) -> some View {
+        Button {
+            coordinator.navigate(to: spread, shouldRecenter: true)
+        } label: {
+            VStack(spacing: 1) {
+                Text(periodLabel(for: spread.period))
+                    .font(SpreadTheme.Typography.caption2)
+                Text(SpreadDisplayNameFormatter.canonicalTitle(for: spread, calendar: calendar))
+                    .font(SpreadTheme.Typography.caption2)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(.secondary.opacity(0.12)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func periodLabel(for period: Period) -> String {
+        switch period {
+        case .month: return "This Month"
+        case .year: return "This Year"
+        default: return ""
         }
     }
 }
