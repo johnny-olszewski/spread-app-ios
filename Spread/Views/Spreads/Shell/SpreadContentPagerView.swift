@@ -29,6 +29,12 @@ struct SpreadContentPagerView: View {
     let today: Date
     /// Pre-computed by the parent so `spreadDetailTitle` does not observe JournalManager during scrolling.
     let firstWeekday: FirstWeekday
+    /// Today's year spread, pre-computed once at init from `spreads`. Stable for the view's lifetime.
+    let todayYearSpread: DataModel.Spread?
+    /// Today's month spread, pre-computed once at init from `spreads`. Stable for the view's lifetime.
+    let todayMonthSpread: DataModel.Spread?
+    /// Today's day spread, pre-computed once at init from `spreads`. Stable for the view's lifetime.
+    let todayDaySpread: DataModel.Spread?
     /// Seeded at construction (not just `.onAppear`) so the very first render's `spreadDataModel(for:)`
     /// window is already centered on the selected spread, rather than briefly showing the "No Data"
     /// placeholder before `.onAppear` fires. Stable across parent re-renders — only ever set once at init.
@@ -63,6 +69,9 @@ struct SpreadContentPagerView: View {
         self.today = today
         self.firstWeekday = firstWeekday
         _settledSpreadID = State(initialValue: initialSelectedSpreadID)
+        todayYearSpread = spreads.first { $0.period == .year && $0.contains(date: today, calendar: calendar) }
+        todayMonthSpread = spreads.first { $0.period == .month && $0.contains(date: today, calendar: calendar) }
+        todayDaySpread = spreads.first { $0.period == .day && $0.contains(date: today, calendar: calendar) }
     }
 
     var body: some View {
@@ -72,8 +81,10 @@ struct SpreadContentPagerView: View {
                     SpreadParentNavButtons(
                         settledSpreadID: settledSpreadID,
                         spreads: spreads,
-                        coordinator: coordinator,
-                        calendar: calendar
+                        todayYearSpread: todayYearSpread,
+                        todayMonthSpread: todayMonthSpread,
+                        todayDaySpread: todayDaySpread,
+                        coordinator: coordinator
                     )
                     .padding(.leading, SpreadTheme.Spacing.large)
                 }
@@ -330,60 +341,44 @@ private struct OverduePanelToggleButton: View {
 
 // MARK: - SpreadParentNavButtons
 
-/// Renders chip buttons for today's spreads at all periods other than the one currently viewed.
+/// Renders `SpreadButton` shortcuts for today's year, month, and day spreads.
 ///
-/// Reads `journalManager.spreads` (via `todayContextSpreads`) in its own body scope, isolated
-/// from `SpreadContentPagerView`, preserving the coordinator.selectedSpread-free pager body
-/// invariant from SPRD-284. Hidden automatically when `todayContextSpreads` returns `[]`
-/// (e.g. when no other period spreads exist yet).
+/// All three buttons are always shown when the corresponding spread exists, regardless of which
+/// spread is currently on screen. The button matching the settled spread's period is styled `.tonal`
+/// (selected); the others use `.plain`. Buttons are ordered least-granular to most-granular
+/// (year → month → today) so the visual trail reads leading → trailing.
+///
+/// Today's spreads are passed as pre-computed `let` properties from `SpreadContentPagerView.init`,
+/// so this struct has no `JournalManager` dependency — its body reads only value-type parameters.
 private struct SpreadParentNavButtons: View {
     let settledSpreadID: UUID?
     let spreads: [DataModel.Spread]
+    let todayYearSpread: DataModel.Spread?
+    let todayMonthSpread: DataModel.Spread?
+    let todayDaySpread: DataModel.Spread?
     let coordinator: SpreadsCoordinator
-    let calendar: Calendar
-    @Environment(JournalManager.self) private var journalManager
 
     var body: some View {
-        if let spread = spreads.first(where: { $0.id == settledSpreadID }) {
-            let context = journalManager.todayContextSpreads(for: spread.period)
-            if !context.isEmpty {
-                HStack(spacing: 6) {
-                    ForEach(context) { parent in
-                        parentButton(for: parent)
+        let settledPeriod = spreads.first(where: { $0.id == settledSpreadID })?.period
+        let hasAny = todayYearSpread != nil || todayMonthSpread != nil || todayDaySpread != nil
+        if hasAny {
+            HStack(spacing: SpreadTheme.Spacing.small) {
+                if let spread = todayYearSpread {
+                    SpreadButton("This Year", style: settledPeriod == .year ? .tonal : .plain, size: .small) {
+                        coordinator.navigate(to: spread, shouldRecenter: true)
+                    }
+                }
+                if let spread = todayMonthSpread {
+                    SpreadButton("This Month", style: settledPeriod == .month ? .tonal : .plain, size: .small) {
+                        coordinator.navigate(to: spread, shouldRecenter: true)
+                    }
+                }
+                if let spread = todayDaySpread {
+                    SpreadButton("Today", style: settledPeriod == .day ? .tonal : .plain, size: .small) {
+                        coordinator.navigate(to: spread, shouldRecenter: true)
                     }
                 }
             }
-        }
-    }
-
-    @ViewBuilder
-    private func parentButton(for spread: DataModel.Spread) -> some View {
-        let label = periodLabel(for: spread.period)
-        Button {
-            coordinator.navigate(to: spread, shouldRecenter: true)
-        } label: {
-            VStack(spacing: 1) {
-                if !label.isEmpty {
-                    Text(label)
-                        .font(SpreadTheme.Typography.caption2)
-                }
-                Text(SpreadDisplayNameFormatter.canonicalTitle(for: spread, calendar: calendar))
-                    .font(SpreadTheme.Typography.caption2)
-            }
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Capsule().fill(.secondary.opacity(0.12)))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func periodLabel(for period: Period) -> String {
-        switch period {
-        case .day: return "Today"
-        case .multiday: return ""
-        case .month: return "This Month"
-        case .year: return "This Year"
         }
     }
 }
