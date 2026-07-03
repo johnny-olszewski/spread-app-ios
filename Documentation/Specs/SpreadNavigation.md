@@ -1,7 +1,7 @@
 # Spread Navigation
 
 > Source: Documentation/spec.md  
-> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275, SPRD-283, SPRD-284, SPRD-285, SPRD-289
+> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275, SPRD-283, SPRD-284, SPRD-285, SPRD-289, SPRD-290
 
 ### Spread View Architecture
 - The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
@@ -1023,3 +1023,52 @@ Also recompute `yearSpreads` when `journalManager.spreads` changes (e.g. a new s
 ### Open Questions
 
 - None.
+
+---
+
+## Parent Period Context Buttons [SPRD-290]
+
+### Problem
+
+When viewing a day, month, or multiday spread, there is no in-surface shortcut to jump up to the containing less-granular spread (e.g. from July 6 → July month spread → 2026 year spread). The navigator covers this but requires opening a separate sheet; a quick one-tap affordance on the spread itself would be faster.
+
+### Requirements
+
+- A method `containingParentSpreads(for spread: DataModel.Spread) -> [DataModel.Spread]` is added to `JournalManager`. It returns the ordered list of existing spreads that are less granular than `spread` and contain its date (or date range, for multiday). [SPRD-290]
+  - Day: returns the month spread for that date (if exists), then the year spread (if exists).
+  - Month: returns the year spread for that date (if exists).
+  - Multiday: returns month spread(s) covering the range (if exist), then year spread(s) (if exist), sorted less→more granular.
+  - Year: returns `[]` — no less granular period.
+- The buttons are rendered as a leading-edge overlay on the `spreadDetailTitle` row (symmetric with the overdue clock button on the trailing edge). [SPRD-290]
+- Each button shows the period label ("This Month" / "This Year") as the primary label and the spread's canonical name (e.g. "July", "2026") as a secondary sublabel. [SPRD-290]
+- Buttons are only shown for spreads that already exist — no spread creation on tap. [SPRD-290]
+- Tapping a button navigates to that spread via the coordinator. [SPRD-290]
+- Style is visually secondary relative to the main spread title — uses a small chip/pill aesthetic to differentiate from primary heading. [SPRD-290]
+- Button visibility is isolated in a private struct (following the `OverduePanelToggleButton` pattern) so reads of `journalManager.spreads` do not propagate as a body-level `@Observable` dependency on `SpreadContentPagerView`. [SPRD-290]
+
+### Design Decisions
+
+#### Decision: New `JournalManager.containingParentSpreads(for:)` method; rule engine's `parentHierarchySpreads` not reused
+
+- **Context**: `JournalRuleEngine.parentHierarchySpreads(for:spreads:)` already computes a similar set, but it is private, migration-specific in shape (used only for determining migration candidate eligibility), and carries multiday-specific logic that differs from navigation needs.
+- **Decision**: Add a new `containingParentSpreads(for spread: DataModel.Spread) -> [DataModel.Spread]` on `JournalManager` using `self.spreads` and `self.calendar`. Logic is simple filter operations — no rule engine involvement.
+- **Rationale**: Keeps migration and navigation concerns separate. The new method is a pure read from existing state with no side effects, a natural fit for `JournalManager` as the data facade.
+- **SPRD reference**: [SPRD-290]
+
+#### Decision: Buttons in `spreadDetailTitle` as leading overlay, derived from `settledSpreadID`
+
+- **Context**: The buttons must stay fixed while the pager scrolls (user confirmed). The `spreadDetailTitle` row is the natural location. Its current spread is derived from `settledSpreadID` (not `coordinator.selectedSpread`) to preserve the isolation invariant from SPRD-284.
+- **Decision**: A private `SpreadParentNavButtons` struct receives `settledSpreadID` and `spreads` as plain values and reads `journalManager` in its own body scope. Applied as a `.overlay(alignment: .leading)` on `spreadDetailTitle`.
+- **Rationale**: Maintains the `coordinator.selectedSpread`-free pager body invariant. Isolating `journalManager.spreads` reads into the subview bounds the observable dependency to that subview.
+- **SPRD reference**: [SPRD-290]
+
+#### Decision: `canonicalTitle` for button secondary label; `SpreadDisplayNameFormatter` reused
+
+- **Context**: Each button needs a short secondary label naming the specific spread (e.g. "July", "2026"). This formatting already exists in `SpreadDisplayNameFormatter.canonicalTitle(for:calendar:)`.
+- **Decision**: Reuse `SpreadDisplayNameFormatter.canonicalTitle(for:calendar:)` directly — no new formatting logic.
+- **Rationale**: Single source of truth for display names. Avoids duplicating date formatting.
+- **SPRD reference**: [SPRD-290]
+
+### Open Questions
+
+- For a multiday spread spanning two calendar months, both months' spreads (if they exist) appear as buttons. If this becomes visually cluttered, constrain to just the spread containing the multiday's start date.
