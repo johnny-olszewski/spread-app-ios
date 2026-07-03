@@ -54,15 +54,16 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread])
 
-        let sections = OverdueCardView.sections(for: spread, context: context)
+        let sections = OverdueCardView.sections(context: context)
 
         #expect(sections.count == 1)
         #expect(sections.first?.entries.map(\.id) == [task.id])
     }
 
-    /// Setup: a day spread whose date does NOT match today.
-    /// Expected: no sections, even though there is an overdue task elsewhere in the journal.
-    @MainActor @Test func daySpreadNotMatchingTodayShowsNoSection() async throws {
+    /// Setup: an overdue task exists in the journal, but today's spread is not registered.
+    /// Expected: the global overdue card still shows the task — the card is not filtered by
+    /// which spread is currently visible.
+    @MainActor @Test func overdueTaskAppearsGloballyRegardlessOfViewedSpread() async throws {
         let today = Self.date(2026, 1, 12)
         let overdueDate = Self.date(2026, 1, 10)
         let task = DataModel.Task(
@@ -73,17 +74,15 @@ struct OverdueCardViewTests {
             currentAssignments: [Assignment(period: .day, date: overdueDate, status: .open)]
         )
         let context = try await Self.makeContext(today: today, tasks: [task])
-        let otherDaySpread = DataModel.Spread(period: .day, date: overdueDate, calendar: Self.testCalendar)
 
-        #expect(OverdueCardView.sections(for: otherDaySpread, context: context).isEmpty)
+        #expect(!OverdueCardView.sections(context: context).isEmpty)
     }
 
     // MARK: - Month
 
     /// Setup: a month spread for the same month as today (registered, no day spread exists for
     /// today), with an overdue task assigned to an earlier month.
-    /// Expected: the overdue section is shown, since the month spread is the most granular
-    /// spread containing today.
+    /// Expected: the overdue section is shown.
     @MainActor @Test func monthSpreadContainingTodayShowsOverdueSection() async throws {
         let today = Self.date(2026, 2, 15)
         let overdueMonth = Self.date(2026, 1, 1)
@@ -97,41 +96,19 @@ struct OverdueCardViewTests {
         let thisMonthSpread = DataModel.Spread(period: .month, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [thisMonthSpread])
 
-        let sections = OverdueCardView.sections(for: thisMonthSpread, context: context)
+        let sections = OverdueCardView.sections(context: context)
 
         #expect(sections.count == 1)
         #expect(sections.first?.entries.map(\.id) == [task.id])
     }
 
-    /// Setup: a month spread for a month other than today's.
-    /// Expected: no sections.
+    /// Setup: no overdue tasks in the journal.
+    /// Expected: no sections, even when spreads are registered.
     @MainActor @Test func monthSpreadNotContainingTodayShowsNoSection() async throws {
         let today = Self.date(2026, 2, 15)
         let context = try await Self.makeContext(today: today)
-        let otherMonthSpread = DataModel.Spread(period: .month, date: Self.date(2026, 1, 1), calendar: Self.testCalendar)
 
-        #expect(OverdueCardView.sections(for: otherMonthSpread, context: context).isEmpty)
-    }
-
-    /// Setup: both a day spread for today and its parent month spread exist and are registered.
-    /// Expected: the overdue section is shown only on the day spread (the more granular of the
-    /// two) -- the month spread, despite also containing today, shows nothing.
-    @MainActor @Test func daySpreadTakesPriorityOverParentMonthSpread() async throws {
-        let today = Self.date(2026, 2, 15)
-        let overdueDate = Self.date(2026, 2, 10)
-        let task = DataModel.Task(
-            title: "Overdue",
-            date: overdueDate,
-            period: .day,
-            status: .open,
-            currentAssignments: [Assignment(period: .day, date: overdueDate, status: .open)]
-        )
-        let daySpread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
-        let monthSpread = DataModel.Spread(period: .month, date: today, calendar: Self.testCalendar)
-        let context = try await Self.makeContext(today: today, tasks: [task], spreads: [daySpread, monthSpread])
-
-        #expect(!OverdueCardView.sections(for: daySpread, context: context).isEmpty)
-        #expect(OverdueCardView.sections(for: monthSpread, context: context).isEmpty)
+        #expect(OverdueCardView.sections(context: context).isEmpty)
     }
 
     // MARK: - Year
@@ -152,42 +129,19 @@ struct OverdueCardViewTests {
         let thisYearSpread = DataModel.Spread(period: .year, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [thisYearSpread])
 
-        let sections = OverdueCardView.sections(for: thisYearSpread, context: context)
+        let sections = OverdueCardView.sections(context: context)
 
         #expect(sections.count == 1)
         #expect(sections.first?.entries.map(\.id) == [task.id])
     }
 
-    /// Setup: a year spread for a year other than today's.
+    /// Setup: no overdue tasks in the journal.
     /// Expected: no sections.
     @MainActor @Test func yearSpreadNotContainingTodayShowsNoSection() async throws {
         let today = Self.date(2027, 1, 1)
         let context = try await Self.makeContext(today: today)
-        let otherYearSpread = DataModel.Spread(period: .year, date: Self.date(2025, 1, 1), calendar: Self.testCalendar)
 
-        #expect(OverdueCardView.sections(for: otherYearSpread, context: context).isEmpty)
-    }
-
-    /// Setup: both a month spread for today's month and its parent year spread exist and are
-    /// registered.
-    /// Expected: the overdue section is shown only on the month spread -- the year spread shows
-    /// nothing despite also containing today.
-    @MainActor @Test func monthSpreadTakesPriorityOverParentYearSpread() async throws {
-        let today = Self.date(2026, 2, 15)
-        let overdueMonth = Self.date(2026, 1, 1)
-        let task = DataModel.Task(
-            title: "Overdue",
-            date: overdueMonth,
-            period: .month,
-            status: .open,
-            currentAssignments: [Assignment(period: .month, date: overdueMonth, status: .open)]
-        )
-        let monthSpread = DataModel.Spread(period: .month, date: today, calendar: Self.testCalendar)
-        let yearSpread = DataModel.Spread(period: .year, date: today, calendar: Self.testCalendar)
-        let context = try await Self.makeContext(today: today, tasks: [task], spreads: [monthSpread, yearSpread])
-
-        #expect(!OverdueCardView.sections(for: monthSpread, context: context).isEmpty)
-        #expect(OverdueCardView.sections(for: yearSpread, context: context).isEmpty)
+        #expect(OverdueCardView.sections(context: context).isEmpty)
     }
 
     // MARK: - Multiday
@@ -212,7 +166,7 @@ struct OverdueCardViewTests {
         )
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [multidaySpread])
 
-        let sections = OverdueCardView.sections(for: multidaySpread, context: context)
+        let sections = OverdueCardView.sections(context: context)
 
         #expect(sections.count == 1)
         #expect(sections.first?.entries.map(\.id) == [task.id])
@@ -241,61 +195,29 @@ struct OverdueCardViewTests {
         let startContext = try await Self.makeContext(today: startBoundaryToday, tasks: [task], spreads: [multidaySpread])
         let endContext = try await Self.makeContext(today: endBoundaryToday, tasks: [task], spreads: [multidaySpread])
 
-        #expect(!OverdueCardView.sections(for: multidaySpread, context: startContext).isEmpty)
-        #expect(!OverdueCardView.sections(for: multidaySpread, context: endContext).isEmpty)
+        #expect(!OverdueCardView.sections(context: startContext).isEmpty)
+        #expect(!OverdueCardView.sections(context: endContext).isEmpty)
     }
 
-    /// Setup: a multiday spread whose range does not contain today.
+    /// Setup: no overdue tasks in the journal.
     /// Expected: no sections.
     @MainActor @Test func multidaySpreadNotContainingTodayShowsNoSection() async throws {
         let today = Self.date(2026, 8, 1)
         let context = try await Self.makeContext(today: today)
-        let multidaySpread = DataModel.Spread(
-            startDate: Self.date(2026, 6, 1),
-            endDate: Self.date(2026, 6, 7),
-            calendar: Self.testCalendar
-        )
 
-        #expect(OverdueCardView.sections(for: multidaySpread, context: context).isEmpty)
-    }
-
-    /// Setup: a multiday spread containing today and its overlapping parent month spread both
-    /// exist and are registered.
-    /// Expected: the overdue section is shown only on the multiday spread (more granular per
-    /// `bestSpread`'s priority cascade) -- the month spread shows nothing.
-    @MainActor @Test func multidaySpreadTakesPriorityOverMonthSpread() async throws {
-        let today = Self.date(2026, 6, 3)
-        let overdueDate = Self.date(2026, 5, 1)
-        let task = DataModel.Task(
-            title: "Overdue",
-            date: overdueDate,
-            period: .day,
-            status: .open,
-            currentAssignments: [Assignment(period: .day, date: overdueDate, status: .open)]
-        )
-        let multidaySpread = DataModel.Spread(
-            startDate: Self.date(2026, 6, 1),
-            endDate: Self.date(2026, 6, 7),
-            calendar: Self.testCalendar
-        )
-        let monthSpread = DataModel.Spread(period: .month, date: today, calendar: Self.testCalendar)
-        let context = try await Self.makeContext(today: today, tasks: [task], spreads: [multidaySpread, monthSpread])
-
-        #expect(!OverdueCardView.sections(for: multidaySpread, context: context).isEmpty)
-        #expect(OverdueCardView.sections(for: monthSpread, context: context).isEmpty)
+        #expect(OverdueCardView.sections(context: context).isEmpty)
     }
 
     // MARK: - Empty overdue items
 
-    /// Setup: a day spread matching today (registered, resolves as `bestSpread`), but there are
-    /// no overdue tasks anywhere in the journal.
-    /// Expected: no sections, even though the spread is the most granular match for today.
-    @MainActor @Test func noOverdueItemsShowsNoSectionEvenWhenSpreadRepresentsToday() async throws {
+    /// Setup: spreads registered but no overdue tasks anywhere in the journal.
+    /// Expected: no sections.
+    @MainActor @Test func noOverdueItemsShowsNoSection() async throws {
         let today = Self.date(2026, 1, 12)
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, spreads: [spread])
 
-        #expect(OverdueCardView.sections(for: spread, context: context).isEmpty)
+        #expect(OverdueCardView.sections(context: context).isEmpty)
     }
 
     // MARK: - Read-only row configuration
@@ -316,7 +238,7 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread])
 
-        let section = try #require(OverdueCardView.sections(for: spread, context: context).first)
+        let section = try #require(OverdueCardView.sections(context: context).first)
         let configuration = try #require(section.configurationMap?[DataModel.Task.configurationKey])
 
         #expect(configuration.onTitleCommit == nil)
@@ -341,7 +263,7 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread, sourceSpread])
 
-        let section = try #require(OverdueCardView.sections(for: spread, context: context).first)
+        let section = try #require(OverdueCardView.sections(context: context).first)
         let configuration = try #require(section.configurationMap?[DataModel.Task.configurationKey])
 
         configuration.onRowTap?(task)
@@ -370,7 +292,6 @@ struct OverdueCardViewTests {
         var tappedEntryIDs: [UUID] = []
         let section = try #require(
             OverdueCardView.sections(
-                for: spread,
                 context: context,
                 onStatusIconTap: { entry in tappedEntryIDs.append(entry.id) }
             ).first
@@ -404,7 +325,6 @@ struct OverdueCardViewTests {
         let snapshotKey = TaskReviewSourceKey(kind: .spread(id: spread.id, period: .day, date: overdueDate))
 
         let sections = OverdueCardView.sections(
-            for: spread,
             context: context,
             graceTaskIDs: [completedTask.id],
             graceSourceKeys: [completedTask.id: snapshotKey]
@@ -428,7 +348,6 @@ struct OverdueCardViewTests {
         let context = try await Self.makeContext(today: today, spreads: [spread])
 
         let sections = OverdueCardView.sections(
-            for: spread,
             context: context,
             graceTaskIDs: [UUID()]
         )
@@ -453,7 +372,6 @@ struct OverdueCardViewTests {
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread])
 
         let sections = OverdueCardView.sections(
-            for: spread,
             context: context,
             graceTaskIDs: [task.id]
         )
@@ -497,7 +415,7 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [taskC, taskA, taskB], spreads: [spread])
 
-        let sections = OverdueCardView.sections(for: spread, context: context)
+        let sections = OverdueCardView.sections(context: context)
 
         #expect(sections.first?.entries.map(\.title) == ["A", "B", "C"])
     }
@@ -532,7 +450,7 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [dayTask, monthTask], spreads: [spread])
 
-        let sections = OverdueCardView.sections(for: spread, context: context)
+        let sections = OverdueCardView.sections(context: context)
 
         #expect(sections.first?.entries.map(\.title) == ["Month task", "Day task"])
     }
@@ -568,7 +486,6 @@ struct OverdueCardViewTests {
         )
 
         let sections = OverdueCardView.sections(
-            for: spread,
             context: context,
             graceTaskIDs: [justCompletedTask.id]
         )
@@ -590,7 +507,7 @@ struct OverdueCardViewTests {
         let spread = DataModel.Spread(period: .day, date: today, calendar: Self.testCalendar)
         let context = try await Self.makeContext(today: today, tasks: [task], spreads: [spread])
 
-        let section = try #require(OverdueCardView.sections(for: spread, context: context).first)
+        let section = try #require(OverdueCardView.sections(context: context).first)
         let configuration = try #require(section.configurationMap?[DataModel.Task.configurationKey])
 
         configuration.onRowTap?(task)

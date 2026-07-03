@@ -7484,4 +7484,8 @@ Supabase: SPRD-85A -> SPRD-85C
 - **Tests**:
   - Unit tests for `containingParentSpreads(for:)`: day/month/multiday/year inputs; some parent spreads exist, some don't.
 
+**Progress (commits landed on feature/SESH-27)**
+1. **[SPRD-290][1/n]** — Added `JournalManager+ParentSpreads.swift` with `containingParentSpreads(for:)` and private `normalizedPeriodKeys(_:from:to:)` helper. Added 9 unit tests in `JournalManagerParentSpreadsTests.swift` covering all four period types with and without parent spreads present. Also fixed 3 pre-existing test compile failures: `SpreadsCoordinatorTests` (direct `selectedSpread` set→ `navigate(to:)` after SPRD-285), `OverdueCardViewTests` (removed `for:` param removed in SPRD-289, updated 3 spread-priority tests whose behavior was removed), `MultidaySectionLayoutTests` (added missing `UserInterfaceSizeClass+MultidayLayout.swift` with `multidayColumnCount`). AC1 ✅.
+- Remaining for this task: view component `SpreadParentNavButtons` + wire into `spreadDetailTitle` overlay (ACs 2–6, 7).
+
 1. **[SPRD-289][1/n]** — Added `.clockCountdown` to `SpreadTheme.Icon`; removed `spread` param from `OverdueCardView` (bestSpread guard removed, derived internally for section metadata); removed `OverdueCardView` from all content views (day, month, year, multiday); added `OverdueCardView` in ZStack behind pager in `SpreadContentPagerView` with spring-animated offset; added `OverduePanelToggleButton` private struct (isolates `overdueTaskItems` observation); pager tap gesture dismisses panel; auto-closes when items become empty. All ACs satisfied.
