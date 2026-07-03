@@ -330,12 +330,12 @@ private struct OverduePanelToggleButton: View {
 
 // MARK: - SpreadParentNavButtons
 
-/// Renders chip buttons for each less-granular spread containing the settled spread's dates.
+/// Renders chip buttons for today's spreads at all periods other than the one currently viewed.
 ///
-/// Reads `journalManager.spreads` (via `containingParentSpreads`) in its own body scope, isolated
+/// Reads `journalManager.spreads` (via `todayContextSpreads`) in its own body scope, isolated
 /// from `SpreadContentPagerView`, preserving the coordinator.selectedSpread-free pager body
-/// invariant from SPRD-284. Hidden automatically when `containingParentSpreads` returns `[]`
-/// (e.g. on a year spread, or when no parent spreads exist yet).
+/// invariant from SPRD-284. Hidden automatically when `todayContextSpreads` returns `[]`
+/// (e.g. when no other period spreads exist yet).
 private struct SpreadParentNavButtons: View {
     let settledSpreadID: UUID?
     let spreads: [DataModel.Spread]
@@ -358,12 +358,15 @@ private struct SpreadParentNavButtons: View {
 
     @ViewBuilder
     private func parentButton(for spread: DataModel.Spread) -> some View {
+        let label = periodLabel(for: spread.period)
         Button {
             coordinator.navigate(to: spread, shouldRecenter: true)
         } label: {
             VStack(spacing: 1) {
-                Text(periodLabel(for: spread.period))
-                    .font(SpreadTheme.Typography.caption2)
+                if !label.isEmpty {
+                    Text(label)
+                        .font(SpreadTheme.Typography.caption2)
+                }
                 Text(SpreadDisplayNameFormatter.canonicalTitle(for: spread, calendar: calendar))
                     .font(SpreadTheme.Typography.caption2)
             }
@@ -377,9 +380,10 @@ private struct SpreadParentNavButtons: View {
 
     private func periodLabel(for period: Period) -> String {
         switch period {
+        case .day: return "Today"
+        case .multiday: return ""
         case .month: return "This Month"
         case .year: return "This Year"
-        default: return ""
         }
     }
 }
