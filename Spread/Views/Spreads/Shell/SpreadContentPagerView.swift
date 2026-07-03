@@ -80,6 +80,7 @@ struct SpreadContentPagerView: View {
 
             ZStack(alignment: .top) {
                 OverdueCardView(context: context)
+                    .opacity(isOverduePanelOpen ? 1 : 0)
                     .padding(.horizontal, SpreadTheme.Spacing.large)
                     .padding(.bottom, SpreadTheme.Spacing.medium)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { overdueCardHeight = $0 }
@@ -109,7 +110,7 @@ struct SpreadContentPagerView: View {
                     .id(spread.id)
                     .background {
                         self.backgroundShape
-                            .fill(.background.opacity(isOverduePanelOpen ? 0.6 : 1.0))
+                            .fill(.background.opacity(0.6))
                     }
                     .clipShape(self.backgroundShape)
                 }
