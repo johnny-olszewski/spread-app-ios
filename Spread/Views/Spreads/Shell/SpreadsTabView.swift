@@ -275,7 +275,8 @@ struct SpreadsTabView: View {
 
         if let spread = spreads.first(where: { $0.period == .year && $0.contains(date: today, calendar: calendar) }) {
             topInsetButtons.append(SpreadButton.ViewModel(
-                title: "This year",
+                title: SpreadDisplayNameFormatter.canonicalTitle(for: spread, calendar: calendar),
+                subtitle: "This year",
                 style: selectedPeriod == .year ? .tonal : .plain,
                 size: .small,
                 action: { spreadsCoordinator.navigate(to: spread, shouldRecenter: true) }
@@ -284,7 +285,8 @@ struct SpreadsTabView: View {
 
         if let spread = spreads.first(where: { $0.period == .month && $0.contains(date: today, calendar: calendar) }) {
             topInsetButtons.append(SpreadButton.ViewModel(
-                title: "This month",
+                title: SpreadDisplayNameFormatter.canonicalTitle(for: spread, calendar: calendar),
+                subtitle: "This month",
                 style: selectedPeriod == .month ? .tonal : .plain,
                 size: .small,
                 action: { spreadsCoordinator.navigate(to: spread, shouldRecenter: true) }

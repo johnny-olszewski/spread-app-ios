@@ -32,6 +32,7 @@ struct SpreadButton: View {
     // MARK: Config
 
     private let title: String?
+    private let subtitle: String?
     private let icon: SpreadTheme.Icon?
     private let style: Style
     private let size: Size
@@ -42,6 +43,7 @@ struct SpreadButton: View {
 
     init(
         _ title: String? = nil,
+        subtitle: String? = nil,
         icon: SpreadTheme.Icon? = nil,
         style: Style = .tonal,
         size: Size = .medium,
@@ -51,6 +53,7 @@ struct SpreadButton: View {
         action: @escaping () -> Void
     ) {
         self.title = title
+        self.subtitle = subtitle
         self.icon = icon
         self.style = style
         self.size = size
@@ -69,7 +72,14 @@ struct SpreadButton: View {
                     icon.sized(iconSize)
                         .iconTint(foregroundColor)
                 }
-                if let title {
+                if let subtitle {
+                    VStack(spacing: 1) {
+                        if let title { Text(title) }
+                        Text(subtitle)
+                            .font(SpreadTheme.Typography.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if let title {
                     Text(title)
                 }
             }
@@ -119,6 +129,7 @@ extension SpreadButton {
     struct ViewModel: Identifiable {
         let id = UUID()
         var title: String?
+        var subtitle: String?
         var icon: SpreadTheme.Icon?
         var style: Style
         var size: Size
@@ -128,6 +139,7 @@ extension SpreadButton {
 
         init(
             title: String? = nil,
+            subtitle: String? = nil,
             icon: SpreadTheme.Icon? = nil,
             style: Style = .plain,
             size: Size = .small,
@@ -136,6 +148,7 @@ extension SpreadButton {
             action: @escaping @MainActor () -> Void
         ) {
             self.title = title
+            self.subtitle = subtitle
             self.icon = icon
             self.style = style
             self.size = size
@@ -149,6 +162,7 @@ extension SpreadButton {
     init(_ viewModel: ViewModel) {
         self.init(
             viewModel.title,
+            subtitle: viewModel.subtitle,
             icon: viewModel.icon,
             style: viewModel.style,
             size: viewModel.size,
