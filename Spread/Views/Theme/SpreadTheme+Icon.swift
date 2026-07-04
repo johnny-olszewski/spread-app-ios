@@ -42,6 +42,8 @@ extension SpreadTheme {
 
         // MARK: - Navigation
 
+        /// Navigate-to-today action — home / anchor point.
+        case house
         case arrowRight
         case arrowRightCircle
         case arrowRightCircleFilled
@@ -139,6 +141,7 @@ extension SpreadTheme {
             case .star, .starFilled: .star
             case .tag, .tagFilled: .tag
             case .folder, .folderFilled: .folder
+            case .house: .house
             case .arrowRight: .arrowRight
             case .arrowRightCircle, .arrowRightCircleFilled: .arrowCircleRight
             case .arrowUTurnLeft: .arrowUUpLeft

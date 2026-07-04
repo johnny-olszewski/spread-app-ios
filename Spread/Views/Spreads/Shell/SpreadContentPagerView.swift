@@ -68,6 +68,10 @@ struct SpreadContentPagerView: View {
     var body: some View {
         VStack(spacing: 0) {
             spreadDetailTitle
+                .overlay(alignment: .leading) {
+                    TodayNavigationButton(journalManager: journalManager, coordinator: coordinator)
+                        .padding(.leading, SpreadTheme.Spacing.large)
+                }
                 .overlay(alignment: .trailing) {
                     OverduePanelToggleButton(
                         journalManager: journalManager,
@@ -293,6 +297,33 @@ struct SpreadContentPagerView: View {
         ) else { return nil }
         let normalizedDate = spread.period.normalizeDate(spread.date, calendar: journalManager.calendar)
         return journalManager.dataModel[spread.period]?[normalizedDate]
+    }
+}
+
+// MARK: - TodayNavigationButton
+
+/// Reads `journalManager.spreads`/`today` and `coordinator.selectedSpread` in its own body scope,
+/// isolated from `SpreadContentPagerView`. Navigates to the most granular spread containing today
+/// (day → multiday → month → year). Always rendered; disabled when already on today's spread or
+/// when no spread covers today.
+private struct TodayNavigationButton: View {
+    let journalManager: JournalManager
+    let coordinator: SpreadsCoordinator
+
+    var body: some View {
+        let todaySpread = journalManager.bestSpread(for: journalManager.today)
+        let isDisabled = todaySpread == nil || coordinator.selectedSpread?.id == todaySpread?.id
+        Button {
+            if let spread = todaySpread {
+                coordinator.navigate(to: spread, shouldRecenter: true)
+            }
+        } label: {
+            SpreadTheme.Icon.house.sized(SpreadTheme.IconSize.medium)
+                .iconTint(.primary)
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .contentShape(Circle())
     }
 }
 
