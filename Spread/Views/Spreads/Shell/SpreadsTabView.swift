@@ -281,7 +281,7 @@ struct SpreadsTabView: View {
                 size: .small,
                 action: {
                     spreadsCoordinator.navigate(to: spread, shouldRecenter: true, scrollsToToday: true)
-                    isNavigatorVisible = false
+                    withAnimation { isNavigatorVisible = false }
                 }
             ))
         }
@@ -294,7 +294,7 @@ struct SpreadsTabView: View {
                 size: .small,
                 action: {
                     spreadsCoordinator.navigate(to: spread, shouldRecenter: true)
-                    isNavigatorVisible = false
+                    withAnimation { isNavigatorVisible = false }
                 }
             ))
         }
@@ -307,7 +307,7 @@ struct SpreadsTabView: View {
                 size: .small,
                 action: {
                     spreadsCoordinator.navigate(to: spread, shouldRecenter: true, scrollsToToday: true)
-                    isNavigatorVisible = false
+                    withAnimation { isNavigatorVisible = false }
                 }
             ))
         }
@@ -319,7 +319,7 @@ struct SpreadsTabView: View {
                 size: .small,
                 action: {
                     spreadsCoordinator.navigate(to: spread, shouldRecenter: true)
-                    isNavigatorVisible = false
+                    withAnimation { isNavigatorVisible = false }
                 }
             ))
         }
