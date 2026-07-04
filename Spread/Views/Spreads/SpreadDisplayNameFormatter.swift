@@ -58,10 +58,13 @@ struct SpreadDisplayNameFormatter {
             )
         }
 
+        // Year spreads have no canonical subtitle (the year number is self-sufficient), so use
+        // the dynamic relative name ("This year", "Last year", "Next year") when it applies.
+        let effectiveSubtitle = spread.period == .year ? dynamicName(for: spread) : canonicalSubtitle
         return SpreadDisplayName(
             primary: canonicalTitle,
             canonicalTitle: canonicalTitle,
-            canonicalSubtitle: canonicalSubtitle,
+            canonicalSubtitle: effectiveSubtitle,
             canonicalContext: canonicalContext,
             isPersonalized: false
         )
