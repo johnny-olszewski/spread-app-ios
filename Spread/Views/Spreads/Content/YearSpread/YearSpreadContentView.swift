@@ -7,6 +7,9 @@ struct YearSpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel
     let context: SpreadPageContext
+    /// Incremented by `SpreadsCoordinator` when a navigate-to-today request targets this view.
+    /// Triggers a scroll to today's month card whenever it changes or on first appear.
+    let scrollToTodayToken: Int
 
     @AppStorage("entryGrouping.year") private var groupingOption: EntryGroupingOption = .list
     @AppStorage("entrySorting.year") private var sortingOption: EntrySortOption = .dueDate
@@ -70,18 +73,28 @@ struct YearSpreadContentView: View {
             }
             .padding(.horizontal, Layout.contentPadding)
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
 
-                    topYearSection
+                        topYearSection
 
-                    ForEach(monthDates, id: \.self) { date in
-                        monthCard(date)
+                        ForEach(monthDates, id: \.self) { date in
+                            monthCard(date)
+                        }
                     }
+                    .padding(.horizontal, Layout.contentPadding)
+                    .padding(.top, Layout.contentPadding)
+                    .padding(.bottom, Layout.sectionSpacing)
                 }
-                .padding(.horizontal, Layout.contentPadding)
-                .padding(.top, Layout.contentPadding)
-                .padding(.bottom, Layout.sectionSpacing)
+                .task(id: scrollToTodayToken) {
+                    guard scrollToTodayToken > 0 else { return }
+                    let today = context.journalManager.today
+                    guard let todayMonthDate = monthDates.first(where: {
+                        calendar.isDate($0, equalTo: today, toGranularity: .month)
+                    }) else { return }
+                    withAnimation { proxy.scrollTo(todayMonthDate, anchor: .center) }
+                }
             }
         }
     }

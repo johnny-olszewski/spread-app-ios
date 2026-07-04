@@ -79,6 +79,13 @@ final class SpreadsCoordinator {
     /// Incremented to force the pager and strip to recenter on the current selection.
     var recenterToken: Int = 0
 
+    /// Incremented when navigation requests a scroll-to-today within the destination spread.
+    ///
+    /// Year and multiday content views observe this token and scroll to today's relevant card
+    /// (month card or day section) whenever it changes. Only incremented when `scrollsToToday`
+    /// is passed as `true` to `navigate(to:shouldRecenter:scrollsToToday:)`.
+    private(set) var scrollToTodayToken: Int = 0
+
     /// The currently active sheet, or nil if no sheet is presented.
     var activeSheet: SheetDestination?
 
@@ -196,7 +203,7 @@ final class SpreadsCoordinator {
     ///
     /// If `shouldRecenter` is `true` and the selection is already active, only `recenterToken`
     /// is incremented without changing `selectedSpread`.
-    func navigate(to selection: DataModel.Spread, shouldRecenter: Bool = true) {
+    func navigate(to selection: DataModel.Spread, shouldRecenter: Bool = true, scrollsToToday: Bool = false) {
         clearConvenienceNavigation()
         if shouldRecenter {
             if isSameSelection(selection, selectedSpread) {
@@ -207,6 +214,9 @@ final class SpreadsCoordinator {
             }
         } else {
             selectedSpread = selection
+        }
+        if scrollsToToday {
+            scrollToTodayToken += 1
         }
     }
 

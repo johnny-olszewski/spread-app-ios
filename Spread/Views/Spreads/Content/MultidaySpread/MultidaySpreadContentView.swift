@@ -13,15 +13,21 @@ struct MultidaySpreadContentView: View {
     /// See `MultidaySpreadContentView+Equatable.swift`.
     let spreadID: UUID
 
+    /// Incremented by `SpreadsCoordinator` when a navigate-to-today request targets this view.
+    /// Triggers a scroll to today's day section whenever it changes or on first appear.
+    let scrollToTodayToken: Int
+
     @AppStorage("entryGrouping.multiday") private var groupingOption: EntryGroupingOption = .none
     @AppStorage("entrySorting.multiday") private var sortingOption: EntrySortOption = .dueDate
 
     init(
         spread: DataModel.Spread,
         spreadDataModel: SpreadDataModel,
-        context: SpreadPageContext
+        context: SpreadPageContext,
+        scrollToTodayToken: Int
     ) {
         spreadID = spread.id
+        self.scrollToTodayToken = scrollToTodayToken
         _viewModel = State(wrappedValue: ViewModel(
             spread: spread,
             spreadDataModel: spreadDataModel,
@@ -32,35 +38,48 @@ struct MultidaySpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
-        VStack(alignment: .leading, spacing: SpreadTheme.Spacing.large) {
-            HStack {
-                Capsule()
-                    .stroke(SpreadTheme.DotGrid.defaultDots)
-                    .frame(height: SpreadTheme.CornerRadius.xxlarge)
-                    .padding(.vertical, SpreadTheme.Spacing.large)
-                    .padding(.trailing, SpreadTheme.Spacing.medium)
-                EntryListOptionsPicker(
-                    grouping: groupingOption,
-                    sorting: sortingOption,
-                    onGroupingSelected: { groupingOption = $0 },
-                    onSortingSelected: { sortingOption = $0 }
-                )
-                .padding(.horizontal, SpreadTheme.Spacing.large)
-            }
+        ScrollViewReader { proxy in
+            VStack(alignment: .leading, spacing: SpreadTheme.Spacing.large) {
+                HStack {
+                    Capsule()
+                        .stroke(SpreadTheme.DotGrid.defaultDots)
+                        .frame(height: SpreadTheme.CornerRadius.xxlarge)
+                        .padding(.vertical, SpreadTheme.Spacing.large)
+                        .padding(.trailing, SpreadTheme.Spacing.medium)
+                    EntryListOptionsPicker(
+                        grouping: groupingOption,
+                        sorting: sortingOption,
+                        onGroupingSelected: { groupingOption = $0 },
+                        onSortingSelected: { sortingOption = $0 }
+                    )
+                    .padding(.horizontal, SpreadTheme.Spacing.large)
+                }
 
-
-            LazyVStack(alignment: .leading, spacing: SpreadTheme.Spacing.large) {
-                ForEach(viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption)) { section in
-                    if section.creationPeriod == .multiday {
-                        multidayEntrySection(section)
-                    } else {
-                        daySection(section)
+                LazyVStack(alignment: .leading, spacing: SpreadTheme.Spacing.large) {
+                    ForEach(viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption)) { section in
+                        if section.creationPeriod == .multiday {
+                            multidayEntrySection(section)
+                        } else {
+                            daySection(section)
+                                .id(section.date)
+                        }
                     }
                 }
             }
+            .padding(.horizontal, SpreadTheme.Spacing.large)
+            .padding(.bottom, SpreadTheme.Spacing.large)
+            .task(id: scrollToTodayToken) {
+                guard scrollToTodayToken > 0 else { return }
+                let today = viewModel.context.journalManager.today
+                let calendar = viewModel.context.calendar
+                let sections = viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption)
+                guard let todaySection = sections.first(where: {
+                    $0.creationPeriod != .multiday &&
+                    calendar.isDate($0.date, equalTo: today, toGranularity: .day)
+                }) else { return }
+                withAnimation { proxy.scrollTo(todaySection.date, anchor: .center) }
+            }
         }
-        .padding(.horizontal, SpreadTheme.Spacing.large)
-        .padding(.bottom, SpreadTheme.Spacing.large)
         .conditionalScrollView()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
         .task(id: viewModel.spread.id) {

@@ -237,8 +237,13 @@ struct SpreadContentPagerView: View {
         if let dataModel = spreadDataModel(for: spread) {
             switch spread.period {
             case .year:
-                YearSpreadContentView(spread: spread, spreadDataModel: dataModel, context: context)
-                    .equatable()
+                YearSpreadContentView(
+                    spread: spread,
+                    spreadDataModel: dataModel,
+                    context: context,
+                    scrollToTodayToken: coordinator.scrollToTodayToken
+                )
+                .equatable()
             case .month:
                 MonthSpreadContentView(spread: spread, spreadDataModel: dataModel, context: context)
                     .equatable()
@@ -254,7 +259,8 @@ struct SpreadContentPagerView: View {
                 MultidaySpreadContentView(
                     spread: spread,
                     spreadDataModel: dataModel,
-                    context: context
+                    context: context,
+                    scrollToTodayToken: coordinator.scrollToTodayToken
                 )
                 .equatable()
             }
@@ -315,7 +321,7 @@ private struct TodayNavigationButton: View {
         let isDisabled = todaySpread == nil || coordinator.selectedSpread?.id == todaySpread?.id
         Button {
             if let spread = todaySpread {
-                coordinator.navigate(to: spread, shouldRecenter: true)
+                coordinator.navigate(to: spread, shouldRecenter: true, scrollsToToday: true)
             }
         } label: {
             SpreadTheme.Icon.house.sized(SpreadTheme.IconSize.medium)

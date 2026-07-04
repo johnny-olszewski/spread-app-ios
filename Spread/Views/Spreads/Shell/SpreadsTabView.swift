@@ -279,7 +279,7 @@ struct SpreadsTabView: View {
                 subtitle: "This year",
                 style: selectedPeriod == .year ? .tonal : .plain,
                 size: .small,
-                action: { spreadsCoordinator.navigate(to: spread, shouldRecenter: true) }
+                action: { spreadsCoordinator.navigate(to: spread, shouldRecenter: true, scrollsToToday: true) }
             ))
         }
 
@@ -299,7 +299,7 @@ struct SpreadsTabView: View {
                 title: label,
                 style: selectedPeriod == .multiday ? .tonal : .plain,
                 size: .small,
-                action: { spreadsCoordinator.navigate(to: spread, shouldRecenter: true) }
+                action: { spreadsCoordinator.navigate(to: spread, shouldRecenter: true, scrollsToToday: true) }
             ))
         }
 
