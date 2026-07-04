@@ -53,18 +53,36 @@ struct YearSpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-
-                topYearSection
-
-                ForEach(monthDates, id: \.self) { date in
-                    monthCard(date)
-                }
+        VStack(spacing: 0) {
+            HStack {
+                Capsule()
+                    .stroke(SpreadTheme.DotGrid.defaultDots)
+                    .frame(height: SpreadTheme.CornerRadius.xxlarge)
+                    .padding(.vertical, SpreadTheme.Spacing.large)
+                    .padding(.trailing, SpreadTheme.Spacing.medium)
+                EntryListOptionsPicker(
+                    grouping: groupingOption,
+                    sorting: sortingOption,
+                    onGroupingSelected: { groupingOption = $0 },
+                    onSortingSelected: { sortingOption = $0 }
+                )
+                .padding(.horizontal, Layout.contentPadding)
             }
             .padding(.horizontal, Layout.contentPadding)
-            .padding(.top, Layout.contentPadding)
-            .padding(.bottom, Layout.sectionSpacing)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+
+                    topYearSection
+
+                    ForEach(monthDates, id: \.self) { date in
+                        monthCard(date)
+                    }
+                }
+                .padding(.horizontal, Layout.contentPadding)
+                .padding(.top, Layout.contentPadding)
+                .padding(.bottom, Layout.sectionSpacing)
+            }
         }
     }
 
@@ -73,19 +91,9 @@ struct YearSpreadContentView: View {
     @ViewBuilder
     private var topYearSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Year")
-                    .font(SpreadTheme.Typography.title3)
-                    .foregroundStyle(.primary)
-                Spacer()
-                EntryListOptionsPicker(
-                    grouping: groupingOption,
-                    sorting: sortingOption,
-                    onGroupingSelected: { groupingOption = $0 },
-                    onSortingSelected: { sortingOption = $0 }
-                )
-                .padding(.horizontal, SpreadTheme.Spacing.large)
-            }
+            Text("Year")
+                .font(SpreadTheme.Typography.title3)
+                .foregroundStyle(.primary)
 
             if yearEntries.isEmpty {
                 Text("No year-level entries.")

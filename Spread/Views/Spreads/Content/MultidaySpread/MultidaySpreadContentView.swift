@@ -34,7 +34,11 @@ struct MultidaySpreadContentView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: SpreadTheme.Spacing.large) {
             HStack {
-                Spacer()
+                Capsule()
+                    .stroke(SpreadTheme.DotGrid.defaultDots)
+                    .frame(height: SpreadTheme.CornerRadius.xxlarge)
+                    .padding(.vertical, SpreadTheme.Spacing.large)
+                    .padding(.trailing, SpreadTheme.Spacing.medium)
                 EntryListOptionsPicker(
                     grouping: groupingOption,
                     sorting: sortingOption,

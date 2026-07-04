@@ -52,6 +52,22 @@ struct MonthSpreadContentView: View {
     var body: some View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
+                HStack {
+                    Capsule()
+                        .stroke(SpreadTheme.DotGrid.defaultDots)
+                        .frame(height: SpreadTheme.CornerRadius.xxlarge)
+                        .padding(.vertical, SpreadTheme.Spacing.large)
+                        .padding(.trailing, SpreadTheme.Spacing.medium)
+                    EntryListOptionsPicker(
+                        grouping: groupingOption,
+                        sorting: sortingOption,
+                        onGroupingSelected: { groupingOption = $0 },
+                        onSortingSelected: { sortingOption = $0 }
+                    )
+                    .padding(.horizontal, Layout.contentPadding)
+                }
+                .padding(.horizontal, Layout.contentPadding)
+
                 // Pinned, non-scrolling top inset — kept outside the ScrollView below so the
                 // calendar grid stays visible while the entry content beneath it scrolls.
                 SpreadMonthCalendarView(
@@ -88,19 +104,9 @@ struct MonthSpreadContentView: View {
     @ViewBuilder
     private func monthSection(entries: [any Entry]) -> some View {
         VStack(alignment: .leading, spacing: Layout.sectionRowSpacing) {
-            HStack {
-                Text("Month")
-                    .font(SpreadTheme.Typography.title3)
-                    .foregroundStyle(.primary)
-                Spacer()
-                EntryListOptionsPicker(
-                    grouping: groupingOption,
-                    sorting: sortingOption,
-                    onGroupingSelected: { groupingOption = $0 },
-                    onSortingSelected: { sortingOption = $0 }
-                )
-                .padding(.horizontal, SpreadTheme.Spacing.large)
-            }
+            Text("Month")
+                .font(SpreadTheme.Typography.title3)
+                .foregroundStyle(.primary)
 
             if entries.isEmpty {
                 Text("No month-level entries.")
