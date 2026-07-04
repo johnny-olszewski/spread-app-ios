@@ -93,7 +93,7 @@ struct YearSpreadContentView: View {
                     guard let todayMonthDate = monthDates.first(where: {
                         calendar.isDate($0, equalTo: today, toGranularity: .month)
                     }) else { return }
-                    withAnimation { proxy.scrollTo(todayMonthDate, anchor: .center) }
+                    proxy.scrollTo(todayMonthDate, anchor: .center)
                 }
             }
         }

@@ -77,7 +77,7 @@ struct MultidaySpreadContentView: View {
                     $0.creationPeriod != .multiday &&
                     calendar.isDate($0.date, equalTo: today, toGranularity: .day)
                 }) else { return }
-                withAnimation { proxy.scrollTo(todaySection.date, anchor: .center) }
+                proxy.scrollTo(todaySection.date, anchor: .center)
             }
         }
         .conditionalScrollView()
