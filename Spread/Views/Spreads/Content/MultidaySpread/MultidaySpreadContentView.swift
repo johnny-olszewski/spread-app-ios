@@ -59,7 +59,8 @@ struct MultidaySpreadContentView: View {
                 }
             }
         }
-        .padding(SpreadTheme.Spacing.large)
+        .padding(.horizontal, SpreadTheme.Spacing.large)
+        .padding(.bottom, SpreadTheme.Spacing.large)
         .conditionalScrollView()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.multidayGrid)
         .task(id: viewModel.spread.id) {
