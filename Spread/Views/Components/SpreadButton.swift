@@ -34,6 +34,8 @@ struct SpreadButton: View {
     private let title: String?
     private let subtitle: String?
     private let icon: SpreadTheme.Icon?
+    /// When non-nil, overrides the style-resolved tint for the icon only (e.g. priority colors).
+    private let iconTint: Color?
     private let style: Style
     private let size: Size
     private let role: ButtonRole?
@@ -45,6 +47,7 @@ struct SpreadButton: View {
         _ title: String? = nil,
         subtitle: String? = nil,
         icon: SpreadTheme.Icon? = nil,
+        iconTint: Color? = nil,
         style: Style = .tonal,
         size: Size = .medium,
         role: ButtonRole? = nil,
@@ -55,6 +58,7 @@ struct SpreadButton: View {
         self.title = title
         self.subtitle = subtitle
         self.icon = icon
+        self.iconTint = iconTint
         self.style = style
         self.size = size
         self.role = role
@@ -70,7 +74,7 @@ struct SpreadButton: View {
             HStack(spacing: SpreadTheme.Spacing.small) {
                 if let icon {
                     icon.sized(iconSize)
-                        .iconTint(foregroundColor)
+                        .iconTint(iconTint ?? foregroundColor)
                 }
                 if let subtitle {
                     VStack(spacing: 1) {
