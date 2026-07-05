@@ -143,7 +143,6 @@ struct TaskEntrySheet: View {
             isPrimaryVisible: viewModel.formModel.isCreateButtonVisible,
             isSaveEnabled: isSaveEnabled,
             historySection: historyAnyView,
-            lifecycleSection: lifecycleAnyView,
             deleteAction: task != nil ? { deleteTask() } : nil,
             deleteAlertTitle: "Delete Task",
             deleteAlertMessage: "Are you sure you want to delete this task? This action cannot be undone.",
@@ -154,6 +153,9 @@ struct TaskEntrySheet: View {
             )
         ) {
             titleSection
+            if viewModel.mode == .edit {
+                statusSection
+            }
             EntrySheetDivider()
             prioritySection
             dueDateSection
@@ -186,21 +188,6 @@ struct TaskEntrySheet: View {
         return AnyView(assignmentHistorySection)
     }
 
-    private var lifecycleAnyView: AnyView? {
-        guard
-            viewModel.mode == .edit,
-            let title = viewModel.selectedStatus.lifecycleActionTitleInTaskSheet,
-            let result = viewModel.selectedStatus.lifecycleActionResultInTaskSheet,
-            let icon = viewModel.selectedStatus.lifecycleActionIconInTaskSheet
-        else { return nil }
-        return AnyView(lifecycleSection(
-            title: title,
-            icon: icon,
-            role: viewModel.selectedStatus.lifecycleActionRoleInTaskSheet,
-            resultStatus: result
-        ))
-    }
-
     // MARK: - Sections
 
     @ViewBuilder
@@ -209,23 +196,8 @@ struct TaskEntrySheet: View {
             EntrySheetSectionHeader(title: "Title")
 
             if viewModel.mode == .edit {
-                HStack(spacing: 8) {
-                    Button {} label: {
-                        EntryStatusIcon(
-                            baseShape: EntryType.task.statusIconBaseShape,
-                            bseeShapeConfig: .init(color: viewModel.selectedStatus.iconColor, iconSize: 24),
-                            overlay: viewModel.selectedStatus.overlayShape,
-                            overlayConfig: .init(color: viewModel.selectedStatus.iconColor, iconSize: 24)
-                        )
-                        .frame(width: 24, height: 24)
-                    }
-                    .buttonStyle(.plain)
-                    .allowsHitTesting(false)
-
-                    TextField("Task title", text: $viewModel.formModel.title)
-                        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.titleField)
-                }
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.statusPicker)
+                TextField("Task title", text: $viewModel.formModel.title)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.titleField)
             } else {
                 TextField("Task title", text: $viewModel.formModel.title)
                     .focused($isTitleFocused)
@@ -238,6 +210,53 @@ struct TaskEntrySheet: View {
                     EntrySheetValidationErrorRow(message: error.message)
                 }
             }
+        }
+    }
+
+    /// Edit-mode status choice row replacing the lifecycle section (Open / Complete /
+    /// Cancelled). Migrated is terminal: it renders as a non-selectable informational chip.
+    @ViewBuilder
+    private var statusSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            EntrySheetSectionHeader(title: "Status")
+
+            if viewModel.selectedStatus == .migrated {
+                SpreadButton("Migrated", icon: .arrowRight, style: .tonal, size: .small) {}
+                    .disabled(true)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.statusPicker)
+            } else {
+                EntrySheetChoiceRow(
+                    options: EntryStatus.userEditableTaskStatuses.map { status in
+                        .init(
+                            value: status,
+                            title: status.displayName,
+                            icon: statusOptionIcon(for: status),
+                            accessibilityIdentifier: statusOptionIdentifier(for: status)
+                        )
+                    },
+                    selection: viewModel.selectedStatus,
+                    onSelect: { viewModel.selectedStatus = $0 }
+                )
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.statusPicker)
+            }
+        }
+    }
+
+    private func statusOptionIcon(for status: EntryStatus) -> SpreadTheme.Icon {
+        switch status {
+        case .complete: .checkCircle
+        case .cancelled: .xmarkCircle
+        default: .circle
+        }
+    }
+
+    /// The Cancelled and Open options keep the legacy lifecycle-button identifiers
+    /// (cancel/restore) so existing UI tests keep addressing the same transitions.
+    private func statusOptionIdentifier(for status: EntryStatus) -> String? {
+        switch status {
+        case .cancelled: Definitions.AccessibilityIdentifiers.TaskDetailSheet.cancelTaskButton
+        case .open: Definitions.AccessibilityIdentifiers.TaskDetailSheet.restoreTaskButton
+        default: nil
         }
     }
 
@@ -549,28 +568,6 @@ struct TaskEntrySheet: View {
             }
         }
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.assignmentHistory)
-    }
-
-    private func lifecycleSection(
-        title: String,
-        icon: SpreadTheme.Icon,
-        role: ButtonRole?,
-        resultStatus: EntryStatus
-    ) -> some View {
-        Button(role: role) {
-            viewModel.selectedStatus = resultStatus
-        } label: {
-            HStack {
-                icon.sized(SpreadTheme.IconSize.medium)
-                    .iconTint(role == .destructive ? .red : .accentColor)
-                Text(title)
-            }
-        }
-        .accessibilityIdentifier(
-            resultStatus == .cancelled
-                ? Definitions.AccessibilityIdentifiers.TaskDetailSheet.cancelTaskButton
-                : Definitions.AccessibilityIdentifiers.TaskDetailSheet.restoreTaskButton
-        )
     }
 
     // MARK: - Helpers

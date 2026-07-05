@@ -7521,26 +7521,34 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-292] Visual: TaskEntrySheet redesign on the new vocabulary - [ ] Pending
+### [SPRD-292] Visual: TaskEntrySheet redesign on the new vocabulary - [ ] Done
 
 - **Context**: Task sheet fields use mismatched stock controls in an order that doesn't reflect how the same data renders in entry rows; assignment is a dense Toggle + picker-launcher + segmented/menu + date stack; status is a dead icon plus a bottom lifecycle section.
 - **Description**: Rebuild `TaskEntrySheet` content on the SPRD-291 vocabulary in entry-row order: Title → Priority → Due date → List → Tags → Notes → Assignment. Priority uses the SPRD-288 icons/colors in a choice row. Due date becomes an add/remove chip revealing `CalendarView`. List/Tags become chip clouds with inline creation (system alerts removed). Notes is an always-visible `TextEditor` on `Paper.secondary`. Assignment becomes a two-state chip pair revealing period choice row → `CalendarView` with spread existence embedded (colored day cells, multiday coverage bars via the `RowOverlayGenerator` vocabulary; tapping covered dates selects the spread). Remove the "Select from existing spreads" launcher and `SpreadPickerView` hop. Edit mode gets a status choice row (Open/Complete/Cancelled with `EntryStatusIcon` colors) replacing the non-interactive title icon and the lifecycle section; invalid transitions disabled; migrated renders as an informational non-selectable chip.
 - **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Visual Redesign (SESH-27)
 - **Acceptance Criteria**:
-  - AC1: Section order is Title → Priority → Due date → List → Tags → Notes → Assignment in both modes.
-  - AC2: Priority is a choice row using SPRD-288 icons and colors; no `Picker(.menu)`.
-  - AC3: Due date is an add/remove chip; date picked via `CalendarView`; no `Toggle`/native `DatePicker`.
-  - AC4: List and Tags are chip clouds with inline "+ New" creation; `alert`-based creation removed; 5-tag limit still enforced.
-  - AC5: Notes is always visible; no `DisclosureGroup`.
-  - AC6: Assignment chip pair replaces the Toggle; assigned state reveals period choice row then date selection.
-  - AC7: The assignment `CalendarView` indicates existing day spreads (distinct cell color) and multiday spreads (coverage bars); tapping a covered date selects that spread; the separate spread-picker launcher and `SpreadPickerView` presentation are removed from this sheet.
-  - AC8: Multiday assignment still requires an existing spread (no free-range creation in this task).
-  - AC9: Edit mode shows a status choice row replacing the dead icon and lifecycle section; disallowed transitions are disabled, not hidden.
-  - AC10: All existing accessibility identifiers preserved; existing UI tests pass.
-  - AC11: Build succeeds with no errors.
+  - [x] AC1: Section order is Title → Priority → Due date → List → Tags → Notes → Assignment in both modes.
+  - [x] AC2: Priority is a choice row using SPRD-288 icons and colors; no `Picker(.menu)`.
+  - [x] AC3: Due date is an add/remove chip; date picked via `CalendarView`; no `Toggle`/native `DatePicker`.
+  - [x] AC4: List and Tags are chip clouds with inline "+ New" creation; `alert`-based creation removed; 5-tag limit still enforced.
+  - [x] AC5: Notes is always visible; no `DisclosureGroup`.
+  - [x] AC6: Assignment chip pair replaces the Toggle; assigned state reveals period choice row then date selection.
+  - [x] AC7: The assignment `CalendarView` indicates existing day spreads (distinct cell color) and multiday spreads (coverage bars); tapping a covered date selects that spread; the separate spread-picker launcher and `SpreadPickerView` presentation are removed from this sheet.
+  - [x] AC8: Multiday assignment still requires an existing spread (no free-range creation in this task).
+  - [x] AC9: Edit mode shows a status choice row replacing the dead icon and lifecycle section; disallowed transitions are disabled, not hidden.
+  - [x] AC10: All existing accessibility identifiers preserved; existing UI tests pass.
+  - [x] AC11: Build succeeds with no errors.
 - **Tests**:
   - No new unit tests: visual/interaction change. Existing form-model and UI tests must keep passing; manual visual QA in both modes and color schemes.
 - **Dependencies**: SPRD-291
+
+**Progress (commits landed on feature/SESH-28)**
+1. **[SPRD-292][1/n]** — Reordered sections to entry-row order (Title → Priority → Due date → List → Tags → Notes → Assignment); split Metadata into per-field sections; priority menu Picker → `EntrySheetChoiceRow` with SPRD-288 icons/colors; Details DisclosureGroup → always-visible Notes editor; removed dead `isDetailsExpanded` from `TaskEditorFormModel`. AC1, AC2, AC5 ✅.
+2. **[SPRD-292][2/n]** — Due date Toggle + native DatePicker → `EntrySheetOptionalFieldChip` + inline `PeriodDatePicker(.day)` CalendarView (visibility on the sheet coordinator; wide back-range keeps allow-past due dates). AC3 ✅.
+3. **[SPRD-292][3/n]** — List/Tags → `EntrySheetChipCloud`s with inline "+ New" creation; system alerts removed from the Task sheet; 5-tag limit disables unselected chips and hides creation. Coordinator alert state retained for NoteEntrySheet (TODO SPRD-293). AC4 ✅.
+4. **[SPRD-292][4/n]** — Assignment Toggle → Inbox/On-a-spread chip pair; period segmented/menu split → one choice row (deleted dead `TaskPeriodControl`); `PeriodDatePicker.SpreadContext` + `EntrySheetCalendarGenerator` day-spread tint/range highlight + navigator `RowOverlayGenerator` bars embed spread selection in the calendar; multiday tap-covered-date selects the spread; `SpreadPickerView` hop removed from Task sheet. AC6, AC7, AC8 ✅.
+5. **[SPRD-292][5/n]** — Edit-mode status choice row (Open/Complete/Cancelled, migrated as disabled informational chip) replaces the non-interactive title-row icon and the lifecycle section; cancel/restore identifiers preserved on the Cancelled/Open options; removed now-dead `lifecycleSection` support from the `EntrySheet` shell. Pre-existing `EntryListGroupingTests` failures confirmed present on the spec-only commit (unrelated; flagged separately). AC9–AC11 ✅.
+- Remaining for this task: none — all ACs complete.
 
 ---
 

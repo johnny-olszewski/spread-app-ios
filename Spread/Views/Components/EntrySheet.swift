@@ -2,14 +2,13 @@ import SwiftUI
 
 /// Generic modal sheet shell for entry creation and editing flows.
 ///
-/// Provides mode-driven chrome (toolbar, auto-focus behavior, loading overlay, error alert,
-/// delete confirmation, optional history and lifecycle sections) while keeping all
+/// Provides mode-driven chrome (custom header, auto-focus behavior, loading overlay, error
+/// alert, delete confirmation, optional history section) while keeping all
 /// entry-type-specific content in the injected `content` view builder.
 ///
 /// - `content`: All entry-type body sections, including any internal dividers between them.
-///   The shell appends dividers + history/lifecycle/delete sections automatically.
+///   The shell appends dividers + history/delete sections automatically.
 /// - `historySection`: Optional view rendered after content in `.edit` mode (e.g. assignment history).
-/// - `lifecycleSection`: Optional view rendered after history in `.edit` mode (e.g. cancel/restore).
 /// - `deleteAction`: Non-nil enables the delete button section in `.edit` mode.
 struct EntrySheet<Content: View>: View {
 
@@ -42,8 +41,6 @@ struct EntrySheet<Content: View>: View {
 
     /// Optional view rendered after content, before the delete section.
     var historySection: AnyView? = nil
-    /// Optional view rendered after history (e.g. lifecycle action button).
-    var lifecycleSection: AnyView? = nil
 
     // MARK: - Delete
 
@@ -78,11 +75,6 @@ struct EntrySheet<Content: View>: View {
                     if let historySection {
                         EntrySheetDivider()
                         historySection
-                    }
-
-                    if let lifecycleSection {
-                        EntrySheetDivider()
-                        lifecycleSection
                     }
 
                     if deleteAction != nil {
