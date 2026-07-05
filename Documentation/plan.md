@@ -7494,3 +7494,80 @@ Supabase: SPRD-85A -> SPRD-85C
 - Remaining for this task: none — all ACs complete.
 
 1. **[SPRD-289][1/n]** — Added `.clockCountdown` to `SpreadTheme.Icon`; removed `spread` param from `OverdueCardView` (bestSpread guard removed, derived internally for section metadata); removed `OverdueCardView` from all content views (day, month, year, multiday); added `OverdueCardView` in ZStack behind pager in `SpreadContentPagerView` with spring-animated offset; added `OverduePanelToggleButton` private struct (isolates `overdueTaskItems` observation); pager tap gesture dismisses panel; auto-closes when items become empty. All ACs satisfied.
+
+---
+
+### [SPRD-291] Visual: Entry sheet design vocabulary — SpreadButton pickers, chips, and custom header chrome - [ ] Pending
+
+- **Context**: The consolidated entry sheets (SPRD-277–282) still use stock SwiftUI form controls (`Picker(.menu)`, `Menu` summary rows, `Toggle`, `DisclosureGroup`, plain toolbar text buttons) while the rest of the app uses SpreadButton styles, Phosphor icons, Mulish headers, and chip strips. Full redesign begins with the shared vocabulary.
+- **Description**: Build the shared sheet-native components: a single-select choice row of `SpreadButton`s (`.tonal` selected / `.plain` unselected, optional Phosphor icon per option), a wrapping chip cloud (single- and multi-select, with an inline "+ New" creation chip that swaps to a `TextField`), and an add/remove chip for optional fields. Replace `EntrySheet`'s `NavigationStack` chrome with a custom header row (Fuzzy Bubbles `largeTitle` title leading; `.plain` Cancel and `.prominent` small Create/Save `SpreadButton`s trailing). Restyle `EntrySheetSectionHeader` to Mulish `title3`.
+- **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Visual Redesign (SESH-27)
+- **Acceptance Criteria**:
+  - AC1: A reusable single-select choice-row component renders all options inline as `SpreadButton`s, `.tonal` for selected / `.plain` for unselected, with optional per-option Phosphor icon and color.
+  - AC2: A reusable chip cloud component supports single- and multi-select chips plus an inline "+ New" chip that swaps in place for a `TextField` (submit creates, empty dismiss cancels).
+  - AC3: A reusable add/remove chip component covers optional fields (two distinct elements, not one conditional element).
+  - AC4: `EntrySheet` renders a custom header (Fuzzy Bubbles title, SpreadButton Cancel/primary) instead of nav bar chrome; busy-disabled primary, error alert, and `interactiveDismissDisabled` behavior unchanged; all three sheets pick up the new chrome via the shared shell.
+  - AC5: Section headers use `SpreadTheme.Typography.title3`.
+  - AC6: Every new component has multi-state previews (selected/unselected, enabled/disabled, with/without icons).
+  - AC7: Existing accessibility identifiers for Cancel/Create/Save are preserved.
+  - AC8: Build succeeds with no errors.
+- **Tests**:
+  - No new unit tests: visual components. Verified via previews and manual inspection in both color schemes.
+
+---
+
+### [SPRD-292] Visual: TaskEntrySheet redesign on the new vocabulary - [ ] Pending
+
+- **Context**: Task sheet fields use mismatched stock controls in an order that doesn't reflect how the same data renders in entry rows; assignment is a dense Toggle + picker-launcher + segmented/menu + date stack; status is a dead icon plus a bottom lifecycle section.
+- **Description**: Rebuild `TaskEntrySheet` content on the SPRD-291 vocabulary in entry-row order: Title → Priority → Due date → List → Tags → Notes → Assignment. Priority uses the SPRD-288 icons/colors in a choice row. Due date becomes an add/remove chip revealing `CalendarView`. List/Tags become chip clouds with inline creation (system alerts removed). Notes is an always-visible `TextEditor` on `Paper.secondary`. Assignment becomes a two-state chip pair revealing period choice row → `CalendarView` with spread existence embedded (colored day cells, multiday coverage bars via the `RowOverlayGenerator` vocabulary; tapping covered dates selects the spread). Remove the "Select from existing spreads" launcher and `SpreadPickerView` hop. Edit mode gets a status choice row (Open/Complete/Cancelled with `EntryStatusIcon` colors) replacing the non-interactive title icon and the lifecycle section; invalid transitions disabled; migrated renders as an informational non-selectable chip.
+- **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Visual Redesign (SESH-27)
+- **Acceptance Criteria**:
+  - AC1: Section order is Title → Priority → Due date → List → Tags → Notes → Assignment in both modes.
+  - AC2: Priority is a choice row using SPRD-288 icons and colors; no `Picker(.menu)`.
+  - AC3: Due date is an add/remove chip; date picked via `CalendarView`; no `Toggle`/native `DatePicker`.
+  - AC4: List and Tags are chip clouds with inline "+ New" creation; `alert`-based creation removed; 5-tag limit still enforced.
+  - AC5: Notes is always visible; no `DisclosureGroup`.
+  - AC6: Assignment chip pair replaces the Toggle; assigned state reveals period choice row then date selection.
+  - AC7: The assignment `CalendarView` indicates existing day spreads (distinct cell color) and multiday spreads (coverage bars); tapping a covered date selects that spread; the separate spread-picker launcher and `SpreadPickerView` presentation are removed from this sheet.
+  - AC8: Multiday assignment still requires an existing spread (no free-range creation in this task).
+  - AC9: Edit mode shows a status choice row replacing the dead icon and lifecycle section; disallowed transitions are disabled, not hidden.
+  - AC10: All existing accessibility identifiers preserved; existing UI tests pass.
+  - AC11: Build succeeds with no errors.
+- **Tests**:
+  - No new unit tests: visual/interaction change. Existing form-model and UI tests must keep passing; manual visual QA in both modes and color schemes.
+- **Dependencies**: SPRD-291
+
+---
+
+### [SPRD-293] Visual: Note and Spread sheets migrate to the redesigned vocabulary - [ ] Pending
+
+- **Context**: After SPRD-292, `NoteEntrySheet` and `SpreadNameEntrySheet` would be the only sheets still using stock field controls inside the redesigned shell.
+- **Description**: Migrate `NoteEntrySheet` (title, content, assignment sections) onto the shared choice-row/chip/calendar components with the same ordering conventions as the Task sheet. Restyle `SpreadNameEntrySheet`'s name section and dynamic-name toggle consistently with the chip idiom.
+- **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Visual Redesign (SESH-27)
+- **Acceptance Criteria**:
+  - AC1: `NoteEntrySheet` uses the shared components for period/assignment/date selection; no stock `Picker`/`Menu`/`Toggle`/`DisclosureGroup` remains in its content.
+  - AC2: Note assignment gets the same chip pair + calendar-embedded spread selection as Tasks.
+  - AC3: `SpreadNameEntrySheet`'s dynamic-name control is restyled on the shared vocabulary (no stock field-level `Toggle`).
+  - AC4: All existing accessibility identifiers preserved; existing UI tests pass.
+  - AC5: Build succeeds with no errors.
+- **Tests**:
+  - No new unit tests: visual change. Manual visual QA in both modes and color schemes.
+- **Dependencies**: SPRD-292
+
+---
+
+### [SPRD-294] Feature: Multiday free-range selection with implicit spread creation - [ ] Pending
+
+- **Context**: SPRD-292 embeds spread selection in the assignment calendar but keeps multiday restricted to existing spreads. The redesign's full intent is that a user can pick a start and end date freely and the spread comes into existence with the entry.
+- **Description**: In the assignment calendar with period = multiday, allow tapping a start date then an end date to define a range. If the range matches an existing multiday spread, select it; otherwise, saving the entry also creates the multiday spread and assigns the entry to it. Cancelling the sheet creates nothing.
+- **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Visual Redesign (SESH-27)
+- **Acceptance Criteria**:
+  - AC1: With multiday selected, tapping start then end dates renders the pending range on the calendar, visually distinct from existing-spread coverage bars.
+  - AC2: A pending range exactly matching an existing multiday spread selects that spread instead of flagging a new one.
+  - AC3: Saving with a non-matching pending range creates the multiday spread and assigns the entry to it in one operation; failure of either surfaces an error without partial state.
+  - AC4: Cancelling the sheet with a pending range creates no spread.
+  - AC5: `isSaveEnabled` treats a pending range as a valid multiday selection.
+  - AC6: Build succeeds with no errors.
+- **Tests**:
+  - Unit tests for the form-model range state: match-to-existing-spread resolution, pending-range validation, and the create-spread-then-assign save path (including failure rollback).
+- **Dependencies**: SPRD-293

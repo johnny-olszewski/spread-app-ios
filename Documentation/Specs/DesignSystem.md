@@ -42,6 +42,8 @@ All modal sheets (task creation, note creation, spread creation, auth sheets, pr
 - Error feedback via `.alert` or inline text — no silent failures.
 - `interactiveDismissDisabled` applied where user data would be lost on accidental dismissal.
 
+> **Amended by SPRD-291** (see `EntryEditingSheets.md` — Visual Redesign): entry sheets (`EntrySheet` shell: Task, Note, Spread) replace the nav-title/toolbar chrome with a custom in-sheet header — `SpreadTheme.Typography.largeTitle` title leading, `.plain` Cancel and `.prominent` primary `SpreadButton`s trailing. The remaining three bullets (loading-disabled primary, error feedback, `interactiveDismissDisabled`) still apply unchanged. Non-entry sheets (auth, profile) keep the original SPRD-216 chrome until redesigned.
+
 ### Toolbar and Action Button Standards
 
 All toolbar buttons must meet minimum 44 pt tap-target requirements. Icon choices must be consistent across spread types for the same action (e.g., create, migrate, favorite). [SPRD-217]
