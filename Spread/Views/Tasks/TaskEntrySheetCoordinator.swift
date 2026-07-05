@@ -2,9 +2,9 @@ import SwiftUI
 
 /// Manages all presentation state for `TaskEntrySheet`.
 ///
-/// Owns the four sheet/alert destinations that can be active at once:
-/// spread picker, delete confirmation (handled by `EntrySheet`), and
-/// the list/tag creation alerts in the metadata section.
+/// Owns the spread picker sheet destination and the inline due-date calendar
+/// expansion state. List/tag creation is inline in the chip clouds (no alerts),
+/// and delete confirmation is handled by `EntrySheet`.
 @Observable @MainActor final class TaskEntrySheetCoordinator {
 
     // MARK: - Sheet Destination
@@ -23,6 +23,9 @@ import SwiftUI
 
     var activeSheet: SheetDestination?
 
+    // Alert-based list/tag creation state — used only by `NoteEntrySheet` until it
+    // migrates to inline chip-cloud creation.
+    // - TODO: [SPRD-293] Remove once NoteEntrySheet adopts EntrySheetChipCloud.
     var isCreatingList = false
     var newListName = ""
 

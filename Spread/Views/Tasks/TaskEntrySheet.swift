@@ -346,115 +346,64 @@ struct TaskEntrySheet: View {
         return context.calendar.date(byAdding: .year, value: -5, to: context.today) ?? context.today
     }
 
-    @ViewBuilder
     private var listSection: some View {
-        @Bindable var coordinator = coordinator
         VStack(alignment: .leading, spacing: 8) {
             EntrySheetSectionHeader(title: "List")
-            listPickerRow
-        }
-        .alert("New List", isPresented: $coordinator.isCreatingList) {
-            TextField("List name", text: $coordinator.newListName)
-            Button("Create") { createList() }
-            Button("Cancel", role: .cancel) { coordinator.newListName = "" }
-        }
-    }
 
-    @ViewBuilder
-    private var tagsSection: some View {
-        @Bindable var coordinator = coordinator
-        VStack(alignment: .leading, spacing: 8) {
-            EntrySheetSectionHeader(title: "Tags")
-            tagsPickerSection
-        }
-        .alert("New Tag", isPresented: $coordinator.isCreatingTag) {
-            TextField("Tag name", text: $coordinator.newTagName)
-            Button("Create") { createTag() }
-            Button("Cancel", role: .cancel) { coordinator.newTagName = "" }
-        }
-    }
-
-    @ViewBuilder
-    private var listPickerRow: some View {
-        Menu {
-            Button("None") { viewModel.formModel.selectedList = nil }
-            Divider()
-            ForEach(journalManager.lists) { list in
-                Button {
-                    viewModel.formModel.selectedList =
-                        viewModel.formModel.selectedList?.id == list.id ? nil : list
-                } label: {
-                    if viewModel.formModel.selectedList?.id == list.id {
-                        Label {
-                            Text(list.name)
-                        } icon: {
-                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
-                        }
+            EntrySheetChipCloud(
+                chips: journalManager.lists.map { list in
+                    .init(
+                        id: list.id,
+                        title: list.name,
+                        isSelected: viewModel.formModel.selectedList?.id == list.id
+                    )
+                },
+                onChipTapped: { id in
+                    if viewModel.formModel.selectedList?.id == id {
+                        viewModel.formModel.selectedList = nil
                     } else {
-                        Text(list.name)
+                        viewModel.formModel.selectedList = journalManager.lists.first { $0.id == id }
                     }
-                }
-            }
-            Divider()
-            Button("New List…") { coordinator.isCreatingList = true }
-        } label: {
-            EntrySheetSelectionSummaryRow(
-                title: "List",
-                value: viewModel.formModel.selectedList?.name ?? "None",
-                isEnabled: true
+                },
+                creationPlaceholder: "List name",
+                onCreate: { createList(named: $0) }
             )
         }
     }
 
     @ViewBuilder
-    private var tagsPickerSection: some View {
-        @Bindable var coordinator = coordinator
-        DisclosureGroup(isExpanded: $coordinator.isTagsExpanded) {
-            ForEach(journalManager.tags) { tag in
-                let isSelected = viewModel.formModel.selectedTagIDs.contains(tag.id)
-                let atLimit = viewModel.formModel.selectedTagIDs.count >= 5
-                Button {
-                    if isSelected {
-                        viewModel.formModel.selectedTagIDs.remove(tag.id)
+    private var tagsSection: some View {
+        let atLimit = viewModel.formModel.selectedTagIDs.count >= 5
+        VStack(alignment: .leading, spacing: 8) {
+            EntrySheetSectionHeader(title: "Tags")
+
+            EntrySheetChipCloud(
+                chips: journalManager.tags.map { tag in
+                    let isSelected = viewModel.formModel.selectedTagIDs.contains(tag.id)
+                    return .init(
+                        id: tag.id,
+                        title: tag.name,
+                        isSelected: isSelected,
+                        isDisabled: !isSelected && atLimit
+                    )
+                },
+                onChipTapped: { id in
+                    if viewModel.formModel.selectedTagIDs.contains(id) {
+                        viewModel.formModel.selectedTagIDs.remove(id)
                     } else if !atLimit {
-                        viewModel.formModel.selectedTagIDs.insert(tag.id)
+                        viewModel.formModel.selectedTagIDs.insert(id)
                     }
-                } label: {
-                    HStack {
-                        Text(tag.name)
-                        Spacer()
-                        if isSelected {
-                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small).iconTint(.accentColor)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(!isSelected && atLimit)
-            }
-            if viewModel.formModel.selectedTagIDs.count >= 5 {
+                },
+                creationPlaceholder: atLimit ? nil : "Tag name",
+                onCreate: atLimit ? nil : { createTag(named: $0) }
+            )
+
+            if atLimit {
                 Text("Maximum 5 tags")
                     .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
-            } else {
-                Button("New Tag…") { coordinator.isCreatingTag = true }
-                    .foregroundStyle(.secondary)
             }
-        } label: {
-            HStack {
-                Text("Tags")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(tagsSummary)
-                    .foregroundStyle(.primary)
-            }
-            .font(SpreadTheme.Typography.subheadline)
         }
-    }
-
-    private var tagsSummary: String {
-        let selected = journalManager.tags.filter { viewModel.formModel.selectedTagIDs.contains($0.id) }
-        if selected.isEmpty { return "None" }
-        return selected.map(\.name).sorted().joined(separator: ", ")
     }
 
     private var notesSection: some View {
@@ -852,10 +801,8 @@ struct TaskEntrySheet: View {
         }
     }
 
-    private func createList() {
-        let name = coordinator.newListName.trimmingCharacters(in: .whitespacesAndNewlines)
-        coordinator.newListName = ""
-        guard !name.isEmpty else { return }
+    /// Creates a list from the chip cloud's inline creation field and selects it.
+    private func createList(named name: String) {
         Task { @MainActor in
             if let list = try? await journalManager.createList(name: name) {
                 viewModel.formModel.selectedList = list
@@ -863,10 +810,9 @@ struct TaskEntrySheet: View {
         }
     }
 
-    private func createTag() {
-        let name = coordinator.newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
-        coordinator.newTagName = ""
-        guard !name.isEmpty, viewModel.formModel.selectedTagIDs.count < 5 else { return }
+    /// Creates a tag from the chip cloud's inline creation field and selects it.
+    private func createTag(named name: String) {
+        guard viewModel.formModel.selectedTagIDs.count < 5 else { return }
         Task { @MainActor in
             if let tag = try? await journalManager.createTag(name: name) {
                 viewModel.formModel.selectedTagIDs.insert(tag.id)
