@@ -15,6 +15,10 @@ struct TaskEditorFormModel {
     var selectedPeriod: Period
     var selectedDate: Date
     var selectedSpreadID: UUID?
+    /// First tap of an in-progress multiday range selection (start-of-day).
+    var pendingRangeStart: Date?
+    /// A completed multiday range with no matching existing spread — saving creates the spread.
+    var pendingMultidayRange: ClosedRange<Date>?
     var hasEditedTitle: Bool
     var showValidationErrors = false
     var titleError: EntryCreationError?
@@ -127,6 +131,7 @@ struct TaskEditorFormModel {
         selectedPeriod = newPeriod
         if newPeriod != .multiday {
             selectedSpreadID = nil
+            clearPendingMultidayRange()
         }
         clearDateError()
     }
@@ -136,6 +141,7 @@ struct TaskEditorFormModel {
         selectedDate = configuration.adjustedDate(selection.date, for: selection.period)
         selectedPeriod = selection.period
         selectedSpreadID = selection.spreadID
+        clearPendingMultidayRange()
         clearDateError()
     }
 
@@ -147,7 +153,73 @@ struct TaskEditorFormModel {
             selectedDate = configuration.today.startOfDay(calendar: configuration.calendar)
             selectedSpreadID = nil
         }
+        clearPendingMultidayRange()
         clearDateError()
+    }
+
+    // MARK: - Multiday range selection
+
+    /// Whether the multiday assignment has a valid target: an existing spread or a pending
+    /// range that will create one on save.
+    var hasMultidaySelection: Bool {
+        selectedSpreadID != nil || pendingMultidayRange != nil
+    }
+
+    /// Handles a tap on the multiday assignment calendar.
+    ///
+    /// First tap on a date covered by an existing multiday spread selects that spread.
+    /// First tap on an uncovered date starts a free range; the second tap completes it.
+    /// A completed range exactly matching an existing spread selects that spread; otherwise
+    /// it is stored as `pendingMultidayRange`, to be created on save (SPRD-294).
+    mutating func handleMultidayDayTap(_ date: Date, spreads: [DataModel.Spread]) {
+        let calendar = configuration.calendar
+        let day = date.startOfDay(calendar: calendar)
+
+        if let start = pendingRangeStart {
+            pendingRangeStart = nil
+            let range = min(start, day)...max(start, day)
+            if let match = multidaySpread(exactlyMatching: range, in: spreads) {
+                applySpreadSelection(SpreadPickerSelection(
+                    period: .multiday,
+                    date: match.startDate ?? match.date,
+                    spreadID: match.id
+                ))
+            } else {
+                pendingMultidayRange = range
+                hasPreferredAssignment = true
+                selectedPeriod = .multiday
+                selectedDate = range.lowerBound
+                selectedSpreadID = nil
+                clearDateError()
+            }
+        } else if let covering = spreads.first(where: {
+            $0.period == .multiday && $0.contains(date: day, calendar: calendar)
+        }) {
+            applySpreadSelection(SpreadPickerSelection(
+                period: .multiday,
+                date: covering.startDate ?? covering.date,
+                spreadID: covering.id
+            ))
+        } else {
+            pendingRangeStart = day
+        }
+    }
+
+    mutating func clearPendingMultidayRange() {
+        pendingRangeStart = nil
+        pendingMultidayRange = nil
+    }
+
+    private func multidaySpread(
+        exactlyMatching range: ClosedRange<Date>,
+        in spreads: [DataModel.Spread]
+    ) -> DataModel.Spread? {
+        let calendar = configuration.calendar
+        return spreads.first { spread in
+            spread.period == .multiday &&
+            (spread.startDate ?? spread.date).startOfDay(calendar: calendar) == range.lowerBound &&
+            (spread.endDate ?? spread.date).startOfDay(calendar: calendar) == range.upperBound
+        }
     }
 
     mutating func clearTitleError() {
@@ -167,7 +239,7 @@ struct TaskEditorFormModel {
         let dateResult: EntryCreationResult
         if !hasPreferredAssignment {
             dateResult = .valid
-        } else if selectedPeriod == .multiday && selectedSpreadID == nil {
+        } else if selectedPeriod == .multiday && !hasMultidaySelection {
             dateResult = .invalid(.missingMultidaySpread)
         } else if selectedPeriod == .multiday {
             dateResult = .valid

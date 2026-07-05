@@ -24,15 +24,17 @@ struct PeriodDatePicker: View {
 
     /// Spread-awareness for the day/multiday calendar (EntryEditingSheets.md — Visual Redesign).
     ///
-    /// When provided, existing day spreads tint their cells, multiday spreads render as
-    /// coverage bars, and — for `period == .multiday` — tapping a date covered by a multiday
-    /// spread selects that spread via `onMultidaySpreadSelected` instead of picking the raw
-    /// date. Tapping an uncovered date in multiday mode is a no-op.
-    /// - TODO: [SPRD-294] Uncovered taps will begin a free start/end range selection.
+    /// When provided, existing day spreads tint their cells and multiday spreads render as
+    /// coverage bars. For `period == .multiday`, every tap is forwarded to
+    /// `onMultidayDayTapped` — the form model decides whether it selects a covered spread,
+    /// starts a free range, or completes one (SPRD-294). `pendingRangeStart`/`pendingRange`
+    /// echo that in-progress state back for rendering.
     struct SpreadContext {
         let spreads: [DataModel.Spread]
         let selectedSpreadID: UUID?
-        let onMultidaySpreadSelected: (DataModel.Spread) -> Void
+        var pendingRangeStart: Date? = nil
+        var pendingRange: ClosedRange<Date>? = nil
+        let onMultidayDayTapped: (Date) -> Void
     }
 
     let period: Period
@@ -135,11 +137,17 @@ struct PeriodDatePicker: View {
         )
     }
 
-    /// The selected multiday spread's range, for continuous selection tinting.
+    /// The range to tint: an in-progress free range (or its single start day), else the
+    /// selected multiday spread's coverage.
     private var highlightedRange: ClosedRange<Date>? {
-        guard period == .multiday,
-              let spreadContext,
-              let selected = spreadContext.spreads.first(where: { $0.id == spreadContext.selectedSpreadID })
+        guard period == .multiday, let spreadContext else { return nil }
+        if let pending = spreadContext.pendingRange {
+            return pending
+        }
+        if let start = spreadContext.pendingRangeStart {
+            return start...start
+        }
+        guard let selected = spreadContext.spreads.first(where: { $0.id == spreadContext.selectedSpreadID })
         else { return nil }
         let start = (selected.startDate ?? selected.date).startOfDay(calendar: calendar)
         let end = (selected.endDate ?? selected.date).startOfDay(calendar: calendar)
@@ -157,11 +165,7 @@ struct PeriodDatePicker: View {
     private func handleDayTap(_ date: Date) {
         guard date >= minimumDate && date <= maximumDate else { return }
         if period == .multiday, let spreadContext {
-            let tapped = date.startOfDay(calendar: calendar)
-            guard let spread = spreadContext.spreads.first(where: {
-                $0.period == .multiday && $0.contains(date: tapped, calendar: calendar)
-            }) else { return }
-            spreadContext.onMultidaySpreadSelected(spread)
+            spreadContext.onMultidayDayTapped(date.startOfDay(calendar: calendar))
         } else {
             selectedDate = date.startOfDay(calendar: calendar)
         }

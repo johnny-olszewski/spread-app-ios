@@ -110,7 +110,7 @@ struct TaskEntrySheet: View {
         !viewModel.formModel.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         !(viewModel.formModel.hasPreferredAssignment &&
           viewModel.formModel.selectedPeriod == .multiday &&
-          viewModel.formModel.selectedSpreadID == nil)
+          !viewModel.formModel.hasMultidaySelection)
     }
 
     private var dueDateBinding: Binding<Date> {
@@ -518,12 +518,10 @@ struct TaskEntrySheet: View {
                 spreadContext: .init(
                     spreads: journalManager.spreads,
                     selectedSpreadID: viewModel.formModel.selectedSpreadID,
-                    onMultidaySpreadSelected: { spread in
-                        viewModel.formModel.applySpreadSelection(SpreadPickerSelection(
-                            period: .multiday,
-                            date: spread.startDate ?? spread.date,
-                            spreadID: spread.id
-                        ))
+                    pendingRangeStart: viewModel.formModel.pendingRangeStart,
+                    pendingRange: viewModel.formModel.pendingMultidayRange,
+                    onMultidayDayTapped: { date in
+                        viewModel.formModel.handleMultidayDayTap(date, spreads: journalManager.spreads)
                     }
                 )
             )
@@ -573,9 +571,15 @@ struct TaskEntrySheet: View {
     // MARK: - Helpers
 
     private var selectedMultidaySummary: String {
+        if let range = viewModel.formModel.pendingMultidayRange {
+            return "New spread: \(formattedRange(range))"
+        }
+        if viewModel.formModel.pendingRangeStart != nil {
+            return "Now tap an end date"
+        }
         guard let spreadID = viewModel.formModel.selectedSpreadID,
               let spread = journalManager.spreads.first(where: { $0.id == spreadID }) else {
-            return "Tap a multiday spread’s coverage bar on the calendar"
+            return "Tap an existing spread, or tap a start date"
         }
         return SpreadPickerConfiguration(
             spreads: journalManager.spreads,
@@ -583,6 +587,15 @@ struct TaskEntrySheet: View {
             today: viewModel.presentedTemporalContext.today
         )
         .displayLabel(for: spread)
+    }
+
+    private func formattedRange(_ range: ClosedRange<Date>) -> String {
+        let formatter = DateIntervalFormatter()
+        formatter.calendar = viewModel.presentedTemporalContext.calendar
+        formatter.timeZone = viewModel.presentedTemporalContext.calendar.timeZone
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: range.lowerBound, to: range.upperBound)
     }
 
     private var formattedDateSummary: String {
@@ -624,34 +637,53 @@ struct TaskEntrySheet: View {
     private func attemptCreate() {
         guard viewModel.formModel.validateForSubmission() else { return }
         viewModel.isBusy = true
-        Task {
+        Task { @MainActor in
+            var createdSpread: DataModel.Spread?
             do {
+                var preferredSpreadID = viewModel.formModel.selectedSpreadID
+                if let spread = try await createPendingMultidaySpreadIfNeeded() {
+                    createdSpread = spread
+                    preferredSpreadID = spread.id
+                }
                 let newTask = try await journalManager.addTask(
                     title: viewModel.formModel.title,
                     date: viewModel.formModel.effectiveDate,
                     period: viewModel.formModel.effectivePeriod,
-                    preferredSpreadID: viewModel.formModel.selectedSpreadID,
+                    preferredSpreadID: preferredSpreadID,
                     body: viewModel.formModel.sanitizedBody,
                     priority: viewModel.formModel.priority,
                     dueDate: viewModel.formModel.effectiveDueDate
                 )
-                await MainActor.run {
-                    onTaskCreated?(newTask)
-                    dismiss()
-                }
+                onTaskCreated?(newTask)
+                dismiss()
             } catch {
-                await MainActor.run {
-                    viewModel.isBusy = false
-                    viewModel.errorMessage = error.localizedDescription
+                if let createdSpread {
+                    try? await journalManager.deleteSpread(createdSpread)
                 }
+                viewModel.isBusy = false
+                viewModel.errorMessage = error.localizedDescription
             }
         }
+    }
+
+    /// Creates the multiday spread backing a pending free range, if one is staged.
+    /// Returns nil when the assignment already targets an existing spread.
+    private func createPendingMultidaySpreadIfNeeded() async throws -> DataModel.Spread? {
+        guard viewModel.formModel.hasPreferredAssignment,
+              viewModel.formModel.selectedPeriod == .multiday,
+              viewModel.formModel.selectedSpreadID == nil,
+              let range = viewModel.formModel.pendingMultidayRange else { return nil }
+        return try await journalManager.addMultidaySpread(
+            startDate: range.lowerBound,
+            endDate: range.upperBound
+        )
     }
 
     private func save() {
         guard let task else { return }
         viewModel.isBusy = true
         Task { @MainActor in
+            var createdSpread: DataModel.Spread?
             do {
                 if viewModel.formModel.title != task.title {
                     try await journalManager.updateTaskTitle(task, newTitle: viewModel.formModel.title)
@@ -684,12 +716,18 @@ struct TaskEntrySheet: View {
                         if task.date == nil ||
                            effectiveDate != task.date ||
                            viewModel.formModel.selectedPeriod != task.period ||
-                           viewModel.formModel.selectedSpreadID != currentMultidaySpreadID {
+                           viewModel.formModel.selectedSpreadID != currentMultidaySpreadID ||
+                           viewModel.formModel.pendingMultidayRange != nil {
+                            var preferredSpreadID = viewModel.formModel.selectedSpreadID
+                            if let spread = try await createPendingMultidaySpreadIfNeeded() {
+                                createdSpread = spread
+                                preferredSpreadID = spread.id
+                            }
                             try await journalManager.updateTaskDateAndPeriod(
                                 task,
                                 newDate: effectiveDate,
                                 newPeriod: viewModel.formModel.selectedPeriod,
-                                preferredSpreadID: viewModel.formModel.selectedSpreadID
+                                preferredSpreadID: preferredSpreadID
                             )
                         }
                     } else if task.date != nil {
@@ -698,6 +736,9 @@ struct TaskEntrySheet: View {
                 }
                 dismiss()
             } catch {
+                if let createdSpread {
+                    try? await journalManager.deleteSpread(createdSpread)
+                }
                 viewModel.isBusy = false
             }
         }

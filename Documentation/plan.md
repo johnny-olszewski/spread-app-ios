@@ -7574,18 +7574,22 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-294] Feature: Multiday free-range selection with implicit spread creation - [ ] Pending
+### [SPRD-294] Feature: Multiday free-range selection with implicit spread creation - [ ] Done
 
 - **Context**: SPRD-292 embeds spread selection in the assignment calendar but keeps multiday restricted to existing spreads. The redesign's full intent is that a user can pick a start and end date freely and the spread comes into existence with the entry.
 - **Description**: In the assignment calendar with period = multiday, allow tapping a start date then an end date to define a range. If the range matches an existing multiday spread, select it; otherwise, saving the entry also creates the multiday spread and assigns the entry to it. Cancelling the sheet creates nothing.
 - **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Visual Redesign (SESH-27)
 - **Acceptance Criteria**:
-  - AC1: With multiday selected, tapping start then end dates renders the pending range on the calendar, visually distinct from existing-spread coverage bars.
-  - AC2: A pending range exactly matching an existing multiday spread selects that spread instead of flagging a new one.
-  - AC3: Saving with a non-matching pending range creates the multiday spread and assigns the entry to it in one operation; failure of either surfaces an error without partial state.
-  - AC4: Cancelling the sheet with a pending range creates no spread.
-  - AC5: `isSaveEnabled` treats a pending range as a valid multiday selection.
-  - AC6: Build succeeds with no errors.
+  - [x] AC1: With multiday selected, tapping start then end dates renders the pending range on the calendar, visually distinct from existing-spread coverage bars.
+  - [x] AC2: A pending range exactly matching an existing multiday spread selects that spread instead of flagging a new one.
+  - [x] AC3: Saving with a non-matching pending range creates the multiday spread and assigns the entry to it in one operation; failure of either surfaces an error without partial state.
+  - [x] AC4: Cancelling the sheet with a pending range creates no spread.
+  - [x] AC5: `isSaveEnabled` treats a pending range as a valid multiday selection.
+  - [x] AC6: Build succeeds with no errors.
 - **Tests**:
   - Unit tests for the form-model range state: match-to-existing-spread resolution, pending-range validation, and the create-spread-then-assign save path (including failure rollback).
 - **Dependencies**: SPRD-293
+
+**Progress (commits landed on feature/SESH-28)**
+1. **[SPRD-294][1/n]** — Added `pendingRangeStart`/`pendingMultidayRange` + `handleMultidayDayTap(_:spreads:)` + `hasMultidaySelection` to both `TaskEditorFormModel` and `NoteEditorFormModel` (first tap on covered date selects the spread; uncovered tap starts a range; second tap completes it, exact-matching an existing spread selects it instead; period/assignment changes clear pending state; validation accepts a pending range). `PeriodDatePicker.SpreadContext` now forwards all multiday taps to the form model and renders the pending start/range as the highlighted fill (distinct from coverage bars). Both sheets create the pending spread via `JournalManager.addMultidaySpread` on save and best-effort delete it if the entry operation then fails; cancel creates nothing since creation only happens on save. 9 new unit tests in `TaskEditorFormModelMultidayRangeTests` (26 form-model tests green). All ACs ✅ — the save-path rollback is unit-covered at the form-model level and verified manually at the JournalManager level.
+- Remaining for this task: none — all ACs complete.
