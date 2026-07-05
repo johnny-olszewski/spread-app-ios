@@ -16,7 +16,6 @@ struct TaskEditorFormModel {
     var selectedDate: Date
     var selectedSpreadID: UUID?
     var hasEditedTitle: Bool
-    var isDetailsExpanded = false
     var showValidationErrors = false
     var titleError: EntryCreationError?
     var dateError: EntryCreationError?

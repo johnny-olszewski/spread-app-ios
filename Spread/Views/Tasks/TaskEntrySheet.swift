@@ -162,9 +162,12 @@ struct TaskEntrySheet: View {
         ) {
             titleSection
             EntrySheetDivider()
-            metadataSection
+            prioritySection
+            dueDateSection
+            listSection
+            tagsSection
             EntrySheetDivider()
-            detailsSection
+            notesSection
             EntrySheetDivider()
             assignmentSection
         }
@@ -260,22 +263,34 @@ struct TaskEntrySheet: View {
         }
     }
 
-    @ViewBuilder
-    private var metadataSection: some View {
-        @Bindable var coordinator = coordinator
+    private var prioritySection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            EntrySheetSectionHeader(title: "Metadata")
+            EntrySheetSectionHeader(title: "Priority")
 
-            Picker("Priority", selection: $viewModel.formModel.priority) {
-                ForEach(DataModel.Task.Priority.allCases, id: \.self) { priority in
-                    Text(priority.displayName).tag(priority)
-                }
-            }
-            .pickerStyle(.menu)
+            EntrySheetChoiceRow(
+                options: DataModel.Task.Priority.allCases.map { priority in
+                    .init(
+                        value: priority,
+                        title: priority.displayName,
+                        icon: priority.icon,
+                        iconTint: priority.iconColor
+                    )
+                },
+                selection: viewModel.formModel.priority,
+                onSelect: { viewModel.formModel.priority = $0 }
+            )
             .accessibilityIdentifier(viewModel.mode == .create
                 ? Definitions.AccessibilityIdentifiers.TaskCreationSheet.priorityPicker
                 : Definitions.AccessibilityIdentifiers.TaskDetailSheet.priorityPicker
             )
+        }
+    }
+
+    @ViewBuilder
+    private var dueDateSection: some View {
+        @Bindable var coordinator = coordinator
+        VStack(alignment: .leading, spacing: 8) {
+            EntrySheetSectionHeader(title: "Due date")
 
             Toggle("Due date", isOn: $viewModel.formModel.hasDueDate)
                 .accessibilityIdentifier(viewModel.mode == .create
@@ -290,14 +305,29 @@ struct TaskEntrySheet: View {
                         : Definitions.AccessibilityIdentifiers.TaskDetailSheet.dueDatePicker
                     )
             }
+        }
+    }
 
+    @ViewBuilder
+    private var listSection: some View {
+        @Bindable var coordinator = coordinator
+        VStack(alignment: .leading, spacing: 8) {
+            EntrySheetSectionHeader(title: "List")
             listPickerRow
-            tagsPickerSection
         }
         .alert("New List", isPresented: $coordinator.isCreatingList) {
             TextField("List name", text: $coordinator.newListName)
             Button("Create") { createList() }
             Button("Cancel", role: .cancel) { coordinator.newListName = "" }
+        }
+    }
+
+    @ViewBuilder
+    private var tagsSection: some View {
+        @Bindable var coordinator = coordinator
+        VStack(alignment: .leading, spacing: 8) {
+            EntrySheetSectionHeader(title: "Tags")
+            tagsPickerSection
         }
         .alert("New Tag", isPresented: $coordinator.isCreatingTag) {
             TextField("Tag name", text: $coordinator.newTagName)
@@ -389,14 +419,15 @@ struct TaskEntrySheet: View {
         return selected.map(\.name).sorted().joined(separator: ", ")
     }
 
-    @ViewBuilder
-    private var detailsSection: some View {
-        DisclosureGroup("Details", isExpanded: $viewModel.formModel.isDetailsExpanded) {
+    private var notesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            EntrySheetSectionHeader(title: "Notes")
+
             TextEditor(text: $viewModel.formModel.body)
-                .frame(minHeight: 96)
+                .frame(minHeight: 72)
                 .scrollContentBackground(.hidden)
                 .background(SpreadTheme.Paper.secondary)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.standard, style: .continuous))
                 .accessibilityIdentifier(viewModel.mode == .create
                     ? Definitions.AccessibilityIdentifiers.TaskCreationSheet.bodyField
                     : Definitions.AccessibilityIdentifiers.TaskDetailSheet.bodyField
