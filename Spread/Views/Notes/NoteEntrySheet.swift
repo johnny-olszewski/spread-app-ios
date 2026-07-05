@@ -59,7 +59,6 @@ struct NoteEntrySheet: View {
     // MARK: - State
 
     @State private var viewModel: ViewModel
-    @State private var coordinator = TaskEntrySheetCoordinator()
     @FocusState private var isTitleFocused: Bool
 
     // MARK: - Inits
@@ -133,24 +132,10 @@ struct NoteEntrySheet: View {
             EntrySheetDivider()
             contentSection
             EntrySheetDivider()
-            metadataSection
+            listSection
+            tagsSection
             EntrySheetDivider()
             assignmentSection
-        }
-        .sheet(item: $coordinator.activeSheet) { destination in
-            switch destination {
-            case .spreadPicker:
-                SpreadPickerView(
-                    spreads: journalManager.spreads,
-                    calendar: viewModel.presentedTemporalContext.calendar,
-                    today: viewModel.presentedTemporalContext.today,
-                    focusDate: viewModel.formModel.effectiveSelectedDate,
-                    onSpreadSelected: { selection in
-                        viewModel.formModel.applySpreadSelection(selection)
-                    },
-                    onChooseCustomDate: {}
-                )
-            }
         }
         .onAppear {
             if viewModel.mode == .create {
@@ -202,10 +187,9 @@ struct NoteEntrySheet: View {
             EntrySheetSectionHeader(title: "Content")
             TextEditor(text: $viewModel.formModel.content)
                 .frame(minHeight: 100)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                )
+                .scrollContentBackground(.hidden)
+                .background(SpreadTheme.Paper.secondary)
+                .clipShape(RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.standard, style: .continuous))
                 .accessibilityIdentifier(viewModel.mode == .create
                     ? Definitions.AccessibilityIdentifiers.NoteCreationSheet.contentField
                     : Definitions.AccessibilityIdentifiers.NoteDetailSheet.contentField
@@ -219,131 +203,70 @@ struct NoteEntrySheet: View {
         }
     }
 
-    @ViewBuilder
-    private var metadataSection: some View {
-        @Bindable var coordinator = coordinator
+    private var listSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            EntrySheetSectionHeader(title: "Metadata")
-            listPickerRow
-            tagsPickerSection
-        }
-        .alert("New List", isPresented: $coordinator.isCreatingList) {
-            TextField("List name", text: $coordinator.newListName)
-            Button("Create") { createList() }
-            Button("Cancel", role: .cancel) { coordinator.newListName = "" }
-        }
-        .alert("New Tag", isPresented: $coordinator.isCreatingTag) {
-            TextField("Tag name", text: $coordinator.newTagName)
-            Button("Create") { createTag() }
-            Button("Cancel", role: .cancel) { coordinator.newTagName = "" }
-        }
-    }
+            EntrySheetSectionHeader(title: "List")
 
-    @ViewBuilder
-    private var listPickerRow: some View {
-        Menu {
-            Button("None") { viewModel.formModel.selectedList = nil }
-            Divider()
-            ForEach(journalManager.lists) { list in
-                Button {
-                    viewModel.formModel.selectedList =
-                        viewModel.formModel.selectedList?.id == list.id ? nil : list
-                } label: {
-                    if viewModel.formModel.selectedList?.id == list.id {
-                        Label {
-                            Text(list.name)
-                        } icon: {
-                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
-                        }
+            EntrySheetChipCloud(
+                chips: journalManager.lists.map { list in
+                    .init(
+                        id: list.id,
+                        title: list.name,
+                        isSelected: viewModel.formModel.selectedList?.id == list.id
+                    )
+                },
+                onChipTapped: { id in
+                    if viewModel.formModel.selectedList?.id == id {
+                        viewModel.formModel.selectedList = nil
                     } else {
-                        Text(list.name)
+                        viewModel.formModel.selectedList = journalManager.lists.first { $0.id == id }
                     }
-                }
-            }
-            Divider()
-            Button("New List…") { coordinator.isCreatingList = true }
-        } label: {
-            EntrySheetSelectionSummaryRow(
-                title: "List",
-                value: viewModel.formModel.selectedList?.name ?? "None",
-                isEnabled: true
+                },
+                creationPlaceholder: "List name",
+                onCreate: { createList(named: $0) }
             )
         }
     }
 
     @ViewBuilder
-    private var tagsPickerSection: some View {
-        @Bindable var coordinator = coordinator
-        DisclosureGroup(isExpanded: $coordinator.isTagsExpanded) {
-            ForEach(journalManager.tags) { tag in
-                let isSelected = viewModel.formModel.selectedTagIDs.contains(tag.id)
-                let atLimit = viewModel.formModel.selectedTagIDs.count >= 5
-                Button {
-                    if isSelected {
-                        viewModel.formModel.selectedTagIDs.remove(tag.id)
+    private var tagsSection: some View {
+        let atLimit = viewModel.formModel.selectedTagIDs.count >= 5
+        VStack(alignment: .leading, spacing: 8) {
+            EntrySheetSectionHeader(title: "Tags")
+
+            EntrySheetChipCloud(
+                chips: journalManager.tags.map { tag in
+                    let isSelected = viewModel.formModel.selectedTagIDs.contains(tag.id)
+                    return .init(
+                        id: tag.id,
+                        title: tag.name,
+                        isSelected: isSelected,
+                        isDisabled: !isSelected && atLimit
+                    )
+                },
+                onChipTapped: { id in
+                    if viewModel.formModel.selectedTagIDs.contains(id) {
+                        viewModel.formModel.selectedTagIDs.remove(id)
                     } else if !atLimit {
-                        viewModel.formModel.selectedTagIDs.insert(tag.id)
+                        viewModel.formModel.selectedTagIDs.insert(id)
                     }
-                } label: {
-                    HStack {
-                        Text(tag.name)
-                        Spacer()
-                        if isSelected {
-                            SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small).iconTint(.accentColor)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(!isSelected && atLimit)
-            }
-            if viewModel.formModel.selectedTagIDs.count >= 5 {
+                },
+                creationPlaceholder: atLimit ? nil : "Tag name",
+                onCreate: atLimit ? nil : { createTag(named: $0) }
+            )
+
+            if atLimit {
                 Text("Maximum 5 tags")
                     .font(SpreadTheme.Typography.caption)
                     .foregroundStyle(.secondary)
-            } else {
-                Button("New Tag…") { coordinator.isCreatingTag = true }
-                    .foregroundStyle(.secondary)
             }
-        } label: {
-            HStack {
-                Text("Tags")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(tagsSummary)
-                    .foregroundStyle(.primary)
-            }
-            .font(SpreadTheme.Typography.subheadline)
         }
-    }
-
-    private var tagsSummary: String {
-        let selected = journalManager.tags.filter { viewModel.formModel.selectedTagIDs.contains($0.id) }
-        if selected.isEmpty { return "None" }
-        return selected.map(\.name).sorted().joined(separator: ", ")
     }
 
     @ViewBuilder
     private var assignmentSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             EntrySheetSectionHeader(title: "Assignment")
-
-            Button {
-                coordinator.showSpreadPicker()
-            } label: {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Select from existing spreads")
-                        Text("Or choose a custom date below")
-                            .font(SpreadTheme.Typography.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
-                        .iconTint(.secondary)
-                }
-            }
-            .foregroundStyle(.primary)
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteCreationSheet.spreadPickerButton)
 
             periodSection
             dateSection
@@ -355,36 +278,23 @@ struct NoteEntrySheet: View {
         VStack(alignment: .leading, spacing: 6) {
             EntrySheetSectionHeader(title: "Period")
 
-            if viewModel.mode == .create {
-                Picker("Period", selection: Binding(
-                    get: { viewModel.formModel.selectedPeriod },
-                    set: { viewModel.formModel.setPeriod($0) }
-                )) {
-                    ForEach(EntryCreationConfiguration.assignablePeriods, id: \.self) { period in
-                        Text(period.displayName)
-                            .tag(period)
-                            .accessibilityIdentifier(
-                                Definitions.AccessibilityIdentifiers.NoteCreationSheet.periodSegment(
-                                    period.rawValue
-                                )
-                            )
-                    }
-                }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteCreationSheet.periodPicker)
-            } else {
-                Picker("Period", selection: Binding(
-                    get: { viewModel.formModel.selectedPeriod },
-                    set: { viewModel.formModel.setPeriod($0) }
-                )) {
-                    ForEach(EntryCreationConfiguration.assignablePeriods, id: \.self) { period in
-                        Text(period.displayName)
-                            .tag(period)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.NoteDetailSheet.periodPicker)
-            }
+            EntrySheetChoiceRow(
+                options: EntryCreationConfiguration.assignablePeriods.map { period in
+                    .init(
+                        value: period,
+                        title: period.displayName,
+                        accessibilityIdentifier: viewModel.mode == .create
+                            ? Definitions.AccessibilityIdentifiers.NoteCreationSheet.periodSegment(period.rawValue)
+                            : nil
+                    )
+                },
+                selection: viewModel.formModel.selectedPeriod,
+                onSelect: { viewModel.formModel.setPeriod($0) }
+            )
+            .accessibilityIdentifier(viewModel.mode == .create
+                ? Definitions.AccessibilityIdentifiers.NoteCreationSheet.periodPicker
+                : Definitions.AccessibilityIdentifiers.NoteDetailSheet.periodPicker
+            )
 
             Text(viewModel.formModel.periodDescription)
                 .font(SpreadTheme.Typography.caption)
@@ -394,30 +304,43 @@ struct NoteEntrySheet: View {
 
     @ViewBuilder
     private var dateSection: some View {
+        let isMultiday = viewModel.formModel.selectedPeriod == .multiday
         VStack(alignment: .leading, spacing: 6) {
-            EntrySheetSectionHeader(title: "Date")
-            if viewModel.formModel.selectedPeriod == .multiday {
+            EntrySheetSectionHeader(title: isMultiday ? "Spread" : "Date")
+
+            if isMultiday {
                 Text(selectedMultidaySummary)
                     .font(SpreadTheme.Typography.subheadline)
                     .foregroundStyle(viewModel.formModel.selectedSpreadID == nil ? .secondary : .primary)
-            } else {
-                PeriodDatePicker(
-                    period: viewModel.formModel.selectedPeriod,
-                    selectedDate: $viewModel.formModel.selectedDate,
-                    calendar: viewModel.presentedTemporalContext.calendar,
-                    today: viewModel.presentedTemporalContext.today,
-                    minimumDate: configuration.minimumDate(for: .day),
-                    maximumDate: configuration.maximumDate,
-                    accessibilityIdentifiers: viewModel.mode == .create
-                        ? .init(
-                            dayPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.datePicker,
-                            yearPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.yearPicker,
-                            monthPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.monthPicker,
-                            monthYearPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.monthYearPicker
-                        )
-                        : nil
-                )
             }
+
+            PeriodDatePicker(
+                period: viewModel.formModel.selectedPeriod,
+                selectedDate: $viewModel.formModel.selectedDate,
+                calendar: viewModel.presentedTemporalContext.calendar,
+                today: viewModel.presentedTemporalContext.today,
+                minimumDate: configuration.minimumDate(for: .day),
+                maximumDate: configuration.maximumDate,
+                accessibilityIdentifiers: viewModel.mode == .create
+                    ? .init(
+                        dayPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.datePicker,
+                        yearPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.yearPicker,
+                        monthPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.monthPicker,
+                        monthYearPicker: Definitions.AccessibilityIdentifiers.NoteCreationSheet.monthYearPicker
+                    )
+                    : nil,
+                spreadContext: .init(
+                    spreads: journalManager.spreads,
+                    selectedSpreadID: viewModel.formModel.selectedSpreadID,
+                    onMultidaySpreadSelected: { spread in
+                        viewModel.formModel.applySpreadSelection(SpreadPickerSelection(
+                            period: .multiday,
+                            date: spread.startDate ?? spread.date,
+                            spreadID: spread.id
+                        ))
+                    }
+                )
+            )
 
             if viewModel.formModel.showValidationErrors, let error = viewModel.formModel.dateError {
                 EntrySheetValidationErrorRow(message: error.message)
@@ -455,7 +378,7 @@ struct NoteEntrySheet: View {
     private var selectedMultidaySummary: String {
         guard let spreadID = viewModel.formModel.selectedSpreadID,
               let spread = journalManager.spreads.first(where: { $0.id == spreadID }) else {
-            return "Select an existing multiday spread above"
+            return "Tap a multiday spread’s coverage bar on the calendar"
         }
         return SpreadPickerConfiguration(
             spreads: journalManager.spreads,
@@ -556,10 +479,8 @@ struct NoteEntrySheet: View {
         }
     }
 
-    private func createList() {
-        let name = coordinator.newListName.trimmingCharacters(in: .whitespacesAndNewlines)
-        coordinator.newListName = ""
-        guard !name.isEmpty else { return }
+    /// Creates a list from the chip cloud’s inline creation field and selects it.
+    private func createList(named name: String) {
         Task { @MainActor in
             if let list = try? await journalManager.createList(name: name) {
                 viewModel.formModel.selectedList = list
@@ -567,10 +488,9 @@ struct NoteEntrySheet: View {
         }
     }
 
-    private func createTag() {
-        let name = coordinator.newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
-        coordinator.newTagName = ""
-        guard !name.isEmpty, viewModel.formModel.selectedTagIDs.count < 5 else { return }
+    /// Creates a tag from the chip cloud’s inline creation field and selects it.
+    private func createTag(named name: String) {
+        guard viewModel.formModel.selectedTagIDs.count < 5 else { return }
         Task { @MainActor in
             if let tag = try? await journalManager.createTag(name: name) {
                 viewModel.formModel.selectedTagIDs.insert(tag.id)
