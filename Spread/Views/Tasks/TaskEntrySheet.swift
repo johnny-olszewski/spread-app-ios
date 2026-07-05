@@ -113,13 +113,6 @@ struct TaskEntrySheet: View {
           viewModel.formModel.selectedSpreadID == nil)
     }
 
-    private var assignmentBinding: Binding<Bool> {
-        Binding(
-            get: { viewModel.formModel.hasPreferredAssignment },
-            set: { viewModel.formModel.setPreferredAssignmentEnabled($0) }
-        )
-    }
-
     private var dueDateBinding: Binding<Date> {
         Binding(
             get: { viewModel.formModel.dueDate },
@@ -170,21 +163,6 @@ struct TaskEntrySheet: View {
             notesSection
             EntrySheetDivider()
             assignmentSection
-        }
-        .sheet(item: $coordinator.activeSheet) { destination in
-            switch destination {
-            case .spreadPicker:
-                SpreadPickerView(
-                    spreads: journalManager.spreads,
-                    calendar: viewModel.presentedTemporalContext.calendar,
-                    today: viewModel.presentedTemporalContext.today,
-                    focusDate: viewModel.formModel.effectiveSelectedDate,
-                    onSpreadSelected: { selection in
-                        viewModel.formModel.applySpreadSelection(selection)
-                    },
-                    onChooseCustomDate: {}
-                )
-            }
         }
         .onAppear {
             if viewModel.mode == .create {
@@ -425,76 +403,32 @@ struct TaskEntrySheet: View {
     @ViewBuilder
     private var assignmentSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            EntrySheetSectionHeader(title: viewModel.mode == .create ? "Assignment" : "Assignment")
+            EntrySheetSectionHeader(title: "Assignment")
 
-            Toggle("Assign to spread", isOn: assignmentBinding)
-                .disabled(!isAssignmentEditable)
-                .opacity(isAssignmentEditable ? 1 : 0.7)
-                .accessibilityIdentifier(viewModel.mode == .create
-                    ? Definitions.AccessibilityIdentifiers.TaskCreationSheet.assignmentToggle
-                    : Definitions.AccessibilityIdentifiers.TaskDetailSheet.assignmentToggle
-                )
-
-            if viewModel.formModel.hasPreferredAssignment {
-                spreadSelectionSection
-                periodSection
-                dateSection
-            } else {
-                Text(viewModel.formModel.periodDescription)
-                    .font(SpreadTheme.Typography.caption)
-                    .foregroundStyle(.secondary)
-                    .opacity(isAssignmentEditable ? 1 : 0.7)
-            }
-
-            if viewModel.mode == .create && viewModel.formModel.hasPreferredAssignment {
-                spreadPickerButton
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var spreadPickerButton: some View {
-        Button {
-            coordinator.showSpreadPicker()
-        } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Select from existing spreads")
-                    Text("Or choose a custom date below")
-                        .font(SpreadTheme.Typography.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
-                    .iconTint(.secondary)
-            }
-        }
-        .foregroundStyle(.primary)
-        .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskCreationSheet.spreadPickerButton)
-    }
-
-    @ViewBuilder
-    private var spreadSelectionSection: some View {
-        if viewModel.mode == .edit {
-            Button {
-                coordinator.showSpreadPicker()
-            } label: {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Select from existing spreads")
-                        Text("Or choose a custom date below")
-                            .font(SpreadTheme.Typography.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    SpreadTheme.Icon.caretRight.sized(SpreadTheme.IconSize.small)
-                        .iconTint(.secondary)
-                }
-            }
-            .foregroundStyle(.primary)
+            EntrySheetChoiceRow(
+                options: [
+                    .init(value: false, title: "Inbox", icon: .tray),
+                    .init(value: true, title: "On a spread", icon: .calendar)
+                ],
+                selection: viewModel.formModel.hasPreferredAssignment,
+                onSelect: { viewModel.formModel.setPreferredAssignmentEnabled($0) }
+            )
+            .accessibilityIdentifier(viewModel.mode == .create
+                ? Definitions.AccessibilityIdentifiers.TaskCreationSheet.assignmentToggle
+                : Definitions.AccessibilityIdentifiers.TaskDetailSheet.assignmentToggle
+            )
             .disabled(!isAssignmentEditable)
             .opacity(isAssignmentEditable ? 1 : 0.7)
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.spreadPickerButton)
+
+            Text(viewModel.formModel.periodDescription)
+                .font(SpreadTheme.Typography.caption)
+                .foregroundStyle(.secondary)
+                .opacity(isAssignmentEditable ? 1 : 0.7)
+
+            if viewModel.formModel.hasPreferredAssignment {
+                periodSection
+                dateSection
+            }
         }
     }
 
@@ -503,112 +437,83 @@ struct TaskEntrySheet: View {
         VStack(alignment: .leading, spacing: 6) {
             EntrySheetSectionHeader(title: "Period")
 
-            if viewModel.mode == .create {
-                TaskPeriodControl(
-                    selection: Binding(
-                        get: { viewModel.formModel.selectedPeriod },
-                        set: { viewModel.formModel.setPeriod($0) }
-                    ),
-                    pickerIdentifier: Definitions.AccessibilityIdentifiers.TaskCreationSheet.periodPicker,
-                    segmentIdentifier: {
-                        Definitions.AccessibilityIdentifiers.TaskCreationSheet.periodSegment($0.rawValue)
-                    }
-                )
-            } else {
-                Menu {
-                    ForEach(EntryCreationConfiguration.assignablePeriods, id: \.self) { period in
-                        Button {
-                            viewModel.formModel.setPeriod(period)
-                        } label: {
-                            if period == viewModel.formModel.selectedPeriod {
-                                Label {
-                                    Text(period.displayName)
-                                } icon: {
-                                    SpreadTheme.Icon.checkmark.sized(SpreadTheme.IconSize.small)
-                                }
-                            } else {
-                                Text(period.displayName)
-                            }
-                        }
-                        .accessibilityIdentifier(
-                            Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodSegment(period.rawValue)
-                        )
-                    }
-                } label: {
-                    EntrySheetSelectionSummaryRow(
-                        title: "Period",
-                        value: viewModel.formModel.selectedPeriod.displayName,
-                        isEnabled: isAssignmentEditable
+            EntrySheetChoiceRow(
+                options: EntryCreationConfiguration.assignablePeriods.map { period in
+                    .init(
+                        value: period,
+                        title: period.displayName,
+                        accessibilityIdentifier: viewModel.mode == .create
+                            ? Definitions.AccessibilityIdentifiers.TaskCreationSheet.periodSegment(period.rawValue)
+                            : Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodSegment(period.rawValue)
                     )
-                }
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodPicker)
-                .disabled(!isAssignmentEditable)
-            }
-
-            Text(viewModel.formModel.periodDescription)
-                .font(SpreadTheme.Typography.caption)
-                .foregroundStyle(.secondary)
-                .opacity(isAssignmentEditable ? 1 : 0.7)
+                },
+                selection: viewModel.formModel.selectedPeriod,
+                onSelect: { viewModel.formModel.setPeriod($0) }
+            )
+            .accessibilityIdentifier(viewModel.mode == .create
+                ? Definitions.AccessibilityIdentifiers.TaskCreationSheet.periodPicker
+                : Definitions.AccessibilityIdentifiers.TaskDetailSheet.periodPicker
+            )
+            .disabled(!isAssignmentEditable)
+            .opacity(isAssignmentEditable ? 1 : 0.7)
         }
     }
 
     @ViewBuilder
     private var dateSection: some View {
+        let isMultiday = viewModel.formModel.selectedPeriod == .multiday
         VStack(alignment: .leading, spacing: 6) {
-            EntrySheetSectionHeader(title: "Date")
+            EntrySheetSectionHeader(title: isMultiday ? "Spread" : "Date")
 
-            if viewModel.mode == .create {
-                if viewModel.formModel.selectedPeriod == .multiday {
-                    Text(selectedMultidaySummary)
-                        .font(SpreadTheme.Typography.subheadline)
-                        .foregroundStyle(viewModel.formModel.selectedSpreadID == nil ? .secondary : .primary)
-                } else {
-                    PeriodDatePicker(
-                        period: viewModel.formModel.selectedPeriod,
-                        selectedDate: $viewModel.formModel.selectedDate,
-                        calendar: viewModel.presentedTemporalContext.calendar,
-                        today: viewModel.presentedTemporalContext.today,
-                        minimumDate: configuration.minimumDate(for: .day),
-                        maximumDate: configuration.maximumDate,
-                        accessibilityIdentifiers: .init(
-                            dayPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.datePicker,
-                            yearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.yearPicker,
-                            monthPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthPicker,
-                            monthYearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthYearPicker
-                        )
+            if viewModel.mode == .edit {
+                Text(formattedDateSummary)
+                    .font(SpreadTheme.Typography.subheadline)
+                    .foregroundStyle(isMultiday && viewModel.formModel.selectedSpreadID == nil ? .secondary : .primary)
+                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.dateSummary)
+            } else if isMultiday {
+                Text(selectedMultidaySummary)
+                    .font(SpreadTheme.Typography.subheadline)
+                    .foregroundStyle(viewModel.formModel.selectedSpreadID == nil ? .secondary : .primary)
+            }
+
+            PeriodDatePicker(
+                period: viewModel.formModel.selectedPeriod,
+                selectedDate: $viewModel.formModel.selectedDate,
+                calendar: viewModel.presentedTemporalContext.calendar,
+                today: viewModel.presentedTemporalContext.today,
+                minimumDate: configuration.minimumDate(for: .day),
+                maximumDate: configuration.maximumDate,
+                accessibilityIdentifiers: viewModel.mode == .create
+                    ? .init(
+                        dayPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.datePicker,
+                        yearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.yearPicker,
+                        monthPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthPicker,
+                        monthYearPicker: Definitions.AccessibilityIdentifiers.TaskCreationSheet.monthYearPicker
                     )
-                }
-
-                if viewModel.formModel.showValidationErrors, let error = viewModel.formModel.dateError {
-                    EntrySheetValidationErrorRow(message: error.message)
-                }
-            } else {
-                EntrySheetSelectionSummaryRow(
-                    title: viewModel.formModel.selectedPeriod == .multiday ? "Multiday spread" : "Date",
-                    value: formattedDateSummary,
-                    isEnabled: isAssignmentEditable,
-                    showsChevron: false
+                    : .init(
+                        dayPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.datePicker,
+                        yearPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.yearPicker,
+                        monthPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.monthPicker,
+                        monthYearPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.monthYearPicker
+                    ),
+                spreadContext: .init(
+                    spreads: journalManager.spreads,
+                    selectedSpreadID: viewModel.formModel.selectedSpreadID,
+                    onMultidaySpreadSelected: { spread in
+                        viewModel.formModel.applySpreadSelection(SpreadPickerSelection(
+                            period: .multiday,
+                            date: spread.startDate ?? spread.date,
+                            spreadID: spread.id
+                        ))
+                    }
                 )
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.TaskDetailSheet.dateSummary)
+            )
+            .disabled(!isAssignmentEditable)
+            .opacity(isAssignmentEditable ? 1 : 0.6)
 
-                if viewModel.formModel.selectedPeriod != .multiday {
-                    PeriodDatePicker(
-                        period: viewModel.formModel.selectedPeriod,
-                        selectedDate: $viewModel.formModel.selectedDate,
-                        calendar: viewModel.presentedTemporalContext.calendar,
-                        today: viewModel.presentedTemporalContext.today,
-                        minimumDate: configuration.minimumDate(for: .day),
-                        maximumDate: configuration.maximumDate,
-                        accessibilityIdentifiers: .init(
-                            dayPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.datePicker,
-                            yearPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.yearPicker,
-                            monthPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.monthPicker,
-                            monthYearPicker: Definitions.AccessibilityIdentifiers.TaskDetailSheet.monthYearPicker
-                        )
-                    )
-                    .disabled(!isAssignmentEditable)
-                    .opacity(isAssignmentEditable ? 1 : 0.6)
-                }
+            if viewModel.mode == .create,
+               viewModel.formModel.showValidationErrors, let error = viewModel.formModel.dateError {
+                EntrySheetValidationErrorRow(message: error.message)
             }
         }
     }
@@ -673,7 +578,7 @@ struct TaskEntrySheet: View {
     private var selectedMultidaySummary: String {
         guard let spreadID = viewModel.formModel.selectedSpreadID,
               let spread = journalManager.spreads.first(where: { $0.id == spreadID }) else {
-            return "Select an existing multiday spread above"
+            return "Tap a multiday spread’s coverage bar on the calendar"
         }
         return SpreadPickerConfiguration(
             spreads: journalManager.spreads,

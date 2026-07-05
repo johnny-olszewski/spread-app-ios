@@ -22,6 +22,19 @@ struct PeriodDatePicker: View {
         }
     }
 
+    /// Spread-awareness for the day/multiday calendar (EntryEditingSheets.md — Visual Redesign).
+    ///
+    /// When provided, existing day spreads tint their cells, multiday spreads render as
+    /// coverage bars, and — for `period == .multiday` — tapping a date covered by a multiday
+    /// spread selects that spread via `onMultidaySpreadSelected` instead of picking the raw
+    /// date. Tapping an uncovered date in multiday mode is a no-op.
+    /// - TODO: [SPRD-294] Uncovered taps will begin a free start/end range selection.
+    struct SpreadContext {
+        let spreads: [DataModel.Spread]
+        let selectedSpreadID: UUID?
+        let onMultidaySpreadSelected: (DataModel.Spread) -> Void
+    }
+
     let period: Period
     @Binding var selectedDate: Date
     let calendar: Calendar
@@ -29,6 +42,7 @@ struct PeriodDatePicker: View {
     let minimumDate: Date
     let maximumDate: Date
     let accessibilityIdentifiers: AccessibilityIdentifiers?
+    var spreadContext: SpreadContext? = nil
 
     var body: some View {
         switch period {
@@ -94,16 +108,63 @@ struct PeriodDatePicker: View {
                 minimumDate: minimumDate,
                 maximumDate: maximumDate,
                 calendar: calendar,
-                today: today
+                today: today,
+                daySpreadDates: daySpreadDates,
+                highlightedRange: highlightedRange
             ),
-            initialScrollTarget: selectedDate,
-            onDateTapped: { date in
-                guard date >= minimumDate && date <= maximumDate else { return }
-                selectedDate = date.startOfDay(calendar: calendar)
-            }
+            rowOverlayGenerator: SpreadsNavigatorView.RowOverlayGenerator(
+                spreads: spreadContext?.spreads ?? [],
+                calendar: calendar
+            ),
+            initialScrollTarget: initialDayScrollTarget,
+            onDateTapped: handleDayTap
         )
         .frame(height: 320)
         .applyAccessibilityIdentifier(accessibilityIdentifiers?.dayPicker)
+    }
+
+    // MARK: - Spread Context Helpers
+
+    /// Start-of-day dates covered by existing day spreads, for created-cell tinting.
+    private var daySpreadDates: Set<Date> {
+        guard let spreadContext else { return [] }
+        return Set(
+            spreadContext.spreads
+                .filter { $0.period == .day }
+                .map { $0.date.startOfDay(calendar: calendar) }
+        )
+    }
+
+    /// The selected multiday spread's range, for continuous selection tinting.
+    private var highlightedRange: ClosedRange<Date>? {
+        guard period == .multiday,
+              let spreadContext,
+              let selected = spreadContext.spreads.first(where: { $0.id == spreadContext.selectedSpreadID })
+        else { return nil }
+        let start = (selected.startDate ?? selected.date).startOfDay(calendar: calendar)
+        let end = (selected.endDate ?? selected.date).startOfDay(calendar: calendar)
+        return start <= end ? start...end : nil
+    }
+
+    /// In multiday mode with a selected spread, open the calendar on the spread's range.
+    private var initialDayScrollTarget: Date {
+        if period == .multiday, let highlightedRange {
+            return highlightedRange.lowerBound
+        }
+        return selectedDate
+    }
+
+    private func handleDayTap(_ date: Date) {
+        guard date >= minimumDate && date <= maximumDate else { return }
+        if period == .multiday, let spreadContext {
+            let tapped = date.startOfDay(calendar: calendar)
+            guard let spread = spreadContext.spreads.first(where: {
+                $0.period == .multiday && $0.contains(date: tapped, calendar: calendar)
+            }) else { return }
+            spreadContext.onMultidaySpreadSelected(spread)
+        } else {
+            selectedDate = date.startOfDay(calendar: calendar)
+        }
     }
 
     private var availableYears: [Int] {
