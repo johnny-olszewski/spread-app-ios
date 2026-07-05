@@ -7552,20 +7552,25 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-293] Visual: Note and Spread sheets migrate to the redesigned vocabulary - [ ] Pending
+### [SPRD-293] Visual: Note and Spread sheets migrate to the redesigned vocabulary - [ ] Done
 
 - **Context**: After SPRD-292, `NoteEntrySheet` and `SpreadNameEntrySheet` would be the only sheets still using stock field controls inside the redesigned shell.
 - **Description**: Migrate `NoteEntrySheet` (title, content, assignment sections) onto the shared choice-row/chip/calendar components with the same ordering conventions as the Task sheet. Restyle `SpreadNameEntrySheet`'s name section and dynamic-name toggle consistently with the chip idiom.
 - **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Visual Redesign (SESH-27)
 - **Acceptance Criteria**:
-  - AC1: `NoteEntrySheet` uses the shared components for period/assignment/date selection; no stock `Picker`/`Menu`/`Toggle`/`DisclosureGroup` remains in its content.
-  - AC2: Note assignment gets the same chip pair + calendar-embedded spread selection as Tasks.
-  - AC3: `SpreadNameEntrySheet`'s dynamic-name control is restyled on the shared vocabulary (no stock field-level `Toggle`).
-  - AC4: All existing accessibility identifiers preserved; existing UI tests pass.
-  - AC5: Build succeeds with no errors.
+  - [x] AC1: `NoteEntrySheet` uses the shared components for period/assignment/date selection; no stock `Picker`/`Menu`/`Toggle`/`DisclosureGroup` remains in its content.
+  - [x] AC2: Note assignment gets the same chip pair + calendar-embedded spread selection as Tasks.
+  - [x] AC3: `SpreadNameEntrySheet`'s dynamic-name control is restyled on the shared vocabulary (no stock field-level `Toggle`).
+  - [x] AC4: All existing accessibility identifiers preserved; existing UI tests pass.
+  - [x] AC5: Build succeeds with no errors.
 - **Tests**:
   - No new unit tests: visual change. Manual visual QA in both modes and color schemes.
 - **Dependencies**: SPRD-292
+
+**Progress (commits landed on feature/SESH-28)**
+1. **[SPRD-293][1/n]** — Migrated `NoteEntrySheet`: List/Tags chip clouds with inline creation (alerts removed), period choice row, spread-aware assignment calendar with multiday coverage-bar selection (launcher + `SpreadPickerView` hop removed), content editor on `Paper.secondary`. Dropped the sheet coordinator from Notes; `TaskEntrySheetCoordinator` reduced to due-date calendar state. Deleted dead `SpreadPickerView` and `EntrySheetSelectionSummaryRow`. AC2 note: `NoteEditorFormModel` has no unassigned state, so the Inbox/On-a-spread chip pair intentionally does not apply to Notes — calendar-embedded spread selection is the shared behavior. AC1, AC2, AC4 ✅.
+2. **[SPRD-293][2/n]** — Restyled `SpreadNameEntrySheet`: dynamic-name `Toggle` → Dynamic/Canonical `EntrySheetChoiceRow` under a "When name is empty" header with explanatory caption; `dynamicNameToggle` identifier preserved on the row. AC3, AC5 ✅.
+- Remaining for this task: none — all ACs complete.
 
 ---
 

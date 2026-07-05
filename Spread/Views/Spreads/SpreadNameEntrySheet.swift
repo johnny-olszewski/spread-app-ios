@@ -67,8 +67,21 @@ struct SpreadNameEntrySheet: View {
                 .textInputAutocapitalization(.words)
                 .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNameEditSheet.customNameField)
 
-            Toggle("Use dynamic name when custom name is empty", isOn: $usesDynamicName)
-                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNameEditSheet.dynamicNameToggle)
+            EntrySheetSectionHeader(title: "When name is empty")
+
+            EntrySheetChoiceRow(
+                options: [
+                    .init(value: true, title: "Dynamic name"),
+                    .init(value: false, title: "Canonical name")
+                ],
+                selection: usesDynamicName,
+                onSelect: { usesDynamicName = $0 }
+            )
+            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadNameEditSheet.dynamicNameToggle)
+
+            Text("Shown when the custom name is left empty.")
+                .font(SpreadTheme.Typography.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
