@@ -31,6 +31,9 @@ import SwiftUI
 
     var isTagsExpanded = false
 
+    /// Whether the inline due-date calendar is expanded below the due-date value chip.
+    var isDueDateCalendarVisible = false
+
     // MARK: - Actions
 
     func showSpreadPicker() {

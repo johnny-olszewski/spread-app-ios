@@ -288,24 +288,62 @@ struct TaskEntrySheet: View {
 
     @ViewBuilder
     private var dueDateSection: some View {
-        @Bindable var coordinator = coordinator
+        let toggleIdentifier = viewModel.mode == .create
+            ? Definitions.AccessibilityIdentifiers.TaskCreationSheet.dueDateToggle
+            : Definitions.AccessibilityIdentifiers.TaskDetailSheet.dueDateToggle
         VStack(alignment: .leading, spacing: 8) {
             EntrySheetSectionHeader(title: "Due date")
 
-            Toggle("Due date", isOn: $viewModel.formModel.hasDueDate)
-                .accessibilityIdentifier(viewModel.mode == .create
-                    ? Definitions.AccessibilityIdentifiers.TaskCreationSheet.dueDateToggle
-                    : Definitions.AccessibilityIdentifiers.TaskDetailSheet.dueDateToggle
-                )
+            EntrySheetOptionalFieldChip(
+                addTitle: "Add due date",
+                valueTitle: viewModel.formModel.hasDueDate ? formattedDueDate : nil,
+                addAccessibilityIdentifier: toggleIdentifier,
+                valueAccessibilityIdentifier: toggleIdentifier,
+                onAdd: {
+                    viewModel.formModel.hasDueDate = true
+                    coordinator.isDueDateCalendarVisible = true
+                },
+                onRemove: {
+                    viewModel.formModel.hasDueDate = false
+                    coordinator.isDueDateCalendarVisible = false
+                },
+                onValueTapped: {
+                    coordinator.isDueDateCalendarVisible.toggle()
+                }
+            )
 
-            if viewModel.formModel.hasDueDate {
-                DatePicker("Due", selection: dueDateBinding, displayedComponents: .date)
-                    .accessibilityIdentifier(viewModel.mode == .create
-                        ? Definitions.AccessibilityIdentifiers.TaskCreationSheet.dueDatePicker
-                        : Definitions.AccessibilityIdentifiers.TaskDetailSheet.dueDatePicker
+            if viewModel.formModel.hasDueDate && coordinator.isDueDateCalendarVisible {
+                PeriodDatePicker(
+                    period: .day,
+                    selectedDate: dueDateBinding,
+                    calendar: viewModel.presentedTemporalContext.calendar,
+                    today: viewModel.presentedTemporalContext.today,
+                    minimumDate: dueDateCalendarMinimumDate,
+                    maximumDate: configuration.maximumDate,
+                    accessibilityIdentifiers: .init(
+                        dayPicker: viewModel.mode == .create
+                            ? Definitions.AccessibilityIdentifiers.TaskCreationSheet.dueDatePicker
+                            : Definitions.AccessibilityIdentifiers.TaskDetailSheet.dueDatePicker
                     )
+                )
             }
         }
+    }
+
+    /// Formatted due date shown on the value chip (e.g. "Jul 12, 2026").
+    private var formattedDueDate: String {
+        let formatter = DateFormatter()
+        formatter.calendar = viewModel.presentedTemporalContext.calendar
+        formatter.timeZone = viewModel.presentedTemporalContext.calendar.timeZone
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: viewModel.formModel.dueDate)
+    }
+
+    /// Due dates may be in the past (overdue), unlike assignment dates — allow a wide back-range.
+    private var dueDateCalendarMinimumDate: Date {
+        let context = viewModel.presentedTemporalContext
+        return context.calendar.date(byAdding: .year, value: -5, to: context.today) ?? context.today
     }
 
     @ViewBuilder
