@@ -7497,22 +7497,27 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-291] Visual: Entry sheet design vocabulary — SpreadButton pickers, chips, and custom header chrome - [ ] Pending
+### [SPRD-291] Visual: Entry sheet design vocabulary — SpreadButton pickers, chips, and custom header chrome - [ ] Done
 
 - **Context**: The consolidated entry sheets (SPRD-277–282) still use stock SwiftUI form controls (`Picker(.menu)`, `Menu` summary rows, `Toggle`, `DisclosureGroup`, plain toolbar text buttons) while the rest of the app uses SpreadButton styles, Phosphor icons, Mulish headers, and chip strips. Full redesign begins with the shared vocabulary.
 - **Description**: Build the shared sheet-native components: a single-select choice row of `SpreadButton`s (`.tonal` selected / `.plain` unselected, optional Phosphor icon per option), a wrapping chip cloud (single- and multi-select, with an inline "+ New" creation chip that swaps to a `TextField`), and an add/remove chip for optional fields. Replace `EntrySheet`'s `NavigationStack` chrome with a custom header row (Fuzzy Bubbles `largeTitle` title leading; `.plain` Cancel and `.prominent` small Create/Save `SpreadButton`s trailing). Restyle `EntrySheetSectionHeader` to Mulish `title3`.
 - **Spec**: `Documentation/Specs/EntryEditingSheets.md` — Visual Redesign (SESH-27)
 - **Acceptance Criteria**:
-  - AC1: A reusable single-select choice-row component renders all options inline as `SpreadButton`s, `.tonal` for selected / `.plain` for unselected, with optional per-option Phosphor icon and color.
-  - AC2: A reusable chip cloud component supports single- and multi-select chips plus an inline "+ New" chip that swaps in place for a `TextField` (submit creates, empty dismiss cancels).
-  - AC3: A reusable add/remove chip component covers optional fields (two distinct elements, not one conditional element).
-  - AC4: `EntrySheet` renders a custom header (Fuzzy Bubbles title, SpreadButton Cancel/primary) instead of nav bar chrome; busy-disabled primary, error alert, and `interactiveDismissDisabled` behavior unchanged; all three sheets pick up the new chrome via the shared shell.
-  - AC5: Section headers use `SpreadTheme.Typography.title3`.
-  - AC6: Every new component has multi-state previews (selected/unselected, enabled/disabled, with/without icons).
-  - AC7: Existing accessibility identifiers for Cancel/Create/Save are preserved.
-  - AC8: Build succeeds with no errors.
+  - [x] AC1: A reusable single-select choice-row component renders all options inline as `SpreadButton`s, `.tonal` for selected / `.plain` for unselected, with optional per-option Phosphor icon and color.
+  - [x] AC2: A reusable chip cloud component supports single- and multi-select chips plus an inline "+ New" chip that swaps in place for a `TextField` (submit creates, empty dismiss cancels).
+  - [x] AC3: A reusable add/remove chip component covers optional fields (two distinct elements, not one conditional element).
+  - [x] AC4: `EntrySheet` renders a custom header (Fuzzy Bubbles title, SpreadButton Cancel/primary) instead of nav bar chrome; busy-disabled primary, error alert, and `interactiveDismissDisabled` behavior unchanged; all three sheets pick up the new chrome via the shared shell.
+  - [x] AC5: Section headers use `SpreadTheme.Typography.title3`.
+  - [x] AC6: Every new component has multi-state previews (selected/unselected, enabled/disabled, with/without icons).
+  - [x] AC7: Existing accessibility identifiers for Cancel/Create/Save are preserved.
+  - [x] AC8: Build succeeds with no errors.
 - **Tests**:
   - No new unit tests: visual components. Verified via previews and manual inspection in both color schemes.
+
+**Progress (commits landed on feature/SESH-28)**
+1. **[SPRD-291][1/n]** — Added `EntrySheetChoiceRow` (generic inline single-select row of SpreadButtons, per-option Phosphor icon + tint, disable support), `EntrySheetChipCloud` (wrapping chip cloud on a private `ChipFlowLayout`, inline "+ New" → `TextField` creation with empty-dismiss cancel), and `EntrySheetOptionalFieldChip` (two-element add/remove chip pair). Extended `SpreadButton` with an optional `iconTint` override. All with multi-state previews. AC1–AC3, AC6 ✅.
+2. **[SPRD-291][2/n]** — Replaced `EntrySheet`'s `NavigationStack` nav-bar chrome with a custom in-sheet header (Fuzzy Bubbles `largeTitle(size: 22)` title leading; `.plain` Cancel + `.prominent` small Create/Save SpreadButtons trailing, same busy/isSaveEnabled/isPrimaryVisible rules and accessibility identifiers). Restyled `EntrySheetSectionHeader` to Mulish `title3`. Restyled delete section as a destructive `.plain` SpreadButton. AC4, AC5, AC7, AC8 ✅.
+- Remaining for this task: none — all ACs complete.
 
 ---
 

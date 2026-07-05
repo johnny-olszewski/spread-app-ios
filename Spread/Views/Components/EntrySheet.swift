@@ -68,7 +68,9 @@ struct EntrySheet<Content: View>: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            header
+
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     content
@@ -91,24 +93,21 @@ struct EntrySheet<Content: View>: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .navigationTitle(navigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbarContent }
-            .alert(deleteAlertTitle, isPresented: $isShowingDeleteConfirmation) {
-                Button("Delete", role: .destructive) { deleteAction?() }
-                Button("Cancel", role: .cancel) {}
+        }
+        .alert(deleteAlertTitle, isPresented: $isShowingDeleteConfirmation) {
+            Button("Delete", role: .destructive) { deleteAction?() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(deleteAlertMessage)
+        }
+        .applyIf(errorMessage != nil) { view in
+            view.alert("Error", isPresented: Binding(
+                get: { errorMessage?.wrappedValue != nil },
+                set: { if !$0 { errorMessage?.wrappedValue = nil } }
+            )) {
+                Button("OK") { errorMessage?.wrappedValue = nil }
             } message: {
-                Text(deleteAlertMessage)
-            }
-            .applyIf(errorMessage != nil) { view in
-                view.alert("Error", isPresented: Binding(
-                    get: { errorMessage?.wrappedValue != nil },
-                    set: { if !$0 { errorMessage?.wrappedValue = nil } }
-                )) {
-                    Button("OK") { errorMessage?.wrappedValue = nil }
-                } message: {
-                    Text(errorMessage?.wrappedValue ?? "")
-                }
+                Text(errorMessage?.wrappedValue ?? "")
             }
         }
         .overlay {
@@ -121,43 +120,70 @@ struct EntrySheet<Content: View>: View {
         }
     }
 
-    // MARK: - Toolbar
+    // MARK: - Header
 
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .cancellationAction) {
-            Button("Cancel") { onCancel() }
-                .accessibilityIdentifier(cancelIdentifier)
-        }
-        ToolbarItem(placement: .confirmationAction) {
+    /// Custom in-sheet chrome replacing the nav bar (see EntryEditingSheets.md — Visual
+    /// Redesign): Fuzzy Bubbles title leading, plain Cancel and prominent Create/Save trailing.
+    private var header: some View {
+        HStack(alignment: .center, spacing: SpreadTheme.Spacing.medium) {
+            Text(navigationTitle)
+                .font(SpreadTheme.Typography.largeTitle(size: 22, weight: .bold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+
+            Spacer()
+
+            SpreadButton(
+                "Cancel",
+                style: .plain,
+                size: .small,
+                accessibilityIdentifier: cancelIdentifier
+            ) {
+                onCancel()
+            }
+
             switch mode {
             case .create:
                 if isPrimaryVisible {
-                    Button("Create") { onPrimary() }
-                        .disabled(isBusy)
-                        .accessibilityIdentifier(primaryIdentifier)
+                    SpreadButton(
+                        "Create",
+                        style: .prominent,
+                        size: .small,
+                        accessibilityIdentifier: primaryIdentifier
+                    ) {
+                        onPrimary()
+                    }
+                    .disabled(isBusy)
                 }
             case .edit:
-                Button("Save") { onPrimary() }
-                    .disabled(!isSaveEnabled || isBusy)
-                    .accessibilityIdentifier(primaryIdentifier)
+                SpreadButton(
+                    "Save",
+                    style: .prominent,
+                    size: .small,
+                    accessibilityIdentifier: primaryIdentifier
+                ) {
+                    onPrimary()
+                }
+                .disabled(!isSaveEnabled || isBusy)
             }
         }
+        .padding(.horizontal, SpreadTheme.Spacing.large)
+        .padding(.top, SpreadTheme.Spacing.large)
+        .padding(.bottom, SpreadTheme.Spacing.medium)
     }
 
     // MARK: - Delete section
 
     private var deleteSection: some View {
-        Button(role: .destructive) {
+        SpreadButton(
+            deleteAlertTitle,
+            icon: .trash,
+            style: .plain,
+            role: .destructive,
+            accessibilityIdentifier: deleteButtonIdentifier
+        ) {
             isShowingDeleteConfirmation = true
-        } label: {
-            HStack {
-                SpreadTheme.Icon.trash.sized(SpreadTheme.IconSize.medium)
-                    .iconTint(.red)
-                Text(deleteAlertTitle)
-            }
         }
-        .accessibilityIdentifier(deleteButtonIdentifier)
     }
 }
 
