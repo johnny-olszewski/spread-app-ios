@@ -363,7 +363,7 @@ enum MockDataSet: String, CaseIterable {
             date: time(hour: 10),
             period: .day,
             currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)]
-            // No list/tags — exercises the "Untitled" fallback bucket for both .list and .tag grouping.
+            // No list/tags — exercises the "No list"/"No tag" fallback buckets for .list and .tag grouping.
         ))
         tasks.append(DataModel.Task(
             title: "Cancel unused subscription",
@@ -390,7 +390,7 @@ enum MockDataSet: String, CaseIterable {
             period: .day,
             currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .open)],
             list: healthList
-            // No tags — exercises the "Untitled" fallback bucket for .tag grouping.
+            // No tags — exercises the "No tag" fallback bucket for .tag grouping.
         ))
         tasks.append(DataModel.Task(
             title: "Plan weekend meals",
@@ -506,7 +506,7 @@ enum MockDataSet: String, CaseIterable {
             date: today,
             period: .day,
             currentAssignments: [Assignment(period: .day, date: normalizedDay, status: .active)]
-            // No list/tags — exercises the "Untitled" fallback bucket for notes too.
+            // No list/tags — exercises the nil-bucket fallback for notes too.
         ))
         notes.append(DataModel.Note(
             title: "Monthly reflection",

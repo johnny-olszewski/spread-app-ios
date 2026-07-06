@@ -139,7 +139,7 @@ struct SpreadContentPagerAssemblyTests {
 
         #expect(sections.count == 2)
         #expect(sections[0].title == "Work")
-        #expect(sections[1].title == "Untitled")
+        #expect(sections[1].title == "No list")
     }
 
     // MARK: - Data Model Windowing (SPRD-275)

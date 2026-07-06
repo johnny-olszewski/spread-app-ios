@@ -13,9 +13,9 @@ struct EntryGroupingOptionTests {
     }
 
     // `.list` buckets entries by their assigned list name, with unassigned entries
-    // falling into an "Untitled" bucket.
-    // Expected: named-list buckets appear (alphabetical), "Untitled" bucket last.
-    @Test func testListGroupsByAssignedListWithUntitledFallback() {
+    // falling into a "No list" bucket (SPRD-287 nil-bucket label).
+    // Expected: named-list buckets appear (alphabetical), "No list" bucket last.
+    @Test func testListGroupsByAssignedListWithNoListFallback() {
         let listA = DataModel.List(name: "Alpha")
         let listB = DataModel.List(name: "Beta")
         let entries: [any Entry] = [
@@ -26,7 +26,7 @@ struct EntryGroupingOptionTests {
 
         let result = sections(for: entries, option: .list)
 
-        #expect(result.map(\.id) == ["Alpha", "Beta", "Untitled"])
+        #expect(result.map(\.id) == ["Alpha", "Beta", "No list"])
         #expect(result[0].entries.map(\.title) == ["A Task"])
         #expect(result[1].entries.map(\.title) == ["B Task"])
         #expect(result[2].entries.map(\.title) == ["Unlisted Task"])
@@ -45,7 +45,7 @@ struct EntryGroupingOptionTests {
 
         let result = sections(for: entries, option: .tag)
 
-        #expect(result.map(\.id) == ["X", "Untitled"])
+        #expect(result.map(\.id) == ["X", "No tag"])
         #expect(result[0].entries.map(\.title) == ["Multi-tag Task"])
         #expect(result[1].entries.map(\.title) == ["Untagged Task"])
         // The multi-tag task appears in exactly one section overall.
