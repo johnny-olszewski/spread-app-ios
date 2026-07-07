@@ -28,30 +28,36 @@ extension SpreadsNavigatorView {
         let model: Model
         /// Explicit month spreads for the displayed year, keyed by normalized month start.
         let monthSpreads: [Date: DataModel.Spread]
+        /// The displayed year's explicit year spread, if one exists — drives the "View year"
+        /// chip rendered above January.
+        let yearSpread: DataModel.Spread?
         let calendar: Calendar
         let today: Date
-        /// Invoked when a month header's "View month" button is tapped.
-        let onViewMonth: (DataModel.Spread) -> Void
+        /// Invoked when a header's "View month"/"View year" button is tapped.
+        let onViewSpread: (DataModel.Spread) -> Void
 
         init(
             model: Model,
             monthSpreads: [Date: DataModel.Spread] = [:],
+            yearSpread: DataModel.Spread? = nil,
             calendar: Calendar,
             today: Date,
-            onViewMonth: @escaping (DataModel.Spread) -> Void = { _ in }
+            onViewSpread: @escaping (DataModel.Spread) -> Void = { _ in }
         ) {
             self.model = model
             self.monthSpreads = monthSpreads
+            self.yearSpread = yearSpread
             self.calendar = calendar
             self.today = today
-            self.onViewMonth = onViewMonth
+            self.onViewSpread = onViewSpread
         }
 
         // MARK: Header
 
         /// Card-style month header: `SpreadCardStyle` fill/stroke communicates whether an
         /// explicit month spread exists (with today-month emphasis), and a "View month"
-        /// button navigates to it when it does. The chip itself is not a tap target.
+        /// button navigates to it when it does. Above January, a matching year chip carries
+        /// the "View year" button. Chips themselves are not tap targets.
         func headerView(month: Date) -> some View {
 
             let monthYearString: String = {
@@ -69,16 +75,58 @@ extension SpreadsNavigatorView {
                 isCreated: monthSpread != nil
             )
 
+            VStack(spacing: 0) {
+                if calendar.component(.month, from: month) == 1 {
+                    yearHeaderChip(for: month)
+                }
+
+                headerChip(
+                    title: monthYearString,
+                    titleFont: SpreadTheme.Typography.headline,
+                    cardStyle: cardStyle,
+                    buttonTitle: "View month",
+                    spread: monthSpread
+                )
+                .padding(.top, SpreadTheme.Spacing.large)
+                .padding(.bottom, SpreadTheme.Spacing.small)
+            }
+        }
+
+        /// Year chip above January: same card vocabulary as month chips, with a "View year"
+        /// button when the displayed year's explicit spread exists.
+        private func yearHeaderChip(for month: Date) -> some View {
+            let cardStyle = SpreadCardStyle(
+                isToday: calendar.isDate(month, equalTo: today, toGranularity: .year),
+                isCreated: yearSpread != nil
+            )
+            return headerChip(
+                title: String(calendar.component(.year, from: month)),
+                titleFont: SpreadTheme.Typography.title3,
+                cardStyle: cardStyle,
+                buttonTitle: "View year",
+                spread: yearSpread
+            )
+            .padding(.top, SpreadTheme.Spacing.medium)
+        }
+
+        /// Shared chip layout for the year and month headers.
+        private func headerChip(
+            title: String,
+            titleFont: Font,
+            cardStyle: SpreadCardStyle,
+            buttonTitle: String,
+            spread: DataModel.Spread?
+        ) -> some View {
             HStack(spacing: SpreadTheme.Spacing.small) {
-                Text(monthYearString)
-                    .font(SpreadTheme.Typography.headline)
+                Text(title)
+                    .font(titleFont)
                     .foregroundStyle(cardStyle.textColor)
 
                 Spacer()
 
-                if let monthSpread {
-                    SpreadButton("View month", style: .plain, size: .small) {
-                        onViewMonth(monthSpread)
+                if let spread {
+                    SpreadButton(buttonTitle, style: .plain, size: .small) {
+                        onViewSpread(spread)
                     }
                 }
             }
@@ -92,8 +140,6 @@ extension SpreadsNavigatorView {
             // Rendered inside the calendar's 6pt horizontal padding; 2pt here (matching the
             // day cells' own inset) lands the chip edge on the navigator's shared 8pt margin.
             .padding(.horizontal, 2)
-            .padding(.top, SpreadTheme.Spacing.large)
-            .padding(.bottom, SpreadTheme.Spacing.small)
         }
 
         // MARK: Weekday Header

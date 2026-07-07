@@ -52,6 +52,9 @@ struct SpreadsNavigatorView: View {
     /// headers and their "View month" buttons.
     let monthSpreads: [Int: [Date: DataModel.Spread]]
 
+    /// Explicit year spreads keyed by year — drives the "View year" chip above January.
+    let explicitYearSpreads: [Int: DataModel.Spread]
+
     // MARK: - Derived from Model
 
     /// Unique spreads for the selected year, used by `RowOverlayGenerator` to draw multiday
@@ -96,9 +99,10 @@ struct SpreadsNavigatorView: View {
             contentGenerator: CalendarGenerator(
                 model: calendarModels[selectedYear] ?? CalendarGenerator.Model(),
                 monthSpreads: monthSpreads[selectedYear] ?? [:],
+                yearSpread: explicitYearSpreads[selectedYear],
                 calendar: calendar,
                 today: today,
-                onViewMonth: handleViewMonth
+                onViewSpread: navigate(to:)
             ),
             rowOverlayGenerator: RowOverlayGenerator(
                 spreads: selectedYearSpreads,
@@ -245,11 +249,6 @@ struct SpreadsNavigatorView: View {
                     }
             }
         }
-    }
-
-    /// Navigates to an existing month spread from a month header's "View month" button.
-    private func handleViewMonth(_ spread: DataModel.Spread) {
-        navigate(to: spread)
     }
 
     private func navigate(to spread: DataModel.Spread) {

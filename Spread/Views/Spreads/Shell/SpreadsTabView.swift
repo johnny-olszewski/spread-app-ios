@@ -78,6 +78,10 @@ struct SpreadsTabView: View {
     /// the navigator's card-style month headers and "View month" buttons.
     private var navigatorMonthSpreads: [Int: [Date: DataModel.Spread]]
 
+    /// Explicit year spreads keyed by year — drives the navigator's "View year" chip
+    /// above January.
+    private var navigatorExplicitYearSpreads: [Int: DataModel.Spread]
+
     // MARK: - Init
 
     init(
@@ -99,6 +103,7 @@ struct SpreadsTabView: View {
         navigatorCalendarModels = built.models
         navigatorYearSpreads = built.yearSpreads
         navigatorMonthSpreads = built.monthSpreads
+        navigatorExplicitYearSpreads = built.explicitYearSpreads
 
         let defaultSelection = journalManager.defaultNavigationSelection
         initialSelectedSpreadID = defaultSelection.id
@@ -133,11 +138,13 @@ struct SpreadsTabView: View {
     ) -> (
         models: [Int: SpreadsNavigatorView.CalendarGenerator.Model],
         yearSpreads: [Int: [DataModel.Spread]],
-        monthSpreads: [Int: [Date: DataModel.Spread]]
+        monthSpreads: [Int: [Date: DataModel.Spread]],
+        explicitYearSpreads: [Int: DataModel.Spread]
     ) {
         var models = [Int: SpreadsNavigatorView.CalendarGenerator.Model]()
         var yearSpreads = [Int: [DataModel.Spread]]()
         var monthSpreads = [Int: [Date: DataModel.Spread]]()
+        var explicitYearSpreads = [Int: DataModel.Spread]()
         var seenSpreadIDsByYear = [Int: Set<UUID>]()
 
         for spread in spreads {
@@ -167,11 +174,16 @@ struct SpreadsTabView: View {
                 let monthStart = Period.month.normalizeDate(spread.date, calendar: calendar)
                 monthSpreads[year, default: [:]][monthStart] = spread
             case .year:
-                continue
+                explicitYearSpreads[calendar.component(.year, from: spread.date)] = spread
             }
         }
 
-        return (models: models, yearSpreads: yearSpreads, monthSpreads: monthSpreads)
+        return (
+            models: models,
+            yearSpreads: yearSpreads,
+            monthSpreads: monthSpreads,
+            explicitYearSpreads: explicitYearSpreads
+        )
     }
 
     // MARK: - Body
@@ -350,7 +362,8 @@ struct SpreadsTabView: View {
             today: today,
             calendar: calendar,
             topInsetButtons: topInsetButtons,
-            monthSpreads: navigatorMonthSpreads
+            monthSpreads: navigatorMonthSpreads,
+            explicitYearSpreads: navigatorExplicitYearSpreads
         )
     }
     

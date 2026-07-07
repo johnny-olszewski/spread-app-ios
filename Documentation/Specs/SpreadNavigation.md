@@ -1087,7 +1087,9 @@ When viewing a day, month, or multiday spread, there is no in-surface shortcut t
 - The calendar scrolls beneath the fixed top area, as today. [SPRD-295]
 - Month headers render as a card-style chip: `SpreadCardStyle`-derived fill/stroke communicates whether an explicit month spread exists (created vs. uncreated), with today-month emphasis. When the month spread exists, the header includes a "View month" `SpreadButton` that navigates to it — lifting the previous "months are never navigable from the navigator" restriction for existing month spreads only. Uncreated months get no button. [SPRD-295]
 - Multiday spreads render as continuous low-opacity accent bands running behind the covered day cells, with rounded caps at range ends — the same range vocabulary as the entry-sheet assignment calendar's highlighted range. Up to two overlapping spreads stack as before. [SPRD-295]
-- Day cell styling is unchanged. [SPRD-295]
+- Day cell styling is unchanged (later refined to circular chips). [SPRD-295]
+- Tapping a date with exactly one covering spread (day or multiday) navigates directly; several covering spreads present a coordinator-driven disambiguation popover anchored on the tapped cell (`PopoverDestination.navigatorDaySelection`, small detent sheet on compact). Month spreads stay reachable only from their header button. [SPRD-295]
+- A year chip above January mirrors the month chip vocabulary, with a "View year" button when the displayed year's explicit spread exists. [SPRD-295]
 
 ### Design Decisions
 
