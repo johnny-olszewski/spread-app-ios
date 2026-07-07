@@ -1,7 +1,7 @@
 # Spread Navigation
 
 > Source: Documentation/spec.md  
-> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275, SPRD-283, SPRD-284, SPRD-285, SPRD-289, SPRD-290
+> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275, SPRD-283, SPRD-284, SPRD-285, SPRD-289, SPRD-290, SPRD-295
 
 ### Spread View Architecture
 - The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
@@ -1072,3 +1072,27 @@ When viewing a day, month, or multiday spread, there is no in-surface shortcut t
 ### Open Questions
 
 - For a multiday spread spanning two calendar months, both months' spreads (if they exist) appear as buttons. If this becomes visually cluttered, constrain to just the spread containing the multiday's start date.
+
+---
+
+## Navigator Redesign — Year Strip, Card Month Headers, Range Bands [SPRD-295]
+
+### Problem
+
+`SpreadsNavigatorView` predates the SESH-27/28 design vocabulary: the year picker is a system menu `Picker` floating in a bottom glass capsule, the context buttons' title lines don't align (buttons with subtitles are taller than the "Today" button), month headers are plain text with no created-status signal and no way to open an existing month spread (months are excluded from navigator navigation entirely), and multiday spreads render as thin 3pt bars pinned to week-row bottoms — an underline vocabulary used nowhere else in the app.
+
+### Requirements
+
+- The fixed (non-scrolling) top area stacks two rows: the context button strip (unchanged content, first text lines top-aligned) and, below it, a year strip — a horizontal `ScrollView` of small `SpreadButton`s, one per available year (years with spreads plus the current year), `.tonal` for the selected year, `.plain` otherwise. The bottom glass menu picker is removed. [SPRD-295]
+- The calendar scrolls beneath the fixed top area, as today. [SPRD-295]
+- Month headers render as a card-style chip: `SpreadCardStyle`-derived fill/stroke communicates whether an explicit month spread exists (created vs. uncreated), with today-month emphasis. When the month spread exists, the header includes a "View month" `SpreadButton` that navigates to it — lifting the previous "months are never navigable from the navigator" restriction for existing month spreads only. Uncreated months get no button. [SPRD-295]
+- Multiday spreads render as continuous low-opacity accent bands running behind the covered day cells, with rounded caps at range ends — the same range vocabulary as the entry-sheet assignment calendar's highlighted range. Up to two overlapping spreads stack as before. [SPRD-295]
+- Day cell styling is unchanged. [SPRD-295]
+
+### Design Decisions
+
+**Range bands replace lane bars.** The 3pt bottom-lane capsule read as a stray underline and matched no other surface. The redesigned entry-sheet calendar (SPRD-292/294) established low-opacity accent fills behind cells as the app's "these days form a range" vocabulary; the navigator adopts the same treatment so multiday coverage looks identical wherever a calendar appears. Rendered in the existing `RowOverlayGenerator` lane system (band height grows to row height), so overlap packing is unchanged.
+
+**Year strip replaces the menu picker.** All year options visible in one horizontal swipe, selected state uses the same tonal/plain convention as every other choice strip (navigator context buttons, entry-sheet choice rows). Years are ordered ascending (chronological, left → right) and the strip auto-scrolls to the selected year on appear. The bottom glass overlay disappears, freeing the calendar's bottom edge.
+
+**Month navigation via header button, not header tap.** Only the explicit "View month" button navigates; the chip itself stays inert so the created-status styling doesn't turn every header into an invisible tap target. Month-spread availability is prebuilt by `SpreadsTabView` (keyed by normalized month start, same build pass as `calendarModels`) — the navigator does no per-render spread scanning.
