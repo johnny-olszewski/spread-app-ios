@@ -68,44 +68,11 @@ struct SpreadsNavigatorView: View {
         return calendar.date(from: comps) ?? today
     }
     
-    // MARK: - Bottom Inset Controls
-
-    /// Bottom-inset overlay hosting the year-selection control, mirroring the
-    /// `bottomInsetControls` convention used elsewhere (e.g. `SpreadsTabView`).
-    private var bottomInsetControls: some View {
-        Picker(selection: $selectedYear) {
-            ForEach(availableYears, id: \.self) { year in
-                Button {
-                    selectedYear = year
-                } label: {
-                    if year == selectedYear {
-                        Label {
-                            Text("\(year)")
-                        } icon: {
-                            SpreadTheme.Icon.checkmark.chromeImage(size: SpreadTheme.IconSize.small)
-                        }
-                    } else {
-                        Text("\(year)")
-                    }
-                }
-            }
-        } label: {
-            Label {
-                Text("\(selectedYear)")
-            } icon: {
-                SpreadTheme.Icon.arrowsUpDown.chromeImage(size: SpreadTheme.IconSize.small)
-            }
-        }
-        .pickerStyle(.menu)
-        .padding(SpreadTheme.Spacing.medium)
-        .glassEffect(.clear, in: Capsule())
-    }
-
     /// All calendar years that have at least one spread, plus the current year,
-    /// in descending order.
+    /// in ascending (chronological) order for the horizontal year strip.
     private var availableYears: [Int] {
         let currentYear = calendar.component(.year, from: today)
-        return Array(Set(calendarModels.keys).union([currentYear])).sorted(by: >)
+        return Array(Set(calendarModels.keys).union([currentYear])).sorted()
     }
 
     var body: some View {
@@ -130,22 +97,49 @@ struct SpreadsNavigatorView: View {
         .safeAreaInset(edge: .top) {
             topInsetControls
         }
-        .overlay(alignment: .bottom) {
-            bottomInsetControls
-        }
     }
 
     // MARK: - Top Inset Controls
 
-    @ViewBuilder
+    /// Fixed (non-scrolling) top area: the context button strip over the year strip.
     private var topInsetControls: some View {
-        if !topInsetButtons.isEmpty {
-            HStack(spacing: SpreadTheme.Spacing.small) {
-                ForEach(topInsetButtons) { viewModel in
-                    SpreadButton(viewModel)
+        VStack(alignment: .leading, spacing: SpreadTheme.Spacing.medium) {
+            if !topInsetButtons.isEmpty {
+                HStack(alignment: .top, spacing: SpreadTheme.Spacing.small) {
+                    ForEach(topInsetButtons) { viewModel in
+                        SpreadButton(viewModel)
+                    }
                 }
+                .padding(.horizontal, SpreadTheme.Spacing.medium)
             }
-            .padding(SpreadTheme.Spacing.medium)
+
+            yearStrip
+        }
+        .padding(.vertical, SpreadTheme.Spacing.medium)
+    }
+
+    /// Horizontally scrolling year selector — one small `SpreadButton` per available year,
+    /// `.tonal` for the selected year. Auto-scrolls to the selection on appear.
+    private var yearStrip: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: SpreadTheme.Spacing.small) {
+                    ForEach(availableYears, id: \.self) { year in
+                        SpreadButton(
+                            String(year),
+                            style: year == selectedYear ? .tonal : .plain,
+                            size: .small
+                        ) {
+                            selectedYear = year
+                        }
+                        .id(year)
+                    }
+                }
+                .padding(.horizontal, SpreadTheme.Spacing.medium)
+            }
+            .onAppear {
+                proxy.scrollTo(selectedYear, anchor: .center)
+            }
         }
     }
 
