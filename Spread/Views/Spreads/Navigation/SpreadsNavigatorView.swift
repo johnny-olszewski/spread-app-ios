@@ -101,14 +101,18 @@ struct SpreadsNavigatorView: View {
             initialScrollTarget: today,
             onDateTapped: handleDateTap
         )
-        .safeAreaInset(edge: .top) {
+        // Day-cell chips carry their own 2pt inset, so 6pt of calendar padding lands their
+        // visible edge on the same 8pt margin as the top controls and month header chips.
+        .padding(.horizontal, SpreadTheme.Spacing.medium - 2)
+        .safeAreaInset(edge: .top, spacing: 0) {
             topInsetControls
         }
     }
 
     // MARK: - Top Inset Controls
 
-    /// Fixed (non-scrolling) top area: the context button strip over the year strip.
+    /// Fixed (non-scrolling) top area: the context button strip over the year strip, on a
+    /// material backdrop so the strips stay legible while calendar content scrolls beneath.
     private var topInsetControls: some View {
         VStack(alignment: .leading, spacing: SpreadTheme.Spacing.medium) {
             if !topInsetButtons.isEmpty {
@@ -123,6 +127,8 @@ struct SpreadsNavigatorView: View {
             yearStrip
         }
         .padding(.vertical, SpreadTheme.Spacing.medium)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial)
     }
 
     /// Horizontally scrolling year selector — one small `SpreadButton` per available year,

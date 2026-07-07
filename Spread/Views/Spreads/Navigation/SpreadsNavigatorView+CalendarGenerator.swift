@@ -90,7 +90,9 @@ extension SpreadsNavigatorView {
                     .fill(cardStyle.spreadNavigatorFillColor)
                     .strokeBorder(cardStyle.spreadNavigatorStrokeColor, style: cardStyle.borderStyle)
             )
-            .padding(.horizontal, SpreadTheme.Spacing.large)
+            // Rendered inside the calendar's 6pt horizontal padding; 2pt here (matching the
+            // day cells' own inset) lands the chip edge on the navigator's shared 8pt margin.
+            .padding(.horizontal, 2)
             .padding(.top, SpreadTheme.Spacing.large)
             .padding(.bottom, SpreadTheme.Spacing.small)
         }
@@ -131,7 +133,7 @@ extension SpreadsNavigatorView {
                 .padding(8)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(
-                    RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.badge, style: .continuous)
+                    Circle()
                         .fill(fillColor)
                         .strokeBorder(strokeColor, style: cardStyle.borderStyle)
                 )
@@ -214,13 +216,57 @@ extension SpreadsNavigatorView {
                 }
         }
 
+        /// A segment edge is a "real" range end only when the spread doesn't continue past
+        /// the row's rendered days (`continuesBeforeWeek`/`continuesAfterWeek` — true across
+        /// both week wraps and month boundaries, since peripheral dates are hidden). Real
+        /// ends get a rounded cap inset from the row edge; continuing edges run square to
+        /// the edge and fade out, signalling the span carries on.
         func rowOverlayView(
             context: MonthCalendarPackedRowOverlayRenderContext<UUID, Bool>
         ) -> some View {
-            Capsule(style: .circular)
+            let fadesLeading = context.continuesBeforeWeek
+            let fadesTrailing = context.continuesAfterWeek
+
+            return GeometryReader { geometry in
+                let capRadius = geometry.size.height / 2
+                UnevenRoundedRectangle(
+                    topLeadingRadius: fadesLeading ? 0 : capRadius,
+                    bottomLeadingRadius: fadesLeading ? 0 : capRadius,
+                    bottomTrailingRadius: fadesTrailing ? 0 : capRadius,
+                    topTrailingRadius: fadesTrailing ? 0 : capRadius,
+                    style: .circular
+                )
                 .fill(SpreadTheme.Accent.primary.opacity(SpreadTheme.Opacity.cardFill))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(Self.bandPadding)
+                .mask(
+                    LinearGradient(
+                        stops: Self.fadeStops(leading: fadesLeading, trailing: fadesTrailing),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+            }
+            .padding(.leading, fadesLeading ? 0 : Self.bandPadding)
+            .padding(.trailing, fadesTrailing ? 0 : Self.bandPadding)
+            .padding(.vertical, Self.bandPadding)
+        }
+
+        /// Alpha-mask stops: full opacity everywhere except an ~18%-width ramp to clear at
+        /// each continuing edge.
+        private static func fadeStops(leading: Bool, trailing: Bool) -> [Gradient.Stop] {
+            var stops: [Gradient.Stop] = []
+            if leading {
+                stops.append(.init(color: .clear, location: 0))
+                stops.append(.init(color: .black, location: 0.18))
+            } else {
+                stops.append(.init(color: .black, location: 0))
+            }
+            if trailing {
+                stops.append(.init(color: .black, location: 0.82))
+                stops.append(.init(color: .clear, location: 1))
+            } else {
+                stops.append(.init(color: .black, location: 1))
+            }
+            return stops
         }
 
         func overflowView(
