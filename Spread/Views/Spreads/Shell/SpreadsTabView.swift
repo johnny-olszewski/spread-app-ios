@@ -82,6 +82,10 @@ struct SpreadsTabView: View {
     /// above January.
     private var navigatorExplicitYearSpreads: [Int: DataModel.Spread]
 
+    /// Pre-built disambiguation rows (year → date → options) for dates covered by 2+
+    /// spreads, so day-tap popovers present without any tap-time computation.
+    private var navigatorDayDisambiguationOptions: [Int: [Date: [NavigatorDaySelectionPopoverContent.Option]]]
+
     // MARK: - Init
 
     init(
@@ -104,6 +108,7 @@ struct SpreadsTabView: View {
         navigatorYearSpreads = built.yearSpreads
         navigatorMonthSpreads = built.monthSpreads
         navigatorExplicitYearSpreads = built.explicitYearSpreads
+        navigatorDayDisambiguationOptions = built.dayDisambiguationOptions
 
         let defaultSelection = journalManager.defaultNavigationSelection
         initialSelectedSpreadID = defaultSelection.id
@@ -139,7 +144,8 @@ struct SpreadsTabView: View {
         models: [Int: SpreadsNavigatorView.CalendarGenerator.Model],
         yearSpreads: [Int: [DataModel.Spread]],
         monthSpreads: [Int: [Date: DataModel.Spread]],
-        explicitYearSpreads: [Int: DataModel.Spread]
+        explicitYearSpreads: [Int: DataModel.Spread],
+        dayDisambiguationOptions: [Int: [Date: [NavigatorDaySelectionPopoverContent.Option]]]
     ) {
         var models = [Int: SpreadsNavigatorView.CalendarGenerator.Model]()
         var yearSpreads = [Int: [DataModel.Spread]]()
@@ -178,11 +184,52 @@ struct SpreadsTabView: View {
             }
         }
 
+        // Pre-build disambiguation option rows for every date covered by 2+ spreads, so a
+        // day tap presents the popover with zero label/formatter work at tap time.
+        let dayFormatter = DateFormatter()
+        dayFormatter.calendar = calendar
+        dayFormatter.timeZone = calendar.timeZone
+        dayFormatter.dateStyle = .medium
+        let rangeFormatter = DateIntervalFormatter()
+        rangeFormatter.calendar = calendar
+        rangeFormatter.timeZone = calendar.timeZone
+        rangeFormatter.dateStyle = .medium
+        rangeFormatter.timeStyle = .none
+
+        var dayDisambiguationOptions = [Int: [Date: [NavigatorDaySelectionPopoverContent.Option]]]()
+        for (year, model) in models {
+            for (date, covering) in model where covering.count >= 2 {
+                let ordered = covering.sorted { lhs, rhs in
+                    if lhs.period != rhs.period { return lhs.period == .day }
+                    return (lhs.startDate ?? lhs.date) < (rhs.startDate ?? rhs.date)
+                }
+                dayDisambiguationOptions[year, default: [:]][date] = ordered.map { spread in
+                    if spread.period == .day {
+                        return .init(
+                            spread: spread,
+                            title: "Day spread",
+                            subtitle: dayFormatter.string(from: spread.date),
+                            icon: .sun
+                        )
+                    }
+                    let rangeString = rangeFormatter.string(
+                        from: spread.startDate ?? spread.date,
+                        to: spread.endDate ?? spread.date
+                    )
+                    if let customName = spread.customName, !customName.isEmpty {
+                        return .init(spread: spread, title: customName, subtitle: rangeString, icon: .rows)
+                    }
+                    return .init(spread: spread, title: rangeString, subtitle: "Multiday spread", icon: .rows)
+                }
+            }
+        }
+
         return (
             models: models,
             yearSpreads: yearSpreads,
             monthSpreads: monthSpreads,
-            explicitYearSpreads: explicitYearSpreads
+            explicitYearSpreads: explicitYearSpreads,
+            dayDisambiguationOptions: dayDisambiguationOptions
         )
     }
 
@@ -356,14 +403,22 @@ struct SpreadsTabView: View {
             selectedYear: $spreadsCoordinator.selectedYear,
             selectedSpread: Binding(
                 get: { spreadsCoordinator.selectedSpread },
-                set: { if let spread = $0 { spreadsCoordinator.navigate(to: spread) } }
+                set: {
+                    guard let spread = $0 else { return }
+                    spreadsCoordinator.navigate(to: spread)
+                    // Every navigation out of the navigator collapses it, matching the
+                    // context buttons. withAnimation overrides the tap path's
+                    // animation-disabled transaction so the pane close still animates.
+                    withAnimation { isNavigatorVisible = false }
+                }
             ),
             coordinator: spreadsCoordinator,
             today: today,
             calendar: calendar,
             topInsetButtons: topInsetButtons,
             monthSpreads: navigatorMonthSpreads,
-            explicitYearSpreads: navigatorExplicitYearSpreads
+            explicitYearSpreads: navigatorExplicitYearSpreads,
+            dayDisambiguationOptions: navigatorDayDisambiguationOptions
         )
     }
     

@@ -55,6 +55,10 @@ struct SpreadsNavigatorView: View {
     /// Explicit year spreads keyed by year — drives the "View year" chip above January.
     let explicitYearSpreads: [Int: DataModel.Spread]
 
+    /// Pre-built disambiguation rows (year → date → options) for dates covered by 2+
+    /// spreads. Built by `SpreadsTabView` so day taps do no label/formatter work.
+    let dayDisambiguationOptions: [Int: [Date: [NavigatorDaySelectionPopoverContent.Option]]]
+
     // MARK: - Derived from Model
 
     /// Unique spreads for the selected year, used by `RowOverlayGenerator` to draw multiday
@@ -172,83 +176,57 @@ struct SpreadsNavigatorView: View {
     // MARK: - Date Tap Handling
 
     /// Navigates directly when exactly one spread covers the tapped date (day or multiday);
-    /// with several covering spreads, presents the disambiguation popover on the tapped cell.
+    /// with several covering spreads, presents the pre-built disambiguation popover on the
+    /// tapped cell. No labels or formatters are computed here.
     private func handleDateTap(_ date: Date) {
         let dayStart = date.startOfDay(calendar: calendar)
-        let covering = calendarModels[selectedYear]?[dayStart] ?? []
-        let daySpread = covering.first { $0.period == .day }
-        let multidaySpreads = covering.filter { $0.period == .multiday }
 
-        var candidates: [DataModel.Spread] = []
-        if let daySpread { candidates.append(daySpread) }
-        candidates.append(contentsOf: multidaySpreads)
-
-        switch candidates.count {
-        case 0:
-            return
-        case 1:
-            navigate(to: candidates[0])
-        default:
+        if let options = dayDisambiguationOptions[selectedYear]?[dayStart] {
             coordinator.showNavigatorDaySelection(NavigatorDaySelectionPopoverContent(
                 date: dayStart,
-                options: candidates.map(selectionOption(for:)),
+                options: options,
                 onSelect: { navigate(to: $0) }
             ))
+            return
         }
+
+        guard let spread = calendarModels[selectedYear]?[dayStart]?.first else { return }
+        navigate(to: spread)
     }
 
-    private func selectionOption(for spread: DataModel.Spread) -> NavigatorDaySelectionPopoverContent.Option {
-        if spread.period == .day {
-            let formatter = DateFormatter()
-            formatter.calendar = calendar
-            formatter.timeZone = calendar.timeZone
-            formatter.dateStyle = .medium
-            return .init(spread: spread, title: "Day spread", subtitle: formatter.string(from: spread.date), icon: .sun)
-        }
-
-        let formatter = DateIntervalFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        let rangeString = formatter.string(
-            from: spread.startDate ?? spread.date,
-            to: spread.endDate ?? spread.date
-        )
-        if let customName = spread.customName, !customName.isEmpty {
-            return .init(spread: spread, title: customName, subtitle: rangeString, icon: .rows)
-        }
-        return .init(spread: spread, title: rangeString, subtitle: "Multiday spread", icon: .rows)
-    }
-
-    /// Invisible anchor placed over the tapped day cell (via `DateCellAnchorKey`) hosting the
-    /// disambiguation popover — a popover on regular width, a small detent sheet on compact.
-    @ViewBuilder
+    /// Invisible, permanently-mounted anchor hosting the disambiguation popover — a popover
+    /// with its arrow on the tapped day cell (regular width) or a small detent sheet
+    /// (compact). Kept mounted so presentation animates immediately from the correct anchor
+    /// instead of waiting for a conditional view insertion.
     private func daySelectionPopoverHost(anchors: [Date: Anchor<CGRect>]) -> some View {
         GeometryReader { proxy in
-            if case .navigatorDaySelection(let content) = coordinator.activePopover,
-               let anchor = anchors[content.date] {
-                let rect = proxy[anchor]
-                Color.clear
-                    .frame(width: rect.width, height: rect.height)
-                    .position(x: rect.midX, y: rect.midY)
-                    .allowsHitTesting(false)
-                    .popover(
-                        item: Binding<NavigatorDaySelectionPopoverContent?>(
-                            get: {
-                                guard case .navigatorDaySelection(let c) = coordinator.activePopover else { return nil }
-                                return c
-                            },
-                            set: { if $0 == nil { coordinator.dismissPopover() } }
-                        ),
-                        attachmentAnchor: content.attachmentAnchor,
-                        arrowEdge: content.arrowEdge
-                    ) { presented in
-                        presented.body
-                            .presentationDetents([.height(220)])
-                    }
-            }
+            let rect: CGRect = {
+                if case .navigatorDaySelection(let content) = coordinator.activePopover,
+                   let anchor = anchors[content.date] {
+                    return proxy[anchor]
+                }
+                return CGRect(x: 0, y: 0, width: 1, height: 1)
+            }()
+
+            Color.clear
+                .frame(width: rect.width, height: rect.height)
+                .position(x: rect.midX, y: rect.midY)
+                .popover(
+                    item: Binding<NavigatorDaySelectionPopoverContent?>(
+                        get: {
+                            guard case .navigatorDaySelection(let c) = coordinator.activePopover else { return nil }
+                            return c
+                        },
+                        set: { if $0 == nil { coordinator.dismissPopover() } }
+                    ),
+                    attachmentAnchor: .rect(.bounds),
+                    arrowEdge: .top
+                ) { presented in
+                    presented.body
+                        .presentationDetents([.height(220)])
+                }
         }
+        .allowsHitTesting(false)
     }
 
     private func navigate(to spread: DataModel.Spread) {
