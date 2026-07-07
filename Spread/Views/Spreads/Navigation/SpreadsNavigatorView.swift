@@ -41,6 +41,11 @@ struct SpreadsNavigatorView: View {
     /// Selection style (`.tonal` vs `.plain`) and navigation actions are computed by the parent.
     let topInsetButtons: [SpreadButton.ViewModel]
 
+    /// Explicit month spreads keyed by year, then normalized month start date. Pre-built by
+    /// `SpreadsTabView` in the same pass as `calendarModels`; drives the card-style month
+    /// headers and their "View month" buttons.
+    let monthSpreads: [Int: [Date: DataModel.Spread]]
+
     // MARK: - Derived from Model
 
     /// Unique spreads for the selected year, used by `RowOverlayGenerator` to draw multiday
@@ -84,8 +89,10 @@ struct SpreadsNavigatorView: View {
             configuration: .init(showsPeripheralDates: false),
             contentGenerator: CalendarGenerator(
                 model: calendarModels[selectedYear] ?? CalendarGenerator.Model(),
+                monthSpreads: monthSpreads[selectedYear] ?? [:],
                 calendar: calendar,
-                today: today
+                today: today,
+                onViewMonth: handleViewMonth
             ),
             rowOverlayGenerator: RowOverlayGenerator(
                 spreads: selectedYearSpreads,
@@ -148,7 +155,15 @@ struct SpreadsNavigatorView: View {
     private func handleDateTap(_ date: Date) {
         let dayStart = date.startOfDay(calendar: calendar)
         guard let spread = calendarModels[selectedYear]?[dayStart]?.first(where: { $0.period == .day }) else { return }
+        navigate(to: spread)
+    }
 
+    /// Navigates to an existing month spread from a month header's "View month" button.
+    private func handleViewMonth(_ spread: DataModel.Spread) {
+        navigate(to: spread)
+    }
+
+    private func navigate(to spread: DataModel.Spread) {
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {

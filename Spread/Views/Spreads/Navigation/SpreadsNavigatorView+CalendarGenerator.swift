@@ -27,19 +27,34 @@ extension SpreadsNavigatorView {
         typealias Model = [Date: [DataModel.Spread]]
 
         let model: Model
+        /// Explicit month spreads for the displayed year, keyed by normalized month start.
+        let monthSpreads: [Date: DataModel.Spread]
         let calendar: Calendar
         let today: Date
-        
-        init(model: Model, calendar: Calendar, today: Date) {
+        /// Invoked when a month header's "View month" button is tapped.
+        let onViewMonth: (DataModel.Spread) -> Void
+
+        init(
+            model: Model,
+            monthSpreads: [Date: DataModel.Spread] = [:],
+            calendar: Calendar,
+            today: Date,
+            onViewMonth: @escaping (DataModel.Spread) -> Void = { _ in }
+        ) {
             self.model = model
+            self.monthSpreads = monthSpreads
             self.calendar = calendar
             self.today = today
+            self.onViewMonth = onViewMonth
         }
 
         // MARK: Header
 
+        /// Card-style month header: `SpreadCardStyle` fill/stroke communicates whether an
+        /// explicit month spread exists (with today-month emphasis), and a "View month"
+        /// button navigates to it when it does. The chip itself is not a tap target.
         func headerView(month: Date) -> some View {
-            
+
             let monthYearString: String = {
                 let formatter = DateFormatter()
                 formatter.calendar = calendar
@@ -47,16 +62,37 @@ extension SpreadsNavigatorView {
                 formatter.dateFormat = "MMMM yyyy"
                 return formatter.string(from: month)
             }()
-            
-            HStack {
+
+            let monthStart = Period.month.normalizeDate(month, calendar: calendar)
+            let monthSpread = monthSpreads[monthStart]
+            let cardStyle = SpreadCardStyle(
+                isToday: calendar.isDate(month, equalTo: today, toGranularity: .month),
+                isCreated: monthSpread != nil
+            )
+
+            HStack(spacing: SpreadTheme.Spacing.small) {
                 Text(monthYearString)
                     .font(SpreadTheme.Typography.headline)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(cardStyle.textColor)
+
                 Spacer()
+
+                if let monthSpread {
+                    SpreadButton("View month", style: .plain, size: .small) {
+                        onViewMonth(monthSpread)
+                    }
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 20)
-            .padding(.bottom, 4)
+            .padding(.horizontal, SpreadTheme.Spacing.standard)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.card, style: .continuous)
+                    .fill(cardStyle.spreadNavigatorFillColor)
+                    .strokeBorder(cardStyle.spreadNavigatorStrokeColor, style: cardStyle.borderStyle)
+            )
+            .padding(.horizontal, SpreadTheme.Spacing.large)
+            .padding(.top, SpreadTheme.Spacing.large)
+            .padding(.bottom, SpreadTheme.Spacing.small)
         }
 
         // MARK: Weekday Header

@@ -74,6 +74,10 @@ struct SpreadsTabView: View {
     /// render — that walk is now paid once here, at the same lifecycle point as the model itself.
     private var navigatorYearSpreads: [Int: [DataModel.Spread]]
 
+    /// Explicit month spreads keyed by year, then normalized month start date — used by
+    /// the navigator's card-style month headers and "View month" buttons.
+    private var navigatorMonthSpreads: [Int: [Date: DataModel.Spread]]
+
     // MARK: - Init
 
     init(
@@ -94,6 +98,7 @@ struct SpreadsTabView: View {
         let built = Self.buildNavigatorCalendarData(spreads: journalManager.spreads, calendar: calendar)
         navigatorCalendarModels = built.models
         navigatorYearSpreads = built.yearSpreads
+        navigatorMonthSpreads = built.monthSpreads
 
         let defaultSelection = journalManager.defaultNavigationSelection
         initialSelectedSpreadID = defaultSelection.id
@@ -125,9 +130,14 @@ struct SpreadsTabView: View {
     static func buildNavigatorCalendarData(
         spreads: [DataModel.Spread],
         calendar: Calendar
-    ) -> (models: [Int: SpreadsNavigatorView.CalendarGenerator.Model], yearSpreads: [Int: [DataModel.Spread]]) {
+    ) -> (
+        models: [Int: SpreadsNavigatorView.CalendarGenerator.Model],
+        yearSpreads: [Int: [DataModel.Spread]],
+        monthSpreads: [Int: [Date: DataModel.Spread]]
+    ) {
         var models = [Int: SpreadsNavigatorView.CalendarGenerator.Model]()
         var yearSpreads = [Int: [DataModel.Spread]]()
+        var monthSpreads = [Int: [Date: DataModel.Spread]]()
         var seenSpreadIDsByYear = [Int: Set<UUID>]()
 
         for spread in spreads {
@@ -152,12 +162,16 @@ struct SpreadsTabView: View {
                     guard let next = calendar.date(byAdding: .day, value: 1, to: date) else { break }
                     date = next
                 }
-            case .year, .month:
+            case .month:
+                let year = calendar.component(.year, from: spread.date)
+                let monthStart = Period.month.normalizeDate(spread.date, calendar: calendar)
+                monthSpreads[year, default: [:]][monthStart] = spread
+            case .year:
                 continue
             }
         }
 
-        return (models: models, yearSpreads: yearSpreads)
+        return (models: models, yearSpreads: yearSpreads, monthSpreads: monthSpreads)
     }
 
     // MARK: - Body
@@ -334,7 +348,8 @@ struct SpreadsTabView: View {
             ),
             today: today,
             calendar: calendar,
-            topInsetButtons: topInsetButtons
+            topInsetButtons: topInsetButtons,
+            monthSpreads: navigatorMonthSpreads
         )
     }
     
