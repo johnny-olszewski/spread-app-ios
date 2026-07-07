@@ -4,16 +4,16 @@ import JohnnyOFoundationCore
 
 /// Content column view for the Spreads destination — the left pane of `SpreadsTabView`.
 ///
-/// Renders a vertically scrolling `CalendarView` covering all months in `selectedYear`,
-/// with a self-contained year-selection control presented as a bottom-inset overlay
-/// (no longer dependent on sidebar `.spreadsYear` subitems — `selectedYear` is owned by
-/// the caller and bound here purely so the value survives pane show/hide). Day cells are
-/// styled solid yellow (today),
-/// solid blue (has a day/multiday spread), or plain (no relevant spread). Multiday spreads
-/// also render a continuous bar overlay across week rows. Month and year spreads are
-/// intentionally excluded from all visual state and tap handling — the user cannot navigate
-/// to them directly from this view. Tapping a date navigates immediately to its day spread
-/// if one exists; tapping a date with no day spread is a no-op.
+/// A fixed top area stacks the context button strip over a horizontally scrolling year
+/// strip of `SpreadButton`s (`selectedYear` is owned by the caller so it survives pane
+/// show/hide); below it a vertically scrolling `CalendarView` covers all months in
+/// `selectedYear`. Day cells are styled solid yellow (today), solid blue (has a
+/// day/multiday spread), or plain. Multiday spreads render as continuous low-opacity
+/// accent bands behind the covered cells. Month headers are `SpreadCardStyle` chips
+/// showing created status, with a "View month" button navigating to existing month
+/// spreads (SPRD-295); year spreads remain non-navigable from this view. Tapping a date
+/// navigates immediately to its day spread if one exists; tapping a date with no day
+/// spread is a no-op.
 struct SpreadsNavigatorView: View {
 
     /// Pre-built `CalendarGenerator.Model` keyed by year, injected by `SpreadsTabView`.

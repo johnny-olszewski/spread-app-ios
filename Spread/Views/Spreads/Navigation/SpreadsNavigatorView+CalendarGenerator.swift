@@ -187,13 +187,15 @@ fileprivate extension SpreadCardStyle {
 
 extension SpreadsNavigatorView {
 
-    /// Renders a thin bar across week rows for multiday spreads, making multi-day
-    /// spans visually continuous across cells and row breaks.
+    /// Renders each multiday spread as a continuous low-opacity accent band running behind
+    /// the covered day cells (rounded caps at range ends) — the same range vocabulary as the
+    /// entry sheet's assignment calendar highlight. The overlay layer sits behind the day
+    /// cell layer, so cells stay fully legible on top. When two spreads overlap, the
+    /// existing lane packing splits the row height and the bands stack as offset
+    /// translucent strips.
     struct RowOverlayGenerator: MonthCalendarRowOverlayGenerator {
 
-        private static let laneHeight: CGFloat = 3
-        private static let laneHorizontalPadding: CGFloat = 4
-        private static let laneBottomPadding: CGFloat = 4
+        private static let bandPadding: CGFloat = 2
 
         let overlays: [MonthCalendarLogicalRowOverlay<UUID, Bool>]
         let maximumVisibleLaneCount: Int
@@ -216,11 +218,9 @@ extension SpreadsNavigatorView {
             context: MonthCalendarPackedRowOverlayRenderContext<UUID, Bool>
         ) -> some View {
             Capsule(style: .circular)
-                .fill(SpreadTheme.Accent.primary.opacity(0.4))
-                .frame(height: Self.laneHeight)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .padding(.horizontal, Self.laneHorizontalPadding)
-                .padding(.bottom, Self.laneBottomPadding)
+                .fill(SpreadTheme.Accent.primary.opacity(SpreadTheme.Opacity.cardFill))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(Self.bandPadding)
         }
 
         func overflowView(

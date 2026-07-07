@@ -7596,18 +7596,24 @@ Supabase: SPRD-85A -> SPRD-85C
 
 ---
 
-### [SPRD-295] Visual: Navigator redesign — year strip, card month headers, range bands - [ ] Pending
+### [SPRD-295] Visual: Navigator redesign — year strip, card month headers, range bands - [ ] Done
 
 - **Context**: `SpreadsNavigatorView` predates the SESH-27/28 design vocabulary: system menu year picker in a bottom glass capsule, misaligned context-button title lines, plain month headers with no created signal or month navigation, and 3pt multiday lane bars that match no other surface.
 - **Description**: Restructure the fixed top area to context buttons (title lines top-aligned) over a horizontally scrolling year strip of small `SpreadButton`s (ascending years, `.tonal` selected, auto-scroll to selection; bottom glass picker removed). Restyle month headers as `SpreadCardStyle` chips (created/uncreated fill+stroke, today emphasis) with a "View month" button when the explicit month spread exists, navigating to it. Replace the multiday bottom-lane bars in `RowOverlayGenerator` with continuous low-opacity accent bands behind the covered cells (rounded caps, same range vocabulary as the entry-sheet calendar). `SpreadsTabView` prebuilds a month-spread lookup per year alongside `calendarModels`.
 - **Spec**: `Documentation/Specs/SpreadNavigation.md` — Navigator Redesign [SPRD-295]
 - **Acceptance Criteria**:
-  - AC1: Context buttons render with their first text lines top-aligned.
-  - AC2: A horizontal year strip of small SpreadButtons sits below the context buttons in the fixed top area; selected year is `.tonal`, others `.plain`; tapping switches the displayed year; the strip auto-scrolls to the selected year on appear; the bottom glass menu picker is removed.
-  - AC3: The calendar remains the only vertically scrolling region, beneath the fixed top area.
-  - AC4: Month headers render a SpreadCardStyle-derived chip (created vs. uncreated fill/stroke, today-month emphasis) and show a "View month" button only when the explicit month spread exists; tapping it navigates to that spread. Uncreated months have no button and no tap target.
-  - AC5: Multiday spreads render as continuous low-opacity accent bands behind covered day cells with rounded end caps; up to two overlapping spreads still stack via the existing lane system.
-  - AC6: Day cell styling is unchanged.
-  - AC7: Build succeeds with no errors.
+  - [x] AC1: Context buttons render with their first text lines top-aligned.
+  - [x] AC2: A horizontal year strip of small SpreadButtons sits below the context buttons in the fixed top area; selected year is `.tonal`, others `.plain`; tapping switches the displayed year; the strip auto-scrolls to the selected year on appear; the bottom glass menu picker is removed.
+  - [x] AC3: The calendar remains the only vertically scrolling region, beneath the fixed top area.
+  - [x] AC4: Month headers render a SpreadCardStyle-derived chip (created vs. uncreated fill/stroke, today-month emphasis) and show a "View month" button only when the explicit month spread exists; tapping it navigates to that spread. Uncreated months have no button and no tap target.
+  - [x] AC5: Multiday spreads render as continuous low-opacity accent bands behind covered day cells with rounded end caps; up to two overlapping spreads still stack via the existing lane system.
+  - [x] AC6: Day cell styling is unchanged.
+  - [x] AC7: Build succeeds with no errors.
 - **Tests**:
-  - No new unit tests: visual change. Manual QA across compact/regular width and both color schemes.
+  - No new unit tests: visual change. Manual QA across compact/regular width and both color schemes. `SpreadsTabViewNavigatorDataTests` (5) still pass against the extended builder.
+
+**Progress (commits landed on feature/SESH-28)**
+1. **[SPRD-295][1/n]** — Top area restructured: context buttons in an `HStack(alignment: .top)` so first text lines align, horizontal year strip of small SpreadButtons (ascending, `.tonal` selected, `ScrollViewReader` auto-scroll to selection) below them; bottom glass menu `Picker` overlay deleted. AC1–AC3 ✅.
+2. **[SPRD-295][2/n]** — `buildNavigatorCalendarData` extended to also return `monthSpreads: [Int: [Date: DataModel.Spread]]` in the same pass; threaded through `SpreadsTabView` → `SpreadsNavigatorView` → `CalendarGenerator`. Month headers render as `SpreadCardStyle` chips (created/uncreated fill+stroke, today emphasis, style-tinted title) with a plain "View month" SpreadButton when the spread exists, navigating via the shared animation-disabled selection path. AC4 ✅.
+3. **[SPRD-295][3/n]** — `RowOverlayGenerator` bars replaced with full-lane-height low-opacity accent capsule bands (`Opacity.cardFill`) behind the day cells; lane packing unchanged so overlapping spreads stack as offset translucent strips. Stale view/generator doc comments refreshed. AC5–AC7 ✅.
+- Remaining for this task: none — all ACs complete.
