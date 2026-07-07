@@ -30,6 +30,10 @@ struct SpreadsTabView: View {
     /// Whether the navigator is shown. Presentation mode (inline column vs. full-screen cover)
     /// is determined at render time by `horizontalSizeClass` — this boolean encodes only intent.
     @State private var isNavigatorVisible = false
+    /// Incremented each time the navigator opens. Used as the navigator's identity so every
+    /// open recreates it — reseeding the calendar's initial scroll to today's month even if
+    /// a still-animating removal kept the previous instance (and its scroll offset) alive.
+    @State private var navigatorPresentationToken = 0
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     /// The currently active spread selection, defaulting to the journal's default when unset.
@@ -240,6 +244,7 @@ struct SpreadsTabView: View {
             HStack(spacing: 0) {
                 if isNavigatorVisible && horizontalSizeClass == .regular {
                     spreadsNavigatorView
+                        .id(navigatorPresentationToken)
                         .background(.ultraThinMaterial.opacity(0.65))
                         .clipShape(RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.card))
                         .padding(.horizontal, SpreadTheme.Spacing.medium)
@@ -294,11 +299,15 @@ struct SpreadsTabView: View {
             }
             .dotGridBackground(.paper, ignoresSafeAreaEdges: .all)
         }
+        .onChange(of: isNavigatorVisible) { _, isVisible in
+            if isVisible { navigatorPresentationToken += 1 }
+        }
         .fullScreenCover(isPresented: Binding(
             get: { isNavigatorVisible && horizontalSizeClass != .regular },
             set: { isNavigatorVisible = $0 }
         )) {
             spreadsNavigatorView
+                .id(navigatorPresentationToken)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") { isNavigatorVisible = false }

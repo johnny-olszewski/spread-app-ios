@@ -194,13 +194,15 @@ struct SpreadsNavigatorView: View {
         navigate(to: spread)
     }
 
-    /// Invisible, permanently-mounted anchor hosting the disambiguation popover — a popover
-    /// with its arrow on the tapped day cell (regular width) or a small detent sheet
-    /// (compact). Kept mounted so presentation animates immediately from the correct anchor
-    /// instead of waiting for a conditional view insertion.
+    /// Invisible, permanently-mounted full-size host for the disambiguation popover — a
+    /// popover with its arrow on the tapped day cell (regular width) or a small detent
+    /// sheet (compact). The tapped cell's resolved rect is passed explicitly via
+    /// `.rect(.rect(_:))`; attaching to a positioned sub-view instead would anchor the
+    /// popover to the position-wrapper's full bounds (the whole calendar), pinning it to
+    /// the top regardless of which cell was tapped.
     private func daySelectionPopoverHost(anchors: [Date: Anchor<CGRect>]) -> some View {
         GeometryReader { proxy in
-            let rect: CGRect = {
+            let anchorRect: CGRect = {
                 if case .navigatorDaySelection(let content) = coordinator.activePopover,
                    let anchor = anchors[content.date] {
                     return proxy[anchor]
@@ -209,8 +211,6 @@ struct SpreadsNavigatorView: View {
             }()
 
             Color.clear
-                .frame(width: rect.width, height: rect.height)
-                .position(x: rect.midX, y: rect.midY)
                 .popover(
                     item: Binding<NavigatorDaySelectionPopoverContent?>(
                         get: {
@@ -219,7 +219,7 @@ struct SpreadsNavigatorView: View {
                         },
                         set: { if $0 == nil { coordinator.dismissPopover() } }
                     ),
-                    attachmentAnchor: .rect(.bounds),
+                    attachmentAnchor: .rect(.rect(anchorRect)),
                     arrowEdge: .top
                 ) { presented in
                     presented.body
