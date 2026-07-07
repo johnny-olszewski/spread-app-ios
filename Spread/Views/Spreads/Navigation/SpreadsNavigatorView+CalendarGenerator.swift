@@ -4,8 +4,8 @@ import JohnnyOFoundationCore
 
 // MARK: - Anchor Preference
 
-/// Bubbles each day cell's bounds up so `SpreadsContentColumnView` can anchor
-/// the disambiguation popover precisely on the tapped cell.
+/// Bubbles each day cell's bounds up so `SpreadsNavigatorView` can anchor
+/// the day-tap disambiguation popover precisely on the tapped cell.
 struct DateCellAnchorKey: PreferenceKey {
     static let defaultValue: [Date: Anchor<CGRect>] = [:]
     static func reduce(value: inout [Date: Anchor<CGRect>], nextValue: () -> [Date: Anchor<CGRect>]) {
@@ -17,11 +17,10 @@ struct DateCellAnchorKey: PreferenceKey {
 
 extension SpreadsNavigatorView {
 
-    /// A `CalendarContentGenerator` that renders month headers and day cells.
+    /// A `CalendarContentGenerator` that renders card-style month headers and day cells.
     ///
-    /// Only day and multiday spreads are considered for cell state — month and year
-    /// spreads are intentionally excluded since the user cannot navigate to them
-    /// directly from this view.
+    /// Only day and multiday spreads contribute to day-cell state; month spreads are
+    /// surfaced through the header chips' "View month" buttons.
     struct CalendarGenerator: CalendarContentGenerator {
 
         typealias Model = [Date: [DataModel.Spread]]
@@ -139,6 +138,9 @@ extension SpreadsNavigatorView {
                 )
                 .aspectRatio(1, contentMode: .fit)
                 .padding(2)
+                .anchorPreference(key: DateCellAnchorKey.self, value: .bounds) {
+                    [date.startOfDay(calendar: calendar): $0]
+                }
         }
 
         // MARK: Placeholder Cell

@@ -346,6 +346,7 @@ struct SpreadsTabView: View {
                 get: { spreadsCoordinator.selectedSpread },
                 set: { if let spread = $0 { spreadsCoordinator.navigate(to: spread) } }
             ),
+            coordinator: spreadsCoordinator,
             today: today,
             calendar: calendar,
             topInsetButtons: topInsetButtons,

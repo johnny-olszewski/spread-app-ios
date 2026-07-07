@@ -305,6 +305,12 @@ final class SpreadsCoordinator {
     }
 
     /// Dismisses the currently active popover.
+    /// Presents the navigator's day-tap disambiguation popover, listing every spread
+    /// covering the tapped date (day + multiday) for the user to choose between.
+    func showNavigatorDaySelection(_ content: NavigatorDaySelectionPopoverContent) {
+        activePopover = .navigatorDaySelection(content)
+    }
+
     func dismissPopover() {
         activePopover = nil
     }

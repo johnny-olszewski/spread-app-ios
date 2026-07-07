@@ -12,8 +12,9 @@ import JohnnyOFoundationCore
 /// accent bands behind the covered cells. Month headers are `SpreadCardStyle` chips
 /// showing created status, with a "View month" button navigating to existing month
 /// spreads (SPRD-295); year spreads remain non-navigable from this view. Tapping a date
-/// navigates immediately to its day spread if one exists; tapping a date with no day
-/// spread is a no-op.
+/// navigates directly when exactly one spread (day or multiday) covers it; when several
+/// cover it, a coordinator-driven popover anchored on the cell (small detent sheet on
+/// compact) lets the user choose. Tapping an uncovered date is a no-op.
 struct SpreadsNavigatorView: View {
 
     /// Pre-built `CalendarGenerator.Model` keyed by year, injected by `SpreadsTabView`.
@@ -33,6 +34,11 @@ struct SpreadsNavigatorView: View {
 
     /// Bound to the shared spread selection that drives the detail pager.
     @Binding var selectedSpread: DataModel.Spread?
+
+    /// Presents the day-tap disambiguation popover (`activePopover`), per the app's
+    /// coordinator-driven popover convention. Navigation itself still flows through
+    /// `selectedSpread` so the pager binding remains the single selection path.
+    let coordinator: SpreadsCoordinator
 
     let today: Date
     let calendar: Calendar
@@ -101,6 +107,9 @@ struct SpreadsNavigatorView: View {
             initialScrollTarget: today,
             onDateTapped: handleDateTap
         )
+        .overlayPreferenceValue(DateCellAnchorKey.self) { anchors in
+            daySelectionPopoverHost(anchors: anchors)
+        }
         // Day-cell chips carry their own 2pt inset, so 6pt of calendar padding lands their
         // visible edge on the same 8pt margin as the top controls and month header chips.
         .padding(.horizontal, SpreadTheme.Spacing.medium - 2)
@@ -158,10 +167,84 @@ struct SpreadsNavigatorView: View {
 
     // MARK: - Date Tap Handling
 
+    /// Navigates directly when exactly one spread covers the tapped date (day or multiday);
+    /// with several covering spreads, presents the disambiguation popover on the tapped cell.
     private func handleDateTap(_ date: Date) {
         let dayStart = date.startOfDay(calendar: calendar)
-        guard let spread = calendarModels[selectedYear]?[dayStart]?.first(where: { $0.period == .day }) else { return }
-        navigate(to: spread)
+        let covering = calendarModels[selectedYear]?[dayStart] ?? []
+        let daySpread = covering.first { $0.period == .day }
+        let multidaySpreads = covering.filter { $0.period == .multiday }
+
+        var candidates: [DataModel.Spread] = []
+        if let daySpread { candidates.append(daySpread) }
+        candidates.append(contentsOf: multidaySpreads)
+
+        switch candidates.count {
+        case 0:
+            return
+        case 1:
+            navigate(to: candidates[0])
+        default:
+            coordinator.showNavigatorDaySelection(NavigatorDaySelectionPopoverContent(
+                date: dayStart,
+                options: candidates.map(selectionOption(for:)),
+                onSelect: { navigate(to: $0) }
+            ))
+        }
+    }
+
+    private func selectionOption(for spread: DataModel.Spread) -> NavigatorDaySelectionPopoverContent.Option {
+        if spread.period == .day {
+            let formatter = DateFormatter()
+            formatter.calendar = calendar
+            formatter.timeZone = calendar.timeZone
+            formatter.dateStyle = .medium
+            return .init(spread: spread, title: "Day spread", subtitle: formatter.string(from: spread.date), icon: .sun)
+        }
+
+        let formatter = DateIntervalFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        let rangeString = formatter.string(
+            from: spread.startDate ?? spread.date,
+            to: spread.endDate ?? spread.date
+        )
+        if let customName = spread.customName, !customName.isEmpty {
+            return .init(spread: spread, title: customName, subtitle: rangeString, icon: .rows)
+        }
+        return .init(spread: spread, title: rangeString, subtitle: "Multiday spread", icon: .rows)
+    }
+
+    /// Invisible anchor placed over the tapped day cell (via `DateCellAnchorKey`) hosting the
+    /// disambiguation popover — a popover on regular width, a small detent sheet on compact.
+    @ViewBuilder
+    private func daySelectionPopoverHost(anchors: [Date: Anchor<CGRect>]) -> some View {
+        GeometryReader { proxy in
+            if case .navigatorDaySelection(let content) = coordinator.activePopover,
+               let anchor = anchors[content.date] {
+                let rect = proxy[anchor]
+                Color.clear
+                    .frame(width: rect.width, height: rect.height)
+                    .position(x: rect.midX, y: rect.midY)
+                    .allowsHitTesting(false)
+                    .popover(
+                        item: Binding<NavigatorDaySelectionPopoverContent?>(
+                            get: {
+                                guard case .navigatorDaySelection(let c) = coordinator.activePopover else { return nil }
+                                return c
+                            },
+                            set: { if $0 == nil { coordinator.dismissPopover() } }
+                        ),
+                        attachmentAnchor: content.attachmentAnchor,
+                        arrowEdge: content.arrowEdge
+                    ) { presented in
+                        presented.body
+                            .presentationDetents([.height(220)])
+                    }
+            }
+        }
     }
 
     /// Navigates to an existing month spread from a month header's "View month" button.
