@@ -41,6 +41,25 @@ protocol Entry: Identifiable, Hashable, EntryStatusIconRepresentable {
     /// A static per-type constant — independent of this instance's `date`/`status`/assignments.
     var isOverdueEligible: Bool { get }
 
+    /// Whether this entry type can ever carry a user-assigned scheduled time.
+    ///
+    /// A static per-type constant — independent of this instance's `date`/`status`/assignments.
+    /// Only `Task` is time-assignable; `Event` carries its own times and `Note` has none.
+    /// Per-instance eligibility (a day-period assignment) is a separate check at the feature site.
+    var isTimeAssignable: Bool { get }
+
+    /// The instant this entry is scheduled to start, if any.
+    ///
+    /// `Task` returns its `scheduledTime`; `Event` returns `startTime` when `timing == .timed`;
+    /// `Note` returns `nil`. Time-integrated sorting and row time display dispatch through
+    /// this — no per-type downcasting at call sites.
+    var scheduledStart: Date? { get }
+
+    /// The instant this entry is scheduled to end, if any.
+    ///
+    /// Only `.timed` events have an end; tasks are instantaneous and return `nil`.
+    var scheduledEnd: Date? { get }
+
     // MARK: - Display requirements (default implementations in extension below)
 
     /// Optional one-line body preview shown below the title.
@@ -62,6 +81,9 @@ extension Entry {
     var isInboxEligible: Bool { false }
     var isMigratable: Bool { false }
     var isOverdueEligible: Bool { false }
+    var isTimeAssignable: Bool { false }
+    var scheduledStart: Date? { nil }
+    var scheduledEnd: Date? { nil }
 
     /// A stable key identifying this concrete type for use in `EntryRowView.Configuration.Map`.
     ///

@@ -307,6 +307,14 @@ enum DataModelSchemaV1: VersionedSchema {
         /// Optional informational day-level due date.
         var dueDate: Date?
 
+        /// The instant the user intends to do this task, if scheduled. [SPRD-296]
+        ///
+        /// An absolute instant on the task's assigned day — `nil` is the sole "no time"
+        /// signal. Only meaningful while the assignment period is `.day`; migration
+        /// rebases it day→day and clears it otherwise (SPRD-298). See
+        /// `Documentation/Specs/TaskScheduledTime.md`.
+        var scheduledTime: Date?
+
         /// The date this task was created.
         var createdDate: Date
 
@@ -340,6 +348,11 @@ enum DataModelSchemaV1: VersionedSchema {
         var isInboxEligible: Bool { true }
         var isMigratable: Bool { true }
         var isOverdueEligible: Bool { true }
+        var isTimeAssignable: Bool { true }
+
+        /// Tasks are instantaneous: `scheduledStart` is the scheduled time, `scheduledEnd`
+        /// stays `nil` (default `Entry` implementation).
+        var scheduledStart: Date? { scheduledTime }
 
         // MARK: Sync Metadata
 
@@ -373,6 +386,9 @@ enum DataModelSchemaV1: VersionedSchema {
         /// LWW timestamp for the `dueDate` field.
         var dueDateUpdatedAt: Date?
 
+        /// LWW timestamp for the `scheduledTime` field.
+        var scheduledTimeUpdatedAt: Date?
+
         /// LWW timestamp for the `list` relationship field.
         var listUpdatedAt: Date?
         
@@ -395,6 +411,7 @@ enum DataModelSchemaV1: VersionedSchema {
             body: String? = nil,
             priority: Priority = .none,
             dueDate: Date? = nil,
+            scheduledTime: Date? = nil,
             createdDate: Date = .now,
             date: Date? = .now,
             period: Period? = .day,
@@ -413,6 +430,7 @@ enum DataModelSchemaV1: VersionedSchema {
             bodyUpdatedAt: Date? = nil,
             priorityUpdatedAt: Date? = nil,
             dueDateUpdatedAt: Date? = nil,
+            scheduledTimeUpdatedAt: Date? = nil,
             listUpdatedAt: Date? = nil
         ) {
             self.id = id
@@ -420,6 +438,7 @@ enum DataModelSchemaV1: VersionedSchema {
             self.body = body
             self.storedPriority = priority
             self.dueDate = dueDate
+            self.scheduledTime = scheduledTime
             self.createdDate = createdDate
             self.date = date
             self.period = period
@@ -438,6 +457,7 @@ enum DataModelSchemaV1: VersionedSchema {
             self.bodyUpdatedAt = bodyUpdatedAt
             self.priorityUpdatedAt = priorityUpdatedAt
             self.dueDateUpdatedAt = dueDateUpdatedAt
+            self.scheduledTimeUpdatedAt = scheduledTimeUpdatedAt
             self.listUpdatedAt = listUpdatedAt
         }
     }
@@ -480,6 +500,13 @@ enum DataModelSchemaV1: VersionedSchema {
 
         /// The type of entry.
         var entryType: EntryType { .event }
+
+        /// Timed events expose their times for time-integrated sorting and row display;
+        /// all-day/single-day/multi-day events are untimed (`nil`). [SPRD-296]
+        var scheduledStart: Date? { timing == .timed ? startTime : nil }
+
+        /// See `scheduledStart`. [SPRD-296]
+        var scheduledEnd: Date? { timing == .timed ? endTime : nil }
 
         // MARK: Sync Metadata
 
