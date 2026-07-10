@@ -1,7 +1,7 @@
 # Spread Navigation
 
 > Source: Documentation/spec.md  
-> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244
+> **SPRD tasks**: SPRD-125, SPRD-126, SPRD-143, SPRD-148, SPRD-199, SPRD-229, SPRD-230, SPRD-232, SPRD-236, SPRD-238, SPRD-244, SPRD-275, SPRD-283, SPRD-284, SPRD-285, SPRD-289, SPRD-290, SPRD-295
 
 ### Spread View Architecture
 - The spread shell should converge on a single top-level `SpreadsView` rather than separate conventional and traditional root view trees. [SPRD-163, SPRD-164, SPRD-165]
@@ -693,3 +693,408 @@ var body: some View {
 - **Decision**: Each anchor view (e.g., `AddTaskButton`) applies `.popover` on itself. It binds to a derived `Binding<ConcreteContent?>` that maps `coordinator.activePopover` to/from the specific case it owns. The coordinator still owns all presentation state — the anchor view only reads and clears it.
 - **Rationale**: Correct visual behavior (arrow points at the button) without duplicating state. The coordinator remains the single source of truth; the anchor view is just a passthrough for the SwiftUI modifier.
 - **SPRD reference**: [SPRD-244]
+
+---
+
+## Spread Content Pager Render Performance [SPRD-275]
+
+**Status**: Draft
+**Date**: 2026-06-29
+
+### Overview
+
+Reduce unnecessary recomputation in `SpreadContentPagerView` during active scrolling. SPRD-272/SPRD-273 already addressed forced multi-month layout and `selectedYearSpreads` recomputation. This task closes two remaining sources of per-frame work surfaced during a follow-up lag investigation: `spreadDetailTitle` still reads `journalManager.calendar`/`.today`/`.firstWeekday` directly from `body`-reachable code despite its doc comment claiming otherwise, and `spreadDataModel(for:)` is computed for every spread in the pager's `ForEach` rather than only the pages near the settled selection.
+
+### Problem Statement
+
+`SpreadContentPagerView`'s `spreadDetailTitle` computed property is documented as receiving its dependencies pre-computed from the parent so the view does not observe `JournalManager` during scrolling, but it still reads `journalManager.calendar`, `.today`, and `.firstWeekday` directly via the environment-injected manager — meaning any unrelated `JournalManager` state change (new spread creation, background sync, coordinator updates) can re-trigger this body read and its title derivation work. Separately, the pager's `ForEach(spreads)` calls `spreadDataModel(for:)` for every spread in the array on each render, not just the page(s) actually visible near `settledSpreadID`, performing O(n) lookup work when only O(1) is needed.
+
+### Goals
+
+- Make `spreadDetailTitle` depend only on plain, parent-injected values — no direct `JournalManager` environment reads.
+- Restrict `spreadDataModel(for:)` computation to the settled page and its immediate neighbors, with the neighbor radius defined as an easily adjustable constant.
+- Correct the existing doc comment on `SpreadContentPagerView` that incorrectly claims `journalManager` is not accessed in `body`.
+
+### Non-Goals
+
+- `selectedYearSpreads` memoization — already done in [SPRD-273].
+- Caching `SpreadsTabView`'s uncached `yearSpreads` filter/sort property — tracked separately, not part of this task.
+- Any change to pager paging/animation behavior, page transition visuals, or `SpreadDataModel` contents.
+
+### Functional Requirements
+
+1. `SpreadContentPagerView` receives `calendar: Calendar`, `today: Date`, and `firstWeekday: Int` (or equivalent plain values) as init-injected properties from the parent, rather than reading them from `journalManager` inside `spreadDetailTitle`. [SPRD-275]
+2. `spreadDataModel(for:)` is computed only for the spread matching `settledSpreadID` and spreads within a fixed neighbor radius of it in the `spreads` array. [SPRD-275]
+3. The neighbor radius is a named constant (e.g. `Constants.spreadDataModelWindowRadius`), defaulted to `1`, so it can be changed in one place without touching the windowing logic. [SPRD-275]
+4. Spreads outside the window render without a computed `SpreadDataModel` (e.g. an empty/placeholder content state) until they enter the window as the pager settles. [SPRD-275]
+5. The doc comment on `SpreadContentPagerView` (and/or `spreadDetailTitle`) is corrected to accurately describe which values are observed vs. pre-computed. [SPRD-275]
+
+### Technical Design
+
+#### Title Derivation
+
+`spreadDetailTitle` stops reading `journalManager.calendar`/`.today`/`.firstWeekday`. These three are added as plain stored properties on `SpreadContentPagerView`, injected once from the parent at construction (the parent already reads them from `journalManager` itself elsewhere, so no new `JournalManager` call site is introduced — just relocated to the parent's init-time read instead of the child's per-render read).
+
+#### Windowing
+
+```swift
+private enum Constants {
+    static let spreadDataModelWindowRadius = 1
+}
+
+private func isWithinDataModelWindow(_ spread: DataModel.Spread) -> Bool {
+    guard let settledIndex = spreads.firstIndex(where: { $0.id == settledSpreadID }),
+          let index = spreads.firstIndex(where: { $0.id == spread.id }) else { return false }
+    return abs(index - settledIndex) <= Constants.spreadDataModelWindowRadius
+}
+```
+
+`contentView(for:)` checks `isWithinDataModelWindow(spread)` before calling `spreadDataModel(for:)`; outside the window it renders a lightweight placeholder.
+
+#### Edge Cases
+
+- First render before any page has settled: `settledSpreadID` defaults to the initially selected spread, so the window is centered there from the start — no flash of empty content on initial load.
+- Fast multi-page flicks: pages more than `±1` away briefly show the placeholder until the settle event updates `settledSpreadID` and brings them into the window.
+
+#### Testing Strategy
+
+- Unit tests on the windowing predicate (`isWithinDataModelWindow` or equivalent extracted support function): verify the settled page and ±1 neighbors are included, and pages at ±2 are excluded, for a representative `spreads` array.
+- Unit tests on title derivation confirming it produces the same output as before when given the same plain `calendar`/`today`/`firstWeekday` inputs, without requiring a `JournalManager` instance.
+- Manual scroll-performance check: scroll through a year of populated day/multiday spreads and confirm no perceptible lag regression introduction and a qualitative improvement versus pre-fix behavior.
+
+### Design Decisions
+
+#### Decision: Fixed-radius window constant instead of dynamic/adaptive radius
+
+- **Context**: The radius around `settledSpreadID` that gets a computed `SpreadDataModel` could be fixed or tuned dynamically (e.g. based on scroll velocity).
+- **Decision**: Use a single fixed constant, defaulted to `1`, defined in one place for easy adjustment.
+- **Rationale**: A dynamic/velocity-based radius adds complexity with no demonstrated need; a simple constant is trivially tunable if `±1` proves insufficient in practice, per explicit request to keep this easy to change.
+- **SPRD reference**: [SPRD-275]
+
+#### Decision: Three separate commits for one SPRD task
+
+- **Context**: The three fixes (title-derivation hoist, doc comment correction, data-model windowing) are independently verifiable but were diagnosed together as one investigation.
+- **Decision**: Track all three under a single SPRD-275 task, but land them as three separate, independently buildable commits.
+- **Rationale**: Keeps the spec/plan surface small (one task) while preserving small, reviewable, independently revertible commits per CLAUDE.md's git conventions.
+- **SPRD reference**: [SPRD-275]
+
+### Open Questions
+
+- None.
+
+---
+
+## Pager Re-Render: Environment Service Churn [SPRD-283]
+
+**Status**: Draft
+**Date**: 2026-07-01
+
+### Overview
+
+`SpreadContentPagerView` re-renders multiple times on app launch and on every scene-activation event — even with no user interaction — because the `eventKitService` and `calendarEventService` environment values appear "changed" to SwiftUI on every `ContentView.body` re-run. This fires even when the underlying service instances are identical.
+
+### Problem Statement
+
+`ContentView.body` re-runs whenever any observed state in its scope changes (e.g. `scenePhase` becoming active, `AuthManager.state` updating during launch). Each re-run calls `.environment(\.eventKitService, ...)` and `.environment(\.calendarEventService, ...)` with the same service instances that were injected before. However, both environment keys store their values as `any Protocol` existentials (`any EventKitService` and `any CalendarEventService`). Existential types in Swift are not `Equatable` — SwiftUI has no way to compare old vs. new to determine whether the value actually changed, so it always propagates a "changed" signal down the tree.
+
+`SpreadContentPagerView` reads both values via `@Environment`, so every propagation causes its `body` to re-evaluate. Confirmed via `Self._printChanges()` output:
+
+```
+SpreadContentPagerView: _eventKitService, _calendarEventService changed.
+SpreadContentPagerView: _eventKitService, _calendarEventService changed.
+SpreadContentPagerView: _eventKitService, _calendarEventService changed.
+```
+
+This fires ~10+ times on a cold launch before any scrolling, and again on every scene-activation (`sceneDidBecomeActive`). Each re-render evaluates `contentView(for:)` for every windowed spread page, doing redundant `JournalManager.dataModel` lookups and re-constructing `SpreadPageContext`.
+
+### Goals
+
+- Eliminate `SpreadContentPagerView` re-renders triggered solely by `_eventKitService` or `_calendarEventService` changing when the underlying service instances have not actually changed.
+
+### Non-Goals
+
+- Changing how `EventKitService` or `CalendarEventService` is used by content views (fetch logic, `openEvent`, etc.).
+- Removing the environment key pattern in favour of direct init injection — the environment approach is intentional for deep pass-through.
+
+### Functional Requirements
+
+1. `SpreadContentPagerView` does not re-render due to `_eventKitService` or `_calendarEventService` environment changes when the same service instances are re-injected by `ContentView`. [SPRD-283]
+2. Both environment keys use a stable identity comparison so SwiftUI can short-circuit propagation when the value has not changed. [SPRD-283]
+
+### Technical Design
+
+#### Root Cause
+
+The environment keys are typed as `any Protocol` existentials:
+
+```swift
+// EventKitService+Environment.swift
+var eventKitService: (any EventKitService)?
+
+// CalendarEventService+Environment.swift  
+var calendarEventService: any CalendarEventService
+```
+
+SwiftUI's environment change detection requires the value type to be comparable. For existentials, there is no `==` available, so SwiftUI conservatively treats every assignment as a change.
+
+#### Fix
+
+Change `LiveCalendarEventService` from `struct` to `final class`. It has no value semantics (it holds a service reference and is never copied for mutation), and making it a class enables identity-based comparison alongside `LiveEventKitService` (already a `final class`).
+
+Wrap both environment values in an identity-based `Equatable` box at the key level:
+
+```swift
+struct ServiceBox<S: AnyObject>: Equatable {
+    let service: S
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.service === rhs.service
+    }
+}
+```
+
+The environment key stores `ServiceBox<ConcreteType>` internally; the public `get`/`set` accessors unwrap/wrap transparently so all existing call sites (`@Environment(\.eventKitService)`, `.environment(\.eventKitService, ...)`) are unchanged.
+
+Since `AppDependencies` creates both services once and holds them as `let` properties, the same instance is always re-injected — the identity check will always return `true` in production, preventing propagation entirely.
+
+### Design Decisions
+
+#### Decision: Class over `@Observable` injection for these services
+
+- **Context**: An alternative is to make both services `@Observable` classes and inject them via `.environment(service)` (not a custom key). SwiftUI tracks `@Observable` by identity automatically.
+- **Decision**: Keep the custom environment key pattern; fix identity comparison at the key level by changing `LiveCalendarEventService` to a class.
+- **Rationale**: `@Observable` requires adding `import Observation` and the macro to service types that have no need for observation (they hold no `@Observable` published state). The identity-box fix is local to the two environment key files and doesn't change any other type's shape or conformances. Call sites are unaffected.
+- **SPRD reference**: [SPRD-283]
+
+### Open Questions
+
+- None.
+
+---
+
+## Pager Re-Render: Scroll-Settle Chain [SPRD-284]
+
+**Status**: Draft
+**Date**: 2026-07-01
+
+### Overview
+
+Every time the pager settles on a new spread after a swipe, a re-render cascade propagates from `SpreadsTabView` down through `SpreadContentPagerView` to `DaySpreadContentView` — even when the settled spread is in the same year and nothing in the display data has changed. This is the primary source of lag on repeated scrolling.
+
+### Problem Statement
+
+When the pager settles on a new page, `SpreadContentPagerView.syncSelectionFromSettledID()` sets `coordinator.selectedSpread`. `SpreadsTabView.body` observes `spreadsCoordinator.selectedSpread` (via the `currentSelection` computed property), so it re-renders. The re-render recomputes `yearSpreads` — a `filter` + `sorted` pass over `journalManager.spreads` — producing a new `[DataModel.Spread]` array. Even though the contents are identical (same spreads, same year), it is a newly allocated array value. This new array is passed to `SpreadContentPagerView` as `spreads:`, causing SwiftUI to see `@self changed` on the pager struct. The pager body re-evaluates and propagates `@self` changes to each visible content view.
+
+Confirmed via `Self._printChanges()`:
+
+```
+SpreadContentPagerView: _settledSpreadID changed.           ← scroll settled
+SpreadsTabView: \SpreadsCoordinator.<computed> (Optional<Spread>) changed.  ← coordinator updated
+SpreadContentPagerView: @self changed.                      ← new yearSpreads array passed in
+DaySpreadContentView: @self, @identity, _viewModel changed. ← content view reconstructed
+```
+
+This fires on every single page swipe. The re-render is wasted work: if the new settled spread is in the same calendar year as the previous one, `yearSpreads` is identical in content to what was just computed. The cascade to `DaySpreadContentView` is the most expensive part — the view model is reconstructed.
+
+### Goals
+
+- Eliminate the `SpreadsTabView` → `SpreadContentPagerView` → `DaySpreadContentView` re-render cascade that fires on every intra-year scroll settle.
+
+### Non-Goals
+
+- Preventing re-renders when the user navigates to a spread in a different calendar year (the `yearSpreads` array genuinely changes there).
+- Changing pager scroll mechanics, settle behavior, or how `coordinator.selectedSpread` is updated.
+- Eliminating all `DaySpreadContentView` re-renders — only the ones triggered by identical `yearSpreads` being re-passed.
+
+### Functional Requirements
+
+1. Scrolling within the same calendar year does not cause `SpreadsTabView` to pass a new `yearSpreads` array to `SpreadContentPagerView`. [SPRD-284]
+2. Navigating to a spread in a different calendar year (via the navigator or convenience nav) does update `yearSpreads` correctly. [SPRD-284]
+3. `DaySpreadContentView` does not show `@self, @identity, _viewModel changed` in `_printChanges()` output during intra-year scroll settling. [SPRD-284]
+
+### Technical Design
+
+#### Root Cause
+
+`yearSpreads` is a computed property on `SpreadsTabView`:
+
+```swift
+private var yearSpreads: [DataModel.Spread] {
+    let year = spreadsCalendar.component(.year, from: currentSelection.startDate ?? currentSelection.date)
+    return journalManager.spreads
+        .filter { ... }
+        .sorted { ... }
+}
+```
+
+It is re-executed on every `SpreadsTabView.body` evaluation. The result changes identity (new array allocation) even when content is unchanged.
+
+#### Fix
+
+Cache `yearSpreads` as a `@State` value. Track the current year as a `@State<Int>` derived from `currentSelection`. In `.onChange(of: currentSelectionYear)`, recompute `yearSpreads` and update the cached state. Because `@State` updates trigger a body re-run only when the value actually changes (and only for the views that depend on it), a same-year scroll settle will not update the cached array and therefore will not pass a new `spreads:` value to `SpreadContentPagerView`.
+
+The initial value is computed once in `SpreadsTabView.init` (same pattern as `navigatorCalendarModels` and `navigatorYearSpreads` today).
+
+Also recompute `yearSpreads` when `journalManager.spreads` changes (e.g. a new spread is created) — wire this via `onChange(of: journalManager.spreads.count)` or a stable hash, so new spreads appear in the pager without a navigator-triggered year change.
+
+### Design Decisions
+
+#### Decision: Cache via `@State` rather than extracting a child view
+
+- **Context**: An alternative is to extract the pager and its `yearSpreads`/`currentSelection` inputs into a dedicated child view that only observes the coordinator's `selectedYear` (not `selectedSpread`), so scroll-settle changes don't reach it. This is a larger structural refactor.
+- **Decision**: Cache `yearSpreads` as `@State` on `SpreadsTabView`, updated only on year change. No child view extraction.
+- **Rationale**: The `@State` cache is a local, contained change — it touches only `SpreadsTabView` and is easy to verify by re-running `_printChanges()`. The child-view extraction would require understanding which parts of `SpreadsTabView.body` should move, risking unintended behavioral changes. Prefer the minimal targeted fix; if further re-render issues surface in `SpreadsTabView`, a structural refactor can follow.
+- **SPRD reference**: [SPRD-284]
+
+### Open Questions
+
+- None.
+
+---
+
+## Navigator Toggle State Consolidation [SPRD-285]
+
+### Problem
+
+`SpreadsTabView` uses two separate `@State` booleans — `shouldShowSpreadsNavigatorColumn` and `shouldShowSpreadsNavigatorSheet` — to represent the same logical intent: "the user wants the navigator visible." The toolbar button action switches on `horizontalSizeClass` to decide which boolean to toggle. SwiftUI `ToolbarItem` closures can capture environment values from the toolbar's rendering context, which may differ from the parent view's environment, causing the size class check inside the action to read a stale or incorrect value. The result: the button visually responds to the tap but toggles the wrong boolean, so nothing visible changes — intermittently, on iPad.
+
+### Requirements
+
+- Replace `shouldShowSpreadsNavigatorColumn` and `shouldShowSpreadsNavigatorSheet` with a single `isNavigatorVisible: Bool` state. [SPRD-285]
+- The toolbar button action calls `isNavigatorVisible.toggle()` with no size class check. [SPRD-285]
+- The presentation mode (inline column vs. full-screen cover) is determined entirely at render time: column when `isNavigatorVisible && horizontalSizeClass == .regular`; full-screen cover when `isNavigatorVisible && horizontalSizeClass != .regular`. [SPRD-285]
+- Navigator visibility is preserved across size class changes — if the navigator is open and the device rotates or multitasking changes the size class, the navigator remains open (switching presentation mode automatically). The `.onChange(of: horizontalSizeClass)` reset is removed. [SPRD-285]
+
+### Design Decisions
+
+#### Decision: One boolean, presentation mode at render time
+
+- **Context**: Two booleans encode what is fundamentally a single user intent. The size class check in the action closure is the source of the intermittent bug.
+- **Decision**: `isNavigatorVisible: Bool`. Column vs. sheet is a rendering concern, not a state concern.
+- **Rationale**: Eliminates the toolbar-closure environment-capture problem entirely. Simpler state model. Preserves intent across size class transitions as a free consequence of the design.
+- **SPRD reference**: [SPRD-285]
+
+---
+
+## Overdue Panel [SPRD-289]
+
+### Problem
+
+`OverdueCardView` currently appears inline at the top of individual spread content views (`DaySpreadContentView`, `MonthSpreadContentView`). This placement is spread-type-specific, creates visual inconsistency, and lacks any reveal animation. The intent is to give the overdue panel a dedicated presence above the pager that the user consciously opens rather than something always visible.
+
+### Requirements
+
+- A `clockCountdown` (Phosphor) toolbar button appears in the `spreadDetailTitle` row on the trailing edge, overlaid on the right side of the header row. [SPRD-289]
+- The button is only visible when `journalManager.overdueTaskItems` is non-empty. [SPRD-289]
+- `OverdueCardView` sits in the spread shell, positioned between the header row and `SpreadContentPagerView`, hidden behind the pager at rest. [SPRD-289]
+- When the button is tapped, the pager slides down by the overdue card's height (measured via `onGeometryChange`), revealing the card. [SPRD-289]
+- Tapping anywhere on the pager while the panel is open slides the pager back up, hiding the card. [SPRD-289]
+- `OverdueCardView` is removed from `DaySpreadContentView` and `MonthSpreadContentView`. [SPRD-289]
+
+### Design Decisions
+
+#### Decision: Pager offset rather than ZStack insertion
+
+- **Context**: The overdue card needs to appear to slide out from behind the pager.
+- **Decision**: `OverdueCardView` is placed in the view hierarchy immediately above `SpreadContentPagerView` (normal document flow), and the pager slides down via `.offset(y: isOverduePanelOpen ? overdueCardHeight : 0)` to reveal it.
+- **Rationale**: Simpler than a ZStack with clipping and ordering concerns. The card naturally occupies its own layout slot; the pager offset creates the illusion of revealing what was hidden behind it.
+- **SPRD reference**: [SPRD-289]
+
+#### Decision: Button as trailing overlay on spreadDetailTitle row
+
+- **Context**: The toolbar button could live in the navigation bar or in the `spreadDetailTitle` row.
+- **Decision**: Button is a trailing overlay on the `spreadDetailTitle` row (not a navigation bar item).
+- **Rationale**: Keeps the button visually adjacent to the spread header content rather than in the nav bar chrome. Consistent with the existing trailing button pattern on that row.
+- **SPRD reference**: [SPRD-289]
+
+#### Decision: Dynamic card height via onGeometryChange
+
+- **Context**: The card height isn't a fixed constant — it depends on how many overdue items exist.
+- **Decision**: Use `.onGeometryChange(for: CGFloat.self) { $0.size.height }` on the `OverdueCardView` to capture height into `@State var overdueCardHeight`. The pager offset reads this value.
+- **Rationale**: No hardcoded constants. Automatically adjusts if item count changes.
+- **SPRD reference**: [SPRD-289]
+
+#### Decision: Dismiss gesture on pager
+
+- **Context**: The user needs a way to close the overdue panel without a dedicated close button.
+- **Decision**: Add a `.simultaneousGesture(TapGesture())` on the pager that sets `isOverduePanelOpen = false` when the panel is open.
+- **Rationale**: Tapping the pager is the natural "go back to my journal" affordance. `.simultaneousGesture` preserves normal pager tap-through behavior (page scrolling, entry taps) while also closing the panel.
+- **SPRD reference**: [SPRD-289]
+
+### Open Questions
+
+- None.
+
+---
+
+## Parent Period Context Buttons [SPRD-290]
+
+### Problem
+
+When viewing a day, month, or multiday spread, there is no in-surface shortcut to jump up to the containing less-granular spread (e.g. from July 6 → July month spread → 2026 year spread). The navigator covers this but requires opening a separate sheet; a quick one-tap affordance on the spread itself would be faster.
+
+### Requirements
+
+- A method `containingParentSpreads(for spread: DataModel.Spread) -> [DataModel.Spread]` is added to `JournalManager`. It returns the ordered list of existing spreads that are less granular than `spread` and contain its date (or date range, for multiday). [SPRD-290]
+  - Day: returns the month spread for that date (if exists), then the year spread (if exists).
+  - Month: returns the year spread for that date (if exists).
+  - Multiday: returns month spread(s) covering the range (if exist), then year spread(s) (if exist), sorted less→more granular.
+  - Year: returns `[]` — no less granular period.
+- The buttons are rendered as a leading-edge overlay on the `spreadDetailTitle` row (symmetric with the overdue clock button on the trailing edge). [SPRD-290]
+- Each button shows the period label ("This Month" / "This Year") as the primary label and the spread's canonical name (e.g. "July", "2026") as a secondary sublabel. [SPRD-290]
+- Buttons are only shown for spreads that already exist — no spread creation on tap. [SPRD-290]
+- Tapping a button navigates to that spread via the coordinator. [SPRD-290]
+- Style is visually secondary relative to the main spread title — uses a small chip/pill aesthetic to differentiate from primary heading. [SPRD-290]
+- Button visibility is isolated in a private struct (following the `OverduePanelToggleButton` pattern) so reads of `journalManager.spreads` do not propagate as a body-level `@Observable` dependency on `SpreadContentPagerView`. [SPRD-290]
+
+### Design Decisions
+
+#### Decision: New `JournalManager.containingParentSpreads(for:)` method; rule engine's `parentHierarchySpreads` not reused
+
+- **Context**: `JournalRuleEngine.parentHierarchySpreads(for:spreads:)` already computes a similar set, but it is private, migration-specific in shape (used only for determining migration candidate eligibility), and carries multiday-specific logic that differs from navigation needs.
+- **Decision**: Add a new `containingParentSpreads(for spread: DataModel.Spread) -> [DataModel.Spread]` on `JournalManager` using `self.spreads` and `self.calendar`. Logic is simple filter operations — no rule engine involvement.
+- **Rationale**: Keeps migration and navigation concerns separate. The new method is a pure read from existing state with no side effects, a natural fit for `JournalManager` as the data facade.
+- **SPRD reference**: [SPRD-290]
+
+#### Decision: Buttons in `spreadDetailTitle` as leading overlay, derived from `settledSpreadID`
+
+- **Context**: The buttons must stay fixed while the pager scrolls (user confirmed). The `spreadDetailTitle` row is the natural location. Its current spread is derived from `settledSpreadID` (not `coordinator.selectedSpread`) to preserve the isolation invariant from SPRD-284.
+- **Decision**: A private `SpreadParentNavButtons` struct receives `settledSpreadID` and `spreads` as plain values and reads `journalManager` in its own body scope. Applied as a `.overlay(alignment: .leading)` on `spreadDetailTitle`.
+- **Rationale**: Maintains the `coordinator.selectedSpread`-free pager body invariant. Isolating `journalManager.spreads` reads into the subview bounds the observable dependency to that subview.
+- **SPRD reference**: [SPRD-290]
+
+#### Decision: `canonicalTitle` for button secondary label; `SpreadDisplayNameFormatter` reused
+
+- **Context**: Each button needs a short secondary label naming the specific spread (e.g. "July", "2026"). This formatting already exists in `SpreadDisplayNameFormatter.canonicalTitle(for:calendar:)`.
+- **Decision**: Reuse `SpreadDisplayNameFormatter.canonicalTitle(for:calendar:)` directly — no new formatting logic.
+- **Rationale**: Single source of truth for display names. Avoids duplicating date formatting.
+- **SPRD reference**: [SPRD-290]
+
+### Open Questions
+
+- For a multiday spread spanning two calendar months, both months' spreads (if they exist) appear as buttons. If this becomes visually cluttered, constrain to just the spread containing the multiday's start date.
+
+---
+
+## Navigator Redesign — Year Strip, Card Month Headers, Range Bands [SPRD-295]
+
+### Problem
+
+`SpreadsNavigatorView` predates the SESH-27/28 design vocabulary: the year picker is a system menu `Picker` floating in a bottom glass capsule, the context buttons' title lines don't align (buttons with subtitles are taller than the "Today" button), month headers are plain text with no created-status signal and no way to open an existing month spread (months are excluded from navigator navigation entirely), and multiday spreads render as thin 3pt bars pinned to week-row bottoms — an underline vocabulary used nowhere else in the app.
+
+### Requirements
+
+- The fixed (non-scrolling) top area stacks two rows: the context button strip (unchanged content, first text lines top-aligned) and, below it, a year strip — a horizontal `ScrollView` of small `SpreadButton`s, one per available year (years with spreads plus the current year), `.tonal` for the selected year, `.plain` otherwise. The bottom glass menu picker is removed. [SPRD-295]
+- The calendar scrolls beneath the fixed top area, as today. [SPRD-295]
+- Month headers render as a card-style chip: `SpreadCardStyle`-derived fill/stroke communicates whether an explicit month spread exists (created vs. uncreated), with today-month emphasis. When the month spread exists, the header includes a "View month" `SpreadButton` that navigates to it — lifting the previous "months are never navigable from the navigator" restriction for existing month spreads only. Uncreated months get no button. [SPRD-295]
+- Multiday spreads render as continuous low-opacity accent bands running behind the covered day cells, with rounded caps at range ends — the same range vocabulary as the entry-sheet assignment calendar's highlighted range. Up to two overlapping spreads stack as before. [SPRD-295]
+- Day cell styling is unchanged (later refined to circular chips). [SPRD-295]
+- Tapping a date with exactly one covering spread (day or multiday) navigates directly; several covering spreads present a coordinator-driven disambiguation popover anchored on the tapped cell (`PopoverDestination.navigatorDaySelection`, small detent sheet on compact). Month spreads stay reachable only from their header button. [SPRD-295]
+- A year chip above January mirrors the month chip vocabulary, with a "View year" button when the displayed year's explicit spread exists. [SPRD-295]
+
+### Design Decisions
+
+**Range bands replace lane bars.** The 3pt bottom-lane capsule read as a stray underline and matched no other surface. The redesigned entry-sheet calendar (SPRD-292/294) established low-opacity accent fills behind cells as the app's "these days form a range" vocabulary; the navigator adopts the same treatment so multiday coverage looks identical wherever a calendar appears. Rendered in the existing `RowOverlayGenerator` lane system (band height grows to row height), so overlap packing is unchanged.
+
+**Year strip replaces the menu picker.** All year options visible in one horizontal swipe, selected state uses the same tonal/plain convention as every other choice strip (navigator context buttons, entry-sheet choice rows). Years are ordered ascending (chronological, left → right) and the strip auto-scrolls to the selected year on appear. The bottom glass overlay disappears, freeing the calendar's bottom edge.
+
+**Month navigation via header button, not header tap.** Only the explicit "View month" button navigates; the chip itself stays inert so the created-status styling doesn't turn every header into an invisible tap target. Month-spread availability is prebuilt by `SpreadsTabView` (keyed by normalized month start, same build pass as `calendarModels`) — the navigator does no per-render spread scanning.

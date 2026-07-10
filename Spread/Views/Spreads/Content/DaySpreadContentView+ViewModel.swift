@@ -37,44 +37,6 @@ extension DaySpreadContentView {
             horizontalSizeClass.isRegular && !calendarEvents.isEmpty
         }
 
-        /// Card-styled sections for overdue tasks, shown above the standard entry list.
-        ///
-        /// Only populated when the spread represents today and there are overdue items.
-        /// Each distinct source spread (or Inbox) produces one card section.
-        var overdueSections: [EntryList.Section] {
-            guard context.calendar.isDateInToday(spread.date) else { return [] }
-
-            let overdueItems = context.journalManager.overdueTaskItems
-            guard !overdueItems.isEmpty else { return [] }
-
-            // Map task ID → source key so the chip closure can look up each task's origin.
-            let sourceKeyByTaskID = Dictionary(uniqueKeysWithValues: overdueItems.map { ($0.task.id, $0.sourceKey) })
-            let entries: [any Entry] = overdueItems.map { $0.task }
-
-            return [
-                EntryList.Section(
-                    id: "overdue",
-                    title: "Overdue",
-                    date: spread.date,
-                    entries: entries,
-                    creationPeriod: .day,
-                    creationDate: spread.date,
-                    configurationMap: [
-                        DataModel.Task.configurationKey: .standardTaskConfig(
-                            journalManager: context.journalManager,
-                            syncEngine: context.syncEngine,
-                            coordinator: context.coordinator,
-                            getChips: { entry in
-                                guard let task = entry as? DataModel.Task,
-                                      let key = sourceKeyByTaskID[task.id] else { return [] }
-                                return [key]
-                            }
-                        )
-                    ],
-                    style: .card(.orange)
-                )
-            ]
-        }
 
         /// Groups and orders the spread's regular (non-overdue) entries per the caller's
         /// current `EntryGroupingOption`/`EntrySortOption` picker selection.

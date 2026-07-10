@@ -7,7 +7,7 @@ import JohnnyOFoundationCore
 /// This separate protocol owns only row-bounded overlay visuals plus any app-owned overflow UI.
 public protocol MonthCalendarRowOverlayGenerator {
     associatedtype OverlayID: Hashable & Sendable
-    associatedtype OverlayPayload: Sendable
+    associatedtype OverlayPayload: Hashable & Sendable
     associatedtype RowOverlayContent: View
     associatedtype OverflowContent: View
 
@@ -25,7 +25,7 @@ public protocol MonthCalendarRowOverlayGenerator {
     ) -> OverflowContent
 }
 
-public struct MonthCalendarEmptyRowOverlayPayload: Sendable {
+public struct MonthCalendarEmptyRowOverlayPayload: Hashable & Sendable {
     public init() {}
 }
 

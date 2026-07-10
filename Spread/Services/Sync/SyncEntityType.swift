@@ -51,6 +51,20 @@ enum SyncEntityType: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    /// The batch merge RPC function name on the server, accepting a jsonb array of rows.
+    var mergeBatchRPCName: String {
+        switch self {
+        case .settings: "merge_settings_batch"
+        case .spread: "merge_spread_batch"
+        case .entry: "merge_entry_batch"
+        case .collection: "merge_collection_batch"
+        case .list: "merge_list_batch"
+        case .tag: "merge_tag_batch"
+        case .assignment: "merge_assignment_batch"
+        case .entryTag: "merge_entry_tag_batch"
+        }
+    }
+
     /// All entity types ordered for push/pull (parents first).
     static var ordered: [SyncEntityType] {
         allCases.sorted { $0.syncOrder < $1.syncOrder }

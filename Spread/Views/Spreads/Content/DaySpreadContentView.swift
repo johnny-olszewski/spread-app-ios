@@ -18,6 +18,11 @@ struct DaySpreadContentView: View {
     @State private var viewModel: ViewModel
     var config: Config = .default
 
+    /// Stored for `Equatable` comparison without accessing `@State`.
+    /// See `DaySpreadContentView+Equatable.swift`.
+    let spreadID: UUID
+    let storedHorizontalSizeClass: UserInterfaceSizeClass?
+
     @AppStorage("entryGrouping.day") private var groupingOption: EntryGroupingOption = .list
     @AppStorage("entrySorting.day") private var sortingOption: EntrySortOption = .dueDate
 
@@ -28,6 +33,8 @@ struct DaySpreadContentView: View {
         horizontalSizeClass: UserInterfaceSizeClass?,
         config: Config = .default
     ) {
+        spreadID = spread.id
+        storedHorizontalSizeClass = horizontalSizeClass
         _viewModel = State(wrappedValue: ViewModel(
             spread: spread,
             spreadDataModel: spreadDataModel,
@@ -57,26 +64,18 @@ struct DaySpreadContentView: View {
                     )
                     .padding(SpreadTheme.Spacing.large)
 
-                    Button {
+                    SpreadButton(
+                        icon: viewModel.spread.isFavorite ? .starFilled : .star,
+                        style: .glass,
+                        accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle
+                    ) {
                         Task { await viewModel.toggleFavorite() }
-                    } label: {
-                        (viewModel.spread.isFavorite ? SpreadTheme.Icon.starFilled : SpreadTheme.Icon.star)
-                            .sized(SpreadTheme.IconSize.medium)
-                            .iconTint(.primary)
                     }
-                    .buttonStyle(.plain)
-                    .contentShape(Rectangle())
                     .accessibilityLabel(viewModel.spread.isFavorite ? "Remove from Favorites" : "Add to Favorites")
-                    .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadToolbar.favoriteToggle)
 
-                    Button {
+                    SpreadButton(icon: .pencil, style: .glass) {
                         viewModel.context.coordinator.showSpreadNameEdit(viewModel.spread)
-                    } label: {
-                        SpreadTheme.Icon.pencil.sized(SpreadTheme.IconSize.medium)
-                            .iconTint(.primary)
                     }
-                    .buttonStyle(.plain)
-                    .contentShape(Rectangle())
                     .accessibilityLabel("Edit Spread")
                     .padding(SpreadTheme.Spacing.large)
                 }
@@ -104,26 +103,28 @@ struct DaySpreadContentView: View {
                     .spreadCard()
                 }
 
-                EntryListView(
-                    sections: viewModel.overdueSections + viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption),
-                    configurationMap: viewModel.entryConfigurationMap
-                ) { section in
-                    // Section ids are list names only when grouping by list — other groupings
-                    // (tag/status/none) have no notion of a corresponding list to preselect.
-                    let sectionList = groupingOption == .list
-                        ? viewModel.context.journalManager.lists.first { $0.name == section.id }
-                        : nil
-                    QuickAddButton(
-                        coordinator: viewModel.context.coordinator,
-                        anchorID: section.id,
-                        date: viewModel.spread.date,
-                        period: viewModel.spread.period,
-                        availableLists: viewModel.context.journalManager.lists,
-                        availableTags: viewModel.context.journalManager.tags,
-                        preselectedList: sectionList,
-                        accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton,
-                        onAddTask: viewModel.onAddTask
-                    )
+                VStack(spacing: SpreadTheme.Spacing.medium) {
+                    EntryListView(
+                        sections: viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption),
+                        configurationMap: viewModel.entryConfigurationMap
+                    ) { section in
+                        // Section ids are list names only when grouping by list — other groupings
+                        // (tag/status/none) have no notion of a corresponding list to preselect.
+                        let sectionList = groupingOption == .list
+                            ? viewModel.context.journalManager.lists.first { $0.name == section.id }
+                            : nil
+                        QuickAddButton(
+                            coordinator: viewModel.context.coordinator,
+                            anchorID: section.id,
+                            date: viewModel.spread.date,
+                            period: viewModel.spread.period,
+                            availableLists: viewModel.context.journalManager.lists,
+                            availableTags: viewModel.context.journalManager.tags,
+                            preselectedList: sectionList,
+                            accessibilityIdentifier: Definitions.AccessibilityIdentifiers.SpreadContent.addTaskButton,
+                            onAddTask: viewModel.onAddTask
+                        )
+                    }
                 }
             }
             .padding(.horizontal, SpreadTheme.Spacing.large)

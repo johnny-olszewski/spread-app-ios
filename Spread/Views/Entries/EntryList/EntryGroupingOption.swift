@@ -33,17 +33,20 @@ enum EntryGroupingOption: String, CaseIterable, Identifiable {
     /// entry (`Entry.assignedList`/`.assignedTags`/`.status`), with no external lookup —
     /// list/tag are stored directly on `Task`/`Note`, not behind a `JournalManager` lookup.
     func grouping(date: Date, creationPeriod: Period, creationDate: Date) -> EntryList.Grouping<String> {
-        EntryList.Grouping<String>(
+        let nilLabel = nilBucketLabel
+        return EntryList.Grouping<String>(
             key: { [self] entry in key(for: entry) },
-            sortedKeys: Self.sortedKeysUntitledLast,
+            sortedKeys: { keys in Self.sortedNilBucketLast(keys, nilLabel: nilLabel) },
             section: { [self] key, entries in
-                EntryList.Section(
+                let isNilBucket = nilLabel != nil && key == nilLabel
+                return EntryList.Section(
                     id: key,
                     title: self == .none ? "" : key,
                     date: date,
                     entries: entries,
                     creationPeriod: creationPeriod,
-                    creationDate: creationDate
+                    creationDate: creationDate,
+                    headerStyle: isNilBucket ? .unnamed : .named
                 )
             }
         )
@@ -51,23 +54,33 @@ enum EntryGroupingOption: String, CaseIterable, Identifiable {
 
     // MARK: - Key extraction
 
-    private static let untitled = "Untitled"
+    /// The display label used for entries that have no assigned value for this grouping.
+    /// `nil` for grouping modes where every entry always has a value (.none, .status, .type).
+    private var nilBucketLabel: String? {
+        switch self {
+        case .none, .status, .type: nil
+        case .list: "No list"
+        case .tag: "No tag"
+        }
+    }
 
     private func key(for entry: any Entry) -> String {
         switch self {
         case .none: "all"
-        case .list: entry.assignedList?.name ?? Self.untitled
-        case .tag: entry.assignedTags.first?.name ?? Self.untitled
+        case .list: entry.assignedList?.name ?? "No list"
+        case .tag: entry.assignedTags.first?.name ?? "No tag"
         case .status: entry.status.displayName
         case .type: entry.entryType.displayName
         }
     }
 
-    /// Orders bucket keys alphabetically, with the "Untitled" fallback bucket always last.
-    private static func sortedKeysUntitledLast(_ keys: [String]) -> [String] {
+    /// Orders bucket keys alphabetically, with the nil-bucket label always last.
+    private static func sortedNilBucketLast(_ keys: [String], nilLabel: String?) -> [String] {
         keys.sorted { lhs, rhs in
-            if lhs == untitled { return false }
-            if rhs == untitled { return true }
+            if let nilLabel {
+                if lhs == nilLabel { return false }
+                if rhs == nilLabel { return true }
+            }
             return lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
         }
     }

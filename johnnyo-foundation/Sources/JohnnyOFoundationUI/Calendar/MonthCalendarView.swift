@@ -10,6 +10,7 @@ public struct MonthCalendarView<
     OverlayGenerator: MonthCalendarRowOverlayGenerator
 >: View {
     private let model: MonthCalendarModel
+    private let configuration: MonthCalendarConfiguration
     private let contentGenerator: Generator
     private let rowOverlayGenerator: OverlayGenerator
     private let rowOverlayLayouts: [MonthCalendarPackedRowOverlayWeekLayout<OverlayGenerator.OverlayID, OverlayGenerator.OverlayPayload>]
@@ -55,6 +56,7 @@ public struct MonthCalendarView<
         )
 
         self.model = model
+        self.configuration = configuration
         self.contentGenerator = contentGenerator
         self.rowOverlayGenerator = rowOverlayGenerator
         self.rowOverlayLayouts = MonthCalendarRowOverlayLayoutBuilder.makeWeekLayouts(
@@ -68,11 +70,13 @@ public struct MonthCalendarView<
 
     public var body: some View {
         VStack(spacing: 0) {
-            contentGenerator.headerView(month: model.displayedMonth)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    actionDelegate?.monthCalendarDidTapHeader(month: model.displayedMonth)
-                }
+            if configuration.showsMonthHeader {
+                contentGenerator.headerView(month: model.displayedMonth)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        actionDelegate?.monthCalendarDidTapHeader(month: model.displayedMonth)
+                    }
+            }
 
             HStack(spacing: 0) {
                 ForEach(model.weekdays, id: \.self) { weekday in

@@ -1,6 +1,6 @@
 import Foundation
 
-public enum MonthCalendarSlot: Identifiable, Sendable {
+public enum MonthCalendarSlot: Identifiable, Hashable, Sendable {
     case day(date: Date, isPeripheral: Bool, isToday: Bool)
     case placeholder(date: Date, isLeading: Bool)
 
@@ -49,7 +49,7 @@ public enum MonthCalendarSlot: Identifiable, Sendable {
     }
 }
 
-public struct MonthCalendarWeek: Identifiable, Sendable {
+public struct MonthCalendarWeek: Identifiable, Hashable, Sendable {
     public let index: Int
     public let slots: [MonthCalendarSlot]
 
@@ -65,7 +65,7 @@ public struct MonthCalendarWeek: Identifiable, Sendable {
     }
 }
 
-public struct MonthCalendarModel: Sendable {
+public struct MonthCalendarModel: Hashable, Sendable {
     public let displayedMonth: Date
     public let weekdays: [Int]
     public let weeks: [MonthCalendarWeek]

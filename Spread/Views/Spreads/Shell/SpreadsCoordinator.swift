@@ -72,10 +72,19 @@ final class SpreadsCoordinator {
     var selectedYear: Int = Calendar.current.component(.year, from: Date())
 
     /// The current navigator selection, nil until resolved on appear.
-    var selectedSpread: DataModel.Spread?
+    /// Write access is intentionally restricted — use `navigate(to:)` or `navigate(to:shouldRecenter:)`
+    /// so that `recenterToken` is always managed through a single code path.
+    private(set) var selectedSpread: DataModel.Spread?
 
     /// Incremented to force the pager and strip to recenter on the current selection.
     var recenterToken: Int = 0
+
+    /// Incremented when navigation requests a scroll-to-today within the destination spread.
+    ///
+    /// Year and multiday content views observe this token and scroll to today's relevant card
+    /// (month card or day section) whenever it changes. Only incremented when `scrollsToToday`
+    /// is passed as `true` to `navigate(to:shouldRecenter:scrollsToToday:)`.
+    private(set) var scrollToTodayToken: Int = 0
 
     /// The currently active sheet, or nil if no sheet is presented.
     var activeSheet: SheetDestination?
@@ -185,17 +194,29 @@ final class SpreadsCoordinator {
         clearConvenienceNavigation()
     }
 
-    /// Navigates to the given selection, clearing convenience navigation and recentering.
+    /// Navigates to the given selection, clearing convenience navigation.
     ///
-    /// If the selection is already active, only recenters (increments `recenterToken`) without
-    /// changing `selectedSelection`. If it differs, updates `selectedSelection` and recenters.
-    func navigate(to selection: DataModel.Spread) {
+    /// When `shouldRecenter` is `true` (default), `recenterToken` is incremented so the pager
+    /// scrolls to the selection. Pass `false` for callers that are reporting a position that
+    /// already settled (e.g. `SpreadContentPagerView.syncSelectionFromSettledID`) — recentering
+    /// would cause a feedback loop.
+    ///
+    /// If `shouldRecenter` is `true` and the selection is already active, only `recenterToken`
+    /// is incremented without changing `selectedSpread`.
+    func navigate(to selection: DataModel.Spread, shouldRecenter: Bool = true, scrollsToToday: Bool = false) {
         clearConvenienceNavigation()
-        if isSameSelection(selection, selectedSpread) {
-            recenterToken += 1
+        if shouldRecenter {
+            if isSameSelection(selection, selectedSpread) {
+                recenterToken += 1
+            } else {
+                selectedSpread = selection
+                recenterToken += 1
+            }
         } else {
             selectedSpread = selection
-            recenterToken += 1
+        }
+        if scrollsToToday {
+            scrollToTodayToken += 1
         }
     }
 
@@ -284,6 +305,12 @@ final class SpreadsCoordinator {
     }
 
     /// Dismisses the currently active popover.
+    /// Presents the navigator's day-tap disambiguation popover, listing every spread
+    /// covering the tapped date (day + multiday) for the user to choose between.
+    func showNavigatorDaySelection(_ content: NavigatorDaySelectionPopoverContent) {
+        activePopover = .navigatorDaySelection(content)
+    }
+
     func dismissPopover() {
         activePopover = nil
     }

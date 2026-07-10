@@ -42,6 +42,8 @@ extension SpreadTheme {
 
         // MARK: - Navigation
 
+        /// Navigate-to-today action — home / anchor point.
+        case house
         case arrowRight
         case arrowRightCircle
         case arrowRightCircleFilled
@@ -50,6 +52,12 @@ extension SpreadTheme {
         case caretDown
         case caretRight
         case caretLeft
+        /// Priority high indicator.
+        case caretDoubleUp
+        /// Priority medium indicator.
+        case caretUp
+        /// Priority low indicator.
+        case caretDoubleDown
         /// Sort/expand indicator — replaces SF Symbol `chevron.up.chevron.down`.
         case arrowsUpDown
         case swap
@@ -72,6 +80,8 @@ extension SpreadTheme {
         /// Multiday/timeline period icon — replaces SF Symbol `calendar.day.timeline.left`.
         case rows
         case clock
+        /// Overdue panel toggle — a clock with a countdown indicator.
+        case clockCountdown
 
         // MARK: - Filter / Sort
 
@@ -131,12 +141,16 @@ extension SpreadTheme {
             case .star, .starFilled: .star
             case .tag, .tagFilled: .tag
             case .folder, .folderFilled: .folder
+            case .house: .house
             case .arrowRight: .arrowRight
             case .arrowRightCircle, .arrowRightCircleFilled: .arrowCircleRight
             case .arrowUTurnLeft: .arrowUUpLeft
             case .caretDown: .caretDown
             case .caretRight: .caretRight
             case .caretLeft: .caretLeft
+            case .caretDoubleUp: .caretDoubleUp
+            case .caretUp: .caretUp
+            case .caretDoubleDown: .caretDoubleDown
             case .arrowsUpDown: .arrowsDownUp
             case .swap: .swap
             case .arrowsClockwise: .arrowsClockwise
@@ -148,6 +162,7 @@ extension SpreadTheme {
             case .sun, .sunFilled: .sun
             case .rows: .rows
             case .clock: .clock
+            case .clockCountdown: .clockCountdown
             case .funnel, .funnelFilled: .funnel
             case .envelopeFilled: .envelope
             case .warning: .warning

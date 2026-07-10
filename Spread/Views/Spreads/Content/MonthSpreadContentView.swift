@@ -50,30 +50,51 @@ struct MonthSpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollView {
-            ScrollViewReader { proxy in
-                LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-                    SpreadMonthCalendarView(
-                        monthDate: spread.date,
-                        journalManager: context.journalManager,
-                        calendarActionsByDate: contentModel.calendarActionsByDate,
-                        onViewDaySpread: { context.coordinator.selectSpread($0) },
-                        onRevealMonthDaySection: { date in
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                proxy.scrollTo(date, anchor: .top)
-                            }
-                        }
+        ScrollViewReader { proxy in
+            VStack(spacing: 0) {
+                HStack {
+                    Capsule()
+                        .stroke(SpreadTheme.DotGrid.defaultDots)
+                        .frame(height: SpreadTheme.CornerRadius.xxlarge)
+                        .padding(.vertical, SpreadTheme.Spacing.large)
+                        .padding(.trailing, SpreadTheme.Spacing.medium)
+                    EntryListOptionsPicker(
+                        grouping: groupingOption,
+                        sorting: sortingOption,
+                        onGroupingSelected: { groupingOption = $0 },
+                        onSortingSelected: { sortingOption = $0 }
                     )
-
-                    monthSection(entries: contentModel.monthEntries)
-
-                    ForEach(contentModel.daySections) { section in
-                        daySection(section)
-                            .id(section.id)
-                    }
+                    .padding(.horizontal, Layout.contentPadding)
                 }
                 .padding(.horizontal, Layout.contentPadding)
-                .padding(.bottom, Layout.sectionSpacing)
+
+                // Pinned, non-scrolling top inset — kept outside the ScrollView below so the
+                // calendar grid stays visible while the entry content beneath it scrolls.
+                SpreadMonthCalendarView(
+                    monthDate: spread.date,
+                    journalManager: context.journalManager,
+                    calendarActionsByDate: contentModel.calendarActionsByDate,
+                    onViewDaySpread: { context.coordinator.selectSpread($0) },
+                    onRevealMonthDaySection: { date in
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            proxy.scrollTo(date, anchor: .top)
+                        }
+                    }
+                )
+                .padding(.horizontal, Layout.contentPadding)
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+                        monthSection(entries: contentModel.monthEntries)
+
+                        ForEach(contentModel.daySections) { section in
+                            daySection(section)
+                                .id(section.id)
+                        }
+                    }
+                    .padding(.horizontal, Layout.contentPadding)
+                    .padding(.bottom, Layout.sectionSpacing)
+                }
             }
         }
     }
@@ -83,19 +104,9 @@ struct MonthSpreadContentView: View {
     @ViewBuilder
     private func monthSection(entries: [any Entry]) -> some View {
         VStack(alignment: .leading, spacing: Layout.sectionRowSpacing) {
-            HStack {
-                Text("Month")
-                    .font(SpreadTheme.Typography.title3)
-                    .foregroundStyle(.primary)
-                Spacer()
-                EntryListOptionsPicker(
-                    grouping: groupingOption,
-                    sorting: sortingOption,
-                    onGroupingSelected: { groupingOption = $0 },
-                    onSortingSelected: { sortingOption = $0 }
-                )
-                .padding(.horizontal, SpreadTheme.Spacing.large)
-            }
+            Text("Month")
+                .font(SpreadTheme.Typography.title3)
+                .foregroundStyle(.primary)
 
             if entries.isEmpty {
                 Text("No month-level entries.")

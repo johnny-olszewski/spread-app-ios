@@ -4,8 +4,8 @@ import JohnnyOFoundationCore
 
 // MARK: - Anchor Preference
 
-/// Bubbles each day cell's bounds up so `SpreadsContentColumnView` can anchor
-/// the disambiguation popover precisely on the tapped cell.
+/// Bubbles each day cell's bounds up so `SpreadsNavigatorView` can anchor
+/// the day-tap disambiguation popover precisely on the tapped cell.
 struct DateCellAnchorKey: PreferenceKey {
     static let defaultValue: [Date: Anchor<CGRect>] = [:]
     static func reduce(value: inout [Date: Anchor<CGRect>], nextValue: () -> [Date: Anchor<CGRect>]) {
@@ -17,29 +17,49 @@ struct DateCellAnchorKey: PreferenceKey {
 
 extension SpreadsNavigatorView {
 
-    /// A `CalendarContentGenerator` that renders month headers and day cells.
+    /// A `CalendarContentGenerator` that renders card-style month headers and day cells.
     ///
-    /// Only day and multiday spreads are considered for cell state — month and year
-    /// spreads are intentionally excluded since the user cannot navigate to them
-    /// directly from this view.
+    /// Only day and multiday spreads contribute to day-cell state; month spreads are
+    /// surfaced through the header chips' "View month" buttons.
     struct CalendarGenerator: CalendarContentGenerator {
 
         typealias Model = [Date: [DataModel.Spread]]
 
         let model: Model
+        /// Explicit month spreads for the displayed year, keyed by normalized month start.
+        let monthSpreads: [Date: DataModel.Spread]
+        /// The displayed year's explicit year spread, if one exists — drives the "View year"
+        /// chip rendered above January.
+        let yearSpread: DataModel.Spread?
         let calendar: Calendar
         let today: Date
-        
-        init(model: Model, calendar: Calendar, today: Date) {
+        /// Invoked when a header's "View month"/"View year" button is tapped.
+        let onViewSpread: (DataModel.Spread) -> Void
+
+        init(
+            model: Model,
+            monthSpreads: [Date: DataModel.Spread] = [:],
+            yearSpread: DataModel.Spread? = nil,
+            calendar: Calendar,
+            today: Date,
+            onViewSpread: @escaping (DataModel.Spread) -> Void = { _ in }
+        ) {
             self.model = model
+            self.monthSpreads = monthSpreads
+            self.yearSpread = yearSpread
             self.calendar = calendar
             self.today = today
+            self.onViewSpread = onViewSpread
         }
 
         // MARK: Header
 
+        /// Card-style month header: `SpreadCardStyle` fill/stroke communicates whether an
+        /// explicit month spread exists (with today-month emphasis), and a "View month"
+        /// button navigates to it when it does. Above January, a matching year chip carries
+        /// the "View year" button. Chips themselves are not tap targets.
         func headerView(month: Date) -> some View {
-            
+
             let monthYearString: String = {
                 let formatter = DateFormatter()
                 formatter.calendar = calendar
@@ -47,16 +67,79 @@ extension SpreadsNavigatorView {
                 formatter.dateFormat = "MMMM yyyy"
                 return formatter.string(from: month)
             }()
-            
-            HStack {
-                Text(monthYearString)
-                    .font(SpreadTheme.Typography.headline)
-                    .foregroundStyle(.primary)
-                Spacer()
+
+            let monthStart = Period.month.normalizeDate(month, calendar: calendar)
+            let monthSpread = monthSpreads[monthStart]
+            let cardStyle = SpreadCardStyle(
+                isToday: calendar.isDate(month, equalTo: today, toGranularity: .month),
+                isCreated: monthSpread != nil
+            )
+
+            VStack(spacing: 0) {
+                if calendar.component(.month, from: month) == 1 {
+                    yearHeaderChip(for: month)
+                }
+
+                headerChip(
+                    title: monthYearString,
+                    titleFont: SpreadTheme.Typography.headline,
+                    cardStyle: cardStyle,
+                    buttonTitle: "View month",
+                    spread: monthSpread
+                )
+                .padding(.top, SpreadTheme.Spacing.large)
+                .padding(.bottom, SpreadTheme.Spacing.small)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 20)
-            .padding(.bottom, 4)
+        }
+
+        /// Year chip above January: same card vocabulary as month chips, with a "View year"
+        /// button when the displayed year's explicit spread exists.
+        private func yearHeaderChip(for month: Date) -> some View {
+            let cardStyle = SpreadCardStyle(
+                isToday: calendar.isDate(month, equalTo: today, toGranularity: .year),
+                isCreated: yearSpread != nil
+            )
+            return headerChip(
+                title: String(calendar.component(.year, from: month)),
+                titleFont: SpreadTheme.Typography.title3,
+                cardStyle: cardStyle,
+                buttonTitle: "View year",
+                spread: yearSpread
+            )
+            .padding(.top, SpreadTheme.Spacing.medium)
+        }
+
+        /// Shared chip layout for the year and month headers.
+        private func headerChip(
+            title: String,
+            titleFont: Font,
+            cardStyle: SpreadCardStyle,
+            buttonTitle: String,
+            spread: DataModel.Spread?
+        ) -> some View {
+            HStack(spacing: SpreadTheme.Spacing.small) {
+                Text(title)
+                    .font(titleFont)
+                    .foregroundStyle(cardStyle.textColor)
+
+                Spacer()
+
+                if let spread {
+                    SpreadButton(buttonTitle, style: .plain, size: .small) {
+                        onViewSpread(spread)
+                    }
+                }
+            }
+            .padding(.horizontal, SpreadTheme.Spacing.standard)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.card, style: .continuous)
+                    .fill(cardStyle.spreadNavigatorFillColor)
+                    .strokeBorder(cardStyle.spreadNavigatorStrokeColor, style: cardStyle.borderStyle)
+            )
+            // Rendered inside the calendar's 6pt horizontal padding; 2pt here (matching the
+            // day cells' own inset) lands the chip edge on the navigator's shared 8pt margin.
+            .padding(.horizontal, 2)
         }
 
         // MARK: Weekday Header
@@ -95,12 +178,15 @@ extension SpreadsNavigatorView {
                 .padding(8)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(
-                    RoundedRectangle(cornerRadius: SpreadTheme.CornerRadius.badge, style: .continuous)
+                    Circle()
                         .fill(fillColor)
                         .strokeBorder(strokeColor, style: cardStyle.borderStyle)
                 )
                 .aspectRatio(1, contentMode: .fit)
                 .padding(2)
+                .anchorPreference(key: DateCellAnchorKey.self, value: .bounds) {
+                    [date.startOfDay(calendar: calendar): $0]
+                }
         }
 
         // MARK: Placeholder Cell
@@ -151,13 +237,15 @@ fileprivate extension SpreadCardStyle {
 
 extension SpreadsNavigatorView {
 
-    /// Renders a thin bar across week rows for multiday spreads, making multi-day
-    /// spans visually continuous across cells and row breaks.
+    /// Renders each multiday spread as a continuous low-opacity accent band running behind
+    /// the covered day cells (rounded caps at range ends) — the same range vocabulary as the
+    /// entry sheet's assignment calendar highlight. The overlay layer sits behind the day
+    /// cell layer, so cells stay fully legible on top. When two spreads overlap, the
+    /// existing lane packing splits the row height and the bands stack as offset
+    /// translucent strips.
     struct RowOverlayGenerator: MonthCalendarRowOverlayGenerator {
 
-        private static let laneHeight: CGFloat = 3
-        private static let laneHorizontalPadding: CGFloat = 4
-        private static let laneBottomPadding: CGFloat = 4
+        private static let bandPadding: CGFloat = 2
 
         let overlays: [MonthCalendarLogicalRowOverlay<UUID, Bool>]
         let maximumVisibleLaneCount: Int
@@ -176,15 +264,57 @@ extension SpreadsNavigatorView {
                 }
         }
 
+        /// A segment edge is a "real" range end only when the spread doesn't continue past
+        /// the row's rendered days (`continuesBeforeWeek`/`continuesAfterWeek` — true across
+        /// both week wraps and month boundaries, since peripheral dates are hidden). Real
+        /// ends get a rounded cap inset from the row edge; continuing edges run square to
+        /// the edge and fade out, signalling the span carries on.
         func rowOverlayView(
             context: MonthCalendarPackedRowOverlayRenderContext<UUID, Bool>
         ) -> some View {
-            Capsule(style: .circular)
-                .fill(SpreadTheme.Accent.primary.opacity(0.4))
-                .frame(height: Self.laneHeight)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .padding(.horizontal, Self.laneHorizontalPadding)
-                .padding(.bottom, Self.laneBottomPadding)
+            let fadesLeading = context.continuesBeforeWeek
+            let fadesTrailing = context.continuesAfterWeek
+
+            return GeometryReader { geometry in
+                let capRadius = geometry.size.height / 2
+                UnevenRoundedRectangle(
+                    topLeadingRadius: fadesLeading ? 0 : capRadius,
+                    bottomLeadingRadius: fadesLeading ? 0 : capRadius,
+                    bottomTrailingRadius: fadesTrailing ? 0 : capRadius,
+                    topTrailingRadius: fadesTrailing ? 0 : capRadius,
+                    style: .circular
+                )
+                .fill(SpreadTheme.Accent.primary.opacity(SpreadTheme.Opacity.cardFill))
+                .mask(
+                    LinearGradient(
+                        stops: Self.fadeStops(leading: fadesLeading, trailing: fadesTrailing),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+            }
+            .padding(.leading, fadesLeading ? 0 : Self.bandPadding)
+            .padding(.trailing, fadesTrailing ? 0 : Self.bandPadding)
+            .padding(.vertical, Self.bandPadding)
+        }
+
+        /// Alpha-mask stops: full opacity everywhere except an ~18%-width ramp to clear at
+        /// each continuing edge.
+        private static func fadeStops(leading: Bool, trailing: Bool) -> [Gradient.Stop] {
+            var stops: [Gradient.Stop] = []
+            if leading {
+                stops.append(.init(color: .clear, location: 0))
+                stops.append(.init(color: .black, location: 0.18))
+            } else {
+                stops.append(.init(color: .black, location: 0))
+            }
+            if trailing {
+                stops.append(.init(color: .black, location: 0.82))
+                stops.append(.init(color: .clear, location: 1))
+            } else {
+                stops.append(.init(color: .black, location: 1))
+            }
+            return stops
         }
 
         func overflowView(

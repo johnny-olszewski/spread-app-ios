@@ -25,10 +25,12 @@ protocol PopoverContent: Identifiable {
 /// the relevant case from `coordinator.activePopover`.
 enum PopoverDestination: Identifiable {
     case quickAdd(QuickAddPopoverContent)
+    case navigatorDaySelection(NavigatorDaySelectionPopoverContent)
 
     var id: String {
         switch self {
         case .quickAdd(let content): return "quickAdd-\(content.id)"
+        case .navigatorDaySelection(let content): return content.id
         }
     }
 }

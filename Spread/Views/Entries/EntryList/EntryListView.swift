@@ -60,8 +60,10 @@ struct EntryListView<TrailingContent: View>: View {
             ForEach(sections) { section in
                 if shouldRender(section) {
                     VStack(alignment: .leading, spacing: section.rowSpacing) {
-                        HStack {
+                        HStack(alignment: .firstTextBaseline) {
                             Text(section.title)
+                                .font(section.headerStyle.font)
+                                .foregroundStyle(section.headerStyle.foregroundStyle)
                             Spacer()
                             if let trailing = sectionHeaderTrailingContent {
                                 trailing(section)
@@ -97,7 +99,6 @@ struct EntryListView<TrailingContent: View>: View {
                 }
             }
         }
-        .conditionalScrollView()
         .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.list)
     }
 

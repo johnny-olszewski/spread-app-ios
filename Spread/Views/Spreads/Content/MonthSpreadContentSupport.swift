@@ -30,7 +30,7 @@ enum MonthSpreadContentSupport {
         let monthEntries = entries
             .filter(isMonthSectionEntry)
             .sorted { lhs, rhs in
-                sortKey(for: lhs, calendar: calendar) < sortKey(for: rhs, calendar: calendar)
+                lhs.conventionalSortKey(calendar: calendar) < rhs.conventionalSortKey(calendar: calendar)
             }
 
         let groupedDayEntries = Dictionary(grouping: entries.filter(isDaySectionEntry)) { entry in
@@ -61,7 +61,7 @@ enum MonthSpreadContentSupport {
             return MonthSpreadDaySectionModel(
                 date: date,
                 entries: (groupedDayEntries[date] ?? []).sorted { lhs, rhs in
-                    sortKey(for: lhs, calendar: calendar) < sortKey(for: rhs, calendar: calendar)
+                    lhs.conventionalSortKey(calendar: calendar) < rhs.conventionalSortKey(calendar: calendar)
                 }
             )
         }
@@ -126,41 +126,4 @@ enum MonthSpreadContentSupport {
         return entry.createdDate
     }
 
-    private static func sortKey(
-        for entry: any Entry,
-        calendar: Calendar
-    ) -> (Date, Int, Date, UUID) {
-        if let task = entry as? DataModel.Task {
-            let period = task.period ?? .day
-            let date = task.date ?? task.createdDate
-            return (
-                period.normalizeDate(date, calendar: calendar),
-                entryTypeSortOrder(task.entryType),
-                task.createdDate,
-                task.id
-            )
-        }
-
-        if let note = entry as? DataModel.Note {
-            return (
-                note.period.normalizeDate(note.date ?? note.createdDate, calendar: calendar),
-                entryTypeSortOrder(note.entryType),
-                note.createdDate,
-                note.id
-            )
-        }
-
-        return (.distantFuture, entryTypeSortOrder(entry.entryType), entry.createdDate, entry.id)
-    }
-
-    private static func entryTypeSortOrder(_ type: EntryType) -> Int {
-        switch type {
-        case .task:
-            return 0
-        case .note:
-            return 1
-        case .event:
-            return 2
-        }
-    }
 }

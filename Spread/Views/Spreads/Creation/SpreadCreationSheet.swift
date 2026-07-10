@@ -355,21 +355,9 @@ struct SpreadCreationSheet: View {
     }
 
     private func presetButton(for preset: MultidayPreset) -> some View {
-        Button {
+        SpreadButton(preset.displayName, style: .tonal, size: .small) {
             applyPreset(preset)
-        } label: {
-            Text(preset.displayName)
-                .font(SpreadTheme.Typography.subheadline)
-                .fontWeight(.medium)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.accentColor.opacity(0.1))
-                )
-                .foregroundStyle(Color.accentColor)
         }
-        .buttonStyle(.plain)
         .accessibilityIdentifier(
             Definitions.AccessibilityIdentifiers.SpreadCreationSheet.multidayPreset(
                 multidayPresetIdentifier(for: preset)

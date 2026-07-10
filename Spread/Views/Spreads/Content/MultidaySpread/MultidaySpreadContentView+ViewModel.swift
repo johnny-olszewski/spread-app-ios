@@ -13,20 +13,17 @@ extension MultidaySpreadContentView {
         let spread: DataModel.Spread
         let spreadDataModel: SpreadDataModel
         let context: SpreadPageContext
-        let horizontalSizeClass: UserInterfaceSizeClass?
 
         var calendarEvents: [CalendarEvent] = []
 
         init(
             spread: DataModel.Spread,
             spreadDataModel: SpreadDataModel,
-            context: SpreadPageContext,
-            horizontalSizeClass: UserInterfaceSizeClass?
+            context: SpreadPageContext
         ) {
             self.spread = spread
             self.spreadDataModel = spreadDataModel
             self.context = context
-            self.horizontalSizeClass = horizontalSizeClass
         }
 
         // MARK: - Computed
@@ -54,15 +51,6 @@ extension MultidaySpreadContentView {
             )
         }
         
-        var columnCount: Int { horizontalSizeClass?.multidayColumnCount ?? 1 }
-        
-        var columns: [GridItem] {
-            Array(
-                repeating: GridItem(.flexible(), spacing: 16, alignment: .top),
-                count: columnCount
-            )
-        }
-
         var configurationMap: EntryRowView.ConfigurationMap {
             [
                 DataModel.Task.configurationKey: .standardTaskConfig(

@@ -116,7 +116,7 @@ struct SpreadsCoordinatorTests {
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSpread = spread
+        coordinator.navigate(to: spread, shouldRecenter: false)
 
         coordinator.showSpreadDeleteConfirmation(spread, onDelete: {})
 
@@ -140,7 +140,7 @@ struct SpreadsCoordinatorTests {
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .day, date: Date(timeIntervalSince1970: 0), calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSpread = spread
+        coordinator.navigate(to: spread, shouldRecenter: false)
         coordinator.showSpreadDeleteConfirmation(spread, onDelete: {})
 
         coordinator.dismissAlert()
@@ -161,7 +161,7 @@ struct SpreadsCoordinatorTests {
         calendar.timeZone = .init(identifier: "UTC")!
         let spread = DataModel.Spread(period: .month, date: Date(timeIntervalSince1970: 0), calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSpread = spread
+        coordinator.navigate(to: spread, shouldRecenter: false)
 
         coordinator.showSpreadDeleteFailure(message: "Failed to delete spread: forced failure")
 
@@ -363,7 +363,7 @@ struct SpreadsCoordinatorTests {
         let coordinator = SpreadsCoordinator()
         #expect(coordinator.selectedSpread == nil)
 
-        coordinator.selectedSpread = spread
+        coordinator.navigate(to: spread, shouldRecenter: false)
 
         guard let stored = coordinator.selectedSpread else {
             Issue.record("Expected a selection")
@@ -383,7 +383,7 @@ struct SpreadsCoordinatorTests {
         let year = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
         let month = DataModel.Spread(period: .month, date: calendar.date(from: .init(year: 2026, month: 3, day: 1))!, calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSpread = year
+        coordinator.navigate(to: year, shouldRecenter: false)
 
         coordinator.finishSpreadCreation(
             .init(spread: month, autoMigrationSummary: .init(taskCount: 1, noteCount: 1)),
@@ -415,7 +415,7 @@ struct SpreadsCoordinatorTests {
         let year = DataModel.Spread(period: .year, date: calendar.date(from: .init(year: 2026, month: 1, day: 1))!, calendar: calendar)
         let month = DataModel.Spread(period: .month, date: calendar.date(from: .init(year: 2026, month: 3, day: 1))!, calendar: calendar)
         let coordinator = SpreadsCoordinator()
-        coordinator.selectedSpread = year
+        coordinator.navigate(to: year, shouldRecenter: false)
 
         coordinator.finishSpreadCreation(
             .init(spread: month, autoMigrationSummary: nil),

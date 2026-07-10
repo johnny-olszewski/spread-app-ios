@@ -156,12 +156,23 @@ extension EntryRowView {
         var onStatusIconTap: ((any Entry) -> Void)?
 
         var onTitleCommit: (@MainActor (any Entry, String) async -> Void)?
-        
+
         var showAlert: ((SpreadsCoordinator.AlertDestination) -> Void)?
 
         var actions: [Action] = []
+
+        /// When non-nil, the row becomes read-only: inline title editing and the long-press
+        /// context menu are disabled, and tapping anywhere on the row other than the status
+        /// icon calls this closure instead. The status icon itself is unaffected by this —
+        /// callers wanting a locked-down status icon too should make `onStatusIconTap` show an
+        /// alert rather than mutate the entry. Used by review-only surfaces like the overdue card.
+        var onRowTap: ((any Entry) -> Void)?
         
         var getChips: ((any Entry) -> [any LabelChipRepresentable])?
+
+        /// When non-nil and returning `true`, a priority icon is rendered leading the chip area.
+        /// Only meaningful for task entries — leave `nil` for notes and events.
+        var showsPriorityIcon: ((any Entry) -> Bool)?
     }
 }
 
@@ -233,7 +244,8 @@ extension EntryRowView.Configuration {
                 })
                 
             ],
-            getChips: typed(default: []) { (task: DataModel.Task) in getChips?(task) ?? task.tags }
+            getChips: typed(default: []) { (task: DataModel.Task) in getChips?(task) ?? task.tags },
+            showsPriorityIcon: { _ in true }
         )
     }
 
@@ -282,6 +294,57 @@ extension EntryRowView.Configuration {
                     return "\(fmt.string(from: calEvent.startDate))–\(fmt.string(from: calEvent.endDate)) · \(calEvent.calendarTitle)"
                 }
             },
+        )
+    }
+
+    /// Read-only task row configuration for review-only surfaces (currently just the overdue
+    /// card). The status icon still works — the caller supplies `onStatusIconTap` (e.g. to
+    /// rotate status with a grace period before the row disappears). Tapping anywhere else on
+    /// the row navigates straight to the task's source spread, or shows an informational alert
+    /// when the source is Inbox (no spread to navigate to). No inline title editing, no context
+    /// menu (no `actions`).
+    @MainActor
+    static func readOnlyOverdueTaskConfig(
+        journalManager: JournalManager,
+        coordinator: SpreadsCoordinator,
+        sourceKey: @escaping (any Entry) -> TaskReviewSourceKey?,
+        onStatusIconTap: @escaping (any Entry) -> Void,
+        getChips: ((any Entry) -> [any LabelChipRepresentable])? = nil
+    ) -> EntryRowView.Configuration {
+
+        let calendar = journalManager.configuredCalendar
+        let today = journalManager.today
+
+        func navigate(to key: TaskReviewSourceKey) {
+            guard case .spread(let id, _, _) = key.kind,
+                  let targetSpread = journalManager.spreads.first(where: { $0.id == id }) else { return }
+            coordinator.selectSpread(targetSpread)
+        }
+
+        func handleRowTap(on entry: any Entry) {
+            guard let key = sourceKey(entry) else { return }
+            switch key.kind {
+            case .inbox:
+                coordinator.activeAlert = .alert(.overdueCardInboxNotice)
+            case .spread:
+                navigate(to: key)
+            }
+        }
+
+        return EntryRowView.Configuration(
+            isGreyedOut: { entry in
+                guard entry.entryType == .task else { return false }
+                return entry.status == .complete || entry.status == .migrated || entry.status == .cancelled
+            },
+            hasStrikethrough: { entry in entry.status == .cancelled },
+            dueDateLabel: typed { (task: DataModel.Task) in task.dueDateLabel(calendar: calendar) },
+            isDueDateHighlighted: typed(default: false) { (task: DataModel.Task) in
+                task.isDueDateHighlighted(today: today, calendar: calendar)
+            },
+            onStatusIconTap: onStatusIconTap,
+            showAlert: { alert in coordinator.activeAlert = alert },
+            onRowTap: { entry in handleRowTap(on: entry) },
+            getChips: { entry in getChips?(entry) ?? [] }
         )
     }
 }

@@ -18,26 +18,14 @@ struct SpreadHeaderView: View {
 
     var body: some View {
         if let state, let onTap {
-            Button(action: onTap) {
-                Label {
-                    Text(state.buttonLabel)
-                } icon: {
-                    state.icon.sized(SpreadTheme.IconSize.small)
-                        .iconTint(.primary)
-                }
-                .font(SpreadTheme.Typography.subheadline.weight(.medium))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .glassEffect(in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .transition(.scale(scale: 0.88).combined(with: .opacity))
-            .accessibilityLabel(state.accessibilityLabel)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal)
-            .padding(.vertical, 10)
-            .animation(.spring(response: 0.32, dampingFraction: 0.8), value: state)
-            .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
+            SpreadButton(state.buttonLabel, icon: state.icon, style: .glass, size: .small, action: onTap)
+                .transition(.scale(scale: 0.88).combined(with: .opacity))
+                .accessibilityLabel(state.accessibilityLabel)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal)
+                .padding(.vertical, 10)
+                .animation(.spring(response: 0.32, dampingFraction: 0.8), value: state)
+                .accessibilityIdentifier(Definitions.AccessibilityIdentifiers.SpreadContent.title)
         }
     }
 }

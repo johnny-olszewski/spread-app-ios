@@ -178,8 +178,8 @@ enum SpreadTheme {
     enum Opacity {
         /// 70% — stroke opacity for card-styled sections.
         static let cardStroke: Double = 0.7
-        /// 45% — fill opacity for card-styled sections.
-        static let cardFill: Double = 0.45
+        /// 15% — fill opacity for card-styled sections.
+        static let cardFill: Double = 0.15
     }
 
     // MARK: - Corner Radius
@@ -202,6 +202,24 @@ enum SpreadTheme {
         static let large: CGFloat = 20
         /// 48pt — xxl containers like the pager top corner radius.
         static let xxlarge: CGFloat = 48
+    }
+
+    // MARK: - Status
+
+    /// Semantic status colors for system states (error, warning, success).
+    enum Status {
+        /// Destructive / error state — red, adaptive for light and dark mode.
+        static let error = Color(.systemRed)
+    }
+
+    // MARK: - Separator
+
+    /// Separator and border colors.
+    enum Separator {
+        /// Standard hairline separator — maps to the system separator color.
+        static let standard = Color(.separator)
+        /// Slightly more opaque separator for bordered UI elements like `SpreadButton(.bordered)`.
+        static let strong = Color(.opaqueSeparator)
     }
 
     // MARK: - Motion

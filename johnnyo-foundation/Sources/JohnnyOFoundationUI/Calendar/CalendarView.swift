@@ -1,12 +1,73 @@
 import SwiftUI
 import JohnnyOFoundationCore
 
-/// A vertically scrolling calendar that renders one `MonthCalendarView` per calendar month
-/// between `startDate` and `endDate`, inclusive of both boundary months.
+// MARK: - Display Configuration
+
+/// Controls the scroll direction, scroll availability, and month-count behaviour of `CalendarView`.
 ///
-/// The same `contentGenerator` instance serves all months — it is called per-cell across the
-/// entire range. Month construction is deferred via `LazyVStack`, so off-screen months are
-/// not instantiated until scrolled into view.
+/// Pass a non-default value to `CalendarView.init` to change how the calendar is presented:
+///
+/// ```swift
+/// // Single-month pager with prev/next buttons (matches the native DatePicker .graphical style)
+/// CalendarView(..., displayConfiguration: .singleMonthPager, ...)
+///
+/// // Horizontal multi-month scroll strip
+/// CalendarView(..., displayConfiguration: .init(scrollDirection: .horizontal), ...)
+/// ```
+public struct CalendarViewDisplayConfiguration: Sendable {
+
+    public enum ScrollDirection: Sendable {
+        case vertical
+        case horizontal
+    }
+
+    /// The axis along which months are laid out and (when `isScrollEnabled`) scrolled.
+    /// Defaults to `.vertical`.
+    public var scrollDirection: ScrollDirection
+
+    /// Whether the user can scroll through months by dragging. When `false` the months list
+    /// is rendered without a `ScrollView` wrapper (single-month mode) or inside a
+    /// scroll-disabled `ScrollView` (multi-month mode). Defaults to `true`.
+    public var isScrollEnabled: Bool
+
+    /// When `true`, only one month is visible at a time. `CalendarView` renders its own
+    /// navigation header with prev/next chevron buttons and suppresses the content
+    /// generator's `headerView`. Defaults to `false`.
+    public var isSingleMonth: Bool
+
+    public init(
+        scrollDirection: ScrollDirection = .vertical,
+        isScrollEnabled: Bool = true,
+        isSingleMonth: Bool = false
+    ) {
+        self.scrollDirection = scrollDirection
+        self.isScrollEnabled = isScrollEnabled
+        self.isSingleMonth = isSingleMonth
+    }
+
+    /// Multi-month vertical scrolling list — the original `CalendarView` behaviour.
+    public static let `default` = CalendarViewDisplayConfiguration()
+
+    /// Single-month pager: prev/next chevron buttons, no dragging, matches the
+    /// feel of the native SwiftUI `DatePicker` in `.graphical` style.
+    public static let singleMonthPager = CalendarViewDisplayConfiguration(
+        scrollDirection: .horizontal,
+        isScrollEnabled: false,
+        isSingleMonth: true
+    )
+}
+
+// MARK: - CalendarView
+
+/// A calendar that renders one or more `MonthCalendarView` instances between `startDate`
+/// and `endDate`, with layout and navigation controlled by `CalendarViewDisplayConfiguration`.
+///
+/// **Multi-month mode** (default): a scrolling list of months along the configured axis.
+///
+/// **Single-month mode** (`displayConfiguration.isSingleMonth == true`): one month visible
+/// at a time, with a built-in navigation header containing prev/next chevron buttons and the
+/// current month/year label. The content generator's `headerView` is suppressed in this mode —
+/// `CalendarView` owns the full header chrome.
 ///
 /// Foundation does not own any disambiguation UI for dates with multiple associated items.
 /// The `onDateTapped` callback fires with the raw tapped date; the caller is responsible for
@@ -22,31 +83,28 @@ public struct CalendarView<
     private let calendar: Calendar
     private let today: Date
     private let configuration: MonthCalendarConfiguration
+    private let displayConfiguration: CalendarViewDisplayConfiguration
     private let contentGenerator: Generator
     private let rowOverlayGenerator: OverlayGenerator
     private let initialScrollTarget: Date?
     private let onDateTapped: (Date) -> Void
 
+    /// Multi-month: backs `.scrollPosition(id:anchor:)`, seeded from `initialScrollTarget`.
+    @State private var scrollPosition: Date?
+
+    /// Single-month: the month currently displayed.
+    @State private var currentMonth: Date
+
     // MARK: - Init (without overlays)
 
     /// Creates a multi-month calendar without row overlays.
-    ///
-    /// - Parameters:
-    ///   - startDate: The start of the date range. The month containing this date is included.
-    ///   - endDate: The end of the date range. The month containing this date is included.
-    ///   - calendar: The calendar used for month boundary calculations.
-    ///   - today: The current date, used to mark today's cell in each month. Defaults to `Date()`.
-    ///   - configuration: Layout configuration forwarded to each `MonthCalendarView`.
-    ///   - contentGenerator: The generator that supplies views for each calendar slot.
-    ///   - initialScrollTarget: When non-nil, the calendar scrolls to the month containing this
-    ///     date on first appear. The date is normalized to the first of its month for lookup.
-    ///   - onDateTapped: Called when the user taps a date cell, receiving the tapped `Date`.
     public init(
         startDate: Date,
         endDate: Date,
         calendar: Calendar,
         today: Date = Date(),
         configuration: MonthCalendarConfiguration = .init(),
+        displayConfiguration: CalendarViewDisplayConfiguration = .default,
         contentGenerator: Generator,
         initialScrollTarget: Date? = nil,
         onDateTapped: @escaping (Date) -> Void
@@ -57,6 +115,7 @@ public struct CalendarView<
             calendar: calendar,
             today: today,
             configuration: configuration,
+            displayConfiguration: displayConfiguration,
             contentGenerator: contentGenerator,
             rowOverlayGenerator: EmptyMonthCalendarRowOverlayGenerator(),
             initialScrollTarget: initialScrollTarget,
@@ -65,99 +124,237 @@ public struct CalendarView<
     }
 
     /// Creates a multi-month calendar with row overlays.
-    ///
-    /// - Parameters:
-    ///   - startDate: The start of the date range. The month containing this date is included.
-    ///   - endDate: The end of the date range. The month containing this date is included.
-    ///   - calendar: The calendar used for month boundary calculations.
-    ///   - today: The current date, used to mark today's cell in each month. Defaults to `Date()`.
-    ///   - configuration: Layout configuration forwarded to each `MonthCalendarView`.
-    ///   - contentGenerator: The generator that supplies views for each calendar slot.
-    ///   - rowOverlayGenerator: The generator that supplies row-bounded overlay decorations.
-    ///   - initialScrollTarget: When non-nil, the calendar scrolls to the month containing this
-    ///     date on first appear. The date is normalized to the first of its month for lookup.
-    ///   - onDateTapped: Called when the user taps a date cell, receiving the tapped `Date`.
     public init(
         startDate: Date,
         endDate: Date,
         calendar: Calendar,
         today: Date = Date(),
         configuration: MonthCalendarConfiguration = .init(),
+        displayConfiguration: CalendarViewDisplayConfiguration = .default,
         contentGenerator: Generator,
         rowOverlayGenerator: OverlayGenerator,
         initialScrollTarget: Date? = nil,
         onDateTapped: @escaping (Date) -> Void
     ) {
-        self.months = monthDateRange(from: startDate, to: endDate, calendar: calendar)
+        let months = monthDateRange(from: startDate, to: endDate, calendar: calendar)
+        self.months = months
         self.startDate = startDate
         self.endDate = endDate
         self.calendar = calendar
         self.today = today
         self.configuration = configuration
+        self.displayConfiguration = displayConfiguration
         self.contentGenerator = contentGenerator
         self.rowOverlayGenerator = rowOverlayGenerator
         self.initialScrollTarget = initialScrollTarget
         self.onDateTapped = onDateTapped
+        self._scrollPosition = State(
+            initialValue: resolvedCalendarScrollTarget(
+                initialScrollTarget: initialScrollTarget,
+                startDate: startDate,
+                endDate: endDate,
+                calendar: calendar,
+                months: months
+            )
+        )
+        self._currentMonth = State(
+            initialValue: resolvedInitialMonth(
+                from: initialScrollTarget,
+                startDate: startDate,
+                calendar: calendar,
+                months: months
+            )
+        )
     }
 
     // MARK: - Body
 
     public var body: some View {
+        if displayConfiguration.isSingleMonth {
+            singleMonthBody
+        } else {
+            multiMonthBody
+        }
+    }
+
+    // MARK: - Multi-month body
+
+    private var multiMonthBody: some View {
         let delegate = DateTapDelegate(onDateTapped)
-        let scrollTarget = resolvedScrollTarget
-        ScrollViewReader { proxy in
-            ScrollView(.vertical) {
-                LazyVStack(spacing: 0) {
-                    ForEach(months, id: \.self) { month in
-                        MonthCalendarView(
-                            displayedMonth: month,
-                            calendar: calendar,
-                            today: today,
-                            configuration: configuration,
-                            contentGenerator: contentGenerator,
-                            rowOverlayGenerator: rowOverlayGenerator,
-                            actionDelegate: delegate
-                        )
-                        .id(month)
-                    }
+        let stack = Group {
+            switch displayConfiguration.scrollDirection {
+            case .vertical:
+                LazyVStack(spacing: 0) { monthViews(delegate: delegate) }
+            case .horizontal:
+                LazyHStack(spacing: 0) {
+                    monthViews(delegate: delegate)
+                        .containerRelativeFrame(.horizontal)
                 }
             }
-            .scrollIndicators(.hidden)
-            .onAppear {
-                guard let target = scrollTarget else { return }
-                
-                guard (startDate...endDate).contains(today) else { return }
-                
-                // Defer one run-loop iteration so LazyVStack has established geometry
-                // for items beyond the initial visible window before scrollTo fires.
-                DispatchQueue.main.async {
-                    proxy.scrollTo(target, anchor: .center)
+        }
+        return Group {
+            if displayConfiguration.isScrollEnabled {
+                ScrollView(displayConfiguration.scrollDirection == .vertical ? .vertical : .horizontal) {
+                    stack
                 }
+                .scrollIndicators(.hidden)
+                .scrollPosition(id: $scrollPosition, anchor: .center)
+                .accessibilityIdentifier("johnnyo.foundation.calendarView")
+            } else {
+                stack
+                    .accessibilityIdentifier("johnnyo.foundation.calendarView")
             }
+        }
+    }
+
+    @ViewBuilder
+    private func monthViews(delegate: DateTapDelegate) -> some View {
+        ForEach(months, id: \.self) { month in
+            MonthCalendarView(
+                displayedMonth: month,
+                calendar: calendar,
+                today: today,
+                configuration: configuration,
+                contentGenerator: contentGenerator,
+                rowOverlayGenerator: rowOverlayGenerator,
+                actionDelegate: delegate
+            )
+            .id(month)
+        }
+    }
+
+    // MARK: - Single-month body
+
+    private var singleMonthBody: some View {
+        let singleMonthConfig = MonthCalendarConfiguration(
+            showsPeripheralDates: configuration.showsPeripheralDates,
+            showsMonthHeader: false
+        )
+        let delegate = DateTapDelegate(onDateTapped)
+        return VStack(spacing: 0) {
+            singleMonthNavHeader
+            MonthCalendarView(
+                displayedMonth: currentMonth,
+                calendar: calendar,
+                today: today,
+                configuration: singleMonthConfig,
+                contentGenerator: contentGenerator,
+                rowOverlayGenerator: rowOverlayGenerator,
+                actionDelegate: delegate
+            )
         }
         .accessibilityIdentifier("johnnyo.foundation.calendarView")
     }
 
-    /// Normalizes `initialScrollTarget` to the first-of-month date used as each month's ID,
-    /// returning `nil` when no target is set or the target falls outside the rendered range.
-    private var resolvedScrollTarget: Date? {
-        guard let raw = initialScrollTarget,
-              let firstOfMonth = calendar.date(
-                from: calendar.dateComponents([.year, .month], from: raw)
-              ),
-              months.contains(firstOfMonth)
-        else { return nil }
-        return firstOfMonth
+    private var singleMonthNavHeader: some View {
+        HStack(spacing: 0) {
+            Button {
+                moveToPreviousMonth()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .disabled(!canMoveToPreviousMonth)
+            .accessibilityLabel("Previous month")
+
+            Spacer()
+
+            Text(monthYearLabel(for: currentMonth))
+                .font(.headline)
+
+            Spacer()
+
+            Button {
+                moveToNextMonth()
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .disabled(!canMoveToNextMonth)
+            .accessibilityLabel("Next month")
+        }
+        .padding(.horizontal, 8)
     }
+
+    // MARK: - Month navigation
+
+    private var canMoveToPreviousMonth: Bool {
+        guard let prev = calendar.date(byAdding: .month, value: -1, to: currentMonth) else { return false }
+        return prev >= (months.first ?? startDate)
+    }
+
+    private var canMoveToNextMonth: Bool {
+        guard let next = calendar.date(byAdding: .month, value: 1, to: currentMonth) else { return false }
+        return next <= (months.last ?? endDate)
+    }
+
+    private func moveToPreviousMonth() {
+        guard let prev = calendar.date(byAdding: .month, value: -1, to: currentMonth),
+              prev >= (months.first ?? startDate) else { return }
+        currentMonth = prev
+    }
+
+    private func moveToNextMonth() {
+        guard let next = calendar.date(byAdding: .month, value: 1, to: currentMonth),
+              next <= (months.last ?? endDate) else { return }
+        currentMonth = next
+    }
+
+    private func monthYearLabel(for month: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: month)
+    }
+}
+
+// MARK: - Initial Scroll Target
+
+/// Normalizes `initialScrollTarget` to the first-of-month date used as each month's `id`,
+/// returning `nil` when no target is set or it falls outside the rendered range.
+func resolvedCalendarScrollTarget(
+    initialScrollTarget: Date?,
+    startDate: Date,
+    endDate: Date,
+    calendar: Calendar,
+    months: [Date]
+) -> Date? {
+    guard let raw = initialScrollTarget,
+          (startDate...endDate).contains(raw),
+          let firstOfMonth = calendar.date(
+            from: calendar.dateComponents([.year, .month], from: raw)
+          ),
+          months.contains(firstOfMonth)
+    else { return nil }
+    return firstOfMonth
+}
+
+/// Resolves the initial visible month for single-month mode from `initialScrollTarget`,
+/// falling back to the first month in the range when the target is absent or out of range.
+func resolvedInitialMonth(
+    from target: Date?,
+    startDate: Date,
+    calendar: Calendar,
+    months: [Date]
+) -> Date {
+    guard let raw = target,
+          let targetFirstOfMonth = calendar.date(
+            from: calendar.dateComponents([.year, .month], from: raw)
+          ),
+          months.contains(targetFirstOfMonth)
+    else { return months.first ?? startDate }
+    return targetFirstOfMonth
 }
 
 // MARK: - Month Range
 
 /// Computes the first-of-month dates covering every calendar month from the month containing
 /// `startDate` to the month containing `endDate`, in ascending order.
-///
-/// Exposed at internal access so package tests can verify the computation via
-/// `@testable import JohnnyOFoundationUI`.
 func monthDateRange(from startDate: Date, to endDate: Date, calendar: Calendar) -> [Date] {
     guard
         let firstMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: startDate)),

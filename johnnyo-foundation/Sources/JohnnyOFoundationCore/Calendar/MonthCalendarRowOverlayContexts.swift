@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Foundation splits each logical overlay into week-row-bounded render contexts.
 /// Cross-row continuation is intentionally out of scope for this version of the seam.
-public struct MonthCalendarLogicalRowOverlay<OverlayID: Hashable & Sendable, OverlayPayload: Sendable>: Identifiable, Sendable {
+public struct MonthCalendarLogicalRowOverlay<OverlayID: Hashable & Sendable, OverlayPayload: Hashable & Sendable>: Identifiable, Hashable, Sendable {
     public let id: OverlayID
     public let startDate: Date
     public let endDate: Date
@@ -46,7 +46,7 @@ public struct MonthCalendarRowOverlayFrame: Sendable {
 /// A packed render context for one visible overlay segment within a single week row.
 public struct MonthCalendarPackedRowOverlayRenderContext<
     OverlayID: Hashable & Sendable,
-    OverlayPayload: Sendable
+    OverlayPayload: Hashable & Sendable
 >: Identifiable, Sendable {
     public let overlay: MonthCalendarLogicalRowOverlay<OverlayID, OverlayPayload>
     public let week: MonthCalendarWeek
@@ -97,7 +97,7 @@ public struct MonthCalendarPackedRowOverlayRenderContext<
 /// Foundation-owned metadata for a packed segment that was clipped by the visible-lane limit.
 public struct MonthCalendarOverflowedRowOverlaySegment<
     OverlayID: Hashable & Sendable,
-    OverlayPayload: Sendable
+    OverlayPayload: Hashable & Sendable
 >: Identifiable, Sendable {
     public let overlay: MonthCalendarLogicalRowOverlay<OverlayID, OverlayPayload>
     public let week: MonthCalendarWeek
@@ -142,7 +142,7 @@ public struct MonthCalendarOverflowedRowOverlaySegment<
 /// Overflow metadata that foundation computes while the app remains responsible for rendering the overflow affordance.
 public struct MonthCalendarRowOverlayOverflowRenderContext<
     OverlayID: Hashable & Sendable,
-    OverlayPayload: Sendable
+    OverlayPayload: Hashable & Sendable
 >: Identifiable, Sendable {
     public let week: MonthCalendarWeek
     public let visibleSegmentLaneCount: Int
@@ -179,7 +179,7 @@ public struct MonthCalendarRowOverlayOverflowRenderContext<
 /// The packed row-overlay result for one visible week row in the month shell.
 public struct MonthCalendarPackedRowOverlayWeekLayout<
     OverlayID: Hashable & Sendable,
-    OverlayPayload: Sendable
+    OverlayPayload: Hashable & Sendable
 >: Identifiable, Sendable {
     public let week: MonthCalendarWeek
     public let visibleSegments: [MonthCalendarPackedRowOverlayRenderContext<OverlayID, OverlayPayload>]

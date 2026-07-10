@@ -7,6 +7,9 @@ struct YearSpreadContentView: View {
     let spread: DataModel.Spread
     let spreadDataModel: SpreadDataModel
     let context: SpreadPageContext
+    /// Incremented by `SpreadsCoordinator` when a navigate-to-today request targets this view.
+    /// Triggers a scroll to today's month card whenever it changes or on first appear.
+    let scrollToTodayToken: Int
 
     @AppStorage("entryGrouping.year") private var groupingOption: EntryGroupingOption = .list
     @AppStorage("entrySorting.year") private var sortingOption: EntrySortOption = .dueDate
@@ -53,17 +56,46 @@ struct YearSpreadContentView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-                topYearSection
-
-                ForEach(monthDates, id: \.self) { date in
-                    monthCard(date)
-                }
+        VStack(spacing: 0) {
+            HStack {
+                Capsule()
+                    .stroke(SpreadTheme.DotGrid.defaultDots)
+                    .frame(height: SpreadTheme.CornerRadius.xxlarge)
+                    .padding(.vertical, SpreadTheme.Spacing.large)
+                    .padding(.trailing, SpreadTheme.Spacing.medium)
+                EntryListOptionsPicker(
+                    grouping: groupingOption,
+                    sorting: sortingOption,
+                    onGroupingSelected: { groupingOption = $0 },
+                    onSortingSelected: { sortingOption = $0 }
+                )
+                .padding(.horizontal, Layout.contentPadding)
             }
             .padding(.horizontal, Layout.contentPadding)
-            .padding(.top, Layout.contentPadding)
-            .padding(.bottom, Layout.sectionSpacing)
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
+
+                        topYearSection
+
+                        ForEach(monthDates, id: \.self) { date in
+                            monthCard(date)
+                        }
+                    }
+                    .padding(.horizontal, Layout.contentPadding)
+                    .padding(.top, Layout.contentPadding)
+                    .padding(.bottom, Layout.sectionSpacing)
+                }
+                .task(id: scrollToTodayToken) {
+                    guard scrollToTodayToken > 0 else { return }
+                    let today = context.journalManager.today
+                    guard let todayMonthDate = monthDates.first(where: {
+                        calendar.isDate($0, equalTo: today, toGranularity: .month)
+                    }) else { return }
+                    proxy.scrollTo(todayMonthDate, anchor: .center)
+                }
+            }
         }
     }
 
@@ -72,19 +104,9 @@ struct YearSpreadContentView: View {
     @ViewBuilder
     private var topYearSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Year")
-                    .font(SpreadTheme.Typography.title3)
-                    .foregroundStyle(.primary)
-                Spacer()
-                EntryListOptionsPicker(
-                    grouping: groupingOption,
-                    sorting: sortingOption,
-                    onGroupingSelected: { groupingOption = $0 },
-                    onSortingSelected: { sortingOption = $0 }
-                )
-                .padding(.horizontal, SpreadTheme.Spacing.large)
-            }
+            Text("Year")
+                .font(SpreadTheme.Typography.title3)
+                .foregroundStyle(.primary)
 
             if yearEntries.isEmpty {
                 Text("No year-level entries.")
@@ -171,7 +193,7 @@ struct YearSpreadContentView: View {
                 return candidateMonth == normalizedMonth
             }
             .sorted { lhs, rhs in
-                sortKey(for: lhs, calendar: calendar) < sortKey(for: rhs, calendar: calendar)
+                lhs.conventionalSortKey(calendar: calendar) < rhs.conventionalSortKey(calendar: calendar)
             }
     }
 
@@ -187,35 +209,5 @@ struct YearSpreadContentView: View {
             return Period.month.normalizeDate(noteDate, calendar: calendar)
         }
         return nil
-    }
-
-    private static func sortKey(for entry: any Entry, calendar: Calendar) -> (Date, Int, Date, UUID) {
-        if let task = entry as? DataModel.Task {
-            let period = task.period ?? .day
-            let date = task.date ?? task.createdDate
-            return (
-                period.normalizeDate(date, calendar: calendar),
-                entryTypeSortOrder(task.entryType),
-                task.createdDate,
-                task.id
-            )
-        }
-        if let note = entry as? DataModel.Note {
-            return (
-                note.period.normalizeDate(note.date ?? note.createdDate, calendar: calendar),
-                entryTypeSortOrder(note.entryType),
-                note.createdDate,
-                note.id
-            )
-        }
-        return (.distantFuture, entryTypeSortOrder(entry.entryType), entry.createdDate, entry.id)
-    }
-
-    private static func entryTypeSortOrder(_ type: EntryType) -> Int {
-        switch type {
-        case .task: return 0
-        case .note: return 1
-        case .event: return 2
-        }
     }
 }

@@ -92,7 +92,42 @@
 - The overdue card contains one `EntryList.Section` per distinct source spread (or Inbox) that has overdue tasks, grouped by `OverdueTaskItem.sourceKey`. [SPRD-235]
 - Each section in the card renders tasks using the same `EntryRowView.Configuration` as the standard task rows (status toggle, migrate, delete, edit). No overdue-specific actions in v1. [SPRD-235]
 - The card disappears automatically when all overdue tasks have been acted on (i.e., `overdueTaskItems` becomes empty). There is no manual dismiss. [SPRD-235]
-- The card is scoped to `DaySpreadContentView` only in v1. The general mechanism (`Section.Style`) is designed for reuse but no other call site uses it yet. [SPRD-235]
+- The card is scoped to `DaySpreadContentView` only in v1. The general mechanism (`Section.Style`) is designed for reuse but no other call site uses it yet. [SPRD-235] — **Superseded by SPRD-274**: the card is no longer Day-only; see below.
+
+### Overdue Card on All Spread Content Views (SPRD-274)
+
+- The overdue card is no longer scoped to `DaySpreadContentView`. It appears on **any** spread content view (Day, Month, Year, Multiday), but only on the *most granular* spread that contains today — not on every spread that merely contains today. A spread qualifies exactly when it is `[DataModel.Spread].bestSpread(for:calendar:)`'s result for today (the same priority cascade already used by the Today button and default navigation): day spread for today > narrowest multiday spread containing today > month spread containing today > year spread containing today. If today has both an explicit day spread and its parent month spread, only the day spread shows the card — the month spread shows nothing, even though it also "contains" today. [SPRD-274]
+- The card-building logic (querying `JournalManager.overdueTaskItems`, checking the spread-is-most-granular-for-today condition, and grouping into one `EntryList.Section` per source spread/Inbox) is extracted into a standalone, reusable `OverdueCardView(spread:context:)` component. It takes the current spread plus the existing `SpreadPageContext` bundle (already carrying `JournalManager`/calendar) — no other injected dependency. It renders nothing (`EmptyView`) when the spread isn't `bestSpread(for: today)` or there are no overdue items. [SPRD-274]
+- `OverdueCardView` renders via the same `EntryListView` + `EntryList.Section.Style.card` mechanism `DaySpreadContentView` already used — no new visual chrome, no new rendering path. [SPRD-274]
+- Each content view places `OverdueCardView` as the first element of its *scrollable* content, before any of its own period-specific content: [SPRD-274]
+  - Day: before the existing entry list (unchanged from current behavior).
+  - Year: above the top year-entry section.
+  - Multiday: above the day-card grid, full width (same width treatment as the existing multiday-assignment section).
+  - Month: **requires a layout restructuring**. Today, `MonthSpreadContentView` puts everything — the calendar grid, the month section, and the day sections — inside one scrollable `LazyVStack`. Every other content view keeps a non-scrolling element pinned above its scrollable content (Day's favorite/edit header row; the pager's own header above Year/Multiday). Month is the outlier: it has no fixed top inset today. As part of this task, the month calendar grid moves out of the scrollable `LazyVStack` into a fixed top inset above the `ScrollView` (non-scrollable, always visible), and `OverdueCardView` becomes the first item inside the now-calendar-free `ScrollView`/`LazyVStack`, ahead of the month section and day sections. [SPRD-274]
+- Source chips (the per-task label identifying which spread/Inbox an overdue task currently lives on) are preserved on every content view, not just Day — overdue tasks shown from a Month/Year/Multiday spread can originate from many different source spreads, so the chip remains useful everywhere. [SPRD-274]
+- `DaySpreadContentView` is refactored to consume `OverdueCardView` instead of its own `ViewModel.overdueSections` computed property; this is a pure extraction with no visual or behavioral change to Day's existing overdue card. [SPRD-274]
+- Multiday's existing per-day-card `overdueCount` badge (`MultidayDayCardView`) is a separate, unrelated mechanism (a count badge on each day card within a multiday grid) and is unaffected by this task. [SPRD-274]
+
+#### Overdue Card Rows: Read-Only Except the Status Icon
+
+- Overdue card rows are mostly a review/navigation surface, not an editing surface — but the status icon remains fully interactive (see below). This applies on every content view that shows the card (Day, Month, Year, Multiday). [SPRD-274]
+- Tapping anywhere on an overdue row other than the status icon navigates immediately to that task's current source: [SPRD-274]
+  - Source is a concrete spread (day/month/year/multiday): navigates directly to that spread via `SpreadsCoordinator.selectSpread`, no confirmation.
+  - Source is Inbox (no spread assignment): shows an informational alert ("Task in Inbox" / "This task can't be modified from here. Open the Search tab to view and edit it.") since there is no spread to navigate to. Building cross-tab navigation from the Spreads tab to the Entries tab's Inbox section is out of scope for this task — no existing mechanism supports that direction (only Entries→Spreads exists, via `SpreadsNavigationState`).
+- Inline title editing (tap-to-rename) and the long-press context menu (Edit/Migrate/Delete) are both disabled on overdue rows. [SPRD-274]
+- Implemented as a new `EntryRowView.Configuration.onRowTap` field (a per-row tap target distinct from `onStatusIconTap`) and a new `EntryRowView.Configuration.readOnlyOverdueTaskConfig(...)` factory, used only by `OverdueCardView`. When `onRowTap` is set, `EntryRowView` disables its title `TextField` and replaces its long-press context menu with a plain tap gesture routed to `onRowTap` — this is a general mechanism on `EntryRowView` itself, not something bolted onto the overdue card specifically, so any future review-only surface can reuse it. [SPRD-274]
+- **Pre-existing bug fixed as a prerequisite**: `SpreadsTabView`'s alert presentation (`.modifier(AlertModelModifier(...))`) was commented out (`// TODO: Re-add alert`), so `SpreadsCoordinator.activeAlert` was already silently doing nothing for every alert app-wide (delete confirmations, discard-changes prompts) before this task. Re-enabled as part of this work since the Inbox notice alert depends on it. [SPRD-274]
+
+#### Overdue Card Status Icon: Status Change With a Grace Period
+
+- **Revised decision (superseding the original "status icon shows a confirm-before-navigate alert" design above)**: the status icon on an overdue row is fully interactive — tapping it rotates status the same way it does on every other task row in the app: open → complete → cancelled → open. There is no confirmation alert for this. [SPRD-274]
+- **The problem this solves**: marking an overdue task complete or cancelled immediately removes it from `JournalManager.overdueTaskItems`, and therefore from the card, the instant the tap registers — before the user can register what happened or change their mind (e.g. meant to cancel, tapped into complete first). [SPRD-274]
+- **The fix**: a 5-second grace period. When a tap rotates a task away from `.open`, the row keeps showing in the card for 5 seconds even though the task is no longer a live entry in `overdueTaskItems` — using the task's current (post-tap) status for display (greyed out / strikethrough, matching standard task-row treatment), and the source chip captured at the moment of the tap (since the task's source key isn't derivable from `overdueTaskItems` once it's no longer in that list). [SPRD-274]
+- Tapping the status icon again within the grace window (e.g. complete → cancelled) restarts the 5-second window from that tap, rather than the row disappearing mid-decision while the user is still actively changing their mind. Rotating back to `.open` within the window clears the grace period immediately — the row then either keeps showing (if still genuinely overdue) or disappears (if not) based on live data, with no artificial delay either way. [SPRD-274]
+- Implemented entirely in `OverdueCardView` (not `EntryRowView` or its configuration, which know nothing about grace periods): `@State` dictionaries track each grace-period task's expiration time and snapshotted source key. `OverdueCardView.sections(for:context:graceTaskIDs:graceSourceKeys:onStatusIconTap:)` takes these as parameters (with empty defaults) specifically so the section-building logic stays a pure, directly unit-testable function — the actual timer (`Task.sleep` plus a re-check that the grace entry's expiration hasn't been superseded by a newer tap) lives in the view's `handleStatusIconTap`, which isn't itself unit-tested (no hosted-view test harness in this codebase makes waiting out a real 5-second timer practical) and is left to manual verification instead. [SPRD-274]
+- **Entries are always sorted using the same conventional, period-aware ordering as Year's month cards and Month's day sections — status changes never reorder the list.** `sections(for:context:)` explicitly sorts the combined (live + grace-period) entries by `Entry.conventionalSortKey(calendar:)` (period-normalized date, then entry type, then creation date, then `id`) before returning them — *not* by raw `sortDate`. Overdue tasks can carry any period (day/month/year/multiday-assigned), so a month-level task's date is normalized to its month's start before comparison, matching how it would sort alongside day-level entries anywhere else in the app, rather than by its raw (and somewhat arbitrary) stored date. [SPRD-274]
+- This was a real bug, not a hypothetical: `JournalManager.tasks` (the source for `overdueTaskItems`'s order, and for grace-period task lookups) is itself sorted by `createdDate`, which has nothing to do with any date relevant to the overdue card, and grace-period tasks were being appended after all live entries — so completing a task visibly moved it to the bottom of the list the instant it left `overdueTaskItems`, rather than holding its date-correct position during its grace window. [SPRD-274]
+- `Entry.conventionalSortKey(calendar:)` (`Spread/Views/Entries/EntryList/Entry+ConventionalSortKey.swift`) was extracted from two byte-for-byte-identical private implementations that already existed — `YearSpreadContentView.sortKey`/`entryTypeSortOrder` (used to order month-card entries) and `MonthSpreadContentSupport.sortKey`/`entryTypeSortOrder` (used to order the month section and each day section) — into one shared `Entry` protocol extension, removing both duplicates. [SPRD-274]
 
 #### `EntryList.Section.Style` — Generic Section Styling
 
@@ -121,6 +156,28 @@
   - If multiple multiday spreads contain today, choose the narrowest containing range; break ties by the existing chronological spread ordering.
   - If no explicit spread contains today, the button currently does nothing.
 - If `Today` is pressed while today is already the selected spread, it still refreshes the compact context bar and content pager on today's selection if needed. [SPRD-130]
+
+---
+
+## Multiday Spread Day Card Layout [SPRD-286]
+
+### Requirements
+
+- Day cards in `MultidaySpreadContentView` are rendered in a full-width `LazyVStack` (one card per row, no outer grid). [SPRD-286]
+- Within each day card, entry rows are split into two equal halves and displayed in two `VStack`s inside an `HStack` on regular width, giving balanced column heights without custom geometry. On compact width, all entries appear in a single `VStack`. [SPRD-286]
+- The outer `LazyVGrid`, `viewModel.columns`, `viewModel.columnCount`, `.gridCellColumns(...)`, and `UserInterfaceSizeClass.multidayColumnCount` are removed as dead code. [SPRD-286]
+- Any other grid-related helpers, extensions, or view model properties that become unused after the outer grid is removed are also deleted. [SPRD-286]
+
+### Design Decisions
+
+#### Decision: Split array into two halves rather than LazyVGrid for inner entry columns
+
+- **Context**: `LazyVGrid` with two flexible columns distributes entries left-to-right but cannot guarantee equal total column heights when entry rows have variable heights.
+- **Decision**: Divide the entries array in half (first half left column, second half right column) and render each half as a `VStack` inside an `HStack`.
+- **Rationale**: Produces balanced column heights using only native SwiftUI primitives — no custom `GeometryReader` or `PreferenceKey` required. Simple to implement and reason about. Consistent with "native APIs to the maximum extent, without doing anything crazy."
+- **SPRD reference**: [SPRD-286]
+
+---
 
 ### Mode
 The app operates in conventional mode only. Traditional mode is out of scope for v1. [SPRD-226]

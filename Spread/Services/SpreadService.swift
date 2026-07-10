@@ -153,10 +153,10 @@ struct SpreadService {
         preferredSpreadID: UUID?,
         in spreads: [DataModel.Spread]
     ) -> DataModel.Spread? {
-        if let preferredSpreadID {
-            return spreads.first { spread in
-                spread.id == preferredSpreadID && spread.period == .multiday
-            }
+        if let preferredSpreadID,
+           let preferred = spreads.first(where: { $0.id == preferredSpreadID && $0.period == .multiday }),
+           preferred.contains(date: preferredDate, calendar: calendar) {
+            return preferred
         }
 
         return bestContainingMultidaySpread(for: preferredDate, in: spreads)

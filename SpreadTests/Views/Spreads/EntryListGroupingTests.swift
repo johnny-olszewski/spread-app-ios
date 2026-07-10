@@ -6,8 +6,8 @@ import Testing
 ///
 /// Day spread grouping is covered via `DaySpreadContentView.ViewModel.makeSections`, exercised
 /// here with `.list`/`.dueDate` (the spread's default picker selection) to prove parity with the
-/// pre-SPRD-259 hand-rolled behavior these tests originally covered. The "Untitled" bucket name
-/// (was "No List") is a deliberate, documented SPRD-259 change — see `EntryGroupingOption`.
+/// pre-SPRD-259 hand-rolled behavior these tests originally covered. The nil-bucket label is
+/// "No list"/"No tag" per SPRD-287 (was "Untitled" after SPRD-259) — see `EntryGroupingOption`.
 /// Multiday spread grouping is covered via `MultidaySpreadContentView.ViewModel.makeSections`.
 @Suite("Entry List Grouping Tests")
 @MainActor
@@ -54,7 +54,7 @@ struct EntryListGroupingTests {
         #expect(sections[0].entries.map(\.title) == ["Alpha Task 1"])
         #expect(sections[1].title == "Beta")
         #expect(sections[1].entries.map(\.title) == ["Beta Task"])
-        #expect(sections[2].title == "Untitled")
+        #expect(sections[2].title == "No list")
         let unlisted = sections[2].entries.map(\.title)
         #expect(unlisted.contains("No list"))
         #expect(unlisted.contains("Note"))
@@ -81,7 +81,7 @@ struct EntryListGroupingTests {
         )
 
         #expect(sections.count == 1)
-        #expect(sections[0].title == "Untitled")
+        #expect(sections[0].title == "No list")
         #expect(sections[0].entries.count == 3)
     }
 
@@ -108,7 +108,7 @@ struct EntryListGroupingTests {
         #expect(sections.count == 2)
         #expect(sections[0].title == "Work")
         #expect(sections[0].entries.map(\.title) == ["Listed task"])
-        #expect(sections[1].title == "Untitled")
+        #expect(sections[1].title == "No list")
         #expect(sections[1].entries.count == 2)
     }
 

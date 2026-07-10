@@ -115,19 +115,21 @@ struct MonthCardView: View {
                 HStack {
                     Spacer()
                     if let onPeek {
-                        SpreadButton(viewModel: .init(
+                        SpreadButton(.init(
                             title: "Preview month spread",
                             icon: .eye,
-                            style: .secondary,
+                            style: .plain,
+                            size: .small,
                             action: onPeek
                         ))
                     }
 
                     if let onViewSpread {
-                        SpreadButton(viewModel: .init(
+                        SpreadButton(.init(
                             title: "View month spread",
                             icon: .arrowRight,
-                            style: .primary,
+                            style: .glass,
+                            size: .small,
                             action: onViewSpread
                         ))
                     }
@@ -138,10 +140,7 @@ struct MonthCardView: View {
             VStack(alignment: .leading, spacing: Layout.cardSpacing) {
                 EntryListView(sections: sections, configurationMap: configurationMap)
                 if let onCreateSpread {
-                    Button("Create Spread") {
-                        onCreateSpread()
-                    }
-                    .buttonStyle(.bordered)
+                    SpreadButton("Create Spread", style: .bordered, size: .small, action: onCreateSpread)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

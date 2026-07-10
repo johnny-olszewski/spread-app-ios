@@ -128,4 +128,15 @@ extension AlertModel {
             ]
         )
     }
+
+    /// Shown for an overdue-card row whose task lives in the Inbox — there's no spread to
+    /// navigate to, so this is informational only.
+    static var overdueCardInboxNotice: AlertModel {
+        AlertModel(
+            id: "overdueCardInboxNotice",
+            title: "Task in Inbox",
+            message: "This task can't be modified from here. Open the Search tab to view and edit it.",
+            buttons: [Button(label: "OK")]
+        )
+    }
 }
