@@ -21,15 +21,19 @@ on:
 
 jobs:
   tests:
-    runs-on: macos-latest
+    # Pinned image + Xcode so the toolchain is frozen and the matching iOS
+    # simulator runtime is guaranteed preinstalled. The macos-latest alias moved
+    # to an image where Xcode 26.1.1's iOS 26.1 runtime is not installed; Xcode
+    # 26.2 ships with iOS 26.2 preinstalled on macos-26.
+    runs-on: macos-26
     timeout-minutes: 60
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode 26.1.1
-        run: sudo xcode-select -s /Applications/Xcode_26.1.1.app
+      - name: Select Xcode 26.2
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app
 
       - name: Xcode version
         run: xcodebuild -version
@@ -38,7 +42,14 @@ jobs:
         id: simulator
         run: |
           set -euo pipefail
-          RUNTIME_JSON=$(xcrun simctl list runtimes available --json | jq -c '[.runtimes[] | select(.name | startswith("iOS"))] | sort_by(.version) | last')
+          # Prefer the runtime matching the selected Xcode's iOS SDK so the
+          # destination is always compatible with the toolchain; fall back to
+          # the newest available runtime if no exact match is present.
+          SDK_VERSION=$(xcrun --sdk iphonesimulator --show-sdk-version)
+          RUNTIME_JSON=$(xcrun simctl list runtimes available --json | jq -c --arg v "$SDK_VERSION" '
+            [.runtimes[] | select(.name | startswith("iOS"))] as $ios
+            | (($ios | map(select(.version == $v)) | first) // ($ios | sort_by(.version) | last))
+          ')
           RUNTIME_ID=$(echo "$RUNTIME_JSON" | jq -r '.identifier')
           DEVICE_TYPE_ID=$(echo "$RUNTIME_JSON" | jq -r '
             ((.supportedDeviceTypes | map(select(.name == "iPhone 17 Pro")) | first) //
