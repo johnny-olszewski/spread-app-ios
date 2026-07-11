@@ -11,8 +11,16 @@ enum EntrySortOption: String, CaseIterable, Identifiable {
     case dueDate
     case title
     case type
+    case time
 
     var id: String { rawValue }
+
+    /// The options every spread offers. `.time` is excluded: a scheduled time is only
+    /// meaningful on a day spread, so only Day passes `allCases` to
+    /// `EntryListOptionsPicker`. See `Documentation/Specs/TaskScheduledTime.md`. [SPRD-301]
+    static var universalOptions: [EntrySortOption] {
+        allCases.filter { $0 != .time }
+    }
 
     /// Display label for use in `EntryListOptionsPicker`.
     var displayName: String {
@@ -22,6 +30,7 @@ enum EntrySortOption: String, CaseIterable, Identifiable {
         case .dueDate: "Due Date"
         case .title: "Title"
         case .type: "Type"
+        case .time: "Time"
         }
     }
 
@@ -44,6 +53,17 @@ enum EntrySortOption: String, CaseIterable, Identifiable {
             return Self.titleAscending
         case .type:
             return Self.withTitleTiebreaker { Self.typeRank($0.entryType) < Self.typeRank($1.entryType) }
+        case .time:
+            // Timed entries chronological by `scheduledStart` (absolute instants, so the
+            // ordering is timezone-invariant across mixed types); untimed entries after
+            // all timed ones. [SPRD-301]
+            return Self.withTitleTiebreaker { lhs, rhs in
+                switch (lhs.scheduledStart, rhs.scheduledStart) {
+                case let (lhsStart?, rhsStart?): lhsStart < rhsStart
+                case (.some, nil): true
+                case (nil, .some), (nil, nil): false
+                }
+            }
         }
     }
 

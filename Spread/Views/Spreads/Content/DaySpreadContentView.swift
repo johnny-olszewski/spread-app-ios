@@ -59,8 +59,16 @@ struct DaySpreadContentView: View {
                     EntryListOptionsPicker(
                         grouping: groupingOption,
                         sorting: sortingOption,
+                        sortingOptions: EntrySortOption.allCases,
                         onGroupingSelected: { groupingOption = $0 },
-                        onSortingSelected: { sortingOption = $0 }
+                        onSortingSelected: { newSorting in
+                            sortingOption = newSorting
+                            // Time sort is a single chronological flow — grouping is
+                            // forced off and its submenu disabled while selected. [SPRD-301]
+                            if newSorting == .time {
+                                groupingOption = .none
+                            }
+                        }
                     )
                     .padding(SpreadTheme.Spacing.large)
 
@@ -106,7 +114,7 @@ struct DaySpreadContentView: View {
                 VStack(spacing: SpreadTheme.Spacing.medium) {
                     EntryListView(
                         sections: viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption),
-                        configurationMap: viewModel.entryConfigurationMap
+                        configurationMap: viewModel.listConfigurationMap
                     ) { section in
                         // Section ids are list names only when grouping by list — other groupings
                         // (tag/status/none) have no notion of a corresponding list to preselect.
