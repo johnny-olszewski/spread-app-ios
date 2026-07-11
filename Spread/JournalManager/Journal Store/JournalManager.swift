@@ -45,7 +45,11 @@ final class JournalManager {
     /// coordinator would risk holding a stale copy.
     private var spreadDeletionCoordinator: SpreadDeletionCoordinator {
         SpreadDeletionCoordinator(
-            spreadRepository: spreadRepository, taskRepository: taskRepository, noteRepository: noteRepository, calendar: calendar
+            spreadRepository: spreadRepository,
+            taskRepository: taskRepository,
+            noteRepository: noteRepository,
+            ruleEngine: ruleEngine,
+            calendar: calendar
         )
     }
 

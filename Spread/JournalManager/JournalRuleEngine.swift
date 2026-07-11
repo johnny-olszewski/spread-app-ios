@@ -742,4 +742,58 @@ struct JournalRuleEngine {
             )
         }
     }
+
+    // MARK: - Scheduled Time
+
+    /// Applies the keep/rebase/clear rule to `task.scheduledTime` for a change in the
+    /// task's effective assignment day/period, stamping `scheduledTimeUpdatedAt` on any
+    /// actual change.
+    ///
+    /// Mutates `task.scheduledTime`/`scheduledTimeUpdatedAt` in-place. Does not persist;
+    /// callers must save the task afterward. Performs no repository writes, consistent
+    /// with `JournalRuleEngine` being a pure rule engine.
+    ///
+    /// A time is only meaningful relative to a specific day (SPRD-298's keep/rebase/clear
+    /// design decision):
+    /// - Day → day: the instant is rebased by the whole-calendar-day delta between the
+    ///   source and destination days, preserving the clock time.
+    /// - Day → same day: no-op — `scheduledTime`/`scheduledTimeUpdatedAt` are left untouched.
+    /// - Day → month/year/multiday, or to the Inbox (`destinationPeriod == nil`): cleared.
+    /// - Untimed tasks (`scheduledTime == nil`): no side effects.
+    ///
+    /// - Parameters:
+    ///   - task: The task whose scheduled time should be reconciled.
+    ///   - destinationPeriod: The period of the new assignment, or `nil` for the Inbox.
+    ///   - destinationDate: The date of the new assignment, or `nil` for the Inbox.
+    ///   - timestamp: The LWW timestamp to stamp on `scheduledTimeUpdatedAt` when the
+    ///     value actually changes — callers pass the same timestamp used for their other
+    ///     LWW-stamped fields in the same operation.
+    func reconcileScheduledTime(
+        for task: DataModel.Task,
+        destinationPeriod: Period?,
+        destinationDate: Date?,
+        timestamp: Date
+    ) {
+        guard let scheduledTime = task.scheduledTime else { return }
+
+        guard destinationPeriod == .day, let destinationDate else {
+            task.scheduledTime = nil
+            task.scheduledTimeUpdatedAt = timestamp
+            return
+        }
+
+        let sourceDay = scheduledTime.startOfDay(calendar: calendar)
+        let destinationDay = destinationDate.startOfDay(calendar: calendar)
+        guard sourceDay != destinationDay else { return }
+
+        guard let dayDelta = calendar.dateComponents([.day], from: sourceDay, to: destinationDay).day,
+              let rebasedTime = calendar.date(byAdding: .day, value: dayDelta, to: scheduledTime) else {
+            task.scheduledTime = nil
+            task.scheduledTimeUpdatedAt = timestamp
+            return
+        }
+
+        task.scheduledTime = rebasedTime
+        task.scheduledTimeUpdatedAt = timestamp
+    }
 }
