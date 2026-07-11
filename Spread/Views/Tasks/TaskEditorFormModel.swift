@@ -9,6 +9,13 @@ struct TaskEditorFormModel {
     var priority: DataModel.Task.Priority
     var hasDueDate: Bool
     var dueDate: Date
+    /// Whether the user has added a scheduled time (SPRD-299). Only meaningful — and only
+    /// offered by the sheet — while the assignment selection is day-period; see
+    /// `effectiveScheduledTime` for the gating.
+    var hasScheduledTime: Bool
+    /// The clock time picked for the scheduled time. Only its hour/minute components are
+    /// persisted, recombined with the assigned day in `effectiveScheduledTime`.
+    var scheduledTimeOfDay: Date
     var selectedList: DataModel.List?
     var selectedTagIDs: Set<UUID>
     var hasPreferredAssignment: Bool
@@ -35,6 +42,8 @@ struct TaskEditorFormModel {
         self.priority = .none
         self.hasDueDate = false
         self.dueDate = configuration.today.startOfDay(calendar: configuration.calendar)
+        self.hasScheduledTime = false
+        self.scheduledTimeOfDay = configuration.today
         self.selectedList = nil
         self.selectedTagIDs = []
         self.hasPreferredAssignment = selectedSpread != nil
@@ -58,6 +67,8 @@ struct TaskEditorFormModel {
         self.priority = task.priority
         self.hasDueDate = task.dueDate != nil
         self.dueDate = (task.dueDate ?? configuration.today).startOfDay(calendar: configuration.calendar)
+        self.hasScheduledTime = task.scheduledTime != nil
+        self.scheduledTimeOfDay = task.scheduledTime ?? configuration.today
         self.selectedList = task.list
         self.selectedTagIDs = Set(task.tags.map(\.id))
         self.hasPreferredAssignment = task.date != nil
@@ -115,6 +126,27 @@ struct TaskEditorFormModel {
         return dueDate.startOfDay(calendar: configuration.calendar)
     }
 
+    /// Whether the scheduled-time chip applies to the current assignment selection: a time
+    /// is only meaningful on a specific day (SPRD-299).
+    var isScheduledTimeAvailable: Bool {
+        hasPreferredAssignment && selectedPeriod == .day
+    }
+
+    /// The instant to persist as the task's `scheduledTime`, or `nil` when no time is set
+    /// or the assignment selection isn't day-period. Built from the assigned day plus the
+    /// picked clock time in the current calendar/timezone — the SPRD-296 "set" rule.
+    var effectiveScheduledTime: Date? {
+        guard isScheduledTimeAvailable, hasScheduledTime else { return nil }
+        let calendar = configuration.calendar
+        let components = calendar.dateComponents([.hour, .minute], from: scheduledTimeOfDay)
+        return calendar.date(
+            bySettingHour: components.hour ?? 0,
+            minute: components.minute ?? 0,
+            second: 0,
+            of: effectiveSelectedDate
+        )
+    }
+
     mutating func handleTitleChange() {
         if !hasEditedTitle {
             hasEditedTitle = true
@@ -133,6 +165,9 @@ struct TaskEditorFormModel {
             selectedSpreadID = nil
             clearPendingMultidayRange()
         }
+        if newPeriod != .day {
+            hasScheduledTime = false
+        }
         clearDateError()
     }
 
@@ -141,6 +176,9 @@ struct TaskEditorFormModel {
         selectedDate = configuration.adjustedDate(selection.date, for: selection.period)
         selectedPeriod = selection.period
         selectedSpreadID = selection.spreadID
+        if selection.period != .day {
+            hasScheduledTime = false
+        }
         clearPendingMultidayRange()
         clearDateError()
     }
@@ -153,6 +191,7 @@ struct TaskEditorFormModel {
             selectedDate = configuration.today.startOfDay(calendar: configuration.calendar)
             selectedSpreadID = nil
         }
+        hasScheduledTime = false
         clearPendingMultidayRange()
         clearDateError()
     }

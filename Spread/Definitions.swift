@@ -235,6 +235,8 @@ struct Definitions {
             static let priorityPicker = "tasks.create.priority"
             static let dueDateToggle = "tasks.create.dueDate.toggle"
             static let dueDatePicker = "tasks.create.dueDate"
+            static let scheduledTimeToggle = "tasks.create.scheduledTime.toggle"
+            static let scheduledTimePicker = "tasks.create.scheduledTime"
 
             static func periodSegment(_ periodRawValue: String) -> String {
                 "tasks.create.period.\(periodRawValue)"
@@ -288,6 +290,8 @@ struct Definitions {
             static let priorityPicker = "tasks.detail.priority"
             static let dueDateToggle = "tasks.detail.dueDate.toggle"
             static let dueDatePicker = "tasks.detail.dueDate"
+            static let scheduledTimeToggle = "tasks.detail.scheduledTime.toggle"
+            static let scheduledTimePicker = "tasks.detail.scheduledTime"
             static let assignmentHistory = "tasks.detail.assignmentHistory"
 
             static func assignmentHistoryRow(_ index: Int) -> String {

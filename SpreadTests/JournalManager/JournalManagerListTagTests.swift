@@ -45,6 +45,7 @@ struct JournalManagerListTagTests {
             body: nil,
             priority: .none,
             dueDate: nil,
+            scheduledTime: nil,
             list: list,
             tags: []
         )
@@ -65,6 +66,7 @@ struct JournalManagerListTagTests {
             body: nil,
             priority: .none,
             dueDate: nil,
+            scheduledTime: nil,
             list: nil,
             tags: []
         )
@@ -88,6 +90,7 @@ struct JournalManagerListTagTests {
             body: nil,
             priority: .none,
             dueDate: nil,
+            scheduledTime: nil,
             list: nil,
             tags: [tag1, tag2]
         )
@@ -111,6 +114,7 @@ struct JournalManagerListTagTests {
             body: nil,
             priority: .none,
             dueDate: nil,
+            scheduledTime: nil,
             list: nil,
             tags: tags
         )
@@ -133,6 +137,7 @@ struct JournalManagerListTagTests {
             body: nil,
             priority: .none,
             dueDate: nil,
+            scheduledTime: nil,
             list: list,
             tags: []
         )
@@ -153,6 +158,7 @@ struct JournalManagerListTagTests {
             body: nil,
             priority: .none,
             dueDate: nil,
+            scheduledTime: nil,
             list: nil,
             tags: [tag]
         )
@@ -187,6 +193,7 @@ struct JournalManagerListTagTests {
             body: nil,
             priority: .none,
             dueDate: nil,
+            scheduledTime: nil,
             list: list,
             tags: []
         )

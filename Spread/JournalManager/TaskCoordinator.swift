@@ -35,6 +35,9 @@ struct TaskCoordinator {
 
     /// Creates a new task with the specified parameters, reconciling its preferred
     /// assignment against `spreads`.
+    ///
+    /// `scheduledTime` is only meaningful for a day-period assignment (SPRD-299) and is
+    /// defensively dropped for any other `period`.
     @discardableResult
     func addTask(
         title: String,
@@ -44,6 +47,7 @@ struct TaskCoordinator {
         body: String?,
         priority: DataModel.Task.Priority,
         dueDate: Date?,
+        scheduledTime: Date? = nil,
         spreads: [DataModel.Spread]
     ) async throws -> DataModel.Task {
         let normalizedDate = date.map { period?.normalizeDate($0, calendar: ruleEngine.calendar) ?? $0 }
@@ -52,6 +56,7 @@ struct TaskCoordinator {
             body: sanitizedBody(body),
             priority: priority,
             dueDate: dueDate?.startOfDay(calendar: ruleEngine.calendar),
+            scheduledTime: period == .day ? scheduledTime : nil,
             date: normalizedDate,
             period: period,
             status: .open,
@@ -183,6 +188,10 @@ struct TaskCoordinator {
         if task.dueDate != normalizedDueDate {
             task.dueDate = normalizedDueDate
             task.dueDateUpdatedAt = timestamp
+        }
+        if task.scheduledTime != scheduledTime {
+            task.scheduledTime = scheduledTime
+            task.scheduledTimeUpdatedAt = timestamp
         }
         if task.list?.id != list?.id {
             task.list = list
