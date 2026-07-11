@@ -77,7 +77,7 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION public.merge_entry(p_id uuid, p_user_id uuid, p_device_id uuid, p_type text, p_title text, p_content text, p_date date, p_period text, p_status text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) RETURNS jsonb
+CREATE FUNCTION public.merge_entry(p_id uuid, p_user_id uuid, p_device_id uuid, p_type text, p_title text, p_content text, p_date date, p_period text, p_status text, p_body text, p_priority text, p_due_date date, p_scheduled_time timestamp with time zone, p_list_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_scheduled_time_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) RETURNS jsonb
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -92,15 +92,15 @@ BEGIN
 
     IF NOT FOUND THEN
         INSERT INTO entries (
-            id, user_id, device_id, type, title, content, date, period, status, body, priority, due_date, list_id,
+            id, user_id, device_id, type, title, content, date, period, status, body, priority, due_date, scheduled_time, list_id,
             created_at, deleted_at,
             title_updated_at, content_updated_at, date_updated_at, period_updated_at, status_updated_at,
-            body_updated_at, priority_updated_at, due_date_updated_at, list_updated_at
+            body_updated_at, priority_updated_at, due_date_updated_at, scheduled_time_updated_at, list_updated_at
         ) VALUES (
-            p_id, p_user_id, p_device_id, p_type, p_title, p_content, p_date, p_period, p_status, p_body, p_priority, p_due_date, p_list_id,
+            p_id, p_user_id, p_device_id, p_type, p_title, p_content, p_date, p_period, p_status, p_body, p_priority, p_due_date, p_scheduled_time, p_list_id,
             p_created_at, p_deleted_at,
             p_title_updated_at, p_content_updated_at, p_date_updated_at, p_period_updated_at, p_status_updated_at,
-            p_body_updated_at, p_priority_updated_at, p_due_date_updated_at, p_list_updated_at
+            p_body_updated_at, p_priority_updated_at, p_due_date_updated_at, p_scheduled_time_updated_at, p_list_updated_at
         )
         RETURNING * INTO v_result;
     ELSE
@@ -126,6 +126,8 @@ BEGIN
                 priority_updated_at  = GREATEST(p_priority_updated_at,   v_existing.priority_updated_at),
                 due_date             = CASE WHEN p_due_date_updated_at   > v_existing.due_date_updated_at   THEN p_due_date   ELSE v_existing.due_date   END,
                 due_date_updated_at  = GREATEST(p_due_date_updated_at,   v_existing.due_date_updated_at),
+                scheduled_time             = CASE WHEN p_scheduled_time_updated_at   > v_existing.scheduled_time_updated_at   THEN p_scheduled_time   ELSE v_existing.scheduled_time   END,
+                scheduled_time_updated_at  = GREATEST(p_scheduled_time_updated_at,   v_existing.scheduled_time_updated_at),
                 list_id              = CASE WHEN p_list_updated_at       > v_existing.list_updated_at       THEN p_list_id    ELSE v_existing.list_id    END,
                 list_updated_at      = GREATEST(p_list_updated_at,       v_existing.list_updated_at)
             WHERE id = p_id RETURNING * INTO v_result;
@@ -249,6 +251,7 @@ BEGIN
         NEW.body_updated_at := COALESCE(NEW.body_updated_at, now());
         NEW.priority_updated_at := COALESCE(NEW.priority_updated_at, now());
         NEW.due_date_updated_at := COALESCE(NEW.due_date_updated_at, now());
+        NEW.scheduled_time_updated_at := COALESCE(NEW.scheduled_time_updated_at, now());
     ELSIF TG_OP = 'UPDATE' THEN
         IF NEW.title IS DISTINCT FROM OLD.title THEN
             NEW.title_updated_at := now();
@@ -273,6 +276,9 @@ BEGIN
         END IF;
         IF NEW.due_date IS DISTINCT FROM OLD.due_date THEN
             NEW.due_date_updated_at := now();
+        END IF;
+        IF NEW.scheduled_time IS DISTINCT FROM OLD.scheduled_time THEN
+            NEW.scheduled_time_updated_at := now();
         END IF;
         IF NEW.list_id IS DISTINCT FROM OLD.list_id THEN
             NEW.list_updated_at := now();
@@ -483,12 +489,14 @@ BEGIN
                 v_row->>'p_type', v_row->>'p_title', v_row->>'p_content',
                 (v_row->>'p_date')::date, v_row->>'p_period', v_row->>'p_status',
                 v_row->>'p_body', v_row->>'p_priority', (v_row->>'p_due_date')::date,
+                (v_row->>'p_scheduled_time')::timestamptz,
                 (v_row->>'p_list_id')::uuid,
                 (v_row->>'p_created_at')::timestamptz, (v_row->>'p_deleted_at')::timestamptz,
                 (v_row->>'p_title_updated_at')::timestamptz, (v_row->>'p_content_updated_at')::timestamptz,
                 (v_row->>'p_date_updated_at')::timestamptz, (v_row->>'p_period_updated_at')::timestamptz,
                 (v_row->>'p_status_updated_at')::timestamptz, (v_row->>'p_body_updated_at')::timestamptz,
                 (v_row->>'p_priority_updated_at')::timestamptz, (v_row->>'p_due_date_updated_at')::timestamptz,
+                (v_row->>'p_scheduled_time_updated_at')::timestamptz,
                 (v_row->>'p_list_updated_at')::timestamptz
             );
             v_results := v_results || jsonb_build_array(jsonb_build_object('id', v_row->>'p_id', 'success', true, 'row', v_result));
@@ -786,6 +794,7 @@ CREATE TABLE public.entries (
     body text,
     priority text,
     due_date date,
+    scheduled_time timestamp with time zone,
     list_id uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -799,6 +808,7 @@ CREATE TABLE public.entries (
     body_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     priority_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     due_date_updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    scheduled_time_updated_at timestamp with time zone DEFAULT now() NOT NULL,
     list_updated_at timestamp with time zone DEFAULT now(),
     CONSTRAINT entries_pkey PRIMARY KEY (id),
     CONSTRAINT entries_type_check CHECK ((type = ANY (ARRAY['task'::text, 'note'::text]))),
@@ -1094,9 +1104,9 @@ GRANT ALL ON FUNCTION public.entries_trigger_fn() TO anon;
 GRANT ALL ON FUNCTION public.entries_trigger_fn() TO authenticated;
 GRANT ALL ON FUNCTION public.entries_trigger_fn() TO service_role;
 
-GRANT ALL ON FUNCTION public.merge_entry(p_id uuid, p_user_id uuid, p_device_id uuid, p_type text, p_title text, p_content text, p_date date, p_period text, p_status text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) TO anon;
-GRANT ALL ON FUNCTION public.merge_entry(p_id uuid, p_user_id uuid, p_device_id uuid, p_type text, p_title text, p_content text, p_date date, p_period text, p_status text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) TO authenticated;
-GRANT ALL ON FUNCTION public.merge_entry(p_id uuid, p_user_id uuid, p_device_id uuid, p_type text, p_title text, p_content text, p_date date, p_period text, p_status text, p_body text, p_priority text, p_due_date date, p_list_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) TO service_role;
+GRANT ALL ON FUNCTION public.merge_entry(p_id uuid, p_user_id uuid, p_device_id uuid, p_type text, p_title text, p_content text, p_date date, p_period text, p_status text, p_body text, p_priority text, p_due_date date, p_scheduled_time timestamp with time zone, p_list_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_scheduled_time_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) TO anon;
+GRANT ALL ON FUNCTION public.merge_entry(p_id uuid, p_user_id uuid, p_device_id uuid, p_type text, p_title text, p_content text, p_date date, p_period text, p_status text, p_body text, p_priority text, p_due_date date, p_scheduled_time timestamp with time zone, p_list_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_scheduled_time_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) TO authenticated;
+GRANT ALL ON FUNCTION public.merge_entry(p_id uuid, p_user_id uuid, p_device_id uuid, p_type text, p_title text, p_content text, p_date date, p_period text, p_status text, p_body text, p_priority text, p_due_date date, p_scheduled_time timestamp with time zone, p_list_id uuid, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_title_updated_at timestamp with time zone, p_content_updated_at timestamp with time zone, p_date_updated_at timestamp with time zone, p_period_updated_at timestamp with time zone, p_status_updated_at timestamp with time zone, p_body_updated_at timestamp with time zone, p_priority_updated_at timestamp with time zone, p_due_date_updated_at timestamp with time zone, p_scheduled_time_updated_at timestamp with time zone, p_list_updated_at timestamp with time zone) TO service_role;
 
 GRANT ALL ON FUNCTION public.merge_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_entry_id uuid, p_entry_type text, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO anon;
 GRANT ALL ON FUNCTION public.merge_assignment(p_id uuid, p_user_id uuid, p_device_id uuid, p_entry_id uuid, p_entry_type text, p_period text, p_date date, p_spread_id uuid, p_status text, p_created_at timestamp with time zone, p_deleted_at timestamp with time zone, p_status_updated_at timestamp with time zone) TO authenticated;

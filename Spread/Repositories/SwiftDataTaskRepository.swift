@@ -105,7 +105,7 @@ final class SwiftDataTaskRepository: TaskRepository {
     private enum Constants {
         /// Fields reported as changed on every non-delete task mutation.
         static let changedFields = [
-            "title", "body", "priority", "due_date", "list_id",
+            "title", "body", "priority", "due_date", "scheduled_time", "list_id",
             "date", "period", "status"
         ]
         /// Fields reported as changed on every non-delete task-assignment mutation.
