@@ -7782,7 +7782,8 @@ Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pr
 
 **Progress (commits landed on feature/SESH-30)**
 1. **[SPRD-302][1/n]** — Task + Note edit-save error surfacing. Moved each sheet's edit-mode `save()` routine onto its `@Observable ViewModel` as `saveEdits(to:journalManager:) async -> Bool` (behavior-preserving lift; the missing `errorMessage = error.localizedDescription` added in the catch), with the shared `createPendingMultidaySpreadIfNeeded` helper moved alongside so create/edit paths share one copy; views keep only success-dismissal. Picked first because it's the testability seam the other AC1/AC2 work hangs off. New error-injecting `MockTaskRepository`/`MockNoteRepository` (main target, `Mock*` convention). 4 new tests in `TaskEntrySheetViewModelSaveTests`/`NoteEntrySheetViewModelSaveTests` (failure sets `errorMessage` + resets `isBusy`; success returns true, no error). Full suite: 1397 tests green. AC1 ✅ AC2 ✅
-- Remaining for this task: AC3 (SettingsView renders `saveError`), AC4 (Collections `try?` removal + surfacing).
+2. **[SPRD-302][2/n]** — `SettingsView` now presents its `saveError` as a "Couldn't Save Settings" alert (same isPresented-binding pattern as `EntrySheet`'s error alert); previously the state was assigned but never rendered. View-only change, no logic; build green. AC3 ✅
+- Remaining for this task: AC4 (Collections `try?` removal + surfacing).
 
 ### [SPRD-303] Feature: Replace launch-init fatalError with an error screen + in-place retry - [ ] Pending
 

@@ -27,6 +27,14 @@ struct SettingsView: View {
             calendarSection
             aboutSection
         }
+        .alert("Couldn't Save Settings", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("OK") { saveError = nil }
+        } message: {
+            Text(saveError ?? "")
+        }
     }
 
     // MARK: - Calendar Section
