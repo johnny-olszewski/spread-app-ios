@@ -19,6 +19,11 @@ struct EntryRowView: View {
     @State private var isConfirmingChanges: Bool = false
     @FocusState private var isTitleFocused: Bool
 
+    /// Measured height of the row's text column (title row + optional subtitle), captured via
+    /// `ContentColumnHeightKey` so the scheduled-time block can be capped to it and never grow
+    /// the row, regardless of Dynamic Type size or how many lines the title wraps to.
+    @State private var contentColumnHeight: CGFloat?
+
     // MARK: - Initialisation
 
     init(entry: any Entry, configuration: Configuration) {
@@ -123,7 +128,6 @@ struct EntryRowView: View {
                         .iconTint(color)
                 }
             }
-
             if let subtitle = configuration.subtitle?(entry) {
                 Text(subtitle)
                     .font(SpreadTheme.Typography.caption)
@@ -131,8 +135,21 @@ struct EntryRowView: View {
                     .lineLimit(1)
             }
         }
+        .background {
+            GeometryReader { proxy in
+                Color.clear.preference(key: ContentColumnHeightKey.self, value: proxy.size.height)
+            }
+        }
+        .onPreferenceChange(ContentColumnHeightKey.self) { height in
+            contentColumnHeight = height
+        }
         .safeAreaInset(edge: .leading) {
-            statusButton
+            HStack(spacing: SpreadTheme.Spacing.small) {
+                statusButton
+                if let scheduledStart = entry.scheduledStart {
+                    scheduledTimeBlock(start: scheduledStart, end: entry.scheduledEnd)
+                }
+            }
         }
         .safeAreaInset(edge: .trailing) {
             if $isTitleFocused.wrappedValue {
@@ -222,7 +239,28 @@ struct EntryRowView: View {
         .contentShape(Rectangle())
         .allowsHitTesting(configuration.onStatusIconTap != nil)
     }
-    
+
+    /// The scheduled-time column shown between the status icon and the title/details column
+    /// when `entry.scheduledStart` is non-nil. Stacks start above end (end only for timed
+    /// events); tasks show a single time. Capped to `contentColumnHeight` — the measured height
+    /// of the row's text column (see `ContentColumnHeightKey`) — so a two-line time stack can
+    /// never grow the row beyond what an untimed row already occupies.
+    @ViewBuilder
+    private func scheduledTimeBlock(start: Date, end: Date?) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(start.formatted(date: .omitted, time: .shortened))
+            if let end {
+                Text(end.formatted(date: .omitted, time: .shortened))
+            }
+        }
+        .font(SpreadTheme.Typography.caption2)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .frame(height: contentColumnHeight, alignment: .center)
+        .clipped()
+    }
+
     @ViewBuilder
     private func editEntryButton(_ labelStyle: some LabelStyle = TitleAndIconLabelStyle()) -> some View {
 
@@ -328,6 +366,18 @@ private struct ReadOnlyRowInteractionModifier<ContextMenuContent: View>: ViewMod
     }
 }
 
+// MARK: - Content Column Height Measurement
+
+/// Reports the rendered height of `EntryRowView`'s text column (title row + optional subtitle)
+/// so the scheduled-time leading column can be capped to it via `contentColumnHeight`.
+private struct ContentColumnHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat? = nil
+
+    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) {
+        value = nextValue() ?? value
+    }
+}
+
 // MARK: - Previews
 
 #Preview("Task - Open") {
@@ -366,4 +416,48 @@ private struct ReadOnlyRowInteractionModifier<ContextMenuContent: View>: ViewMod
         isGreyedOut: { _ in false }
     )
     return List { EntryRowView(entry: note, configuration: config) }
+}
+
+#Preview("Task - Scheduled Time") {
+    let task = DataModel.Task(
+        title: "Call the dentist",
+        scheduledTime: .getDate(calendar: .current, year: 2026, month: 7, day: 10)?
+            .addingTimeInterval(15 * 3600),
+        status: .open
+    )
+    let config = EntryRowView.Configuration(
+        isGreyedOut: { _ in false },
+        hasStrikethrough: { _ in false },
+        onStatusIconTap: { _ in },
+        onTitleCommit: { _, _ in }
+    )
+    List { EntryRowView(entry: task, configuration: config) }
+}
+
+#Preview("Event - Timed Range") {
+    let start = Date.getDate(calendar: .current, year: 2026, month: 7, day: 10)?.addingTimeInterval(9.5 * 3600) ?? .now
+    let end = start.addingTimeInterval(3600)
+    let event = DataModel.Event(
+        title: "Design review",
+        timing: .timed,
+        startDate: start,
+        endDate: end,
+        startTime: start,
+        endTime: end
+    )
+    let config = EntryRowView.Configuration(
+        isGreyedOut: { _ in false }
+    )
+    List { EntryRowView(entry: event, configuration: config) }
+}
+
+#Preview("Task - No Time") {
+    let task = DataModel.Task(title: "Water the plants", status: .open)
+    let config = EntryRowView.Configuration(
+        isGreyedOut: { _ in false },
+        hasStrikethrough: { _ in false },
+        onStatusIconTap: { _ in },
+        onTitleCommit: { _, _ in }
+    )
+    List { EntryRowView(entry: task, configuration: config) }
 }

@@ -29,6 +29,7 @@ struct SpreadDeletionCoordinatorTests {
             spreadRepository: spreadRepository,
             taskRepository: TestTaskRepository(),
             noteRepository: TestNoteRepository(),
+            ruleEngine: JournalRuleEngine(calendar: Self.calendar),
             calendar: Self.calendar
         )
         return (coordinator, spreadRepository)
@@ -50,6 +51,7 @@ struct SpreadDeletionCoordinatorTests {
             spreadRepository: TestSpreadRepository(spreads: [monthSpread, daySpread]),
             taskRepository: TestTaskRepository(),
             noteRepository: TestNoteRepository(),
+            ruleEngine: JournalRuleEngine(calendar: Self.calendar),
             calendar: Self.calendar
         )
 
@@ -58,6 +60,46 @@ struct SpreadDeletionCoordinatorTests {
         #expect(result.mutatedTasks.map(\.id) == [task.id])
         let monthAssignment = task.allAssignmentsForTesting.first { $0.period == .month }
         #expect(monthAssignment?.status == .open)
+    }
+
+    /// Conditions: A day spread carrying a timed task is deleted; the task's only viable
+    /// replacement is the parent month spread (SPRD-298: deleting a task's day spread always
+    /// leaves day period, since a day's only parent is month).
+    /// Expected: `scheduledTime` is cleared to `nil` and `scheduledTimeUpdatedAt` is stamped.
+    @Test func testDeleteSpreadClearsScheduledTimeOnReassignmentToMonth() async throws {
+        let taskDate = Self.testDate
+        let monthSpread = DataModel.Spread(period: .month, date: taskDate, calendar: Self.calendar)
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
+        let scheduledTime = Self.calendar.date(byAdding: .hour, value: 14, to: taskDate)!
+        let task = DataModel.Task(
+            title: "Test Task", scheduledTime: scheduledTime, date: taskDate, period: .day, status: .open,
+            currentAssignments: [Assignment(period: .day, date: taskDate, status: .open)]
+        )
+        let (coordinator, _) = makeCoordinator(spreads: [monthSpread, daySpread])
+
+        try await coordinator.deleteSpread(daySpread, spreads: [monthSpread, daySpread], tasks: [task], notes: [])
+
+        #expect(task.scheduledTime == nil)
+        #expect(task.scheduledTimeUpdatedAt != nil)
+    }
+
+    /// Conditions: A day spread carrying a timed task is deleted and no parent spread exists.
+    /// Expected: the task falls to Inbox and `scheduledTime` is cleared to `nil`, stamping
+    /// `scheduledTimeUpdatedAt`.
+    @Test func testDeleteSpreadClearsScheduledTimeOnFallbackToInbox() async throws {
+        let taskDate = Self.testDate
+        let daySpread = DataModel.Spread(period: .day, date: taskDate, calendar: Self.calendar)
+        let scheduledTime = Self.calendar.date(byAdding: .hour, value: 9, to: taskDate)!
+        let task = DataModel.Task(
+            title: "Test Task", scheduledTime: scheduledTime, date: taskDate, period: .day, status: .open,
+            currentAssignments: [Assignment(period: .day, date: taskDate, status: .open)]
+        )
+        let (coordinator, _) = makeCoordinator(spreads: [daySpread])
+
+        try await coordinator.deleteSpread(daySpread, spreads: [daySpread], tasks: [task], notes: [])
+
+        #expect(task.scheduledTime == nil)
+        #expect(task.scheduledTimeUpdatedAt != nil)
     }
 
     /// Conditions: A day spread is deleted and a parent month spread exists.
@@ -74,6 +116,7 @@ struct SpreadDeletionCoordinatorTests {
             spreadRepository: TestSpreadRepository(spreads: [monthSpread, daySpread]),
             taskRepository: TestTaskRepository(),
             noteRepository: TestNoteRepository(),
+            ruleEngine: JournalRuleEngine(calendar: Self.calendar),
             calendar: Self.calendar
         )
 
@@ -160,6 +203,7 @@ struct SpreadDeletionCoordinatorTests {
             spreadRepository: TestSpreadRepository(spreads: [daySpread]),
             taskRepository: taskRepository,
             noteRepository: noteRepository,
+            ruleEngine: JournalRuleEngine(calendar: Self.calendar),
             calendar: Self.calendar
         )
 

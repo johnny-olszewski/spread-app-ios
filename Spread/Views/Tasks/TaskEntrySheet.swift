@@ -447,8 +447,70 @@ struct TaskEntrySheet: View {
             if viewModel.formModel.hasPreferredAssignment {
                 periodSection
                 dateSection
+                if viewModel.formModel.isScheduledTimeAvailable {
+                    scheduledTimeSection
+                }
             }
         }
+    }
+
+    /// Time add/remove chip + inline hour-and-minute picker, offered only for day-period
+    /// assignments (SPRD-299). Moving the selection off day discards any pending time via
+    /// `TaskEditorFormModel.setPeriod`/`setPreferredAssignmentEnabled`.
+    @ViewBuilder
+    private var scheduledTimeSection: some View {
+        let toggleIdentifier = viewModel.mode == .create
+            ? Definitions.AccessibilityIdentifiers.TaskCreationSheet.scheduledTimeToggle
+            : Definitions.AccessibilityIdentifiers.TaskDetailSheet.scheduledTimeToggle
+        VStack(alignment: .leading, spacing: 6) {
+            EntrySheetSectionHeader(title: "Time")
+
+            EntrySheetOptionalFieldChip(
+                addTitle: "Add time",
+                valueTitle: viewModel.formModel.hasScheduledTime ? formattedScheduledTime : nil,
+                addAccessibilityIdentifier: toggleIdentifier,
+                valueAccessibilityIdentifier: toggleIdentifier,
+                onAdd: {
+                    viewModel.formModel.hasScheduledTime = true
+                    coordinator.isScheduledTimePickerVisible = true
+                },
+                onRemove: {
+                    viewModel.formModel.hasScheduledTime = false
+                    coordinator.isScheduledTimePickerVisible = false
+                },
+                onValueTapped: {
+                    coordinator.isScheduledTimePickerVisible.toggle()
+                }
+            )
+            .disabled(!isAssignmentEditable)
+            .opacity(isAssignmentEditable ? 1 : 0.7)
+
+            if viewModel.formModel.hasScheduledTime && coordinator.isScheduledTimePickerVisible {
+                DatePicker(
+                    "Scheduled time",
+                    selection: $viewModel.formModel.scheduledTimeOfDay,
+                    displayedComponents: .hourAndMinute
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .environment(\.calendar, viewModel.presentedTemporalContext.calendar)
+                .accessibilityIdentifier(viewModel.mode == .create
+                    ? Definitions.AccessibilityIdentifiers.TaskCreationSheet.scheduledTimePicker
+                    : Definitions.AccessibilityIdentifiers.TaskDetailSheet.scheduledTimePicker
+                )
+                .disabled(!isAssignmentEditable)
+            }
+        }
+    }
+
+    /// Formatted scheduled time shown on the value chip (e.g. "3:00 PM").
+    private var formattedScheduledTime: String {
+        let formatter = DateFormatter()
+        formatter.calendar = viewModel.presentedTemporalContext.calendar
+        formatter.timeZone = viewModel.presentedTemporalContext.calendar.timeZone
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: viewModel.formModel.scheduledTimeOfDay)
     }
 
     @ViewBuilder
@@ -652,7 +714,8 @@ struct TaskEntrySheet: View {
                     preferredSpreadID: preferredSpreadID,
                     body: viewModel.formModel.sanitizedBody,
                     priority: viewModel.formModel.priority,
-                    dueDate: viewModel.formModel.effectiveDueDate
+                    dueDate: viewModel.formModel.effectiveDueDate,
+                    scheduledTime: viewModel.formModel.effectiveScheduledTime
                 )
                 onTaskCreated?(newTask)
                 dismiss()
@@ -698,6 +761,7 @@ struct TaskEntrySheet: View {
                     viewModel.formModel.sanitizedBody != task.body ||
                     viewModel.formModel.priority != task.priority ||
                     viewModel.formModel.effectiveDueDate != task.dueDate ||
+                    viewModel.formModel.effectiveScheduledTime != task.scheduledTime ||
                     viewModel.formModel.selectedList?.id != task.list?.id ||
                     Set(selectedTags.map(\.id)) != Set(task.tags.map(\.id))
                 if metadataChanged {
@@ -706,6 +770,7 @@ struct TaskEntrySheet: View {
                         body: viewModel.formModel.sanitizedBody,
                         priority: viewModel.formModel.priority,
                         dueDate: viewModel.formModel.effectiveDueDate,
+                        scheduledTime: viewModel.formModel.effectiveScheduledTime,
                         list: viewModel.formModel.selectedList,
                         tags: selectedTags
                     )

@@ -45,7 +45,11 @@ final class JournalManager {
     /// coordinator would risk holding a stale copy.
     private var spreadDeletionCoordinator: SpreadDeletionCoordinator {
         SpreadDeletionCoordinator(
-            spreadRepository: spreadRepository, taskRepository: taskRepository, noteRepository: noteRepository, calendar: calendar
+            spreadRepository: spreadRepository,
+            taskRepository: taskRepository,
+            noteRepository: noteRepository,
+            ruleEngine: ruleEngine,
+            calendar: calendar
         )
     }
 
@@ -675,7 +679,8 @@ final class JournalManager {
         preferredSpreadID: UUID? = nil,
         body: String?,
         priority: DataModel.Task.Priority,
-        dueDate: Date?
+        dueDate: Date?,
+        scheduledTime: Date? = nil
     ) async throws -> DataModel.Task {
         let task = try await taskCoordinator.addTask(
             title: title,
@@ -685,6 +690,7 @@ final class JournalManager {
             body: body,
             priority: priority,
             dueDate: dueDate,
+            scheduledTime: scheduledTime,
             spreads: spreads
         )
         upsertTask(task)
@@ -710,8 +716,18 @@ final class JournalManager {
     }
 
     /// Updates independently mergeable task metadata.
-    func updateTaskMetadata(_ task: DataModel.Task, body: String?, priority: DataModel.Task.Priority, dueDate: Date?, list: DataModel.List? = nil, tags: [DataModel.Tag] = []) async throws {
-        try await taskCoordinator.updateMetadata(task, body: body, priority: priority, dueDate: dueDate, list: list, tags: tags)
+    func updateTaskMetadata(
+        _ task: DataModel.Task,
+        body: String?,
+        priority: DataModel.Task.Priority,
+        dueDate: Date?,
+        scheduledTime: Date?,
+        list: DataModel.List? = nil,
+        tags: [DataModel.Tag] = []
+    ) async throws {
+        try await taskCoordinator.updateMetadata(
+            task, body: body, priority: priority, dueDate: dueDate, scheduledTime: scheduledTime, list: list, tags: tags
+        )
         upsertTask(task)
     }
 

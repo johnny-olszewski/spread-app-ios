@@ -13,6 +13,11 @@ struct EntryListOptionsPicker: View {
     let grouping: EntryGroupingOption
     let sorting: EntrySortOption
     var config: Config = .default
+
+    /// The order-by options offered. Defaults to `universalOptions`; Day passes `allCases`
+    /// to additionally offer `.time`, which only applies to day spreads. [SPRD-301]
+    var sortingOptions: [EntrySortOption] = EntrySortOption.universalOptions
+
     let onGroupingSelected: (EntryGroupingOption) -> Void
     let onSortingSelected: (EntrySortOption) -> Void
 
@@ -24,6 +29,9 @@ struct EntryListOptionsPicker: View {
         // option rather than a Picker — lets the current selection be a plain value instead
         // of requiring a Binding, with the checkmark drawn explicitly per selected option.
         Menu {
+            // Grouping is inapplicable while ordering by time — a single chronological
+            // flow has no buckets — so the submenu is disabled rather than silently
+            // ignored. [SPRD-301]
             Menu("Group By") {
                 ForEach(EntryGroupingOption.allCases) { option in
                     Button {
@@ -33,8 +41,9 @@ struct EntryListOptionsPicker: View {
                     }
                 }
             }
+            .disabled(sorting == .time)
             Menu("Order By") {
-                ForEach(EntrySortOption.allCases) { option in
+                ForEach(sortingOptions) { option in
                     Button {
                         onSortingSelected(option)
                     } label: {

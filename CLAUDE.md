@@ -4,17 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build Commands
 
+Schemes are **"Spread Localhost"** (local Docker/Supabase stack) and **"Spread Prod"**. There is **no** `Spread` scheme — `-scheme Spread` fails with "does not contain a scheme named Spread". If any build errors that way, run `xcodebuild -list` to confirm current scheme names.
+
 ```bash
 # Build the project
-xcodebuild -scheme Spread -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+xcodebuild -scheme "Spread Localhost" -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 
 # Run tests
-xcodebuild -scheme Spread -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+xcodebuild -scheme "Spread Localhost" -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
 
 # Run a single test
-xcodebuild -scheme Spread -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+xcodebuild -scheme "Spread Localhost" -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -only-testing:SpreadTests/SpreadTests/testFunctionName test
 ```
+
+If the named simulator errors with "iOS XX is not installed", fall back to `-destination 'generic/platform=iOS Simulator'`.
 
 ## Project Overview
 
@@ -73,6 +77,13 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 
 ## Architecture Decisions
 
+### Using Subagents
+
+- **Broad searches**: Use the `Explore` agent for multi-file/naming-convention sweeps where only the conclusion matters (e.g., "where is X pattern used across the codebase") — keeps the main thread's context clean.
+- **Parallel audits on large refactors**: When a change spans many files, fan out independent read-only audits concurrently — one per concern (algorithmic complexity, redundancy/duplication, test coverage, `@MainActor`/Sendable correctness) — then integrate their findings on the main thread.
+- **Parity validation**: When consolidating or replacing legacy logic, a subagent can independently verify the new code produces identical output to the old on the same inputs.
+- **Main thread stays the integrator**: Subagents research and report; decisions, edits, and commits happen on the main thread. Only spawn agents when the task genuinely fans out — a single-file change does not need one.
+
 ### Testability
 
 - **Protocols at boundaries**: Introduce protocols at dependency injection points (services, repositories, coordinators) to enable test substitution. Simple value types, helpers, and internal logic stay concrete.
@@ -119,6 +130,8 @@ SpreadTests/                # Swift Testing tests (mirrors source structure)
 - **Ask, don't assume**: When requirements are ambiguous or an architectural decision could go multiple ways (new protocols, new files, dependency patterns), ask for clarification before proceeding. Follow established patterns autonomously for routine implementation.
 - **Pros/cons for decisions**: When presenting options, provide pros and cons and a recommendation for each.
 - **Check for redundancy before implementing**: Before adding new logic (helpers, computed properties, extensions, view models), search for existing code that already does something similar — including the same logic duplicated across files. Prefer extending or sharing existing implementations (e.g., promoting a duplicated helper to a shared protocol extension) over adding a new, parallel one.
+- **Bias to simplicity and readability**: When choosing between a more generic/scalable design and a simpler, more readable one, prefer readability unless a concrete, near-term requirement justifies the abstraction. "Simplify" is a valid goal on its own — aim for a good balance between dynamic/generic/scalable and easy to read and follow. Don't build extension points for hypothetical future needs.
+- **Debug with tooling, not hunches**: For non-obvious bugs, do not guess-and-check. Reach for real diagnostics first (Instruments, `os_signpost`, the SwiftUI view debugger, `Self._printChanges()`) and research how the specific class of problem is actually diagnosed before proposing fixes. Surface findings and options as you go — treat debugging as collaborative.
 - **Prefer first-class APIs over wrapper closures**: Before adding a closure parameter or computed property to derive data, verify `JournalManager` (or another existing service) doesn't already expose it directly. E.g., `journalManager.spreadDataModel(for:period:)?.spread` is the first-class lookup — wrapping it in a closure on the view adds indirection with no benefit.
 - **Two elements over one conditional element**: When a button or UI element has meaningfully different label, icon, and action depending on state, use two distinct elements with an `if/else` rather than a single element with conditional content. This makes SwiftUI animations work correctly and the intent clearer.
 - **Delete production code with no production caller**: If a type or method in the main target has zero callers outside test files (including when it's only kept alive as a "legacy baseline" for a parity test against newer code), delete it rather than leaving it as dead weight — Debug-only call sites (under `Debug/`, gated by `#if DEBUG`) count as real callers, test-only call sites do not. Before deleting, check whether any test exercises real behavior solely through the dead code with no equivalent coverage elsewhere; if so, port that behavior assertion to a still-live call path (or delete the test if the behavior is already covered) rather than leaving a parity test comparing against nothing.

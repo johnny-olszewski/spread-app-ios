@@ -7622,3 +7622,140 @@ Supabase: SPRD-85A -> SPRD-85C
 7. **[SPRD-295][7/n]** — Popover polish: disambiguation option rows are pre-built in `buildNavigatorCalendarData` (year → date → options, only for dates covered by 2+ spreads) so day taps do zero label/formatter work; the popover host is permanently mounted (invisible anchor repositioned via `DateCellAnchorKey`) so presentation animates immediately with the arrow on the tapped cell instead of waiting for a conditional view insertion; every navigation out of the navigator (day tap, popover selection, View month/year) now collapses the pane with animation via the shared `selectedSpread` binding setter.
 8. **[SPRD-295][8/n]** — Fixes: popover now anchors on the tapped cell via an explicit `.rect(.rect(anchorRect))` on a full-size clear host (attaching to a `.position`-wrapped sub-view anchored to the whole calendar's bounds, pinning the popover near the top for every tap); the navigator gets a fresh identity per open (`navigatorPresentationToken` as `.id` on both the regular pane and the compact cover) so `initialScrollTarget: today` reseeds and the calendar opens on the current month.
 - Remaining for this task: none — all ACs complete.
+
+---
+
+### [SPRD-296] Feature: Task scheduledTime model field + Entry time capability and accessors - [x] Done
+
+- **Context**: Tasks need a user-assigned "when I intend to do it" time that sorts against calendar events; entry types must declare time-assignability generically rather than call sites downcasting per type.
+- **Description**: Add `scheduledTime: Date?` (absolute instant) and `scheduledTimeUpdatedAt: Date?` to `DataModel.Task` following the `dueDate` template. Add `isTimeAssignable: Bool` to the `Entry` protocol (default `false`; Task `true`) following the `isInboxEligible` pattern. Add `scheduledStart: Date?`/`scheduledEnd: Date?` accessors to `Entry` (default `nil`; Task: `scheduledTime`/`nil`; Event: `startTime`/`endTime` when `timing == .timed`, else `nil`).
+- **Spec**: `Documentation/Specs/TaskScheduledTime.md` — Data model
+- **Acceptance Criteria**:
+  - AC1: `DataModel.Task` persists `scheduledTime` and `scheduledTimeUpdatedAt`, both defaulting to `nil`, with init parameters matching the `dueDate` pattern.
+  - AC2: `Entry.isTimeAssignable` defaults to `false`; `DataModel.Task` returns `true`; Note and Event return `false`.
+  - AC3: `scheduledStart`/`scheduledEnd` return the spec-defined values per type; a `.timed` event exposes both, an all-day/single-day event exposes neither.
+  - AC4: Build succeeds with no errors; existing tests pass.
+- **Tests**:
+  - Unit tests for `scheduledStart`/`scheduledEnd` across Task (with/without time), Event (timed vs. all-day/single-day), and Note.
+  - Unit test that `isTimeAssignable` is `true` only for Task.
+
+**Progress (commits landed on feature/SESH-29)**
+1. **[SPRD-296][1/n]** — `scheduledTime`/`scheduledTimeUpdatedAt` on `DataModel.Task` (dueDate template, init params); `Entry.isTimeAssignable` (default false, Task true) and `scheduledStart`/`scheduledEnd` accessors (Task: scheduledTime/nil; Event: startTime/endTime when `.timed`; Note: nil). 6 tests in `EntryScheduledTimeTests`. All ACs ✅.
+
+---
+
+### [SPRD-297] Feature: Supabase scheduled_time column + LWW sync round-trip - [x] Done
+
+- **Context**: `scheduledTime` must sync like every other LWW task field; there are no production users, so the change folds into the squashed baseline schema (see `feedback_squash_migrations_pre_release`).
+- **Description**: Extend `supabase/migrations/20260624000000_baseline_schema.sql`: add `scheduled_time timestamptz` (nullable) and `scheduled_time_updated_at timestamptz` to `entries`; extend `merge_entry`'s signature and LWW body, the field-timestamp touch trigger, and the batched apply function. Extend `SyncSerializer`/`DataModel.Task+SerializableData` to round-trip the field (notes always `NULL`). Apply the additive column change to `spread-prod`, then fold it into the baseline per convention.
+- **Spec**: `Documentation/Specs/TaskScheduledTime.md` — Supabase schema and sync
+- **Acceptance Criteria**:
+  - AC1: `entries` gains both columns; `merge_entry` resolves `scheduled_time` by LWW (`scheduled_time_updated_at` comparison) identically to `due_date`.
+  - AC2: The touch trigger stamps `scheduled_time_updated_at` when `scheduled_time` changes; the batched apply function forwards both fields.
+  - AC3: Serializer round-trip: a task with and without `scheduledTime` encodes/decodes losslessly; note payloads carry no scheduled time.
+  - AC4: The schema change is applied to `spread-prod` and the local baseline matches it.
+  - AC5: Build succeeds; existing sync tests pass.
+- **Tests**:
+  - Serializer round-trip tests for `scheduledTime` present/nil, mirroring existing `dueDate` sync coverage.
+- **Dependencies**: SPRD-296
+
+**Progress (commits landed on feature/SESH-29)**
+1. **[SPRD-297][1/n]** — `scheduled_time timestamptz` + `scheduled_time_updated_at` on `entries` in the squashed baseline: merge_entry signature/INSERT/LWW body, touch trigger (both branches), `merge_entry_batch`, GRANTs. Swift: `MergeEntryParams`/`ServerEntryRow`/serialize/apply/create paths + `SerializableData`, notes always NULL; `changedFields` extended. Round-trip tests (present + nil) added. Applied to spread-prod as migration `add_task_scheduled_time` (additive; old merge_entry overload dropped and recreated with the new signature; 283 rows unaffected, verified post-apply) and folded into the baseline per convention. All ACs ✅.
+
+---
+
+### [SPRD-298] Feature: Scheduled time migration rules — rebase day→day, clear otherwise - [x] Done
+
+- **Context**: A time is only meaningful on a specific day; migration and reassignment must keep the day/time pair coherent (spec decision: keep/rebase/clear rules instead of a structural invariant).
+- **Description**: In the migration/reassignment paths (`JournalRuleEngine`/`TaskCoordinator`), when a timed task moves day→day, rebase `scheduledTime` by the whole-calendar-day delta between source and destination (clock time preserved in the current timezone); when it moves to month, year, multiday, or the Inbox, set `scheduledTime` to `nil`. Stamp `scheduledTimeUpdatedAt` on every change.
+- **Spec**: `Documentation/Specs/TaskScheduledTime.md` — Assignment gating and migration behavior
+- **Acceptance Criteria**:
+  - AC1: Day→day migration of a timed task yields a `scheduledTime` on the destination day with the same clock time.
+  - AC2: Migration/reassignment to month, year, or multiday clears `scheduledTime`.
+  - AC3: Reassignment to the Inbox (no assignment) clears `scheduledTime`.
+  - AC4: Untimed tasks migrate with no scheduled-time side effects.
+  - AC5: Build succeeds; existing migration tests pass.
+- **Tests**:
+  - Rule-engine/coordinator unit tests for AC1–AC4, including a multi-day rebase (e.g., +3 days) and a same-day no-op.
+- **Dependencies**: SPRD-296
+
+**Progress (commits landed on feature/SESH-29)**
+1. **[SPRD-298][1/n]** — Shared `JournalRuleEngine.reconcileScheduledTime(for:destinationPeriod:destinationDate:timestamp:)` (keep/rebase by whole-calendar-day delta preserving clock time; clear for non-day/Inbox; same-day and untimed no-ops; stamps LWW only on change). Called from `TaskCoordinator.updateDateAndPeriod`/`clearPreferredAssignment`/both migrate paths and `SpreadDeletionCoordinator`'s reassignment (which now takes the rule engine). 8 tests in `TaskScheduledTimeMigrationTests` + 2 deletion-path tests. All ACs ✅.
+
+---
+
+### [SPRD-299] Feature: Time chip in TaskEntrySheet gated to day-period assignment - [x] Done
+
+- **Context**: The SPRD-292 sheet vocabulary already expresses optional fields as add/remove chips (Due date); the scheduled time is set the same way, but only when the assignment selection is a specific day.
+- **Description**: Add a "Time" `EntrySheetOptionalFieldChip` to `TaskEntrySheet`, visible only when the current assignment selection is day-period with a chosen date. Tapping reveals an inline `.hourAndMinute` time picker. `TaskEditorFormModel` stores the pending selection; on save it builds the instant from the assigned day + picked clock time in the current timezone and persists it. Switching the assignment away from day-period hides the chip and discards the pending time. Edit mode pre-populates from the existing `scheduledTime`.
+- **Spec**: `Documentation/Specs/TaskScheduledTime.md` — Entry sheet
+- **Acceptance Criteria**:
+  - AC1: The Time chip appears only for day-period assignment selections with a chosen date; it is absent for Inbox, month, year, and multiday selections.
+  - AC2: Adding a time and saving persists a `scheduledTime` instant on the assigned day at the picked clock time; removing the chip and saving persists `nil`.
+  - AC3: Changing the assignment selection to a non-day period discards any pending time (chip returns to its empty state if day is re-selected).
+  - AC4: Edit mode shows the existing time in the chip and picker.
+  - AC5: Build succeeds; existing form-model and UI tests pass.
+- **Tests**:
+  - Form-model unit tests for AC1–AC4 (gating, save path, discard-on-period-change, edit prepopulation).
+- **Dependencies**: SPRD-296
+
+**Progress (commits landed on feature/SESH-29)**
+1. **[SPRD-299][1/n]** — `TaskEditorFormModel` gains `hasScheduledTime`/`scheduledTimeOfDay`, `isScheduledTimeAvailable` (day-period gating), `effectiveScheduledTime` (assigned day + picked clock time in the current calendar); pending time discarded on period change, Inbox switch, and non-day spread selection; edit init prepopulates. Sheet gains a "Time" `EntrySheetOptionalFieldChip` + inline wheel `.hourAndMinute` picker inside the assignment section (create+edit identifiers added to Definitions; expansion state on `TaskEntrySheetCoordinator`). `scheduledTime` threaded through `JournalManager.addTask`/`updateTaskMetadata` → `TaskCoordinator.addTask` (defensively dropped for non-day periods)/`updateMetadata` (LWW stamp on change). 7 tests in `TaskEditorFormModelScheduledTimeTests`; existing updateMetadata call sites updated. All ACs ✅.
+
+---
+
+### [SPRD-300] Visual: Scheduled time block in entry rows - [x] Done
+
+- **Context**: A time-sorted list is unreadable without visible times; event rows and timed tasks need one consistent time presentation.
+- **Description**: When `scheduledStart` is non-nil, `EntryRowView` renders a time block between the status icon and the title/details column: start time above end time (end only when `scheduledEnd` exists — events; tasks show a single time), stacked vertically, small standard `SpreadTheme.Typography` style in a subdued secondary color. The block must not increase the current row height. Driven entirely by the `Entry.scheduledStart`/`scheduledEnd` accessors — no per-type casting in the row.
+- **Spec**: `Documentation/Specs/TaskScheduledTime.md` — Entry row display
+- **Acceptance Criteria**:
+  - AC1: Rows without `scheduledStart` render exactly as today.
+  - AC2: A timed task shows one time; a timed event shows start over end, both between icon and title.
+  - AC3: The time block uses a small `SpreadTheme.Typography` style with a subdued color; row height is unchanged (verified against current previews).
+  - AC4: Previews cover task-with-time, event-with-range, and no-time states.
+  - AC5: Build succeeds with no errors.
+- **Tests**:
+  - No new unit tests: visual change. Verified via previews and manual inspection in both color schemes.
+- **Dependencies**: SPRD-296
+
+**Progress (commits landed on feature/SESH-29)**
+1. **[SPRD-300][1/n]** — `EntryRowView` renders a `scheduledTimeBlock` between the status icon and the text column when `scheduledStart` is non-nil: start over end (end only when `scheduledEnd` exists), `SpreadTheme.Typography.caption2` secondary. Row height guaranteed unchanged by capping the block to the measured text-column height (`ContentColumnHeightKey` preference) with `minimumScaleFactor(0.8)` + clip. Previews: task with time, timed event range, no time. All ACs ✅.
+
+---
+
+### [SPRD-301] Feature: Time sort option with integrated day-spread chronology - [x] Done
+
+- **Context**: The end state of the scheduled-time feature: on a day spread, timed tasks and calendar events interleave in one chronological flow, with untimed entries beneath.
+- **Description**: Add `.time` to `EntrySortOption`, ordering by `scheduledStart`. On day spreads, selecting Time forces group-by = None and disables grouping options in `EntryListOptionsPicker` while selected. Under Time sort, `DaySpreadContentView`'s fixed "Events" section dissolves: timed entries (tasks and ephemeral EventKit-backed events interleaved) render on top chronologically, followed by one "No time" section (`.unnamed` header style) holding untimed entries. Time is not offered on month/year/multiday pickers.
+- **Spec**: `Documentation/Specs/TaskScheduledTime.md` — Time sort integration
+- **Acceptance Criteria**:
+  - AC1: `.time` orders timed entries ascending by `scheduledStart` across mixed types, with the existing title tiebreaker.
+  - AC2: Selecting Time on a day spread forces grouping to None and disables the group-by options; deselecting Time re-enables them.
+  - AC3: Under Time sort the fixed "Events" section is gone: events and timed tasks interleave chronologically on top; untimed entries render below in a single "No time" section with the `.unnamed` header style.
+  - AC4: Time does not appear as a sort option on month, year, or multiday spreads.
+  - AC5: Timezone regression: a task scheduled between two events remains between them when the device timezone changes.
+  - AC6: Build succeeds; existing grouping/sorting tests pass.
+- **Tests**:
+  - Unit tests for AC1 (mixed-type ordering, tiebreak), AC3 (section construction: timed top, untimed "No time" section below), and AC5 (ordering invariant under a calendar/timezone change).
+- **Dependencies**: SPRD-296, SPRD-300
+
+**Progress (commits landed on feature/SESH-29)**
+1. **[SPRD-301][1/n]** — `EntrySortOption.time` (chronological by `scheduledStart`, timed before untimed, title tiebreak) + `universalOptions` excluding it; `EntryListOptionsPicker` gains `sortingOptions` (Day passes `allCases`; Month/Year/Multiday keep the default without Time) and disables the Group By submenu while Time is selected; Day's `onSortingSelected` forces grouping to None. `makeTimeSortedSections` replaces the fixed Events section under Time sort: headerless chronological section on top, "No time" `.unnamed` section below; mixed-type rows resolve via the merged view-level `listConfigurationMap`. 6 tests in `EntryListTimeSortTests` incl. the timezone-invariance regression (task between two events). Full suite: 1393 tests green. All ACs ✅.
+
+---
+
+## Implementation Orchestration: Task Scheduled Time (SPRD-296–SPRD-301)
+
+Sub-agent plan for implementing this feature with less-capable models working in parallel. Each sub-agent receives: the task's SPRD block above, the relevant section of `Documentation/Specs/TaskScheduledTime.md`, and the template file(s) named below. Sub-agents work in isolated worktrees; the orchestrating session reviews each diff, runs build + tests, and commits per the `[SPRD-#][#/n]` convention.
+
+- **Wave 1 — foundation (one agent, must land first)**
+  - SPRD-296. Small, pattern-following (templates: `dueDate` on `DataModelSchemaV1.Task`, `isInboxEligible` on `Entry.swift`). Everything else depends on its types.
+- **Wave 2 — four agents in parallel (disjoint files, all depend only on SPRD-296)**
+  - SPRD-297 (backend/sync): `baseline_schema.sql`, `SyncSerializer`, `DataModel.Task+SerializableData.swift`. Template: every `due_date` touchpoint in the same files. The `spread-prod` apply step is done by the orchestrator, not the sub-agent.
+  - SPRD-298 (rule engine): migration/reassignment paths in `JournalRuleEngine`/`TaskCoordinator` + tests.
+  - SPRD-299 (sheet): `TaskEntrySheet`, `TaskEditorFormModel` + tests. Template: the Due-date chip added in SPRD-292.
+  - SPRD-300 (row visual): `EntryRowView` + previews.
+- **Wave 3 — integration (one agent, after all of Wave 2 for meaningful QA; hard dependency only on 296/300)**
+  - SPRD-301: `EntrySortOption`, `EntryListOptionsPicker`, `DaySpreadContentView+ViewModel.makeSections` + tests.
+- **Merge order**: 296 → (297, 298, 299, 300 in any order) → 301. Conflicts are unlikely by construction (file-disjoint waves); the orchestrator resolves any that appear at merge time.

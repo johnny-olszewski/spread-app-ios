@@ -218,7 +218,7 @@ struct SyncSerializerTests {
             pId: UUID().uuidString, pUserId: UUID().uuidString,
             pDeviceId: UUID().uuidString, pType: "task", pTitle: "Test",
             pContent: nil, pDate: "2025-03-15", pPeriod: "day", pStatus: "open",
-            pBody: nil, pPriority: "none", pDueDate: nil, pListId: nil,
+            pBody: nil, pPriority: "none", pDueDate: nil, pScheduledTime: nil, pListId: nil,
             pCreatedAt: "2025-03-15T10:00:00.000Z", pDeletedAt: nil,
             pTitleUpdatedAt: "2025-03-15T10:00:00.000Z",
             pContentUpdatedAt: "2025-03-15T10:00:00.000Z",
@@ -228,6 +228,7 @@ struct SyncSerializerTests {
             pBodyUpdatedAt: "2025-03-15T10:00:00.000Z",
             pPriorityUpdatedAt: "2025-03-15T10:00:00.000Z",
             pDueDateUpdatedAt: "2025-03-15T10:00:00.000Z",
+            pScheduledTimeUpdatedAt: "2025-03-15T10:00:00.000Z",
             pListUpdatedAt: "2025-03-15T10:00:00.000Z"
         )
 
@@ -251,7 +252,7 @@ struct SyncSerializerTests {
         let row = ServerEntryRow(
             id: id, type: "task", title: "Test task", content: nil,
             date: "2025-03-15", period: "day", status: "open",
-            body: "Details", priority: "medium", dueDate: "2025-03-20", listId: nil,
+            body: "Details", priority: "medium", dueDate: "2025-03-20", scheduledTime: nil, listId: nil,
             createdAt: "2025-03-15T10:00:00.000Z", deletedAt: nil, revision: 1
         )
 
@@ -274,7 +275,7 @@ struct SyncSerializerTests {
         let row = ServerEntryRow(
             id: UUID(), type: "task", title: "Inbox task", content: nil,
             date: nil, period: nil, status: "open",
-            body: nil, priority: nil, dueDate: nil, listId: nil,
+            body: nil, priority: nil, dueDate: nil, scheduledTime: nil, listId: nil,
             createdAt: "2025-03-15T10:00:00.000Z", deletedAt: nil, revision: 1
         )
 
@@ -291,7 +292,7 @@ struct SyncSerializerTests {
         let row = ServerEntryRow(
             id: UUID(), type: "task", title: "Deleted", content: nil,
             date: "2025-03-15", period: "day", status: "open",
-            body: nil, priority: nil, dueDate: nil, listId: nil,
+            body: nil, priority: nil, dueDate: nil, scheduledTime: nil, listId: nil,
             createdAt: "2025-03-15T10:00:00.000Z",
             deletedAt: "2025-03-16T10:00:00.000Z", revision: 2
         )
@@ -305,7 +306,7 @@ struct SyncSerializerTests {
         let row = ServerEntryRow(
             id: UUID(), type: "task", title: "Bad", content: nil,
             date: "2025-03-15", period: "weekly", status: "open",
-            body: nil, priority: nil, dueDate: nil, listId: nil,
+            body: nil, priority: nil, dueDate: nil, scheduledTime: nil, listId: nil,
             createdAt: "2025-03-15T10:00:00.000Z", deletedAt: nil, revision: 1
         )
 
@@ -321,7 +322,7 @@ struct SyncSerializerTests {
         let row = ServerEntryRow(
             id: id, type: "note", title: "Note title", content: "Note body",
             date: "2025-06-01", period: "month", status: "active",
-            body: nil, priority: nil, dueDate: nil, listId: nil,
+            body: nil, priority: nil, dueDate: nil, scheduledTime: nil, listId: nil,
             createdAt: "2025-06-01T08:00:00.000Z", deletedAt: nil, revision: 5
         )
 
@@ -340,7 +341,7 @@ struct SyncSerializerTests {
         let row = ServerEntryRow(
             id: UUID(), type: "note", title: "Dateless note", content: "Body",
             date: nil, period: "day", status: "active",
-            body: nil, priority: nil, dueDate: nil, listId: nil,
+            body: nil, priority: nil, dueDate: nil, scheduledTime: nil, listId: nil,
             createdAt: "2025-06-01T08:00:00.000Z", deletedAt: nil, revision: 5
         )
 
@@ -498,7 +499,7 @@ struct SyncSerializerTests {
         let row = ServerEntryRow(
             id: task.id, type: "task", title: "New title", content: nil,
             date: "2025-06-01", period: "month", status: "complete",
-            body: "New body", priority: "high", dueDate: "2025-06-10", listId: nil,
+            body: "New body", priority: "high", dueDate: "2025-06-10", scheduledTime: nil, listId: nil,
             createdAt: "2025-01-01T00:00:00.000Z", deletedAt: nil, revision: 5
         )
 
@@ -524,7 +525,7 @@ struct SyncSerializerTests {
         let row = ServerEntryRow(
             id: task.id, type: "task", title: "Test", content: nil,
             date: "2025-03-15", period: "day", status: "open",
-            body: nil, priority: nil, dueDate: nil, listId: nil,
+            body: nil, priority: nil, dueDate: nil, scheduledTime: nil, listId: nil,
             createdAt: "2025-01-01T00:00:00.000Z",
             deletedAt: "2025-03-16T00:00:00.000Z", revision: 2
         )
@@ -588,6 +589,7 @@ struct SyncSerializerTests {
             "body": NSNull(),
             "priority": "none",
             "due_date": NSNull(),
+            "scheduled_time": NSNull(),
             "list_id": NSNull(),
             "date": "2025-03-15",
             "period": "day",
@@ -602,6 +604,7 @@ struct SyncSerializerTests {
             "body_updated_at": ts,
             "priority_updated_at": ts,
             "due_date_updated_at": ts,
+            "scheduled_time_updated_at": ts,
             "list_updated_at": ts
         ]
         return try! JSONSerialization.data(withJSONObject: record)

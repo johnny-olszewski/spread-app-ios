@@ -35,6 +35,9 @@ struct TaskCoordinator {
 
     /// Creates a new task with the specified parameters, reconciling its preferred
     /// assignment against `spreads`.
+    ///
+    /// `scheduledTime` is only meaningful for a day-period assignment (SPRD-299) and is
+    /// defensively dropped for any other `period`.
     @discardableResult
     func addTask(
         title: String,
@@ -44,6 +47,7 @@ struct TaskCoordinator {
         body: String?,
         priority: DataModel.Task.Priority,
         dueDate: Date?,
+        scheduledTime: Date? = nil,
         spreads: [DataModel.Spread]
     ) async throws -> DataModel.Task {
         let normalizedDate = date.map { period?.normalizeDate($0, calendar: ruleEngine.calendar) ?? $0 }
@@ -52,6 +56,7 @@ struct TaskCoordinator {
             body: sanitizedBody(body),
             priority: priority,
             dueDate: dueDate?.startOfDay(calendar: ruleEngine.calendar),
+            scheduledTime: period == .day ? scheduledTime : nil,
             date: normalizedDate,
             period: period,
             status: .open,
@@ -140,18 +145,30 @@ struct TaskCoordinator {
             previousAssignments: task.currentAssignments + task.migrationHistory,
             previousTagIDs: task.tags.map(\.id)
         )
-        task.date = newPeriod.normalizeDate(newDate, calendar: ruleEngine.calendar)
+        let normalizedDate = newPeriod.normalizeDate(newDate, calendar: ruleEngine.calendar)
+        ruleEngine.reconcileScheduledTime(
+            for: task,
+            destinationPeriod: newPeriod,
+            destinationDate: normalizedDate,
+            timestamp: Date.now
+        )
+        task.date = normalizedDate
         task.period = newPeriod
         ruleEngine.reconcilePreferredAssignment(for: task, in: spreads, preferredSpreadID: preferredSpreadID)
         try await taskRepository.save(task, change: change)
     }
 
     /// Updates independently mergeable task metadata.
+    ///
+    /// `scheduledTime` is not gated on the task's *current* period here: the sheet saves
+    /// metadata before a period change lands via `updateDateAndPeriod`, whose
+    /// `reconcileScheduledTime` pass then enforces the day-period invariant (SPRD-298/299).
     func updateMetadata(
         _ task: DataModel.Task,
         body: String?,
         priority: DataModel.Task.Priority,
         dueDate: Date?,
+        scheduledTime: Date?,
         list: DataModel.List? = nil,
         tags: [DataModel.Tag] = []
     ) async throws {
@@ -171,6 +188,10 @@ struct TaskCoordinator {
         if task.dueDate != normalizedDueDate {
             task.dueDate = normalizedDueDate
             task.dueDateUpdatedAt = timestamp
+        }
+        if task.scheduledTime != scheduledTime {
+            task.scheduledTime = scheduledTime
+            task.scheduledTimeUpdatedAt = timestamp
         }
         if task.list?.id != list?.id {
             task.list = list
@@ -196,6 +217,12 @@ struct TaskCoordinator {
             isNew: false,
             previousAssignments: task.currentAssignments + task.migrationHistory,
             previousTagIDs: task.tags.map(\.id)
+        )
+        ruleEngine.reconcileScheduledTime(
+            for: task,
+            destinationPeriod: nil,
+            destinationDate: nil,
+            timestamp: Date.now
         )
         task.date = nil
         task.period = nil
@@ -244,6 +271,12 @@ struct TaskCoordinator {
             sourceMatch = { $0.matches(period: sourcePeriod, date: sourceDate, spreadID: sourceSpreadID, calendar: ruleEngine.calendar) }
         }
 
+        ruleEngine.reconcileScheduledTime(
+            for: task,
+            destinationPeriod: destination.period,
+            destinationDate: destination.date,
+            timestamp: Date.now
+        )
         ruleEngine.migrateAssignment(for: task, matchingSource: sourceMatch, to: destination, status: .open)
         task.status = .open
 
@@ -265,6 +298,12 @@ struct TaskCoordinator {
             }
             let previousAssignments = task.currentAssignments + task.migrationHistory
 
+            ruleEngine.reconcileScheduledTime(
+                for: task,
+                destinationPeriod: destination.period,
+                destinationDate: destination.date,
+                timestamp: Date.now
+            )
             ruleEngine.migrateAssignment(
                 for: task,
                 matchingSource: { $0.matches(spread: source, calendar: ruleEngine.calendar) },

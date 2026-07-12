@@ -404,7 +404,8 @@ struct JournalManagerTaskCRUDTests {
             existingTask,
             body: "  Draft details  ",
             priority: .medium,
-            dueDate: dueDate
+            dueDate: dueDate,
+            scheduledTime: nil
         )
 
         #expect(existingTask.body == "Draft details")
@@ -435,7 +436,8 @@ struct JournalManagerTaskCRUDTests {
             existingTask,
             body: " \n ",
             priority: .none,
-            dueDate: nil
+            dueDate: nil,
+            scheduledTime: nil
         )
 
         #expect(existingTask.body == nil)

@@ -160,6 +160,7 @@ struct MergeEntryParams: Encodable, Sendable {
     let pBody: String?
     let pPriority: String?
     let pDueDate: String?
+    let pScheduledTime: String?
     let pListId: String?
     let pCreatedAt: String
     let pDeletedAt: String?
@@ -171,6 +172,7 @@ struct MergeEntryParams: Encodable, Sendable {
     let pBodyUpdatedAt: String
     let pPriorityUpdatedAt: String
     let pDueDateUpdatedAt: String
+    let pScheduledTimeUpdatedAt: String
     let pListUpdatedAt: String
 
     enum CodingKeys: String, CodingKey {
@@ -186,6 +188,7 @@ struct MergeEntryParams: Encodable, Sendable {
         case pBody = "p_body"
         case pPriority = "p_priority"
         case pDueDate = "p_due_date"
+        case pScheduledTime = "p_scheduled_time"
         case pListId = "p_list_id"
         case pCreatedAt = "p_created_at"
         case pDeletedAt = "p_deleted_at"
@@ -197,6 +200,7 @@ struct MergeEntryParams: Encodable, Sendable {
         case pBodyUpdatedAt = "p_body_updated_at"
         case pPriorityUpdatedAt = "p_priority_updated_at"
         case pDueDateUpdatedAt = "p_due_date_updated_at"
+        case pScheduledTimeUpdatedAt = "p_scheduled_time_updated_at"
         case pListUpdatedAt = "p_list_updated_at"
     }
 
@@ -214,6 +218,7 @@ struct MergeEntryParams: Encodable, Sendable {
         try container.encode(pBody, forKey: .pBody)
         try container.encode(pPriority, forKey: .pPriority)
         try container.encode(pDueDate, forKey: .pDueDate)
+        try container.encode(pScheduledTime, forKey: .pScheduledTime)
         try container.encode(pListId, forKey: .pListId)
         try container.encode(pCreatedAt, forKey: .pCreatedAt)
         try container.encode(pDeletedAt, forKey: .pDeletedAt)
@@ -225,6 +230,7 @@ struct MergeEntryParams: Encodable, Sendable {
         try container.encode(pBodyUpdatedAt, forKey: .pBodyUpdatedAt)
         try container.encode(pPriorityUpdatedAt, forKey: .pPriorityUpdatedAt)
         try container.encode(pDueDateUpdatedAt, forKey: .pDueDateUpdatedAt)
+        try container.encode(pScheduledTimeUpdatedAt, forKey: .pScheduledTimeUpdatedAt)
         try container.encode(pListUpdatedAt, forKey: .pListUpdatedAt)
     }
 }
@@ -517,6 +523,7 @@ struct ServerEntryRow: Decodable, Sendable {
     let body: String?
     let priority: String?
     let dueDate: String?
+    let scheduledTime: String?
     let listId: UUID?
     let createdAt: String
     let deletedAt: String?
@@ -525,6 +532,7 @@ struct ServerEntryRow: Decodable, Sendable {
     enum CodingKeys: String, CodingKey {
         case id, type, title, content, date, period, status, body, priority, revision
         case dueDate = "due_date"
+        case scheduledTime = "scheduled_time"
         case listId = "list_id"
         case createdAt = "created_at"
         case deletedAt = "deleted_at"
@@ -705,6 +713,7 @@ enum SyncSerializer {
             "body": task.body,
             "priority": task.priority.rawValue,
             "due_date": task.dueDate.map { SyncDateFormatting.formatDate($0) },
+            "scheduled_time": task.scheduledTime.map { SyncDateFormatting.formatTimestamp($0) },
             "list_id": task.list?.id.uuidString,
             "created_at": SyncDateFormatting.formatTimestamp(task.createdDate),
             "deleted_at": (deletedAt ?? task.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
@@ -716,6 +725,7 @@ enum SyncSerializer {
             "body_updated_at": SyncDateFormatting.formatTimestamp(task.bodyUpdatedAt ?? timestamp),
             "priority_updated_at": SyncDateFormatting.formatTimestamp(task.priorityUpdatedAt ?? timestamp),
             "due_date_updated_at": SyncDateFormatting.formatTimestamp(task.dueDateUpdatedAt ?? timestamp),
+            "scheduled_time_updated_at": SyncDateFormatting.formatTimestamp(task.scheduledTimeUpdatedAt ?? timestamp),
             "list_updated_at": SyncDateFormatting.formatTimestamp(task.listUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(
@@ -742,6 +752,7 @@ enum SyncSerializer {
             "body": nil,
             "priority": nil,
             "due_date": nil,
+            "scheduled_time": nil,
             "list_id": note.list?.id.uuidString,
             "created_at": SyncDateFormatting.formatTimestamp(note.createdDate),
             "deleted_at": (deletedAt ?? note.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
@@ -753,6 +764,7 @@ enum SyncSerializer {
             "body_updated_at": SyncDateFormatting.formatTimestamp(timestamp),
             "priority_updated_at": SyncDateFormatting.formatTimestamp(timestamp),
             "due_date_updated_at": SyncDateFormatting.formatTimestamp(timestamp),
+            "scheduled_time_updated_at": SyncDateFormatting.formatTimestamp(timestamp),
             "list_updated_at": SyncDateFormatting.formatTimestamp(note.listUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(
@@ -964,6 +976,7 @@ enum SyncSerializer {
                   let bodyUpdatedAt = json["body_updated_at"] as? String,
                   let priorityUpdatedAt = json["priority_updated_at"] as? String,
                   let dueDateUpdatedAt = json["due_date_updated_at"] as? String,
+                  let scheduledTimeUpdatedAt = json["scheduled_time_updated_at"] as? String,
                   let listUpdatedAt = json["list_updated_at"] as? String else {
                 return nil
             }
@@ -978,6 +991,7 @@ enum SyncSerializer {
                 pBody: json["body"] as? String,
                 pPriority: json["priority"] as? String,
                 pDueDate: json["due_date"] as? String,
+                pScheduledTime: json["scheduled_time"] as? String,
                 pListId: json["list_id"] as? String,
                 pCreatedAt: createdAt,
                 pDeletedAt: json["deleted_at"] as? String,
@@ -989,6 +1003,7 @@ enum SyncSerializer {
                 pBodyUpdatedAt: bodyUpdatedAt,
                 pPriorityUpdatedAt: priorityUpdatedAt,
                 pDueDateUpdatedAt: dueDateUpdatedAt,
+                pScheduledTimeUpdatedAt: scheduledTimeUpdatedAt,
                 pListUpdatedAt: listUpdatedAt
             )
             return (entityType.mergeRPCName, params)
@@ -1174,6 +1189,7 @@ enum SyncSerializer {
             task.priority = priority
         }
         task.dueDate = row.dueDate.flatMap { SyncDateFormatting.parseDate($0) }
+        task.scheduledTime = row.scheduledTime.flatMap { SyncDateFormatting.parseTimestamp($0) }
         task.date = row.date.flatMap { SyncDateFormatting.parseDate($0) }
         task.period = row.period.flatMap { Period(rawValue: $0) }
         if let status = EntryStatus(rawValue: row.status) { task.status = status }
@@ -1198,6 +1214,7 @@ enum SyncSerializer {
             body: row.body,
             priority: priority,
             dueDate: row.dueDate.flatMap { SyncDateFormatting.parseDate($0) },
+            scheduledTime: row.scheduledTime.flatMap { SyncDateFormatting.parseTimestamp($0) },
             createdDate: createdAt,
             date: row.date.flatMap { SyncDateFormatting.parseDate($0) },
             period: row.period.flatMap { Period(rawValue: $0) },

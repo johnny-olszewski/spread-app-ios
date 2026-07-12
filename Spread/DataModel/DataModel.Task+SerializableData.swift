@@ -16,6 +16,7 @@ extension DataModel.Task: SerializableData {
             "body": body,
             "priority": priority.rawValue,
             "due_date": dueDate.map { SyncDateFormatting.formatDate($0) },
+            "scheduled_time": scheduledTime.map { SyncDateFormatting.formatTimestamp($0) },
             "list_id": list?.id.uuidString,
             "created_at": SyncDateFormatting.formatTimestamp(createdDate),
             "deleted_at": (deletedAt ?? self.deletedAt).map { SyncDateFormatting.formatTimestamp($0) },
@@ -27,6 +28,7 @@ extension DataModel.Task: SerializableData {
             "body_updated_at": SyncDateFormatting.formatTimestamp(bodyUpdatedAt ?? timestamp),
             "priority_updated_at": SyncDateFormatting.formatTimestamp(priorityUpdatedAt ?? timestamp),
             "due_date_updated_at": SyncDateFormatting.formatTimestamp(dueDateUpdatedAt ?? timestamp),
+            "scheduled_time_updated_at": SyncDateFormatting.formatTimestamp(scheduledTimeUpdatedAt ?? timestamp),
             "list_updated_at": SyncDateFormatting.formatTimestamp(listUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(

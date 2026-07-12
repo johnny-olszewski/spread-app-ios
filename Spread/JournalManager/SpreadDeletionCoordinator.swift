@@ -9,9 +9,11 @@ import OSLog
 /// `Documentation/Specs/JournalManager.md`'s "Decision: Drop protocol-per-logic-seam;
 /// protocols are a repository-only boundary." Depends on `SpreadRepository`/
 /// `TaskRepository`/`NoteRepository` (the genuine substitution boundary) and a plain
-/// `Calendar` — not `JournalRuleEngine`, since this mechanic never calls a rule-engine
-/// reconciliation method, only `Assignment.matches(spread:calendar:)` and
-/// `SpreadService(calendar:).findBestSpread`.
+/// `Calendar` for its own reassignment mechanic, which uses only
+/// `Assignment.matches(spread:calendar:)` and `SpreadService(calendar:).findBestSpread`.
+/// Also depends on `JournalRuleEngine` (SPRD-298), solely to reconcile a reassigned task's
+/// `scheduledTime` via `reconcileScheduledTime` — the one rule-engine call this coordinator
+/// makes.
 ///
 /// Distinct dependency shape (three repositories at once) and infrequent lifecycle (spread
 /// deletion, not routine entry mutation) versus `TaskCoordinator`/`NoteCoordinator` (SPRD-255),
@@ -36,6 +38,10 @@ struct SpreadDeletionCoordinator {
 
     /// Repository for note persistence and sync-outbox diffing.
     let noteRepository: any NoteRepository
+
+    /// Rule engine used to reconcile a reassigned task's `scheduledTime` against its new
+    /// assignment (SPRD-298's keep/rebase/clear rules).
+    let ruleEngine: JournalRuleEngine
 
     /// Calendar used for assignment matching and parent-spread lookup.
     let calendar: Calendar
@@ -81,7 +87,15 @@ struct SpreadDeletionCoordinator {
             sourceAsHistory.status = .migrated
             task.migrationHistory.append(sourceAsHistory)
 
-            if let replacement = replacementSpread(for: task, deleting: spread, parentSpread: parentSpread, spreads: spreads) {
+            let replacement = replacementSpread(for: task, deleting: spread, parentSpread: parentSpread, spreads: spreads)
+            ruleEngine.reconcileScheduledTime(
+                for: task,
+                destinationPeriod: replacement?.period,
+                destinationDate: replacement?.date,
+                timestamp: Date.now
+            )
+
+            if let replacement {
                 if let destinationIndex = task.currentAssignments.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {
                     task.currentAssignments[destinationIndex].status = preservedStatus
                 } else if let historyIndex = task.migrationHistory.firstIndex(where: { $0.matches(spread: replacement, calendar: calendar) }) {

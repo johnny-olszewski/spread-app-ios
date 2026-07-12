@@ -130,7 +130,7 @@ struct TaskCoordinatorTests {
         let task = DataModel.Task(title: "Task", body: "Old body", priority: .low)
         let list = DataModel.List(name: "Work")
 
-        try await coordinator.updateMetadata(task, body: "New body", priority: .high, dueDate: nil, list: list, tags: [])
+        try await coordinator.updateMetadata(task, body: "New body", priority: .high, dueDate: nil, scheduledTime: nil, list: list, tags: [])
 
         #expect(task.body == "New body")
         #expect(task.priority == .high)
