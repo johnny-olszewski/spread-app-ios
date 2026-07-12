@@ -7759,3 +7759,78 @@ Sub-agent plan for implementing this feature with less-capable models working in
 - **Wave 3 — integration (one agent, after all of Wave 2 for meaningful QA; hard dependency only on 296/300)**
   - SPRD-301: `EntrySortOption`, `EntryListOptionsPicker`, `DaySpreadContentView+ViewModel.makeSections` + tests.
 - **Merge order**: 296 → (297, 298, 299, 300 in any order) → 301. Conflicts are unlikely by construction (file-disjoint waves); the orchestrator resolves any that appear at merge time.
+
+---
+
+## Story: Release hardening — MVP Workstream A (SESH-30)
+
+Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pre-release audit. Spec: `Documentation/Specs/ReleaseHardening.md`. One SPRD per hardening area; §3.6 polish tier (validation, accessibility, smoke tests) is specced separately later.
+
+### [SPRD-302] Fix: Surface silent save failures in edit sheets, Settings, and Collections - [ ] Pending
+
+- **Context**: The pre-release audit found user-initiated saves that fail silently, with no error shown — a data-loss UX on a journaling app (backlog TF-05).
+- **Description**: Populate the existing error-alert plumbing on the failing paths. `TaskEntrySheet` and `NoteEntrySheet` **edit-mode** `save()` catch blocks must set `viewModel.errorMessage` (not just reset `isBusy`), matching their create-mode paths. `SettingsView` must render its already-assigned-but-unshown `saveError`. Collections persistence (`CollectionEditorView`, `CollectionsListView`) must not swallow failures via `try?`. No changes to the create-mode paths, which already work.
+- **Spec**: `Documentation/Specs/ReleaseHardening.md` — Requirements › Silent save failures
+- **Acceptance Criteria**:
+  - AC1: A failing task edit-save keeps the sheet open and shows the `EntrySheet` error alert with a readable message; `isBusy` is reset.
+  - AC2: A failing note edit-save behaves identically.
+  - AC3: A failing first-weekday save in `SettingsView` surfaces a visible error (alert or inline), not a silent no-op.
+  - AC4: Collections create/edit/delete failures surface an error instead of being dropped by `try?`.
+  - AC5: Build succeeds; existing entry-sheet tests pass.
+- **Tests**:
+  - Unit tests asserting the task and note edit-save view models set `errorMessage` on a repository/save failure (inject a failing repository), covering AC1–AC2.
+
+### [SPRD-303] Feature: Replace launch-init fatalError with an error screen + in-place retry - [ ] Pending
+
+- **Context**: Runtime-init failure hard-crashes the app via `fatalError` in `ContentView`, with no user recourse — disqualifying for a beta (backlog TF-02).
+- **Description**: Replace the `fatalError` with a readable error screen presented from the app-init path. The screen offers a **Try Again** affordance that re-runs runtime initialization in-process; a repeated failure returns to the same screen. Build-config `fatalError`s in `SupabaseConfiguration` (missing Info.plist keys) are out of scope. Updates `ErrorHandling.md`'s superseded "no recovery attempted" statement.
+- **Spec**: `Documentation/Specs/ReleaseHardening.md` — Requirements › Launch initialization error recovery
+- **Acceptance Criteria**:
+  - AC1: When runtime initialization fails, the app shows an error screen instead of crashing.
+  - AC2: Tapping Try Again re-runs initialization without a force-quit; on success the app proceeds to the normal root UI.
+  - AC3: A repeated initialization failure returns to the error screen (no crash, no infinite spinner).
+  - AC4: The `SupabaseConfiguration` build-config paths are unchanged.
+  - AC5: Build succeeds.
+- **Tests**:
+  - Unit tests around the init-retry state machine: a failing-then-succeeding initializer transitions error → success on retry; a persistently-failing initializer stays in the error state (inject a controllable runtime-store/initializer).
+
+### [SPRD-304] Feature: Purposeful empty states across all four spread content views - [ ] Pending
+
+- **Context**: Empty spreads render a blank area, eroding confidence and hiding the app's value; a designed `ContentUnavailableView` empty state already exists in `EntryListView` but is dead code (backlog TF-10/TF-11).
+- **Description**: Wire the existing `EntryListView` empty state into day, month, year, and multiday content views, with messaging differentiated per spread type. The empty state is informational, guiding the user to the existing global "+" affordance — not a tappable create control. Starter content and first-run guided creation are out of scope (`mvp-launch.md` §4).
+- **Spec**: `Documentation/Specs/ReleaseHardening.md` — Requirements › Spread empty states
+- **Acceptance Criteria**:
+  - AC1: Each of the four spread content views shows a `ContentUnavailableView`-style empty state when it has no entries.
+  - AC2: The message text differs meaningfully by spread type (day/month/year/multiday).
+  - AC3: The empty state is informational only — it does not open the create flow and introduces no second create button.
+  - AC4: A spread with entries renders normally (no empty state), and adding the first entry removes the empty state.
+  - AC5: The previously-unused `EntryListView.emptyState`/`hasAnyEntries` are now referenced; no dead code remains for this path. Build succeeds.
+- **Tests**:
+  - Manual/visual verification across the four spread types in light and dark mode, plus previews for the empty vs. populated states.
+
+### [SPRD-305] Feature: Sync/offline visibility and outbox quarantine for unserializable mutations - [ ] Pending
+
+- **Context**: Sync/offline status is confined to the Spreads tab, and a queued mutation that fails to serialize is silently removed from the outbox — a data-loss path with no user signal (backlog TF-12/TF-13).
+- **Description**: Quarantine a mutation that fails to serialize (retain it in the outbox in a failed/flagged state, excluded from the retry loop so it can't stall the queue) instead of dropping it; fold outbox enqueue failures into the surfaced sync-error state. Surface sync/offline status app-wide (not Spreads-tab-only), and add a Settings **Sync** section showing last-sync time, offline/online state, quarantined-mutation count, and a manual **Retry**. Updates `ErrorHandling.md`'s superseded sync/offline statements.
+- **Spec**: `Documentation/Specs/ReleaseHardening.md` — Requirements › Sync/offline visibility and outbox quarantine
+- **Acceptance Criteria**:
+  - AC1: A mutation whose params fail to build is moved to a quarantined state and remains in the outbox; it is not deleted and is not retried automatically.
+  - AC2: A quarantined mutation does not block subsequent mutations from syncing.
+  - AC3: A sync-error/offline indicator is visible regardless of the active tab.
+  - AC4: Settings shows a Sync section with last-sync time, offline state, quarantined count, and a manual Retry that re-attempts quarantined items.
+  - AC5: Build succeeds; existing sync tests pass.
+- **Tests**:
+  - Unit tests for the quarantine transition (serialization failure → quarantined, not removed), the "does not block the queue" behavior, and the manual-retry path re-attempting quarantined items.
+
+### [SPRD-306] Fix: Verify EventKit permission request timing and denied-state degradation - [ ] Pending
+
+- **Context**: A permission-request crash or blank timeline on a core feature would be a TestFlight disqualifier; the flow needs verification against the current implementation (backlog TF-06).
+- **Description**: Verify the EventKit calendar permission request fires at the correct time on first access to the day timeline, and that denied/restricted/not-determined states degrade gracefully (timeline placeholder or absent, no crash). Close any gap found within this task.
+- **Spec**: `Documentation/Specs/ReleaseHardening.md` — Requirements › EventKit permission degradation
+- **Acceptance Criteria**:
+  - AC1: On first access to the day timeline with undetermined authorization, the permission request is triggered.
+  - AC2: With authorization denied or restricted, the timeline shows a placeholder or is absent — no crash.
+  - AC3: Granting authorization then returning to a day spread shows events without requiring a relaunch.
+  - AC4: Build succeeds.
+- **Tests**:
+  - Manual verification across authorization states (undetermined → prompt, denied, granted) on a day spread; confirm no crash and correct degradation.

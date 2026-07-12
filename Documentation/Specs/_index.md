@@ -19,6 +19,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | `feature/SESH-24` | JournalManager/repository performance rebuild: drop logic-layer protocols, incremental dictionary-keyed index, caller-supplied sync diffing — built additively, cut over last | [JournalManager.md](JournalManager.md), [EntryModel.md](EntryModel.md) |
 | `feature/SESH-25` | EntryList generic flat-entries grouping/sorting primitive, shared group-by/order-by picker across all spreads, plus EntryList/EntryRow architecture cleanup | [EntryListGrouping.md](EntryListGrouping.md) |
 | `feature/SESH-29` | Task scheduled time: `scheduledTime` on Task, Supabase sync, migration rules, sheet chip, row time block, integrated Time sort on day spreads | [TaskScheduledTime.md](TaskScheduledTime.md) |
+| `feature/SESH-30` | Release hardening (MVP Workstream A): silent-save-failure fixes, launch error recovery, spread empty states, sync/offline visibility + outbox quarantine, EventKit degradation | [ReleaseHardening.md](ReleaseHardening.md), [ErrorHandling.md](ErrorHandling.md) |
 
 ---
 
@@ -52,6 +53,7 @@ This index replaces the monolithic `Documentation/spec.md`. Each file below cove
 | [EntryListGrouping.md](EntryListGrouping.md) | EntryList generic grouping/sorting primitive, shared group-by/order-by picker, EntryList/EntryRow cleanup | SPRD-257–SPRD-266 |
 | [TaskScheduledTime.md](TaskScheduledTime.md) | Optional scheduled time on tasks: `scheduledTime` instant, `isTimeAssignable` capability flag, day-period gating, Supabase `scheduled_time` sync, sheet chip, row time block, integrated Time sort on day spreads | SPRD-296–SPRD-301 |
 | [EntryEditingSheets.md](EntryEditingSheets.md) | Unified `EntrySheet` shell for Task/Note/Spread creation and editing, shared form-model abstraction, CalendarView-backed date selection; SESH-27 visual redesign (SpreadButton pickers, chip clouds, custom header, calendar-embedded spread selection) | SPRD-277–SPRD-282, SPRD-291–SPRD-294 |
+| [ReleaseHardening.md](ReleaseHardening.md) | MVP Workstream A release blockers: silent save-failure surfacing, launch init error recovery, spread empty states, sync/offline visibility + outbox quarantine, EventKit permission degradation | SPRD-302–SPRD-306 |
 
 ---
 
