@@ -7802,7 +7802,7 @@ Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pr
 **Progress (commits landed on feature/SESH-30)**
 1. **[SPRD-303][1/n]** — `ContentView.initializeApp()` no longer calls `fatalError`; failure logs and presents `initializationErrorView` (title, readable message, borderedProminent "Try Again" re-running `initializeIfNeeded()`), styled to match `loadingView`. `AppRuntimeStore.isInitializing` promoted to observable `private(set)` so the view shows `loadingView` during a retry instead of the stale error. The store's guard (`runtime == nil`) already made re-invocation retry-safe — no state-machine changes needed. 2 new tests in the existing `AppRuntimeStoreTests` (retry-after-failure clears the error and builds the runtime; persistent failure stays in the error state across attempts); suite green (4 tests). `SupabaseConfiguration` untouched per AC4. All ACs ✅ — single-commit task.
 
-### [SPRD-304] Feature: Purposeful empty states across all four spread content views - [ ] Pending
+### [SPRD-304] Feature: Purposeful empty states across all four spread content views - [ ] Done
 
 - **Context**: Empty spreads render a blank area, eroding confidence and hiding the app's value; a designed `ContentUnavailableView` empty state already exists in `EntryListView` but is dead code (backlog TF-10/TF-11).
 - **Description**: Wire the existing `EntryListView` empty state into day, month, year, and multiday content views, with messaging differentiated per spread type. The empty state is informational, guiding the user to the existing global "+" affordance — not a tappable create control. Starter content and first-run guided creation are out of scope (`mvp-launch.md` §4).
@@ -7815,6 +7815,9 @@ Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pr
   - AC5: The previously-unused `EntryListView.emptyState`/`hasAnyEntries` are now referenced; no dead code remains for this path. Build succeeds.
 - **Tests**:
   - Manual/visual verification across the four spread types in light and dark mode, plus previews for the empty vs. populated states.
+
+**Progress (commits landed on feature/SESH-30)**
+1. **[SPRD-304][1/n]** — Promoted the dead `EntryListView.emptyState` into a shared `EntryListEmptyStateView` component (message param, "No Entries" title, tray icon, previews). `EntryListView` gains optional `emptyStateMessage` and finally uses `hasAnyEntries`: with a message it renders the empty state when no section has a renderable entry; nil preserves render-nothing for embedded/inline usages (month/year subsection lists). Day passes its message directly; Month/Year/Multiday gate a whole-spread `hasNoEntries` condition (month: monthEntries + all daySections empty; year: spreadDataModel tasks+notes empty, month cards still render; multiday: all sections empty, day cards still render for structure). All messages differ per spread type and are informational — no new create affordance. Full suite green (1399). Manual light/dark sweep across the four types recommended at next run. All ACs ✅ — single-commit task.
 
 ### [SPRD-305] Feature: Sync/offline visibility and outbox quarantine for unserializable mutations - [ ] Pending
 

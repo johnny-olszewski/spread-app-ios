@@ -114,7 +114,8 @@ struct DaySpreadContentView: View {
                 VStack(spacing: SpreadTheme.Spacing.medium) {
                     EntryListView(
                         sections: viewModel.sections(groupedBy: groupingOption, orderedBy: sortingOption),
-                        configurationMap: viewModel.listConfigurationMap
+                        configurationMap: viewModel.listConfigurationMap,
+                        emptyStateMessage: "Nothing planned for this day yet. Add a task or note with the + button."
                     ) { section in
                         // Section ids are list names only when grouping by list — other groupings
                         // (tag/status/none) have no notion of a corresponding list to preselect.

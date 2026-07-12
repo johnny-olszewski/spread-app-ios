@@ -85,11 +85,17 @@ struct MonthSpreadContentView: View {
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
-                        monthSection(entries: contentModel.monthEntries)
+                        if hasNoEntries {
+                            EntryListEmptyStateView(
+                                message: "Nothing planned for this month yet. Add a task or note with the + button, or migrate tasks here."
+                            )
+                        } else {
+                            monthSection(entries: contentModel.monthEntries)
 
-                        ForEach(contentModel.daySections) { section in
-                            daySection(section)
-                                .id(section.id)
+                            ForEach(contentModel.daySections) { section in
+                                daySection(section)
+                                    .id(section.id)
+                            }
                         }
                     }
                     .padding(.horizontal, Layout.contentPadding)
@@ -97,6 +103,12 @@ struct MonthSpreadContentView: View {
                 }
             }
         }
+    }
+
+    /// Whether the month spread has no entries at any level — the whole-spread
+    /// empty-state condition (SPRD-304).
+    private var hasNoEntries: Bool {
+        contentModel.monthEntries.isEmpty && contentModel.daySections.allSatisfy { $0.entries.isEmpty }
     }
 
     // MARK: - Sections

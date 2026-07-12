@@ -31,6 +31,12 @@ struct YearSpreadContentView: View {
         return tasks + notes
     }
 
+    /// Whether the year spread has no entries at any level (year, month, or day) —
+    /// the whole-spread empty-state condition (SPRD-304).
+    private var hasNoEntries: Bool {
+        spreadDataModel.tasks.isEmpty && spreadDataModel.notes.isEmpty
+    }
+
     private var configurationMap: EntryRowView.ConfigurationMap {
         [
             DataModel.Task.configurationKey: .standardTaskConfig(
@@ -77,7 +83,13 @@ struct YearSpreadContentView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: Layout.sectionSpacing) {
 
-                        topYearSection
+                        if hasNoEntries {
+                            EntryListEmptyStateView(
+                                message: "Nothing logged in this year yet. Add long-horizon tasks and notes with the + button."
+                            )
+                        } else {
+                            topYearSection
+                        }
 
                         ForEach(monthDates, id: \.self) { date in
                             monthCard(date)
