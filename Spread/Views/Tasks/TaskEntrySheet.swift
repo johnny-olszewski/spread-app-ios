@@ -43,6 +43,92 @@ struct TaskEntrySheet: View {
             formModel = TaskEditorFormModel(configuration: configuration, task: task)
             selectedStatus = task.status
         }
+
+        /// Applies the form model's staged edits to `task` through the journal manager.
+        ///
+        /// Sets `isBusy` for the duration; on failure rolls back any spread created for a
+        /// pending multiday range, resets `isBusy`, and sets `errorMessage` so the sheet's
+        /// error alert presents. Returns `true` on success — the caller owns dismissal.
+        func saveEdits(to task: DataModel.Task, journalManager: JournalManager) async -> Bool {
+            isBusy = true
+            var createdSpread: DataModel.Spread?
+            do {
+                if formModel.title != task.title {
+                    try await journalManager.updateTaskTitle(task, newTitle: formModel.title)
+                }
+                if selectedStatus != task.status {
+                    try await journalManager.updateTaskStatus(task, newStatus: selectedStatus)
+                }
+                let selectedTags = journalManager.tags.filter {
+                    formModel.selectedTagIDs.contains($0.id)
+                }
+                let metadataChanged =
+                    formModel.sanitizedBody != task.body ||
+                    formModel.priority != task.priority ||
+                    formModel.effectiveDueDate != task.dueDate ||
+                    formModel.effectiveScheduledTime != task.scheduledTime ||
+                    formModel.selectedList?.id != task.list?.id ||
+                    Set(selectedTags.map(\.id)) != Set(task.tags.map(\.id))
+                if metadataChanged {
+                    try await journalManager.updateTaskMetadata(
+                        task,
+                        body: formModel.sanitizedBody,
+                        priority: formModel.priority,
+                        dueDate: formModel.effectiveDueDate,
+                        scheduledTime: formModel.effectiveScheduledTime,
+                        list: formModel.selectedList,
+                        tags: selectedTags
+                    )
+                }
+                if selectedStatus.allowsAssignmentEditingInTaskSheet {
+                    if formModel.hasPreferredAssignment {
+                        let effectiveDate = formModel.effectiveSelectedDate
+                        let currentMultidaySpreadID = task.currentAssignments
+                            .first(where: { $0.period == .multiday })?.spreadID
+                        if task.date == nil ||
+                           effectiveDate != task.date ||
+                           formModel.selectedPeriod != task.period ||
+                           formModel.selectedSpreadID != currentMultidaySpreadID ||
+                           formModel.pendingMultidayRange != nil {
+                            var preferredSpreadID = formModel.selectedSpreadID
+                            if let spread = try await createPendingMultidaySpreadIfNeeded(journalManager: journalManager) {
+                                createdSpread = spread
+                                preferredSpreadID = spread.id
+                            }
+                            try await journalManager.updateTaskDateAndPeriod(
+                                task,
+                                newDate: effectiveDate,
+                                newPeriod: formModel.selectedPeriod,
+                                preferredSpreadID: preferredSpreadID
+                            )
+                        }
+                    } else if task.date != nil {
+                        try await journalManager.clearTaskPreferredAssignment(task)
+                    }
+                }
+                return true
+            } catch {
+                if let createdSpread {
+                    try? await journalManager.deleteSpread(createdSpread)
+                }
+                isBusy = false
+                errorMessage = error.localizedDescription
+                return false
+            }
+        }
+
+        /// Creates the multiday spread backing a pending free range, if one is staged.
+        /// Returns nil when the assignment already targets an existing spread.
+        func createPendingMultidaySpreadIfNeeded(journalManager: JournalManager) async throws -> DataModel.Spread? {
+            guard formModel.hasPreferredAssignment,
+                  formModel.selectedPeriod == .multiday,
+                  formModel.selectedSpreadID == nil,
+                  let range = formModel.pendingMultidayRange else { return nil }
+            return try await journalManager.addMultidaySpread(
+                startDate: range.lowerBound,
+                endDate: range.upperBound
+            )
+        }
     }
 
     // MARK: - Environment
@@ -118,10 +204,6 @@ struct TaskEntrySheet: View {
             get: { viewModel.formModel.dueDate },
             set: { viewModel.formModel.dueDate = $0.startOfDay(calendar: viewModel.presentedTemporalContext.calendar) }
         )
-    }
-
-    private var currentMultidaySpreadID: UUID? {
-        task?.currentAssignments.first(where: { $0.period == .multiday })?.spreadID
     }
 
     // MARK: - Body
@@ -703,7 +785,7 @@ struct TaskEntrySheet: View {
             var createdSpread: DataModel.Spread?
             do {
                 var preferredSpreadID = viewModel.formModel.selectedSpreadID
-                if let spread = try await createPendingMultidaySpreadIfNeeded() {
+                if let spread = try await viewModel.createPendingMultidaySpreadIfNeeded(journalManager: journalManager) {
                     createdSpread = spread
                     preferredSpreadID = spread.id
                 }
@@ -729,82 +811,11 @@ struct TaskEntrySheet: View {
         }
     }
 
-    /// Creates the multiday spread backing a pending free range, if one is staged.
-    /// Returns nil when the assignment already targets an existing spread.
-    private func createPendingMultidaySpreadIfNeeded() async throws -> DataModel.Spread? {
-        guard viewModel.formModel.hasPreferredAssignment,
-              viewModel.formModel.selectedPeriod == .multiday,
-              viewModel.formModel.selectedSpreadID == nil,
-              let range = viewModel.formModel.pendingMultidayRange else { return nil }
-        return try await journalManager.addMultidaySpread(
-            startDate: range.lowerBound,
-            endDate: range.upperBound
-        )
-    }
-
     private func save() {
         guard let task else { return }
-        viewModel.isBusy = true
         Task { @MainActor in
-            var createdSpread: DataModel.Spread?
-            do {
-                if viewModel.formModel.title != task.title {
-                    try await journalManager.updateTaskTitle(task, newTitle: viewModel.formModel.title)
-                }
-                if viewModel.selectedStatus != task.status {
-                    try await journalManager.updateTaskStatus(task, newStatus: viewModel.selectedStatus)
-                }
-                let selectedTags = journalManager.tags.filter {
-                    viewModel.formModel.selectedTagIDs.contains($0.id)
-                }
-                let metadataChanged =
-                    viewModel.formModel.sanitizedBody != task.body ||
-                    viewModel.formModel.priority != task.priority ||
-                    viewModel.formModel.effectiveDueDate != task.dueDate ||
-                    viewModel.formModel.effectiveScheduledTime != task.scheduledTime ||
-                    viewModel.formModel.selectedList?.id != task.list?.id ||
-                    Set(selectedTags.map(\.id)) != Set(task.tags.map(\.id))
-                if metadataChanged {
-                    try await journalManager.updateTaskMetadata(
-                        task,
-                        body: viewModel.formModel.sanitizedBody,
-                        priority: viewModel.formModel.priority,
-                        dueDate: viewModel.formModel.effectiveDueDate,
-                        scheduledTime: viewModel.formModel.effectiveScheduledTime,
-                        list: viewModel.formModel.selectedList,
-                        tags: selectedTags
-                    )
-                }
-                if viewModel.selectedStatus.allowsAssignmentEditingInTaskSheet {
-                    if viewModel.formModel.hasPreferredAssignment {
-                        let effectiveDate = viewModel.formModel.effectiveSelectedDate
-                        if task.date == nil ||
-                           effectiveDate != task.date ||
-                           viewModel.formModel.selectedPeriod != task.period ||
-                           viewModel.formModel.selectedSpreadID != currentMultidaySpreadID ||
-                           viewModel.formModel.pendingMultidayRange != nil {
-                            var preferredSpreadID = viewModel.formModel.selectedSpreadID
-                            if let spread = try await createPendingMultidaySpreadIfNeeded() {
-                                createdSpread = spread
-                                preferredSpreadID = spread.id
-                            }
-                            try await journalManager.updateTaskDateAndPeriod(
-                                task,
-                                newDate: effectiveDate,
-                                newPeriod: viewModel.formModel.selectedPeriod,
-                                preferredSpreadID: preferredSpreadID
-                            )
-                        }
-                    } else if task.date != nil {
-                        try await journalManager.clearTaskPreferredAssignment(task)
-                    }
-                }
+            if await viewModel.saveEdits(to: task, journalManager: journalManager) {
                 dismiss()
-            } catch {
-                if let createdSpread {
-                    try? await journalManager.deleteSpread(createdSpread)
-                }
-                viewModel.isBusy = false
             }
         }
     }

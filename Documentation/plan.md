@@ -7766,7 +7766,7 @@ Sub-agent plan for implementing this feature with less-capable models working in
 
 Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pre-release audit. Spec: `Documentation/Specs/ReleaseHardening.md`. One SPRD per hardening area; §3.6 polish tier (validation, accessibility, smoke tests) is specced separately later.
 
-### [SPRD-302] Fix: Surface silent save failures in edit sheets, Settings, and Collections - [ ] Pending
+### [SPRD-302] Fix: Surface silent save failures in edit sheets, Settings, and Collections - [ ] In Progress
 
 - **Context**: The pre-release audit found user-initiated saves that fail silently, with no error shown — a data-loss UX on a journaling app (backlog TF-05).
 - **Description**: Populate the existing error-alert plumbing on the failing paths. `TaskEntrySheet` and `NoteEntrySheet` **edit-mode** `save()` catch blocks must set `viewModel.errorMessage` (not just reset `isBusy`), matching their create-mode paths. `SettingsView` must render its already-assigned-but-unshown `saveError`. Collections persistence (`CollectionEditorView`, `CollectionsListView`) must not swallow failures via `try?`. No changes to the create-mode paths, which already work.
@@ -7779,6 +7779,10 @@ Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pr
   - AC5: Build succeeds; existing entry-sheet tests pass.
 - **Tests**:
   - Unit tests asserting the task and note edit-save view models set `errorMessage` on a repository/save failure (inject a failing repository), covering AC1–AC2.
+
+**Progress (commits landed on feature/SESH-30)**
+1. **[SPRD-302][1/n]** — Task + Note edit-save error surfacing. Moved each sheet's edit-mode `save()` routine onto its `@Observable ViewModel` as `saveEdits(to:journalManager:) async -> Bool` (behavior-preserving lift; the missing `errorMessage = error.localizedDescription` added in the catch), with the shared `createPendingMultidaySpreadIfNeeded` helper moved alongside so create/edit paths share one copy; views keep only success-dismissal. Picked first because it's the testability seam the other AC1/AC2 work hangs off. New error-injecting `MockTaskRepository`/`MockNoteRepository` (main target, `Mock*` convention). 4 new tests in `TaskEntrySheetViewModelSaveTests`/`NoteEntrySheetViewModelSaveTests` (failure sets `errorMessage` + resets `isBusy`; success returns true, no error). Full suite: 1397 tests green. AC1 ✅ AC2 ✅
+- Remaining for this task: AC3 (SettingsView renders `saveError`), AC4 (Collections `try?` removal + surfacing).
 
 ### [SPRD-303] Feature: Replace launch-init fatalError with an error screen + in-place retry - [ ] Pending
 
