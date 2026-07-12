@@ -80,8 +80,6 @@ struct SpreadContentPagerView: View {
                     .padding(.trailing, SpreadTheme.Spacing.large)
                 }
 
-            if isSyncError { SyncErrorBanner() }
-
             ZStack(alignment: .top) {
                 OverdueCardView(context: context)
                     .opacity(isOverduePanelOpen ? 1 : 0)
@@ -179,12 +177,6 @@ struct SpreadContentPagerView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-    }
-
-    private var isSyncError: Bool {
-        guard let status = syncEngine?.status else { return false }
-        if case .error = status { return true }
-        return false
     }
 
     /// Pushes the pager's settled position back to the coordinator once scrolling is idle,

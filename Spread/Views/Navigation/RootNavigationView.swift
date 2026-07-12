@@ -59,6 +59,16 @@ struct RootNavigationView: View {
             }
         }
         .tabViewStyle(.automatic)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            // App-wide sync visibility: one mount point above every tab's content,
+            // replacing the former Spreads-only banner in SpreadContentPagerView. [SPRD-305]
+            if let syncEngine {
+                SyncStatusBanner(
+                    status: syncEngine.status,
+                    quarantinedCount: syncEngine.quarantinedCount
+                )
+            }
+        }
         .onChange(of: syncEngine?.status) { _, newValue in
             guard case .synced = newValue else { return }
             Task { @MainActor in await journalManager.reload() }

@@ -25,6 +25,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             calendarSection
+            syncSection
             aboutSection
         }
         .alert("Couldn't Save Settings", isPresented: Binding(
@@ -61,6 +62,35 @@ struct SettingsView: View {
                 Task { await saveSettings() }
             }
         )
+    }
+
+    // MARK: - Sync Section
+
+    /// Sync visibility and recovery: current state, last successful sync, and —
+    /// when changes have been quarantined — a count and manual retry (SPRD-305).
+    @ViewBuilder
+    private var syncSection: some View {
+        if let syncEngine {
+            Section {
+                LabeledContent("Status", value: syncEngine.status.displayText)
+                LabeledContent(
+                    "Last Synced",
+                    value: syncEngine.lastSyncDate?.formatted(.relative(presentation: .named)) ?? "Never"
+                )
+                if syncEngine.quarantinedCount > 0 {
+                    LabeledContent("Failed Changes", value: "\(syncEngine.quarantinedCount)")
+                    Button("Retry Failed Changes") {
+                        Task { await syncEngine.retryQuarantined() }
+                    }
+                }
+            } header: {
+                Text("Sync")
+            } footer: {
+                if syncEngine.quarantinedCount > 0 {
+                    Text("Failed changes are kept on this device and never discarded. Retry re-attempts syncing them.")
+                }
+            }
+        }
     }
 
     // MARK: - About Section
