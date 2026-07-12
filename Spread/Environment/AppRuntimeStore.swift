@@ -9,7 +9,9 @@ final class AppRuntimeStore {
 
     private(set) var runtime: AppRuntime?
     private(set) var initializationError: Error?
-    private var isInitializing = false
+    /// Whether an initialization attempt is currently running. Observable so the
+    /// launch UI can show progress during a retry after a failed attempt.
+    private(set) var isInitializing = false
 
     init(
         dependencies: AppDependencies? = nil,

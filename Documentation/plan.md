@@ -7785,7 +7785,7 @@ Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pr
 2. **[SPRD-302][2/n]** — `SettingsView` now presents its `saveError` as a "Couldn't Save Settings" alert (same isPresented-binding pattern as `EntrySheet`'s error alert); previously the state was assigned but never rendered. View-only change, no logic; build green. AC3 ✅
 3. **[SPRD-302][3/n]** — Collections error surfacing. `CollectionsListView` create/delete: `try?` → do/catch with an Error alert (mirrors the view's existing delete-confirmation alert pattern). `CollectionEditorView` debounced auto-save: `try?` → do/catch with a non-intrusive inline "Changes aren't saving" caption under the title (an alert would interrupt typing on autosave); failure now keeps `hasUnsavedChanges = true` so the next keystroke/disappear retries, and the indicator clears on the next successful save. AC4 ✅ — all ACs done, task complete.
 
-### [SPRD-303] Feature: Replace launch-init fatalError with an error screen + in-place retry - [ ] Pending
+### [SPRD-303] Feature: Replace launch-init fatalError with an error screen + in-place retry - [ ] Done
 
 - **Context**: Runtime-init failure hard-crashes the app via `fatalError` in `ContentView`, with no user recourse — disqualifying for a beta (backlog TF-02).
 - **Description**: Replace the `fatalError` with a readable error screen presented from the app-init path. The screen offers a **Try Again** affordance that re-runs runtime initialization in-process; a repeated failure returns to the same screen. Build-config `fatalError`s in `SupabaseConfiguration` (missing Info.plist keys) are out of scope. Updates `ErrorHandling.md`'s superseded "no recovery attempted" statement.
@@ -7798,6 +7798,9 @@ Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pr
   - AC5: Build succeeds.
 - **Tests**:
   - Unit tests around the init-retry state machine: a failing-then-succeeding initializer transitions error → success on retry; a persistently-failing initializer stays in the error state (inject a controllable runtime-store/initializer).
+
+**Progress (commits landed on feature/SESH-30)**
+1. **[SPRD-303][1/n]** — `ContentView.initializeApp()` no longer calls `fatalError`; failure logs and presents `initializationErrorView` (title, readable message, borderedProminent "Try Again" re-running `initializeIfNeeded()`), styled to match `loadingView`. `AppRuntimeStore.isInitializing` promoted to observable `private(set)` so the view shows `loadingView` during a retry instead of the stale error. The store's guard (`runtime == nil`) already made re-invocation retry-safe — no state-machine changes needed. 2 new tests in the existing `AppRuntimeStoreTests` (retry-after-failure clears the error and builds the runtime; persistent failure stays in the error state across attempts); suite green (4 tests). `SupabaseConfiguration` untouched per AC4. All ACs ✅ — single-commit task.
 
 ### [SPRD-304] Feature: Purposeful empty states across all four spread content views - [ ] Pending
 

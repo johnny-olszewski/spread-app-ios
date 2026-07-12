@@ -42,6 +42,8 @@ struct ContentView: View {
                 .environment(\.appClock, runtime.appClock)
                 .environment(\.eventKitService, runtime.dependencies.eventKitService)
                 .environment(\.calendarEventService, runtime.dependencies.calendarEventService)
+            } else if let error = runtimeStore.initializationError, !runtimeStore.isInitializing {
+                initializationErrorView(error)
             } else {
                 loadingView
             }
@@ -93,6 +95,28 @@ struct ContentView: View {
         .background(SpreadTheme.Paper.primary)
     }
 
+    /// Shown when runtime initialization fails: a readable message with an
+    /// in-place retry, replacing the previous fatalError (SPRD-303).
+    private func initializationErrorView(_ error: Error) -> some View {
+        VStack(spacing: 24) {
+            Text("Spread")
+                .font(SpreadTheme.Typography.largeTitle())
+            Text("Something went wrong while starting the app.")
+                .font(SpreadTheme.Typography.headline)
+            Text(error.localizedDescription)
+                .font(SpreadTheme.Typography.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Button("Try Again") {
+                Task { await initializeApp() }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(SpreadTheme.Paper.primary)
+    }
+
     private var currentDataEnvironment: DataEnvironment {
         dataEnvironmentOverride ?? DataEnvironment.current
     }
@@ -133,7 +157,7 @@ struct ContentView: View {
         await runtimeStore.initializeIfNeeded()
 
         if let error = runtimeStore.initializationError {
-            fatalError("Failed to initialize app runtime: \(error)")
+            Self.logger.error("Failed to initialize app runtime: \(error)")
         }
     }
 }
