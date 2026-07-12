@@ -898,6 +898,115 @@ struct SyncEngineTests {
         })
     }
 
+    // MARK: - Outbox Quarantine (SPRD-305)
+
+    /// Conditions: An outbox mutation's recordData is unserializable (non-JSON bytes),
+    /// so buildBatchMergeParams reports it failed.
+    /// Expected: The mutation is quarantined — retained in the store with quarantinedAt
+    /// set, reflected in quarantinedCount — rather than silently deleted, and a
+    /// subsequent sync does not re-attempt it.
+    @Test func unserializableMutationIsQuarantinedNotDropped() async throws {
+        let (engine, container, _, _) = try makeEngine(
+            serverRowsFetcher: Self.emptyServerRowsFetcher,
+            mergeRPCCaller: { _, params in
+                let data = try JSONEncoder().encode(params)
+                return try Self.batchSuccessData(from: data)
+            },
+            assignmentPresenceChecker: { _, _ in true }
+        )
+
+        engine.enqueueMutation(
+            entityType: .spread,
+            entityId: UUID(),
+            operation: .create,
+            recordData: Data([0xFF, 0x00, 0x42])
+        )
+
+        await engine.syncNow()
+
+        let stored = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncMutation>())
+        #expect(stored.count == 1)
+        #expect(stored.first?.quarantinedAt != nil)
+        #expect(engine.quarantinedCount == 1)
+
+        let firstQuarantineDate = stored.first?.quarantinedAt
+        await engine.syncNow()
+        let afterSecondSync = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncMutation>())
+        #expect(afterSecondSync.count == 1)
+        #expect(afterSecondSync.first?.quarantinedAt == firstQuarantineDate)
+    }
+
+    /// Conditions: The outbox holds an unserializable mutation and a valid one
+    /// (created through the real spread repository) for the same entity type.
+    /// Expected: The valid mutation pushes and is removed; the poison mutation is
+    /// quarantined and does not block the queue; sync completes as synced.
+    @Test func quarantinedMutationDoesNotBlockValidMutations() async throws {
+        let (engine, container, _, _) = try makeEngine(
+            serverRowsFetcher: Self.emptyServerRowsFetcher,
+            mergeRPCCaller: { _, params in
+                let data = try JSONEncoder().encode(params)
+                return try Self.batchSuccessData(from: data)
+            },
+            assignmentPresenceChecker: { _, _ in true }
+        )
+
+        engine.enqueueMutation(
+            entityType: .spread,
+            entityId: UUID(),
+            operation: .create,
+            recordData: Data([0xFF, 0x00, 0x42])
+        )
+
+        let calendar = TestDataBuilders.testCalendar
+        let spreadRepository = SwiftDataSpreadRepository(modelContainer: container, deviceId: UUID())
+        let spread = DataModel.Spread(
+            period: .month,
+            date: TestDataBuilders.makeDate(year: 2026, month: 7, day: 1, calendar: calendar),
+            calendar: calendar
+        )
+        try await spreadRepository.save(spread)
+
+        await engine.syncNow()
+
+        let stored = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncMutation>())
+        #expect(stored.count == 1)
+        #expect(stored.first?.quarantinedAt != nil)
+        #expect(engine.quarantinedCount == 1)
+        if case .synced = engine.status {} else {
+            Issue.record("Expected synced status, got \(engine.status)")
+        }
+    }
+
+    /// Conditions: A quarantined mutation exists; retryQuarantined() is called.
+    /// Expected: The quarantine flag clears and the push re-attempts serialization;
+    /// a still-unserializable mutation is re-quarantined (not dropped, not looping).
+    @Test func retryQuarantinedReattemptsAndRequarantinesOnPersistentFailure() async throws {
+        let (engine, container, _, _) = try makeEngine(
+            serverRowsFetcher: Self.emptyServerRowsFetcher,
+            mergeRPCCaller: { _, params in
+                let data = try JSONEncoder().encode(params)
+                return try Self.batchSuccessData(from: data)
+            },
+            assignmentPresenceChecker: { _, _ in true }
+        )
+
+        engine.enqueueMutation(
+            entityType: .spread,
+            entityId: UUID(),
+            operation: .create,
+            recordData: Data([0xFF, 0x00, 0x42])
+        )
+        await engine.syncNow()
+        #expect(engine.quarantinedCount == 1)
+
+        await engine.retryQuarantined()
+
+        let stored = try container.mainContext.fetch(FetchDescriptor<DataModel.SyncMutation>())
+        #expect(stored.count == 1)
+        #expect(stored.first?.quarantinedAt != nil)
+        #expect(engine.quarantinedCount == 1)
+    }
+
     // MARK: - Network Monitor Integration
 
     /// Conditions: Sync is disabled.

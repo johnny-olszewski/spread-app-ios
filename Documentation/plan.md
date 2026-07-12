@@ -7819,7 +7819,7 @@ Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pr
 **Progress (commits landed on feature/SESH-30)**
 1. **[SPRD-304][1/n]** — Promoted the dead `EntryListView.emptyState` into a shared `EntryListEmptyStateView` component (message param, "No Entries" title, tray icon, previews). `EntryListView` gains optional `emptyStateMessage` and finally uses `hasAnyEntries`: with a message it renders the empty state when no section has a renderable entry; nil preserves render-nothing for embedded/inline usages (month/year subsection lists). Day passes its message directly; Month/Year/Multiday gate a whole-spread `hasNoEntries` condition (month: monthEntries + all daySections empty; year: spreadDataModel tasks+notes empty, month cards still render; multiday: all sections empty, day cards still render for structure). All messages differ per spread type and are informational — no new create affordance. Full suite green (1399). Manual light/dark sweep across the four types recommended at next run. All ACs ✅ — single-commit task.
 
-### [SPRD-305] Feature: Sync/offline visibility and outbox quarantine for unserializable mutations - [ ] Pending
+### [SPRD-305] Feature: Sync/offline visibility and outbox quarantine for unserializable mutations - [ ] In Progress
 
 - **Context**: Sync/offline status is confined to the Spreads tab, and a queued mutation that fails to serialize is silently removed from the outbox — a data-loss path with no user signal (backlog TF-12/TF-13).
 - **Description**: Quarantine a mutation that fails to serialize (retain it in the outbox in a failed/flagged state, excluded from the retry loop so it can't stall the queue) instead of dropping it; fold outbox enqueue failures into the surfaced sync-error state. Surface sync/offline status app-wide (not Spreads-tab-only), and add a Settings **Sync** section showing last-sync time, offline/online state, quarantined-mutation count, and a manual **Retry**. Updates `ErrorHandling.md`'s superseded sync/offline statements.
@@ -7832,6 +7832,10 @@ Release-blocker fixes from `Documentation/mvp-launch.md` §3, surfaced by the pr
   - AC5: Build succeeds; existing sync tests pass.
 - **Tests**:
   - Unit tests for the quarantine transition (serialization failure → quarantined, not removed), the "does not block the queue" behavior, and the manual-retry path re-attempting quarantined items.
+
+**Progress (commits landed on feature/SESH-30)**
+1. **[SPRD-305][1/n]** — Engine-side quarantine. `SyncMutation` gains persisted `quarantinedAt: Date?` (nil = live; additive optional field, lightweight SwiftData migration; resolves the spec's persistence open question toward surviving relaunch). `push()` fetches only non-quarantined mutations; the params-build failure path sets `quarantinedAt = .now` instead of `context.delete` (the silent-drop fix); enqueue-save failure now sets `status = .error` instead of log-only. New observable `quarantinedCount` refreshed with `refreshOutboxCount()`, and `retryQuarantined()` (clears flag + backoff, saves, `syncNow()` — re-attempts serialization; persistent failures re-quarantine; resolves the retry-semantics open question). 3 tests in `SyncEngineTests` via corrupt-recordData mutations: quarantined-not-dropped (and not re-attempted on later syncs), poison-doesn't-block-valid-push (real repository mutation still lands, status synced), manual retry re-quarantines persistent failures. Suite: 26 tests green.
+- Remaining for this task: AC3 (app-wide indicator) + AC4 (Settings Sync section with retry).
 
 ### [SPRD-306] Fix: Verify EventKit permission request timing and denied-state degradation - [ ] Pending
 

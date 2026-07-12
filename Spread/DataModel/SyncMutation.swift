@@ -46,6 +46,14 @@ extension DataModelSchemaV1 {
         /// Used for exponential backoff. Reset to 0 on successful push.
         var retryCount: Int
 
+        /// When this mutation was quarantined after its params failed to build,
+        /// or nil while it is live in the push queue.
+        ///
+        /// Quarantined mutations are retained for diagnosis and manual retry but
+        /// excluded from automatic pushes so a poison mutation cannot stall the
+        /// queue behind it (SPRD-305). Cleared by the manual retry path.
+        var quarantinedAt: Date?
+
         init(
             id: UUID = UUID(),
             entityType: String,
@@ -54,7 +62,8 @@ extension DataModelSchemaV1 {
             recordData: Data,
             changedFields: [String] = [],
             createdDate: Date = .now,
-            retryCount: Int = 0
+            retryCount: Int = 0,
+            quarantinedAt: Date? = nil
         ) {
             self.id = id
             self.entityType = entityType
@@ -64,6 +73,7 @@ extension DataModelSchemaV1 {
             self.changedFields = changedFields
             self.createdDate = createdDate
             self.retryCount = retryCount
+            self.quarantinedAt = quarantinedAt
         }
     }
 }
