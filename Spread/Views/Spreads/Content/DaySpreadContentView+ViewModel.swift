@@ -177,16 +177,24 @@ extension DaySpreadContentView {
         }
 
         /// Builds one `SectionStyle.card` section per data model holding its **open** tasks
-        /// (no notes, events, or completed/migrated/cancelled tasks), ordered by
-        /// `sortingOption`, titled via `displayName`, preserving the caller's data-model
-        /// order. Data models with no open tasks are omitted. [SPRD-309]
+        /// **assigned to that data model's own period** (no notes, events, completed/migrated/
+        /// cancelled tasks, and no finer-grained tasks that merely roll up into this period's
+        /// data model), ordered by `sortingOption`, titled via `displayName`, preserving the
+        /// caller's data-model order. Data models with no such tasks are omitted. [SPRD-309]
+        ///
+        /// The period filter matters because a broader-period `SpreadDataModel.tasks`
+        /// aggregates sub-period tasks (e.g. a month model includes day-assigned tasks whose
+        /// day spread isn't created) — mirrors `YearSpreadContentView`'s `period`-filtered
+        /// top section. So the multiday card shows only multiday-assigned tasks, etc.
         static func makeContainingPeriodSections(
             from dataModels: [SpreadDataModel],
             orderedBy sortingOption: EntrySortOption,
             displayName: (DataModel.Spread) -> String
         ) -> [EntryList.Section] {
             dataModels.compactMap { dataModel in
-                let openTasks: [any Entry] = dataModel.tasks.filter { $0.status == .open }
+                let openTasks: [any Entry] = dataModel.tasks.filter {
+                    $0.status == .open && $0.period == dataModel.spread.period
+                }
                 guard !openTasks.isEmpty else { return nil }
                 return EntryList.Section(
                     id: "period-context-\(dataModel.spread.id)",

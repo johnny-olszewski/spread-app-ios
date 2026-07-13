@@ -115,6 +115,50 @@ struct DaySpreadPeriodContextTests {
         #expect(sections[0].creationPeriod == .month)
     }
 
+    /// Conditions: A month data model that (like a real one) aggregates a `.month`-assigned
+    /// task plus a `.day`-assigned task rolled up into the month, and a multiday data model
+    /// holding a `.multiday`-assigned task alongside a rolled-up `.day` task.
+    /// Expected: Each card shows only the task assigned to that card's own period — the
+    /// rolled-up day tasks are excluded (the bug-1 fix). [SPRD-309]
+    @Test("Cards exclude finer-grained tasks that only roll up into the period")
+    func cardsExcludeRolledUpSubPeriodTasks() {
+        let day = makeDate(year: 2026, month: 7, day: 10)
+        let monthSpread = DataModel.Spread(period: .month, date: day, calendar: calendar)
+        let multidaySpread = DataModel.Spread(
+            startDate: makeDate(year: 2026, month: 7, day: 6),
+            endDate: makeDate(year: 2026, month: 7, day: 12),
+            calendar: calendar
+        )
+        let monthModel = SpreadDataModel(
+            spread: monthSpread,
+            tasks: [
+                DataModel.Task(title: "Month task", date: day, period: .month, status: .open),
+                DataModel.Task(title: "Rolled-up day task", date: day, period: .day, status: .open)
+            ],
+            notes: [],
+            events: []
+        )
+        let multidayModel = SpreadDataModel(
+            spread: multidaySpread,
+            tasks: [
+                DataModel.Task(title: "Week task", date: day, period: .multiday, status: .open),
+                DataModel.Task(title: "Rolled-up day task", date: day, period: .day, status: .open)
+            ],
+            notes: [],
+            events: []
+        )
+
+        let sections = DaySpreadContentView.ViewModel.makeContainingPeriodSections(
+            from: [multidayModel, monthModel],
+            orderedBy: .default,
+            displayName: { $0.period == .month ? "July 2026" : "Week" }
+        )
+
+        #expect(sections.count == 2)
+        #expect(sections[0].entries.map(\.title) == ["Week task"])
+        #expect(sections[1].entries.map(\.title) == ["Month task"])
+    }
+
     /// Conditions: Three data models (multiday, month, year) passed in nearest-horizon
     /// order; the month one has no open tasks.
     /// Expected: Two sections in the caller's order (multiday, then year) — the taskless
