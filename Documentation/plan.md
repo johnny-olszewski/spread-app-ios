@@ -7918,7 +7918,7 @@ Three related day-spread improvements: a deterministic rework of the entry sort 
 
 Infrastructure bundle from `Documentation/mvp-launch.md` §4/§5/§6.3. New tasks below; the session also picks up existing SPRD-268 (close via calendar-digit exemption per CLAUDE.md's fixed-pixel carve-out + delete commented-out `.font` lines in `EntryRowView`), SPRD-269 (verify Phosphor migration complete, mark Done), and SPRD-274 (overdue card on all spreads), and records the SPRD-230 cut. Note: SPRD-307–309 are claimed by the concurrent Day-spread-composition session (SESH-32) — numbering here starts at 310.
 
-### [SPRD-310] Feature: Layered feature-flag system with Collections hidden as first consumer - [ ] Pending
+### [SPRD-310] Feature: Layered feature-flag system with Collections hidden as first consumer - [ ] In Progress
 
 - **Context**: Collections is out of MVP scope and must be hidden without deleting code; future premium/permission gating needs a seam that won't require rework (`mvp-launch.md` §5, decisions 2026-07-11).
 - **Description**: `FeatureFlag` enum (initial cases `collections`, `events` — the latter migrated from the deleted legacy `FeatureFlags.eventsEnabled` constant) + `FeatureFlagProviding`/`FeatureFlagService` resolving `debugOverride ?? entitlement ?? buildDefault`. `EntitlementSource` protocol stubbed to nil for MVP. DEBUG-only overrides via `AppLaunchConfiguration` launch args and a DebugMenuView "Feature Flags" section persisted to UserDefaults (no `#if DEBUG` in production files — hooks pattern). Service constructed in `AppDependencies` factories, exposed on `AppRuntime`, threaded to `RootNavigationView`; the root tab list becomes instance-computed (mirroring the `BuildInfo.allowsDebugUI` Debug-tab precedent) and excludes Collections when the flag is off. Gating is presentation-only — Collections data continues to sync.
@@ -7932,6 +7932,10 @@ Infrastructure bundle from `Documentation/mvp-launch.md` §4/§5/§6.3. New task
   - AC6: Build succeeds; full suite passes.
 - **Tests**:
   - Unit tests for resolution precedence (stubbed entitlement + override combinations), the flag-aware tab list including/excluding Collections, and the entitlement stub returning nil for every flag.
+
+**Progress (commits landed on feature/SESH-31)**
+1. **[SPRD-310][1/n]** — Core flag types under `Spread/Environment/FeatureFlags/`, no production wiring yet (legacy `FeatureFlags` enum still in place): `FeatureFlag` (cases `collections`/`events`, per-case `buildDefault` both false, `displayName`); `FeatureFlagProviding` (@MainActor DI seam); `EntitlementSource` + `NoEntitlements` nil stub; `FeatureFlagOverrideStore` + `InMemoryFeatureFlagOverrideStore`; `FeatureFlagService` (@Observable @MainActor) resolving `override ?? entitlement ?? buildDefault`, with `setOverride`/`override(for:)` for the debug layer. Observable so the upcoming flag-aware tab list recomputes on toggle; release injects no store so the override layer is inert. Grouped each protocol with its trivial stub (2 types/file ×2) for readability. 7 tests in `FeatureFlagServiceTests` (build-default fallthrough, entitlement-over-default, NoEntitlements-nil, override precedence both directions, set/clear fallback, persistence seam). Suite green. AC1 ✅ AC2 ✅ (resolution + release-inert-by-construction).
+- Remaining: inject into `AppDependencies` + delete legacy enum + repoint `DebugDataService` (AC4); flag-aware tab list hiding Collections (AC3); debug launch-arg + menu overrides (AC5, AC3 live).
 
 ### [SPRD-311] Feature: Observability — Crashlytics error reporting + Supabase product analytics - [ ] Pending
 
