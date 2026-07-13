@@ -11,6 +11,19 @@ enum SyncDateFormatting {
         return formatter
     }()
 
+    /// Fallback parser for timestamps without fractional seconds (SPRD-312).
+    ///
+    /// `ISO8601DateFormatter` with `.withFractionalSeconds` *requires* fractional digits
+    /// when parsing, but Postgres omits a zero fractional part when serializing — so a
+    /// whole-second `timestamptz` (e.g. a user-picked scheduled time, always :00.000)
+    /// comes back as `2026-07-14T21:36:00+00:00` and failed to parse, silently nulling
+    /// the field on pull.
+    static let wholeSecondTimestampFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
     /// Date-only formatter for date fields (yyyy-MM-dd).
     static let dateOnlyFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -29,7 +42,7 @@ enum SyncDateFormatting {
     }
 
     static func parseTimestamp(_ string: String) -> Date? {
-        timestampFormatter.date(from: string)
+        timestampFormatter.date(from: string) ?? wholeSecondTimestampFormatter.date(from: string)
     }
 
     static func parseDate(_ string: String) -> Date? {
