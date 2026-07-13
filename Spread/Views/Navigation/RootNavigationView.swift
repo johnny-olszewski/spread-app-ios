@@ -46,7 +46,7 @@ struct RootNavigationView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            ForEach(Content.allCases) { content in
+            ForEach(Content.visibleCases(featureFlags: dependencies.featureFlags)) { content in
                 Tab(value: content) {
                     tabContent(for: content)
                 } label: {
