@@ -67,6 +67,34 @@ struct SyncSerializerTests {
         #expect(result?.params is MergeEntryParams)
     }
 
+    /// Conditions: A task whose `scheduledTime` is nil and whose `scheduledTimeUpdatedAt`
+    /// is also nil (never explicitly stamped), serialized at a `timestamp` well after
+    /// the task's `createdDate`.
+    /// Expected: The emitted `scheduled_time_updated_at` falls back to `createdDate`, not
+    /// `timestamp` — so a push carrying a stale/never-set nil time reports an old LWW
+    /// clock and cannot outrace (and clobber) a real scheduled time set later on another
+    /// device. Regression test for SPRD-312.
+    @Test func testSerializeTaskEntryScheduledTimeUpdatedAtFallsBackToCreatedDateNotNow() {
+        let created = Date(timeIntervalSince1970: 1_700_000_000)
+        let pushTimestamp = created.addingTimeInterval(86_400) // one day later
+        let task = DataModel.Task(
+            title: "Untimed task",
+            scheduledTime: nil,
+            createdDate: created,
+            date: created,
+            period: .day,
+            scheduledTimeUpdatedAt: nil
+        )
+
+        let data = SyncSerializer.serializeTaskEntry(task, deviceId: UUID(), timestamp: pushTimestamp)
+        let json = try! JSONSerialization.jsonObject(with: data!) as! [String: Any]
+
+        #expect(json["scheduled_time"] is NSNull)
+        #expect(json["scheduled_time_updated_at"] as? String == SyncDateFormatting.formatTimestamp(created))
+        // Contrast: a field without the SPRD-312 fix (title_updated_at) does fall back to `timestamp`.
+        #expect(json["title_updated_at"] as? String == SyncDateFormatting.formatTimestamp(pushTimestamp))
+    }
+
     /// Conditions: Valid collection record data.
     /// Expected: Should return merge_collection RPC name and MergeCollectionParams.
     @Test func testBuildMergeParamsForCollection() {

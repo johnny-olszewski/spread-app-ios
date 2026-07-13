@@ -28,7 +28,12 @@ extension DataModel.Task: SerializableData {
             "body_updated_at": SyncDateFormatting.formatTimestamp(bodyUpdatedAt ?? timestamp),
             "priority_updated_at": SyncDateFormatting.formatTimestamp(priorityUpdatedAt ?? timestamp),
             "due_date_updated_at": SyncDateFormatting.formatTimestamp(dueDateUpdatedAt ?? timestamp),
-            "scheduled_time_updated_at": SyncDateFormatting.formatTimestamp(scheduledTimeUpdatedAt ?? timestamp),
+            // Falls back to createdDate, not `timestamp` (now()), unlike the other
+            // *_updated_at fields above: scheduledTime is legitimately nil far more often
+            // than the other fields are, and a push with a stale/nil local
+            // scheduledTimeUpdatedAt must never win an LWW race against a real
+            // server-side scheduled time by claiming "updated now" (SPRD-312).
+            "scheduled_time_updated_at": SyncDateFormatting.formatTimestamp(scheduledTimeUpdatedAt ?? createdDate),
             "list_updated_at": SyncDateFormatting.formatTimestamp(listUpdatedAt ?? timestamp)
         ]
         return try? JSONSerialization.data(

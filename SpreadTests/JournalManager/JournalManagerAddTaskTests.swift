@@ -240,6 +240,39 @@ struct JournalManagerAddTaskTests {
         #expect(journalManager.inboxEntries.contains { ($0 as? DataModel.Task)?.id == task.id })
     }
 
+    /// Tests that creating a day-assigned task with a scheduled time stamps
+    /// `scheduledTimeUpdatedAt` at creation, rather than leaving it nil (SPRD-312).
+    ///
+    /// Condition: Add a task on a day spread with a non-nil `scheduledTime`.
+    /// Expected: `task.scheduledTime` is set and `task.scheduledTimeUpdatedAt` is
+    /// non-nil — a nil timestamp here previously let a later sync push with a stale
+    /// local NULL time claim "updated now" and clobber a real server-side time.
+    @Test("Adding a task with a scheduled time stamps scheduledTimeUpdatedAt")
+    func testAddTaskWithScheduledTimeStampsUpdatedAt() async throws {
+        let calendar = Self.makeCalendar()
+        let today = Self.makeDate(year: 2026, month: 1, day: 15)
+        let scheduledTime = calendar.date(byAdding: .hour, value: 9, to: today)!
+
+        let journalManager = try await JournalManager(
+            calendar: calendar,
+            today: today
+        )
+
+        let task = try await journalManager.addTask(
+            title: "Morning standup",
+            date: today,
+            period: .day,
+            preferredSpreadID: nil,
+            body: nil,
+            priority: .none,
+            dueDate: nil,
+            scheduledTime: scheduledTime
+        )
+
+        #expect(task.scheduledTime == scheduledTime)
+        #expect(task.scheduledTimeUpdatedAt != nil)
+    }
+
     /// Tests that adding a task with year period normalizes correctly.
     ///
     /// Condition: Add a task with year period.
