@@ -16,6 +16,7 @@ final class DebugDataService {
     private let noteRepository: any NoteRepository
     private let listRepository: any ListRepository
     private let tagRepository: any TagRepository
+    private let featureFlags: any FeatureFlagProviding
     private let onReload: (() -> Void)?
 
     // MARK: - Initialization
@@ -37,6 +38,7 @@ final class DebugDataService {
         noteRepository: any NoteRepository,
         listRepository: any ListRepository,
         tagRepository: any TagRepository,
+        featureFlags: (any FeatureFlagProviding)? = nil,
         onReload: (() -> Void)? = nil
     ) {
         self.taskRepository = taskRepository
@@ -45,6 +47,7 @@ final class DebugDataService {
         self.noteRepository = noteRepository
         self.listRepository = listRepository
         self.tagRepository = tagRepository
+        self.featureFlags = featureFlags ?? FeatureFlagService()
         self.onReload = onReload
     }
 
@@ -92,7 +95,7 @@ final class DebugDataService {
         }
 
         // Save events (gated behind feature flag — events deferred to v2)
-        if FeatureFlags.eventsEnabled {
+        if featureFlags.isEnabled(.events) {
             for event in generatedData.events {
                 try await eventRepository.save(event)
             }
